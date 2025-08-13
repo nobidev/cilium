@@ -42,6 +42,7 @@ type IsovalentV1alpha1Interface interface {
 	LBServicesGetter
 	LBVIPsGetter
 	PrivateNetworkEndpointSlicesGetter
+	PrivateNetworkExternalEndpointsGetter
 }
 
 // IsovalentV1alpha1Client is used to interact with features provided by the isovalent.com group.
@@ -155,6 +156,10 @@ func (c *IsovalentV1alpha1Client) LBVIPs(namespace string) LBVIPInterface {
 
 func (c *IsovalentV1alpha1Client) PrivateNetworkEndpointSlices(namespace string) PrivateNetworkEndpointSliceInterface {
 	return newPrivateNetworkEndpointSlices(c, namespace)
+}
+
+func (c *IsovalentV1alpha1Client) PrivateNetworkExternalEndpoints(namespace string) PrivateNetworkExternalEndpointInterface {
+	return newPrivateNetworkExternalEndpoints(c, namespace)
 }
 
 // NewForConfig creates a new IsovalentV1alpha1Client for the given config.

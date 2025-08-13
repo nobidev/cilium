@@ -65,6 +65,8 @@ type Interface interface {
 	LBVIPs() LBVIPInformer
 	// PrivateNetworkEndpointSlices returns a PrivateNetworkEndpointSliceInformer.
 	PrivateNetworkEndpointSlices() PrivateNetworkEndpointSliceInformer
+	// PrivateNetworkExternalEndpoints returns a PrivateNetworkExternalEndpointInformer.
+	PrivateNetworkExternalEndpoints() PrivateNetworkExternalEndpointInformer
 }
 
 type version struct {
@@ -211,4 +213,9 @@ func (v *version) LBVIPs() LBVIPInformer {
 // PrivateNetworkEndpointSlices returns a PrivateNetworkEndpointSliceInformer.
 func (v *version) PrivateNetworkEndpointSlices() PrivateNetworkEndpointSliceInformer {
 	return &privateNetworkEndpointSliceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// PrivateNetworkExternalEndpoints returns a PrivateNetworkExternalEndpointInformer.
+func (v *version) PrivateNetworkExternalEndpoints() PrivateNetworkExternalEndpointInformer {
+	return &privateNetworkExternalEndpointInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

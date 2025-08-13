@@ -126,6 +126,11 @@ const (
 	PrivateNetworkEndpointSlicePluralName     = "privatenetworkendpointslices"
 	PrivateNetworkEndpointSliceKindDefinition = "PrivateNetworkEndpointSlice"
 	PrivateNetworkEndpointSliceName           = PrivateNetworkEndpointSlicePluralName + "." + CustomResourceDefinitionGroup
+
+	// PrivateNetworkExternalEndpoint
+	PrivateNetworkExternalEndpointPluralName     = "privatenetworkexternalendpoints"
+	PrivateNetworkExternalEndpointKindDefinition = "PrivateNetworkExternalEndpoint"
+	PrivateNetworkExternalEndpointName           = PrivateNetworkExternalEndpointPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -222,6 +227,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ClusterwidePrivateNetworkList{},
 		&PrivateNetworkEndpointSlice{},
 		&PrivateNetworkEndpointSliceList{},
+		&PrivateNetworkExternalEndpoint{},
+		&PrivateNetworkExternalEndpointList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

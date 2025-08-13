@@ -175,6 +175,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().LBVIPs().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("privatenetworkendpointslices"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().PrivateNetworkEndpointSlices().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("privatenetworkexternalendpoints"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().PrivateNetworkExternalEndpoints().Informer()}, nil
 
 	}
 

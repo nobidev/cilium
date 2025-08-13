@@ -1,0 +1,144 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.3
+  name: privatenetworkexternalendpoints.isovalent.com
+spec:
+  group: isovalent.com
+  names:
+    categories:
+    - cilium
+    - isovalent
+    kind: PrivateNetworkExternalEndpoint
+    listKind: PrivateNetworkExternalEndpointList
+    plural: privatenetworkexternalendpoints
+    shortNames:
+    - ipnee
+    singular: privatenetworkexternalendpoint
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.interface.network
+      name: Network
+      type: string
+    - jsonPath: .spec.interface.addressing.ipv4
+      name: IPv4
+      type: string
+    - jsonPath: .spec.interface.addressing.ipv6
+      name: IPv6
+      type: string
+    - jsonPath: .spec.interface.mac
+      name: Mac
+      priority: 1
+      type: string
+    - jsonPath: .status.activatedAt
+      name: Activated
+      type: date
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          PrivateNetworkExternalEndpoint represents an endpoint outside
+          of the cilium-managed mesh and contains its addressing information.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: The specification of an external endpoint.
+            properties:
+              inactive:
+                description: Manually marks this endpoint representation as inactive.
+                type: boolean
+              interface:
+                description: The endpoint identifiers from the private network point
+                  of view.
+                properties:
+                  addressing:
+                    description: |-
+                      The endpoint addresses (IPv4 and/or IPv6) from the private network point
+                      of view.
+                    minProperties: 1
+                    properties:
+                      ipv4:
+                        description: The IPv4 endpoint address.
+                        format: ipv4
+                        type: string
+                      ipv6:
+                        description: The IPv6 endpoint address.
+                        format: ipv6
+                        type: string
+                    type: object
+                  mac:
+                    description: The MAC address of the endpoint from the private
+                      network point of view.
+                    format: mac
+                    type: string
+                  network:
+                    description: |-
+                      Name of the target private network, as defined by a
+                      ClusterwidePrivateNetwork resource.
+                    type: string
+                required:
+                - addressing
+                - mac
+                - network
+                type: object
+            required:
+            - interface
+            type: object
+          status:
+            description: The status of an external endpoint.
+            properties:
+              activatedAt:
+                description: |-
+                  The instant in time in which this entry was marked as active. If
+                  multiple entries are advertized by different nodes and/or clusters for
+                  the same private network endpoint, the latest that has been activated
+                  takes precedence.
+                format: date-time
+                type: string
+              addressing:
+                description: |-
+                  The endpoint addresses (IPv4 and/or IPv6) from the pod network point
+                  of view.
+                minProperties: 1
+                properties:
+                  ipv4:
+                    description: The IPv4 endpoint address.
+                    format: ipv4
+                    type: string
+                  ipv6:
+                    description: The IPv6 endpoint address.
+                    format: ipv6
+                    type: string
+                type: object
+            required:
+            - addressing
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

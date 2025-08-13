@@ -140,3 +140,11 @@ type PrivateNetworkEndpointSliceListerExpansion interface{}
 // PrivateNetworkEndpointSliceNamespaceListerExpansion allows custom methods to be added to
 // PrivateNetworkEndpointSliceNamespaceLister.
 type PrivateNetworkEndpointSliceNamespaceListerExpansion interface{}
+
+// PrivateNetworkExternalEndpointListerExpansion allows custom methods to be added to
+// PrivateNetworkExternalEndpointLister.
+type PrivateNetworkExternalEndpointListerExpansion interface{}
+
+// PrivateNetworkExternalEndpointNamespaceListerExpansion allows custom methods to be added to
+// PrivateNetworkExternalEndpointNamespaceLister.
+type PrivateNetworkExternalEndpointNamespaceListerExpansion interface{}

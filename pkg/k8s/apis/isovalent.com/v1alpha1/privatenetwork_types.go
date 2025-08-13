@@ -209,3 +209,94 @@ type PrivateNetworkEndpointAddressing struct {
 	// +kubebuilder:validation:Format=ipv6
 	IPv6 string `json:"ipv6,omitempty"`
 }
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories={cilium,isovalent},singular="privatenetworkexternalendpoint",path="privatenetworkexternalendpoints",scope="Namespaced",shortName={ipnee}
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:JSONPath=".spec.interface.network",name="Network",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.interface.addressing.ipv4",name="IPv4",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.interface.addressing.ipv6",name="IPv6",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.interface.mac",name="Mac",type=string,priority=1
+// +kubebuilder:printcolumn:JSONPath=".status.activatedAt",name="Activated",type=date
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +deepequal-gen=false
+
+// PrivateNetworkExternalEndpoint represents an endpoint outside
+// of the cilium-managed mesh and contains its addressing information.
+type PrivateNetworkExternalEndpoint struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +deepequal-gen=false
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// The specification of an external endpoint.
+	//
+	// +kubebuilder:validation:Required
+	Spec PrivateNetworkExternalEndpointSpec `json:"spec"`
+
+	// The status of an external endpoint.
+	//
+	// +kubebuilder:validation:Optional
+	Status PrivateNetworkExternalEndpointStatus `json:"status"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
+//
+// PrivateNetworkExternalEndpointList is a list of PrivateNetworkExternalEndpoint objects.
+type PrivateNetworkExternalEndpointList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	// Items is a list of PrivateNetworkExternalEndpoint.
+	Items []PrivateNetworkExternalEndpoint `json:"items"`
+}
+
+type PrivateNetworkExternalEndpointSpec struct {
+	// Manually marks this endpoint representation as inactive.
+	//
+	// +kubebuilder:validation:Optional
+	Inactive bool `json:"inactive,omitzero"`
+
+	// The endpoint identifiers from the private network point of view.
+	//
+	// +kubebuilder:validation:Required
+	Interface PrivateNetworkEndpointSliceInterface `json:"interface"`
+}
+
+// +deepequal-gen=false
+type PrivateNetworkExternalEndpointStatus struct {
+	// The instant in time in which this entry was marked as active. If
+	// multiple entries are advertized by different nodes and/or clusters for
+	// the same private network endpoint, the latest that has been activated
+	// takes precedence.
+	//
+	// +kubebuilder:validation:Optional
+	ActivatedAt metav1.MicroTime `json:"activatedAt,omitzero"`
+
+	// The endpoint addresses (IPv4 and/or IPv6) from the pod network point
+	// of view.
+	//
+	// +kubebuilder:validation:Required
+	Addressing PrivateNetworkEndpointAddressing `json:"addressing"`
+}
+
+// DeepEqual is implemented manually for PrivateNetworkExternalEndpointStatus, because metav1.MicroTime has no DeepEqual
+func (in *PrivateNetworkExternalEndpointStatus) DeepEqual(other *PrivateNetworkExternalEndpointStatus) bool {
+	if other == nil {
+		return false
+	}
+
+	if !in.ActivatedAt.Equal(&other.ActivatedAt) {
+		return false
+	}
+
+	if in.Addressing != other.Addressing {
+		return false
+	}
+
+	return true
+}

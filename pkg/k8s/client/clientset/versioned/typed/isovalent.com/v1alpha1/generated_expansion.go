@@ -58,3 +58,5 @@ type LBServiceExpansion interface{}
 type LBVIPExpansion interface{}
 
 type PrivateNetworkEndpointSliceExpansion interface{}
+
+type PrivateNetworkExternalEndpointExpansion interface{}
