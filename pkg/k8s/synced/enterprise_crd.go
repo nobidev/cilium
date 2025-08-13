@@ -69,5 +69,11 @@ func AllIsovalentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v1alpha1.IsovalentMeshEndpointName))
 	}
 
+	if option.Config.EnablePrivateNetworks {
+		result = append(result, CRDResourceName(v1alpha1.ClusterwidePrivateNetworkName))
+		result = append(result, CRDResourceName(v1alpha1.PrivateNetworkEndpointSliceName))
+		result = append(result, CRDResourceName(v1alpha1.PrivateNetworkExternalEndpointName))
+	}
+
 	return result
 }

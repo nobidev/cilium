@@ -49,6 +49,11 @@ rules:
   - lbvips.isovalent.com
   - lbdeployments.isovalent.com
 {{- end }}
+{{- if .Values.enterprise.privateNetworks.enabled }}
+  - clusterwideprivatenetworks.isovalent.com
+  - privatenetworkendpointslices.isovalent.com
+  - privatenetworkexternalendpoints.isovalent.com
+{{- end }}
 - apiGroups:
   - isovalent.com
   resources:

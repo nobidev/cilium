@@ -15,6 +15,7 @@ import (
 
 	bgpconfig "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	bfdtypes "github.com/cilium/cilium/enterprise/pkg/bfd/types"
+	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 )
 
 // Enterprise specific command line arguments.
@@ -50,6 +51,9 @@ type EnterpriseDaemonConfig struct {
 
 	// Enable BFD subsystem
 	EnableBFD bool
+
+	// Enable private networks support
+	EnablePrivateNetworks bool
 }
 
 func (ec *EnterpriseDaemonConfig) Populate(vp *viper.Viper) {
@@ -59,4 +63,5 @@ func (ec *EnterpriseDaemonConfig) Populate(vp *viper.Viper) {
 	ec.EnableEnterpriseBGPControlPlane = vp.GetBool(bgpconfig.EnterpriseBGPEnabled)
 	ec.EnableMulticast = vp.GetBool(MulticastEnabled)
 	ec.EnableBFD = vp.GetBool(bfdtypes.EnableBFDFlag)
+	ec.EnablePrivateNetworks = vp.GetBool(pncfg.FlagEnable)
 }
