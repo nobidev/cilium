@@ -104,7 +104,7 @@ func TestStateDBCondition_WriteTxn(t *testing.T) {
 
 	fakeEnv.FakeMetricsMatchingLabels = []diagnostics.Metric{
 		{
-			Name: statedbMetrics.WriteTxnDuration.Opts().ConfigName,
+			Name: statedbMetrics.WriteTxnDuration.Opts().GetConfigName(),
 			Raw: &dto.Metric{
 				Label: []*dto.LabelPair{{
 					Name:  strp("handle"),
@@ -148,7 +148,7 @@ func TestStateDBCondition_Graveyard(t *testing.T) {
 
 	fakeEnv.FakeMetricsMatchingLabels = []diagnostics.Metric{
 		{
-			Name: statedbMetrics.TableGraveyardObjectCount.Opts().ConfigName,
+			Name: statedbMetrics.TableGraveyardObjectCount.Opts().GetConfigName(),
 			Raw: &dto.Metric{
 				Label: []*dto.LabelPair{{
 					Name:  strp("table"),

@@ -127,7 +127,7 @@ func evalStateDB(statedbMetrics hive.StateDBMetrics) diagnostics.Evaluator {
 // This reduces table contention when there are multiple writers and keeps the overall latency of the system low.
 func evalStateDBWriteTxnDuration(statedbMetrics hive.StateDBMetrics, env diagnostics.Environment) (msg string, failed bool) {
 	// Grab all matching "write_txn_duration" metrics regardless of the labels
-	writeTxnMetricName := statedbMetrics.WriteTxnDuration.Opts().ConfigName
+	writeTxnMetricName := statedbMetrics.WriteTxnDuration.Opts().GetConfigName()
 	writeTxnMetrics, err := env.MetricsMatchingLabels(
 		writeTxnMetricName,
 		nil)
@@ -160,7 +160,7 @@ func evalStateDBWriteTxnDuration(statedbMetrics hive.StateDBMetrics, env diagnos
 // if there are consumers for change events then on deletion object is inserted into the graveyard index until
 // it has been observed by all consumers. This condition makes sure we don't have stuck consumers for deleted objects.
 func evalStateDBGraveyardObjects(statedbMetrics hive.StateDBMetrics, env diagnostics.Environment) (msg string, failed bool) {
-	metricName := statedbMetrics.TableGraveyardObjectCount.Opts().ConfigName
+	metricName := statedbMetrics.TableGraveyardObjectCount.Opts().GetConfigName()
 	metrics, err := env.MetricsMatchingLabels(
 		metricName,
 		nil)
