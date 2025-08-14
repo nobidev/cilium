@@ -24,8 +24,9 @@ type BFDPeerKey struct {
 	NetworkInterface string
 }
 
-func NewBFDPeersTable() (statedb.RWTable[*BFDPeerStatus], error) {
+func NewBFDPeersTable(db *statedb.DB) (statedb.RWTable[*BFDPeerStatus], error) {
 	return statedb.NewTable[*BFDPeerStatus](
+		db,
 		"bfd-peers",
 		BFDPeerAddressInterfaceIndex,
 		BFDPeerAddressIndex,

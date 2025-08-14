@@ -158,7 +158,6 @@ func TestScript(t *testing.T) {
 						}
 					},
 				),
-				cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 
 				Cell,
 			)

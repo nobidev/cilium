@@ -45,7 +45,6 @@ func TestWriteRules(t *testing.T) {
 		IPv6:    false,
 	},
 		nil,
-		func(ip netip.Addr) (endpoint *endpoint.Endpoint, isHost bool, err error) { return nil, false, nil },
 		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
 			return nil
 		},

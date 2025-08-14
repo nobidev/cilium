@@ -55,7 +55,6 @@ func newTestEngine(t testing.TB) (
 			"encryption policy test module",
 
 			cell.Invoke(
-				statedb.RegisterTable[*EncryptionPolicyEntry],
 				func(d *statedb.DB, t statedb.RWTable[*EncryptionPolicyEntry]) {
 					db = d
 					tbl = t

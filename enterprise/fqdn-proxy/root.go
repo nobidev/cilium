@@ -59,7 +59,7 @@ var (
 		cell.ProvidePrivate(func() *option.DaemonConfig {
 			return &option.DaemonConfig{}
 		}),
-		cell.Provide(metrics.NewRegistry),
+		cell.Provide(metrics.NewAgentRegistry),
 		cell.Provide(func(cfg Config) metrics.RegistryConfig {
 			if !cfg.ExposePrometheusMetrics {
 				return metrics.RegistryConfig{

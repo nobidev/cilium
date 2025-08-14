@@ -1448,7 +1448,10 @@
           "properties": {
             "clusters": {
               "items": {},
-              "type": "array"
+              "type": [
+                "object",
+                "array"
+              ]
             },
             "domain": {
               "type": "string"
@@ -6155,6 +6158,16 @@
         "tolerations": {
           "items": {
             "anyOf": [
+              {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                }
+              },
               {
                 "properties": {
                   "key": {

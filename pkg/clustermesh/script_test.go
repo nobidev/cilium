@@ -62,7 +62,14 @@ var debug = flag.Bool("debug", false, "Enable debug logging")
 func TestScript(t *testing.T) {
 	// Catch any leaked goroutines. Ignoring goroutines possibly left by other tests.
 	leakOpts := goleak.IgnoreCurrent()
-	t.Cleanup(func() { goleak.VerifyNone(t, leakOpts) })
+	t.Cleanup(func() {
+		goleak.VerifyNone(t,
+			leakOpts,
+			// Ignore workqueue metrics collection goroutine, this would otherwise be
+			// cleaned up shortly after the tests complete.
+			goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Typed[...]).updateUnfinishedWorkLoop"),
+		)
+	})
 
 	version.Force(testutils.DefaultVersion)
 
@@ -135,7 +142,6 @@ func TestScript(t *testing.T) {
 					return nil
 				},
 			),
-			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 
 			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdsOut) {
 				client := kvstore.NewInMemoryClient(db, "__all__")

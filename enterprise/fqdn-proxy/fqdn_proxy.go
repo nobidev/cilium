@@ -77,7 +77,6 @@ func run(ctx context.Context, params runParams) error {
 	proxy := dnsproxy.NewDNSProxy(
 		dnsProxyConfig,
 		proxyCtx,
-		proxyCtx.LookupEndpointIDByIP,
 		params.Notifier.NotifyOnDNSMsg,
 	)
 

@@ -27,7 +27,6 @@ var Cell = cell.Module(
 		types.NewBFDPeersTable,
 		statedb.RWTable[*types.BFDPeerStatus].ToTable,
 	),
-	cell.Invoke(statedb.RegisterTable[*types.BFDPeerStatus]),
 
 	cell.ProvidePrivate(
 		k8s.IsovalentBFDProfileResource,

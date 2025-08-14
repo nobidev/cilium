@@ -92,8 +92,8 @@ func (pc *proxyContext) establishAgentProxyStream() error {
 	}
 }
 
-// LookupEndpointIDByIP wraps logic to lookup an endpoint with any backend.
-func (pc *proxyContext) LookupEndpointIDByIP(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
+// LookupRegisteredEndpoint wraps logic to lookup an endpoint with any backend.
+func (pc *proxyContext) LookupRegisteredEndpoint(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
 	// Make sure to send IPv4 addresses as [4]byte instead of [16]byte over gRPC, so they aren't
 	// mistakenly treated as IPv6-mapped IPv4 addresses anywhere in the Cilium agent.
 	var bs []byte

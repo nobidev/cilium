@@ -106,7 +106,6 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *v1.Isova
 				f.bgpSignaler = sig
 			}),
 
-			cell.Invoke(statedb.RegisterTable[*types.BFDPeerStatus]),
 			cell.Invoke(func(db *statedb.DB, table statedb.RWTable[*types.BFDPeerStatus]) {
 				f.db = db
 				f.bfdPeersTable = table

@@ -47,8 +47,9 @@ var EncryptionPolicyRuleKeyIndex = statedb.Index[*EncryptionPolicyEntry, RuleKey
 	FromKey: index.Stringer[RuleKey],
 }
 
-func NewEncryptionPolicyTable() (statedb.RWTable[*EncryptionPolicyEntry], error) {
+func NewEncryptionPolicyTable(db *statedb.DB) (statedb.RWTable[*EncryptionPolicyEntry], error) {
 	return statedb.NewTable(
+		db,
 		EncryptionPolicyTableName,
 		EncryptionPolicyTupleIndex,
 		EncryptionPolicyRuleKeyIndex,

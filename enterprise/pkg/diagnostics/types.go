@@ -242,14 +242,11 @@ var (
 )
 
 func NewConditionsTable(db *statedb.DB) (statedb.RWTable[ConditionStatus], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		ConditionsTableName,
 		conditionsIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 // ConditionStatus is stored in the conditions table. Holds the registered conditions

@@ -47,14 +47,11 @@ var EgressIPEntryIndex = statedb.Index[*EgressIPEntry, EgressIPKey]{
 
 // NewEgressIPTable creates a new instance of the "egress-ips" stateDB table
 func NewEgressIPTable(db *statedb.DB) (statedb.RWTable[*EgressIPEntry], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		EgressIPTableName,
 		EgressIPEntryIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 // TableHeader returns the names of the "egress-ips" table columns

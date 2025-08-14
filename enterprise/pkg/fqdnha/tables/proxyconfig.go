@@ -46,15 +46,12 @@ func NewProxyConfigTable(cfg config.Config, db *statedb.DB) (statedb.RWTable[*Pr
 	if !cfg.EnableExternalDNSProxy {
 		return nil, nil, nil
 	}
-
 	tbl, err := statedb.NewTable(
+		db,
 		ProxyConfigTableName,
 		epPortIndex,
 	)
-	if err != nil {
-		return nil, nil, err
-	}
-	return tbl, tbl.ToTable(), db.RegisterTable(tbl)
+	return tbl, tbl, err
 }
 
 var (

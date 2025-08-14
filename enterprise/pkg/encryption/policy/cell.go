@@ -50,7 +50,6 @@ var Cell = cell.Module(
 
 	// Register StateDB table
 	cell.Provide(NewEncryptionPolicyTable),
-	cell.Invoke(statedb.RegisterTable[*EncryptionPolicyEntry]),
 
 	// Metrics
 	metrics.Metric(newEncryptionPolicyMetrics),

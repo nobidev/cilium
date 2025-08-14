@@ -172,11 +172,6 @@ func TestPrivilegedScript(t *testing.T) {
 				statedb.RWTable[tables.NodeAddress].ToTable,
 				statedb.RWTable[*bfdtypes.BFDPeerStatus].ToTable,
 			),
-			cell.Invoke(statedb.RegisterTable[*tables.Route]),
-			cell.Invoke(statedb.RegisterTable[*tables.Device]),
-			cell.Invoke(statedb.RegisterTable[*tables.Neighbor]),
-			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
-			cell.Invoke(statedb.RegisterTable[*bfdtypes.BFDPeerStatus]),
 			cell.Provide(func(sig *signaler.BGPCPSignaler) egressgatewayha.EgressIPsProvider {
 				egwMgrMock = newEGWManagerMock(sig)
 				return egwMgrMock

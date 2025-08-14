@@ -175,13 +175,10 @@ func healthCheckByService(svc lb.ServiceName) statedb.Query[*healthCheck] {
 }
 
 func newHealthCheckTable(db *statedb.DB) (statedb.RWTable[*healthCheck], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		healthCheckTableName,
 		healthCheckAddressIndex,
 		healthCheckServiceNameIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
