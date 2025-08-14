@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/multinetwork"
 	"github.com/cilium/cilium/enterprise/pkg/nat/stats"
 	policyK8s "github.com/cilium/cilium/enterprise/pkg/policy/k8s"
+	"github.com/cilium/cilium/enterprise/pkg/privnet"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/enterprise/pkg/service/healthchecker"
 	srv6dataplane "github.com/cilium/cilium/enterprise/pkg/srv6/dataplane"
@@ -83,6 +84,7 @@ var (
 		cell.Invoke(func(*egressgatewayha.Manager) {}),
 
 		ciliummesh.CiliumMeshCell,
+		privnet.Cell,
 
 		mixedrouting.Cell,
 		encryptionPolicy.Cell,
