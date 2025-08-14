@@ -18,6 +18,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func TestHTTPSProxyMutualTLS(t T) {
@@ -152,6 +153,16 @@ func TestHTTPSProxyMutualTLS(t T) {
 }
 
 func TestHTTPSProxyMutualTLSRequestFiltering(t T) {
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
+
+	minVersion := ">=1.18.0"
+	currentVersion := getCiliumVersion(t, k8sCli)
+	if !versioncheck.MustCompile(minVersion)(currentVersion) {
+		fmt.Printf("skipping due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
+		return
+	}
+
 	testCases := []struct {
 		desc           string
 		clientCertOpts []certTemplateOpts
@@ -331,9 +342,6 @@ func TestHTTPSProxyMutualTLSRequestFiltering(t T) {
 			serviceHostName := "secure.acme.io"
 			clientCAName := "acme.io"
 			clientHostName := "client.acme.io"
-
-			ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
-			dockerCli := NewDockerCli(t)
 
 			scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
 
