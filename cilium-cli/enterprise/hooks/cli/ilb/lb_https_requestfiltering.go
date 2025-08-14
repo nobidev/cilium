@@ -12,9 +12,14 @@ package ilb
 
 import (
 	"fmt"
+
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func TestHTTPSRequestFiltering(t T) {
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
+
 	testCases := []struct {
 		desc      string
 		appOpt    func(clients []*frrContainer) httpsApplicationRouteOption
@@ -214,158 +219,178 @@ func TestHTTPSRequestFiltering(t T) {
 				},
 			},
 		},
-		{
-			desc: "allow-by-exact-headers",
-			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
-				return withHttpsRequestFilteringAllowByExactHeader(map[string]string{
-					"test-name1": "test-value1",
-					"test-name2": "test-value2",
-				})
-			},
-			testCalls: []testCall{
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers:  map[string]string{},
-					blocked:  true,
-				},
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers: map[string]string{
-						"test-name1": "test-value1",
-					},
-					blocked: true,
-				},
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers: map[string]string{
-						"test-name1": "test-value1",
-						"test-name2": "test-value2",
-					},
-					blocked: false,
-				},
-			},
-		},
-		{
-			desc: "allow-by-prefix-headers",
-			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
-				return withHttpsRequestFilteringAllowByPrefixHeader(map[string]string{
-					"test-name1": "test-value1",
-					"test-name2": "test-value2",
-				})
-			},
-			testCalls: []testCall{
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers:  map[string]string{},
-					blocked:  true,
-				},
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers: map[string]string{
-						"test-name1": "test-value1",
-					},
-					blocked: true,
-				},
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers: map[string]string{
-						"test-name1": "test-value1",
-						"test-name2": "test-value2",
-					},
-					blocked: false,
-				},
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers: map[string]string{
-						"test-name1": "test-value111111",
-						"test-name2": "test-value222222",
-					},
-					blocked: false,
-				},
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers: map[string]string{
-						"test-name1": "1test-value1",
-						"test-name2": "2test-value2",
-					},
-					blocked: true,
-				},
-			},
-		},
-		{
-			desc: "allow-by-regex-headers",
-			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
-				return withHttpsRequestFilteringAllowByRegexHeader(map[string]string{
-					"test-name1": ".*test-value1.*",
-					"test-name2": ".*test-value2.*",
-				})
-			},
-			testCalls: []testCall{
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers:  map[string]string{},
-					blocked:  true,
-				},
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers: map[string]string{
-						"test-name1": "test-value1",
-					},
-					blocked: true,
-				},
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers: map[string]string{
-						"test-name1": "test-value1",
-						"test-name2": "test-value2",
-					},
-					blocked: false,
-				},
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers: map[string]string{
-						"test-name1": "test-value111111",
-						"test-name2": "test-value222222",
-					},
-					blocked: false,
-				},
-				{
-					clientNr: 0,
-					hostName: "secure.acme.io",
-					path:     "/",
-					headers: map[string]string{
-						"test-name1": "1test-value11",
-						"test-name2": "2test-value22",
-					},
-					blocked: false,
-				},
-			},
-		},
 	}
+
+	ciliumVersionSupportsHeaderBasedRequestFiltering := false
+
+	minVersion := ">=1.18.0"
+	currentVersion := getCiliumVersion(t, k8sCli)
+	if versioncheck.MustCompile(minVersion)(currentVersion) {
+		ciliumVersionSupportsHeaderBasedRequestFiltering = true
+	} else {
+		fmt.Printf("skipping header based request filtering due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
+	}
+
+	if ciliumVersionSupportsHeaderBasedRequestFiltering {
+		testCases = append(testCases, []struct {
+			desc      string
+			appOpt    func(clients []*frrContainer) httpsApplicationRouteOption
+			testCalls []testCall
+		}{
+			{
+				desc: "allow-by-exact-headers",
+				appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+					return withHttpsRequestFilteringAllowByExactHeader(map[string]string{
+						"test-name1": "test-value1",
+						"test-name2": "test-value2",
+					})
+				},
+				testCalls: []testCall{
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers:  map[string]string{},
+						blocked:  true,
+					},
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers: map[string]string{
+							"test-name1": "test-value1",
+						},
+						blocked: true,
+					},
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers: map[string]string{
+							"test-name1": "test-value1",
+							"test-name2": "test-value2",
+						},
+						blocked: false,
+					},
+				},
+			},
+			{
+				desc: "allow-by-prefix-headers",
+				appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+					return withHttpsRequestFilteringAllowByPrefixHeader(map[string]string{
+						"test-name1": "test-value1",
+						"test-name2": "test-value2",
+					})
+				},
+				testCalls: []testCall{
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers:  map[string]string{},
+						blocked:  true,
+					},
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers: map[string]string{
+							"test-name1": "test-value1",
+						},
+						blocked: true,
+					},
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers: map[string]string{
+							"test-name1": "test-value1",
+							"test-name2": "test-value2",
+						},
+						blocked: false,
+					},
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers: map[string]string{
+							"test-name1": "test-value111111",
+							"test-name2": "test-value222222",
+						},
+						blocked: false,
+					},
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers: map[string]string{
+							"test-name1": "1test-value1",
+							"test-name2": "2test-value2",
+						},
+						blocked: true,
+					},
+				},
+			},
+			{
+				desc: "allow-by-regex-headers",
+				appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
+					return withHttpsRequestFilteringAllowByRegexHeader(map[string]string{
+						"test-name1": ".*test-value1.*",
+						"test-name2": ".*test-value2.*",
+					})
+				},
+				testCalls: []testCall{
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers:  map[string]string{},
+						blocked:  true,
+					},
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers: map[string]string{
+							"test-name1": "test-value1",
+						},
+						blocked: true,
+					},
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers: map[string]string{
+							"test-name1": "test-value1",
+							"test-name2": "test-value2",
+						},
+						blocked: false,
+					},
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers: map[string]string{
+							"test-name1": "test-value111111",
+							"test-name2": "test-value222222",
+						},
+						blocked: false,
+					},
+					{
+						clientNr: 0,
+						hostName: "secure.acme.io",
+						path:     "/",
+						headers: map[string]string{
+							"test-name1": "1test-value11",
+							"test-name2": "2test-value22",
+						},
+						blocked: false,
+					},
+				},
+			},
+		}...)
+	}
+
 	for _, tC := range testCases {
 		if skipIfOnSingleNode(">1 FRR clients are not supported") {
 			continue
@@ -376,9 +401,6 @@ func TestHTTPSRequestFiltering(t T) {
 
 			testName := fmt.Sprintf("https-requestfiltering-%s", tC.desc)
 			testK8sNamespace := "default"
-
-			ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
-			dockerCli := NewDockerCli(t)
 
 			// 0. Setup test scenario (backends, clients & LB resources)
 			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
