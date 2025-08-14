@@ -19,10 +19,6 @@ on:
         required: true
       QUAY_PASSWORD_BASE_CEE_PASSWORD:
         required: true
-      AUTO_COMMITTER_PEM:
-        required: true
-      AUTO_COMMITTER_APP_ID:
-        required: true
       ISOVALENT_MIRROR_UPSTREAM_BOT_APP_ID:
         required: true
       ISOVALENT_MIRROR_UPSTREAM_BOT_APP_PEM:
