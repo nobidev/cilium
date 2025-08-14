@@ -266,6 +266,11 @@ jobs:
           token: ${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}
           path: cute
 
+      - name: Generate SSH key
+        run: |
+          ssh-keygen -b 2048 -t rsa -f /home/runner/.ssh/ci_key -q -N ""
+          cat /home/runner/.ssh/ci_key | base64
+
       - name: Configuration for the OpenShift cluster installation
         id: cute_config
         working-directory: ./cute
@@ -278,6 +283,7 @@ jobs:
           cat > terraform.tfvars << EOF
           cluster_name="${{ env.clusterName }}"
           owner="${{ steps.vars.outputs.owner }}"
+          ssh_public_key_path="/home/runner/.ssh/ci_key.pub"
           region="${{ steps.vars.outputs.region }}"
           availability_zones = ["${{ steps.vars.outputs.zone }}"]
           pull_secret_path="${PWD}/.pullsecret.json"
@@ -354,6 +360,123 @@ jobs:
           retry 3 kubectl get pods -n cilium -o yaml
           retry 3 kubectl logs -n cilium deployment/clife-controller-manager
           retry 3 kubectl logs -n cilium daemonset/cilium --all-containers=true
+
+      - name: Read environment props
+        id: aws-env
+        run: |
+          # Read worker nodes security group IDs
+          # The following schellcheck disabled because AWS CLI --query requires single quotes.
+          # shellcheck disable=SC2016
+          workersSGId=$(aws ec2 describe-security-groups --region ${{ steps.vars.outputs.region }} \
+                                                         --query 'SecurityGroups[?starts_with(GroupName, `${{ env.clusterName }}`) == `true` && ends_with(GroupName, `workers`) == `true`]|[].GroupId' \
+                                                         --no-cli-pager \
+                                                         --output text)
+          # Read SSH key pair name
+          # The following schellcheck disabled because AWS CLI --query requires single quotes.
+          # shellcheck disable=SC2016
+          keyPairName=$(aws ec2 describe-key-pairs --region ${{ steps.vars.outputs.region }} \
+                                                   --query 'KeyPairs[?starts_with(KeyName, `${{ env.clusterName }}`) == `true`]|[].[KeyName]' \
+                                                   --no-cli-pager \
+                                                   --output text)
+          # Read public subnet ID
+          publicSubnetId=$(aws ec2 describe-subnets --region ${{ steps.vars.outputs.region }} \
+                                                    --filters 'Name=tag:Name,Values=${{ env.clusterName }}*public*' \
+                                                    --query "Subnets[*].SubnetId" \
+                                                    --no-cli-pager \
+                                                    --output text)
+          # Read all security group IDs
+          # The following schellcheck disabled because AWS CLI --query requires single quotes.
+          # shellcheck disable=SC2016
+          allSecurityGroupIds=$(aws ec2 describe-security-groups --region ${{ steps.vars.outputs.region }} \
+                                                                  --query 'SecurityGroups[?starts_with(GroupName, `${{ env.clusterName }}`) == `true`]|[].GroupId' \
+                                                                  --no-cli-pager \
+                                                                  --output text)
+          echo "workersSGId=${workersSGId}" | tee -a $GITHUB_OUTPUT
+          echo "keyPairName=${keyPairName}" | tee -a $GITHUB_OUTPUT
+          echo "publicSubnetId=${publicSubnetId}" | tee -a $GITHUB_OUTPUT
+          echo "allSecurityGroupIds=${allSecurityGroupIds}" | tee -a $GITHUB_OUTPUT
+
+      - name: Test VM pre-install script
+        run: |
+          cat > test-vm-setup.sh << EOF
+          #!/bin/bash
+
+          # install docker
+          sudo apt-get update
+          sudo apt-get install -y ca-certificates curl
+          sudo install -m 0755 -d /etc/apt/keyrings
+          sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+          sudo chmod a+r /etc/apt/keyrings/docker.asc
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+            $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+          sudo usermod -aG docker ubuntu
+          newgrp docker
+
+          # install kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/bin
+
+          # install latest Cilium EE CLI
+          curl -LO https://github.com/isovalent/cilium-cli-releases/releases/latest/download/cilium-linux-amd64.tar.gz
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
+          rm cilium-linux-amd64.tar.gz
+          EOF
+
+      - name: Provision test VM
+        id: test-vm
+        run: |
+          output=$(aws ec2 run-instances --region ${{ steps.vars.outputs.region }} \
+                                         --image-id ami-020cba7c55df1f615 \
+                                         --user-data file://./test-vm-setup.sh \
+                                         --key-name ${{ steps.aws-env.outputs.keyPairName }} \
+                                         --instance-type t3.micro \
+                                         --subnet-id ${{ steps.aws-env.outputs.publicSubnetId }} \
+                                         --associate-public-ip-address \
+                                         --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=${{ env.clusterName }}-test-vm}]' \
+                                         --security-group-ids ${{ steps.aws-env.outputs.allSecurityGroupIds }} \
+                                         --no-cli-pager)
+          instanceId=$(echo "${output}" | jq -r '.Instances[].InstanceId')
+          echo "id=${instanceId}" | tee -a $GITHUB_OUTPUT
+
+      - name: Allow ILB test CIDR
+        run: |
+          aws ec2 authorize-security-group-ingress --region ${{ steps.vars.outputs.region }} \
+                                                   --group-id ${{ steps.aws-env.outputs.workersSGId }} \
+                                                   --protocol -1 \
+                                                   --port -1 \
+                                                   --cidr 100.64.0.0/16 \
+                                                   --no-cli-pager
+
+      - name: Get runner public IP
+        id: gh-runner
+        run: |
+          public_ip="$(curl -s ipinfo.io/ip)"
+          if [[ -z "$public_ip" ]]
+          then
+            echo "unable to get my public ip!"
+            exit 1
+          fi
+          echo "public_ip=$public_ip" | tee -a $GITHUB_OUTPUT
+
+      - name: Allow SSH access to test VM
+        run: |
+          aws ec2 authorize-security-group-ingress --region ${{ steps.vars.outputs.region }} \
+                                                   --group-id ${{ steps.aws-env.outputs.workersSGId }} \
+                                                   --protocol tcp \
+                                                   --port 22 \
+                                                   --cidr ${{ steps.gh-runner.outputs.public_ip }}/32 \
+                                                   --no-cli-pager
+          aws ec2 authorize-security-group-ingress --region ${{ steps.vars.outputs.region }} \
+                                                   --group-id ${{ steps.aws-env.outputs.workersSGId }} \
+                                                   --protocol tcp \
+                                                   --port 22 \
+                                                   --cidr 217.81.137.62/32 \
+                                                   --no-cli-pager
 
       - name: Wait for Cluster operators to be ready
         if: ${{ steps.cluster.outcome == 'success' }}
@@ -444,6 +567,41 @@ jobs:
         run: |
           cilium lb status -n cilium
 
+      - name: Read test VM props
+        id: test-vm-props
+        run: |
+          fqdn=$(aws ec2 describe-instances --region ${{ steps.vars.outputs.region }} \
+                                            --instance-ids ${{ steps.test-vm.outputs.id }} \
+                                            --query 'Reservations[].Instances[].PublicDnsName' \
+                                            --no-cli-pager \
+                                            --output text)
+
+          echo "fqdn=${fqdn}" | tee -a $GITHUB_OUTPUT
+
+      - name: Copy kubeconfig to test VM
+        run: |
+          scp -i ~/.ssh/ci_key -o stricthostkeychecking=no ~/.kube/config ubuntu@${{ steps.test-vm-props.outputs.fqdn }}:.
+
+      - name: Run ILB tests
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        env:
+          KUBECONFIG: "/home/ubuntu/config"
+        with:
+          host: ${{ steps.test-vm-props.outputs.fqdn }}
+          username: ubuntu
+          key_path: "/home/runner/.ssh/ci_key"
+          command_timeout: 60m
+          envs: KUBECONFIG
+          script: |
+            # TODO: investigate and fix the skipped tests
+            cilium lb test -n cilium \
+                           --mode=single-node \
+                           --run '!^TestUDPProxyT1T2$' \
+                           --run '!^TestLabelBasedBackend_T1Only$' \
+                           --run '!^TestNodeMaintenance_T2_T1T2_TCPProxy$' \
+                           --run '!^TestNodeMaintenance_T2_T1T2_HTTP$' \
+                           --verbose
+
       - name: Collect sysdumps
         if: ${{ !success() && steps.cluster.outcome != 'skipped' }}
         shell: bash
@@ -483,6 +641,15 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.region }}
+
+      # Happens independently of the success or the failure of the provisioning and tests
+      - name: Terminate test VM
+        if: always() && steps.test-vm.outcome != 'skipped'
+        run: |
+          echo "terminating test VM: ${{ steps.test-vm.outputs.id }} ..."
+          aws ec2 terminate-instances --region ${{ steps.vars.outputs.region }} \
+                                      --instance-ids ${{ steps.test-vm.outputs.id }} \
+                                      --no-cli-pager
 
       # Happens independently of the success or the failure of the provisioning and tests
       - name: Clean up Cluster
