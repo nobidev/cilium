@@ -262,6 +262,8 @@ cilium-agent hive dot-graph [flags]
       --pprof-address string                                           Address that pprof listens on (default "localhost")
       --pprof-port uint16                                              Port that pprof listens on (default 6060)
       --prepend-iptables-chains                                        Prepend custom iptables chains instead of appending (default true)
+      --private-networks-enabled                                       Enable support for private networks
+      --private-networks-mode string                                   The private networks mode ("default" or "bridge") (default "default")
       --procfs string                                                  Path to the host's proc filesystem mount (default "/proc")
       --prometheus-serve-addr string                                   IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --proxy-admin-port int                                           Port to serve Envoy admin interface on.

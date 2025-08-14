@@ -10,9 +10,15 @@
 
 package privnet
 
-import "github.com/cilium/hive/cell"
+import (
+	"github.com/cilium/hive/cell"
+
+	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
+)
 
 var Cell = cell.Module(
 	"private-networks",
 	"Support for Private Networks",
+
+	pncfg.Cell,
 )
