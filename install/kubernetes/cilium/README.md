@@ -425,6 +425,8 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.multiNetwork.autoDirectNodeRoutes | bool | `true` | Enable multi-network aware automatic L2 routing between nodes |
 | enterprise.multiNetwork.enabled | bool | `false` | Enables the multi-network feature in Cilium CNI |
 | enterprise.multicast.enabled | bool | `false` | Enables multicast in cilium, multicast replication works only in tunnel mode. |
+| enterprise.privateNetworks.enabled | bool | `false` | Enable private networks.  Private networks enable network-level isolation between Cilium-managed endpoints. Endpoints within the same private network can communicate with each other, but are isolated from endpoints in other private networks. |
+| enterprise.privateNetworks.mode | string | `"default"` | The private networks operational mode. The "bridge" mode provides connectivity between cilium-managed endpoints and external endpoints that belong to the same private network.  @schema enum: ["default", "bridge"] @schema |
 | enterprise.srv6.enabled | bool | `false` | Enable SRv6 encapsulation support. |
 | enterprise.srv6.encapMode | string | `"reduced"` | Specify SRv6 SID encapsulation. |
 | enterprise.srv6.locatorPoolEnabled | bool | `false` | Enables custom SRv6 SID locator pool operator support. |

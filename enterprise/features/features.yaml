@@ -167,6 +167,17 @@ features:
     helm:
       hubble.timescape.enabled: true
 
+  PrivateNetworks:
+    maturity: Alpha
+    description: |
+      Private networks enable network-level isolation between Cilium-managed endpoints.
+    skip-flag-check: true
+    flags:
+      private-networks-enabled: true
+    helm:
+      enterprise.privateNetworks.enabled: true
+
+
   ##########################################
   # OSS features
   ##########################################

@@ -2147,6 +2147,20 @@
           },
           "type": "object"
         },
+        "privateNetworks": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "mode": {
+              "enum": [
+                "default",
+                "bridge"
+              ]
+            }
+          },
+          "type": "object"
+        },
         "srv6": {
           "properties": {
             "enabled": {

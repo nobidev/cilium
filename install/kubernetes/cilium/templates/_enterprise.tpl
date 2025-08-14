@@ -173,4 +173,8 @@ diagnostics-export-file: {{ .Values.enterprise.diagnostics.exportFilePath | quot
 diagnostics-interval: {{ .Values.enterprise.diagnostics.interval | quote }}
 diagnostics-constants: {{ .Values.enterprise.diagnostics.constants | join "," | quote }}
 
+# Private networks
+private-networks-enabled: {{ .Values.enterprise.privateNetworks.enabled | quote }}
+private-networks-mode: {{ .Values.enterprise.privateNetworks.mode | quote }}
+
 {{- end }}

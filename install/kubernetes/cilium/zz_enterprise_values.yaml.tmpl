@@ -146,6 +146,24 @@ enterprise:
     # @schema
     constants: []
 
+  # Private Networks
+  privateNetworks:
+    # -- Enable private networks.
+    #
+    # Private networks enable network-level isolation between Cilium-managed
+    # endpoints. Endpoints within the same private network can communicate
+    # with each other, but are isolated from endpoints in other private networks.
+    enabled: false
+
+    # -- The private networks operational mode. The "bridge" mode provides
+    # connectivity between cilium-managed endpoints and external endpoints
+    # that belong to the same private network.
+    #
+    # @schema
+    # enum: ["default", "bridge"]
+    # @schema
+    mode: default
+
 serviceAccounts:
   hubbleK8sExporter:
     create: true

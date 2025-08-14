@@ -1500,6 +1500,14 @@
      - Enables multicast in cilium, multicast replication works only in tunnel mode.
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.privateNetworks.enabled`
+     - Enable private networks.  Private networks enable network-level isolation between Cilium-managed endpoints. Endpoints within the same private network can communicate with each other, but are isolated from endpoints in other private networks.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`enterprise.privateNetworks.mode`
+     - The private networks operational mode. The "bridge" mode provides connectivity between cilium-managed endpoints and external endpoints that belong to the same private network.  @schema enum: ["default", "bridge"] @schema
+     - string
+     - ``"default"``
    * - :spelling:ignore:`enterprise.srv6.enabled`
      - Enable SRv6 encapsulation support.
      - bool
