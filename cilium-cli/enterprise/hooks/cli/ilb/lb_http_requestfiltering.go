@@ -224,7 +224,7 @@ func TestHTTPRequestFiltering(t T) {
 	ciliumVersionSupportsHeaderBasedRequestFiltering := false
 
 	minVersion := ">=1.18.0"
-	currentVersion := getCiliumVersion(t, k8sCli)
+	currentVersion := GetCiliumVersion(t, k8sCli)
 	if versioncheck.MustCompile(minVersion)(currentVersion) {
 		ciliumVersionSupportsHeaderBasedRequestFiltering = true
 	} else {

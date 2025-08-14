@@ -30,7 +30,7 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 
 	// node maintenance is only supported in v1.18 and newer
 	minVersion := ">=1.18.0"
-	currentVersion := getCiliumVersion(t, k8sCli)
+	currentVersion := GetCiliumVersion(t, k8sCli)
 	if !versioncheck.MustCompile(minVersion)(currentVersion) {
 		fmt.Printf("skipping due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
 		return

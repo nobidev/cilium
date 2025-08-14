@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -126,13 +127,22 @@ func (c *ciliumCli) DeleteLBBackendPool(ctx context.Context, namespace, name str
 	return c.IsovalentV1alpha1().LBBackendPools(namespace).Delete(ctx, name, opts)
 }
 
-func (c *ciliumCli) CreateLBIPPool(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool, opts metav1.CreateOptions) error {
+func (c *ciliumCli) CreateLBIPPoolV2Alpha1(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool, opts metav1.CreateOptions) error {
 	_, err := c.CiliumV2alpha1().CiliumLoadBalancerIPPools().Create(ctx, obj, opts)
 	return err
 }
 
-func (c *ciliumCli) DeleteLBIPPool(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+func (c *ciliumCli) CreateLBIPPool(ctx context.Context, obj *ciliumv2.CiliumLoadBalancerIPPool, opts metav1.CreateOptions) error {
+	_, err := c.CiliumV2().CiliumLoadBalancerIPPools().Create(ctx, obj, opts)
+	return err
+}
+
+func (c *ciliumCli) DeleteLBIPPoolV2Alpha1(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	return c.CiliumV2alpha1().CiliumLoadBalancerIPPools().Delete(ctx, name, opts)
+}
+
+func (c *ciliumCli) DeleteLBIPPool(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return c.CiliumV2().CiliumLoadBalancerIPPools().Delete(ctx, name, opts)
 }
 
 func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (string, error) {
@@ -174,7 +184,16 @@ func (c *ciliumCli) DeleteBGPClusterConfig(ctx context.Context) error {
 	return nil
 }
 
-func (c *ciliumCli) EnsureLBIPPool(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool) error {
+func (c *ciliumCli) EnsureLBIPPoolV2Alpha1(ctx context.Context, obj *ciliumv2alpha1.CiliumLoadBalancerIPPool) error {
+	if err := c.CreateLBIPPoolV2Alpha1(ctx, obj, metav1.CreateOptions{}); err != nil {
+		if !k8s_errors.IsAlreadyExists(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *ciliumCli) EnsureLBIPPool(ctx context.Context, obj *ciliumv2.CiliumLoadBalancerIPPool) error {
 	if err := c.CreateLBIPPool(ctx, obj, metav1.CreateOptions{}); err != nil {
 		if !k8s_errors.IsAlreadyExists(err) {
 			return err

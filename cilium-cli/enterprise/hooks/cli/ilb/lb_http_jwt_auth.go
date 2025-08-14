@@ -126,7 +126,7 @@ func testJWTAuth(t T, proto string) {
 	versionSupportsJWTBasedRequestFiltering := false
 
 	minVersion := ">=1.18.0"
-	currentVersion := getCiliumVersion(t, k8sCli)
+	currentVersion := GetCiliumVersion(t, k8sCli)
 	if versioncheck.MustCompile(minVersion)(currentVersion) {
 		versionSupportsJWTBasedRequestFiltering = true
 	} else {

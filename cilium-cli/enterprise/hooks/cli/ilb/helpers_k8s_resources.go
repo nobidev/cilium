@@ -16,20 +16,38 @@ import (
 	"k8s.io/utils/ptr"
 
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-func LbIPPool(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
+func LbIPPoolV2Alpha1(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
 	return &ciliumv2alpha1.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Spec: ciliumv2alpha1.CiliumLoadBalancerIPPoolSpec{
 			Blocks: []ciliumv2alpha1.CiliumLoadBalancerIPPoolIPBlock{
-				{Cidr: ciliumv2alpha1.IPv4orIPv6CIDR(ipBlock)},
+				{
+					Cidr: ciliumv2alpha1.IPv4orIPv6CIDR(ipBlock),
+				},
+			},
+		},
+	}
+}
+
+func LbIPPool(name, ipBlock string) *ciliumv2.CiliumLoadBalancerIPPool {
+	return &ciliumv2.CiliumLoadBalancerIPPool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
+			Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{
+				{
+					Cidr: ciliumv2.IPv4orIPv6CIDR(ipBlock),
+				},
 			},
 		},
 	}
