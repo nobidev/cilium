@@ -37,6 +37,7 @@ func NewCell(systemName string, systemVersion string) cell.Cell {
 			NewRegistry,
 			statedb.RWTable[ConditionStatus].ToTable,
 			newInternalConditions,
+			newController,
 		),
 
 		metrics.Metric(newMetrics),
@@ -49,10 +50,6 @@ func NewCell(systemName string, systemVersion string) cell.Cell {
 					Version: systemVersion,
 				}
 			},
-		),
-
-		cell.Invoke(
-			registerController,
 		),
 	)
 }

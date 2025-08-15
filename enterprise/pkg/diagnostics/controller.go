@@ -11,13 +11,16 @@
 package diagnostics
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/hive/script"
 	"github.com/cilium/statedb"
 	ipa_sys "github.com/isovalent/ipa/system_status/v1alpha"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -52,7 +55,7 @@ type controllerParams struct {
 	SystemID        *ipa_sys.SystemID
 }
 
-func registerController(p controllerParams) error {
+func newController(p controllerParams) (hive.ScriptCmdsOut, error) {
 	c := controller{
 		controllerParams: p,
 		startedAt:        time.Now(),
@@ -66,7 +69,38 @@ func registerController(p controllerParams) error {
 		c.evalLoop,
 		job.WithShutdown(),
 	))
-	return nil
+	return hive.NewScriptCmds(
+		map[string]script.Cmd{
+			"diagnostics/export": c.exportCmd(),
+		},
+	), nil
+}
+
+func (c *controller) exportCmd() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Export diagnostics metadata and status events to stdout",
+		},
+		func(*script.State, ...string) (script.WaitFunc, error) {
+			return func(s *script.State) (stdout string, stderr string, err error) {
+				txn := c.DB.ReadTxn()
+				var buf bytes.Buffer
+				enc := json.NewEncoder(&buf)
+				ids := []ConditionID{}
+				for cond := range c.Conditions.All(txn) {
+					ids = append(ids, cond.Condition.ID)
+				}
+				if err := c.writeMetadataUpdate(enc, txn, ids); err != nil {
+					return "", "", err
+				}
+				if err := c.writeStatusUpdate(enc, txn); err != nil {
+					return "", "", err
+				}
+				stdout = buf.String()
+				return
+			}, nil
+		},
+	)
 }
 
 func (c *controller) evalLoop(ctx context.Context, health cell.Health) error {
@@ -202,6 +236,7 @@ func (c *controller) writeStatusUpdate(fileEncoder *json.Encoder, txn statedb.Re
 			&ipa_sys.FailingCondition{
 				ConditionId: string(cond.Condition.ID),
 				Message:     cond.Latest.Message,
+				Severity:    cond.Latest.Severity,
 			})
 	}
 	return fileEncoder.Encode(&ev)
