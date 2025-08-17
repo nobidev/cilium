@@ -221,13 +221,15 @@ jobs:
           if [[ "${zone}" == "null" || "${zone}" == "" ]]; then
             zone="${region}a"
           fi
+          allow_ssh_from_cidr=$(echo $extra_args | jq -r '.allowSshFromCidr')
           ocp_minor_version=$(echo ${ocp_version} | cut -d '.' -f 1,2)
-          echo ocp_version=${ocp_version} | tee -a $GITHUB_OUTPUT
-          echo ocp_minor_version=${ocp_minor_version} | tee -a $GITHUB_OUTPUT
-          echo sha=${sha} | tee -a $GITHUB_OUTPUT
-          echo owner=${OWNER} | tee -a $GITHUB_OUTPUT
-          echo region=${region} | tee -a $GITHUB_OUTPUT
-          echo zone=${zone} | tee -a $GITHUB_OUTPUT
+          echo "ocp_version=${ocp_version}" | tee -a $GITHUB_OUTPUT
+          echo "ocp_minor_version=${ocp_minor_version}" | tee -a $GITHUB_OUTPUT
+          echo "sha=${sha}" | tee -a $GITHUB_OUTPUT
+          echo "owner=${OWNER}" | tee -a $GITHUB_OUTPUT
+          echo "region=${region}" | tee -a $GITHUB_OUTPUT
+          echo "zone=${zone}" | tee -a $GITHUB_OUTPUT
+          echo "allow_ssh_from_cidr=${allow_ssh_from_cidr}" | tee -a $GITHUB_OUTPUT
 
       - name: Install kubectl
         run: |
@@ -471,12 +473,15 @@ jobs:
                                                    --port 22 \
                                                    --cidr ${{ steps.gh-runner.outputs.public_ip }}/32 \
                                                    --no-cli-pager
-          aws ec2 authorize-security-group-ingress --region ${{ steps.vars.outputs.region }} \
-                                                   --group-id ${{ steps.aws-env.outputs.workersSGId }} \
-                                                   --protocol tcp \
-                                                   --port 22 \
-                                                   --cidr 217.81.137.62/32 \
-                                                   --no-cli-pager
+          if [[ -n "${{ steps.vars.outputs.allow_ssh_from_cidr }}" ]]
+          then
+            aws ec2 authorize-security-group-ingress --region ${{ steps.vars.outputs.region }} \
+                                                     --group-id ${{ steps.aws-env.outputs.workersSGId }} \
+                                                     --protocol tcp \
+                                                     --port 22 \
+                                                     --cidr ${{ steps.vars.outputs.allow_ssh_from_cidr }} \
+                                                     --no-cli-pager
+          fi
 
       - name: Wait for Cluster operators to be ready
         if: ${{ steps.cluster.outcome == 'success' }}
