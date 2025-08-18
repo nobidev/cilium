@@ -13,4 +13,6 @@ package types
 // EnterpriseCiliumClusterConfigCapabilities groups the extra capabilities
 // exposed by the enterprise clustermesh-apiserver.
 type EnterpriseCiliumClusterConfigCapabilities struct {
+	// Whether private networks are enabled in the cluster.
+	PrivateNetworksEnabled *bool `json:"privateNetworksEnabled,omitempty"`
 }

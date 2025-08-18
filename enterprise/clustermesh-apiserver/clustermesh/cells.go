@@ -12,6 +12,7 @@ package clustermesh
 
 import (
 	"github.com/cilium/hive/cell"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
 	"github.com/cilium/cilium/clustermesh-apiserver/common"
@@ -50,6 +51,10 @@ var (
 			cell.Config(pncfg.DefaultCommon),
 
 			cell.Provide(
+				func(cfg pncfg.Common) *clustercfg.PrivateNetworksCapability {
+					return ptr.To(clustercfg.PrivateNetworksCapability(cfg.Enabled))
+				},
+
 				newPrivateNetworkEndpointSliceOptions,
 				newPrivateNetworkEndpointSliceConverter,
 			),

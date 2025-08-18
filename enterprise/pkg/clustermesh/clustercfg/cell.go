@@ -16,9 +16,18 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
+// PrivateNetworksCapability is the type to be provided to configure the
+// private networks capability.
+type PrivateNetworksCapability bool
+
 // ClusterConfigDecorator configures the enterprise-specific bits of the CiliumClusterConfig.
 var Cell = cell.DecorateAll(
-	func(in cmtypes.CiliumClusterConfig) cmtypes.CiliumClusterConfig {
+	func(in cmtypes.CiliumClusterConfig, params struct {
+		cell.In
+
+		PrivateNetworks *PrivateNetworksCapability `optional:"true"`
+	}) cmtypes.CiliumClusterConfig {
+		in.Capabilities.PrivateNetworksEnabled = (*bool)(params.PrivateNetworks)
 		return in
 	},
 )
