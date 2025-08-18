@@ -146,6 +146,9 @@ Allow packagers to add extra configuration to certgen.
 Allow packagers to add extra arguments to the clustermesh-apiserver apiserver container.
 */}}
 {{- define "clustermesh.apiserver.args.extra" -}}
+{{- if .Values.enterprise.privateNetworks.enabled }}
+- --private-networks-enabled
+{{- end }}
 {{- end }}
 
 {{/*
