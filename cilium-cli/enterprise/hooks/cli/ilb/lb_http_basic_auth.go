@@ -26,13 +26,12 @@ func TestHTTPSBasicAuth(t T) {
 
 func testBasicAuth(t T, proto string) {
 	testName := "basic-auth-" + proto
-	testK8sNamespace := "default"
 	hostName := "basic-auth.acme.io"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	if proto == "https" {
 		t.Log("Creating cert and secret...")
@@ -52,11 +51,11 @@ func testBasicAuth(t T, proto string) {
 	}
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
-	scenario.createLBBackendPool(lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port)))
+	scenario.createLBBackendPool(lbBackendPool(testName, withIPBackend(backend.ip, backend.port)))
 
 	t.Log("Creating basic auth secret...")
 	creds := []basicAuthCredential{
@@ -76,7 +75,7 @@ func testBasicAuth(t T, proto string) {
 	var service *isovalentv1alpha1.LBService
 	if proto == "http" {
 		// HTTP
-		service = lbService(testK8sNamespace, testName, withHTTPProxyApplication(
+		service = lbService(testName, withHTTPProxyApplication(
 			// Enable application-wide basic auth
 			withHttpBasicAuth(secretName),
 			// Set per-route exception
@@ -89,7 +88,7 @@ func testBasicAuth(t T, proto string) {
 		))
 	} else {
 		// HTTPS
-		service = lbService(testK8sNamespace, testName,
+		service = lbService(testName,
 			withPort(443),
 			withHTTPSProxyApplication(
 				// Enable application-wide basic auth

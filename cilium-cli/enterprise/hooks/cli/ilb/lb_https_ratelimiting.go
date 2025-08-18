@@ -20,14 +20,13 @@ import (
 
 func TestHTTPSRouteRatelimiting(t T) {
 	testName := "https-proxy-route-ratelimiting"
-	testK8sNamespace := "default"
 	hostName := "secure.acme.io"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
 	scenario.createLBServerCertificate(testName, hostName)
@@ -39,7 +38,7 @@ func TestHTTPSRouteRatelimiting(t T) {
 	client := scenario.addFRRClients(1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
@@ -47,11 +46,11 @@ func TestHTTPSRouteRatelimiting(t T) {
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, 8080))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpsRequestRateLimiting(5, 60)), withCertificate(testName)))
+	service := lbService(testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpsRequestRateLimiting(5, 60)), withCertificate(testName)))
 
 	// Prepending admin http route (prepending because routes are in order on the same virtualhost)
 	service.Spec.Applications.HTTPSProxy.Routes = append([]isovalentv1alpha1.LBServiceHTTPSRoute{{
@@ -107,14 +106,13 @@ func TestHTTPSRouteRatelimiting(t T) {
 
 func TestHTTPSApplicationRatelimiting(t T) {
 	testName := "https-proxy-application-ratelimiting"
-	testK8sNamespace := "default"
 	hostName := "insecure.acme.io"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
@@ -123,7 +121,7 @@ func TestHTTPSApplicationRatelimiting(t T) {
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
@@ -131,11 +129,11 @@ func TestHTTPSApplicationRatelimiting(t T) {
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, 8080))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpConnectionRateLimiting(5, 60), withHttpRoute(testName)))
+	service := lbService(testName, withHTTPProxyApplication(withHttpConnectionRateLimiting(5, 60), withHttpRoute(testName)))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")

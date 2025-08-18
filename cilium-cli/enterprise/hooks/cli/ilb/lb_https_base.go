@@ -16,14 +16,13 @@ import (
 
 func TestHTTPS(t T) {
 	testName := "https-1"
-	testK8sNamespace := "default"
 	hostName := "secure.acme.io"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
 	scenario.createLBServerCertificate(testName, hostName)
@@ -35,7 +34,7 @@ func TestHTTPS(t T) {
 	client := scenario.addFRRClients(1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
@@ -43,11 +42,11 @@ func TestHTTPS(t T) {
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpsHostname(hostName)), withCertificate(testName)))
+	service := lbService(testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpsHostname(hostName)), withCertificate(testName)))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")
@@ -64,7 +63,6 @@ func TestHTTPS(t T) {
 
 func TestHTTPSRoutes(t T) {
 	testName := "https-routes"
-	testK8sNamespace := "default"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
@@ -81,7 +79,7 @@ func TestHTTPSRoutes(t T) {
 	}
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
 	// create a secret per hostname (filtering out multiple routes for the same hostname)
@@ -104,14 +102,14 @@ func TestHTTPSRoutes(t T) {
 	client := scenario.addFRRClients(1, frrClientConfig{trustedCertsHostnames: hostnames})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
 	// one backendpool per backend app
 	for postfix := range serviceBackendMappings {
 		backend := scenario.backendApps[testName+"-app"+postfix]
-		scenario.createLBBackendPool(lbBackendPool(testK8sNamespace, testName+postfix, withIPBackend(backend.ip, backend.port)))
+		scenario.createLBBackendPool(lbBackendPool(testName+postfix, withIPBackend(backend.ip, backend.port)))
 	}
 
 	t.Log("Creating LB Service resources...")
@@ -125,7 +123,7 @@ func TestHTTPSRoutes(t T) {
 			routesAndCertificates = append(routesAndCertificates, withCertificate(testName+postfix))
 		}
 	}
-	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(routesAndCertificates...))
+	service := lbService(testName, withPort(443), withHTTPSProxyApplication(routesAndCertificates...))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")
@@ -150,14 +148,13 @@ func TestHTTPSRoutes(t T) {
 
 func TestHTTPS_H2(t T) {
 	testName := "http2s-1"
-	testK8sNamespace := "default"
 	hostName := "secure-http2.acme.io"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
 	scenario.createLBServerCertificate(testName, hostName)
@@ -169,7 +166,7 @@ func TestHTTPS_H2(t T) {
 	client := scenario.addFRRClients(1, frrClientConfig{trustedCertsHostnames: []string{hostName}})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
@@ -177,11 +174,11 @@ func TestHTTPS_H2(t T) {
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpsHostname(hostName)), withCertificate(testName), withHTTPSH2(true), withHTTPSH11(true)))
+	service := lbService(testName, withPort(443), withHTTPSProxyApplication(withHttpsRoute(testName, withHttpsHostname(hostName)), withCertificate(testName), withHTTPSH2(true), withHTTPSH11(true)))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")

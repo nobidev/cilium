@@ -129,13 +129,12 @@ func TestHTTPClientIP(t T) {
 		}
 
 		testName := fmt.Sprintf("http-clientip-%s", tC.desc)
-		testK8sNamespace := "default"
 
 		ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 		dockerCli := NewDockerCli(t)
 
 		// 0. Setup test scenario (backends, clients & LB resources)
-		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 		t.Log("Creating backend apps...")
 		scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
@@ -144,7 +143,7 @@ func TestHTTPClientIP(t T) {
 		clients := scenario.addFRRClients(1, frrClientConfig{})
 
 		t.Log("Creating LB VIP resources...")
-		vip := lbVIP(testK8sNamespace, testName)
+		vip := lbVIP(testName)
 		scenario.createLBVIP(vip)
 
 		t.Log("Creating LB BackendPool resources...")
@@ -152,14 +151,14 @@ func TestHTTPClientIP(t T) {
 		for _, b := range scenario.backendApps {
 			backends = append(backends, withIPBackend(b.ip, b.port))
 		}
-		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+		backendPool := lbBackendPool(testName, backends...)
 		scenario.createLBBackendPool(backendPool)
 
 		t.Log("Creating LB Service resources...")
 		opts := []httpApplicationOption{}
 		opts = append(opts, withHttpRoute(testName))
 		opts = append(opts, tC.appOpt(clients))
-		service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(opts...))
+		service := lbService(testName, withHTTPProxyApplication(opts...))
 		scenario.createLBService(service)
 
 		t.Log("Waiting for full VIP connectivity...")

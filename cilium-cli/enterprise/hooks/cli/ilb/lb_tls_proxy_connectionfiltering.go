@@ -70,13 +70,12 @@ func TestTLSProxyConnectionFiltering(t T) {
 			t.Log("Checking %s", tC.desc)
 
 			testName := fmt.Sprintf("tls-proxy-connectionfiltering-%s", tC.desc)
-			testK8sNamespace := "default"
 
 			ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 			dockerCli := NewDockerCli(t)
 
 			// 0. Setup test scenario (backends, clients & LB resources)
-			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+			scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 			t.Log("Creating cert and secret...")
 
@@ -92,12 +91,12 @@ func TestTLSProxyConnectionFiltering(t T) {
 
 			t.Log("Creating LB VIP resources...")
 
-			vip := lbVIP(testK8sNamespace, testName)
+			vip := lbVIP(testName)
 			scenario.createLBVIP(vip)
 
 			t.Log("Creating LB BackendPool resources...")
 
-			backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backends[0].ip, backends[0].port))
+			backendPool := lbBackendPool(testName, withIPBackend(backends[0].ip, backends[0].port))
 			scenario.createLBBackendPool(backendPool)
 
 			t.Log("Creating LB Service resources...")
@@ -105,7 +104,7 @@ func TestTLSProxyConnectionFiltering(t T) {
 			opts := []tlsRouteOption{}
 			opts = append(opts, withHostname("secure.acme.io"))
 			opts = append(opts, tC.appOpt(clients))
-			service := lbService(testK8sNamespace, testName, withPort(10080), withTLSProxyApplication(withTLSCertificate(testName), withTLSProxyRoute(backendPool.Name, opts...)))
+			service := lbService(testName, withPort(10080), withTLSProxyApplication(withTLSCertificate(testName), withTLSProxyRoute(backendPool.Name, opts...)))
 			scenario.createLBService(service)
 
 			t.Log("Waiting for full VIP connectivity...")

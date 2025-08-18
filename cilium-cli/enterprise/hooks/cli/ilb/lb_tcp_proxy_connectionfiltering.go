@@ -32,8 +32,6 @@ func testTCPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	testK8sNamespace := "default"
-
 	testCases := []struct {
 		desc      string
 		appOpt    func(clients []*frrContainer) tcpRouteOption
@@ -88,10 +86,10 @@ func testTCPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 		t.RunTestCase(func(t T) {
 			t.Log("Checking %s", tC.desc)
 
-			testName := fmt.Sprintf("tcp-proxy-connectionfiltering-%s-%s", string(forceDeploymentMode), tC.desc)
+			testName := fmt.Sprintf("tcp-proxy-connfiltering-%s-%s", string(forceDeploymentMode), tC.desc)
 
 			// 0. Setup test scenario (backends, clients & LB resources)
-			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+			scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 			t.Log("Creating backend app...")
 
@@ -103,17 +101,17 @@ func testTCPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 
 			t.Log("Creating LB VIP resources...")
 
-			vip := lbVIP(testK8sNamespace, testName)
+			vip := lbVIP(testName)
 			scenario.createLBVIP(vip)
 
 			t.Log("Creating LB BackendPool resources...")
 
-			backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backends[0].ip, backends[0].port))
+			backendPool := lbBackendPool(testName, withIPBackend(backends[0].ip, backends[0].port))
 			scenario.createLBBackendPool(backendPool)
 
 			t.Log("Creating LB Service resources...")
 
-			service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, tC.appOpt(clients))))
+			service := lbService(testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, tC.appOpt(clients))))
 			scenario.createLBService(service)
 
 			t.Log("Waiting for full VIP connectivity...")

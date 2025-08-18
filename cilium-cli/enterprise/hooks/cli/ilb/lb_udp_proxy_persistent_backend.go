@@ -32,7 +32,6 @@ func testUDPProxyPersistentBackend(t T, forceDeploymentMode isovalentv1alpha1.LB
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	testK8sNamespace := "default"
 	if skipIfOnSingleNode(">1 backends are not supported") {
 		return
 	}
@@ -40,7 +39,7 @@ func testUDPProxyPersistentBackend(t T, forceDeploymentMode isovalentv1alpha1.LB
 	testName := "udp-proxy-persistent-backend-" + string(forceDeploymentMode)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 
@@ -50,7 +49,7 @@ func testUDPProxyPersistentBackend(t T, forceDeploymentMode isovalentv1alpha1.LB
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
@@ -59,11 +58,11 @@ func testUDPProxyPersistentBackend(t T, forceDeploymentMode isovalentv1alpha1.LB
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(80), withUDPProxyApplication(withUDPForceDeploymentMode(forceDeploymentMode), withUDPProxyRoute(backendPool.Name, withUDPProxyBackendPersistenceBySourceIP())))
+	service := lbService(testName, withPort(80), withUDPProxyApplication(withUDPForceDeploymentMode(forceDeploymentMode), withUDPProxyRoute(backendPool.Name, withUDPProxyBackendPersistenceBySourceIP())))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")

@@ -22,7 +22,6 @@ import (
 )
 
 func TestHTTPSProxyMutualTLS(t T) {
-	ns := "default"
 	testName := "https-proxy-mtls"
 	serviceHostName := "secure.acme.io"
 	clientCAName := "acme.io"
@@ -31,7 +30,7 @@ func TestHTTPSProxyMutualTLS(t T) {
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
 
@@ -53,7 +52,7 @@ func TestHTTPSProxyMutualTLS(t T) {
 
 	t.Log("Creating LB VIP resources...")
 
-	vip := lbVIP(ns, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating backend app...")
@@ -62,12 +61,12 @@ func TestHTTPSProxyMutualTLS(t T) {
 
 	t.Log("Creating LB BackendPool resources...")
 
-	backendPool := lbBackendPool(ns, testName, withIPBackend(backends[0].ip, backends[0].port))
+	backendPool := lbBackendPool(testName, withIPBackend(backends[0].ip, backends[0].port))
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
 
-	service := lbService(ns, testName, withPort(10443), withHTTPSProxyApplication(withCertificate(testName), withHttpsRoute(backendPool.Name)))
+	service := lbService(testName, withPort(10443), withHTTPSProxyApplication(withCertificate(testName), withHttpsRoute(backendPool.Name)))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")
@@ -90,7 +89,7 @@ func TestHTTPSProxyMutualTLS(t T) {
 
 	// 4. Test mTLS connectivity
 	t.Log("Checking mTLS Connectivity")
-	curSvc, err := ciliumCli.GetLBService(t.Context(), ns, testName, metav1.GetOptions{})
+	curSvc, err := ciliumCli.GetLBService(t.Context(), scenario.k8sNamespace, testName, metav1.GetOptions{})
 	if err != nil {
 		t.Failedf("failed to get LB service (%s): %s", testName, err)
 	}
@@ -116,7 +115,7 @@ func TestHTTPSProxyMutualTLS(t T) {
 		},
 	}
 
-	if err := ciliumCli.UpdateLBService(t.Context(), ns, curSvc, metav1.UpdateOptions{}); err != nil {
+	if err := ciliumCli.UpdateLBService(t.Context(), scenario.k8sNamespace, curSvc, metav1.UpdateOptions{}); err != nil {
 		t.Failedf("failed to update LB service (%s): %s", testName, err)
 	}
 
@@ -337,13 +336,12 @@ func TestHTTPSProxyMutualTLSRequestFiltering(t T) {
 
 	for _, tc := range testCases {
 		t.RunTestCase(func(t T) {
-			ns := "default"
 			testName := fmt.Sprintf("https-mtls-requestfiltering-%s", tc.desc)
 			serviceHostName := "secure.acme.io"
 			clientCAName := "acme.io"
 			clientHostName := "client.acme.io"
 
-			scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
+			scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 			t.Log("Creating cert and secret...")
 
@@ -357,7 +355,7 @@ func TestHTTPSProxyMutualTLSRequestFiltering(t T) {
 
 			t.Log("Creating LB VIP resources...")
 
-			vip := lbVIP(ns, testName)
+			vip := lbVIP(testName)
 			scenario.createLBVIP(vip)
 
 			t.Log("Creating backend app...")
@@ -366,12 +364,12 @@ func TestHTTPSProxyMutualTLSRequestFiltering(t T) {
 
 			t.Log("Creating LB BackendPool resources...")
 
-			backendPool := lbBackendPool(ns, testName, withIPBackend(backends[0].ip, backends[0].port))
+			backendPool := lbBackendPool(testName, withIPBackend(backends[0].ip, backends[0].port))
 			scenario.createLBBackendPool(backendPool)
 
 			t.Log("Creating LB Service resources...")
 
-			service := lbService(ns, testName, withPort(10443), withHTTPSProxyApplication(withCertificate(testName), withClientCertificateValidation(testName+"-client-ca"), withHttpsRoute(backendPool.Name, tc.appOpt([]*frrContainer{client}))))
+			service := lbService(testName, withPort(10443), withHTTPSProxyApplication(withCertificate(testName), withClientCertificateValidation(testName+"-client-ca"), withHttpsRoute(backendPool.Name, tc.appOpt([]*frrContainer{client}))))
 			scenario.createLBService(service)
 
 			t.Log("Waiting for full VIP connectivity...")

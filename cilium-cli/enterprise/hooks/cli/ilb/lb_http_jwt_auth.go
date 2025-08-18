@@ -113,7 +113,6 @@ func TestHTTPSJWTAuth(t T) {
 
 func testJWTAuth(t T, proto string) {
 	testName := "jwt-auth-" + proto
-	testK8sNamespace := "default"
 	hostName := "jwt.acme.io"
 	validIssuer := "valid-issuer@jwt.acme.io"
 	validAudiences := []string{"valid-audiences@jwt.acme.io"}
@@ -133,7 +132,7 @@ func testJWTAuth(t T, proto string) {
 		fmt.Printf("skipping JWT based request filtering due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
 	}
 
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	if proto == "https" {
 		t.Log("Creating cert and secret...")
@@ -153,11 +152,11 @@ func testJWTAuth(t T, proto string) {
 	}
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
-	scenario.createLBBackendPool(lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port)))
+	scenario.createLBBackendPool(lbBackendPool(testName, withIPBackend(backend.ip, backend.port)))
 
 	t.Log("Creating Nginx to serve remote provider's JWKS")
 	nginx := scenario.addNginx()
@@ -221,7 +220,7 @@ func testJWTAuth(t T, proto string) {
 		}
 
 		// HTTP
-		service = lbService(testK8sNamespace, testName, withHTTPProxyApplication(
+		service = lbService(testName, withHTTPProxyApplication(
 			// Enable application-wide jwt auth
 			withHttpJWTAuth(
 				// Only matches to the validProvider0's key. Check issuer and audiences.
@@ -276,7 +275,7 @@ func testJWTAuth(t T, proto string) {
 		}
 
 		// HTTPS
-		service = lbService(testK8sNamespace, testName,
+		service = lbService(testName,
 			withPort(443),
 			// Enable application-wide jwt auth
 			withHTTPSProxyApplication(

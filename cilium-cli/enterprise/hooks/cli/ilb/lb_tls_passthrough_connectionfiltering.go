@@ -70,13 +70,12 @@ func TestTLSPassthroughConnectionFiltering(t T) {
 			t.Log("Checking %s", tC.desc)
 
 			testName := fmt.Sprintf("tls-passthrough-connectionfiltering-%s", tC.desc)
-			testK8sNamespace := "default"
 
 			ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 			dockerCli := NewDockerCli(t)
 
 			// 0. Setup test scenario (backends, clients & LB resources)
-			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+			scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 			t.Log("Creating cert and secret...")
 			scenario.createBackendServerCertificate("secure.acme.io")
@@ -88,15 +87,15 @@ func TestTLSPassthroughConnectionFiltering(t T) {
 			clients := scenario.addFRRClients(2, frrClientConfig{trustedCertsHostnames: []string{"secure.acme.io"}})
 
 			t.Log("Creating LB VIP resources...")
-			vip := lbVIP(testK8sNamespace, testName)
+			vip := lbVIP(testName)
 			scenario.createLBVIP(vip)
 
 			t.Log("Creating LB BackendPool resources...")
-			backendPool1 := lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, 8080), withHealthCheckTLS())
+			backendPool1 := lbBackendPool(testName, withIPBackend(backend.ip, 8080), withHealthCheckTLS())
 			scenario.createLBBackendPool(backendPool1)
 
 			t.Log("Creating LB Service resources...")
-			service := lbService(testK8sNamespace, testName, withTLSPassthroughApplication(
+			service := lbService(testName, withTLSPassthroughApplication(
 				withTLSPassthroughRoute(testName, tC.appOpt(clients)),
 			))
 			scenario.createLBService(service)

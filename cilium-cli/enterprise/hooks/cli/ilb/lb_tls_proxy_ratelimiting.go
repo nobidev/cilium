@@ -16,7 +16,6 @@ import (
 )
 
 func TestTLSProxyRatelimiting(t T) {
-	ns := "default"
 	testName := "tls-proxy-ratelimiting"
 	serviceHostName := "secure.acme.io"
 	clientCAName := "acme.io"
@@ -25,7 +24,7 @@ func TestTLSProxyRatelimiting(t T) {
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
 
@@ -42,17 +41,17 @@ func TestTLSProxyRatelimiting(t T) {
 
 	t.Log("Creating LB VIP resources...")
 
-	vip := lbVIP(ns, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
 
-	backendPool := lbBackendPool(ns, testName, withIPBackend(backends[0].ip, backends[0].port))
+	backendPool := lbBackendPool(testName, withIPBackend(backends[0].ip, backends[0].port))
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
 
-	service := lbService(ns, testName, withPort(10080), withTLSProxyApplication(withTLSCertificate(testName), withTLSProxyRoute(backendPool.Name, withHostname(serviceHostName), withTLSProxyConnectionRateLimiting(5, 60))))
+	service := lbService(testName, withPort(10080), withTLSProxyApplication(withTLSCertificate(testName), withTLSProxyRoute(backendPool.Name, withHostname(serviceHostName), withTLSProxyConnectionRateLimiting(5, 60))))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")

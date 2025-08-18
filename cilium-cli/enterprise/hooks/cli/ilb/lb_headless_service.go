@@ -20,7 +20,6 @@ func TestHeadlessService(t T) {
 	}
 
 	testName := "headless-service"
-	testK8sNamespace := "default"
 	backendReplicas := int32(2)
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
@@ -94,24 +93,24 @@ func TestHeadlessService(t T) {
 
 		resourceName := testName + tt.suffix
 
-		scenario := newLBTestScenario(t, resourceName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		scenario := newLBTestScenario(t, resourceName, ciliumCli, k8sCli, dockerCli)
 
 		t.Log("Creating backend apps...")
 		backendTLSHostname := ""
 		if tt.backendTLS {
 			backendTLSHostname = "secure-backend.acme.io"
 		}
-		desiredBackends := scenario.AddAndWaitForK8sBackendApplications(testK8sNamespace, testName+tt.suffix, backendReplicas, backendTLSHostname)
+		desiredBackends := scenario.AddAndWaitForK8sBackendApplications(testName+tt.suffix, backendReplicas, backendTLSHostname)
 
 		t.Log("Creating clients and add BGP peering ...")
 		client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 		t.Log("Creating LB VIP resources...")
-		vip := lbVIP(testK8sNamespace, resourceName)
+		vip := lbVIP(resourceName)
 		scenario.createLBVIP(vip)
 
 		t.Log("Creating LB BackendPool resources...")
-		backendHostName := fmt.Sprintf("%s.%s.svc.cluster.local", testName+tt.suffix, testK8sNamespace)
+		backendHostName := fmt.Sprintf("%s.%s.svc.cluster.local", testName+tt.suffix, scenario.k8sNamespace)
 
 		backendOpts := []backendPoolOption{withHostnameBackend(backendHostName, 8080)}
 
@@ -119,7 +118,7 @@ func TestHeadlessService(t T) {
 			backendOpts = append(backendOpts, withHealthCheckTLS())
 		}
 
-		scenario.createLBBackendPool(lbBackendPool(testK8sNamespace, resourceName, backendOpts...))
+		scenario.createLBBackendPool(lbBackendPool(resourceName, backendOpts...))
 
 		t.Log("Creating LB Service resources...")
 		if tt.serviceTLS {
@@ -127,7 +126,7 @@ func TestHeadlessService(t T) {
 			scenario.createLBServerCertificate(resourceName, "secure.acme.io")
 		}
 
-		service := lbService(testK8sNamespace, resourceName, tt.serviceOptions...)
+		service := lbService(resourceName, tt.serviceOptions...)
 		scenario.createLBService(service)
 		svcPort := service.Spec.Port
 

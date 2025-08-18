@@ -37,8 +37,6 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	testK8sNamespace := "default"
-
 	// label based backends are only supported in v1.18 and newer
 	minVersion := ">=1.18.0"
 	currentVersion := GetCiliumVersion(t, k8sCli)
@@ -71,7 +69,7 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 		//
 		// Setup test scenario (backends, clients & LB resources)
 		//
-		scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+		scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 		t.Log("Creating backend apps...")
 		scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true, image: FlagMariaDBImage, listenPort: mySqlPort, envVars: map[string]string{"MARIADB_ROOT_PASSWORD": mySqlPassword}})
@@ -80,7 +78,7 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 		client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 		t.Log("Creating LB VIP resources...")
-		vip := lbVIP(testK8sNamespace, testName)
+		vip := lbVIP(testName)
 		scenario.createLBVIP(vip)
 
 		t.Log("Creating LB BackendPool resources...")
@@ -97,11 +95,11 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 			backends = append(backends, withIPBackend(b.ip, b.port))
 		}
 
-		backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+		backendPool := lbBackendPool(testName, backends...)
 		scenario.createLBBackendPool(backendPool)
 
 		t.Log("Creating LB Service resources...")
-		service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(mode), withTCPProxyRoute(backendPool.Name)))
+		service := lbService(testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(mode), withTCPProxyRoute(backendPool.Name)))
 		scenario.createLBService(service)
 
 		t.Log("Waiting for full VIP connectivity...")

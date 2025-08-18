@@ -59,7 +59,7 @@ func TestHTTPProxyProtocol(t T) {
 			},
 		},
 		{
-			desc: "disallow-version-2-backend-version-2",
+			desc: "disallow-version-2-backendversion-2",
 			appOpt: func(clients []*frrContainer) httpApplicationOption {
 				return func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy) {}
 			},
@@ -96,7 +96,7 @@ func TestHTTPProxyProtocol(t T) {
 			},
 		},
 		{
-			desc: "deny-by-sourceip-backend-no-proxyprotocol",
+			desc: "deny-by-sourceip-backend-no-pp",
 			appOpt: func(clients []*frrContainer) httpApplicationOption {
 				return withHttpConnectionFilteringDenyBySourceIP("10.0.0.1/32")
 			},
@@ -118,7 +118,7 @@ func TestHTTPProxyProtocol(t T) {
 			},
 		},
 		{
-			desc: "allow-by-sourceip-backend-no-proxyprotocol",
+			desc: "allow-by-sourceip-backend-no-pp",
 			appOpt: func(clients []*frrContainer) httpApplicationOption {
 				return withHttpConnectionFilteringAllowBySourceIP("10.0.0.1/32")
 			},
@@ -134,13 +134,12 @@ func TestHTTPProxyProtocol(t T) {
 			t.Log("Checking %s", tC.desc)
 
 			testName := fmt.Sprintf("http-proxyprotocol-%s", tC.desc)
-			testK8sNamespace := "default"
 
 			ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 			dockerCli := NewDockerCli(t)
 
 			// 0. Setup test scenario (backends, clients & LB resources)
-			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+			scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 			t.Log("Creating backend apps...")
 			scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})
@@ -149,7 +148,7 @@ func TestHTTPProxyProtocol(t T) {
 			clients := scenario.addFRRClients(1, frrClientConfig{})
 
 			t.Log("Creating LB VIP resources...")
-			vip := lbVIP(testK8sNamespace, testName)
+			vip := lbVIP(testName)
 			scenario.createLBVIP(vip)
 
 			t.Log("Creating LB BackendPool resources...")
@@ -157,19 +156,19 @@ func TestHTTPProxyProtocol(t T) {
 			for _, b := range scenario.backendApps {
 				backends = append(backends, withIPBackend(b.ip, b.port), tC.backendOpt)
 			}
-			backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+			backendPool := lbBackendPool(testName, backends...)
 			scenario.createLBBackendPool(backendPool)
 
 			t.Log("Creating LB Service resources...")
 			opts := []httpApplicationOption{}
 			opts = append(opts, withHttpRoute(testName))
 			opts = append(opts, tC.appOpt(clients))
-			service := lbService(testK8sNamespace, testName, withProxyProtocol(tC.disallowedVersions, nil), withHTTPProxyApplication(opts...))
+			service := lbService(testName, withProxyProtocol(tC.disallowedVersions, nil), withHTTPProxyApplication(opts...))
 			scenario.createLBService(service)
 
 			if tC.notAccepted {
 				t.Log("Waiting for proxy protocol version validation error...")
-				waitForProxyProtocolVersionValidationError(t, *ciliumCli, testK8sNamespace, testName)
+				waitForProxyProtocolVersionValidationError(t, *ciliumCli, scenario.k8sNamespace, testName)
 				return
 			}
 

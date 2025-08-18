@@ -38,31 +38,29 @@ func testLabelBasedBackend(t T, mode isovalentv1alpha1.LBTCPProxyForceDeployment
 		return
 	}
 
-	testK8sNamespace := "default"
-
 	testName := "labelbased-backend-" + string(mode)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
-	desiredBackends := scenario.AddAndWaitForK8sBackendApplications(testK8sNamespace, testName, 2, "")
+	desiredBackends := scenario.AddAndWaitForK8sBackendApplications(testName, 2, "")
 
 	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	backends = append(backends, withK8sServiceBackend(testName, 8080))
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(mode), withTCPProxyRoute(backendPool.Name)))
+	service := lbService(testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(mode), withTCPProxyRoute(backendPool.Name)))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")
@@ -104,12 +102,6 @@ func testLabelBasedBackend(t T, mode isovalentv1alpha1.LBTCPProxyForceDeployment
 func TestHTTPMultiNamespaceLabelBased(t T) {
 	testName := "http-multi-namespace-labelbased"
 
-	namespaces := []string{
-		testName + "-1",
-		testName + "-2",
-		testName + "-3",
-	}
-
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
@@ -123,58 +115,65 @@ func TestHTTPMultiNamespaceLabelBased(t T) {
 	}
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenarioWithNamespaces(t, testName, namespaces, ciliumCli, k8sCli, dockerCli)
-	scenario.createAllNamespaces()
+	// Using multiple scenarios to test the multi-namespace aspect within the same test
+	scenarios := []*lbTestScenario{
+		newLBTestScenario(t, testName+"-1", ciliumCli, k8sCli, dockerCli),
+		newLBTestScenario(t, testName+"-2", ciliumCli, k8sCli, dockerCli),
+		newLBTestScenario(t, testName+"-3", ciliumCli, k8sCli, dockerCli),
+	}
 
 	t.Log("Creating backend apps in separate namespaces...")
-	for i, namespace := range namespaces {
-		scenario.AddAndWaitForK8sBackendApplications(namespace, "backend-"+strconv.Itoa(i+1), 1, "")
+	for i, scenario := range scenarios {
+		scenario.AddAndWaitForK8sBackendApplications("backend-"+strconv.Itoa(i+1), 1, "")
 	}
 
 	t.Log("Creating clients and add BGP peering ...")
-	client := scenario.addFRRClients(1, frrClientConfig{})[0]
+	clients := []*frrContainer{}
+	for _, scenario := range scenarios {
+		clients = append(clients, scenario.addFRRClients(1, frrClientConfig{})[0])
+	}
 
 	t.Log("Creating LB VIP resources in separate namespaces...")
-	for i, namespace := range namespaces {
-		vip := lbVIP(namespace, testName+"-"+strconv.Itoa(i+1))
-		scenario.createLBVIPInNamespace(namespace, vip)
+	for i, scenario := range scenarios {
+		vip := lbVIP(testName + "-" + strconv.Itoa(i+1))
+		scenario.createLBVIP(vip)
 	}
 
 	t.Log("Creating LB BackendPool resources in separate namespaces...")
-	for i, namespace := range namespaces {
-		backendPool := lbBackendPool(namespace, "pool-"+strconv.Itoa(i+1),
+	for i, scenario := range scenarios {
+		backendPool := lbBackendPool("pool-"+strconv.Itoa(i+1),
 			withK8sServiceBackend("backend-"+strconv.Itoa(i+1), 8080))
-		scenario.createLBBackendPoolInNamespace(namespace, backendPool)
+		scenario.createLBBackendPool(backendPool)
 	}
 
 	deploymentMode := isovalentv1alpha1.LBTCPProxyForceDeploymentModeType(
 		isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1T2)
 
 	t.Log("Creating LB Service resources in separate namespaces...")
-	for i, namespace := range namespaces {
+	for i, scenario := range scenarios {
 		vipName := fmt.Sprintf("%s-%d", testName, i+1)
-		service := lbService(namespace, testName, withPort(80),
+		service := lbService(testName, withPort(80),
 			withVIPRef(vipName),
 			withTCPProxyApplication(
 				withTCPForceDeploymentMode(deploymentMode),
 				withTCPProxyRoute(fmt.Sprintf("pool-%d", i+1))))
-		scenario.createLBServiceInNamespace(namespace, service)
+		scenario.createLBService(service)
 	}
 
 	t.Log("Waiting for full VIP connectivity...")
 	vips := []string{}
-	for i, namespace := range namespaces {
+	for i, scenario := range scenarios {
 		vipName := fmt.Sprintf("%s-%d", testName, i+1)
-		vips = append(vips, scenario.waitForFullVIPConnectivityInNamespace(namespace, vipName))
+		vips = append(vips, scenario.waitForFullVIPConnectivity(vipName))
 	}
 
-	for i := range namespaces {
+	for i := range scenarios {
 		backendHostname := fmt.Sprintf("backend-%d.acme.io", i+1)
 		t.Log("Testing backend %d connectivity via hostname %s...", i+1, backendHostname)
 		testCmd := curlCmd(
 			fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --resolve %s:80:%s http://%s:80",
 				backendHostname, vips[i], backendHostname))
-		stdout, stderr, err := client.Exec(t.Context(), testCmd)
+		stdout, stderr, err := clients[i].Exec(t.Context(), testCmd)
 		if err != nil {
 			t.Failedf("curl failed for backend %d (cmd: %q, stdout: %q, stderr: %q): %s",
 				i+1, testCmd, stdout, stderr, err)

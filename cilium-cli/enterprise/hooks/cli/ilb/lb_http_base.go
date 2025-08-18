@@ -17,13 +17,12 @@ import (
 
 func TestHTTPAndT2HealthChecks(t T) {
 	testName := "http-1"
-	testK8sNamespace := "default"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
@@ -32,7 +31,7 @@ func TestHTTPAndT2HealthChecks(t T) {
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
@@ -40,11 +39,11 @@ func TestHTTPAndT2HealthChecks(t T) {
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(81), withHTTPProxyApplication(
+	service := lbService(testName, withPort(81), withHTTPProxyApplication(
 		withHttpRoute(testName),
 	))
 	scenario.createLBService(service)
@@ -107,14 +106,13 @@ func TestHTTPAndT2HealthChecks(t T) {
 
 func TestHTTP2(t T) {
 	testName := "http2-1"
-	testK8sNamespace := "default"
 	hostName := "mixed.acme.io"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
@@ -123,7 +121,7 @@ func TestHTTP2(t T) {
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
@@ -131,11 +129,11 @@ func TestHTTP2(t T) {
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(
+	service := lbService(testName, withHTTPProxyApplication(
 		withHttpRoute(testName, withHttpHostname(hostName)),
 	))
 	scenario.createLBService(service)
@@ -159,7 +157,6 @@ func TestHTTP2(t T) {
 
 func TestHTTPPath(t T) {
 	testName := "http-path-1"
-	testK8sNamespace := "default"
 	hostName := "insecure.acme.io"
 	path := "/api/foo-insecure"
 
@@ -167,7 +164,7 @@ func TestHTTPPath(t T) {
 	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
@@ -176,7 +173,7 @@ func TestHTTPPath(t T) {
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
@@ -184,11 +181,11 @@ func TestHTTPPath(t T) {
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(
+	service := lbService(testName, withHTTPProxyApplication(
 		withHttpRoute(testName, withHttpHostname(hostName), withHttpPath(path)),
 	))
 	scenario.createLBService(service)
@@ -218,7 +215,6 @@ func TestHTTPPath(t T) {
 
 func TestHTTPRoutes(t T) {
 	testName := "http-routes"
-	testK8sNamespace := "default"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
@@ -235,7 +231,7 @@ func TestHTTPRoutes(t T) {
 	}
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(4, backendApplicationConfig{h2cEnabled: true})
@@ -244,14 +240,14 @@ func TestHTTPRoutes(t T) {
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
 	// one backendpool per backend app
 	for postfix := range serviceBackendMappings {
 		backend := scenario.backendApps[testName+"-app"+postfix]
-		scenario.createLBBackendPool(lbBackendPool(testK8sNamespace, testName+postfix, withIPBackend(backend.ip, backend.port)))
+		scenario.createLBBackendPool(lbBackendPool(testName+postfix, withIPBackend(backend.ip, backend.port)))
 	}
 
 	t.Log("Creating LB Service resources...")
@@ -260,7 +256,7 @@ func TestHTTPRoutes(t T) {
 	for postfix, rhost := range serviceBackendMappings {
 		routes = append(routes, withHttpRoute(testName+postfix, withHttpHostname(rhost.hostname), withHttpPath(fmt.Sprintf("/%s", rhost.path))))
 	}
-	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(routes...))
+	service := lbService(testName, withHTTPProxyApplication(routes...))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")
@@ -286,65 +282,66 @@ func TestHTTPRoutes(t T) {
 func TestHTTPMultiNamespaceInClusterHostname(t T) {
 	testName := "http-multi-namespace-incluster-hostname"
 
-	namespaces := []string{
-		testName + "-1",
-		testName + "-2",
-		testName + "-3",
-	}
-
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	scenario := newLBTestScenarioWithNamespaces(t, testName, namespaces, ciliumCli, k8sCli, dockerCli)
-	scenario.createAllNamespaces()
+	// Using multiple scenarios to test the multi-namespace aspect within the same test
+	scenarios := []*lbTestScenario{
+		newLBTestScenario(t, testName+"-1", ciliumCli, k8sCli, dockerCli),
+		newLBTestScenario(t, testName+"-2", ciliumCli, k8sCli, dockerCli),
+		newLBTestScenario(t, testName+"-3", ciliumCli, k8sCli, dockerCli),
+	}
 
 	t.Log("Creating backend apps in separate namespaces...")
-	for i, namespace := range namespaces {
-		scenario.AddAndWaitForK8sBackendApplications(namespace, "backend-"+strconv.Itoa(i+1), 1, "")
+	for i, scenario := range scenarios {
+		scenario.AddAndWaitForK8sBackendApplications("backend-"+strconv.Itoa(i+1), 1, "")
 	}
 
 	t.Log("Creating clients and add BGP peering ...")
-	client := scenario.addFRRClients(1, frrClientConfig{})[0]
+	clients := []*frrContainer{}
+	for _, scenario := range scenarios {
+		clients = append(clients, scenario.addFRRClients(1, frrClientConfig{})[0])
+	}
 
 	t.Log("Creating LB VIP resources in separate namespaces...")
-	for i, namespace := range namespaces {
-		vip := lbVIP(namespace, testName+"-"+strconv.Itoa(i+1))
-		scenario.createLBVIPInNamespace(namespace, vip)
+	for i, scenario := range scenarios {
+		vip := lbVIP(testName + "-" + strconv.Itoa(i+1))
+		scenario.createLBVIP(vip)
 	}
 
 	t.Log("Creating LB BackendPool resources in separate namespaces...")
-	for i, namespace := range namespaces {
-		backendSvcHostname := fmt.Sprintf("backend-%d.%s.svc.cluster.local", i+1, namespace)
-		backendPool := lbBackendPool(namespace, "pool-"+strconv.Itoa(i+1),
+	for i, scenario := range scenarios {
+		backendSvcHostname := fmt.Sprintf("backend-%d.%s.svc.cluster.local", i+1, scenario.k8sNamespace)
+		backendPool := lbBackendPool("pool-"+strconv.Itoa(i+1),
 			withHostnameBackend(backendSvcHostname, 8080))
-		scenario.createLBBackendPoolInNamespace(namespace, backendPool)
+		scenario.createLBBackendPool(backendPool)
 	}
 
 	t.Log("Creating LB Service resources in separate namespaces...")
-	for i, namespace := range namespaces {
+	for i, scenario := range scenarios {
 		vipName := fmt.Sprintf("%s-%d", testName, i+1)
-		service := lbService(namespace, "service-"+strconv.Itoa(i+1), withPort(80),
+		service := lbService("service-"+strconv.Itoa(i+1), withPort(80),
 			withVIPRef(vipName),
 			withHTTPProxyApplication(
 				withHttpRoute("pool-"+strconv.Itoa(i+1),
 					withHttpHostname(fmt.Sprintf("backend-%d.acme.io", i+1)))))
-		scenario.createLBServiceInNamespace(namespace, service)
+		scenario.createLBService(service)
 	}
 
 	t.Log("Waiting for full VIP connectivity...")
 	vips := []string{}
-	for i, namespace := range namespaces {
+	for i, scenario := range scenarios {
 		vipName := fmt.Sprintf("%s-%d", testName, i+1)
-		vips = append(vips, scenario.waitForFullVIPConnectivityInNamespace(namespace, vipName))
+		vips = append(vips, scenario.waitForFullVIPConnectivity(vipName))
 	}
 
-	for i := range namespaces {
+	for i := range scenarios {
 		backendHostname := fmt.Sprintf("backend-%d.acme.io", i+1)
 		t.Log("Testing backend %d connectivity via hostname %s...", i+1, backendHostname)
 		testCmd := curlCmd(
 			fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' --resolve %s:80:%s http://%s:80",
 				backendHostname, vips[i], backendHostname))
-		stdout, stderr, err := client.Exec(t.Context(), testCmd)
+		stdout, stderr, err := clients[i].Exec(t.Context(), testCmd)
 		if err != nil {
 			t.Failedf("curl failed for backend %d (cmd: %q, stdout: %q, stderr: %q): %s",
 				i+1, testCmd, stdout, stderr, err)

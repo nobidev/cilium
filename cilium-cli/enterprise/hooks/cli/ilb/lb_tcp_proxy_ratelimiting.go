@@ -21,13 +21,12 @@ import (
 )
 
 func TestTCPProxyRatelimiting(t T) {
-	ns := "default"
 	testName := "tcp-proxy-ratelimiting"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend app...")
 
@@ -39,17 +38,17 @@ func TestTCPProxyRatelimiting(t T) {
 
 	t.Log("Creating LB VIP resources...")
 
-	vip := lbVIP(ns, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
 
-	backendPool := lbBackendPool(ns, testName, withIPBackend(backends[0].ip, backends[0].port))
+	backendPool := lbBackendPool(testName, withIPBackend(backends[0].ip, backends[0].port))
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
 
-	service := lbService(ns, testName, withPort(10080), withTCPProxyApplication(withTCPProxyRoute(backendPool.Name, withTCPProxyConnectionRateLimiting(5, 60))))
+	service := lbService(testName, withPort(10080), withTCPProxyApplication(withTCPProxyRoute(backendPool.Name, withTCPProxyConnectionRateLimiting(5, 60))))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")
@@ -86,16 +85,19 @@ func TestTCPProxyRatelimiting(t T) {
 }
 
 func TestTCPProxyRatelimiting_Fail_T1Only(t T) {
-	ns := "default"
 	testName := "tcp-proxy-ratelimiting-fail-t1-only"
 
-	ciliumCli, _ := NewCiliumAndK8sCli(t)
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
 
-	service := lbService(ns, testName, withPort(10080), withTCPProxyApplication(withTCPForceDeploymentMode(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1), withTCPProxyRoute("fake", withTCPProxyConnectionRateLimiting(5, 60))))
+	// for namespace creation
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
-	err := ciliumCli.CreateLBService(t.Context(), ns, service, metav1.CreateOptions{})
+	service := lbService(testName, withPort(10080), withTCPProxyApplication(withTCPForceDeploymentMode(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1), withTCPProxyRoute("fake", withTCPProxyConnectionRateLimiting(5, 60))))
+
+	err := ciliumCli.CreateLBService(t.Context(), scenario.k8sNamespace, service, metav1.CreateOptions{})
 	if err == nil {
-		t.Failedf("CreabeLBService should return an error")
+		t.Failedf("CreateLBService should return an error")
 	}
 
 	if !strings.Contains(err.Error(), "Force deployment mode t1-only isn't compatible with rate limits") {

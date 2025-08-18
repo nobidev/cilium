@@ -1351,11 +1351,10 @@ func withUDPProxyConnectionFilteringAllowBySourceIP(sourceCIDR string) udpRouteO
 	}
 }
 
-func lbService(namespace string, name string, opts ...serviceOption) *isovalentv1alpha1.LBService {
+func lbService(name string, opts ...serviceOption) *isovalentv1alpha1.LBService {
 	svc := &isovalentv1alpha1.LBService{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
+			Name: name,
 		},
 		Spec: isovalentv1alpha1.LBServiceSpec{
 			VIPRef: isovalentv1alpha1.LBServiceVIPRef{
@@ -1468,11 +1467,10 @@ func withProxyProtocolConfig(version int, tlvs []int) backendPoolOption {
 	}
 }
 
-func lbBackendPool(namespace string, name string, opts ...backendPoolOption) *isovalentv1alpha1.LBBackendPool {
+func lbBackendPool(name string, opts ...backendPoolOption) *isovalentv1alpha1.LBBackendPool {
 	pool := &isovalentv1alpha1.LBBackendPool{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
+			Name: name,
 		},
 		Spec: isovalentv1alpha1.LBBackendPoolSpec{
 			HealthCheck: isovalentv1alpha1.HealthCheck{
@@ -1500,11 +1498,10 @@ func withRequestedIPv4(ipv4 string) vipOption {
 	}
 }
 
-func lbVIP(namespace string, name string, opts ...vipOption) *isovalentv1alpha1.LBVIP {
+func lbVIP(name string, opts ...vipOption) *isovalentv1alpha1.LBVIP {
 	obj := &isovalentv1alpha1.LBVIP{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
+			Name: name,
 		},
 		Spec: isovalentv1alpha1.LBVIPSpec{},
 	}
@@ -1573,11 +1570,10 @@ func caSecret(namespace, name string, cert []byte) *corev1.Secret {
 	}
 }
 
-func lbDeployment(namespace string, name string, opts ...deploymentOption) *isovalentv1alpha1.LBDeployment {
+func lbDeployment(name string, opts ...deploymentOption) *isovalentv1alpha1.LBDeployment {
 	svc := &isovalentv1alpha1.LBDeployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
+			Name: name,
 		},
 		Spec: isovalentv1alpha1.LBDeploymentSpec{
 			Services: isovalentv1alpha1.LBDeploymentServices{

@@ -16,7 +16,6 @@ import (
 
 func TestTLSPassthrough(t T) {
 	testName := "https-passthrough-1"
-	testK8sNamespace := "default"
 	hostName1 := "passthrough.acme.io"
 	hostName2 := "passthrough-2.acme.io"
 
@@ -24,7 +23,7 @@ func TestTLSPassthrough(t T) {
 	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating cert and secret...")
 	scenario.createBackendServerCertificate(hostName1)
@@ -38,18 +37,18 @@ func TestTLSPassthrough(t T) {
 	client := scenario.addFRRClients(1, frrClientConfig{trustedCertsHostnames: []string{hostName1, hostName2}})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
-	backendPool1 := lbBackendPool(testK8sNamespace, testName+"-1", withIPBackend(backend1.ip, 8080), withHealthCheckTLS())
+	backendPool1 := lbBackendPool(testName+"-1", withIPBackend(backend1.ip, 8080), withHealthCheckTLS())
 	scenario.createLBBackendPool(backendPool1)
 
-	backendPool2 := lbBackendPool(testK8sNamespace, testName+"-2", withIPBackend(backend2.ip, 8081), withHealthCheckTLS())
+	backendPool2 := lbBackendPool(testName+"-2", withIPBackend(backend2.ip, 8081), withHealthCheckTLS())
 	scenario.createLBBackendPool(backendPool2)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withTLSPassthroughApplication(
+	service := lbService(testName, withTLSPassthroughApplication(
 		withTLSPassthroughRoute(testName+"-1", withTLSPassthroughHostname(hostName1)),
 		withTLSPassthroughRoute(testName+"-2"),
 	))

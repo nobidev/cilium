@@ -19,13 +19,12 @@ import (
 
 func TestBGPHealthCheck(t T) {
 	testName := "bgp-health-check"
-	testK8sNamespace := "default"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend app...")
 	backend := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})[0]
@@ -34,15 +33,15 @@ func TestBGPHealthCheck(t T) {
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
-	backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port))
+	backendPool := lbBackendPool(testName, withIPBackend(backend.ip, backend.port))
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName)))
+	service := lbService(testName, withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")
@@ -79,7 +78,6 @@ func TestBGPHealthCheck(t T) {
 
 func TestBGPHealthCheckSubset(t T) {
 	testName := "bgp-health-check-subset"
-	testK8sNamespace := "default"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
@@ -110,7 +108,7 @@ func TestBGPHealthCheckSubset(t T) {
 	}
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend app...")
 	backend := scenario.addBackendApplications(1, backendApplicationConfig{h2cEnabled: true})[0]
@@ -119,22 +117,22 @@ func TestBGPHealthCheckSubset(t T) {
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
-	backendPool := lbBackendPool(testK8sNamespace, testName, withIPBackend(backend.ip, backend.port))
+	backendPool := lbBackendPool(testName, withIPBackend(backend.ip, backend.port))
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withLabels(map[string]string{"special-label": "special-label-value"}), withHTTPProxyApplication(withHttpRoute(testName)))
+	service := lbService(testName, withLabels(map[string]string{"special-label": "special-label-value"}), withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	t.Log("Apply LBDeployment that selects only one T1 node...")
-	lbDeployment := lbDeployment(testK8sNamespace, testName, withT1Nodes(fmt.Sprintf("kubernetes.io/hostname in ( %s )", selectedNode.GetLabels()["kubernetes.io/hostname"])), WithServiceSelector("special-label == special-label-value"))
+	lbDeployment := lbDeployment(testName, withT1Nodes(fmt.Sprintf("kubernetes.io/hostname in ( %s )", selectedNode.GetLabels()["kubernetes.io/hostname"])), WithServiceSelector("special-label == special-label-value"))
 	scenario.createLBDeployment(lbDeployment)
 
 	t.Log("Waiting until routes for VIP via unselected nodes are withdrawn...")

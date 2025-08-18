@@ -16,13 +16,12 @@ import (
 
 func TestSharedVIP(t T) {
 	testName := "shared-vip-1"
-	testK8sNamespace := "default"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
@@ -32,7 +31,7 @@ func TestSharedVIP(t T) {
 
 	t.Log("Creating LB VIP resources...")
 	sharedVIPName := testName + "-shared"
-	vip := lbVIP(testK8sNamespace, sharedVIPName)
+	vip := lbVIP(sharedVIPName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
@@ -40,14 +39,14 @@ func TestSharedVIP(t T) {
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service1 := lbService(testK8sNamespace, testName+"-1", withVIPRef(sharedVIPName), withPort(80), withHTTPProxyApplication(withHttpRoute(testName)))
+	service1 := lbService(testName+"-1", withVIPRef(sharedVIPName), withPort(80), withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(service1)
 
-	service2 := lbService(testK8sNamespace, testName+"-2", withVIPRef(sharedVIPName), withPort(81), withHTTPProxyApplication(withHttpRoute(testName)))
+	service2 := lbService(testName+"-2", withVIPRef(sharedVIPName), withPort(81), withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(service2)
 
 	t.Log("Waiting for full VIP connectivity...")
@@ -75,13 +74,12 @@ func TestSharedVIP(t T) {
 
 func TestRequestedVIP(t T) {
 	testName := "requested-vip-1"
-	testK8sNamespace := "default"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
 	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
@@ -91,7 +89,7 @@ func TestRequestedVIP(t T) {
 
 	t.Log("Creating LB VIP resources...")
 	requestedVIP := "100.64.0.250"
-	vip := lbVIP(testK8sNamespace, testName, withRequestedIPv4(requestedVIP))
+	vip := lbVIP(testName, withRequestedIPv4(requestedVIP))
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
@@ -99,11 +97,11 @@ func TestRequestedVIP(t T) {
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service1 := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName)))
+	service1 := lbService(testName, withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(service1)
 
 	t.Log("Waiting for full VIP connectivity...")

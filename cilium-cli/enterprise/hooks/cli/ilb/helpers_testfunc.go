@@ -50,7 +50,7 @@ func NewLBTestFunc(run *lbTestRun, ctx context.Context, testFunc func(t T)) *LbT
 	return &LbTestFunc{
 		run:       run,
 		ctx:       ctx,
-		name:      testName(testFunc),
+		name:      testNameFromFunc(testFunc),
 		testFunc:  testFunc,
 		cleanupCb: []func(ctx context.Context) error{},
 	}
@@ -145,7 +145,7 @@ func (r *LbTestFunc) runCleanups() {
 	r.cleanupCb = []func(ctx context.Context) error{}
 }
 
-func testName(f func(t T)) string {
+func testNameFromFunc(f func(t T)) string {
 	testFuncNameFull := strings.Split(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), ".")
 	return testFuncNameFull[len(testFuncNameFull)-1]
 }

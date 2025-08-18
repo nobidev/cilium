@@ -33,13 +33,12 @@ func testTCPProxyPersistentBackend(t T, forceDeploymentMode isovalentv1alpha1.LB
 		return
 	}
 
-	ns := "default"
-	testName := "tcp-proxy-persistent-backend"
+	testName := fmt.Sprintf("tcp-proxy-persistent-backend-%s", forceDeploymentMode)
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	scenario := newLBTestScenario(t, testName, ns, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend app...")
 
@@ -51,7 +50,7 @@ func testTCPProxyPersistentBackend(t T, forceDeploymentMode isovalentv1alpha1.LB
 
 	t.Log("Creating LB VIP resources...")
 
-	vip := lbVIP(ns, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
@@ -61,12 +60,12 @@ func testTCPProxyPersistentBackend(t T, forceDeploymentMode isovalentv1alpha1.LB
 	for _, b := range scenario.backendApps {
 		backends = append(backends, withIPBackend(b.ip, b.port))
 	}
-	backendPool := lbBackendPool(ns, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
 
-	service := lbService(ns, testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, withTCPProxyBackendPersistenceBySourceIP())))
+	service := lbService(testName, withPort(80), withTCPProxyApplication(withTCPForceDeploymentMode(forceDeploymentMode), withTCPProxyRoute(backendPool.Name, withTCPProxyBackendPersistenceBySourceIP())))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")

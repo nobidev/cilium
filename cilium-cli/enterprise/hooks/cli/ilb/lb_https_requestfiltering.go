@@ -400,10 +400,9 @@ func TestHTTPSRequestFiltering(t T) {
 			t.Log("Checking %s", tC.desc)
 
 			testName := fmt.Sprintf("https-requestfiltering-%s", tC.desc)
-			testK8sNamespace := "default"
 
 			// 0. Setup test scenario (backends, clients & LB resources)
-			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+			scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 			t.Log("Creating cert and secret...")
 			scenario.createLBServerCertificate(testName+"-1", "secure.acme.io")
@@ -420,7 +419,7 @@ func TestHTTPSRequestFiltering(t T) {
 			clients := scenario.addFRRClients(2, frrClientConfig{trustedCertsHostnames: []string{"secure.acme.io", "admin.secure.acme.io", "moresecure.acme.io", "admin.moresecure.acme.io", "secure2.acme.io", "admin.secure2.acme.io"}})
 
 			t.Log("Creating LB VIP resources...")
-			vip := lbVIP(testK8sNamespace, testName)
+			vip := lbVIP(testName)
 			scenario.createLBVIP(vip)
 
 			t.Log("Creating LB BackendPool resources...")
@@ -428,7 +427,7 @@ func TestHTTPSRequestFiltering(t T) {
 			for _, b := range scenario.backendApps {
 				backends = append(backends, withIPBackend(b.ip, b.port))
 			}
-			backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+			backendPool := lbBackendPool(testName, backends...)
 			scenario.createLBBackendPool(backendPool)
 
 			t.Log("Creating LB Service resources...")
@@ -440,7 +439,7 @@ func TestHTTPSRequestFiltering(t T) {
 			opts = append(opts, withCertificate(testName+"-4"))
 			opts = append(opts, withCertificate(testName+"-5"))
 			opts = append(opts, withCertificate(testName+"-6"))
-			service := lbService(testK8sNamespace, testName, withPort(443), withHTTPSProxyApplication(opts...))
+			service := lbService(testName, withPort(443), withHTTPSProxyApplication(opts...))
 			scenario.createLBService(service)
 
 			t.Log("Waiting for full VIP connectivity...")

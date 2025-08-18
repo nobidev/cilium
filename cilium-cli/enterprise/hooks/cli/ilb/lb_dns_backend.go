@@ -18,7 +18,6 @@ import (
 
 func TestDNSBackend(t T) {
 	testNameBase := "dns-backend"
-	testK8sNamespace := "default"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
@@ -90,7 +89,7 @@ func TestDNSBackend(t T) {
 			testName := testNameBase + tt.suffix
 			backendHostName := fmt.Sprintf("backend.%s.local", testName)
 
-			scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+			scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 			t.Log("Creating backend apps...")
 
@@ -137,19 +136,19 @@ func TestDNSBackend(t T) {
 			client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 			t.Log("Creating LB VIP resources...")
-			vip := lbVIP(testK8sNamespace, testName)
+			vip := lbVIP(testName)
 			scenario.createLBVIP(vip)
 
 			t.Log("Creating LB BackendPool resources...")
 			var backendPool *isovalentv1alpha1.LBBackendPool
 			if tt.backendTLS {
-				backendPool = lbBackendPool(testK8sNamespace, testName,
+				backendPool = lbBackendPool(testName,
 					withHostnameBackend(backendHostName, 8080),
 					withDNSResolver(coredns.ip, coredns.port),
 					withHealthCheckTLS(),
 				)
 			} else {
-				backendPool = lbBackendPool(testK8sNamespace, testName,
+				backendPool = lbBackendPool(testName,
 					withHostnameBackend(backendHostName, 8080),
 					withDNSResolver(coredns.ip, coredns.port),
 				)
@@ -162,7 +161,7 @@ func TestDNSBackend(t T) {
 				scenario.createLBServerCertificate(testName, "secure.acme.io")
 			}
 
-			service := lbService(testK8sNamespace, testName, tt.serviceOptions...)
+			service := lbService(testName, tt.serviceOptions...)
 			scenario.createLBService(service)
 			svcPort := service.Spec.Port
 

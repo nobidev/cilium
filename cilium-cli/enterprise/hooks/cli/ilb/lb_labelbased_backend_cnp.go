@@ -39,31 +39,29 @@ func testLabelBasedBackendCNP(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploym
 		return
 	}
 
-	testK8sNamespace := "default"
-
 	testName := "labelbased-backend-cnp-" + string(mode)
 
 	// 0. Setup test scenario (backends, clients & LB resources)
-	scenario := newLBTestScenario(t, testName, testK8sNamespace, ciliumCli, k8sCli, dockerCli)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
-	_ = scenario.AddAndWaitForK8sBackendApplications(testK8sNamespace, testName, 2, "")
+	_ = scenario.AddAndWaitForK8sBackendApplications(testName, 2, "")
 
 	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
 	t.Log("Creating LB VIP resources...")
-	vip := lbVIP(testK8sNamespace, testName)
+	vip := lbVIP(testName)
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	backends = append(backends, withK8sServiceBackend(testName, 8080))
-	backendPool := lbBackendPool(testK8sNamespace, testName, backends...)
+	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withPort(80), withHTTPProxyApplication(withHttpRoute(backendPool.Name)))
+	service := lbService(testName, withPort(80), withHTTPProxyApplication(withHttpRoute(backendPool.Name)))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")
@@ -90,14 +88,14 @@ func testLabelBasedBackendCNP(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploym
 	}
 
 	t.Log("Applying Ingress CNP...")
-	cnp := podIngressL7CNP(testK8sNamespace)
+	cnp := podIngressL7CNP(scenario.k8sNamespace)
 
-	_, err := ciliumCli.CiliumV2().CiliumNetworkPolicies(testK8sNamespace).Create(t.Context(), cnp, metav1.CreateOptions{})
+	_, err := ciliumCli.CiliumV2().CiliumNetworkPolicies(scenario.k8sNamespace).Create(t.Context(), cnp, metav1.CreateOptions{})
 	if err != nil {
 		t.Failedf("failed to create CNP")
 	}
 	t.RegisterCleanup(func(ctx context.Context) error {
-		return ciliumCli.CiliumV2().CiliumNetworkPolicies(testK8sNamespace).Delete(ctx, cnp.Name, metav1.DeleteOptions{})
+		return ciliumCli.CiliumV2().CiliumNetworkPolicies(scenario.k8sNamespace).Delete(ctx, cnp.Name, metav1.DeleteOptions{})
 	})
 
 	t.Log("Checking that CNP matches Ingress identity and blocks path != / ...")
