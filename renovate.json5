@@ -30,6 +30,7 @@
   pruneStaleBranches: true,
   baseBranches: [
     'main-ce',
+    'v1.18-ce',
     'v1.17-ce',
     'v1.16-ce',
     'v1.15-ce',
