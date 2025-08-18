@@ -29,5 +29,6 @@ cp ${olm_dir}/config/samples/operatorgroup.yaml ${olm_dir}/dist/manifests/
 cp ${olm_dir}/config/samples/subscription.yaml ${olm_dir}/dist/manifests/
 docker run --rm -v "${olm_dir}":/workdir --user "$(id -u):$(id -g)" mikefarah/yq:${yq_version} e -i ".spec.channel = \"${channel}\"" /workdir/dist/manifests/subscription.yaml
 tar -czvf ${olm_dir}/.docs/clife-${version}.tar.gz -C ${olm_dir}/dist/manifests .
-sha256sum ${olm_dir}/.docs/clife-${version}.tar.gz > ${olm_dir}/.docs/clife-${version}.tar.gz.sha256
-
+pushd ${olm_dir}/.docs
+sha256sum clife-${version}.tar.gz > ${olm_dir}/.docs/clife-${version}.tar.gz.sha256
+popd
