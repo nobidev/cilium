@@ -123,7 +123,7 @@ jobs:
             nr-of-worker-nodes: 0
             t1t2-nodes: "kind-control-plane"
 
-    timeout-minutes: 60
+    timeout-minutes: 120
 
     steps:
       - name: Collect Workflow Telemetry
