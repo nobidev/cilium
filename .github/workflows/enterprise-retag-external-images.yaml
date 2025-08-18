@@ -155,7 +155,7 @@ jobs:
         run: cosign sign -y ${{ matrix.destination-repo }}@${{ steps.image-digest.outputs.result }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@7b36ad622f042cab6f59a75c2ac24ccb256e9b45 # v0.20.4
+        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
         with:
           artifact-name: sbom_${{ matrix.image }}_${{ steps.destination-tag.outputs.result }}.spdx.json
           output-file: ./sbom_${{ matrix.image }}_${{ steps.destination-tag.outputs.result }}.spdx.json

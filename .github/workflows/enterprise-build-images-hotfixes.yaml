@@ -168,7 +168,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.tag-in-repositories.outputs.exist != 'true' }}
-        uses: anchore/sbom-action@7b36ad622f042cab6f59a75c2ac24ccb256e9b45 # v0.20.4
+        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
         with:
           artifact-name: sbom_${{ matrix.image_name }}-${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_${{ matrix.image_name }}-${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
