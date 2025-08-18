@@ -127,14 +127,14 @@ func TestBGPHealthCheckSubset(t T) {
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
-	service := lbService(testK8sNamespace, testName, withHTTPProxyApplication(withHttpRoute(testName)))
+	service := lbService(testK8sNamespace, testName, withLabels(map[string]string{"special-label": "special-label-value"}), withHTTPProxyApplication(withHttpRoute(testName)))
 	scenario.createLBService(service)
 
 	t.Log("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	t.Log("Apply LBDeployment that selects only one T1 node...")
-	lbDeployment := lbDeployment(testK8sNamespace, testName, withT1Nodes(fmt.Sprintf("kubernetes.io/hostname in ( %s )", selectedNode.GetLabels()["kubernetes.io/hostname"])))
+	lbDeployment := lbDeployment(testK8sNamespace, testName, withT1Nodes(fmt.Sprintf("kubernetes.io/hostname in ( %s )", selectedNode.GetLabels()["kubernetes.io/hostname"])), WithServiceSelector("special-label == special-label-value"))
 	scenario.createLBDeployment(lbDeployment)
 
 	t.Log("Waiting until routes for VIP via unselected nodes are withdrawn...")

@@ -11,6 +11,8 @@
 package ilb
 
 import (
+	"maps"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -964,6 +966,16 @@ func withHttpsRouteJWTAuthDisabled() httpsApplicationRouteOption {
 
 type serviceOption func(o *isovalentv1alpha1.LBService)
 
+func withLabels(labels map[string]string) serviceOption {
+	return func(o *isovalentv1alpha1.LBService) {
+		if o.Labels == nil {
+			o.Labels = map[string]string{}
+		}
+
+		maps.Copy(o.Labels, labels)
+	}
+}
+
 func withVIPRef(vipName string) serviceOption {
 	return func(o *isovalentv1alpha1.LBService) {
 		o.Spec.VIPRef = isovalentv1alpha1.LBServiceVIPRef{
@@ -1597,5 +1609,16 @@ func withT1Nodes(t1NodeLabelSelector string) deploymentOption {
 		}
 
 		o.Spec.Nodes.LabelSelectors.T1 = *ls
+	}
+}
+
+func WithServiceSelector(serviceLabelSelector string) deploymentOption {
+	return func(o *isovalentv1alpha1.LBDeployment) {
+		ls, err := slim_metav1.ParseToLabelSelector(serviceLabelSelector)
+		if err != nil {
+			panic(err)
+		}
+
+		o.Spec.Services.LabelSelector = ls
 	}
 }
