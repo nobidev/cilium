@@ -31,6 +31,8 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
+	entcm "github.com/cilium/cilium/enterprise/clustermesh-apiserver/clustermesh"
+	entcmk8s "github.com/cilium/cilium/enterprise/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/enterprise/pkg/clustermesh/clustercfg"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
@@ -102,6 +104,8 @@ func TestScript(t *testing.T) {
 			clustermesh.Synchronization,
 
 			clustercfg.Cell,
+			entcmk8s.ResourcesCell,
+			entcm.EnterpriseSynchronization,
 		)
 
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)

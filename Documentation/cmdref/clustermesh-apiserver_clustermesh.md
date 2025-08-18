@@ -44,6 +44,7 @@ clustermesh-apiserver clustermesh [flags]
       --pprof                                        Enable serving pprof debugging API
       --pprof-address string                         Address that pprof listens on (default "localhost")
       --pprof-port uint16                            Port that pprof listens on (default 6063)
+      --private-networks-enabled                     Enable support for private networks
       --prometheus-serve-addr string                 Address to serve Prometheus metrics
 ```
 

@@ -12,12 +12,16 @@ package kvstore_test
 
 import (
 	"net/netip"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
+	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/mac"
 )
 
@@ -153,4 +157,66 @@ func TestEndpointMarshalUnmarshal(t *testing.T) {
 			require.Equal(t, tt.endpoint, got.(*kvstore.ValidatingEndpoint).Endpoint)
 		})
 	}
+}
+
+func TestEndpointsFromEndpointSlice(t *testing.T) {
+	type (
+		Addr = iso_v1alpha1.PrivateNetworkEndpointAddressing
+		EP   = iso_v1alpha1.PrivateNetworkEndpointSliceEndpoint
+		IF   = iso_v1alpha1.PrivateNetworkEndpointSliceInterface
+	)
+
+	var (
+		MPA = netip.MustParseAddr
+		MPM = func(in string) mac.MAC {
+			out, err := mac.ParseMAC(in)
+			require.NoError(t, err, "ParseMAC")
+			return out
+		}
+
+		now    = time.Now().UTC()
+		source = kvstore.Source{
+			Cluster:   "__cluster__",
+			Namespace: "__namespace__",
+			Name:      "__name__",
+		}
+
+		input = &iso_v1alpha1.PrivateNetworkEndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{Namespace: source.Namespace, Name: source.Name},
+			Endpoints: []iso_v1alpha1.PrivateNetworkEndpointSliceEntry{
+				{
+					Endpoint:  EP{Name: "ipv4-only", Addressing: Addr{IPv4: "192.168.0.1"}},
+					Interface: IF{Network: "net-1", Addressing: Addr{IPv4: "10.0.0.1"}, MAC: "00:11:22:33:44:55"},
+				},
+				{
+					Endpoint:  EP{Name: "ipv6-only", Addressing: Addr{IPv6: "fc00::1"}},
+					Interface: IF{Network: "net-2", Addressing: Addr{IPv6: "fd00::1"}, MAC: "00:11:22:33:44:66"},
+				},
+				{
+					Endpoint:    EP{Name: "dual", Addressing: Addr{IPv4: "192.168.0.2", IPv6: "fc00::2"}},
+					Interface:   IF{Network: "net-3", Addressing: Addr{IPv4: "10.0.0.2", IPv6: "fd00::2"}, MAC: "00:11:22:33:44:77"},
+					ActivatedAt: metav1.MicroTime{Time: now},
+				},
+				{
+					Endpoint:  EP{Name: "invalid-mac", Addressing: Addr{IPv4: "192.168.0.3"}},
+					Interface: IF{Network: "net-4", Addressing: Addr{IPv4: "10.0.0.3"}, MAC: "__invalid__"},
+				},
+				{
+					Endpoint:  EP{Name: "invalid-ips", Addressing: Addr{IPv4: "192.168.0.3", IPv6: "__invalid__"}},
+					Interface: IF{Network: "net-5", Addressing: Addr{IPv6: "10.0.0.3"}, MAC: "00:11:22:33:44:88"},
+				},
+			},
+		}
+
+		expected = []*kvstore.Endpoint{
+			{Source: source, Name: "ipv4-only", IP: MPA("192.168.0.1"), Network: kvstore.Network{Name: "net-1", IP: MPA("10.0.0.1"), MAC: MPM("00:11:22:33:44:55")}},
+			{Source: source, Name: "ipv6-only", IP: MPA("fc00::1"), Network: kvstore.Network{Name: "net-2", IP: MPA("fd00::1"), MAC: MPM("00:11:22:33:44:66")}},
+			{Source: source, Name: "dual", IP: MPA("192.168.0.2"), Network: kvstore.Network{Name: "net-3", IP: MPA("10.0.0.2"), MAC: MPM("00:11:22:33:44:77")}, ActivatedAt: now},
+			{Source: source, Name: "dual", IP: MPA("fc00::2"), Network: kvstore.Network{Name: "net-3", IP: MPA("fd00::2"), MAC: MPM("00:11:22:33:44:77")}, ActivatedAt: now},
+		}
+
+		actual = slices.Collect(kvstore.EndpointsFromEndpointSlice(hivetest.Logger(t), source.Cluster, input))
+	)
+
+	require.Equal(t, expected, actual)
 }

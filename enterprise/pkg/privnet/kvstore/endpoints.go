@@ -13,11 +13,15 @@ package kvstore
 import (
 	"encoding/json"
 	"fmt"
+	"iter"
+	"log/slog"
 	"net/netip"
 	"path"
 
+	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -108,6 +112,76 @@ func (e *Endpoint) validate(key string) error {
 	}
 
 	return nil
+}
+
+// EndpointsFromEndpointSliceEntry returns an iterator of Endpoint objects generated from the specific EndpointSlice.
+func EndpointsFromEndpointSlice(logger *slog.Logger, clusterName string, slice *iso_v1alpha1.PrivateNetworkEndpointSlice) iter.Seq[*Endpoint] {
+	return func(yield func(*Endpoint) bool) {
+		for _, ep := range slice.Endpoints {
+			newEndpoint := func(epAddr string, netAddr string) (*Endpoint, error) {
+				mac, err := mac.ParseMAC(ep.Interface.MAC)
+				if err != nil {
+					return nil, err
+				}
+
+				netAddrParsed, err := netip.ParseAddr(netAddr)
+				if err != nil {
+					return nil, err
+				}
+
+				epAddrParsed, err := netip.ParseAddr(epAddr)
+				if err != nil {
+					return nil, err
+				}
+
+				return &Endpoint{
+					ActivatedAt: ep.ActivatedAt.Time.UTC(),
+
+					IP:   epAddrParsed,
+					Name: ep.Endpoint.Name,
+
+					Network: Network{
+						Name: ep.Interface.Network,
+						IP:   netAddrParsed,
+						MAC:  mac,
+					},
+
+					Source: Source{
+						Cluster:   clusterName,
+						Namespace: slice.GetNamespace(),
+						Name:      slice.GetName(),
+					},
+				}, nil
+			}
+
+			for _, pair := range []struct {
+				epAddr, netAddr string
+			}{
+				{ep.Endpoint.Addressing.IPv4, ep.Interface.Addressing.IPv4},
+				{ep.Endpoint.Addressing.IPv6, ep.Interface.Addressing.IPv6},
+			} {
+				if pair.epAddr == "" || pair.netAddr == "" {
+					continue
+				}
+
+				endpoint, err := newEndpoint(pair.epAddr, pair.netAddr)
+				if err != nil {
+					logger.Warn(
+						"Ignoring invalid PrivateNetworkEndpointSlice entry",
+						logfields.Error, err,
+						logfields.K8sNamespace, slice.Namespace,
+						logfields.Name, slice.Name,
+						logfields.Network, ep.Interface.Network,
+					)
+					continue
+				}
+
+				if !yield(endpoint) {
+					return
+				}
+			}
+		}
+	}
 }
 
 // ValidatingEndpoint wraps an Endpoint to perform additional validations at
