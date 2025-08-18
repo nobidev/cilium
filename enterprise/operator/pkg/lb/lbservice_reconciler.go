@@ -174,7 +174,6 @@ func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changed EndpointSlice resources and trigger LBServices that indirectly reference the changed EndpointSlice.
 		// Note: Multiple EndpointSlice can exist per K8s Service by design. They reference their K8s Service via K8s Label.
 		Watches(&discoveryv1.EndpointSlice{}, r.enqueueReferencingLBServicesByIndex(lbServiceK8sServiceIndexName, byServiceNameLabel)).
-		// Watch for changed LBDeployment resources and trigger all LBServices
 		// T1 Service resource with OwnerReference to the LBService
 		Owns(&corev1.Service{}).
 		// T1 EndpointSlice resource with OwnerReference to the LBService
