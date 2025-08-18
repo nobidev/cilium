@@ -30,10 +30,10 @@ function preflight {
           --certification-component-id=${component_id}"
   if [ ${submit} = true ]; then
     cmd="$cmd \
-	  --sumbit"
+	  --submit"
   fi
-  echo "docker run --rm quay.io/opdev/preflight:stable check container ${image} --pyxis-api-token=xxxxxxxxxxxxxxxx --certification-component-id=${component_id}  > $output"
-  docker run --rm quay.io/opdev/preflight:stable check container ${image} --pyxis-api-token=${token} --certification-component-id=${component_id}  > $output
+  echo "docker run --rm quay.io/opdev/preflight:stable ${cmd}  > $output"
+  docker run --rm quay.io/opdev/preflight:stable ${cmd}  > $output
 }
 
 function preflight-eval {
