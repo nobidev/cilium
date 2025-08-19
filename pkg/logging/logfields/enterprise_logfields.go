@@ -108,4 +108,6 @@ const (
 	ToRemove = "toRemove"
 
 	WorldIdentity = "worldIdentity"
+
+	ClusterwidePrivateNetwork = "ClusterwidePrivateNetwork"
 )
