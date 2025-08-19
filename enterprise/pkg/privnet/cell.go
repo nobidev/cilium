@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
 )
 
 var Cell = cell.Module(
@@ -21,4 +22,6 @@ var Cell = cell.Module(
 	"Support for Private Networks",
 
 	pncfg.Cell,
+
+	reconcilers.PrivateNetworksCell,
 )
