@@ -137,6 +137,8 @@ cilium status`
 
 	command.AddCommand(lbCmd)
 
+	command.AddCommand(cli.CmdDiagnostics)
+
 	for _, cmd := range command.Commands() {
 		if !slices.Contains(supportedCommands, cmd.Name()) {
 			cmd.Hidden = true
