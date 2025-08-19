@@ -1,0 +1,109 @@
+#! --private-networks-enabled
+
+hive start
+db/initialized private-networks
+
+# Add two ClusterwidePrivateNetworks
+k8s/add icpn-1.yaml icpn-2.yaml
+
+# Ensure that they are correctly propagated into the table
+db/cmp private-networks privnet.table
+
+# Ensure that all the fields are propagated correctly
+db/get private-networks direct-maggot -f yaml -o privnet.direct-maggot.actual.yaml
+cmp privnet.direct-maggot.actual.yaml privnet.direct-maggot.expected.yaml
+
+# Update one ClusterwidePrivateNetwork, and assert that the update is propagated
+cp icpn-2.yaml icpn-2.v2.yaml
+replace '192.168.251.0/24' '192.168.252.0/24' icpn-2.v2.yaml
+k8s/update icpn-2.v2.yaml
+db/cmp private-networks privnet.table.v2
+
+# Delete one ClusterwidePrivateNetwork, and assert that the deletion is propagated
+k8s/delete icpn-1.yaml
+db/cmp private-networks privnet.table.v3
+
+# Add it back, and assert that it is present again (although with a different ID)
+k8s/add icpn-1.yaml
+db/cmp private-networks privnet.table.v4
+
+# ---
+
+-- icpn-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: direct-maggot
+spec:
+  interface: {}
+  networkBridges:
+  - ip: 172.128.0.6
+  - ip: 172.128.0.7
+  routes:
+  - destination: 192.168.252.0/24
+    gateway: 192.168.250.254
+  - destination: fd10:0:252::/64
+    gateway: fd10:0:250::fffe
+  - destination: 192.168.255.0/24
+    gateway: 192.168.250.200
+  - destination: fd10:0:255::/64
+    gateway: fd10:0:250::200
+  subnets:
+  - cidr: 192.168.250.0/24
+  - cidr: fd10:0:250::0/64
+
+-- icpn-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: united-firefly
+spec:
+  interface:
+    name: eth1
+  networkBridges:
+  - ip: 172.128.0.9
+  routes: []
+  subnets:
+  - cidr: 192.168.251.0/24
+
+-- privnet.table --
+Name             ID    Interface   INBs                      Subnets                             Routes
+direct-maggot    0x1   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::0/64   4
+united-firefly   0x2   N/A         172.128.0.9               192.168.251.0/24                    0
+
+-- privnet.table.v2 --
+Name             ID    Interface   INBs                      Subnets                             Routes
+direct-maggot    0x1   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::0/64   4
+united-firefly   0x2   N/A         172.128.0.9               192.168.252.0/24                    0
+
+-- privnet.table.v3 --
+Name             ID    Interface   INBs                      Subnets                             Routes
+united-firefly   0x2   N/A         172.128.0.9               192.168.252.0/24                    0
+
+-- privnet.table.v4 --
+Name             ID    Interface   INBs                      Subnets                             Routes
+direct-maggot    0x3   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::0/64   4
+united-firefly   0x2   N/A         172.128.0.9               192.168.252.0/24                    0
+
+-- privnet.direct-maggot.expected.yaml --
+name: direct-maggot
+id: 1
+inbs:
+    - ip: 172.128.0.6
+    - ip: 172.128.0.7
+interface:
+    name: ""
+    index: 0
+    error: ""
+routes:
+    - destination: 192.168.252.0/24
+      gateway: 192.168.250.254
+    - destination: fd10:0:252::/64
+      gateway: fd10:0:250::fffe
+    - destination: 192.168.255.0/24
+      gateway: 192.168.250.200
+    - destination: fd10:0:255::/64
+      gateway: fd10:0:250::200
+subnets:
+    - cidr: 192.168.250.0/24
+    - cidr: fd10:0:250::0/64

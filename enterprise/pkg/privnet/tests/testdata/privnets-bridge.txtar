@@ -1,0 +1,180 @@
+#! --private-networks-enabled --private-networks-mode=bridge
+
+hive start
+db/initialized private-networks
+
+db/insert devices device.eth1.yaml
+db/insert devices device.eth2.yaml
+
+# Add two ClusterwidePrivateNetworks
+k8s/add icpn-1.yaml icpn-2.yaml
+
+# Ensure that they are correctly propagated into the table
+db/cmp private-networks privnet.table
+
+# Ensure that all fields are as expected
+db/show private-networks -f yaml -o privnet.actual.yaml
+cmp privnet.actual.yaml privnet.expected.yaml
+
+# Configure an interface for the direct-maggot private network
+sed 'name: ""' 'name: eth1' icpn-1.yaml
+k8s/update icpn-1.yaml
+
+# And assert that the update is propagated correctly
+db/show private-networks -f yaml -o privnet.actual.yaml
+* cmp privnet.actual.yaml privnet.expected.v2.yaml
+
+# Update the devices...
+replace 'selected: false' 'selected: true' device.eth2.yaml
+db/insert devices device.eth2.yaml
+
+# ...and validate that the changes are correctly reflected
+db/show private-networks -f yaml -o privnet.actual.yaml
+* cmp privnet.actual.yaml privnet.expected.v3.yaml
+
+# Delete one of the devices...
+db/delete devices device.eth1.yaml
+
+# ...and validate that the changes are correctly reflected
+db/show private-networks -f yaml -o privnet.actual.yaml
+* cmp privnet.actual.yaml privnet.expected.v4.yaml
+
+# Insert it back...
+db/insert devices device.eth1.yaml
+
+# ...and validate that the changes are correctly reflected
+db/show private-networks -f yaml -o privnet.actual.yaml
+* cmp privnet.actual.yaml privnet.expected.v3.yaml
+
+# ---
+
+-- device.eth1.yaml --
+index: 10
+name: eth1
+type: veth
+selected: true
+
+-- device.eth2.yaml --
+index: 11
+name: eth2
+type: veth
+selected: false
+notselectedreason: not matching user filter
+
+-- icpn-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: direct-maggot
+spec:
+  interface:
+    name: ""
+  routes: []
+  subnets:
+  - cidr: 192.168.250.0/24
+
+-- icpn-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: united-firefly
+spec:
+  interface:
+    name: eth2
+  routes: []
+  subnets:
+  - cidr: 192.168.251.0/24
+
+-- privnet.table --
+Name             ID    Interface   INBs    Subnets
+direct-maggot    0x1   N/A         N/A     192.168.250.0/24
+united-firefly   0x2   eth2        N/A     192.168.251.0/24
+
+-- privnet.expected.yaml --
+name: direct-maggot
+id: 1
+inbs: []
+interface:
+    name: ""
+    index: 0
+    error: ""
+routes: []
+subnets:
+    - cidr: 192.168.250.0/24
+---
+name: united-firefly
+id: 2
+inbs: []
+interface:
+    name: eth2
+    index: 0
+    error: 'Interface "eth2" not selected by Cilium: not matching user filter'
+routes: []
+subnets:
+    - cidr: 192.168.251.0/24
+-- privnet.expected.v2.yaml --
+name: direct-maggot
+id: 1
+inbs: []
+interface:
+    name: eth1
+    index: 10
+    error: ""
+routes: []
+subnets:
+    - cidr: 192.168.250.0/24
+---
+name: united-firefly
+id: 2
+inbs: []
+interface:
+    name: eth2
+    index: 0
+    error: 'Interface "eth2" not selected by Cilium: not matching user filter'
+routes: []
+subnets:
+    - cidr: 192.168.251.0/24
+-- privnet.expected.v3.yaml --
+name: direct-maggot
+id: 1
+inbs: []
+interface:
+    name: eth1
+    index: 10
+    error: ""
+routes: []
+subnets:
+    - cidr: 192.168.250.0/24
+---
+name: united-firefly
+id: 2
+inbs: []
+interface:
+    name: eth2
+    index: 11
+    error: ""
+routes: []
+subnets:
+    - cidr: 192.168.251.0/24
+-- privnet.expected.v4.yaml --
+name: direct-maggot
+id: 1
+inbs: []
+interface:
+    name: eth1
+    index: 0
+    error: Interface "eth1" not found
+routes: []
+subnets:
+    - cidr: 192.168.250.0/24
+---
+name: united-firefly
+id: 2
+inbs: []
+interface:
+    name: eth2
+    index: 11
+    error: ""
+routes: []
+subnets:
+    - cidr: 192.168.251.0/24

@@ -1,0 +1,55 @@
+//  Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+//  NOTICE: All information contained herein is, and remains the property of
+//  Isovalent Inc and its suppliers, if any. The intellectual and technical
+//  concepts contained herein are proprietary to Isovalent Inc and its suppliers
+//  and may be covered by U.S. and Foreign Patents, patents in process, and are
+//  protected by trade secret or copyright law.  Dissemination of this information
+//  or reproduction of this material is strictly forbidden unless prior written
+//  permission is obtained from Isovalent Inc.
+
+package tests
+
+import (
+	"testing"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
+
+	"github.com/cilium/cilium/enterprise/pkg/privnet"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	dptables "github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/hive"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/promise"
+)
+
+func NewTestHive(t testing.TB) *hive.Hive {
+	return hive.New(
+		k8sClient.FakeClientCell(),
+
+		cell.Provide(
+			dptables.NewDeviceTable,
+			statedb.RWTable[*dptables.Device].ToTable,
+
+			func() promise.Promise[synced.CRDSync] {
+				r, p := promise.New[synced.CRDSync]()
+				r.Resolve(synced.CRDSync{})
+				return p
+			},
+		),
+
+		// Make privnet ID predictable
+		withOverride(reconcilers.NewIDPool(1, tables.NetworkIDMax)),
+
+		privnet.Cell,
+	)
+}
+
+func withOverride[T any](override T) cell.Cell {
+	return cell.DecorateAll(func(T) T {
+		return override
+	})
+}
