@@ -21,12 +21,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - branch: '1.15-ce'
+          - branch: 'v1.15-ce'
             nightlyHour: 3
-          - branch: '1.16-ce'
+          - branch: 'v1.16-ce'
             nightlyHour: 4
-          - branch: '1.17-ce'
+          - branch: 'v1.17-ce'
             nightlyHour: 5
+          - branch: 'v1.18-ce'
+            nightlyHour: 1
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout branch
@@ -49,10 +51,15 @@ jobs:
 
           REF="v${{ matrix.branch }}"
           SHA=$(git rev-parse ${REF})
-          readarray nightly_workflows < <(yq '.schedule.nightly.workflows[]' .github/ariane-config-enterprise.yaml)
+          # merge all the scheduled tests
+          readarray workflows < <((
+            yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml
+            yq '.schedule.nightly.workflows[]' .github/ariane-config.yaml
+            yq '.triggers["/test"].workflows[]' .github/ariane-config-enterprise.yaml
+            yq '.schedule.nightly.workflows[]' .github/ariane-config-enterprise.yaml
+          ) | sort -u)
 
-
-          for workflow in "${nightly_workflows[@]}"; do
+          for workflow in "${workflows[@]}"; do
             echo triggering ${workflow}
             gh workflow run ${workflow} \
               --ref ${REF} \
