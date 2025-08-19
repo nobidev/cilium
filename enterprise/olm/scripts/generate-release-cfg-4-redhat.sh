@@ -54,6 +54,11 @@ else
   latest_entry=$(echo "${sorted}" | tail -1)
   # Allow skipping patch releases for the same minor version
   skip_from=$(echo "${sorted}" | head -1)
+  # clife.v1.17.6-cee.1 was wrongly named clife.v0.0.1.
+  # Don't used it in the skipRange.
+  if [ "${skip_from}" = "clife.v0.0.1" ]; then
+    skip_from=$(echo "${sorted}" | sed -n '2p')
+  fi
 fi
 
 template="---
@@ -65,13 +70,13 @@ if [ -n "${latest_entry}" ]; then
     replaces: ${latest_entry}"
 fi
 if [ -n "${skip_from}" ]; then
-  skip_from_major=$(echo "${skip_from}" | cut -d \. -f 1)
+  skip_from_major=$(echo "${skip_from}" | cut -d \. -f 2)
   skip_from_major=${skip_from_major#v}
-  skip_from_minor=$(echo "${skip_from}" | cut -d \. -f 2)
+  skip_from_minor=$(echo "${skip_from}" | cut -d \. -f 3)
   skip_from_zversion=$(echo "${skip_from}" | cut -d \. -f 3-)
   skip_from_zversion="${skip_from_zversion,,}"
   template="${template}
-    skipRange: \">=${skip_from_major}.${skip_from_minor}.${skip_from_zversion} <${tag}\""
+    skipRange: \">=${skip_from_major}.${skip_from_minor}.${skip_from_zversion} <${tag#v}\""
 fi
 echo "template:
 ${template}"
