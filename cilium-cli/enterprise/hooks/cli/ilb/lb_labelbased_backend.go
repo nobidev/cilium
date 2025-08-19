@@ -104,7 +104,11 @@ func testLabelBasedBackend(t T, mode isovalentv1alpha1.LBTCPProxyForceDeployment
 func TestHTTPMultiNamespaceLabelBased(t T) {
 	testName := "http-multi-namespace-labelbased"
 
-	namespaces := []string{"backend-1", "backend-2", "backend-3"}
+	namespaces := []string{
+		testName + "-1",
+		testName + "-2",
+		testName + "-3",
+	}
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
@@ -132,7 +136,7 @@ func TestHTTPMultiNamespaceLabelBased(t T) {
 
 	t.Log("Creating LB VIP resources in separate namespaces...")
 	for i, namespace := range namespaces {
-		vip := lbVIP(namespace, "vip-"+strconv.Itoa(i+1))
+		vip := lbVIP(namespace, testName+"-"+strconv.Itoa(i+1))
 		scenario.createLBVIPInNamespace(namespace, vip)
 	}
 
@@ -148,7 +152,7 @@ func TestHTTPMultiNamespaceLabelBased(t T) {
 
 	t.Log("Creating LB Service resources in separate namespaces...")
 	for i, namespace := range namespaces {
-		vipName := fmt.Sprintf("vip-%d", i+1)
+		vipName := fmt.Sprintf("%s-%d", testName, i+1)
 		service := lbService(namespace, testName, withPort(80),
 			withVIPRef(vipName),
 			withTCPProxyApplication(
@@ -160,7 +164,7 @@ func TestHTTPMultiNamespaceLabelBased(t T) {
 	t.Log("Waiting for full VIP connectivity...")
 	vips := []string{}
 	for i, namespace := range namespaces {
-		vipName := fmt.Sprintf("vip-%d", i+1)
+		vipName := fmt.Sprintf("%s-%d", testName, i+1)
 		vips = append(vips, scenario.waitForFullVIPConnectivityInNamespace(namespace, vipName))
 	}
 
