@@ -256,6 +256,11 @@ jobs:
             install/kubernetes/cilium
             enterprise/fqdn-proxy/installation
 
+      - name: Render FQDN Egress Policy
+        run: |
+          cat ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress.yaml | \
+            sed -e "s/EXTERNAL_TARGET/cilium\.io/" > ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress-rendered.yaml
+
       # Step 1: Install latest stable (patch or minor, depending on matrix
       # mode) Cilium and FQDN HA and run FQDN HA specific tests.
 
@@ -279,7 +284,7 @@ jobs:
       - name: 1. Apply policy
         if: ${{ steps.vars.outputs.stable_version != '' }}
         run: |
-          kubectl apply -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress.yaml
+          kubectl apply -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress-rendered.yaml
           sleep 10
 
       - name: 1. Run tests before Cilium pods are down
@@ -300,7 +305,7 @@ jobs:
       - name: 1. Delete policy
         if: ${{ steps.vars.outputs.stable_version != '' }}
         run: |
-          kubectl delete -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress.yaml
+          kubectl delete -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress-rendered.yaml
           sleep 10
 
       # Step 2: Upgrade Cilium to PR/HEAD and run FQDN HA specific tests.
@@ -319,7 +324,7 @@ jobs:
       - name: 2. Apply policy
         if: ${{ steps.vars.outputs.stable_version != '' }}
         run: |
-          kubectl apply -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress.yaml
+          kubectl apply -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress-rendered.yaml
           sleep 10
 
       - name: 2. Run tests before Cilium pods are down
@@ -340,7 +345,7 @@ jobs:
       - name: 2. Delete policy
         if: ${{ steps.vars.outputs.stable_version != '' }}
         run: |
-          kubectl delete -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress.yaml
+          kubectl delete -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress-rendered.yaml
           sleep 10
 
       # Step 3: Upgrade FQDN HA to PR/HEAD and run FQDN HA specific tests.
@@ -367,7 +372,7 @@ jobs:
       - name: 3. Apply policy
         if: ${{ steps.vars.outputs.stable_version != '' }}
         run: |
-          kubectl apply -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress.yaml
+          kubectl apply -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress-rendered.yaml
           sleep 10
 
       - name: 3. Run tests before Cilium pods are down
@@ -388,7 +393,7 @@ jobs:
       - name: 3. Delete policy
         if: ${{ steps.vars.outputs.stable_version != '' }}
         run: |
-          kubectl delete -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress.yaml
+          kubectl delete -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress-rendered.yaml
           sleep 10
 
       # Step 4: Downgrade Cilium to stable and run FQDN HA specific tests.
@@ -407,7 +412,7 @@ jobs:
       - name: 4. Apply policy
         if: ${{ steps.vars.outputs.stable_version != '' }}
         run: |
-          kubectl apply -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress.yaml
+          kubectl apply -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress-rendered.yaml
           sleep 10
 
       - name: 4. Run tests before Cilium pods are down
@@ -428,7 +433,7 @@ jobs:
       - name: 4. Delete policy
         if: ${{ steps.vars.outputs.stable_version != '' }}
         run: |
-          kubectl delete -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress.yaml
+          kubectl delete -f ./enterprise/fqdn-proxy/scripts/compat/fqdn-policy-egress-rendered.yaml
           sleep 10
 
       - name: Post-test information gathering

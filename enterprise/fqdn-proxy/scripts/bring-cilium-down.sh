@@ -6,6 +6,7 @@ set -eu -o pipefail
 nb_cilium_instances_ok=$(kubectl -n kube-system get ds/cilium -o jsonpath='{.status.numberAvailable}')
 echo "Number of Cilium instances available: ${nb_cilium_instances_ok}"
 
+CLEAR_CACHE="${CLEAR_CACHE:-false}"
 if [[ ${CLEAR_CACHE} == "true" ]]; then
 	for pod in $(kubectl -n kube-system get pods -l k8s-app=cilium -o name); do
 		echo "Clearing the FQDN cache in pod ${pod}"
