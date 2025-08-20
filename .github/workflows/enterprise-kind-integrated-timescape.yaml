@@ -97,8 +97,8 @@ jobs:
 
       - name: Configure Git to be able to access isovalent repositories
         run: |
-          git config --global url."https://${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}:@github.com/".insteadOf "https://github.com/"
-          git config --global --add url."https://${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}:@github.com/".insteadOf "git@github.com:"
+          git config --global url."https://x-access-token:${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}@github.com/".insteadOf "https://github.com/"
+          git config --global --add url."https://x-access-token:${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}@github.com/".insteadOf "git@github.com:"
 
       - name: Run go mod tidy in enterprise/hubble-timescape
         env:
