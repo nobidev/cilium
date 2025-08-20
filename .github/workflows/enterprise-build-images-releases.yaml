@@ -547,7 +547,7 @@ jobs:
 
           echo "### clife catalog" > image-digest/clife-catalog.txt
           echo "" >> image-digest/clife-catalog.txt
-          echo "\`${{ steps.tag.outputs.image_tag_base }}-catalog:0.0.1@${{ steps.clife_docker_digests.outputs.catalog }}\`" >> image-digest/clife-catalog.txt
+          echo "\`${{ steps.tag.outputs.image_tag_base }}-catalog:1.0.0@${{ steps.clife_docker_digests.outputs.catalog }}\`" >> image-digest/clife-catalog.txt
           echo "" >> image-digest/clife-catalog.txt
 
       # Upload artifact digests
