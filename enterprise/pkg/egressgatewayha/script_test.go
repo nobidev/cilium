@@ -175,15 +175,8 @@ func TestPrivilegedAgentScripts(t *testing.T) {
 					},
 
 					tables.NewDeviceTable,
-					func(db *statedb.DB, devices statedb.RWTable[*tables.Device]) statedb.Table[*tables.Device] {
-						db.RegisterTable(devices)
-						return devices
-					},
-					tables.NewNodeAddressTable,
-					func(db *statedb.DB, na statedb.RWTable[tables.NodeAddress]) statedb.Table[tables.NodeAddress] {
-						db.RegisterTable(na)
-						return na
-					},
+					statedb.RWTable[*tables.Device].ToTable,
+					statedb.RWTable[tables.NodeAddress].ToTable,
 
 					func() *signaler.BGPCPSignaler {
 						return signaler.NewBGPCPSignaler()

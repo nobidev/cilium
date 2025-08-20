@@ -151,12 +151,5 @@ func (f *fakeMetrics) isEnabled() bool {
 }
 
 func newTables(db *statedb.DB) (statedb.RWTable[stats.NatMapStats], error) {
-	statusTable, err := statedb.NewTable(stats.TableName, stats.Index)
-	if err != nil {
-		return nil, err
-	}
-	if err := db.RegisterTable(statusTable); err != nil {
-		return nil, err
-	}
-	return statusTable, nil
+	return statedb.NewTable(db, stats.TableName, stats.Index)
 }

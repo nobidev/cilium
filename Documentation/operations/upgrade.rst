@@ -303,6 +303,7 @@ communicating via the proxy must reconnect to re-establish connections.
   you need to take action to update your network policies to avoid this change from breaking connectivity for applications
   across different clusters. See :ref:`change_policy_default_local_cluster` for more details and migration recommendations
   to update your network policies.
+* Kafka Network Policy support is deprecated and will be removed in Cilium v1.20.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -316,6 +317,10 @@ Helm Options
 ~~~~~~~~~~~~
 * The Helm option ``clustermesh.enableMCSAPISupport`` has been deprecated in favor of ``clustermesh.mcsapi.enabled``
   and will be removed in Cilium 1.20.
+* The Helm option ``clustermesh.config.clusters`` now support a new format based on a dict
+  in addition to the previous list format. The new format is recommended for users installing
+  Cilium ClusterMesh without Cilium CLI and could allow you to organize your clusters definition
+  in multiple Helm value files. See the Cilium Helm chart documentation or value file for more details.
 
 
 Agent Options

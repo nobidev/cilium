@@ -72,7 +72,7 @@ func TestPrivilegedOps(t *testing.T) {
 	egressIP := netip.MustParseAddr("192.168.1.50")
 	destinations := []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0"), netip.MustParsePrefix("192.168.1.0/24")}
 
-	ops := newOps(slog.New(slog.DiscardHandler), newMockGARPSender())
+	ops := newOps(slog.New(slog.DiscardHandler), newMockGNeighSender())
 
 	// Initial Update()
 	entry := &tables.EgressIPEntry{
@@ -363,7 +363,7 @@ func TestPrivilegedUpdateWithNextHop(t *testing.T) {
 	destinations := []netip.Prefix{netip.MustParsePrefix("192.168.1.0/24"), netip.MustParsePrefix("192.168.2.0/24")}
 	nextHop := netip.MustParseAddr("192.168.1.1")
 
-	ops := newOps(slog.New(slog.DiscardHandler), newMockGARPSender())
+	ops := newOps(slog.New(slog.DiscardHandler), newMockGNeighSender())
 
 	// Initial Update()
 	entry := &tables.EgressIPEntry{
@@ -581,7 +581,7 @@ func TestPrivilegedPrune(t *testing.T) {
 	ifName := link.Attrs().Name
 	ifIndex := link.Attrs().Index
 
-	ops := newOps(slog.New(slog.DiscardHandler), newMockGARPSender())
+	ops := newOps(slog.New(slog.DiscardHandler), newMockGNeighSender())
 
 	egressIP_1 := netip.MustParseAddr("192.168.1.50")
 	destinations_1_1 := netip.MustParsePrefix("192.168.1.0/24")
@@ -815,20 +815,48 @@ func newFakeIterator(objs ...*tables.EgressIPEntry) iter.Seq2[*tables.EgressIPEn
 	}
 }
 
-func newMockGARPSender() gneigh.Sender {
-	return &mockGARPSender{}
+func newMockGNeighSender() gneigh.Sender {
+	return &mockGNeighSender{}
 }
 
-type mockGARPSender struct{}
+type mockGNeighSender struct{}
 
-func (gs *mockGARPSender) SendArp(iface gneigh.Interface, ip netip.Addr) error {
+func (gs *mockGNeighSender) SendArp(iface gneigh.Interface, ip netip.Addr) error {
 	return nil
 }
 
-func (gs *mockGARPSender) SendNd(iface gneigh.Interface, ip netip.Addr) error {
+func (gs *mockGNeighSender) SendNd(iface gneigh.Interface, ip netip.Addr) error {
 	return nil
 }
 
-func (gs *mockGARPSender) InterfaceByIndex(idx int) (gneigh.Interface, error) {
+func (gs *mockGNeighSender) NewArpSender(iface gneigh.Interface) (gneigh.ArpSender, error) {
+	return &mockArpSender{}, nil
+}
+
+func (gs *mockGNeighSender) NewNdSender(iface gneigh.Interface) (gneigh.NdSender, error) {
+	return &mockNdSender{}, nil
+}
+
+func (gs *mockGNeighSender) InterfaceByIndex(idx int) (gneigh.Interface, error) {
 	return gneigh.Interface{}, nil
+}
+
+type mockArpSender struct{}
+
+func (as *mockArpSender) Send(ip netip.Addr) error {
+	return nil
+}
+
+func (as *mockArpSender) Close() error {
+	return nil
+}
+
+type mockNdSender struct{}
+
+func (ns *mockNdSender) Send(ip netip.Addr) error {
+	return nil
+}
+
+func (ns *mockNdSender) Close() error {
+	return nil
 }

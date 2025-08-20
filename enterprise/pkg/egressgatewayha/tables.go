@@ -94,12 +94,5 @@ func (p *AgentPolicyConfig) TableRow() []string {
 }
 
 func newAgentTables(db *statedb.DB) (statedb.RWTable[*AgentPolicyConfig], error) {
-	statusTable, err := statedb.NewTable("policy-config", AgentIndex, ByEndpointSourceIP)
-	if err != nil {
-		return nil, err
-	}
-	if err := db.RegisterTable(statusTable); err != nil {
-		return nil, err
-	}
-	return statusTable, nil
+	return statedb.NewTable(db, "policy-config", AgentIndex, ByEndpointSourceIP)
 }

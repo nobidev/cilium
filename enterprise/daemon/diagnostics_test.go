@@ -79,16 +79,11 @@ func TestHiveHealthCondition(t *testing.T) {
 }
 
 func newHealthTable(db *statedb.DB) (statedb.RWTable[types.Status], error) {
-	statusTable, err := statedb.NewTable(health.TableName,
+	return statedb.NewTable(
+		db,
+		health.TableName,
 		health.PrimaryIndex,
 		health.LevelIndex)
-	if err != nil {
-		return nil, err
-	}
-	if err := db.RegisterTable(statusTable); err != nil {
-		return nil, err
-	}
-	return statusTable, nil
 }
 
 func TestStateDBCondition_WriteTxn(t *testing.T) {

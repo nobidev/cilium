@@ -77,14 +77,12 @@ func (s RemoteProxyState) TableRow() []string {
 
 // The RemoteProxyStateTable stores the current state of the remote (ha) fqdn-proxy.
 func NewRemoteProxyStateTable(db *statedb.DB) (statedb.RWTable[RemoteProxyState], statedb.Table[RemoteProxyState], error) {
-	t, err := statedb.NewTable("fqdn-remote-proxy-state", statedb.Indexer[RemoteProxyState](RemoteProxyStateIndex))
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := db.RegisterTable(t); err != nil {
-		return nil, nil, err
-	}
-	return t, t, err
+	tbl, err := statedb.NewTable(
+		db,
+		"fqdn-remote-proxy-state",
+		statedb.Indexer[RemoteProxyState](RemoteProxyStateIndex),
+	)
+	return tbl, tbl, err
 }
 
 // always empty string
@@ -148,12 +146,10 @@ func (s AgentState) TableRow() []string {
 }
 
 func NewAgentStateTable(db *statedb.DB) (statedb.RWTable[AgentState], statedb.Table[AgentState], error) {
-	t, err := statedb.NewTable("fqdn-agent-state", statedb.Indexer[AgentState](AgentStateIndex))
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := db.RegisterTable(t); err != nil {
-		return nil, nil, err
-	}
-	return t, t, err
+	tbl, err := statedb.NewTable(
+		db,
+		"fqdn-agent-state",
+		statedb.Indexer[AgentState](AgentStateIndex),
+	)
+	return tbl, tbl, err
 }

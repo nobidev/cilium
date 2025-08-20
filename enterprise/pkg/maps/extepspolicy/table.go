@@ -75,14 +75,11 @@ var (
 )
 
 func newTable(db *statedb.DB) (statedb.RWTable[*entry], error) {
-	tbl, err := statedb.NewTable(
+	return statedb.NewTable(
+		db,
 		"ext-eps-policy-map",
 		primaryIndex,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return tbl, db.RegisterTable(tbl)
 }
 
 func registerReconciler(en enabled, tbl statedb.RWTable[*entry], m *extEpsPolMap, params reconciler.Params) (reconciler.Reconciler[entry], error) {

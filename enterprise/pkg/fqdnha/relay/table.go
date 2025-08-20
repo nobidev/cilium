@@ -29,7 +29,7 @@ var FQDNSelectorIndex = statedb.Index[FQDNSelector, string]{
 }
 
 func NewFQDNSelectorTable(db *statedb.DB) (statedb.RWTable[FQDNSelector], error) {
-	return statedb.NewTable("fqdn-selectors", FQDNSelectorIndex)
+	return statedb.NewTable(db, "fqdn-selectors", FQDNSelectorIndex)
 }
 
 func (s *FQDNSelector) String() string {

@@ -91,11 +91,9 @@ func newTestFixture(t *testing.T, ctx context.Context) (*testFixture, func()) {
 			f.db = db
 			f.peerTable = table
 		}),
-		cell.Invoke(statedb.RegisterTable[*tables.Device]),
 		cell.Invoke(func(db *statedb.DB, table statedb.RWTable[*tables.Device]) {
 			f.deviceTable = table
 		}),
-		cell.Invoke(statedb.RegisterTable[*tables.Neighbor]),
 		cell.Invoke(func(db *statedb.DB, table statedb.RWTable[*tables.Neighbor]) {
 			f.neighborTable = table
 		}),

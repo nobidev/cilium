@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/time"
@@ -115,13 +116,20 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 }
 
 type BPFOps struct {
-	LBMaps maps.LBMaps
-	log    rateLimitingLogger
+	LBMaps    maps.LBMaps
+	log       rateLimitingLogger
+	db        *statedb.DB
+	nodeAddrs statedb.Table[tables.NodeAddress]
 
 	cfg           loadbalancer.Config
 	extCfg        loadbalancer.ExternalConfig
 	maglev        *maglev.Maglev
 	lastUpdatedAt atomic.Pointer[time.Time]
+	pruneCount    atomic.Int32
+
+	// mu protects the state below. The reconciler itself is single-threaded, but we need
+	// to protect the state in order to be able to ResetAndRestore() in tests.
+	mu lock.Mutex
 
 	serviceIDAlloc     idAllocator[loadbalancer.ServiceID]
 	restoredServiceIDs map[loadbalancer.L3n4Addr]loadbalancer.ServiceID
@@ -150,9 +158,6 @@ type BPFOps struct {
 	// nodePortAddrByPort are the last used NodePort addresses for a given NodePort
 	// (or HostPort) service (by port).
 	nodePortAddrByPort map[nodePortAddrKey][]netip.Addr
-
-	db        *statedb.DB
-	nodeAddrs statedb.Table[tables.NodeAddress]
 }
 
 type nodePortAddrKey struct {
@@ -210,6 +215,9 @@ func (ops *BPFOps) start(cell.HookContext) (err error) {
 }
 
 func (ops *BPFOps) ResetAndRestore() (err error) {
+	ops.mu.Lock()
+	defer ops.mu.Unlock()
+
 	ops.serviceIDAlloc = newIDAllocator(firstFreeServiceID, maxSetOfServiceID)
 	ops.restoredServiceIDs = map[loadbalancer.L3n4Addr]loadbalancer.ServiceID{}
 	ops.backendIDAlloc = newIDAllocator(firstFreeBackendID, maxSetOfBackendID)
@@ -308,8 +316,7 @@ func svcKeyToAddr(svcKey maps.ServiceKey) loadbalancer.L3n4Addr {
 }
 
 func beValueToAddr(beValue maps.BackendValue) loadbalancer.L3n4Addr {
-	beIP := beValue.GetAddress()
-	beAddrCluster := cmtypes.MustAddrClusterFromIP(beIP)
+	beAddrCluster := beValue.GetAddress()
 	proto := loadbalancer.NewL4TypeFromNumber(beValue.GetProtocol())
 	beL3n4Addr := loadbalancer.NewL3n4Addr(proto, beAddrCluster, beValue.GetPort(), 0)
 	return beL3n4Addr
@@ -317,6 +324,8 @@ func beValueToAddr(beValue maps.BackendValue) loadbalancer.L3n4Addr {
 
 // Delete implements reconciler.Operations.
 func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
+	ops.mu.Lock()
+	defer ops.mu.Unlock()
 	defer ops.setLastUpdatedAt()
 
 	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
@@ -646,6 +655,9 @@ func (ops *BPFOps) pruneMaglev() error {
 
 // Prune implements reconciler.Operations.
 func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*loadbalancer.Frontend, statedb.Revision]) error {
+	ops.mu.Lock()
+	defer ops.mu.Unlock()
+	defer func() { ops.pruneCount.Add(1) }()
 	ops.log.Debug("Pruning")
 	return errors.Join(
 		ops.pruneRestoredIDs(),
@@ -659,6 +671,8 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 
 // Update implements reconciler.Operations.
 func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
+	ops.mu.Lock()
+	defer ops.mu.Unlock()
 	defer ops.setLastUpdatedAt()
 
 	if (!ops.extCfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.extCfg.EnableIPv4 && !fe.Address.IsIPv6()) {
@@ -1337,7 +1351,7 @@ func (ops *BPFOps) sortedBackends(fe *loadbalancer.Frontend) []backendWithRevisi
 		case a.State > b.State:
 			return false
 		default:
-			switch a.Address.Addr().Compare(b.Address.Addr()) {
+			switch a.Address.AddrCluster().Compare(b.Address.AddrCluster()) {
 			case -1:
 				return true
 			case 0:

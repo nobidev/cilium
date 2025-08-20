@@ -56,12 +56,5 @@ func (p *PolicyConfig) TableRow() []string {
 }
 
 func newOperatorTables(db *statedb.DB) (statedb.RWTable[*PolicyConfig], error) {
-	statusTable, err := statedb.NewTable("policy-config", OperatorIndex)
-	if err != nil {
-		return nil, err
-	}
-	if err := db.RegisterTable(statusTable); err != nil {
-		return nil, err
-	}
-	return statusTable, nil
+	return statedb.NewTable(db, "policy-config", OperatorIndex)
 }
