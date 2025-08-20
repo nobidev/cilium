@@ -151,7 +151,7 @@ jobs:
 
       - name: Login to quay.io
         if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_CI }}
@@ -159,7 +159,7 @@ jobs:
 
       - name: Login to registry.redhat.io for pulling images
         if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: registry.redhat.io
           username: ${{ secrets.REDHAT_USERNAME_CI }}
@@ -171,7 +171,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.6
+          go-version: 1.25.0
 
       - name: Build and Push CLife image
         if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
@@ -266,7 +266,7 @@ jobs:
           touch /home/runner/.kube/config
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.region }}
@@ -573,7 +573,7 @@ jobs:
       # refresh credentials
       - name: Set up AWS CLI credentials
         if: always() && steps.cluster.outcome != 'skipped'
-        uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.region }}
