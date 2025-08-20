@@ -947,6 +947,7 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 	kind := collector.Client.AutodetectFlavor(context.Background()).Kind
 	if kind == k8s.KindOpenShift {
 		collector.AddTasks([]sysdump.Task{collectOpenShiftMustGather(collector)})
+		collector.AddTasks([]sysdump.Task{collectOpenShiftCiliumConfig(collector, "CiliumConfig", "ciliumconfigs")})
 	}
 
 	return nil
@@ -1114,6 +1115,29 @@ func collectOpenShiftMustGather(collector *sysdump.Collector) sysdump.Task {
 				if err := collector.WriteString(extraFile, string(extra)); err != nil {
 					return fmt.Errorf("failed to write extra file %s to sysdump: %w", extraFile, err)
 				}
+			}
+			return nil
+		},
+	}
+}
+
+func collectOpenShiftCiliumConfig(collector *sysdump.Collector, kind, name string) sysdump.Task {
+	return sysdump.Task{
+		Description: fmt.Sprintf("Collecting %s", kind),
+		Quick:       true,
+		Task: func(ctx context.Context) error {
+			gvr := schema.GroupVersionResource{
+				Group:    "cilium.io",
+				Resource: name,
+				Version:  "v1alpha1",
+			}
+			n := corev1.NamespaceAll
+			v, err := collector.Client.ListUnstructured(ctx, gvr, &n, metav1.ListOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to collect %s: %w", kind, err)
+			}
+			if err := collector.WriteYAML(fmt.Sprintf("cilium-enterprise-%s-<ts>.yaml", name), v); err != nil {
+				return fmt.Errorf("failed to collect %s: %w", kind, err)
 			}
 			return nil
 		},
