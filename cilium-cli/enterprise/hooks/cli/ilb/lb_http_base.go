@@ -280,6 +280,9 @@ func TestHTTPRoutes(t T) {
 }
 
 func TestHTTPMultiNamespaceInClusterHostname(t T) {
+	if skipIfOnSingleNode(">1 FRR clients are not supported") {
+		return
+	}
 	testName := "http-multi-namespace-incluster-hostname"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)

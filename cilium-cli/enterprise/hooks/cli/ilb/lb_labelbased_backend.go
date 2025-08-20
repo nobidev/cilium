@@ -100,6 +100,10 @@ func testLabelBasedBackend(t T, mode isovalentv1alpha1.LBTCPProxyForceDeployment
 }
 
 func TestHTTPMultiNamespaceLabelBased(t T) {
+	if skipIfOnSingleNode(">1 FRR clients are not supported") {
+		return
+	}
+
 	testName := "http-multi-namespace-labelbased"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
