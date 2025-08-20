@@ -97,18 +97,10 @@ func newLBTestScenario(t T, testName string, ciliumCli *ciliumCli, k8sCli *k8s.C
 			return nil
 		}
 
-		err := k8sCli.CoreV1().Namespaces().Delete(ctx, k8sNamespace,
-			metav1.DeleteOptions{GracePeriodSeconds: ptr.To[int64](0)})
-		if err != nil {
+		if err := k8sCli.CoreV1().Namespaces().Delete(ctx, k8sNamespace, metav1.DeleteOptions{GracePeriodSeconds: ptr.To[int64](0)}); err != nil {
 			return fmt.Errorf("failed to delete namespace (%s): %w", k8sNamespace, err)
 		}
-		t.Log("Waiting for namespace %s to be deleted...", k8sNamespace)
-		eventually(t, func() error {
-			if _, err := k8sCli.CoreV1().Namespaces().Get(ctx, k8sNamespace, metav1.GetOptions{}); errors.IsNotFound(err) {
-				return nil
-			}
-			return fmt.Errorf("namespace (%s) still exists", k8sNamespace)
-		}, longTimeout, pollInterval)
+
 		return nil
 	})
 
