@@ -124,14 +124,17 @@ func (n *identityNotifier) IdentitySelectionCommit(_ *slog.Logger, tx *versioned
 		return // skip update if no-op
 	}
 
+	version := tx.GetVersionHandle()
+	defer version.Close()
+
 	if n.isSubject {
-		unchangedPeers := n.rule.peerIdentities(tx.GetVersionHandle())
+		unchangedPeers := n.rule.peerIdentities(version)
 		n.e.incrementalIdentityChange(n.rule,
 			n.queuedDels, unchangedPeers,
 			n.queuedAdds, unchangedPeers,
 		)
 	} else {
-		unchangedSubjects := n.rule.subjectIdentities(tx.GetVersionHandle())
+		unchangedSubjects := n.rule.subjectIdentities(version)
 		n.e.incrementalIdentityChange(n.rule,
 			unchangedSubjects, n.queuedDels,
 			unchangedSubjects, n.queuedAdds)
