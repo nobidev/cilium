@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	dptables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -29,6 +30,8 @@ import (
 func NewTestHive(t testing.TB) *hive.Hive {
 	return hive.New(
 		k8sClient.FakeClientCell(),
+
+		cell.Config(cmtypes.DefaultClusterInfo),
 
 		cell.Provide(
 			dptables.NewDeviceTable,

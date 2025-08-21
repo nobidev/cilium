@@ -24,4 +24,5 @@ var Cell = cell.Module(
 	pncfg.Cell,
 
 	reconcilers.PrivateNetworksCell,
+	reconcilers.EndpointsCell,
 )

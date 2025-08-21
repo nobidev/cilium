@@ -1,0 +1,156 @@
+// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this information
+// or reproduction of this material is strictly forbidden unless prior written
+// permission is obtained from Isovalent Inc.
+
+package reconcilers
+
+import (
+	"errors"
+	"iter"
+	"log/slog"
+	"maps"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/k8s"
+	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/k8s/client"
+	cs_iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/promise"
+)
+
+var EndpointsCell = cell.Group(
+	cell.ProvidePrivate(
+		// Provides the ReadWrite Endpoints table.
+		tables.NewEndpointsTable,
+
+		// Provides the reconciler handling private network endpoints.
+		newEndpoints,
+	),
+
+	cell.Provide(
+		// Provides the ReadOnly PrivateNetworks table.
+		statedb.RWTable[tables.Endpoint].ToTable,
+	),
+
+	cell.Invoke(
+		// Registers the k8s to table reflector.
+		(*Endpoints).registerK8sReflector,
+	),
+)
+
+// Endpoints is the reconciler for private network endpoints.
+type Endpoints struct {
+	log *slog.Logger
+	jg  job.Group
+
+	cfg   config.Config
+	cinfo cmtypes.ClusterInfo
+
+	db  *statedb.DB
+	tbl statedb.RWTable[tables.Endpoint]
+
+	client cs_iso_v1alpha1.PrivateNetworkEndpointSlicesGetter
+}
+
+func newEndpoints(in struct {
+	cell.In
+
+	Log      *slog.Logger
+	JobGroup job.Group
+
+	Config      config.Config
+	ClusterInfo cmtypes.ClusterInfo
+
+	DB    *statedb.DB
+	Table statedb.RWTable[tables.Endpoint]
+
+	Client client.Clientset
+}) (*Endpoints, error) {
+	reconciler := &Endpoints{
+		log:   in.Log,
+		jg:    in.JobGroup,
+		cfg:   in.Config,
+		cinfo: in.ClusterInfo,
+		db:    in.DB,
+		tbl:   in.Table,
+	}
+
+	if !in.Config.Enabled {
+		return reconciler, nil
+	}
+
+	if !in.Client.IsEnabled() {
+		return nil, errors.New("private networks requires Kubernetes support to be enabled")
+	}
+
+	reconciler.client = in.Client.IsovalentV1alpha1()
+	return reconciler, nil
+}
+
+func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync]) error {
+	if !ep.cfg.Enabled {
+		return nil
+	}
+
+	cfg := k8s.ReflectorConfig[tables.Endpoint]{
+		Name:          "to-table", // the full name will be "job-k8s-reflector-privnet-endpoints-to-table"
+		Table:         ep.tbl,
+		ListerWatcher: utils.ListerWatcherFromTyped(ep.client.PrivateNetworkEndpointSlices(metav1.NamespaceAll)),
+		MetricScope:   "PrivateNetworkEndpointSlices",
+		CRDSync:       sync,
+
+		// Make sure we o not delete the entries discovered via Cluster Mesh.
+		QueryAll: func(txn statedb.ReadTxn, tbl statedb.Table[tables.Endpoint]) iter.Seq2[tables.Endpoint, statedb.Revision] {
+			return ep.tbl.Prefix(txn, tables.EndpointsByCluster(ep.cinfo.Name))
+		},
+
+		TransformMany: func(txn statedb.ReadTxn, deleted bool, obj any) (toInsert, toDelete iter.Seq[tables.Endpoint]) {
+			slice, ok := obj.(*iso_v1alpha1.PrivateNetworkEndpointSlice)
+			if !ok {
+				return nil, nil
+			}
+
+			source := kvstore.Source{
+				Cluster:   ep.cinfo.Name,
+				Namespace: slice.GetNamespace(),
+				Name:      slice.GetName(),
+			}
+
+			stale := ep.tbl.Prefix(txn, tables.EndpointsBySource(source))
+			if deleted {
+				return nil, statedb.ToSeq(stale)
+			}
+
+			current := make(map[tables.EndpointKey]tables.Endpoint)
+			for inner := range kvstore.EndpointsFromEndpointSlice(ep.log, ep.cinfo.Name, slice) {
+				endpoint := tables.Endpoint{Endpoint: inner}
+				current[endpoint.Key()] = endpoint
+			}
+
+			filter := func(ep tables.Endpoint) bool {
+				_, ok := current[ep.Key()]
+				return !ok
+			}
+
+			return maps.Values(current), statedb.ToSeq(statedb.Filter(stale, filter))
+		},
+	}
+
+	return k8s.RegisterReflector(ep.jg, ep.db, cfg)
+}

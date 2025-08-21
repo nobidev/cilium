@@ -96,6 +96,7 @@ rules:
     - isovalent.com
   resources:
     - clusterwideprivatenetworks
+    - privatenetworkendpointslices
   verbs:
     - list
     - watch
