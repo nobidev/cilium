@@ -14,11 +14,6 @@ on:
   # run from a different environment than 'release-base-images'. See
   # build-images-base-renovate.yaml
   workflow_call:
-    secrets:
-      QUAY_USERNAME_BASE_CEE_USERNAME:
-        required: true
-      QUAY_PASSWORD_BASE_CEE_PASSWORD:
-        required: true
     inputs:
       environment:
         type: string
@@ -35,26 +30,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  has-credentials:
-    name: Check for Quay secrets
-    runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment || 'release-base-images' }}
-    timeout-minutes: 2
-    outputs:
-      present: ${{ steps.secrets.outputs.present }}
-    steps:
-      - name: Check for secrets
-        id: secrets
-        env:
-          has_credentials: ${{ secrets.QUAY_USERNAME_BASE_CEE_USERNAME && secrets.QUAY_PASSWORD_BASE_CEE_PASSWORD && 1 }}
-        if: ${{ env.has_credentials }}
-        run:
-          echo 'present=1' >> "$GITHUB_OUTPUT"
-
   build-and-push:
-    needs: has-credentials
-    # Skip this workflow for repositories without credentials and branches that are created by renovate where the event type is pull_request_target
-    if: ${{ needs.has-credentials.outputs.present && ! (startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Images
     timeout-minutes: 45
     environment: ${{ inputs.environment || 'release-base-images' }}
