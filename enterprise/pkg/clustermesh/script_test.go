@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cectnat "github.com/cilium/cilium/enterprise/pkg/maps/ctnat"
+	privnet "github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
 	"github.com/cilium/cilium/pkg/allocator"
 	cm "github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
@@ -161,6 +162,8 @@ func TestScript(t *testing.T) {
 			cell.Provide(func() cectnat.PerCluster {
 				return cectnat.NewFakePerCluster(true, true)
 			}),
+
+			cell.Provide(privnet.NewEndpointObserver),
 
 			cell.DecorateAll(func(client kvstore.Client) common.RemoteClientFactoryFn {
 				// All clusters share the same underlying client.

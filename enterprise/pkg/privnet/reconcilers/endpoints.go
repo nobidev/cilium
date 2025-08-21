@@ -11,6 +11,7 @@
 package reconcilers
 
 import (
+	"context"
 	"errors"
 	"iter"
 	"log/slog"
@@ -29,6 +30,7 @@ import (
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	cs_iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/promise"
@@ -46,11 +48,17 @@ var EndpointsCell = cell.Group(
 	cell.Provide(
 		// Provides the ReadOnly PrivateNetworks table.
 		statedb.RWTable[tables.Endpoint].ToTable,
+
+		// Provides the object to observe endpoint events from clustermesh.
+		kvstore.NewEndpointObserver,
 	),
 
 	cell.Invoke(
 		// Registers the k8s to table reflector.
 		(*Endpoints).registerK8sReflector,
+
+		// Registers the clustermesh to table reflector.
+		(*Endpoints).registerClusterMeshReflector,
 	),
 )
 
@@ -153,4 +161,48 @@ func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync]) 
 	}
 
 	return k8s.RegisterReflector(ep.jg, ep.db, cfg)
+}
+
+func (ep *Endpoints) registerClusterMeshReflector(obs *kvstore.EndpointsObserver) {
+	if !ep.cfg.Enabled {
+		return
+	}
+
+	wtx := ep.db.WriteTxn(ep.tbl)
+	finish := ep.tbl.RegisterInitializer(wtx, "clustermesh")
+	wtx.Commit()
+
+	ep.jg.Add(
+		job.Observer(
+			"clustermesh-privnet-endpoints-to-table",
+			func(ctx context.Context, buf kvstore.EndpointEvents) error {
+				wtx := ep.db.WriteTxn(ep.tbl)
+
+				for _, ev := range buf {
+					switch ev.EventKind {
+					case resource.Upsert:
+						// Endpoints are keyed by cluster, network name and PIP inside
+						// etcd, so it is possible that all other fields are updated without
+						// changing the key. However, this table uses a different primary
+						// key, so we need to explicitly delete the old version, if present.
+						for other := range ep.tbl.Prefix(wtx, tables.EndpointsByPIP(ev.Endpoint.IP)) {
+							if other.Source.Cluster == ev.Source.Cluster &&
+								other.Network.Name == ev.Network.Name {
+								ep.tbl.Delete(wtx, other)
+							}
+						}
+
+						ep.tbl.Insert(wtx, tables.Endpoint{Endpoint: ev.Endpoint})
+					case resource.Delete:
+						ep.tbl.Delete(wtx, tables.Endpoint{Endpoint: ev.Endpoint})
+					case resource.Sync:
+						finish(wtx)
+					}
+				}
+
+				wtx.Commit()
+				return nil
+			}, obs,
+		),
+	)
 }

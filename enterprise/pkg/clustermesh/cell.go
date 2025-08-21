@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/manager"
 
 	cecmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
+	privnet "github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
 )
 
 var defaultConfig = cecmcfg.Config{
@@ -57,5 +58,12 @@ var Cell = cell.Module(
 
 		// Inject the mutator to propagate the cluster ID to the tunnel map.
 		manager.InjectCEPrefixClusterMutator,
+
+		// Mark the private networks endpoint observer synchronized. This is
+		// a temporary workaround because the observer is not yet hooked into
+		// place, as it requires some upstream adaptations first, but we need
+		// to propagate the synchronization signal, otherwise the corresponding
+		// statedb table is never marked as synchronized.
+		func(obs *privnet.EndpointsObserver) { obs.OnSync() },
 	),
 )

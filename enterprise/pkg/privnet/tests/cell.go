@@ -47,6 +47,8 @@ func NewTestHive(t testing.TB) *hive.Hive {
 		// Make privnet ID predictable
 		withOverride(reconcilers.NewIDPool(1, tables.NetworkIDMax)),
 
+		ClusterMeshObservers,
+
 		privnet.Cell,
 	)
 }
