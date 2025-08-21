@@ -195,6 +195,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Compare the current and desire states and align
 	toApply, toRemove := Compare(desired, current)
 	for _, a := range toApply {
+		logger.V(3).Info("Applying resource", "kind", a.GetKind(), "namespace", a.GetNamespace(), "name", a.GetName())
 		err = r.Patch(ctx, a, client.Apply, client.ForceOwnership, client.FieldOwner("clife"))
 		if err != nil {
 			conditions[ciliumiov1alpha1.ProcessingErrorCondition] = metav1.Condition{
@@ -212,8 +213,9 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 	for _, d := range toRemove {
+		logger.V(3).Info("Deleting resource", "kind", d.GetKind(), "namespace", d.GetNamespace(), "name", d.GetName())
 		err = r.Client.Delete(ctx, d)
-		if err != nil {
+		if err != nil && !apierrors.IsNotFound(err) {
 			conditions[ciliumiov1alpha1.ProcessingErrorCondition] = metav1.Condition{
 				Type:               ciliumiov1alpha1.ProcessingErrorCondition,
 				Status:             metav1.ConditionTrue,
