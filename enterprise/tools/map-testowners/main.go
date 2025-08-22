@@ -103,6 +103,7 @@ var (
 		"@isovalent/ignore-k8s-crd":             {},
 		"@isovalent/infrastructure":             {},
 		"@isovalent/isovalent-loadbalancer":     {},
+		"@isovalent/metrics":                    {},
 		"@isovalent/multi-network":              {},
 		"@isovalent/networking-framework":       {},
 		"@isovalent/openshift":                  {},

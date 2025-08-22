@@ -736,6 +736,10 @@ Makefile* @cilium/build
 #   deployment (for example, being GitOps-friendly).
 # - @isovalent/hubble
 #   Responsible for maintaining enterprise Hubble products and features
+# - @isovalent/metrics:
+#   Provide recommendations about the types, names and labels for metrics to
+#   follow best practices. This includes considering the cardinality impact of
+#   metrics being added or extended.
 # - @isovalent/timescape
 #   Responsible for maintaining Timescape products and features
 # - @isovalent/hubble-api
@@ -951,6 +955,8 @@ Makefile* @cilium/build
 /pkg/datapath/ipcache/enterprise_listener.go @isovalent/clustermesh
 /pkg/fqdn/**/*enterprise* @isovalent/dns-proxy
 /pkg/metrics/enterprise_* @isovalent/cni
+/pkg/metrics/features/*enterprise*.go @isovalent/metrics
+/pkg/metrics/features/**/*enterprise*.go @isovalent/metrics
 /pkg/k8s/apis/isovalent.com @isovalent/sig-k8s
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentbfd*.yaml @isovalent/traffic-engineering
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentbgp*.yaml @isovalent/traffic-engineering

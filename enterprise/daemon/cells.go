@@ -41,6 +41,7 @@ import (
 	srv6dataplane "github.com/cilium/cilium/enterprise/pkg/srv6/dataplane"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
+	metricsFeatures "github.com/cilium/cilium/pkg/metrics/features"
 )
 
 var (
@@ -108,6 +109,8 @@ var (
 		hubble.Cell,
 
 		cecIngressPolicy.Cell,
+
+		metricsFeatures.EnterpriseCell,
 	)
 
 	Datapath = cell.Module(
