@@ -11,6 +11,7 @@
 package kvstore
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"iter"
@@ -62,6 +63,13 @@ type Network struct {
 	MAC mac.MAC `json:"mac" validate:"required,len=6"`
 }
 
+// Equal returns whether two Network objects are identical.
+func (n Network) Equal(other Network) bool {
+	return n.Name == other.Name &&
+		n.IP == other.IP &&
+		bytes.Equal(n.MAC, other.MAC)
+}
+
 // Source identifies the resource propagating the endpoint information.
 type Source struct {
 	Cluster   string `json:"cluster" validate:"required,cluster-name"`
@@ -99,6 +107,17 @@ func (e *Endpoint) Unmarshal(key string, data []byte) error {
 
 	*e = endpoint
 	return nil
+}
+
+// Equal returns whether two Endpoint objects are identical.
+func (e *Endpoint) Equal(other *Endpoint) bool {
+	if e == nil || other == nil {
+		return e == other
+	}
+
+	return e.ActivatedAt.Equal(other.ActivatedAt) &&
+		e.IP == other.IP && e.Name == other.Name &&
+		e.Network.Equal(other.Network) && e.Source == other.Source
 }
 
 func (e *Endpoint) validate(key string) error {

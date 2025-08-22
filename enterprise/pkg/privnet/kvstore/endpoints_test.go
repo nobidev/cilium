@@ -17,13 +17,103 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/mac"
 )
+
+func TestEndpointEqual(t *testing.T) {
+	m, err := mac.ParseMAC("00:11:22:33:44:55")
+	require.NoError(t, err, "mac.ParseMAC")
+
+	ep := kvstore.Endpoint{
+		ActivatedAt: time.Now().UTC(),
+		IP:          netip.MustParseAddr("1.2.3.4"),
+		Name:        "name",
+		Network: kvstore.Network{
+			Name: "blue",
+			IP:   netip.MustParseAddr("5.6.7.8"),
+			MAC:  m,
+		},
+		Source: kvstore.Source{Cluster: "foo", Namespace: "bar", Name: "baz"},
+	}
+
+	tests := []struct {
+		name   string
+		a, b   *kvstore.Endpoint
+		assert assert.BoolAssertionFunc
+	}{
+		{
+			name:   "both nil",
+			assert: assert.True,
+		},
+		{
+			name:   "only a nil",
+			b:      &kvstore.Endpoint{},
+			assert: assert.False,
+		},
+		{
+			name:   "only b nil",
+			a:      &kvstore.Endpoint{},
+			assert: assert.False,
+		},
+		{
+			name:   "same endpoint",
+			a:      ptr.To(ep),
+			b:      ptr.To(ep),
+			assert: assert.True,
+		},
+		{
+			name: "different ActivatedAt",
+			a:    &ep,
+			b: func(cpy kvstore.Endpoint) *kvstore.Endpoint {
+				cpy.ActivatedAt = cpy.ActivatedAt.Add(1 * time.Second)
+				return &cpy
+			}(ep),
+			assert: assert.False,
+		},
+		{
+			name: "different IP",
+			a:    &ep,
+			b: func(cpy kvstore.Endpoint) *kvstore.Endpoint {
+				cpy.IP = netip.MustParseAddr("1.2.3.5")
+				return &cpy
+			}(ep),
+			assert: assert.False,
+		},
+		{
+			name: "different Network",
+			a:    &ep,
+			b: func(cpy kvstore.Endpoint) *kvstore.Endpoint {
+				m, err := mac.ParseMAC("00:11:22:33:44:66")
+				require.NoError(t, err, "mac.ParseMAC")
+				cpy.Network.MAC = m
+				return &cpy
+			}(ep),
+			assert: assert.False,
+		},
+		{
+			name: "different source",
+			a:    &ep,
+			b: func(cpy kvstore.Endpoint) *kvstore.Endpoint {
+				cpy.Source.Namespace = "other"
+				return &cpy
+			}(ep),
+			assert: assert.False,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.assert(t, tt.a.Equal(tt.b))
+		})
+	}
+}
 
 func TestEndpointMarshalUnmarshal(t *testing.T) {
 	m, err := mac.ParseMAC("00:11:22:33:44:55")
