@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
 	"github.com/cilium/cilium/pkg/time"
@@ -33,6 +34,37 @@ func (ep Endpoint) Equal(other Endpoint) bool {
 // Key returns the key uniquely identifying this endpoint in the endpoints table.
 func (ep Endpoint) Key() EndpointKey {
 	return newEndpointKey(ep.Source, NetworkName(ep.Name), ep.IP)
+}
+
+// ToMapEntry returns the MapEntry object created from the Endpoint and
+// PrivateNetwork information.
+func (ep Endpoint) ToMapEntry(privnet PrivateNetwork) *MapEntry {
+	return &MapEntry{
+		Type: MapEntryTypeEndpoint,
+
+		Target: MapEntryTarget{
+			NetworkName: privnet.Name,
+			NetworkID:   privnet.ID,
+			CIDR:        netip.PrefixFrom(ep.Network.IP, ep.Network.IP.BitLen()),
+			MAC:         ep.Network.MAC,
+		},
+
+		Routing: MapEntryRouting{
+			NextHop:       ep.IP,
+			EgressIfIndex: privnet.Interface.Index,
+			Cluster:       ep.Source.Cluster,
+		},
+
+		Status: reconciler.StatusPending(),
+		GARP:   reconciler.StatusPending(),
+	}
+}
+
+// ToMapEntryKey returns the key uniquely identifying the corresponding entry in
+// the map entries table.
+func (ep Endpoint) ToMapEntryKey() MapEntryKey {
+	return newMapEntryKey(NetworkName(ep.Network.Name), MapEntryTypeEndpoint,
+		netip.PrefixFrom(ep.Network.IP, ep.Network.IP.BitLen()))
 }
 
 var _ statedb.TableWritable = Endpoint{}
