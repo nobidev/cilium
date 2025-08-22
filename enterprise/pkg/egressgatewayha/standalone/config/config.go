@@ -23,6 +23,10 @@ type Config struct {
 	StandaloneEgressGatewayInterface  string
 }
 
+func (def Config) IsEnabled() bool {
+	return def.EnableIPv4StandaloneEgressGateway
+}
+
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-ipv4-standalone-egress-gateway", def.EnableIPv4StandaloneEgressGateway, "Enable standalone egress gateway for IPv4")
 	flags.String("standalone-egress-gateway-interface", def.StandaloneEgressGatewayInterface,

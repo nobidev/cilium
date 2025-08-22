@@ -19,9 +19,11 @@ import (
 // EnterpriseMetrics represents a collection of enterprise metrics related to a specific feature.
 // Each field is named according to the specific feature that it tracks.
 type EnterpriseMetrics struct {
-	ACLBSRv6                 metric.Gauge
-	ACLBEnterpriseBGPEnabled metric.Gauge
-	ACLBBFDEnabled           metric.Gauge
+	ACLBSRv6                           metric.Gauge
+	ACLBEnterpriseBGPEnabled           metric.Gauge
+	ACLBBFDEnabled                     metric.Gauge
+	ACLBEgressGatewayHAEnabled         metric.Gauge
+	ACLBEgressGatewayStandaloneEnabled metric.Gauge
 }
 
 const (
@@ -52,6 +54,20 @@ func NewEnterpriseMetrics(withDefaults bool) EnterpriseMetrics {
 			Help:      "BFD enabled on the agent",
 			Name:      "bfd_enabled",
 		}),
+
+		ACLBEgressGatewayHAEnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: enterprise + subsystemACLB,
+			Help:      "Egress Gateway HA enabled on the agent",
+			Name:      "egress_gateway_ha_enabled",
+		}),
+
+		ACLBEgressGatewayStandaloneEnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: enterprise + subsystemACLB,
+			Help:      "Egress Gateway Standalone enabled on the agent",
+			Name:      "egress_gateway_standalone_enabled",
+		}),
 	}
 }
 
@@ -70,5 +86,13 @@ func (m EnterpriseMetrics) update(params enabledEnterpriseFeatures, config *opti
 
 	if params.IsBFDEnabled() {
 		m.ACLBBFDEnabled.Set(1)
+	}
+
+	if config.EnableIPv4EgressGatewayHA {
+		m.ACLBEgressGatewayHAEnabled.Set(1)
+	}
+
+	if params.IsEgressGatewayStandaloneEnabled() {
+		m.ACLBEgressGatewayStandaloneEnabled.Set(1)
 	}
 }

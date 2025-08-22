@@ -19,8 +19,9 @@ import (
 )
 
 type mockEnterpriseFeatures struct {
-	EnterpriseBGPEnabled bool
-	BFDEnabled           bool
+	EnterpriseBGPEnabled           bool
+	BFDEnabled                     bool
+	EgressGatewayStandaloneEnabled bool
 }
 
 func (m mockEnterpriseFeatures) IsEnterpriseBGPEnabled() bool {
@@ -29,6 +30,10 @@ func (m mockEnterpriseFeatures) IsEnterpriseBGPEnabled() bool {
 
 func (m mockEnterpriseFeatures) IsBFDEnabled() bool {
 	return m.BFDEnabled
+}
+
+func (m mockEnterpriseFeatures) IsEgressGatewayStandaloneEnabled() bool {
+	return m.EgressGatewayStandaloneEnabled
 }
 
 func TestUpdateSRv6(t *testing.T) {
@@ -132,6 +137,78 @@ func TestUpdateBFD(t *testing.T) {
 
 			counterValue := metrics.ACLBBFDEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableBFD, counterValue)
+		})
+	}
+}
+
+func TestUpdateEgressGatewayHA(t *testing.T) {
+	tests := []struct {
+		name                      string
+		enableIPv4EgressGatewayHA bool
+		expected                  float64
+	}{
+		{
+			name:                      "Egress Gateway HA enabled",
+			enableIPv4EgressGatewayHA: true,
+			expected:                  1,
+		},
+		{
+			name:                      "Egress Gateway HA disabled",
+			enableIPv4EgressGatewayHA: false,
+			expected:                  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewEnterpriseMetrics(true)
+			config := &option.DaemonConfig{
+				EnterpriseDaemonConfig: option.EnterpriseDaemonConfig{
+					EnableIPv4EgressGatewayHA: tt.enableIPv4EgressGatewayHA,
+				},
+			}
+
+			params := mockEnterpriseFeatures{}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBEgressGatewayHAEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableIPv4EgressGatewayHA, counterValue)
+		})
+	}
+}
+
+func TestUpdateEgressGatewayStandalone(t *testing.T) {
+	tests := []struct {
+		name                          string
+		enableEgressGatewayStandalone bool
+		expected                      float64
+	}{
+		{
+			name:                          "Egress Gateway Standalone enabled",
+			enableEgressGatewayStandalone: true,
+			expected:                      1,
+		},
+		{
+			name:                          "Egress Gateway Standalone disabled",
+			enableEgressGatewayStandalone: false,
+			expected:                      0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewEnterpriseMetrics(true)
+			config := &option.DaemonConfig{}
+
+			params := mockEnterpriseFeatures{
+				EgressGatewayStandaloneEnabled: tt.enableEgressGatewayStandalone,
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBEgressGatewayStandaloneEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableEgressGatewayStandalone, counterValue)
 		})
 	}
 }

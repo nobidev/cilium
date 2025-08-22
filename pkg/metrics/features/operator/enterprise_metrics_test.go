@@ -103,3 +103,41 @@ func TestUpdateBFDEnabled(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateEgressGatewayHAEnabled(t *testing.T) {
+	tests := []struct {
+		name                  string
+		enableEgressGatewayHA bool
+		expected              float64
+	}{
+		{
+			name:                  "Egress Gateway HA enabled",
+			enableEgressGatewayHA: true,
+			expected:              1,
+		},
+		{
+			name:                  "Egress Gateway HA disabled",
+			enableEgressGatewayHA: false,
+			expected:              0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewEnterpriseMetrics(true)
+			config := &option.OperatorConfig{}
+			daemonConfig := &daemonOption.DaemonConfig{
+				EnterpriseDaemonConfig: daemonOption.EnterpriseDaemonConfig{
+					EnableIPv4EgressGatewayHA: tt.enableEgressGatewayHA,
+				},
+			}
+
+			params := mockEnterpriseFeatures{}
+
+			metrics.update(params, config, daemonConfig)
+
+			counterValue := metrics.ACLBEgressGatewayHAEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableEgressGatewayHA, counterValue)
+		})
+	}
+}

@@ -18,6 +18,7 @@ import (
 
 	bgpconfig "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
+	segwcfg "github.com/cilium/cilium/enterprise/pkg/egressgatewayha/standalone/config"
 
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -55,8 +56,9 @@ type enterpriseFeaturesParams struct {
 	ConfigPromise promise.Promise[*option.DaemonConfig]
 	Metrics       enterpriseFeatureMetrics
 
-	BGP bgpconfig.Config
-	BFD types.BFDConfig
+	BGP                bgpconfig.Config
+	BFD                types.BFDConfig
+	EgressGAStandalone segwcfg.Config
 }
 
 func (fp *enterpriseFeaturesParams) IsEnterpriseBGPEnabled() bool {
@@ -67,7 +69,12 @@ func (fp *enterpriseFeaturesParams) IsBFDEnabled() bool {
 	return fp.BFD.IsEnabled()
 }
 
+func (fp *enterpriseFeaturesParams) IsEgressGatewayStandaloneEnabled() bool {
+	return fp.EgressGAStandalone.IsEnabled()
+}
+
 type enabledEnterpriseFeatures interface {
 	IsEnterpriseBGPEnabled() bool
 	IsBFDEnabled() bool
+	IsEgressGatewayStandaloneEnabled() bool
 }

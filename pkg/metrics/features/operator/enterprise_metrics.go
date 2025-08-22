@@ -19,8 +19,9 @@ import (
 )
 
 type EnterpriseMetrics struct {
-	ACLBEnterpriseBGPEnabled metric.Gauge
-	ACLBBFDEnabled           metric.Gauge
+	ACLBEnterpriseBGPEnabled   metric.Gauge
+	ACLBBFDEnabled             metric.Gauge
+	ACLBEgressGatewayHAEnabled metric.Gauge
 }
 
 const (
@@ -44,6 +45,13 @@ func NewEnterpriseMetrics(withDefaults bool) EnterpriseMetrics {
 			Help:      "BFD enabled on the operator",
 			Name:      "bfd_enabled",
 		}),
+
+		ACLBEgressGatewayHAEnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: enterprise + subsystemACLB,
+			Help:      "Egress Gateway HA enabled on the operator",
+			Name:      "egress_gateway_ha_enabled",
+		}),
 	}
 }
 
@@ -57,5 +65,8 @@ func (m EnterpriseMetrics) update(params enabledEnterpriseFeatures, config *opti
 	}
 	if params.IsBFDEnabled() {
 		m.ACLBBFDEnabled.Set(1)
+	}
+	if daemonConfig.EnableIPv4EgressGatewayHA {
+		m.ACLBEgressGatewayHAEnabled.Set(1)
 	}
 }
