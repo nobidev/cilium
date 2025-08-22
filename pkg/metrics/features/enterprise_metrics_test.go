@@ -22,6 +22,7 @@ type mockEnterpriseFeatures struct {
 	EnterpriseBGPEnabled           bool
 	BFDEnabled                     bool
 	EgressGatewayStandaloneEnabled bool
+	MixedRoutingModeEnabled        bool
 }
 
 func (m mockEnterpriseFeatures) IsEnterpriseBGPEnabled() bool {
@@ -34,6 +35,10 @@ func (m mockEnterpriseFeatures) IsBFDEnabled() bool {
 
 func (m mockEnterpriseFeatures) IsEgressGatewayStandaloneEnabled() bool {
 	return m.EgressGatewayStandaloneEnabled
+}
+
+func (m mockEnterpriseFeatures) IsMixedRoutingEnabled() bool {
+	return m.MixedRoutingModeEnabled
 }
 
 func TestUpdateSRv6(t *testing.T) {
@@ -209,6 +214,41 @@ func TestUpdateEgressGatewayStandalone(t *testing.T) {
 
 			counterValue := metrics.ACLBEgressGatewayStandaloneEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableEgressGatewayStandalone, counterValue)
+		})
+	}
+}
+
+func TestUpdateMixedRoutingMode(t *testing.T) {
+	tests := []struct {
+		name                   string
+		enableMixedRoutingMode bool
+		expected               float64
+	}{
+		{
+			name:                   "Mixed Routing Mode enabled",
+			enableMixedRoutingMode: true,
+			expected:               1,
+		},
+		{
+			name:                   "Mixed Routing Mode disabled",
+			enableMixedRoutingMode: false,
+			expected:               0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewEnterpriseMetrics(true)
+			config := &option.DaemonConfig{}
+
+			params := mockEnterpriseFeatures{
+				MixedRoutingModeEnabled: tt.enableMixedRoutingMode,
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBMixedRoutingModeEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableMixedRoutingMode, counterValue)
 		})
 	}
 }

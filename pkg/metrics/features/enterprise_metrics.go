@@ -24,6 +24,7 @@ type EnterpriseMetrics struct {
 	ACLBBFDEnabled                     metric.Gauge
 	ACLBEgressGatewayHAEnabled         metric.Gauge
 	ACLBEgressGatewayStandaloneEnabled metric.Gauge
+	ACLBMixedRoutingModeEnabled        metric.Gauge
 }
 
 const (
@@ -68,6 +69,13 @@ func NewEnterpriseMetrics(withDefaults bool) EnterpriseMetrics {
 			Help:      "Egress Gateway Standalone enabled on the agent",
 			Name:      "egress_gateway_standalone_enabled",
 		}),
+
+		ACLBMixedRoutingModeEnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: enterprise + subsystemACLB,
+			Help:      "Mixed Routing Mode enabled on the agent",
+			Name:      "mixed_routing_mode_enabled",
+		}),
 	}
 }
 
@@ -94,5 +102,9 @@ func (m EnterpriseMetrics) update(params enabledEnterpriseFeatures, config *opti
 
 	if params.IsEgressGatewayStandaloneEnabled() {
 		m.ACLBEgressGatewayStandaloneEnabled.Set(1)
+	}
+
+	if params.IsMixedRoutingEnabled() {
+		m.ACLBMixedRoutingModeEnabled.Set(1)
 	}
 }

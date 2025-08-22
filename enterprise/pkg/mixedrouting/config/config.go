@@ -106,3 +106,7 @@ func (cfg Config) Validate(dcfg *option.DaemonConfig, cmcfg cecmcfg.Config, cnic
 
 	return nil
 }
+
+func (def Config) IsMixedRoutingEnabled() bool {
+	return def.FallbackRoutingMode != FallbackDisabled
+}

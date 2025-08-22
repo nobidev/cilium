@@ -210,7 +210,7 @@ func (mgr *manager) registerJobs(in struct {
 }
 
 // enabled returns whether mixed routing mode support is enabled.
-func (mgr *manager) enabled() bool { return mgr.config.FallbackRoutingMode != cemrcfg.FallbackDisabled }
+func (mgr *manager) enabled() bool { return mgr.config.IsMixedRoutingEnabled() }
 
 // enabledWithFallback returns whether mixed routing mode support is enabled,
 // and the fallback routing mode is different from the primary one.
