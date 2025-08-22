@@ -21,6 +21,16 @@ type Config struct {
 	EnableOfflineMode      bool `mapstructure:"tofqdns-enable-offline-mode"`
 }
 
+// IsEnabled returns whether FQDN HA proxy is enabled
+func (def Config) IsEnabled() bool {
+	return def.EnableExternalDNSProxy
+}
+
+// IsOfflineModeEnabled returns whether FQDN offline mode is enabled
+func (def Config) IsOfflineModeEnabled() bool {
+	return def.EnableOfflineMode
+}
+
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("external-dns-proxy", def.EnableExternalDNSProxy, "Enable Cilium agent to use an external DNS proxy")
 	flags.Bool("tofqdns-enable-offline-mode", def.EnableOfflineMode, "DNS Proxy will use the Cilium agent's bpf maps directly rather than getting information from the agent's dns proxy service.")

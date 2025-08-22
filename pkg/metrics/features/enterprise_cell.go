@@ -21,6 +21,7 @@ import (
 	clustermeshConfig "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
 	segwcfg "github.com/cilium/cilium/enterprise/pkg/egressgatewayha/standalone/config"
 	encryptionPolicyTypes "github.com/cilium/cilium/enterprise/pkg/encryption/policy/types"
+	"github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
 	cemrcfg "github.com/cilium/cilium/enterprise/pkg/mixedrouting/config"
 
 	"github.com/cilium/cilium/pkg/metrics"
@@ -65,6 +66,7 @@ type enterpriseFeaturesParams struct {
 	MixedRoutingMode   cemrcfg.Config
 	EncryptionPolicy   encryptionPolicyTypes.Config
 	ClusterMeshConfig  clustermeshConfig.Config
+	FQDNHA             config.Config
 }
 
 func (fp *enterpriseFeaturesParams) IsEnterpriseBGPEnabled() bool {
@@ -95,6 +97,14 @@ func (fp *enterpriseFeaturesParams) IsOverlappingPodCIDREnabled() bool {
 	return fp.ClusterMeshConfig.IsOverlappingPodCIDREnabled()
 }
 
+func (fp *enterpriseFeaturesParams) IsFQDNHAEnabled() bool {
+	return fp.FQDNHA.IsEnabled()
+}
+
+func (fp *enterpriseFeaturesParams) IsFQDNOfflineModeEnabled() bool {
+	return fp.FQDNHA.IsOfflineModeEnabled()
+}
+
 type enabledEnterpriseFeatures interface {
 	IsEnterpriseBGPEnabled() bool
 	IsBFDEnabled() bool
@@ -103,4 +113,6 @@ type enabledEnterpriseFeatures interface {
 	IsEncryptionPolicyEnabled() bool
 	IsPhantomServicesEnabled() bool
 	IsOverlappingPodCIDREnabled() bool
+	IsFQDNHAEnabled() bool
+	IsFQDNOfflineModeEnabled() bool
 }

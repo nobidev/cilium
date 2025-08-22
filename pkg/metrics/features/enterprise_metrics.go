@@ -28,6 +28,8 @@ type EnterpriseMetrics struct {
 	ACLBEncryptionPolicyEnabled        metric.Gauge
 	ACLBPhantomServicesEnabled         metric.Gauge
 	ACLBOverlappingPodCIDREnabled      metric.Gauge
+	CPFQDNHAEnabled                    metric.Gauge
+	CPFQDNOfflineModeEnabled           metric.Gauge
 }
 
 const (
@@ -100,6 +102,20 @@ func NewEnterpriseMetrics(withDefaults bool) EnterpriseMetrics {
 			Help:      "Overlapping Pod CIDR enabled on the agent",
 			Name:      "overlapping_pod_cidr_enabled",
 		}),
+
+		CPFQDNHAEnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: enterprise + subsystemCP,
+			Help:      "FQDN HA enabled on the agent",
+			Name:      "fqdn_ha_enabled",
+		}),
+
+		CPFQDNOfflineModeEnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: enterprise + subsystemCP,
+			Help:      "FQDN Offline Mode enabled on the agent",
+			Name:      "fqdn_offline_mode_enabled",
+		}),
 	}
 }
 
@@ -142,5 +158,13 @@ func (m EnterpriseMetrics) update(params enabledEnterpriseFeatures, config *opti
 
 	if params.IsOverlappingPodCIDREnabled() {
 		m.ACLBOverlappingPodCIDREnabled.Set(1)
+	}
+
+	if params.IsFQDNHAEnabled() {
+		m.CPFQDNHAEnabled.Set(1)
+	}
+
+	if params.IsFQDNOfflineModeEnabled() {
+		m.CPFQDNOfflineModeEnabled.Set(1)
 	}
 }

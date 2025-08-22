@@ -26,6 +26,8 @@ type mockEnterpriseFeatures struct {
 	EncryptionPolicyEnabled        bool
 	PhantomServicesEnabled         bool
 	OverlappingPodCIDREnabled      bool
+	FQDNHAEnabled                  bool
+	FQDNOfflineModeEnabled         bool
 }
 
 func (m mockEnterpriseFeatures) IsEnterpriseBGPEnabled() bool {
@@ -46,6 +48,14 @@ func (m mockEnterpriseFeatures) IsMixedRoutingEnabled() bool {
 
 func (m mockEnterpriseFeatures) IsEncryptionPolicyEnabled() bool {
 	return m.EncryptionPolicyEnabled
+}
+
+func (m mockEnterpriseFeatures) IsFQDNHAEnabled() bool {
+	return m.FQDNHAEnabled
+}
+
+func (m mockEnterpriseFeatures) IsFQDNOfflineModeEnabled() bool {
+	return m.FQDNOfflineModeEnabled
 }
 
 func (m mockEnterpriseFeatures) IsPhantomServicesEnabled() bool {
@@ -369,6 +379,76 @@ func TestUpdateOverlappingPodCIDR(t *testing.T) {
 
 			counterValue := metrics.ACLBOverlappingPodCIDREnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableOverlappingPodCIDR, counterValue)
+		})
+	}
+}
+
+func TestUpdateFQDNHA(t *testing.T) {
+	tests := []struct {
+		name         string
+		enableFQDNHA bool
+		expected     float64
+	}{
+		{
+			name:         "FQDN HA enabled",
+			enableFQDNHA: true,
+			expected:     1,
+		},
+		{
+			name:         "FQDN HA disabled",
+			enableFQDNHA: false,
+			expected:     0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewEnterpriseMetrics(true)
+			config := &option.DaemonConfig{}
+
+			params := mockEnterpriseFeatures{
+				FQDNHAEnabled: tt.enableFQDNHA,
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.CPFQDNHAEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableFQDNHA, counterValue)
+		})
+	}
+}
+
+func TestUpdateFQDNOfflineMode(t *testing.T) {
+	tests := []struct {
+		name                  string
+		enableFQDNOfflineMode bool
+		expected              float64
+	}{
+		{
+			name:                  "FQDN Offline Mode enabled",
+			enableFQDNOfflineMode: true,
+			expected:              1,
+		},
+		{
+			name:                  "FQDN Offline Mode disabled",
+			enableFQDNOfflineMode: false,
+			expected:              0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewEnterpriseMetrics(true)
+			config := &option.DaemonConfig{}
+
+			params := mockEnterpriseFeatures{
+				FQDNOfflineModeEnabled: tt.enableFQDNOfflineMode,
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.CPFQDNOfflineModeEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableFQDNOfflineMode, counterValue)
 		})
 	}
 }
