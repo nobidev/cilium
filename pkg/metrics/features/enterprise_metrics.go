@@ -26,6 +26,8 @@ type EnterpriseMetrics struct {
 	ACLBEgressGatewayStandaloneEnabled metric.Gauge
 	ACLBMixedRoutingModeEnabled        metric.Gauge
 	ACLBEncryptionPolicyEnabled        metric.Gauge
+	ACLBPhantomServicesEnabled         metric.Gauge
+	ACLBOverlappingPodCIDREnabled      metric.Gauge
 }
 
 const (
@@ -84,6 +86,20 @@ func NewEnterpriseMetrics(withDefaults bool) EnterpriseMetrics {
 			Help:      "Encryption Policy enabled on the agent",
 			Name:      "encryption_policy_enabled",
 		}),
+
+		ACLBPhantomServicesEnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: enterprise + subsystemACLB,
+			Help:      "Phantom Services enabled on the agent",
+			Name:      "phantom_services_enabled",
+		}),
+
+		ACLBOverlappingPodCIDREnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: enterprise + subsystemACLB,
+			Help:      "Overlapping Pod CIDR enabled on the agent",
+			Name:      "overlapping_pod_cidr_enabled",
+		}),
 	}
 }
 
@@ -118,5 +134,13 @@ func (m EnterpriseMetrics) update(params enabledEnterpriseFeatures, config *opti
 
 	if params.IsEncryptionPolicyEnabled() {
 		m.ACLBEncryptionPolicyEnabled.Set(1)
+	}
+
+	if params.IsPhantomServicesEnabled() {
+		m.ACLBPhantomServicesEnabled.Set(1)
+	}
+
+	if params.IsOverlappingPodCIDREnabled() {
+		m.ACLBOverlappingPodCIDREnabled.Set(1)
 	}
 }

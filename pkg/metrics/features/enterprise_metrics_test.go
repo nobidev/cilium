@@ -24,6 +24,8 @@ type mockEnterpriseFeatures struct {
 	EgressGatewayStandaloneEnabled bool
 	MixedRoutingModeEnabled        bool
 	EncryptionPolicyEnabled        bool
+	PhantomServicesEnabled         bool
+	OverlappingPodCIDREnabled      bool
 }
 
 func (m mockEnterpriseFeatures) IsEnterpriseBGPEnabled() bool {
@@ -44,6 +46,14 @@ func (m mockEnterpriseFeatures) IsMixedRoutingEnabled() bool {
 
 func (m mockEnterpriseFeatures) IsEncryptionPolicyEnabled() bool {
 	return m.EncryptionPolicyEnabled
+}
+
+func (m mockEnterpriseFeatures) IsPhantomServicesEnabled() bool {
+	return m.PhantomServicesEnabled
+}
+
+func (m mockEnterpriseFeatures) IsOverlappingPodCIDREnabled() bool {
+	return m.OverlappingPodCIDREnabled
 }
 
 func TestUpdateSRv6(t *testing.T) {
@@ -289,6 +299,76 @@ func TestUpdateEncryptionPolicy(t *testing.T) {
 
 			counterValue := metrics.ACLBEncryptionPolicyEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableEncryptionPolicy, counterValue)
+		})
+	}
+}
+
+func TestUpdatePhantomServices(t *testing.T) {
+	tests := []struct {
+		name                  string
+		enablePhantomServices bool
+		expected              float64
+	}{
+		{
+			name:                  "Phantom Services enabled",
+			enablePhantomServices: true,
+			expected:              1,
+		},
+		{
+			name:                  "Phantom Services disabled",
+			enablePhantomServices: false,
+			expected:              0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewEnterpriseMetrics(true)
+			config := &option.DaemonConfig{}
+
+			params := mockEnterpriseFeatures{
+				PhantomServicesEnabled: tt.enablePhantomServices,
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBPhantomServicesEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enablePhantomServices, counterValue)
+		})
+	}
+}
+
+func TestUpdateOverlappingPodCIDR(t *testing.T) {
+	tests := []struct {
+		name                     string
+		enableOverlappingPodCIDR bool
+		expected                 float64
+	}{
+		{
+			name:                     "Overlapping Pod CIDR enabled",
+			enableOverlappingPodCIDR: true,
+			expected:                 1,
+		},
+		{
+			name:                     "Overlapping Pod CIDR disabled",
+			enableOverlappingPodCIDR: false,
+			expected:                 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewEnterpriseMetrics(true)
+			config := &option.DaemonConfig{}
+
+			params := mockEnterpriseFeatures{
+				OverlappingPodCIDREnabled: tt.enableOverlappingPodCIDR,
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBOverlappingPodCIDREnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableOverlappingPodCIDR, counterValue)
 		})
 	}
 }

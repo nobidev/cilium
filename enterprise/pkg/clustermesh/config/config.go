@@ -43,6 +43,16 @@ type Config struct {
 	EnablePhantomServices bool
 }
 
+// IsPhantomServicesEnabled returns whether phantom services are enabled
+func (cfg Config) IsPhantomServicesEnabled() bool {
+	return cfg.EnablePhantomServices
+}
+
+// IsOverlappingPodCIDREnabled returns whether overlapping PodCIDR support is enabled
+func (cfg Config) IsOverlappingPodCIDREnabled() bool {
+	return cfg.EnableClusterAwareAddressing && cfg.EnableInterClusterSNAT
+}
+
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(EnableClusterAwareAddressing, def.EnableClusterAwareAddressing, "Enable cluster-aware addressing, to support overlapping PodCIDRs")
 	flags.Bool(EnableInterClusterSNAT, def.EnableInterClusterSNAT, "Enable inter-cluster SNAT, to support overlapping PodCIDRs")

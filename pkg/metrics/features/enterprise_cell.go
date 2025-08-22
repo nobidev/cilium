@@ -18,6 +18,7 @@ import (
 
 	bgpconfig "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
+	clustermeshConfig "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
 	segwcfg "github.com/cilium/cilium/enterprise/pkg/egressgatewayha/standalone/config"
 	encryptionPolicyTypes "github.com/cilium/cilium/enterprise/pkg/encryption/policy/types"
 	cemrcfg "github.com/cilium/cilium/enterprise/pkg/mixedrouting/config"
@@ -63,6 +64,7 @@ type enterpriseFeaturesParams struct {
 	EgressGAStandalone segwcfg.Config
 	MixedRoutingMode   cemrcfg.Config
 	EncryptionPolicy   encryptionPolicyTypes.Config
+	ClusterMeshConfig  clustermeshConfig.Config
 }
 
 func (fp *enterpriseFeaturesParams) IsEnterpriseBGPEnabled() bool {
@@ -85,10 +87,20 @@ func (fp *enterpriseFeaturesParams) IsEncryptionPolicyEnabled() bool {
 	return fp.EncryptionPolicy.IsEnabled()
 }
 
+func (fp *enterpriseFeaturesParams) IsPhantomServicesEnabled() bool {
+	return fp.ClusterMeshConfig.IsPhantomServicesEnabled()
+}
+
+func (fp *enterpriseFeaturesParams) IsOverlappingPodCIDREnabled() bool {
+	return fp.ClusterMeshConfig.IsOverlappingPodCIDREnabled()
+}
+
 type enabledEnterpriseFeatures interface {
 	IsEnterpriseBGPEnabled() bool
 	IsBFDEnabled() bool
 	IsEgressGatewayStandaloneEnabled() bool
 	IsMixedRoutingEnabled() bool
 	IsEncryptionPolicyEnabled() bool
+	IsPhantomServicesEnabled() bool
+	IsOverlappingPodCIDREnabled() bool
 }
