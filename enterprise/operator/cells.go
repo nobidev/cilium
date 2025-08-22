@@ -31,8 +31,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/healthcheck"
 	"github.com/cilium/cilium/operator/cmd"
 
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/promise"
+	metricsFeatures "github.com/cilium/cilium/pkg/metrics/features/operator"
 )
 
 var (
@@ -51,10 +50,6 @@ var (
 
 			// enterprise-only cells to be started after leader election here
 			enterpriseOperatorK8s.ResourcesCell,
-
-			cell.Provide(promise.New[*option.DaemonConfig]),
-
-			cell.Invoke(registerConfigResolution),
 
 			features.OperatorCell,
 
@@ -81,25 +76,8 @@ var (
 
 			clustercfg.Cell,
 			phantom.Cell,
+
+			metricsFeatures.EnterpriseCell,
 		),
 	)
 )
-
-// registerConfigResolution sets up a lifecycle hook that ensures configuration
-// resolution happens after the legacy operator initialization is complete.
-func registerConfigResolution(lc cell.Lifecycle, cfgResolver promise.Resolver[*option.DaemonConfig]) {
-	lc.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			// This hook runs after all previous cells in the leader lifecycle have started,
-			// including legacyCell. By this point, option.Config should be stable.
-
-			// 'option.Config' is assumed to be stable at this point, except for
-			// 'option.Config.Opts' that are explicitly deemed to be runtime-changeable
-			cfgResolver.Resolve(option.Config)
-			return nil
-		},
-		OnStop: func(ctx cell.HookContext) error {
-			return nil
-		},
-	})
-}

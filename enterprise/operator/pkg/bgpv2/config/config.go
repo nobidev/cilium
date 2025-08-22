@@ -37,3 +37,7 @@ var DefaultConfig = Config{
 	Enabled:             false,
 	StatusReportEnabled: true,
 }
+
+func (cfg Config) IsEnabled() bool {
+	return cfg.Enabled
+}

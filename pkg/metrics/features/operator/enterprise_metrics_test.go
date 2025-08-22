@@ -13,55 +13,21 @@ package features
 import (
 	"testing"
 
-	"github.com/cilium/cilium/pkg/option"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/cilium/cilium/operator/option"
+	daemonOption "github.com/cilium/cilium/pkg/option"
 )
 
 type mockEnterpriseFeatures struct {
 	EnterpriseBGPEnabled bool
 }
 
-func (m mockEnterpriseFeatures) IsEnterpriseBGPEnabled() bool {
-	return m.EnterpriseBGPEnabled
+func (p mockEnterpriseFeatures) IsEnterpriseBGPEnabled() bool {
+	return p.EnterpriseBGPEnabled
 }
 
-func TestUpdateSRv6(t *testing.T) {
-	tests := []struct {
-		name       string
-		enableSRv6 bool
-		expected   float64
-	}{
-		{
-			name:       "SRv6 enabled",
-			enableSRv6: true,
-			expected:   1,
-		},
-		{
-			name:       "SRv6 disabled",
-			enableSRv6: false,
-			expected:   0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewEnterpriseMetrics(true)
-			config := &option.DaemonConfig{
-				EnableSRv6: tt.enableSRv6,
-			}
-
-			params := mockEnterpriseFeatures{}
-
-			metrics.update(params, config)
-
-			counterValue := metrics.ACLBSRv6.Get()
-			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableSRv6, counterValue)
-		})
-	}
-}
-
-func TestUpdateEnterpriseBGP(t *testing.T) {
+func TestUpdateEnterpriseBGPEnabled(t *testing.T) {
 	tests := []struct {
 		name                string
 		enableEnterpriseBGP bool
@@ -82,13 +48,14 @@ func TestUpdateEnterpriseBGP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			metrics := NewEnterpriseMetrics(true)
-			config := &option.DaemonConfig{}
+			config := &option.OperatorConfig{}
+			daemonConfig := &daemonOption.DaemonConfig{}
 
 			params := mockEnterpriseFeatures{
 				EnterpriseBGPEnabled: tt.enableEnterpriseBGP,
 			}
 
-			metrics.update(params, config)
+			metrics.update(params, config, daemonConfig)
 
 			counterValue := metrics.ACLBEnterpriseBGPEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableEnterpriseBGP, counterValue)

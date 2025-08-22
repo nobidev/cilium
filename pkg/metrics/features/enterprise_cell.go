@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
+	bgpconfig "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -51,7 +52,14 @@ type enterpriseFeaturesParams struct {
 	Lifecycle     cell.Lifecycle
 	ConfigPromise promise.Promise[*option.DaemonConfig]
 	Metrics       enterpriseFeatureMetrics
+
+	BGP bgpconfig.Config
+}
+
+func (fp *enterpriseFeaturesParams) IsEnterpriseBGPEnabled() bool {
+	return fp.BGP.IsEnabled()
 }
 
 type enabledEnterpriseFeatures interface {
+	IsEnterpriseBGPEnabled() bool
 }

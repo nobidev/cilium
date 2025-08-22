@@ -11,15 +11,14 @@
 package features
 
 import (
+	daemonOption "github.com/cilium/cilium/pkg/option"
+
+	"github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
-	"github.com/cilium/cilium/pkg/option"
 )
 
-// EnterpriseMetrics represents a collection of enterprise metrics related to a specific feature.
-// Each field is named according to the specific feature that it tracks.
 type EnterpriseMetrics struct {
-	ACLBSRv6                 metric.Gauge
 	ACLBEnterpriseBGPEnabled metric.Gauge
 }
 
@@ -31,31 +30,20 @@ const (
 // all metrics will have defined all of their possible values.
 func NewEnterpriseMetrics(withDefaults bool) EnterpriseMetrics {
 	return EnterpriseMetrics{
-		ACLBSRv6: metric.NewGauge(metric.GaugeOpts{
-			Help:      "Cilium SRv6 enabled on the agent",
-			Namespace: metrics.Namespace,
-			Subsystem: enterprise + subsystemACLB,
-			Name:      "srv6_enabled",
-		}),
-
 		ACLBEnterpriseBGPEnabled: metric.NewGauge(metric.GaugeOpts{
 			Namespace: metrics.Namespace,
 			Subsystem: enterprise + subsystemACLB,
-			Help:      "BGP enabled on the agent",
+			Help:      "BGP enabled on the operator",
 			Name:      "bgp_enabled",
 		}),
 	}
 }
 
 type enterpriseFeatureMetrics interface {
-	update(params enabledEnterpriseFeatures, config *option.DaemonConfig)
+	update(params enabledEnterpriseFeatures, config *option.OperatorConfig, daemonConfig *daemonOption.DaemonConfig)
 }
 
-func (m EnterpriseMetrics) update(params enabledEnterpriseFeatures, config *option.DaemonConfig) {
-	if config.EnableSRv6 {
-		m.ACLBSRv6.Set(1)
-	}
-
+func (m EnterpriseMetrics) update(params enabledEnterpriseFeatures, config *option.OperatorConfig, daemonConfig *daemonOption.DaemonConfig) {
 	if params.IsEnterpriseBGPEnabled() {
 		m.ACLBEnterpriseBGPEnabled.Set(1)
 	}
