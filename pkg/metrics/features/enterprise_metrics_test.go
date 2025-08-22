@@ -28,6 +28,7 @@ type mockEnterpriseFeatures struct {
 	OverlappingPodCIDREnabled      bool
 	FQDNHAEnabled                  bool
 	FQDNOfflineModeEnabled         bool
+	MulticastEnabled               bool
 }
 
 func (m mockEnterpriseFeatures) IsEnterpriseBGPEnabled() bool {
@@ -64,6 +65,10 @@ func (m mockEnterpriseFeatures) IsPhantomServicesEnabled() bool {
 
 func (m mockEnterpriseFeatures) IsOverlappingPodCIDREnabled() bool {
 	return m.OverlappingPodCIDREnabled
+}
+
+func (m mockEnterpriseFeatures) IsMulticastEnabled() bool {
+	return m.MulticastEnabled
 }
 
 func TestUpdateSRv6(t *testing.T) {
@@ -449,6 +454,41 @@ func TestUpdateFQDNOfflineMode(t *testing.T) {
 
 			counterValue := metrics.CPFQDNOfflineModeEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableFQDNOfflineMode, counterValue)
+		})
+	}
+}
+
+func TestUpdateMulticast(t *testing.T) {
+	tests := []struct {
+		name            string
+		enableMulticast bool
+		expected        float64
+	}{
+		{
+			name:            "Multicast enabled",
+			enableMulticast: true,
+			expected:        1,
+		},
+		{
+			name:            "Multicast disabled",
+			enableMulticast: false,
+			expected:        0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewEnterpriseMetrics(true)
+			config := &option.DaemonConfig{}
+
+			params := mockEnterpriseFeatures{
+				MulticastEnabled: tt.enableMulticast,
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.DPMulticastEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableMulticast, counterValue)
 		})
 	}
 }

@@ -30,6 +30,7 @@ type EnterpriseMetrics struct {
 	ACLBOverlappingPodCIDREnabled      metric.Gauge
 	CPFQDNHAEnabled                    metric.Gauge
 	CPFQDNOfflineModeEnabled           metric.Gauge
+	DPMulticastEnabled                 metric.Gauge
 }
 
 const (
@@ -116,6 +117,13 @@ func NewEnterpriseMetrics(withDefaults bool) EnterpriseMetrics {
 			Help:      "FQDN Offline Mode enabled on the agent",
 			Name:      "fqdn_offline_mode_enabled",
 		}),
+
+		DPMulticastEnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: enterprise + subsystemDP,
+			Help:      "Multicast enabled on the agent",
+			Name:      "multicast_enabled",
+		}),
 	}
 }
 
@@ -166,5 +174,9 @@ func (m EnterpriseMetrics) update(params enabledEnterpriseFeatures, config *opti
 
 	if params.IsFQDNOfflineModeEnabled() {
 		m.CPFQDNOfflineModeEnabled.Set(1)
+	}
+
+	if params.IsMulticastEnabled() {
+		m.DPMulticastEnabled.Set(1)
 	}
 }
