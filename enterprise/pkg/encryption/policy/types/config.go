@@ -16,6 +16,11 @@ type Config struct {
 	EnableEncryptionPolicy bool
 }
 
+// IsEnabled returns whether encryption policy is enabled
+func (c Config) IsEnabled() bool {
+	return c.EnableEncryptionPolicy
+}
+
 func (c Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-encryption-policy", c.EnableEncryptionPolicy, "Enable support for encryption policies. When enabled, only selected traffic will be encrypted.")
 }

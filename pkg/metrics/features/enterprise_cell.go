@@ -19,6 +19,7 @@ import (
 	bgpconfig "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
 	segwcfg "github.com/cilium/cilium/enterprise/pkg/egressgatewayha/standalone/config"
+	encryptionPolicyTypes "github.com/cilium/cilium/enterprise/pkg/encryption/policy/types"
 	cemrcfg "github.com/cilium/cilium/enterprise/pkg/mixedrouting/config"
 
 	"github.com/cilium/cilium/pkg/metrics"
@@ -61,6 +62,7 @@ type enterpriseFeaturesParams struct {
 	BFD                types.BFDConfig
 	EgressGAStandalone segwcfg.Config
 	MixedRoutingMode   cemrcfg.Config
+	EncryptionPolicy   encryptionPolicyTypes.Config
 }
 
 func (fp *enterpriseFeaturesParams) IsEnterpriseBGPEnabled() bool {
@@ -79,9 +81,14 @@ func (fp *enterpriseFeaturesParams) IsMixedRoutingEnabled() bool {
 	return fp.MixedRoutingMode.IsMixedRoutingEnabled()
 }
 
+func (fp *enterpriseFeaturesParams) IsEncryptionPolicyEnabled() bool {
+	return fp.EncryptionPolicy.IsEnabled()
+}
+
 type enabledEnterpriseFeatures interface {
 	IsEnterpriseBGPEnabled() bool
 	IsBFDEnabled() bool
 	IsEgressGatewayStandaloneEnabled() bool
 	IsMixedRoutingEnabled() bool
+	IsEncryptionPolicyEnabled() bool
 }

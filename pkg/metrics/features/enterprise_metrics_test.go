@@ -23,6 +23,7 @@ type mockEnterpriseFeatures struct {
 	BFDEnabled                     bool
 	EgressGatewayStandaloneEnabled bool
 	MixedRoutingModeEnabled        bool
+	EncryptionPolicyEnabled        bool
 }
 
 func (m mockEnterpriseFeatures) IsEnterpriseBGPEnabled() bool {
@@ -39,6 +40,10 @@ func (m mockEnterpriseFeatures) IsEgressGatewayStandaloneEnabled() bool {
 
 func (m mockEnterpriseFeatures) IsMixedRoutingEnabled() bool {
 	return m.MixedRoutingModeEnabled
+}
+
+func (m mockEnterpriseFeatures) IsEncryptionPolicyEnabled() bool {
+	return m.EncryptionPolicyEnabled
 }
 
 func TestUpdateSRv6(t *testing.T) {
@@ -249,6 +254,41 @@ func TestUpdateMixedRoutingMode(t *testing.T) {
 
 			counterValue := metrics.ACLBMixedRoutingModeEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableMixedRoutingMode, counterValue)
+		})
+	}
+}
+
+func TestUpdateEncryptionPolicy(t *testing.T) {
+	tests := []struct {
+		name                   string
+		enableEncryptionPolicy bool
+		expected               float64
+	}{
+		{
+			name:                   "Encryption Policy enabled",
+			enableEncryptionPolicy: true,
+			expected:               1,
+		},
+		{
+			name:                   "Encryption Policy disabled",
+			enableEncryptionPolicy: false,
+			expected:               0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewEnterpriseMetrics(true)
+			config := &option.DaemonConfig{}
+
+			params := mockEnterpriseFeatures{
+				EncryptionPolicyEnabled: tt.enableEncryptionPolicy,
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBEncryptionPolicyEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableEncryptionPolicy, counterValue)
 		})
 	}
 }
