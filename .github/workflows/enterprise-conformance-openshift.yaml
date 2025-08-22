@@ -205,6 +205,12 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Get connectivity test flag
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+        with:
+          hubble: false
+
       - name: Set up job variables
         id: vars
         run: |
@@ -253,6 +259,13 @@ jobs:
           echo owner=${OWNER} | tee -a $GITHUB_OUTPUT
           echo kpr=${kpr} | tee -a $GITHUB_OUTPUT
           echo region=${region} | tee -a $GITHUB_OUTPUT
+
+          # Disabling log check as it also considers logs before the tests started and
+          # disruptions are expected during the installation process.
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
+            --test='!check-log-errors' \
+            -n cilium"
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Setup go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
@@ -440,13 +453,23 @@ jobs:
             exit 1
           fi
 
+      - name: Configure SecurityContextConstraints
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
+        shell: bash
+        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
+        run: |
+          # Create the SCC to provide the required privileges for running the tests
+          #
+          # SecurityContextConstraints would need to be amended (additional namespaces) to allow TEST_CONCURRENCY=3
+          kubectl apply -f ../common/test-scc.yaml
+
       - name: Cilium connectivity tests
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
-        uses: ./.github/actions/enterprise-openshift-cilium-conn-tests
         timeout-minutes: 60
-        with:
-          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
-          test-results-dir: "test-results"
+        run: |
+          mkdir -p test-results
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}"
+          | tee test-results/cilium-cli-results.txt
 
       - name: CNI conformance tests
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
@@ -529,11 +552,11 @@ jobs:
 
       - name: Cilium connectivity tests [KPR]
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.kpr == 'false' }}
-        uses: ./.github/actions/enterprise-openshift-cilium-conn-tests
         timeout-minutes: 60
-        with:
-          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
-          test-results-dir: "test-results/kpr"
+        run: |
+          mkdir -p test-results
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}" \
+          | tee test-results/cilium-cli-results-kpr.txt
 
       - name: CNI conformance tests [KPR]
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.kpr == 'false' }}
