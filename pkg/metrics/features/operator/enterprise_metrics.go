@@ -20,6 +20,7 @@ import (
 
 type EnterpriseMetrics struct {
 	ACLBEnterpriseBGPEnabled metric.Gauge
+	ACLBBFDEnabled           metric.Gauge
 }
 
 const (
@@ -36,6 +37,13 @@ func NewEnterpriseMetrics(withDefaults bool) EnterpriseMetrics {
 			Help:      "BGP enabled on the operator",
 			Name:      "bgp_enabled",
 		}),
+
+		ACLBBFDEnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: enterprise + subsystemACLB,
+			Help:      "BFD enabled on the operator",
+			Name:      "bfd_enabled",
+		}),
 	}
 }
 
@@ -46,5 +54,8 @@ type enterpriseFeatureMetrics interface {
 func (m EnterpriseMetrics) update(params enabledEnterpriseFeatures, config *option.OperatorConfig, daemonConfig *daemonOption.DaemonConfig) {
 	if params.IsEnterpriseBGPEnabled() {
 		m.ACLBEnterpriseBGPEnabled.Set(1)
+	}
+	if params.IsBFDEnabled() {
+		m.ACLBBFDEnabled.Set(1)
 	}
 }

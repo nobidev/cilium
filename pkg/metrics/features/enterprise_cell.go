@@ -17,6 +17,8 @@ import (
 	"github.com/cilium/hive/job"
 
 	bgpconfig "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
+
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -54,12 +56,18 @@ type enterpriseFeaturesParams struct {
 	Metrics       enterpriseFeatureMetrics
 
 	BGP bgpconfig.Config
+	BFD types.BFDConfig
 }
 
 func (fp *enterpriseFeaturesParams) IsEnterpriseBGPEnabled() bool {
 	return fp.BGP.IsEnabled()
 }
 
+func (fp *enterpriseFeaturesParams) IsBFDEnabled() bool {
+	return fp.BFD.IsEnabled()
+}
+
 type enabledEnterpriseFeatures interface {
 	IsEnterpriseBGPEnabled() bool
+	IsBFDEnabled() bool
 }

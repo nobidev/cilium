@@ -21,10 +21,15 @@ import (
 
 type mockEnterpriseFeatures struct {
 	EnterpriseBGPEnabled bool
+	BFDEnabled           bool
 }
 
 func (p mockEnterpriseFeatures) IsEnterpriseBGPEnabled() bool {
 	return p.EnterpriseBGPEnabled
+}
+
+func (p mockEnterpriseFeatures) IsBFDEnabled() bool {
+	return p.BFDEnabled
 }
 
 func TestUpdateEnterpriseBGPEnabled(t *testing.T) {
@@ -59,6 +64,42 @@ func TestUpdateEnterpriseBGPEnabled(t *testing.T) {
 
 			counterValue := metrics.ACLBEnterpriseBGPEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableEnterpriseBGP, counterValue)
+		})
+	}
+}
+
+func TestUpdateBFDEnabled(t *testing.T) {
+	tests := []struct {
+		name      string
+		enableBFD bool
+		expected  float64
+	}{
+		{
+			name:      "BFD enabled",
+			enableBFD: true,
+			expected:  1,
+		},
+		{
+			name:      "BFD disabled",
+			enableBFD: false,
+			expected:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewEnterpriseMetrics(true)
+			config := &option.OperatorConfig{}
+			daemonConfig := &daemonOption.DaemonConfig{}
+
+			params := mockEnterpriseFeatures{
+				BFDEnabled: tt.enableBFD,
+			}
+
+			metrics.update(params, config, daemonConfig)
+
+			counterValue := metrics.ACLBBFDEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableBFD, counterValue)
 		})
 	}
 }

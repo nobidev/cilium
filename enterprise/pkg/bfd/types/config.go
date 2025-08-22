@@ -22,6 +22,11 @@ type BFDConfig struct {
 	BFDEnabled bool `mapstructure:"enable-bfd"`
 }
 
+// IsEnabled returns whether BFD is enabled
+func (cfg BFDConfig) IsEnabled() bool {
+	return cfg.BFDEnabled
+}
+
 // Flags implements cell.Flagger interface to register the configuration options as command-line flags.
 func (cfg BFDConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(EnableBFDFlag, cfg.BFDEnabled, "Enables BFD subsystem")
