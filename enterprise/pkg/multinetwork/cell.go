@@ -48,6 +48,10 @@ type Config struct {
 	MultiNetworkAutoDirectNodeRoutes bool
 }
 
+func (c Config) IsEnabled() bool {
+	return c.EnableMultiNetwork
+}
+
 func (c Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-multi-network", c.EnableMultiNetwork, "Enable support for multiple pod networks")
 	flags.Bool("multi-network-auto-direct-node-routes", c.MultiNetworkAutoDirectNodeRoutes, "Enable multi-network aware automatic L2 routing between nodes (experimental)")

@@ -47,7 +47,7 @@ var defaultNetwork = &v1alpha1.IsovalentPodNetwork{
 type operatorParams struct {
 	cell.In
 
-	Config config
+	Config Config
 
 	Logger   *slog.Logger
 	JobGroup job.Group
@@ -56,7 +56,7 @@ type operatorParams struct {
 }
 
 type Operator struct {
-	config config
+	config Config
 	logger *slog.Logger
 
 	podNetworkClient isovalent_client_v1alpha1.IsovalentPodNetworkInterface

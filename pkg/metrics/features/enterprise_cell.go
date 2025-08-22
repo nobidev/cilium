@@ -23,6 +23,7 @@ import (
 	encryptionPolicyTypes "github.com/cilium/cilium/enterprise/pkg/encryption/policy/types"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
 	cemrcfg "github.com/cilium/cilium/enterprise/pkg/mixedrouting/config"
+	"github.com/cilium/cilium/enterprise/pkg/multinetwork"
 
 	maps_multicast "github.com/cilium/cilium/pkg/maps/multicast"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -69,6 +70,7 @@ type enterpriseFeaturesParams struct {
 	ClusterMeshConfig  clustermeshConfig.Config
 	FQDNHA             config.Config
 	Multicast          maps_multicast.Config
+	MultiNetwork       multinetwork.Config
 }
 
 func (fp *enterpriseFeaturesParams) IsEnterpriseBGPEnabled() bool {
@@ -111,6 +113,10 @@ func (fp *enterpriseFeaturesParams) IsMulticastEnabled() bool {
 	return fp.Multicast.IsEnabled()
 }
 
+func (fp *enterpriseFeaturesParams) IsMultiNetworkEnabled() bool {
+	return fp.MultiNetwork.IsEnabled()
+}
+
 type enabledEnterpriseFeatures interface {
 	IsEnterpriseBGPEnabled() bool
 	IsBFDEnabled() bool
@@ -122,4 +128,5 @@ type enabledEnterpriseFeatures interface {
 	IsFQDNHAEnabled() bool
 	IsFQDNOfflineModeEnabled() bool
 	IsMulticastEnabled() bool
+	IsMultiNetworkEnabled() bool
 }
