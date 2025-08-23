@@ -468,7 +468,10 @@ jobs:
         timeout-minutes: 60
         run: |
           mkdir -p test-results
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}"
+          mkdir -p cilium-junits
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --junit-file "cilium-junits/openshift-1.xml" \
+            --junit-property github_job_step="Cilium connectivity tests" \
           | tee test-results/cilium-cli-results.txt
 
       - name: CNI conformance tests
@@ -555,7 +558,9 @@ jobs:
         timeout-minutes: 60
         run: |
           mkdir -p test-results
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}" \
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --junit-file "cilium-junits/openshift-kpr.xml" \
+            --junit-property github_job_step="Cilium connectivity tests" \
           | tee test-results/cilium-cli-results-kpr.txt
 
       - name: CNI conformance tests [KPR]
