@@ -1,0 +1,275 @@
+#! --test-peering-ips=10.99.102.1,10.99.102.2,10.99.102.3,10.99.102.4,10.99.102.5,fc00:10:99:102::1,fc00:10:99:102::2,fc00:10:99:102::3,fc00:10:99:102::4,fc00:10:99:102::5
+
+# Tests the route-reflector with dummy client peer. In this test, the RR client
+# is not a "real" Cilium node. We instead use a dummy GoBGP server and
+# configure NodeConfig to peer with it. The purpose of this test is to verify
+# that the route-reflector's route reflection and route policy works correctly.
+
+# Start the hive
+hive start
+
+# Here we prepare all possible kinds of peers that the route-reflector needs to
+# peer with. The client-xx peers are in-cluster client peers, the rr-xx peers
+# are in-cluster route-reflectors, the external-xx peers are out-of-cluster
+# eBGP peers, and the internal-xx peers are out-of-cluster iBGP peers.
+#
+# The v4/v6 suffixes indicate whether the peer is IPv4 or IPv6. This is for testing
+# both IPv4 and IPv6 route reflection and advertisement and also to make sure that
+# RR works correctly when multiple peers for each type are configured.
+gobgp/add-server client-v4    65010 10.99.102.2       1790 --router-id 1.0.0.2
+gobgp/add-server client-v6    65010 fc00:10:99:102::2 1790 --router-id 1.0.0.3
+gobgp/add-server rr-v4        65010 10.99.102.3       1790 --router-id 1.0.0.4
+gobgp/add-server rr-v6        65010 fc00:10:99:102::3 1790 --router-id 1.0.0.5
+gobgp/add-server external-v4  65011 10.99.102.4       1790 --router-id 1.0.0.6
+gobgp/add-server external-v6  65011 fc00:10:99:102::4 1790 --router-id 1.0.0.7
+gobgp/add-server internal-v4  65010 10.99.102.5       1790 --router-id 1.0.0.8
+gobgp/add-server internal-v6  65010 fc00:10:99:102::5 1790 --router-id 1.0.0.9
+
+# Configure peering
+gobgp/add-peer -s client-v4   10.99.102.1       65010
+gobgp/add-peer -s client-v6   fc00:10:99:102::1 65010
+gobgp/add-peer -s rr-v4       10.99.102.1       65010
+gobgp/add-peer -s rr-v6       fc00:10:99:102::1 65010
+gobgp/add-peer -s external-v4 10.99.102.1       65010
+gobgp/add-peer -s external-v6 fc00:10:99:102::1 65010
+gobgp/add-peer -s internal-v4 10.99.102.1       65010
+gobgp/add-peer -s internal-v6 fc00:10:99:102::1 65010
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+bgptest/sync-oss-resources
+
+# Wait for peers to be established
+gobgp/wait-state -s client-v4   10.99.102.1       ESTABLISHED
+gobgp/wait-state -s client-v6   fc00:10:99:102::1 ESTABLISHED
+gobgp/wait-state -s rr-v4       10.99.102.1       ESTABLISHED
+gobgp/wait-state -s rr-v6       fc00:10:99:102::1 ESTABLISHED
+gobgp/wait-state -s external-v4 10.99.102.1       ESTABLISHED
+gobgp/wait-state -s external-v6 fc00:10:99:102::1 ESTABLISHED
+gobgp/wait-state -s internal-v4 10.99.102.1       ESTABLISHED
+gobgp/wait-state -s internal-v6 fc00:10:99:102::1 ESTABLISHED
+
+# Advertise route from route-reflectors and clients
+gobgp/add-route -s client-v4 10.244.2.0/24
+gobgp/add-route -s client-v6 10.244.3.0/24
+gobgp/add-route -s rr-v4     10.244.4.0/24
+gobgp/add-route -s rr-v6     10.244.5.0/24
+
+# Cilium (route-reflector in this case) should receive the routes from the clients and route-reflectors
+bgp/routes -o cilium-routes.actual
+* cmp cilium-routes.actual cilium-routes.expected
+
+# In-cluster clients should see the routes with nexthop unmodified, no AS path appended, and with Originator and ClusterList.
+gobgp/routes -s client-v4   -o client-v4-routes.actual
+* cmp client-v4-routes.actual client-v4-routes.expected
+gobgp/routes -s client-v6   -o client-v6-routes.actual
+* cmp client-v6-routes.actual client-v6-routes.expected
+
+# In-cluster route-reflectors is just a client from RR's perspective, so should see the routes with nexthop unmodified, no AS path appended, and with Originator and ClusterList.
+gobgp/routes -s rr-v4       -o rr-v4-routes.actual
+* cmp rr-v4-routes.actual rr-v4-routes.expected
+gobgp/routes -s rr-v6       -o rr-v6-routes.actual
+* cmp rr-v6-routes.actual rr-v6-routes.expected
+
+# Out-of-cluster eBGP peers should see the routes with nexthop unmodified, AS path appended, and without Originator and ClusterList.
+gobgp/routes -s external-v4 -o external-v4-routes.actual
+* cmp external-v4-routes.actual external-v4-routes.expected
+gobgp/routes -s external-v6 -o external-v6-routes.actual
+* cmp external-v6-routes.actual external-v6-routes.expected
+
+# Out-of-cluster iBGP peers should see the routes with nexthop unmodified, no AS path appended, and without Originator and ClusterList.
+gobgp/routes -s internal-v4 -o internal-v4-routes.actual
+* cmp internal-v4-routes.actual internal-v4-routes.expected
+gobgp/routes -s internal-v6 -o internal-v6-routes.actual
+* cmp internal-v6-routes.actual internal-v6-routes.expected
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.102.1
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+    - fd00:10:244:1::/64
+
+-- bgp-node-config.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65010
+    routerID: 1.0.0.1
+    name: route-reflector
+    peers:
+    - name: client-v4
+      peerASN: 65010
+      peerAddress: 10.99.102.2
+      localAddress: 10.99.102.1
+      peerConfigRef:
+        name: common
+      routeReflector:
+        role: client
+        clusterID: 255.0.0.1
+    - name: client-v6
+      peerASN: 65010
+      peerAddress: fc00:10:99:102::2
+      localAddress: fc00:10:99:102::1
+      peerConfigRef:
+        name: common
+      routeReflector:
+        role: client
+        clusterID: 255.0.0.1
+    - name: rr-v4
+      peerASN: 65010
+      peerAddress: 10.99.102.3
+      localAddress: 10.99.102.1
+      peerConfigRef:
+        name: common
+      routeReflector:
+        role: route-reflector
+        clusterID: 255.0.0.1
+    - name: rr-v6
+      peerASN: 65010
+      peerAddress: fc00:10:99:102::3
+      localAddress: fc00:10:99:102::1
+      peerConfigRef:
+        name: common
+      routeReflector:
+        role: route-reflector
+        clusterID: 255.0.0.1
+    - name: external-v4
+      peerASN: 65011
+      peerAddress: 10.99.102.4
+      localAddress: 10.99.102.1
+      peerConfigRef:
+        name: common
+    - name: external-v6
+      peerASN: 65011
+      peerAddress: fc00:10:99:102::4
+      localAddress: fc00:10:99:102::1
+      peerConfigRef:
+        name: common
+    - name: internal-v4
+      peerASN: 65010
+      peerAddress: 10.99.102.5
+      localAddress: 10.99.102.1
+      peerConfigRef:
+        name: common
+    - name: internal-v6
+      peerASN: 65010
+      peerAddress: fc00:10:99:102::5
+      localAddress: fc00:10:99:102::1
+      peerConfigRef:
+        name: common
+    routeReflector:
+      role: route-reflector
+      clusterID: 255.0.0.1
+
+-- bgp-peer-config.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPeerConfig
+metadata:
+  name: common
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: "true"
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: "true"
+
+-- bgp-advertisement.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPAdvertisement
+metadata:
+  name: pod-cidr
+  labels:
+    advertise: "true"
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+    selector:
+      matchExpressions:
+        - { key: "true", operator: In, values: [ advertise ] }
+
+-- cilium-routes.expected --
+VRouter   Prefix          NextHop             Attrs
+65010     10.244.1.0/24   0.0.0.0             [{Origin: i} {Nexthop: 0.0.0.0}]
+65010     10.244.2.0/24   10.99.102.2         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.2} {LocalPref: 100}]
+65010     10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
+65010     10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.3} {LocalPref: 100}]
+65010     10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]
+-- client-v4-routes.expected --
+Prefix          NextHop             Attrs
+10.244.1.0/24   10.99.102.1         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.1} {LocalPref: 100} {Originator: 1.0.0.1} {ClusterList: [255.0.0.1]}]
+10.244.2.0/24   0.0.0.0             [{Origin: i} {Nexthop: 0.0.0.0}]
+10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.3} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
+10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.3} {LocalPref: 100} {Originator: 1.0.0.4} {ClusterList: [255.0.0.1]}]
+10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.5} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]
+-- client-v6-routes.expected --
+Prefix          NextHop             Attrs
+10.244.1.0/24   fc00:10:99:102::1   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.1} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::1, NLRIs: [10.244.1.0/24]}}]
+10.244.2.0/24   10.99.102.2         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.2} {LocalPref: 100} {Originator: 1.0.0.2} {ClusterList: [255.0.0.1]}]
+10.244.3.0/24   0.0.0.0             [{Origin: i} {Nexthop: 0.0.0.0}]
+10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.3} {LocalPref: 100} {Originator: 1.0.0.4} {ClusterList: [255.0.0.1]}]
+10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.5} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]
+-- rr-v4-routes.expected --
+Prefix          NextHop             Attrs
+10.244.1.0/24   10.99.102.1         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.1} {LocalPref: 100} {Originator: 1.0.0.1} {ClusterList: [255.0.0.1]}]
+10.244.2.0/24   10.99.102.2         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.2} {LocalPref: 100} {Originator: 1.0.0.2} {ClusterList: [255.0.0.1]}]
+10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.3} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
+10.244.4.0/24   0.0.0.0             [{Origin: i} {Nexthop: 0.0.0.0}]
+10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.5} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]
+-- rr-v6-routes.expected --
+Prefix          NextHop             Attrs
+10.244.1.0/24   fc00:10:99:102::1   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.1} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::1, NLRIs: [10.244.1.0/24]}}]
+10.244.2.0/24   10.99.102.2         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.2} {LocalPref: 100} {Originator: 1.0.0.2} {ClusterList: [255.0.0.1]}]
+10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.3} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
+10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.3} {LocalPref: 100} {Originator: 1.0.0.4} {ClusterList: [255.0.0.1]}]
+10.244.5.0/24   0.0.0.0             [{Origin: i} {Nexthop: 0.0.0.0}]
+-- external-v4-routes.expected --
+Prefix          NextHop             Attrs
+10.244.1.0/24   10.99.102.1         [{Origin: i} {AsPath: 65010} {Nexthop: 10.99.102.1}]
+10.244.2.0/24   10.99.102.2         [{Origin: i} {AsPath: 65010} {Nexthop: 10.99.102.2}]
+10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: 65010} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
+10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: 65010} {Nexthop: 10.99.102.3}]
+10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: 65010} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]
+-- external-v6-routes.expected --
+Prefix          NextHop             Attrs
+10.244.1.0/24   fc00:10:99:102::1   [{Origin: i} {AsPath: 65010} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::1, NLRIs: [10.244.1.0/24]}}]
+10.244.2.0/24   10.99.102.2         [{Origin: i} {AsPath: 65010} {Nexthop: 10.99.102.2}]
+10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: 65010} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
+10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: 65010} {Nexthop: 10.99.102.3}]
+10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: 65010} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]
+-- internal-v4-routes.expected --
+Prefix          NextHop             Attrs
+10.244.1.0/24   10.99.102.1         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.1} {LocalPref: 100}]
+10.244.2.0/24   10.99.102.2         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.2} {LocalPref: 100}]
+10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
+10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.3} {LocalPref: 100}]
+10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]
+-- internal-v6-routes.expected --
+Prefix          NextHop             Attrs
+10.244.1.0/24   fc00:10:99:102::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::1, NLRIs: [10.244.1.0/24]}}]
+10.244.2.0/24   10.99.102.2         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.2} {LocalPref: 100}]
+10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
+10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.3} {LocalPref: 100}]
+10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]

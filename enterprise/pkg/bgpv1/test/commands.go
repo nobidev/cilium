@@ -19,11 +19,16 @@ import (
 
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/script"
+	gobgpapi "github.com/osrg/gobgp/v3/api"
+	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
+	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	client "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -280,4 +285,125 @@ func convertFromUnstructured(unstructuredObj *unstructured.Unstructured, obj any
 		return err
 	}
 	return nil
+}
+
+// CEEGoBGPScriptCmds are cee-specific GoBGP commands
+func CEEGoBGPScriptCmds(cmdCtx *commands.GoBGPCmdContext) map[string]script.Cmd {
+	return map[string]script.Cmd{
+		"gobgp/add-route":    AddRoute(cmdCtx),
+		"gobgp/delete-route": DeleteRoute(cmdCtx),
+	}
+}
+
+// AddRoute adds a route to the GoBGP RIB.
+func AddRoute(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Adds a route to the GoBGP RIB",
+			Args:    "prefix",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP(
+					commands.ServerNameFlag,
+					commands.ServerNameFlagShort,
+					"",
+					"Name of the GoBGP server instance. Can be omitted if only one instance is active.",
+				)
+			},
+			Detail: []string{
+				"Adds a route to the GoBGP RIB.",
+				"",
+				"'Prefix' is IPv4 or IPv6 prefix.",
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) < 1 {
+				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/add-route prefix nexthop'")
+			}
+			return func(*script.State) (stdout, stderr string, err error) {
+				goBGPServer, err := commands.GetGoBGPServer(s, cmdCtx)
+				if err != nil {
+					return "", "", fmt.Errorf("failed to get GoBGP server: %w", err)
+				}
+
+				prefix, err := netip.ParsePrefix(args[0])
+				if err != nil {
+					return "", "", fmt.Errorf("invalid prefix: %s", args[0])
+				}
+
+				path, err := gobgp.ToGoBGPPath(types.NewPathForPrefix(prefix))
+				if err != nil {
+					return "", "", fmt.Errorf("failed to convert prefix to GoBGP path: %w", err)
+				}
+
+				if _, err := goBGPServer.AddPath(
+					s.Context(),
+					&gobgpapi.AddPathRequest{
+						TableType: gobgpapi.TableType_LOCAL,
+						Path:      path,
+					},
+				); err != nil {
+					return "", "", fmt.Errorf("failed to add path: %w", err)
+				}
+
+				return "Successfully added route: " + args[0], "", nil
+			}, nil
+		},
+	)
+}
+
+// DeleteRoute deletes a route to the GoBGP RIB.
+func DeleteRoute(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Deletes a route to the GoBGP RIB",
+			Args:    "prefix",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP(
+					commands.ServerNameFlag,
+					commands.ServerNameFlagShort,
+					"",
+					"Name of the GoBGP server instance. Can be omitted if only one instance is active.",
+				)
+			},
+			Detail: []string{
+				"Deletes a route to the GoBGP RIB.",
+				"",
+				"'Prefix' is IPv4 or IPv6 prefix.",
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) < 1 {
+				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/delete-route prefix nexthop'")
+			}
+			return func(*script.State) (stdout, stderr string, err error) {
+				goBGPServer, err := commands.GetGoBGPServer(s, cmdCtx)
+				if err != nil {
+					return "", "", fmt.Errorf("failed to get GoBGP server: %w", err)
+				}
+
+				prefix, err := netip.ParsePrefix(args[0])
+				if err != nil {
+					return "", "", fmt.Errorf("invalid prefix: %s", args[0])
+				}
+
+				path, err := gobgp.ToGoBGPPath(types.NewPathForPrefix(prefix))
+				if err != nil {
+					return "", "", fmt.Errorf("failed to convert prefix to GoBGP path: %w", err)
+				}
+
+				if err := goBGPServer.DeletePath(
+					s.Context(),
+					&gobgpapi.DeletePathRequest{
+						TableType: gobgpapi.TableType_LOCAL,
+						Path:      path,
+						Family:    path.Family,
+					},
+				); err != nil {
+					return "", "", fmt.Errorf("failed to delete path: %w", err)
+				}
+
+				return "Successfully deleted route: " + args[0], "", nil
+			}, nil
+		},
+	)
 }
