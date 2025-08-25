@@ -400,8 +400,8 @@ hubble:
       podSecurityContext:
         fsGroup: 0
       securityContext:
-        privileged: false
-        allowPrivilegeEscalation: false
+        privileged: true
+        allowPrivilegeEscalation: true
         runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0
