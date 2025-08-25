@@ -17,7 +17,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hmarr/codeowners"
+	flag "github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/tools/testowners/codeowners"
 )
 
 var (
@@ -42,6 +44,7 @@ var (
 		"@cilium/ci-structure":       ignore,
 		"@cilium/cli":                "@isovalent/ci-structure",
 		"@cilium/community":          ignore,
+		"@cilium/committers":         ignore,
 		"@cilium/contributing":       ignore,
 		"@cilium/docker":             ignore,
 		"@cilium/docs-structure":     ignore,
@@ -132,10 +135,17 @@ func newMapper(teamMapping map[string]string, teams map[string]struct{}) mapper 
 	}
 }
 
-func (m *mapper) targetOwner(owner codeowners.Owner) (string, error) {
+type testOwner interface {
+	String() string
+}
+
+func (m *mapper) targetOwner(owner testOwner) (string, error) {
 	o := owner.String()
-	if o == "@isovalent/core-structure" {
-		// Don't import core-structure ownership from CODEOWNERS.
+	if o == "@isovalent/core-structure" ||
+		o == "@isovalent/backporters" ||
+		o == "@isovalent/release-managers" {
+		// These catch-all groups have rights for general maintenance
+		// purposes, so should be excluded from test ownership.
 		return ignore, nil
 	}
 
@@ -149,15 +159,25 @@ func (m *mapper) targetOwner(owner codeowners.Owner) (string, error) {
 	return "", fmt.Errorf("mapping code owner %q: No team found in internal mapping", o)
 }
 
+var (
+	CodeOwners []string
+)
+
+func init() {
+	flag.StringSliceVar(&CodeOwners, "code-owners", []string{}, "Use the code owners defined in these files for --log-code-owners")
+}
+
 func main() {
 	var exitCode int
 
-	rules, err := codeowners.LoadFileFromStandardLocation()
+	flag.Parse()
+
+	owners, err := codeowners.Load(CodeOwners)
 	if err != nil {
 		slog.Error("Cannot load codeowners", slog.Any("error", err.Error()))
 		os.Exit(1)
 	}
-
+	rules := owners.Ruleset
 	mapper := newMapper(defaultOwners, teams)
 
 	out := bufio.NewWriter(os.Stdout)
