@@ -101,6 +101,8 @@ func TestPrivilegedScript(t *testing.T) {
 	slog.SetLogLoggerLevel(slog.LevelDebug) // used by test GoBGP instances
 	k8sVersion.Force(k8sTestutils.DefaultVersion)
 
+	types.SetName(testNodeName)
+
 	// set test environment variables
 	envVars := []string{"PATH=" + os.Getenv("PATH")}
 
