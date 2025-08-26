@@ -12,7 +12,6 @@ package reconcilerv2
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"maps"
 	"net/netip"
@@ -23,6 +22,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/part"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -35,771 +35,459 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/k8s"
+	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/source"
 )
 
+// svcTestStep represents one step in the service reconciler test execution.
+// Each step builds on the state of the previous step: if some of the step resources is provided,
+// the resource is upserted (in case of the "delete" prefix, it is deleted).
+type svcTestStep struct {
+	name             string
+	peers            []v1.IsovalentBGPNodePeer
+	peerConfigs      []*v1.IsovalentBGPPeerConfig
+	advertisements   []*v1.IsovalentBGPAdvertisement
+	frontends        []*loadbalancer.Frontend
+	deleteFrontends  []*loadbalancer.Frontend
+	backends         []*loadbalancer.Backend
+	expectedMetadata ServiceReconcilerMetadata
+	nodeStatus       NodeStatus
+}
+
+type svcTestFixture struct {
+	hive               *ciliumhive.Hive
+	svcReconciler      *ServiceReconciler
+	db                 *statedb.DB
+	frontends          statedb.RWTable[*loadbalancer.Frontend]
+	peerConfigStore    *store.MockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
+	advertStore        *store.MockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]
+	nodeStatusProvider *mockNodeStatusProvider
+}
+
 func Test_ServiceHealthChecker(t *testing.T) {
-	ingressV4 := "192.168.0.1"
-	ingressV4Prefix := ingressV4 + "/32"
-	ingressV4Path := types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix))
-	ingressV6 := "fd00:192:168::1"
-	ingressV6Prefix := ingressV6 + "/128"
-	ingressV6Path := types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix))
-
-	svcSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"advertise": "bgp"}}
-	svcKey := resource.Key{Name: "test-svc", Namespace: "default"}
-	ingressV4Frontend := loadbalancer.NewL3n4Addr(
-		loadbalancer.TCP,
-		cmtypes.MustParseAddrCluster(ingressV4),
-		80,
-		loadbalancer.ScopeExternal,
+	var (
+		redSvcHCEnabled = &loadbalancer.Service{
+			Name:   redSvcName,
+			Labels: redSvcLabels,
+			Annotations: map[string]string{
+				annotation.ServiceHealthProbeInterval: "5s",
+			},
+			ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+			IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+		}
+		redSvcHCEnabledThreshold2 = &loadbalancer.Service{
+			Name:   redSvcName,
+			Labels: redSvcLabels,
+			Annotations: map[string]string{
+				annotation.ServiceHealthProbeInterval:         "5s",
+				annotation.ServiceHealthBGPAdvertiseThreshold: "2",
+			},
+			ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+			IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+		}
+		redSvcHCNoAdvertisement = &loadbalancer.Service{
+			Name:   redSvcName,
+			Labels: redSvcLabels,
+			Annotations: map[string]string{
+				annotation.ServiceNoAdvertisement: "true",
+			},
+			ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+			IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+		}
 	)
-	ingressV6Frontend := loadbalancer.NewL3n4Addr(
-		loadbalancer.TCP,
-		cmtypes.MustParseAddrCluster(ingressV6),
-		80,
-		loadbalancer.ScopeExternal,
-	)
-	fakeV4Frontend := loadbalancer.NewL3n4Addr(
-		loadbalancer.TCP,
-		cmtypes.MustParseAddrCluster("1.2.3.4"),
-		80,
-		loadbalancer.ScopeExternal,
-	)
 
-	instanceConfig := &v1.IsovalentBGPNodeInstance{
-		Name:     "bgp-65001",
-		LocalASN: ptr.To[int64](65001),
-		Peers: []v1.IsovalentBGPNodePeer{
-			{
-				Name:        "peer-65001",
-				PeerAddress: ptr.To[string]("10.10.10.1"),
-				PeerConfigRef: &v1.PeerConfigReference{
-					Name: "peer-config",
-				},
-			},
-		},
-	}
-
-	peerConfig := &v1.IsovalentBGPPeerConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "peer-config",
-		},
-		Spec: v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
-				Families: []v2.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "unicast",
-						},
-						Advertisements: &slim_metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "bgp",
-							},
-						},
-					},
-					{
-						CiliumBGPFamily: v2.CiliumBGPFamily{
-							Afi:  "ipv6",
-							Safi: "unicast",
-						},
-						Advertisements: &slim_metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "bgp",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	svcAdvertisement := &v1.IsovalentBGPAdvertisement{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "svc-advertisement",
-			Labels: map[string]string{
-				"advertise": "bgp",
-			},
-		},
-		Spec: v1.IsovalentBGPAdvertisementSpec{
-			Advertisements: []v1.BGPAdvertisement{
-				{
-					AdvertisementType: v1.BGPServiceAdvert,
-					Service: &v1.BGPServiceOptions{
-						Addresses: []v2.BGPServiceAddressType{v2.BGPLoadBalancerIPAddr},
-					},
-					Selector: &slim_metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"advertise": "bgp",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	peerID := PeerID{
-		Name:    "peer-65001",
-		Address: "10.10.10.1",
-	}
-	peerSvcAdvertisements := PeerAdvertisements{
-		peerID: FamilyAdvertisements{
-			{Afi: "ipv4", Safi: "unicast"}: svcAdvertisement.Spec.Advertisements,
-			{Afi: "ipv6", Safi: "unicast"}: svcAdvertisement.Spec.Advertisements,
-		},
-	}
-
-	svcRoutePolicy := &types.RoutePolicy{
-		Name: PolicyName(instanceConfig.Peers[0].Name, "ipv4", v1.BGPServiceAdvert, fmt.Sprintf("%s-%s-LoadBalancerIP", svcKey.Name, svcKey.Namespace)),
-		Type: types.RoutePolicyTypeExport,
-		Statements: []*types.RoutePolicyStatement{
-			{
-				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
-					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-						{
-							CIDR:         netip.MustParsePrefix(ingressV4Prefix),
-							PrefixLenMin: 32,
-							PrefixLenMax: 32,
-						},
-					},
-				},
-				Actions: types.RoutePolicyActions{
-					RouteAction: types.RoutePolicyActionAccept,
-				},
-			},
-		},
-	}
-
-	svcRoutePolicyV6 := &types.RoutePolicy{
-		Name: PolicyName(instanceConfig.Peers[0].Name, "ipv6", v1.BGPServiceAdvert, fmt.Sprintf("%s-%s-LoadBalancerIP", svcKey.Name, svcKey.Namespace)),
-		Type: types.RoutePolicyTypeExport,
-		Statements: []*types.RoutePolicyStatement{
-			{
-				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
-					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-						{
-							CIDR:         netip.MustParsePrefix(ingressV6Prefix),
-							PrefixLenMin: 128,
-							PrefixLenMax: 128,
-						},
-					},
-				},
-				Actions: types.RoutePolicyActions{
-					RouteAction: types.RoutePolicyActionAccept,
-				},
-			},
-		},
-	}
-
-	testSvc := &slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:        svcKey.Name,
-			Namespace:   svcKey.Namespace,
-			Labels:      svcSelector.MatchLabels,
-			Annotations: map[string]string{annotation.ServiceHealthProbeInterval: "5s"},
-		},
-		Spec: slim_corev1.ServiceSpec{
-			Type: slim_corev1.ServiceTypeLoadBalancer,
-			Ports: []slim_corev1.ServicePort{
-				{
-					Port: 80,
-				},
-			},
-		},
-		Status: slim_corev1.ServiceStatus{
-			LoadBalancer: slim_corev1.LoadBalancerStatus{
-				Ingress: []slim_corev1.LoadBalancerIngress{
-					{
-						IP: ingressV4,
-					},
-				},
-			},
-		},
-	}
-	testSvcNoHCAnnotation := testSvc.DeepCopy()
-	testSvcNoHCAnnotation.Annotations = nil
-
-	testSvcThreshold2 := testSvc.DeepCopy()
-	testSvcThreshold2.Annotations = map[string]string{
-		annotation.ServiceHealthProbeInterval:         "5s",
-		annotation.ServiceHealthBGPAdvertiseThreshold: "2",
-	}
-
-	testSvcNoAdvertisement := testSvc.DeepCopy()
-	testSvcNoAdvertisement.Annotations = map[string]string{
-		annotation.ServiceNoAdvertisement: "true",
-	}
-
-	testSvcDualStack := testSvc.DeepCopy()
-	testSvcDualStack.Status.LoadBalancer.Ingress = append(testSvcDualStack.Status.LoadBalancer.Ingress, slim_corev1.LoadBalancerIngress{IP: ingressV6})
-
-	type backendUpdate struct {
-		svcName        loadbalancer.ServiceName
-		frontend       loadbalancer.L3n4Addr
-		activeBackends []loadbalancer.BackendParams
-	}
-
-	var table = []struct {
-		// name of the test case
-		name string
-		// advertisements to be upserted in the test step
-		upsertedAdverts []*v1.IsovalentBGPAdvertisement
-		// the services which will be upserted in the test step
-		upsertedServices []*slim_corev1.Service
-		// the services which will be deleted in the test step
-		deletedServices []*slim_corev1.Service
-		// a list of backend updates applied during the test step
-		backendUpdates []backendUpdate
-		// the expected metadata after the reconciliation
-		expectedMetadata ServiceReconcilerMetadata
-	}{
+	runServiceTests(t, []svcTestStep{
 		{
-			name:             "do not advertise new service with no health updates",
-			upsertedAdverts:  []*v1.IsovalentBGPAdvertisement{svcAdvertisement},
-			upsertedServices: []*slim_corev1.Service{testSvc},
-			backendUpdates:   nil,
+			name:        "do not advertise new service with no health updates",
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
+			frontends:   []*loadbalancer.Frontend{svcLBFrontend(redSvcHCEnabled, ingressV4)},
+			advertisements: []*v1.IsovalentBGPAdvertisement{
+				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
+			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name: svcRoutePolicy,
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {},
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
 			},
 		},
 		{
-			name: "advertise the service after healthy backend update",
-			backendUpdates: []backendUpdate{
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
-				},
+			name:      "advertise the service after healthy backend update",
+			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcHCEnabled, ingressV4)},
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateActive),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name: svcRoutePolicy,
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
+					redSvcKey: reconcilerv2.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: ingressV4Path,
+							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
+					},
+				},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
 			},
 		},
 		{
-			name:             "advertise the service after multiple backend updates",
-			upsertedServices: []*slim_corev1.Service{testSvc},
-			backendUpdates: []backendUpdate{
-				// first no healthy backends
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive, Unhealthy: true}}, // unhealthy
-				},
-				// frontend not matching the service - unrelated
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}},
-				},
-				// finally with healthy backends
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}, {State: loadbalancer.BackendStateActive}}, // healthy
-				},
+			name:      "advertise the service after multiple backend updates",
+			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcHCEnabled, ingressV4)},
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.1.1", 80), "node1", loadbalancer.BackendStateQuarantined),
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node2", loadbalancer.BackendStateActive),
+				newTestBackend(redSvcName, backendAddr("10.1.1.2", 80), "node3", loadbalancer.BackendStateQuarantined),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name: svcRoutePolicy,
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
+					redSvcKey: reconcilerv2.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: ingressV4Path,
+							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 					},
 				},
-			},
-		},
-		{
-			name:             "do not advertise the service after unhealthy backend update",
-			upsertedServices: []*slim_corev1.Service{testSvc},
-			backendUpdates: []backendUpdate{
-				// no active backends
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
-				},
-				// frontend not matching the service - unrelated
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       fakeV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}, {State: loadbalancer.BackendStateActive}},
-				},
-			},
-			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name: svcRoutePolicy,
-					},
-				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: nil,
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
 			},
 		},
 		{
-			name:             "advertise the service even after unhealthy backend update if health-checking is disabled",
-			upsertedServices: []*slim_corev1.Service{testSvcNoHCAnnotation}, // missing health-check-probe-interval annotation
-			backendUpdates: []backendUpdate{
-				// frontend not matching the service - unrelated
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
-				},
+			name:      "do not advertise the service after unhealthy backend update (all unhealthy)",
+			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcHCEnabled, ingressV4)},
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.1.1", 80), "node1", loadbalancer.BackendStateQuarantined),
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node2", loadbalancer.BackendStateQuarantined),
+				newTestBackend(redSvcName, backendAddr("10.1.1.2", 80), "node3", loadbalancer.BackendStateQuarantined),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
+					},
+				},
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name: svcRoutePolicy,
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
+					},
+				},
+			},
+		},
+		{
+			name:      "advertise the service even after unhealthy backend update if health-checking is disabled",
+			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcTPCluster, ingressV4)}, // health-checking not enabled in this svc
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateQuarantined),
+			},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
+					redSvcKey: reconcilerv2.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: ingressV4Path,
+							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 					},
 				},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
+					},
+				},
 			},
 		},
 		{
-			name:             "do not advertise the service after unhealthy backend update",
-			upsertedServices: []*slim_corev1.Service{testSvc},
-			backendUpdates: []backendUpdate{
-				// first with active backends
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}, {State: loadbalancer.BackendStateActive}},
-				},
-				// then no active backends
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
-				},
+			name:      "do not advertise the service after unhealthy backend update (2 unhealthy)",
+			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcHCEnabled, ingressV4)},
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateQuarantined),
+				newTestBackend(redSvcName, backendAddr("10.1.0.2", 80), "node1", loadbalancer.BackendStateQuarantined),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
+					},
+				},
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name: svcRoutePolicy,
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
+					},
+				},
+			},
+		},
+		{
+			name: "advertise existing service with multiple frontend ports - all healthy",
+			frontends: []*loadbalancer.Frontend{
+				svcFrontend(redSvcHCEnabled, ingressV4, 80, loadbalancer.SVCTypeLoadBalancer),
+				svcFrontend(redSvcHCEnabled, ingressV4, 443, loadbalancer.SVCTypeLoadBalancer),
+			},
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateActive),
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 443), "node1", loadbalancer.BackendStateActive),
+			},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: nil,
-					},
-				},
-			},
-		},
-		{
-			name:            "do not advertise deleted service even after healthy backend update",
-			deletedServices: []*slim_corev1.Service{testSvc},
-			backendUpdates: []backendUpdate{
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
-				},
-			},
-			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
-				ServiceRoutePolicies:  reconcilerv2.ResourceRoutePolicyMap{},
-				ServicePaths:          reconcilerv2.ResourceAFPathsMap{},
-			},
-		},
-		{
-			name:             "advertise existing service with multiple frontend ports - all healthy",
-			upsertedServices: []*slim_corev1.Service{testSvc},
-			backendUpdates: []backendUpdate{
-				{
-					svcName: loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend: loadbalancer.NewL3n4Addr(
-						loadbalancer.TCP,
-						cmtypes.MustParseAddrCluster(ingressV4),
-						80,
-						loadbalancer.ScopeExternal,
-					),
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
-				},
-				{
-					svcName: loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend: loadbalancer.NewL3n4Addr(
-						loadbalancer.TCP,
-						cmtypes.MustParseAddrCluster(ingressV4),
-						443,
-						loadbalancer.ScopeExternal,
-					),
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
-				},
-			},
-			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name: svcRoutePolicy,
-					},
-				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
+					redSvcKey: reconcilerv2.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: ingressV4Path,
+							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
+					},
+				},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
 			},
 		},
 		{
 			name: "withdraw the service with multiple frontend ports - 1 unhealthy port",
-			backendUpdates: []backendUpdate{
-				{
-					svcName: loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend: loadbalancer.NewL3n4Addr(
-						loadbalancer.TCP,
-						cmtypes.MustParseAddrCluster(ingressV4),
-						80,
-						loadbalancer.ScopeExternal,
-					),
-					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
-				},
-				{
-					svcName: loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend: loadbalancer.NewL3n4Addr(
-						loadbalancer.TCP,
-						cmtypes.MustParseAddrCluster(ingressV4),
-						443,
-						loadbalancer.ScopeExternal,
-					),
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
-				},
+			frontends: []*loadbalancer.Frontend{
+				svcFrontend(redSvcHCEnabled, ingressV4, 80, loadbalancer.SVCTypeLoadBalancer),
+				svcFrontend(redSvcHCEnabled, ingressV4, 443, loadbalancer.SVCTypeLoadBalancer),
+			},
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateActive),
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 443), "node1", loadbalancer.BackendStateQuarantined),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name: svcRoutePolicy,
-					},
-				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: nil,
-					},
-				},
-			},
-		},
-		{
-			name:             "advertise dual-stack service with multiple frontend IPs - all healthy",
-			upsertedServices: []*slim_corev1.Service{testSvcDualStack},
-			backendUpdates: []backendUpdate{
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
-				},
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV6Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
-				},
-			},
-			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name:   svcRoutePolicy,
-						svcRoutePolicyV6.Name: svcRoutePolicyV6,
-					},
-				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: ingressV4Path,
-						},
-						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: ingressV6Path,
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "partially advertise dual-stack service with multiple frontend IPs - 1 unhealthy IP",
-			backendUpdates: []backendUpdate{
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
-				},
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV6Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
-				},
-			},
-			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name:   svcRoutePolicy,
-						svcRoutePolicyV6.Name: svcRoutePolicyV6,
-					},
-				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: nil,
-						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
-							ingressV6Prefix: ingressV6Path,
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "do not advertise dual-stack service with multiple frontend IPs - all unhealthy",
-			backendUpdates: []backendUpdate{
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
-				},
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV6Frontend,
-					activeBackends: []loadbalancer.BackendParams{}, // unhealthy
-				},
-			},
-			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name:   svcRoutePolicy,
-						svcRoutePolicyV6.Name: svcRoutePolicyV6,
-					},
-				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: nil,
-						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: nil,
-					},
-				},
-			},
-		},
-		{
-			name:             "advertise existing service after a backend update - non-default threshold, healthy",
-			upsertedServices: []*slim_corev1.Service{testSvcThreshold2},
-			backendUpdates: []backendUpdate{
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}, {State: loadbalancer.BackendStateActive}}, // 2 backends - healthy
-				},
-			},
-			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name: svcRoutePolicy,
-					},
-				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: ingressV4Path,
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "withdraw existing service after a backend update - non-default threshold, unhealthy",
-			backendUpdates: []backendUpdate{
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // 1 backend - unhealthy
-				},
-			},
-			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name: svcRoutePolicy,
-					},
-				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					svcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: nil,
-					},
-				},
-			},
-		},
-		{
-			name:             "do not advertise service with no-advertisement annotation",
-			upsertedServices: []*slim_corev1.Service{testSvcNoAdvertisement},
-			backendUpdates: []backendUpdate{
-				{
-					svcName:        loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name),
-					frontend:       ingressV4Frontend,
-					activeBackends: []loadbalancer.BackendParams{{State: loadbalancer.BackendStateActive}}, // healthy
-				},
-			},
-			expectedMetadata: ServiceReconcilerMetadata{
-				ServiceAdvertisements: peerSvcAdvertisements,
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					svcKey: reconcilerv2.RoutePolicyMap{
-						svcRoutePolicy.Name: svcRoutePolicy,
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
-			},
-		},
-	}
-
-	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-
-	var (
-		testBGPInstance = instance.NewFakeBGPInstance()
-		ceeBGPInstance  = &EnterpriseBGPInstance{
-			Name:   testBGPInstance.Name,
-			Router: testBGPInstance.Router,
-		}
-		mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
-		mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
-		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
-		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
-	)
-
-	ceeParams := ServiceReconcilerIn{
-		In:        cell.In{},
-		Lifecycle: &cell.DefaultLifecycle{},
-		Cfg: Config{
-			SvcHealthCheckingEnabled:           true,
-			MaintenanceGracefulShutdownEnabled: false,
-			MaintenanceWithdrawTime:            0,
-			RouterAdvertisementInterval:        defaultConfig.RouterAdvertisementInterval,
-			EnableLegacySRv6Responder:          false,
-		},
-		BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:     logger,
-		Upgrader:   newUpgraderMock(instanceConfig),
-		NSProvider: newMockNodeStatusProvider(),
-		PeerAdvert: &IsovalentAdvertisement{
-			logger:      logger,
-			peerConfigs: mockPeerConfigStore,
-			adverts:     mockAdvertStore,
-		},
-		SvcDiffStore: svcDiffstore,
-		EPDiffStore:  epDiffStore,
-		Signaler:     signaler.NewBGPCPSignaler(),
-	}
-	ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
-
-	// set peer advert state
-	mockPeerConfigStore.Upsert(peerConfig)
-
-	ceeReconciler.Init(testBGPInstance)
-	defer ceeReconciler.Cleanup(testBGPInstance)
-
-	for _, tt := range table {
-		t.Run(tt.name, func(t *testing.T) {
-			req := require.New(t)
-
-			for _, advert := range tt.upsertedAdverts {
-				mockAdvertStore.Upsert(advert)
-			}
-			for _, obj := range tt.upsertedServices {
-				svcDiffstore.Upsert(obj)
-			}
-			for _, obj := range tt.deletedServices {
-				svcDiffstore.Delete(obj)
-			}
-
-			// update active backends
-			for _, upd := range tt.backendUpdates {
-				fe := &loadbalancer.Frontend{
-					FrontendParams: loadbalancer.FrontendParams{
-						ServiceName: upd.svcName,
-						Address:     upd.frontend,
-						Type:        loadbalancer.SVCTypeLoadBalancer,
-					},
-					Backends: func(yield func(loadbalancer.BackendParams, uint64) bool) {
-						for _, be := range upd.activeBackends {
-							if !yield(be, 0) {
-								break
-							}
-						}
-					},
-					ID:         0,
-					RedirectTo: nil,
-					Service: &loadbalancer.Service{
-						Name: upd.svcName,
-					},
-				}
-				ceeReconciler.frontendChanged(
-					context.TODO(),
-					statedb.Change[*loadbalancer.Frontend]{
-						Object:   fe,
-						Revision: 0,
-						Deleted:  false,
-					},
-				)
-			}
-
-			err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
-				BGPInstance: testBGPInstance,
-				CiliumNode: &v2.CiliumNode{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node1",
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
-			})
-			req.NoError(err)
-
-			serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
-		})
-	}
+			},
+		},
+		{
+			name: "advertise dual-stack service with multiple frontend IPs - all healthy",
+			advertisements: []*v1.IsovalentBGPAdvertisement{
+				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
+				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
+			},
+			deleteFrontends: []*loadbalancer.Frontend{
+				svcFrontend(redSvcHCEnabled, ingressV4, 443, loadbalancer.SVCTypeLoadBalancer),
+			},
+			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcHCEnabled, ingressV4), svcLBFrontend(redSvcHCEnabled, ingressV6)},
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateActive),
+				newTestBackend(redSvcName, backendAddr("2001:db8:1000::1", 80), "node1", loadbalancer.BackendStateActive),
+			},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+					},
+				},
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{
+					redSvcKey: reconcilerv2.AFPathsMap{
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+						},
+						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
+							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+						},
+					},
+				},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
+						redPeer65001v6LBRPName: redPeer65001v6LBRP,
+					},
+				},
+			},
+		},
+		{
+			name:      "partially advertise dual-stack service with multiple frontend IPs - 1 unhealthy IP",
+			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcHCEnabled, ingressV4), svcLBFrontend(redSvcHCEnabled, ingressV6)},
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateQuarantined),
+				newTestBackend(redSvcName, backendAddr("2001:db8:1000::1", 80), "node1", loadbalancer.BackendStateActive),
+			},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+					},
+				},
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{
+					redSvcKey: reconcilerv2.AFPathsMap{
+						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
+							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+						},
+					},
+				},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
+						redPeer65001v6LBRPName: redPeer65001v6LBRP,
+					},
+				},
+			},
+		},
+		{
+			name:      "do not advertise dual-stack service with multiple frontend IPs - all unhealthy",
+			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcHCEnabled, ingressV4), svcLBFrontend(redSvcHCEnabled, ingressV6)},
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateQuarantined),
+				newTestBackend(redSvcName, backendAddr("2001:db8:1000::1", 80), "node1", loadbalancer.BackendStateQuarantined),
+			},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+					},
+				},
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
+						redPeer65001v6LBRPName: redPeer65001v6LBRP,
+					},
+				},
+			},
+		},
+		{
+			name: "advertise existing service after a backend update - non-default threshold, healthy",
+			deleteFrontends: []*loadbalancer.Frontend{
+				svcLBFrontend(redSvcHCEnabled, ingressV6),
+			},
+			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcHCEnabledThreshold2, ingressV4)},
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateActive),
+				newTestBackend(redSvcName, backendAddr("10.1.0.2", 80), "node1", loadbalancer.BackendStateActive),
+			},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+					},
+				},
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{
+					redSvcKey: reconcilerv2.AFPathsMap{
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+						},
+					},
+				},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
+					},
+				},
+			},
+		},
+		{
+			name:      "withdraw existing service after a backend update - non-default threshold, 1 unhealthy",
+			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcHCEnabledThreshold2, ingressV4)},
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateActive),
+				newTestBackend(redSvcName, backendAddr("10.1.0.2", 80), "node1", loadbalancer.BackendStateQuarantined),
+			},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+					},
+				},
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
+					},
+				},
+			},
+		},
+		{
+			name:      "do not advertise service with no-advertisement annotation",
+			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcHCNoAdvertisement, ingressV4)},
+			backends: []*loadbalancer.Backend{
+				newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateActive),
+				newTestBackend(redSvcName, backendAddr("10.1.0.2", 80), "node1", loadbalancer.BackendStateActive),
+			},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: FamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
+					},
+				},
+				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
+					redSvcKey: reconcilerv2.RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
+					},
+				},
+			},
+		},
+	})
 }
 
 var (
@@ -822,37 +510,84 @@ var (
 	clusterV6            = "2001:db8::3"
 	clusterV6Prefix      = "2001:db8::3/128"
 
-	redLBSvc = &slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      redSvcKey.Name,
-			Namespace: redSvcKey.Namespace,
-			Labels:    redSvcSelector.MatchLabels,
-		},
-		Spec: slim_corev1.ServiceSpec{
-			Type: slim_corev1.ServiceTypeLoadBalancer,
-		},
-		Status: slim_corev1.ServiceStatus{
-			LoadBalancer: slim_corev1.LoadBalancerStatus{
-				Ingress: []slim_corev1.LoadBalancerIngress{
-					{
-						IP: ingressV4,
-					},
-					{
-						IP: ingressV6,
-					},
-				},
+	redSvcName      = loadbalancer.NewServiceName(redSvcKey.Namespace, redSvcKey.Name)
+	redSvc2Name     = loadbalancer.NewServiceName(redSvc2Key.Namespace, redSvc2Key.Name)
+	redSvcLabels    = labels.Map2Labels(redSvcSelector.MatchLabels, string(source.Kubernetes))
+	redSvcTPCluster = &loadbalancer.Service{
+		Name:             redSvcName,
+		Labels:           redSvcLabels,
+		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+	}
+	redSvcTPLocal = &loadbalancer.Service{
+		Name:             redSvcName,
+		Labels:           redSvcLabels,
+		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
+		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
+	}
+	redSvcExtTPLocal = &loadbalancer.Service{
+		Name:             redSvcName,
+		Labels:           redSvcLabels,
+		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
+		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+	}
+	redSvcIntTPLocal = &loadbalancer.Service{
+		Name:             redSvcName,
+		Labels:           redSvcLabels,
+		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
+	}
+	redSvc2TPCluster = &loadbalancer.Service{
+		Name:             redSvc2Name,
+		Labels:           redSvcLabels,
+		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+	}
+	svcFrontend = func(svc *loadbalancer.Service, addr string, port uint16, svcType loadbalancer.SVCType) *loadbalancer.Frontend {
+		return &loadbalancer.Frontend{
+			FrontendParams: loadbalancer.FrontendParams{
+				ServiceName: svc.Name,
+				Address:     loadbalancer.NewL3n4Addr(loadbalancer.TCP, cmtypes.MustParseAddrCluster(addr), port, 0),
+				Type:        svcType,
 			},
-		},
+			Service:  svc,
+			Backends: func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {},
+		}
 	}
-	redLBSvcWithETP = func(eTP slim_corev1.ServiceExternalTrafficPolicy) *slim_corev1.Service {
-		cp := redLBSvc.DeepCopy()
-		cp.Spec.ExternalTrafficPolicy = eTP
-		return cp
+	svcLBFrontend = func(svc *loadbalancer.Service, addr string) *loadbalancer.Frontend {
+		return svcFrontend(svc, addr, 80, loadbalancer.SVCTypeLoadBalancer)
 	}
-	redLBSvc2 = func() *slim_corev1.Service {
-		cp := redLBSvc.DeepCopy()
-		cp.Name = redLBSvc.Name + "2"
-		return cp
+	svcExtIPFrontend = func(svc *loadbalancer.Service, addr string) *loadbalancer.Frontend {
+		return svcFrontend(svc, addr, 80, loadbalancer.SVCTypeExternalIPs)
+	}
+	svcClusterIPFrontend = func(svc *loadbalancer.Service, addr string) *loadbalancer.Frontend {
+		return svcFrontend(svc, addr, 80, loadbalancer.SVCTypeClusterIP)
+	}
+	backendAddr = func(addr string, port uint16) loadbalancer.L3n4Addr {
+		return loadbalancer.NewL3n4Addr(
+			loadbalancer.TCP,
+			cmtypes.MustParseAddrCluster(addr),
+			port,
+			loadbalancer.ScopeExternal,
+		)
+	}
+	redSvcBackendsLocal = []*loadbalancer.Backend{
+		newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateActive),
+		newTestBackend(redSvcName, backendAddr("2001:db8:1000::1", 80), "node1", loadbalancer.BackendStateActive),
+	}
+	redSvcBackendsMixed = []*loadbalancer.Backend{
+		newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateActive),
+		newTestBackend(redSvcName, backendAddr("2001:db8:1000::1", 80), "node1", loadbalancer.BackendStateActive),
+		newTestBackend(redSvcName, backendAddr("10.2.0.1", 80), "node2", loadbalancer.BackendStateActive),
+		newTestBackend(redSvcName, backendAddr("2001:db8:2000::1", 80), "node2", loadbalancer.BackendStateActive),
+	}
+	redSvcBackendsRemote = []*loadbalancer.Backend{
+		newTestBackend(redSvcName, backendAddr("10.2.0.1", 80), "node2", loadbalancer.BackendStateActive),
+		newTestBackend(redSvcName, backendAddr("2001:db8:2000::1", 80), "node2", loadbalancer.BackendStateActive),
+	}
+	redSvcBackendsLocalTerminating = []*loadbalancer.Backend{
+		newTestBackend(redSvcName, backendAddr("10.1.0.1", 80), "node1", loadbalancer.BackendStateTerminating),
+		newTestBackend(redSvcName, backendAddr("2001:db8:1000::1", 80), "node1", loadbalancer.BackendStateTerminating),
 	}
 
 	redPeer65001v4LBRPName = PolicyName("red-peer-65001", "ipv4", v1.BGPServiceAdvert, "red-svc-non-default-LoadBalancerIP")
@@ -1043,27 +778,6 @@ var (
 		}
 	}
 
-	redExternalSvc = &slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      redSvcKey.Name,
-			Namespace: redSvcKey.Namespace,
-			Labels:    redSvcSelector.MatchLabels,
-		},
-		Spec: slim_corev1.ServiceSpec{
-			Type: slim_corev1.ServiceTypeClusterIP,
-			ExternalIPs: []string{
-				externalV4,
-				externalV6,
-			},
-		},
-	}
-
-	redExternalSvcWithETP = func(eTP slim_corev1.ServiceExternalTrafficPolicy) *slim_corev1.Service {
-		cp := redExternalSvc.DeepCopy()
-		cp.Spec.ExternalTrafficPolicy = eTP
-		return cp
-	}
-
 	redPeer65001v4ExtRPName = PolicyName("red-peer-65001", "ipv4", v1.BGPServiceAdvert, "red-svc-non-default-ExternalIP")
 	redPeer65001v4ExtRP     = &types.RoutePolicy{
 		Name: redPeer65001v4ExtRPName,
@@ -1232,28 +946,6 @@ var (
 				},
 			},
 		},
-	}
-
-	redClusterSvc = &slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      redSvcKey.Name,
-			Namespace: redSvcKey.Namespace,
-			Labels:    redSvcSelector.MatchLabels,
-		},
-		Spec: slim_corev1.ServiceSpec{
-			Type:      slim_corev1.ServiceTypeClusterIP,
-			ClusterIP: clusterV4,
-			ClusterIPs: []string{
-				clusterV4,
-				clusterV6,
-			},
-		},
-	}
-
-	redClusterSvcWithITP = func(iTP slim_corev1.ServiceInternalTrafficPolicy) *slim_corev1.Service {
-		cp := redClusterSvc.DeepCopy()
-		cp.Spec.InternalTrafficPolicy = &iTP
-		return cp
 	}
 
 	redPeer65001v4ClusterRPName = PolicyName("red-peer-65001", "ipv4", v1.BGPServiceAdvert, "red-svc-non-default-ClusterIP")
@@ -1426,38 +1118,6 @@ var (
 		},
 	}
 
-	redExternalAndClusterSvc = &slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      redSvcKey.Name,
-			Namespace: redSvcKey.Namespace,
-			Labels:    redSvcSelector.MatchLabels,
-		},
-		Spec: slim_corev1.ServiceSpec{
-			Type:      slim_corev1.ServiceTypeClusterIP,
-			ClusterIP: clusterV4,
-			ClusterIPs: []string{
-				clusterV4,
-				clusterV6,
-			},
-			ExternalIPs: []string{
-				externalV4,
-				externalV6,
-			},
-		},
-	}
-
-	svcWithITP = func(svc *slim_corev1.Service, iTP slim_corev1.ServiceInternalTrafficPolicy) *slim_corev1.Service {
-		cp := svc.DeepCopy()
-		cp.Spec.InternalTrafficPolicy = &iTP
-		return cp
-	}
-
-	svcWithETP = func(svc *slim_corev1.Service, eTP slim_corev1.ServiceExternalTrafficPolicy) *slim_corev1.Service {
-		cp := svc.DeepCopy()
-		cp.Spec.ExternalTrafficPolicy = eTP
-		return cp
-	}
-
 	redSvcAdvert = &v1.IsovalentBGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "red-advertisement",
@@ -1627,106 +1287,15 @@ var (
 		Name:    "red-peer-65001",
 		Address: "10.10.10.1",
 	}
-
-	eps1Local = &k8s.Endpoints{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "svc-1",
-			Namespace: "non-default",
-		},
-		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceName:       loadbalancer.NewServiceName(redSvcKey.Namespace, redSvcKey.Name),
-			EndpointSliceName: "svc-1",
-		},
-		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
-			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
-			},
-			cmtypes.MustParseAddrCluster("2001:db8:1000::1"): {
-				NodeName: "node1",
-			},
-		},
-	}
-
-	eps1LocalTerminating = &k8s.Endpoints{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "svc-1",
-			Namespace: "non-default",
-		},
-		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceName:       loadbalancer.NewServiceName(redSvcKey.Namespace, redSvcKey.Name),
-			EndpointSliceName: "svc-1",
-		},
-		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
-			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName:   "node1",
-				Conditions: k8s.BackendConditionTerminating,
-			},
-			cmtypes.MustParseAddrCluster("2001:db8:1000::1"): {
-				NodeName:   "node1",
-				Conditions: k8s.BackendConditionTerminating,
-			},
-		},
-	}
-
-	eps1Remote = &k8s.Endpoints{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "svc-1",
-			Namespace: "default",
-		},
-		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceName:       loadbalancer.NewServiceName(redSvcKey.Namespace, redSvcKey.Name),
-			EndpointSliceName: "svc-1",
-		},
-		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
-			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
-			},
-			cmtypes.MustParseAddrCluster("2001:db8:1000::2"): {
-				NodeName: "node2",
-			},
-		},
-	}
-
-	eps1Mixed = &k8s.Endpoints{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "svc-1",
-			Namespace: "default",
-		},
-		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceName:       loadbalancer.NewServiceName(redSvcKey.Namespace, redSvcKey.Name),
-			EndpointSliceName: "svc-1",
-		},
-		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
-			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "node1",
-			},
-			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "node2",
-			},
-			cmtypes.MustParseAddrCluster("2001:db8:1000::1"): {
-				NodeName: "node1",
-			},
-			cmtypes.MustParseAddrCluster("2001:db8:1000::2"): {
-				NodeName: "node2",
-			},
-		},
-	}
 )
 
 // Test_ServiceLBReconciler tests reconciliation of service of type load-balancer
 func Test_ServiceLBReconciler(t *testing.T) {
-	tests := []struct {
-		name             string
-		peerConfigs      []*v1.IsovalentBGPPeerConfig
-		advertisements   []*v1.IsovalentBGPAdvertisement
-		services         []*slim_corev1.Service
-		endpoints        []*k8s.Endpoints
-		expectedMetadata ServiceReconcilerMetadata
-	}{
+	runServiceTests(t, []svcTestStep{
 		{
 			name:           "Service (LB) with advertisement( empty )",
 			peerConfigs:    []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:       []*slim_corev1.Service{redLBSvc},
+			frontends:      []*loadbalancer.Frontend{svcLBFrontend(redSvcTPCluster, ingressV4), svcLBFrontend(redSvcTPCluster, ingressV6)},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
@@ -1742,7 +1311,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		{
 			name:        "Service (LB) with advertisement(LB) - mismatch labels",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redLBSvc},
+			frontends:   []*loadbalancer.Frontend{svcLBFrontend(redSvcTPCluster, ingressV4), svcLBFrontend(redSvcTPCluster, ingressV6)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(mismatchSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(mismatchSvcSelector)),
@@ -1765,7 +1334,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		{
 			name:        "Service (LB) with advertisement(LB) - matching labels (eTP=cluster)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
+			frontends:   []*loadbalancer.Frontend{svcLBFrontend(redSvcTPCluster, ingressV4), svcLBFrontend(redSvcTPCluster, ingressV6)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
@@ -1802,8 +1371,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		{
 			name:        "Service (LB) with advertisement(LB) - matching labels (eTP=local, ep on node)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
-			endpoints:   []*k8s.Endpoints{eps1Local},
+			frontends:   []*loadbalancer.Frontend{svcLBFrontend(redSvcExtTPLocal, ingressV4), svcLBFrontend(redSvcExtTPLocal, ingressV6)},
+			backends:    redSvcBackendsLocal,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
@@ -1840,8 +1409,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		{
 			name:        "Service (LB) with advertisement(LB) - matching labels (eTP=local, mixed ep)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
-			endpoints:   []*k8s.Endpoints{eps1Mixed},
+			frontends:   []*loadbalancer.Frontend{svcLBFrontend(redSvcExtTPLocal, ingressV4), svcLBFrontend(redSvcExtTPLocal, ingressV6)},
+			backends:    redSvcBackendsMixed,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
@@ -1878,8 +1447,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		{
 			name:        "Service (LB) with advertisement(LB) - matching labels (eTP=local, ep on remote)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
-			endpoints:   []*k8s.Endpoints{eps1Remote},
+			frontends:   []*loadbalancer.Frontend{svcLBFrontend(redSvcExtTPLocal, ingressV4), svcLBFrontend(redSvcExtTPLocal, ingressV6)},
+			backends:    redSvcBackendsRemote,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
@@ -1902,8 +1471,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		{
 			name:        "Service (LB) with advertisement(LB) - matching labels (eTP=local, backends are terminating)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
-			endpoints:   []*k8s.Endpoints{eps1LocalTerminating},
+			frontends:   []*loadbalancer.Frontend{svcLBFrontend(redSvcExtTPLocal, ingressV4), svcLBFrontend(redSvcExtTPLocal, ingressV6)},
+			backends:    redSvcBackendsLocalTerminating,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
@@ -1926,7 +1495,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		{
 			name:        "Service (LB) with advertisement(LB) - prefix aggregation (eTP=Cluster, iTP=Local)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{svcWithITP(redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster), slim_corev1.ServiceInternalTrafficPolicyLocal)},
+			frontends:   []*loadbalancer.Frontend{svcLBFrontend(redSvcIntTPLocal, ingressV4), svcLBFrontend(redSvcIntTPLocal, ingressV6)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
@@ -1963,8 +1532,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		{
 			name:        "Service (LB) with advertisement(LB) - eTP=Local, iTP=Cluster - no prefix aggregation",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{svcWithITP(redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal), slim_corev1.ServiceInternalTrafficPolicyCluster)},
-			endpoints:   []*k8s.Endpoints{eps1Local},
+			frontends:   []*loadbalancer.Frontend{svcLBFrontend(redSvcExtTPLocal, ingressV4), svcLBFrontend(redSvcExtTPLocal, ingressV6)},
+			backends:    redSvcBackendsLocal,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
@@ -2001,7 +1570,7 @@ func Test_ServiceLBReconciler(t *testing.T) {
 		{
 			name:        "Service (LB) with advertisement(LB) - prefix aggregation (eTP=Cluster), aggregate and full match advertisement",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redLBSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
+			frontends:   []*loadbalancer.Frontend{svcLBFrontend(redSvcTPCluster, ingressV4), svcLBFrontend(redSvcTPCluster, ingressV6)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24), lbSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120), lbSvcAdvertWithSelector(redSvcSelector)),
@@ -2039,100 +1608,16 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				},
 			},
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := require.New(t)
-			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-
-			var (
-				testBGPInstance = instance.NewFakeBGPInstance()
-				ceeBGPInstance  = &EnterpriseBGPInstance{
-					Name:   testBGPInstance.Name,
-					Router: testBGPInstance.Router,
-				}
-				mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
-				mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
-				svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
-				epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
-			)
-
-			ceeParams := ServiceReconcilerIn{
-				In:         cell.In{},
-				Lifecycle:  &cell.DefaultLifecycle{},
-				Cfg:        defaultConfig,
-				BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
-				Logger:     logger,
-				Upgrader:   newUpgraderMock(testBGPInstanceConfig),
-				NSProvider: newMockNodeStatusProvider(),
-				PeerAdvert: &IsovalentAdvertisement{
-					logger:      logger,
-					peerConfigs: mockPeerConfigStore,
-					adverts:     mockAdvertStore,
-				},
-				SvcDiffStore: svcDiffstore,
-				EPDiffStore:  epDiffStore,
-				Signaler:     signaler.NewBGPCPSignaler(),
-			}
-
-			ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
-
-			ceeReconciler.Init(testBGPInstance)
-			defer ceeReconciler.Cleanup(testBGPInstance)
-
-			for _, peerConfig := range tt.peerConfigs {
-				mockPeerConfigStore.Upsert(peerConfig)
-			}
-
-			for _, svc := range tt.services {
-				svcDiffstore.Upsert(svc)
-			}
-
-			for _, ep := range tt.endpoints {
-				epDiffStore.Upsert(ep)
-			}
-
-			for _, advert := range tt.advertisements {
-				mockAdvertStore.Upsert(advert)
-			}
-
-			// reconcile twice to validate idempotency
-			for i := 0; i < 2; i++ {
-				err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
-					BGPInstance: testBGPInstance,
-					CiliumNode: &v2.CiliumNode{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "node1",
-						},
-					},
-				})
-				req.NoError(err)
-			}
-
-			// validate new metadata
-			serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
-
-			// validate that advertised paths match expected metadata
-			advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
-		})
-	}
+	})
 }
 
 // Test_ServiceExternalIPReconciler tests reconciliation of cluster service with external IP
 func Test_ServiceExternalIPReconciler(t *testing.T) {
-	tests := []struct {
-		name             string
-		peerConfigs      []*v1.IsovalentBGPPeerConfig
-		advertisements   []*v1.IsovalentBGPAdvertisement
-		services         []*slim_corev1.Service
-		endpoints        []*k8s.Endpoints
-		expectedMetadata ServiceReconcilerMetadata
-	}{
+	runServiceTests(t, []svcTestStep{
 		{
 			name:           "Service (External) with advertisement( empty )",
 			peerConfigs:    []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:       []*slim_corev1.Service{redExternalSvc},
+			frontends:      []*loadbalancer.Frontend{svcExtIPFrontend(redSvcTPCluster, externalV4), svcExtIPFrontend(redSvcTPCluster, externalV6)},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
@@ -2148,7 +1633,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		{
 			name:        "Service (External) with advertisement(External) - mismatch labels",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redExternalSvc},
+			frontends:   []*loadbalancer.Frontend{svcExtIPFrontend(redSvcTPCluster, externalV4), svcExtIPFrontend(redSvcTPCluster, externalV6)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(mismatchSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(mismatchSvcSelector)),
@@ -2171,7 +1656,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		{
 			name:        "Service (External) with advertisement(External) - matching labels (eTP=cluster)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
+			frontends:   []*loadbalancer.Frontend{svcExtIPFrontend(redSvcTPCluster, externalV4), svcExtIPFrontend(redSvcTPCluster, externalV6)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
@@ -2208,8 +1693,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		{
 			name:        "Service (External) with advertisement(External) - matching labels (eTP=local, ep on node)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
-			endpoints:   []*k8s.Endpoints{eps1Local},
+			frontends:   []*loadbalancer.Frontend{svcExtIPFrontend(redSvcExtTPLocal, externalV4), svcExtIPFrontend(redSvcExtTPLocal, externalV6)},
+			backends:    redSvcBackendsLocal,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
@@ -2246,8 +1731,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		{
 			name:        "Service (External) with advertisement(External) - matching labels (eTP=local, mixed ep)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
-			endpoints:   []*k8s.Endpoints{eps1Mixed},
+			frontends:   []*loadbalancer.Frontend{svcExtIPFrontend(redSvcExtTPLocal, externalV4), svcExtIPFrontend(redSvcExtTPLocal, externalV6)},
+			backends:    redSvcBackendsMixed,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
@@ -2284,8 +1769,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		{
 			name:        "Service (External) with advertisement(External) - matching labels (eTP=local, ep on remote)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal)},
-			endpoints:   []*k8s.Endpoints{eps1Remote},
+			frontends:   []*loadbalancer.Frontend{svcExtIPFrontend(redSvcExtTPLocal, externalV4), svcExtIPFrontend(redSvcExtTPLocal, externalV6)},
+			backends:    redSvcBackendsRemote,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
@@ -2308,7 +1793,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		{
 			name:        "Service (External) with prefix aggregation - eTP=Cluster, iTP=Local",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{svcWithITP(redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster), slim_corev1.ServiceInternalTrafficPolicyLocal)},
+			frontends:   []*loadbalancer.Frontend{svcExtIPFrontend(redSvcIntTPLocal, externalV4), svcExtIPFrontend(redSvcIntTPLocal, externalV6)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
@@ -2345,8 +1830,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		{
 			name:        "Service (External) with advertisement(External) - eTP=Local, iTP=Cluster - no prefix aggregation",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{svcWithITP(redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyLocal), slim_corev1.ServiceInternalTrafficPolicyCluster)},
-			endpoints:   []*k8s.Endpoints{eps1Local},
+			frontends:   []*loadbalancer.Frontend{svcExtIPFrontend(redSvcExtTPLocal, externalV4), svcExtIPFrontend(redSvcExtTPLocal, externalV6)},
+			backends:    redSvcBackendsLocal,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
@@ -2383,7 +1868,7 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 		{
 			name:        "Service (External) with advertisement(External) - prefix aggregation (eTP=Cluster), aggregate and full match advertisement",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redExternalSvcWithETP(slim_corev1.ServiceExternalTrafficPolicyCluster)},
+			frontends:   []*loadbalancer.Frontend{svcExtIPFrontend(redSvcTPCluster, externalV4), svcExtIPFrontend(redSvcTPCluster, externalV6)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24), externalSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120), externalSvcAdvertWithSelector(redSvcSelector)),
@@ -2421,100 +1906,16 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				},
 			},
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := require.New(t)
-			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-
-			var (
-				testBGPInstance = instance.NewFakeBGPInstance()
-				ceeBGPInstance  = &EnterpriseBGPInstance{
-					Name:   testBGPInstance.Name,
-					Router: testBGPInstance.Router,
-				}
-				mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
-				mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
-				svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
-				epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
-			)
-
-			ceeParams := ServiceReconcilerIn{
-				In:         cell.In{},
-				Lifecycle:  &cell.DefaultLifecycle{},
-				Cfg:        defaultConfig,
-				BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
-				Logger:     logger,
-				Upgrader:   newUpgraderMock(testBGPInstanceConfig),
-				NSProvider: newMockNodeStatusProvider(),
-				PeerAdvert: &IsovalentAdvertisement{
-					logger:      logger,
-					peerConfigs: mockPeerConfigStore,
-					adverts:     mockAdvertStore,
-				},
-				SvcDiffStore: svcDiffstore,
-				EPDiffStore:  epDiffStore,
-				Signaler:     signaler.NewBGPCPSignaler(),
-			}
-
-			ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
-
-			ceeReconciler.Init(testBGPInstance)
-			defer ceeReconciler.Cleanup(testBGPInstance)
-
-			for _, peerConfig := range tt.peerConfigs {
-				mockPeerConfigStore.Upsert(peerConfig)
-			}
-
-			for _, svc := range tt.services {
-				svcDiffstore.Upsert(svc)
-			}
-
-			for _, ep := range tt.endpoints {
-				epDiffStore.Upsert(ep)
-			}
-
-			for _, advert := range tt.advertisements {
-				mockAdvertStore.Upsert(advert)
-			}
-
-			// reconcile twice to validate idempotency
-			for i := 0; i < 2; i++ {
-				err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
-					BGPInstance: testBGPInstance,
-					CiliumNode: &v2.CiliumNode{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "node1",
-						},
-					},
-				})
-				req.NoError(err)
-			}
-
-			// validate new metadata
-			serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
-
-			// validate that advertised paths match expected metadata
-			advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
-		})
-	}
+	})
 }
 
 // Test_ServiceClusterIPReconciler tests reconciliation of cluster service
 func Test_ServiceClusterIPReconciler(t *testing.T) {
-	tests := []struct {
-		name             string
-		peerConfigs      []*v1.IsovalentBGPPeerConfig
-		advertisements   []*v1.IsovalentBGPAdvertisement
-		services         []*slim_corev1.Service
-		endpoints        []*k8s.Endpoints
-		expectedMetadata ServiceReconcilerMetadata
-	}{
+	runServiceTests(t, []svcTestStep{
 		{
 			name:           "Service (Cluster) with advertisement( empty )",
 			peerConfigs:    []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:       []*slim_corev1.Service{redClusterSvc},
+			frontends:      []*loadbalancer.Frontend{svcClusterIPFrontend(redSvcTPCluster, clusterV4), svcClusterIPFrontend(redSvcTPCluster, clusterV6)},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
@@ -2530,7 +1931,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - mismatch labels",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redClusterSvc},
+			frontends:   []*loadbalancer.Frontend{svcClusterIPFrontend(redSvcTPCluster, clusterV4), svcClusterIPFrontend(redSvcTPCluster, clusterV6)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(mismatchSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(mismatchSvcSelector)),
@@ -2553,7 +1954,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - matching labels (iTP=cluster)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyCluster)},
+			frontends:   []*loadbalancer.Frontend{svcClusterIPFrontend(redSvcTPCluster, clusterV4), svcClusterIPFrontend(redSvcTPCluster, clusterV6)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
@@ -2590,8 +1991,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - matching labels (eTP=local, ep on node)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyLocal)},
-			endpoints:   []*k8s.Endpoints{eps1Local},
+			frontends:   []*loadbalancer.Frontend{svcClusterIPFrontend(redSvcIntTPLocal, clusterV4), svcClusterIPFrontend(redSvcIntTPLocal, clusterV6)},
+			backends:    redSvcBackendsLocal,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
@@ -2628,8 +2029,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - matching labels (eTP=local, mixed ep)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyLocal)},
-			endpoints:   []*k8s.Endpoints{eps1Mixed},
+			frontends:   []*loadbalancer.Frontend{svcClusterIPFrontend(redSvcIntTPLocal, clusterV4), svcClusterIPFrontend(redSvcIntTPLocal, clusterV6)},
+			backends:    redSvcBackendsMixed,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
@@ -2666,8 +2067,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - matching labels (eTP=local, ep on remote)",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyLocal)},
-			endpoints:   []*k8s.Endpoints{eps1Remote},
+			frontends:   []*loadbalancer.Frontend{svcClusterIPFrontend(redSvcIntTPLocal, clusterV4), svcClusterIPFrontend(redSvcIntTPLocal, clusterV6)},
+			backends:    redSvcBackendsRemote,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
@@ -2690,7 +2091,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		{
 			name:        "Service (Cluster) with prefix aggregation - eTP=Cluster",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyCluster)},
+			frontends:   []*loadbalancer.Frontend{svcClusterIPFrontend(redSvcTPCluster, clusterV4), svcClusterIPFrontend(redSvcTPCluster, clusterV6)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
@@ -2727,8 +2128,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - iTP=Local - no prefix aggregation",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyLocal)},
-			endpoints:   []*k8s.Endpoints{eps1Local},
+			frontends:   []*loadbalancer.Frontend{svcClusterIPFrontend(redSvcIntTPLocal, clusterV4), svcClusterIPFrontend(redSvcIntTPLocal, clusterV6)},
+			backends:    redSvcBackendsLocal,
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
@@ -2765,7 +2166,7 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 		{
 			name:        "Service (Cluster) with advertisement(Cluster) - prefix aggregation (iTP=Cluster), aggregate and full match advertisement",
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
-			services:    []*slim_corev1.Service{redClusterSvcWithITP(slim_corev1.ServiceInternalTrafficPolicyCluster)},
+			frontends:   []*loadbalancer.Frontend{svcClusterIPFrontend(redSvcTPCluster, clusterV4), svcClusterIPFrontend(redSvcTPCluster, clusterV6)},
 			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 24), clusterIPSvcAdvertWithSelector(redSvcSelector)),
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120), clusterIPSvcAdvertWithSelector(redSvcSelector)),
@@ -2803,101 +2204,18 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				},
 			},
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := require.New(t)
-			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-
-			var (
-				testBGPInstance = instance.NewFakeBGPInstance()
-				ceeBGPInstance  = &EnterpriseBGPInstance{
-					Name:   testBGPInstance.Name,
-					Router: testBGPInstance.Router,
-				}
-				mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
-				mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
-				svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
-				epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
-			)
-
-			ceeParams := ServiceReconcilerIn{
-				In:         cell.In{},
-				Lifecycle:  &cell.DefaultLifecycle{},
-				Cfg:        defaultConfig,
-				BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
-				Logger:     logger,
-				Upgrader:   newUpgraderMock(testBGPInstanceConfig),
-				NSProvider: newMockNodeStatusProvider(),
-				PeerAdvert: &IsovalentAdvertisement{
-					logger:      logger,
-					peerConfigs: mockPeerConfigStore,
-					adverts:     mockAdvertStore,
-				},
-				SvcDiffStore: svcDiffstore,
-				EPDiffStore:  epDiffStore,
-				Signaler:     signaler.NewBGPCPSignaler(),
-			}
-
-			ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
-
-			ceeReconciler.Init(testBGPInstance)
-			defer ceeReconciler.Cleanup(testBGPInstance)
-
-			for _, peerConfig := range tt.peerConfigs {
-				mockPeerConfigStore.Upsert(peerConfig)
-			}
-
-			for _, svc := range tt.services {
-				svcDiffstore.Upsert(svc)
-			}
-
-			for _, ep := range tt.endpoints {
-				epDiffStore.Upsert(ep)
-			}
-
-			for _, advert := range tt.advertisements {
-				mockAdvertStore.Upsert(advert)
-			}
-
-			// reconcile twice to validate idempotency
-			for i := 0; i < 2; i++ {
-				err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
-					BGPInstance: testBGPInstance,
-					CiliumNode: &v2.CiliumNode{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "node1",
-						},
-					},
-				})
-				req.NoError(err)
-			}
-
-			// validate new metadata
-			serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
-
-			// validate that advertised paths match expected metadata
-			advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
-		})
-	}
+	})
 }
 
 // Test_ServiceAndAdvertisementModifications is a step test, in which each step modifies the advertisement or service parameters.
 func Test_ServiceAndAdvertisementModifications(t *testing.T) {
-	steps := []struct {
-		name             string
-		upsertAdverts    []*v1.IsovalentBGPAdvertisement
-		upsertServices   []*slim_corev1.Service
-		upsertEPs        []*k8s.Endpoints
-		deleteEPs        []*k8s.Endpoints
-		expectedMetadata ServiceReconcilerMetadata
-	}{
+	runServiceTests(t, []svcTestStep{
 		{
 			name:           "Initial setup - Service (nil) with advertisement( empty )",
-			upsertAdverts:  nil,
-			upsertServices: nil,
-			upsertEPs:      nil,
+			peerConfigs:    []*v1.IsovalentBGPPeerConfig{redPeerConfig},
+			advertisements: nil,
+			frontends:      nil,
+			backends:       nil,
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
@@ -2911,7 +2229,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		},
 		{
 			name: "Add service (Cluster, External) with advertisement(Cluster) - matching labels",
-			upsertAdverts: []*v1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(v1.BGPAdvertisement{
 					AdvertisementType: v1.BGPServiceAdvert,
 					Service: &v1.BGPServiceOptions{
@@ -2939,7 +2257,10 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 					},
 				}),
 			},
-			upsertServices: []*slim_corev1.Service{redExternalAndClusterSvc},
+			frontends: []*loadbalancer.Frontend{
+				svcClusterIPFrontend(redSvcTPCluster, clusterV4), svcClusterIPFrontend(redSvcTPCluster, clusterV6),
+				svcExtIPFrontend(redSvcTPCluster, externalV4), svcExtIPFrontend(redSvcTPCluster, externalV6),
+			},
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Only cluster IPs are advertised
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
@@ -2996,7 +2317,7 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		},
 		{
 			name: "Update advertisement(Cluster, External) - matching labels",
-			upsertAdverts: []*v1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(v1.BGPAdvertisement{
 					AdvertisementType: v1.BGPServiceAdvert,
 					Service: &v1.BGPServiceOptions{
@@ -3096,10 +2417,9 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 		},
 		{
 			name: "Update service (Cluster, External) traffic policy local",
-			upsertServices: []*slim_corev1.Service{
-				svcWithITP(
-					svcWithETP(redExternalAndClusterSvc, slim_corev1.ServiceExternalTrafficPolicyLocal),
-					slim_corev1.ServiceInternalTrafficPolicyLocal),
+			frontends: []*loadbalancer.Frontend{
+				svcClusterIPFrontend(redSvcTPLocal, clusterV4), svcClusterIPFrontend(redSvcTPLocal, clusterV6),
+				svcExtIPFrontend(redSvcTPLocal, externalV4), svcExtIPFrontend(redSvcTPLocal, externalV6),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Both cluster and external IPs are withdrawn, since traffic policy is local and there are no endpoints.
@@ -3148,8 +2468,12 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			},
 		},
 		{
-			name:      "Update local endpoints (Cluster, External)",
-			upsertEPs: []*k8s.Endpoints{eps1Mixed},
+			name: "Update local endpoints (Cluster, External)",
+			frontends: []*loadbalancer.Frontend{
+				svcClusterIPFrontend(redSvcTPLocal, clusterV4), svcClusterIPFrontend(redSvcTPLocal, clusterV6),
+				svcExtIPFrontend(redSvcTPLocal, externalV4), svcExtIPFrontend(redSvcTPLocal, externalV6),
+			},
+			backends: redSvcBackendsLocal,
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Both cluster and external IPs are advertised since there is local endpoint.
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
@@ -3215,8 +2539,12 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			},
 		},
 		{
-			name:      "Delete local endpoints (Cluster, External)",
-			deleteEPs: []*k8s.Endpoints{eps1Mixed},
+			name: "Delete local endpoints (Cluster, External)",
+			frontends: []*loadbalancer.Frontend{
+				svcClusterIPFrontend(redSvcTPLocal, clusterV4), svcClusterIPFrontend(redSvcTPLocal, clusterV6),
+				svcExtIPFrontend(redSvcTPLocal, externalV4), svcExtIPFrontend(redSvcTPLocal, externalV6),
+			},
+			backends: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Both cluster and external IPs are withdrawn since local endpoints were deleted.
 				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
@@ -3263,97 +2591,15 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 				},
 			},
 		},
-	}
-
-	req := require.New(t)
-	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-
-	var (
-		testBGPInstance = instance.NewFakeBGPInstance()
-		ceeBGPInstance  = &EnterpriseBGPInstance{
-			Name:   testBGPInstance.Name,
-			Router: testBGPInstance.Router,
-		}
-		mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
-		mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
-		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
-		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
-	)
-
-	ceeParams := ServiceReconcilerIn{
-		In:         cell.In{},
-		Lifecycle:  &cell.DefaultLifecycle{},
-		Cfg:        defaultConfig,
-		BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:     logger,
-		Upgrader:   newUpgraderMock(testBGPInstanceConfig),
-		NSProvider: newMockNodeStatusProvider(),
-		PeerAdvert: &IsovalentAdvertisement{
-			logger:      logger,
-			peerConfigs: mockPeerConfigStore,
-			adverts:     mockAdvertStore,
-		},
-		SvcDiffStore: svcDiffstore,
-		EPDiffStore:  epDiffStore,
-		Signaler:     signaler.NewBGPCPSignaler(),
-	}
-
-	ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
-
-	// set peer advert state
-	mockPeerConfigStore.Upsert(redPeerConfig)
-
-	ceeReconciler.Init(testBGPInstance)
-	defer ceeReconciler.Cleanup(testBGPInstance)
-
-	for _, tt := range steps {
-		t.Logf("Running step - %s", tt.name)
-		for _, advert := range tt.upsertAdverts {
-			mockAdvertStore.Upsert(advert)
-		}
-
-		for _, svc := range tt.upsertServices {
-			svcDiffstore.Upsert(svc)
-		}
-
-		for _, ep := range tt.upsertEPs {
-			epDiffStore.Upsert(ep)
-		}
-
-		for _, ep := range tt.deleteEPs {
-			epDiffStore.Delete(ep)
-		}
-
-		err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
-			BGPInstance: testBGPInstance,
-			CiliumNode: &v2.CiliumNode{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "node1",
-				},
-			},
-		})
-		req.NoError(err)
-
-		// validate new metadata
-		serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
-
-		// validate that advertised paths match expected metadata
-		advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
-	}
+	})
 }
 
 func Test_ServiceVIPSharing(t *testing.T) {
-	steps := []struct {
-		name             string
-		upsertAdverts    []*v1.IsovalentBGPAdvertisement
-		upsertServices   []*slim_corev1.Service
-		deletetServices  []*slim_corev1.Service
-		upsertEPs        []*k8s.Endpoints
-		expectedMetadata ServiceReconcilerMetadata
-	}{
+	runServiceTests(t, []svcTestStep{
 		{
-			name: "Add service 1 (LoadBalancer) with advertisement",
-			upsertAdverts: []*v1.IsovalentBGPAdvertisement{
+			name:        "Add service 1 (LoadBalancer, port 80) with advertisement",
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(v1.BGPAdvertisement{
 					AdvertisementType: v1.BGPServiceAdvert,
 					Service: &v1.BGPServiceOptions{
@@ -3381,7 +2627,10 @@ func Test_ServiceVIPSharing(t *testing.T) {
 					},
 				}),
 			},
-			upsertServices: []*slim_corev1.Service{redLBSvc},
+			frontends: []*loadbalancer.Frontend{
+				svcFrontend(redSvcTPCluster, ingressV4, 80, loadbalancer.SVCTypeLoadBalancer),
+				svcFrontend(redSvcTPCluster, ingressV6, 80, loadbalancer.SVCTypeLoadBalancer),
+			},
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
 					redSvcKey: reconcilerv2.AFPathsMap{
@@ -3436,8 +2685,11 @@ func Test_ServiceVIPSharing(t *testing.T) {
 			},
 		},
 		{
-			name:           "Add service 2 (LoadBalancer) with the same VIP",
-			upsertServices: []*slim_corev1.Service{redLBSvc2()},
+			name: "Add service 2 (LoadBalancer, port 443) with the same VIP",
+			frontends: []*loadbalancer.Frontend{
+				svcFrontend(redSvc2TPCluster, ingressV4, 443, loadbalancer.SVCTypeLoadBalancer),
+				svcFrontend(redSvc2TPCluster, ingressV6, 443, loadbalancer.SVCTypeLoadBalancer),
+			},
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
 					redSvcKey: reconcilerv2.AFPathsMap{
@@ -3504,8 +2756,11 @@ func Test_ServiceVIPSharing(t *testing.T) {
 			},
 		},
 		{
-			name:            "Delete service 1",
-			deletetServices: []*slim_corev1.Service{redLBSvc},
+			name: "Delete service 1 (LoadBalancer, port 80)",
+			deleteFrontends: []*loadbalancer.Frontend{
+				svcFrontend(redSvcTPCluster, ingressV4, 80, loadbalancer.SVCTypeLoadBalancer),
+				svcFrontend(redSvcTPCluster, ingressV6, 80, loadbalancer.SVCTypeLoadBalancer),
+			},
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
 					redSvc2Key: reconcilerv2.AFPathsMap{
@@ -3560,8 +2815,11 @@ func Test_ServiceVIPSharing(t *testing.T) {
 			},
 		},
 		{
-			name:            "Delete service 2",
-			deletetServices: []*slim_corev1.Service{redLBSvc2()},
+			name: "Delete service 2 (LoadBalancer, port 443)",
+			deleteFrontends: []*loadbalancer.Frontend{
+				svcFrontend(redSvc2TPCluster, ingressV4, 443, loadbalancer.SVCTypeLoadBalancer),
+				svcFrontend(redSvc2TPCluster, ingressV6, 443, loadbalancer.SVCTypeLoadBalancer),
+			},
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
@@ -3601,93 +2859,14 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				},
 			},
 		},
-	}
-
-	req := require.New(t)
-	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-
-	var (
-		testBGPInstance = instance.NewFakeBGPInstance()
-		ceeBGPInstance  = &EnterpriseBGPInstance{
-			Name:   testBGPInstance.Name,
-			Router: testBGPInstance.Router,
-		}
-		mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
-		mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
-		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
-		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
-	)
-
-	ceeParams := ServiceReconcilerIn{
-		In:         cell.In{},
-		Lifecycle:  &cell.DefaultLifecycle{},
-		Cfg:        defaultConfig,
-		BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:     logger,
-		Upgrader:   newUpgraderMock(testBGPInstanceConfig),
-		NSProvider: newMockNodeStatusProvider(),
-		PeerAdvert: &IsovalentAdvertisement{
-			logger:      logger,
-			peerConfigs: mockPeerConfigStore,
-			adverts:     mockAdvertStore,
-		},
-		SvcDiffStore: svcDiffstore,
-		EPDiffStore:  epDiffStore,
-		Signaler:     signaler.NewBGPCPSignaler(),
-	}
-
-	ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
-
-	// set peer advert state
-	mockPeerConfigStore.Upsert(redPeerConfig)
-
-	ceeReconciler.Init(testBGPInstance)
-	defer ceeReconciler.Cleanup(testBGPInstance)
-
-	for _, tt := range steps {
-		t.Logf("Running step - %s", tt.name)
-		for _, advert := range tt.upsertAdverts {
-			mockAdvertStore.Upsert(advert)
-		}
-
-		for _, svc := range tt.upsertServices {
-			svcDiffstore.Upsert(svc)
-		}
-
-		for _, svc := range tt.deletetServices {
-			svcDiffstore.Delete(svc)
-		}
-
-		for _, ep := range tt.upsertEPs {
-			epDiffStore.Upsert(ep)
-		}
-
-		err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
-			BGPInstance: testBGPInstance,
-			CiliumNode:  testCiliumNodeConfig,
-		})
-		req.NoError(err)
-
-		// validate new metadata
-		serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
-
-		// validate that advertised paths match expected metadata
-		advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
-	}
+	})
 }
 
 func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
-	steps := []struct {
-		name             string
-		peers            []v1.IsovalentBGPNodePeer
-		upsertAdverts    []*v1.IsovalentBGPAdvertisement
-		upsertServices   []*slim_corev1.Service
-		deletetServices  []*slim_corev1.Service
-		upsertEPs        []*k8s.Endpoints
-		expectedMetadata ServiceReconcilerMetadata
-	}{
+	runServiceTests(t, []svcTestStep{
 		{
-			name: "Add service and advertisement",
+			name:        "Add service and advertisement",
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
 			peers: []v1.IsovalentBGPNodePeer{
 				{
 					Name:        "red-peer-65001",
@@ -3697,7 +2876,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 					},
 				},
 			},
-			upsertAdverts: []*v1.IsovalentBGPAdvertisement{
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(v1.BGPAdvertisement{
 					AdvertisementType: v1.BGPServiceAdvert,
 					Service: &v1.BGPServiceOptions{
@@ -3725,7 +2904,7 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 					},
 				}),
 			},
-			upsertServices: []*slim_corev1.Service{redLBSvc},
+			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcTPCluster, ingressV4), svcLBFrontend(redSvcTPCluster, ingressV6)},
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
 					redSvcKey: reconcilerv2.AFPathsMap{
@@ -3927,111 +3106,19 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 				},
 			},
 		},
-	}
-
-	req := require.New(t)
-	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-
-	var (
-		testBGPInstance = instance.NewFakeBGPInstance()
-		ceeBGPInstance  = &EnterpriseBGPInstance{
-			Name:   testBGPInstance.Name,
-			Router: testBGPInstance.Router,
-		}
-		mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
-		mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
-		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
-		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
-	)
-
-	ceeParams := ServiceReconcilerIn{
-		In:         cell.In{},
-		Lifecycle:  &cell.DefaultLifecycle{},
-		Cfg:        defaultConfig,
-		BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:     logger,
-		Upgrader:   newUpgraderMock(testBGPInstanceConfig),
-		NSProvider: newMockNodeStatusProvider(),
-		PeerAdvert: &IsovalentAdvertisement{
-			logger:      logger,
-			peerConfigs: mockPeerConfigStore,
-			adverts:     mockAdvertStore,
-		},
-		SvcDiffStore: svcDiffstore,
-		EPDiffStore:  epDiffStore,
-		Signaler:     signaler.NewBGPCPSignaler(),
-	}
-
-	ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
-
-	mockPeerConfigStore.Upsert(redPeerConfig)
-
-	ceeReconciler.Init(testBGPInstance)
-	defer ceeReconciler.Cleanup(testBGPInstance)
-
-	for _, tt := range steps {
-		t.Logf("Running step - %s", tt.name)
-
-		// set peers in the node instance
-		nodeInstanceCopy := testBGPInstanceConfig.DeepCopy()
-		nodeInstanceCopy.Peers = tt.peers
-		ceeReconciler.upgrader = newUpgraderMock(nodeInstanceCopy)
-
-		for _, advert := range tt.upsertAdverts {
-			mockAdvertStore.Upsert(advert)
-		}
-
-		for _, svc := range tt.upsertServices {
-			svcDiffstore.Upsert(svc)
-		}
-
-		for _, svc := range tt.deletetServices {
-			svcDiffstore.Delete(svc)
-		}
-
-		for _, ep := range tt.upsertEPs {
-			epDiffStore.Upsert(ep)
-		}
-
-		err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
-			BGPInstance: testBGPInstance,
-			CiliumNode:  testCiliumNodeConfig,
-		})
-		req.NoError(err)
-
-		// validate new metadata
-		serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
-
-		// validate that advertised paths match expected metadata
-		advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
-	}
+	})
 }
 
 func Test_ServiceNodeMaintenance(t *testing.T) {
-	steps := []struct {
-		name             string
-		peers            []v1.IsovalentBGPNodePeer
-		upsertAdverts    []*v1.IsovalentBGPAdvertisement
-		upsertServices   []*slim_corev1.Service
-		nodeStatus       NodeStatus
-		expectedMetadata ServiceReconcilerMetadata
-	}{
+	runServiceTests(t, []svcTestStep{
 		{
-			name: "Add service and advertisement - advertise normally",
-			peers: []v1.IsovalentBGPNodePeer{
-				{
-					Name:        "red-peer-65001",
-					PeerAddress: ptr.To[string]("10.10.10.1"),
-					PeerConfigRef: &v1.PeerConfigReference{
-						Name: "peer-config-red",
-					},
-				},
-			},
-			upsertAdverts: []*v1.IsovalentBGPAdvertisement{
+			name:        "Add service and advertisement - advertise normally",
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{redPeerConfig},
+			advertisements: []*v1.IsovalentBGPAdvertisement{
 				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
-			upsertServices: []*slim_corev1.Service{redLBSvc},
-			nodeStatus:     NodeReady,
+			frontends:  []*loadbalancer.Frontend{svcLBFrontend(redSvcTPCluster, ingressV4), svcLBFrontend(redSvcTPCluster, ingressV6)},
+			nodeStatus: NodeReady,
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
 					redSvcKey: reconcilerv2.AFPathsMap{
@@ -4077,19 +3164,8 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 			},
 		},
 		{
-			name: "Update node status - node maintenance, advertise GS community",
-			peers: []v1.IsovalentBGPNodePeer{
-				{
-					Name:        "red-peer-65001",
-					PeerAddress: ptr.To[string]("10.10.10.1"),
-					PeerConfigRef: &v1.PeerConfigReference{
-						Name: "peer-config-red",
-					},
-				},
-			},
-			upsertAdverts:  nil,
-			upsertServices: nil,
-			nodeStatus:     NodeMaintenance,
+			name:       "Update node status - node maintenance, advertise GS community",
+			nodeStatus: NodeMaintenance,
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
 					redSvcKey: reconcilerv2.AFPathsMap{
@@ -4135,19 +3211,8 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 			},
 		},
 		{
-			name: "Update node status - node maintenance timeout expired, withdraw",
-			peers: []v1.IsovalentBGPNodePeer{
-				{
-					Name:        "red-peer-65001",
-					PeerAddress: ptr.To[string]("10.10.10.1"),
-					PeerConfigRef: &v1.PeerConfigReference{
-						Name: "peer-config-red",
-					},
-				},
-			},
-			upsertAdverts:  nil,
-			upsertServices: nil,
-			nodeStatus:     NodeMaintenanceTimeExpired,
+			name:       "Update node status - node maintenance timeout expired, withdraw",
+			nodeStatus: NodeMaintenanceTimeExpired,
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
 				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
@@ -4187,19 +3252,8 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 			},
 		},
 		{
-			name: "Update node status - node ready, advertise again",
-			peers: []v1.IsovalentBGPNodePeer{
-				{
-					Name:        "red-peer-65001",
-					PeerAddress: ptr.To[string]("10.10.10.1"),
-					PeerConfigRef: &v1.PeerConfigReference{
-						Name: "peer-config-red",
-					},
-				},
-			},
-			upsertAdverts:  nil,
-			upsertServices: nil,
-			nodeStatus:     NodeReady,
+			name:       "Update node status - node ready, advertise again",
+			nodeStatus: NodeReady,
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths: reconcilerv2.ResourceAFPathsMap{
 					redSvcKey: reconcilerv2.AFPathsMap{
@@ -4244,83 +3298,176 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 				},
 			},
 		},
+	})
+}
+
+func runServiceTests(t *testing.T, steps []svcTestStep) {
+	// start the test hive
+	f := newServiceTestFixture(t)
+	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	err := f.hive.Start(log, context.Background())
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		f.hive.Stop(log, context.Background())
+	})
+
+	// init BGP instance
+	testBGPInstance := instance.NewFakeBGPInstance()
+	ceeBGPInstance := &EnterpriseBGPInstance{
+		Name:   testBGPInstance.Name,
+		Router: testBGPInstance.Router,
 	}
-
-	req := require.New(t)
-	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-
-	var (
-		testBGPInstance = instance.NewFakeBGPInstance()
-		ceeBGPInstance  = &EnterpriseBGPInstance{
-			Name:   testBGPInstance.Name,
-			Router: testBGPInstance.Router,
-		}
-		mockPeerConfigStore = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
-		mockAdvertStore     = store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
-		svcDiffstore        = store.NewFakeDiffStore[*slim_corev1.Service]()
-		epDiffStore         = store.NewFakeDiffStore[*k8s.Endpoints]()
-	)
-
-	nodeStatus := newMockNodeStatusProvider()
-
-	ceeParams := ServiceReconcilerIn{
-		In:        cell.In{},
-		Lifecycle: &cell.DefaultLifecycle{},
-		Cfg: Config{
-			MaintenanceGracefulShutdownEnabled: true,
-			MaintenanceWithdrawTime:            10 * time.Second,
-		},
-		BGPConfig:  config.Config{Enabled: true, StatusReportEnabled: false},
-		Logger:     logger,
-		Upgrader:   newUpgraderMock(testBGPInstanceConfig),
-		NSProvider: nodeStatus,
-		PeerAdvert: &IsovalentAdvertisement{
-			logger:      logger,
-			peerConfigs: mockPeerConfigStore,
-			adverts:     mockAdvertStore,
-		},
-		SvcDiffStore: svcDiffstore,
-		EPDiffStore:  epDiffStore,
-		Signaler:     signaler.NewBGPCPSignaler(),
-	}
-
-	ceeReconciler := NewServiceReconciler(ceeParams).Reconciler.(*ServiceReconciler)
-
-	mockPeerConfigStore.Upsert(redPeerConfig)
-
-	ceeReconciler.Init(testBGPInstance)
-	defer ceeReconciler.Cleanup(testBGPInstance)
+	f.svcReconciler.Init(testBGPInstance)
+	t.Cleanup(func() {
+		f.svcReconciler.Cleanup(testBGPInstance)
+	})
 
 	for _, tt := range steps {
-		t.Logf("Running step - %s", tt.name)
+		t.Run(tt.name, func(t *testing.T) {
+			req := require.New(t)
 
-		// set peers in the node instance
-		nodeInstanceCopy := testBGPInstanceConfig.DeepCopy()
-		nodeInstanceCopy.Peers = tt.peers
-		ceeReconciler.upgrader = newUpgraderMock(nodeInstanceCopy)
+			// set node status
+			f.nodeStatusProvider.SetNodeStatus(tt.nodeStatus)
 
-		for _, advert := range tt.upsertAdverts {
-			mockAdvertStore.Upsert(advert)
-		}
+			// upsert peeConfigs & advertisements
+			for _, peerConfig := range tt.peerConfigs {
+				f.peerConfigStore.Upsert(peerConfig)
+			}
+			for _, advert := range tt.advertisements {
+				f.advertStore.Upsert(advert)
+			}
 
-		for _, svc := range tt.upsertServices {
-			svcDiffstore.Upsert(svc)
-		}
+			// upsert / delete service frontends & backends
+			tx := f.db.WriteTxn(f.frontends)
+			// delete frontends
+			for _, fe := range tt.deleteFrontends {
+				_, _, err = f.frontends.Delete(tx, fe)
+				req.NoError(err)
+			}
+			nextBackendRevision := statedb.Revision(1)
+			// upsert frontends with backends
+			for _, fe := range tt.frontends {
+				// set frontend's backends
+				for _, be := range tt.backends {
+					if fe.Address.IsIPv6() == be.Address.IsIPv6() && fe.Address.Port() == be.Address.Port() {
+						fe.Backends = concatBackend(fe.Backends, *be.GetInstance(fe.Service.Name), nextBackendRevision)
+						nextBackendRevision++
+					}
+				}
+				_, _, err = f.frontends.Insert(tx, fe)
+				req.NoError(err)
+			}
+			tx.Commit()
 
-		// set node status
-		nodeStatus.SetNodeStatus(tt.nodeStatus)
+			if len(tt.peers) > 0 {
+				// set peers in the node instance
+				desiredConfig := testBGPInstanceConfig.DeepCopy()
+				desiredConfig.Peers = tt.peers
+				f.svcReconciler.upgrader = newUpgraderMock(desiredConfig)
+			}
 
-		err := ceeReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
-			BGPInstance: testBGPInstance,
-			CiliumNode:  testCiliumNodeConfig,
+			// reconcile twice to validate idempotency
+			for range 2 {
+				err = f.svcReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
+					BGPInstance: testBGPInstance,
+					CiliumNode: &v2.CiliumNode{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "node1",
+						},
+					},
+				})
+				req.NoError(err)
+			}
+
+			// validate new metadata
+			serviceMetadataEqual(req, tt.expectedMetadata, f.svcReconciler.getMetadata(ceeBGPInstance))
+
+			// validate that advertised paths match expected metadata
+			advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
 		})
-		req.NoError(err)
+	}
+}
 
-		// validate new metadata
-		serviceMetadataEqual(req, tt.expectedMetadata, ceeReconciler.getMetadata(ceeBGPInstance))
+func newServiceTestFixture(t *testing.T) *svcTestFixture {
+	f := &svcTestFixture{
+		peerConfigStore:    store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig](),
+		advertStore:        store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement](),
+		nodeStatusProvider: newMockNodeStatusProvider(),
+	}
+	f.hive = ciliumhive.New(
+		cell.Module("service-reconciler-test", "Service reconciler test",
+			cell.Provide(
+				signaler.NewBGPCPSignaler,
 
-		// validate that advertised paths match expected metadata
-		advertisedPrefixesMatch(req, testBGPInstance, tt.expectedMetadata.ServicePaths)
+				loadbalancer.NewFrontendsTable,
+				statedb.RWTable[*loadbalancer.Frontend].ToTable,
+
+				func() *IsovalentAdvertisement {
+					return newIsovalentAdvertisement(
+						AdvertisementIn{
+							Logger:          hivetest.Logger(t),
+							PeerConfigStore: f.peerConfigStore,
+							AdvertStore:     f.advertStore,
+						})
+				},
+				func() NodeStatusProvider {
+					return f.nodeStatusProvider
+				},
+				func() paramUpgrader {
+					return newUpgraderMock(testBGPInstanceConfig)
+				},
+				func() Config {
+					return Config{
+						SvcHealthCheckingEnabled:           true,
+						MaintenanceGracefulShutdownEnabled: true,
+						MaintenanceWithdrawTime:            1 * time.Second,
+					}
+				},
+				func() config.Config {
+					return config.Config{Enabled: true, StatusReportEnabled: false}
+				},
+				func() loadbalancer.Config {
+					return loadbalancer.Config{}
+				},
+			),
+			cell.Invoke(func(db *statedb.DB, table statedb.RWTable[*loadbalancer.Frontend]) {
+				f.db = db
+				f.frontends = table
+			}),
+			cell.Invoke(func(p ServiceReconcilerIn) {
+				out := NewServiceReconciler(p)
+				f.svcReconciler = out.Reconciler.(*ServiceReconciler)
+			}),
+		),
+	)
+	return f
+}
+
+func newTestBackend(svcName loadbalancer.ServiceName, addr loadbalancer.L3n4Addr, node string, state loadbalancer.BackendState) *loadbalancer.Backend {
+	part.RegisterKeyType(loadbalancer.BackendInstanceKey.Key)
+	be := &loadbalancer.Backend{
+		Address:   addr,
+		Instances: part.Map[loadbalancer.BackendInstanceKey, loadbalancer.BackendParams]{},
+	}
+	be.Instances = be.Instances.Set(
+		loadbalancer.BackendInstanceKey{ServiceName: svcName, SourcePriority: 0},
+		loadbalancer.BackendParams{
+			Address:   addr,
+			NodeName:  node,
+			PortNames: nil,
+			Weight:    0,
+			State:     state,
+		},
+	)
+	return be
+}
+
+func concatBackend(bes loadbalancer.BackendsSeq2, be loadbalancer.BackendParams, rev statedb.Revision) loadbalancer.BackendsSeq2 {
+	return func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
+		if !yield(be, rev) {
+			return
+		}
+		bes(yield)
 	}
 }
 
