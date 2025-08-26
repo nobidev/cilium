@@ -471,6 +471,12 @@ jobs:
         with:
           working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
 
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features with KPR"
+          json-filename: "OpenShift - with KPR"
+
       - name: Enable KPR [if disabled]
         if: ${{ steps.vars.outputs.kpr == 'false' }}
         run: |
@@ -552,6 +558,12 @@ jobs:
         with:
           working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
 
+      - name: Features tested with KPR
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features with KPR"
+          json-filename: "OpenShift - with KPR"
+
       - name: Collect sysdumps
         if: ${{ !success() && steps.cluster.outcome != 'skipped' }}
         shell: bash
@@ -607,23 +619,22 @@ jobs:
           echo "destroying infra ..."
           make destroy AUTO_APPROVE=true
 
-  termination:
-    if: ${{ always() }}
-    name: Commit Status Final
-    needs: installation-and-connectivity
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Set final commit status
-        if: ${{ needs.installation-and-connectivity.result != 'skipped' }}
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
         with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.installation-and-connectivity.result }}
+          artifacts_suffix: "openshift"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
+          capture_sysdump: false
 
-      - name: Set final commit status
-        if: ${{ needs.installation-and-connectivity.result == 'skipped' }}
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ github.event_name != 'schedule' && 'success' || 'failure' }}
-          description: 'Skipped'
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: installation-and-connectivity
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.installation-and-connectivity.result }}

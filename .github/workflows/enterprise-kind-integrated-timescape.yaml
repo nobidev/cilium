@@ -192,24 +192,12 @@ jobs:
       - name: Cleanup
         if: ${{ always() }}
         run: |
-          cilium status
-          kubectl get pods --all-namespaces -o wide
-          echo ""
           echo "===Timescape Logs==="
           kubectl -n kube-system logs statefulset/hubble-timescape -c timescape
           echo ""
           echo "===Timescape ClickHouse Logs==="
           kubectl -n kube-system logs statefulset/hubble-timescape -c clickhouse
-          cilium sysdump --output-filename cilium-sysdump-out --hubble-flows-count 10000
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
-
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdumps
-          path: cilium-sysdump-*.zip
-          retention-days: 5
 
       - name: Fetch JUnits
         shell: bash
@@ -223,14 +211,9 @@ jobs:
           junit_filename="${{ env.job_name }}.xml"
           for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
 
-      - name: Upload JUnits [junit]
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
         with:
-          name: cilium-junits-${{ env.job_name }}
-          path: cilium-junits/*.xml
-
-      - name: Publish Test Results As GitHub Summary
-        if: ${{ always() && runner.arch != 'ARM64' }}
-        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
-        with:
-          junit-directory: "cilium-junits"
+          artifacts_suffix: "enterprise-kind-integrated-timescape"
+          job_status: "${{ job.status }}"

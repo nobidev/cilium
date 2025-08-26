@@ -118,18 +118,9 @@ jobs:
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --debug --collect-sysdump-on-failure
 
-      - name: Cleanup
+      - name: Run common post steps
         if: ${{ always() }}
-        run: |
-          cilium status
-          kubectl get pods --all-namespaces -o wide
-          cilium sysdump --output-filename cilium-sysdump-out --hubble-flows-count 10000
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
-
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: cilium-sysdumps
-          path: cilium-sysdump-*.zip
-          retention-days: 5
+          artifacts_suffix: "enterprise-kind"
+          job_status: "${{ job.status }}"

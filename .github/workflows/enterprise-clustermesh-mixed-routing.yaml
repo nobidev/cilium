@@ -508,6 +508,20 @@ jobs:
             --junit-file "cilium-junits/${{ env.job_name }} - initial sanity check (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Perform an early sanity check for unexpected packet drops (${{ join(matrix.*, ', ') }})"
 
+      - name: Features tested on cluster 1
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName1 }}"
+          title: "Summary of all features tested on cluster 1"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 1"
+
+      - name: Features tested on cluster 2
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName2 }}"
+          title: "Summary of all features tested on cluster 2"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2"
+
       - name: Enable mixed routing mode in all clusters
         run: |
           cilium --context ${{ env.contextName1 }} upgrade --chart-directory=${{ env.helmChartPath }} \
@@ -581,6 +595,19 @@ jobs:
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
+      - name: Features tested on cluster 1
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName1 }}"
+          title: "Summary of all features tested on cluster 1"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - with mixrouting mode - cluster 1"
+
+      - name: Features tested on cluster 2
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName2 }}"
+          title: "Summary of all features tested on cluster 2"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - with mixrouting mode - cluster 2"
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium-cluster1.outcome != 'skipped' }}
@@ -607,59 +634,22 @@ jobs:
           fi
         shell: bash -x {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdumps-${{ matrix.name }}
-          path: cilium-sysdump-*.zip
-
-      - name: Upload JUnits [junit]
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: cilium-junits-${{ matrix.name }}
-          path: cilium-junits/*.xml
+          artifacts_suffix: "${{ matrix.name }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
+          capture_sysdump: false
 
-      - name: Publish Test Results As GitHub Summary
-        if: ${{ always() }}
-        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
-        with:
-          junit-directory: "cilium-junits"
-
-
-  merge-upload:
+  merge-upload-and-status:
+    name: Merge Upload and Status
     if: ${{ always() }}
-    name: Merge and Upload Artifacts
-    runs-on: ${{ vars.UBUNTU_2404_2CPU_8GB || 'ubuntu-24.04' }}
     needs: installation-and-connectivity
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-      - name: Merge Sysdumps
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-sysdumps
-          pattern: cilium-sysdumps-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Merge JUnits
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-junits
-          pattern: cilium-junits-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  commit-status-final:
-    if: ${{ always() }}
-    name: Commit Status Final
-    needs: installation-and-connectivity
-    runs-on: ${{ vars.UBUNTU_2404_2CPU_1GB || 'ubuntu-24.04' }}
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.installation-and-connectivity.result }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.installation-and-connectivity.result }}

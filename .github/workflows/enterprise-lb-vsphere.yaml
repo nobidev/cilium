@@ -232,21 +232,12 @@ jobs:
         run: |
           cilium lb status
 
-      - name: Fetch artifacts
-        if: ${{ !success() }}
-        shell: bash
-        run: |
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          mkdir -p cilium-sysdumps
-          cilium sysdump --output-filename cilium-sysdump-final
-
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
         with:
-          name: cilium-sysdumps
-          path: cilium-sysdump-*.zip
+          artifacts_suffix: "enterprise-lb-vsphere"
+          job_status: "${{ job.status }}"
 
       - name: Cleanup LoadBalancer
         if: ${{ always() && inputs.skip-cleanup != 'true' }}
@@ -255,32 +246,13 @@ jobs:
           kubectl delete -f lb.yaml
           kubectl -n isovalent-operator-system delete configmap ${{ steps.vars.outputs.versioned_chart_name }}
 
-  merge-upload:
+  merge-upload-and-status:
+    name: Merge Upload and Status
     if: ${{ always() }}
-    name: Merge and Upload Artifacts
-    runs-on: [self-hosted, vsphere]
     needs: setup-and-test
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-      - name: Merge Sysdumps
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-sysdumps
-          pattern: cilium-sysdumps-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  commit-status-final:
-    if: ${{ always() }}
-    name: Commit Status Final
-    needs: setup-and-test
-    runs-on: [self-hosted, vsphere]
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.setup-and-test.result }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.setup-and-test.result }}

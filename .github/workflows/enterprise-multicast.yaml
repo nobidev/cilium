@@ -200,55 +200,20 @@ jobs:
             --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS}
 
-      - name: Fetch artifacts
-        if: ${{ !success() }}
-        shell: bash
-        run: |
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          mkdir -p cilium-sysdumps
-          cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
-
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdumps-${{ matrix.name }}
-          path: cilium-sysdump-*.zip
-          retention-days: 5
-
-      - name: Publish Test Results As GitHub Summary
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        uses: ./.github/actions/post-logic
         with:
-          junit-directory: "cilium-junits"
+          artifacts_suffix: "enterprise-multicast-${{ matrix.name }}"
+          job_status: "${{ job.status }}"
 
-  merge-upload:
+  merge-upload-and-status:
+    name: Merge Upload and Status
     if: ${{ always() }}
-    name: Merge and Upload Artifacts
     needs: enterprise-multicast-test
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-      - name: Merge Sysdumps
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-sysdumps
-          pattern: cilium-sysdumps-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  commit-status-final:
-    if: ${{ always() }}
-    name: Commit Status Final
-    needs: enterprise-multicast-test
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.enterprise-multicast-test.result }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.enterprise-multicast-test.result }}

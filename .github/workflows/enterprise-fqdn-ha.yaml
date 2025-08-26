@@ -218,6 +218,12 @@ jobs:
             ${{ steps.external_targets.outputs.external_target_name }} \
             ${{ steps.external_targets.outputs.other_external_target_name }}
 
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "enterprise-fqdn-ha"
+
       - name: Bring Cilium down
         run: |
           ./enterprise/fqdn-proxy/scripts/bring-cilium-down.sh
@@ -228,30 +234,21 @@ jobs:
             ${{ steps.external_targets.outputs.external_target_name }} \
             ${{ steps.external_targets.outputs.other_external_target_name }}
 
-      - name: Post-test information gathering
-        if: ${{ !success() }}
-        run: |
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-out
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
-
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
         with:
-          name: cilium-sysdumps
-          path: cilium-sysdump-*.zip
-          retention-days: 5
+          artifacts_suffix: "enterprise-fqdn-ha"
+          capture_features_tested: false
+          job_status: "${{ job.status }}"
 
-  commit-status-final:
-    name: Commit Status Final
+  merge-upload-and-status:
+    name: Merge Upload and Status
     if: ${{ always() }}
     needs: installation-and-connectivity
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.installation-and-connectivity.result }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.installation-and-connectivity.result }}

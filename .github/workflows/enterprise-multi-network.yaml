@@ -247,6 +247,8 @@ jobs:
             kubectl -n cilium-test-1 exec -ti \$CLIENT_POD -- ip route | grep "^192\.168\.0\.0/16 via 192\.168\.0\.1 dev cil1"
             kubectl -n cilium-test-1 exec -ti \$SAME_NODE_POD -- ip route | grep "^192\.168\.0\.0/16 via 192\.168\.0\.1 dev cil1"
 
+            ./cilium features status -o json --output-file="features-tested-enterprise-multi-network.json"
+
             ./contrib/scripts/kind-down.sh
 
       - name: Fetch artifacts
@@ -261,36 +263,22 @@ jobs:
             mkdir -p cilium-sysdumps
             ./cilium sysdump
 
-      - name: Upload artifacts
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdumps
-          path: cilium-sysdump-*.zip
-          retention-days: 5
-
-      - name: Upload JUnits [junit]
+      - name: Run common post steps
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/post-logic
         with:
-          name: cilium-junits
-          path: cilium-junits/*.xml
-          retention-days: 2
+          artifacts_suffix: "enterprise-multi-network"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
+          capture_sysdump: false
 
-      - name: Publish Test Results As GitHub Summary
-        if: ${{ always() }}
-        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
-        with:
-          junit-directory: "cilium-junits"
-
-  commit-status-final:
+  merge-upload-and-status:
+    name: Merge Upload and Status
     if: ${{ always() }}
-    name: Commit Status Final
     needs: enterprise-multi-network-conformance-test
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.enterprise-multi-network-conformance-test.result }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.enterprise-multi-network-conformance-test.result }}

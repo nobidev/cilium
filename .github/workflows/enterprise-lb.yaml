@@ -308,14 +308,6 @@ jobs:
 
           DOCKER_API_VERSION=1.45 cilium lb test --verbose=true $PARAMS
 
-      - name: Upload sysdumps
-        if: ${{ !success() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cilium-sysdumps-${{ matrix.name }}
-          path: cilium-sysdump-*.zip
-          retention-days: 5
-
       - name: Download T2 Envoy accesslogs from Pods
         if: ${{ !success() }}
         shell: bash
@@ -333,32 +325,20 @@ jobs:
           path: cilium-envoy-accesslog-*.log
           retention-days: 5
 
-  merge-upload:
-    if: ${{ always() }}
-    name: Merge and Upload Artifacts
-    runs-on: ubuntu-24.04
-    needs: setup-and-test
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
         with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-      - name: Merge Sysdumps
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-sysdumps
-          pattern: cilium-sysdumps-*
-          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts_suffix: "${{ matrix.name }}"
+          job_status: "${{ job.status }}"
 
-  commit-status-final:
+  merge-upload-and-status:
+    name: Merge Upload and Status
     if: ${{ always() }}
-    name: Commit Status Final
     needs: setup-and-test
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.setup-and-test.result }}
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      result: ${{ needs.setup-and-test.result }}

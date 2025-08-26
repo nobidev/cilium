@@ -592,6 +592,15 @@ jobs:
           echo "destroying infra ..."
           make destroy AUTO_APPROVE=true
 
+      - name: Run common post steps
+        if: ${{ always() }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "${{ steps.vars.outputs.cute_repo }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
+          capture_sysdump: false
+
   commit-status-final:
     name: Commit Status Final
     needs: [ commit-status-inputs, cute-ci ]
