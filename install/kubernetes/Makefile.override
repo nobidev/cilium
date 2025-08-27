@@ -14,8 +14,6 @@ ifeq ($(RELEASE),yes)
     export CERTGEN_REPO:=quay.io/isovalent/certgen
     export CILIUM_ENVOY_REPO:=quay.io/isovalent/cilium-envoy
     export CILIUM_NODEINIT_REPO:=quay.io/isovalent/startup-script
-    export HUBBLE_UI_BACKEND_REPO:=quay.io/isovalent/hubble-ui-backend
-    export HUBBLE_UI_FRONTEND_REPO:=quay.io/isovalent/hubble-ui
     export SPIRE_AGENT_REPO:=quay.io/isovalent/spire-agent
     export SPIRE_INIT_REPO:=quay.io/isovalent/busybox
     export SPIRE_SERVER_REPO:=quay.io/isovalent/spire-server
@@ -26,8 +24,6 @@ ifeq ($(OVERRIDE_EXTERNAL_IMAGE_TAGS),yes)
     export CERTGEN_VERSION:=$(OVERRIDE_IMAGE_TAG)
     export CILIUM_ENVOY_VERSION:=$(OVERRIDE_IMAGE_TAG)
     export CILIUM_NODEINIT_VERSION:=$(OVERRIDE_IMAGE_TAG)
-    export HUBBLE_UI_BACKEND_VERSION:=$(OVERRIDE_IMAGE_TAG)
-    export HUBBLE_UI_FRONTEND_VERSION:=$(OVERRIDE_IMAGE_TAG)
     export SPIRE_AGENT_VERSION:=$(OVERRIDE_IMAGE_TAG)
     export SPIRE_INIT_VERSION:=$(OVERRIDE_IMAGE_TAG)
     export SPIRE_SERVER_VERSION:=$(OVERRIDE_IMAGE_TAG)

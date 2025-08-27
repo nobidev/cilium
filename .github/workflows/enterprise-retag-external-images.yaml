@@ -54,8 +54,6 @@ jobs:
           - spire-agent
           - spire-server
           - certgen
-          - hubble-ui
-          - hubble-ui-backend
         include:
           - image: startup-script
             destination-repo: quay.io/isovalent/startup-script
@@ -81,14 +79,6 @@ jobs:
             destination-repo: quay.io/isovalent/certgen
             source-repo: quay.io/cilium/certgen
             yq-path: certgen.image
-          - image: hubble-ui
-            destination-repo: quay.io/isovalent/hubble-ui
-            source-repo: quay.io/cilium/hubble-ui
-            yq-path: hubble.ui.frontend.image
-          - image: hubble-ui-backend
-            destination-repo: quay.io/isovalent/hubble-ui-backend
-            source-repo: quay.io/cilium/hubble-ui-backend
-            yq-path: hubble.ui.backend.image
 
     steps:
       - name: Checkout main branch to access local actions
