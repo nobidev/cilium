@@ -1,0 +1,321 @@
+#! --private-networks-enabled
+
+hive start
+
+# Ingest initial blue private network and initial endpoint slice (containing blue and green endpoints)
+k8s/add icpn-blue.v1.yaml
+k8s/add privnet-eps.v1.yaml
+
+# Wait for initial table to be populated
+db/cmp privnet-mapentries mapentries.v1.table
+
+# Mark clustermesh endpoints synchronized - this should transitively also initialize the privnet-mapentries table
+clustermesh/endpoints/sync
+db/initialized privnet-mapentries
+
+# Add green private network - this should also cause the green endpoints to be upserted
+k8s/add icpn-green.v1.yaml
+
+# Wait for green entries to be upserted
+db/cmp privnet-mapentries mapentries.v2.table
+
+# Upsert four conflicting endpoints:
+# - blue:192.168.250.20 gets a Net-IP conflicting (newer) endpoint
+# - blue:192.168.250.21 gets a Pod-IP conflicting (newer) endpoint
+# - blue:192.168.250.24 is a new endpoint which shadows a subnet entry
+# - green:10.0.100.30 gets a Net-IP conflicting (but older) endpoint
+k8s/add privnet-alt-eps.v1.yaml
+db/cmp privnet-mapentries mapentries.v3.table
+
+# Change original endpoints:
+# - green:10.0.100.30 is removed (this bubbles up the newer endpoint from above)
+# - green:10.0.100.31 becomes inactive
+# - blue:192.168.250.{20,21} are removed (both endpoints were already shadowed)
+k8s/add privnet-eps.v2.yaml
+db/cmp privnet-mapentries mapentries.v4.table
+
+# Delete original slice. Since its only endpoint is inactive, there should be no changes
+k8s/delete privnet-eps.v2.yaml
+db/cmp privnet-mapentries mapentries.v4.table
+
+# Delete green segment
+k8s/delete icpn-green.v1.yaml
+db/cmp privnet-mapentries mapentries.v5.table
+
+# Add routes and change subnets in network blue
+k8s/add icpn-blue.v2.yaml
+db/cmp privnet-mapentries mapentries.v6.table
+
+# Delete remaining endpionts in blue network (this should unshadow a subnet route)
+k8s/delete privnet-alt-eps.v1.yaml
+db/cmp privnet-mapentries mapentries.v7.table
+
+# ---
+
+-- icpn-blue.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: blue-segment
+spec:
+  networkBridges:
+  - ip: 172.128.0.6
+  routes: []
+  subnets:
+  - cidr: 192.168.250.0/24
+  - cidr: fd10:0:250::0/64
+  - cidr: 192.168.250.24/32
+
+-- icpn-blue.v2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: blue-segment
+spec:
+  networkBridges:
+  - ip: 172.128.0.6
+  routes:
+  - destination: 192.168.252.0/24
+    gateway: 192.168.250.2
+  - destination: 0.0.0.0/0
+    gateway: 192.168.250.1
+  subnets:
+  - cidr: 192.168.250.0/23
+  - cidr: fd10:0:250::0/64
+  - cidr: 192.168.250.24/32
+
+-- icpn-green.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: green-segment
+spec:
+  networkBridges:
+  - ip: 172.128.0.7
+  routes: []
+  subnets:
+  - cidr: 10.0.100.0/24
+  - cidr: fd00:10:100::0/64
+
+-- privnet-eps.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkEndpointSlice
+metadata:
+  namespace: default
+  name: privnet-eps-1
+endpoints:
+- activatedAt: "2025-06-20T15:54:04.501000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.108
+      ipv6: fd00:10:244:5::108
+    name: optimum-mouse
+  interface:
+    addressing:
+      ipv4: 192.168.250.20
+      ipv6: fd10:0:250::20
+    mac: 00:50:56:ad:45:ec
+    network: blue-segment
+- activatedAt: "2025-06-20T15:54:03.421000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.109
+      ipv6: fd00:10:244:5::109
+    name: regular-koi
+  interface:
+    addressing:
+      ipv4: 192.168.250.21
+      ipv6: fd10:0:250::21
+    mac: 00:50:56:ad:11:99
+    network: blue-segment
+- activatedAt: "2025-06-20T16:30:00.000000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.110
+      ipv6: fd00:10:244:5::110
+    name: pumped-ocelot
+  interface:
+    addressing:
+      ipv4: 10.0.100.30
+      ipv6: fd00:10:100::30
+    mac: 00:50:56:ad:45:d8
+    network: green-segment
+- activatedAt: "2025-06-20T16:29:50.200000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.111
+      ipv6: fd00:10:244:5::111
+    name: admiring-wombat
+  interface:
+    addressing:
+      ipv4: 10.0.100.31
+      ipv6: fd00:10:100::31
+    mac: 00:50:56:ad:45:f7
+    network: green-segment
+
+-- privnet-eps.v2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkEndpointSlice
+metadata:
+  namespace: default
+  name: privnet-eps-1
+endpoints:
+- endpoint:
+    addressing:
+      ipv4: 10.244.5.111
+      ipv6: fd00:10:244:5::111
+    name: admiring-wombat
+  interface:
+    addressing:
+      ipv4: 10.0.100.31
+      ipv6: fd00:10:100::31
+    mac: 00:50:56:ad:45:f7
+    network: green-segment
+
+
+--  privnet-alt-eps.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkEndpointSlice
+metadata:
+  namespace: default
+  name: privnet-eps-alt-1
+endpoints:
+- activatedAt: "2025-06-20T16:00:00.000000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.6.150
+      ipv6: fd00:10:244:6::150
+    name: optimum-mouse-alt
+  interface:
+    addressing:
+      ipv4: 192.168.250.20
+      ipv6: fd10:0:250::20
+    mac: 00:50:56:ad:45:ef
+    network: blue-segment
+- activatedAt: "2025-06-20T16:00:01.000000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.109
+      ipv6: fd00:10:244:5::109
+    name: regular-koi-alt
+  interface:
+    addressing:
+      ipv4: 192.168.250.23
+      ipv6: fd10:0:250::23
+    mac: 00:50:56:ad:11:98
+    network: blue-segment
+- activatedAt: "2025-06-20T16:00:01.000000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.107
+      ipv6: fd00:10:244:5::107
+    name: gracious-gerbil
+  interface:
+    addressing:
+      ipv4: 192.168.250.24
+      ipv6: fd10:0:250::24
+    mac: 00:50:56:ad:11:97
+    network: blue-segment
+- activatedAt: "2025-06-20T16:25:00.000000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.6.151
+      ipv6: fd00:10:244:6::151
+    name: pumped-ocelot-alt
+  interface:
+    addressing:
+      ipv4: 10.0.100.30
+      ipv6: fd00:10:100::30
+    mac: 00:50:56:ad:45:d8
+    network: green-segment
+
+
+-- mapentries.v1.table --
+Type   Network        CIDR               Nexthop
+D      blue-segment   192.168.250.0/24   172.128.0.6
+D      blue-segment   192.168.250.24/32  172.128.0.6
+D      blue-segment   fd10:0:250::/64    172.128.0.6
+E      blue-segment   192.168.250.20/32  10.244.5.108
+E      blue-segment   192.168.250.21/32  10.244.5.109
+E      blue-segment   fd10:0:250::20/128 fd00:10:244:5::108
+E      blue-segment   fd10:0:250::21/128 fd00:10:244:5::109
+
+-- mapentries.v2.table --
+Type   Network        CIDR                  Nexthop
+D      blue-segment   192.168.250.0/24      172.128.0.6
+D      blue-segment   192.168.250.24/32     172.128.0.6
+D      blue-segment   fd10:0:250::/64       172.128.0.6
+E      blue-segment   192.168.250.20/32     10.244.5.108
+E      blue-segment   192.168.250.21/32     10.244.5.109
+E      blue-segment   fd10:0:250::20/128    fd00:10:244:5::108
+E      blue-segment   fd10:0:250::21/128    fd00:10:244:5::109
+D      green-segment  10.0.100.0/24         172.128.0.7
+D      green-segment  fd00:10:100::/64      172.128.0.7
+E      green-segment  10.0.100.30/32        10.244.5.110
+E      green-segment  10.0.100.31/32        10.244.5.111
+E      green-segment  fd00:10:100::30/128   fd00:10:244:5::110
+E      green-segment  fd00:10:100::31/128   fd00:10:244:5::111
+
+-- mapentries.v3.table --
+Type   Network        CIDR                  Nexthop
+D      blue-segment   192.168.250.0/24      172.128.0.6
+D      blue-segment   fd10:0:250::/64       172.128.0.6
+E      blue-segment   192.168.250.20/32     10.244.6.150
+E      blue-segment   192.168.250.23/32     10.244.5.109
+E      blue-segment   192.168.250.24/32     10.244.5.107
+E      blue-segment   fd10:0:250::20/128    fd00:10:244:6::150
+E      blue-segment   fd10:0:250::23/128    fd00:10:244:5::109
+E      blue-segment   fd10:0:250::24/128    fd00:10:244:5::107
+D      green-segment  10.0.100.0/24         172.128.0.7
+D      green-segment  fd00:10:100::/64      172.128.0.7
+E      green-segment  10.0.100.30/32        10.244.5.110
+E      green-segment  10.0.100.31/32        10.244.5.111
+E      green-segment  fd00:10:100::30/128   fd00:10:244:5::110
+E      green-segment  fd00:10:100::31/128   fd00:10:244:5::111
+
+-- mapentries.v4.table --
+Type   Network        CIDR                  Nexthop
+D      blue-segment   192.168.250.0/24      172.128.0.6
+D      blue-segment   fd10:0:250::/64       172.128.0.6
+E      blue-segment   192.168.250.20/32     10.244.6.150
+E      blue-segment   192.168.250.23/32     10.244.5.109
+E      blue-segment   192.168.250.24/32     10.244.5.107
+E      blue-segment   fd10:0:250::20/128    fd00:10:244:6::150
+E      blue-segment   fd10:0:250::23/128    fd00:10:244:5::109
+E      blue-segment   fd10:0:250::24/128    fd00:10:244:5::107
+D      green-segment  10.0.100.0/24         172.128.0.7
+D      green-segment  fd00:10:100::/64      172.128.0.7
+E      green-segment  10.0.100.30/32        10.244.6.151
+E      green-segment  fd00:10:100::30/128   fd00:10:244:6::151
+
+-- mapentries.v5.table --
+Type   Network        CIDR                  Nexthop
+D      blue-segment   192.168.250.0/24      172.128.0.6
+D      blue-segment   fd10:0:250::/64       172.128.0.6
+E      blue-segment   192.168.250.20/32     10.244.6.150
+E      blue-segment   192.168.250.23/32     10.244.5.109
+E      blue-segment   192.168.250.24/32     10.244.5.107
+E      blue-segment   fd10:0:250::20/128    fd00:10:244:6::150
+E      blue-segment   fd10:0:250::23/128    fd00:10:244:5::109
+E      blue-segment   fd10:0:250::24/128    fd00:10:244:5::107
+
+-- mapentries.v6.table --
+Type   Network        CIDR                 Nexthop
+D      blue-segment   192.168.250.0/23     172.128.0.6
+D      blue-segment   fd10:0:250::/64      172.128.0.6
+E      blue-segment   192.168.250.20/32    10.244.6.150
+E      blue-segment   192.168.250.23/32    10.244.5.109
+E      blue-segment   192.168.250.24/32    10.244.5.107
+E      blue-segment   fd10:0:250::20/128   fd00:10:244:6::150
+E      blue-segment   fd10:0:250::23/128   fd00:10:244:5::109
+E      blue-segment   fd10:0:250::24/128   fd00:10:244:5::107
+S      blue-segment   0.0.0.0/0            172.128.0.6
+S      blue-segment   192.168.252.0/24     172.128.0.6
+
+-- mapentries.v7.table --
+Type   Network        CIDR                 Nexthop
+D      blue-segment   192.168.250.0/23     172.128.0.6
+D      blue-segment   192.168.250.24/32    172.128.0.6
+D      blue-segment   fd10:0:250::/64      172.128.0.6
+S      blue-segment   0.0.0.0/0            172.128.0.6
+S      blue-segment   192.168.252.0/24     172.128.0.6
