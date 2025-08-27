@@ -2941,6 +2941,29 @@
         },
         "export": {
           "properties": {
+            "connectionlog": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "exportInterval": {
+                  "type": "string"
+                },
+                "fileCompress": {
+                  "type": "boolean"
+                },
+                "fileMaxBackups": {
+                  "type": "integer"
+                },
+                "fileMaxSizeMb": {
+                  "type": "integer"
+                },
+                "filePath": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
             "dynamic": {
               "properties": {
                 "config": {

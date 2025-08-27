@@ -1975,7 +1975,31 @@
    * - :spelling:ignore:`hubble.export`
      - Hubble flows export.
      - object
-     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"aggregation":[],"aggregationIgnoreSourcePort":true,"aggregationRenewTTL":true,"aggregationStateFilter":["new","error","closed"],"aggregationTTL":"30s","excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":"0s","formatVersion":"v1","includeFilters":[],"name":"all","nodeName":null,"rateLimit":-1}],"createConfigMap":true},"enabled":false},"static":{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":null,"formatVersion":"v1","overrideNodeName":null,"rateLimit":null},"timescape":{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":null,"denyList":null,"enabled":null,"fieldMask":null,"maxBufferSize":null,"nodeName":null,"reportDroppedFlowsInterval":null,"target":null,"tls":{"ca":{"configMap":{"key":null,"name":null}},"enabled":null,"mtls":{"enabled":null,"secretName":null}}}}``
+     - ``{"connectionlog":{"enabled":false,"exportInterval":"10s","fileCompress":true,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/connectionlog.log"},"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"aggregation":[],"aggregationIgnoreSourcePort":true,"aggregationRenewTTL":true,"aggregationStateFilter":["new","error","closed"],"aggregationTTL":"30s","excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":"0s","formatVersion":"v1","includeFilters":[],"name":"all","nodeName":null,"rateLimit":-1}],"createConfigMap":true},"enabled":false},"static":{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":null,"formatVersion":"v1","overrideNodeName":null,"rateLimit":null},"timescape":{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":null,"denyList":null,"enabled":null,"fieldMask":null,"maxBufferSize":null,"nodeName":null,"reportDroppedFlowsInterval":null,"target":null,"tls":{"ca":{"configMap":{"key":null,"name":null}},"enabled":null,"mtls":{"enabled":null,"secretName":null}}}}``
+   * - :spelling:ignore:`hubble.export.connectionlog.enabled`
+     - Enables experimental support for ConnectionLog export. @schema type: [boolean] @schema
+     - bool
+     - ``false``
+   * - :spelling:ignore:`hubble.export.connectionlog.exportInterval`
+     - - Interval at which ConnectionLog are collected and written on disk. @schema type: [string] @schema
+     - string
+     - ``"10s"``
+   * - :spelling:ignore:`hubble.export.connectionlog.fileCompress`
+     - - determines if the rotated files should be compressed. using gzip. @schema type: [boolean] @schema
+     - bool
+     - ``true``
+   * - :spelling:ignore:`hubble.export.connectionlog.fileMaxBackups`
+     - - The maximum number of exported files to retain. @schema type: [integer] @schema
+     - int
+     - ``5``
+   * - :spelling:ignore:`hubble.export.connectionlog.fileMaxSizeMb`
+     - - The maximum size in megabytes of the log file before it gets rotated. @schema type: [integer] @schema
+     - int
+     - ``10``
+   * - :spelling:ignore:`hubble.export.connectionlog.filePath`
+     - - Absolute path of the ConnectionLog export file location. @schema type: [string] @schema
+     - string
+     - ``"/var/run/cilium/hubble/connectionlog.log"``
    * - :spelling:ignore:`hubble.export.dynamic`
      - - Dynamic exporters configuration. Dynamic exporters may be reconfigured without a need of agent restarts.
      - object

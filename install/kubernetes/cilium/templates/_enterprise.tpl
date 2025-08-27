@@ -231,6 +231,17 @@ hubble-export-timescape-tls-ca-files: /var/lib/cilium/tls/hubble-export-timescap
 {{- end }}
 {{- end }}
 
+# XXX: At some point we might want to have it enabled by default when
+# .Values.hubble.timescape.enabled is true.
+hubble-connectionlog-export-enabled: {{ .Values.hubble.export.connectionlog.enabled | quote }}
+{{- if .Values.hubble.export.connectionlog.enabled }}
+hubble-connectionlog-export-interval: {{ .Values.hubble.export.connectionlog.exportInterval | quote }}
+hubble-connectionlog-export-file-path: {{ .Values.hubble.export.connectionlog.filePath | quote }}
+hubble-connectionlog-export-file-max-size-mb: {{ .Values.hubble.export.connectionlog.fileMaxSizeMb | quote }}
+hubble-connectionlog-export-file-max-backups: {{ .Values.hubble.export.connectionlog.fileMaxBackups | quote }}
+hubble-connectionlog-export-file-compress: {{ .Values.hubble.export.connectionlog.fileCompress | quote }}
+{{- end }}
+
 enable-phantom-services: {{ .Values.enterprise.clustermesh.phantomServices.enabled | quote}}
 
 {{- if .Values.enterprise.encryption.policy.enabled }}
