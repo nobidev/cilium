@@ -26,4 +26,5 @@ var Cell = cell.Module(
 	reconcilers.PrivateNetworksCell,
 	reconcilers.EndpointsCell,
 	reconcilers.RoutesCell,
+	reconcilers.MapEntriesCell,
 )
