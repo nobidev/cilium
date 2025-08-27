@@ -11,26 +11,74 @@
 package connectionlog
 
 import (
-	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
+	"io"
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
-	"github.com/isovalent/ipa/graph/v1alpha"
+	"github.com/cilium/lumberjack/v2"
+
+	"github.com/cilium/cilium/pkg/hubble/exporter"
+	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+// enterprise-hubble-connectionlog hook into Hubble OnDecodedFlow() aggregating
+// the flows information in a "database" which is exported on disk every so
+// often in the IPA graphV1 format.
 var Cell = cell.Module(
 	"enterprise-hubble-connectionlog",
 	"Hubble Enterprise ConnectionLog exporter",
 
 	cell.Provide(newHubbleEnterpriseConnLogger),
+	cell.Config(DefaultConfig),
 )
 
-const Emitter = v1alpha.Emitter_EMITTER_HUBBLE
+type HubbleEnterpriseConnLoggerParams struct {
+	cell.In
+	Config    Config
+	Lifecycle cell.Lifecycle
+	Logger    *slog.Logger
+}
 
 type HubbleEnterpriseConnLoggerOut struct {
 	cell.Out
-
 	ObserverOptions []observeroption.Option `group:"hubble-observer-options,flatten"`
 }
 
-func newHubbleEnterpriseConnLogger() (HubbleEnterpriseConnLoggerOut, error) {
-	return HubbleEnterpriseConnLoggerOut{}, nil
+func newHubbleEnterpriseConnLogger(params HubbleEnterpriseConnLoggerParams) (HubbleEnterpriseConnLoggerOut, error) {
+	logger := params.Logger.With(logfields.LogSubsys, "hubble-connectionlog")
+	if !params.Config.Enabled {
+		logger.Info("Hubble ConnectionLog exporter disabled")
+		return HubbleEnterpriseConnLoggerOut{}, nil
+	}
+
+	// db setup.
+	db := newConnLogDB()
+
+	// connection logger setup.
+	cl := newConnLogger(db)
+
+	// exporter setup.
+	writer := &lumberjack.Logger{
+		Filename:   params.Config.ExportFilePath,
+		MaxSize:    params.Config.ExportFileMaxSizeMB,
+		MaxBackups: params.Config.ExportFileMaxBackups,
+		Compress:   params.Config.ExportFileCompress,
+	}
+	opts := []exporter.Option{
+		exporter.WithNewWriterFunc(func() (io.WriteCloser, error) {
+			return writer, nil
+		}),
+	}
+	exp, err := newExporter(logger, db, params.Config.ExportInterval, opts...)
+	if err != nil {
+		return HubbleEnterpriseConnLoggerOut{}, err
+	}
+	params.Lifecycle.Append(exp)
+
+	// hook the connlogger into the observer OnDecodedFlow.
+	opt := observeroption.WithOnDecodedFlow(cl)
+	return HubbleEnterpriseConnLoggerOut{
+		ObserverOptions: []observeroption.Option{opt},
+	}, nil
 }

@@ -155,6 +155,12 @@ cilium-agent hive [flags]
       --http-retry-count uint                                            Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                                          Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
       --http-stream-idle-timeout uint                                    Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity. Default 300s (default 300)
+      --hubble-connectionlog-export-enabled                              Enable the ConnectionLog exporter
+      --hubble-connectionlog-export-file-compress                        Compress rotated ConnectionLog export files.
+      --hubble-connectionlog-export-file-max-backups int                 Number of rotated ConnectionLog export files to keep. (default 5)
+      --hubble-connectionlog-export-file-max-size-mb int                 Size in MB at which to rotate ConnectionLog export file. (default 10)
+      --hubble-connectionlog-export-file-path stdout                     Filepath to write ConnectionLogs to. By specifying stdout the connection logs are logged instead of written to a rotated file. (default "/var/run/cilium/hubble/connectionlog.log")
+      --hubble-connectionlog-export-interval duration                    Interval at which the ConnectionLog events are collected and written. (default 10s)
       --hubble-disable-tls                                               Allow Hubble server to run on the given listen address without TLS. (default true)
       --hubble-drop-events                                               Emit packet drop Events related to pods (alpha)
       --hubble-drop-events-interval duration                             Minimum time between emitting same events (default 2m0s)
