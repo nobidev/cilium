@@ -2,12 +2,14 @@
 
 hive start
 db/initialized private-networks
+db/initialized privnet-routes
 
 # Add two ClusterwidePrivateNetworks
 k8s/add icpn-1.yaml icpn-2.yaml
 
 # Ensure that they are correctly propagated into the table
 db/cmp private-networks privnet.table
+db/cmp privnet-routes routes.table
 
 # Ensure that all the fields are propagated correctly
 db/get private-networks direct-maggot -f yaml -o privnet.direct-maggot.actual.yaml
@@ -18,14 +20,17 @@ cp icpn-2.yaml icpn-2.v2.yaml
 replace '192.168.251.0/24' '192.168.252.0/24' icpn-2.v2.yaml
 k8s/update icpn-2.v2.yaml
 db/cmp private-networks privnet.table.v2
+db/cmp privnet-routes routes.table.v2
 
 # Delete one ClusterwidePrivateNetwork, and assert that the deletion is propagated
 k8s/delete icpn-1.yaml
 db/cmp private-networks privnet.table.v3
+db/cmp privnet-routes routes.table.v3
 
 # Add it back, and assert that it is present again (although with a different ID)
 k8s/add icpn-1.yaml
 db/cmp private-networks privnet.table.v4
+db/cmp privnet-routes routes.table.v2
 
 # ---
 
@@ -84,6 +89,30 @@ united-firefly   0x2   N/A         172.128.0.9               192.168.252.0/24   
 Name             ID    Interface   INBs                      Subnets                             Routes
 direct-maggot    0x3   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::/64    4
 united-firefly   0x2   N/A         172.128.0.9               192.168.252.0/24                    0
+
+-- routes.table --
+Network          Destination        Gateway
+direct-maggot    192.168.250.0/24   N/A
+direct-maggot    192.168.252.0/24   192.168.250.254
+direct-maggot    192.168.255.0/24   192.168.250.200
+direct-maggot    fd10:0:250::/64    N/A
+direct-maggot    fd10:0:252::/64    fd10:0:250::fffe
+direct-maggot    fd10:0:255::/64    fd10:0:250::200
+united-firefly   192.168.251.0/24   N/A
+
+-- routes.table.v2 --
+Network          Destination        Gateway
+direct-maggot    192.168.250.0/24   N/A
+direct-maggot    192.168.252.0/24   192.168.250.254
+direct-maggot    192.168.255.0/24   192.168.250.200
+direct-maggot    fd10:0:250::/64    N/A
+direct-maggot    fd10:0:252::/64    fd10:0:250::fffe
+direct-maggot    fd10:0:255::/64    fd10:0:250::200
+united-firefly   192.168.252.0/24   N/A
+
+-- routes.table.v3 --
+Network          Destination        Gateway
+united-firefly   192.168.252.0/24   N/A
 
 -- privnet.direct-maggot.expected.yaml --
 name: direct-maggot
