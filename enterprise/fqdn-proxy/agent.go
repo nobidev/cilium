@@ -422,15 +422,6 @@ func (n *notifier) NotifyOnDNSMsg(
 }
 
 func (n *notifier) sendDNSNotification(ctx context.Context, msg *pb.DNSNotification) {
-	// regardless of success or failure,
-	// we must reduce the number of pending requests
-	defer func() {
-		pending := n.pending.Add(-1)
-		if pending == 0 {
-			n.stateManager.UpdateProxyState(pb.RemoteProxyStatus_RPS_REPLAYING, pb.RemoteProxyStatus_RPS_WAITING_FOR_AGENT_LIVE)
-		}
-	}()
-
 	for {
 		// We are purposefully not backing off exponentially because we want to
 		// constantly retry to reach the Agent in case it is down in order to
@@ -445,7 +436,7 @@ func (n *notifier) sendDNSNotification(ctx context.Context, msg *pb.DNSNotificat
 					logfields.Error, err,
 					logfields.Address, msg.EpIPPort,
 				)
-				return
+				break
 			}
 			if n.client.shouldLog(err) {
 				n.log.Error("queued NotifyOnDNSMsg request failed", logfields.Error, err)
@@ -455,15 +446,19 @@ func (n *notifier) sendDNSNotification(ctx context.Context, msg *pb.DNSNotificat
 			sctx, cancel := context.WithTimeout(ctx, DNSNotificationSendRetryInterval)
 			n.client.WaitMaybeConnected(sctx)
 			cancel()
-			continue
+		} else {
+			break
 		}
+	}
 
-		// connection succeeded
-		// Transition to the "flushing queue" state
-		n.stateManager.UpdateProxyState(pb.RemoteProxyStatus_RPS_AGENT_OFFLINE, pb.RemoteProxyStatus_RPS_REPLAYING)
+	// connection succeeded
+	// Transition to the "flushing queue" state
+	n.stateManager.UpdateProxyState(pb.RemoteProxyStatus_RPS_AGENT_OFFLINE, pb.RemoteProxyStatus_RPS_REPLAYING)
 
-		n.log.Debug("Successfully relayed queued DNS notification")
+	n.log.Debug("Successfully relayed queued DNS notification")
 
-		return
+	pending := n.pending.Add(-1)
+	if pending == 0 {
+		n.stateManager.UpdateProxyState(pb.RemoteProxyStatus_RPS_REPLAYING, pb.RemoteProxyStatus_RPS_WAITING_FOR_AGENT_LIVE)
 	}
 }
