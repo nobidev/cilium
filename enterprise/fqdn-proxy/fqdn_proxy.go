@@ -30,10 +30,11 @@ import (
 type runParams struct {
 	cell.In
 
-	Health  cell.Health
-	Cfg     Config
-	Log     *slog.Logger
-	Watcher *rulesWatcher
+	Health      cell.Health
+	Cfg         Config
+	Log         *slog.Logger
+	Watcher     *rulesWatcher
+	NameManager *remoteNameManager
 
 	Client   *fqdnAgentClient
 	Notifier *notifier
@@ -67,21 +68,9 @@ func run(ctx context.Context, params runParams) error {
 		RejectReply:            cfg.ToFQDNSRejectResponseCode,
 	}
 
-	remoteNameManager := params.Notifier.remoteNameManager
-	if !cfg.EnableOfflineMode {
-		log.Info(`The proxy status stream from the agent is not needed, because "enable-offline-mode" has been set to false.`)
-	} else {
-		go func() {
-			err := remoteNameManager.establishAgentProxyStream()
-			if err != nil {
-				log.Error("Proxy stream error", logfields.Error, err)
-			}
-		}()
-	}
-
 	proxy := dnsproxy.NewDNSProxy(
 		dnsProxyConfig,
-		remoteNameManager,
+		params.NameManager,
 		params.Notifier.NotifyOnDNSMsg,
 	)
 

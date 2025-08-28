@@ -28,7 +28,9 @@ import (
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -169,7 +171,6 @@ func TestAgentCycle(t *testing.T) {
 }
 
 func TestLookupSecIDByIP(t *testing.T) {
-	t.Skip("Temporary while we shuffle some methods")
 	type ipIdentity struct {
 		addr     netip.Addr
 		identity identity.NumericIdentity
@@ -363,9 +364,9 @@ func TestLookupSecIDByIP(t *testing.T) {
 
 			cfg := Config{EnableOfflineMode: !tt.disableOfflineMode} //nolint:exhaustruct
 
-			remoteNameManager := newRemoteNameManager(logger, cfg, client, fIPC)
+			remoteNameManager := newRemoteNameManager(remoteNameManagerParams{Logger: logger, Cfg: cfg, Client: client, IPCache: fIPC})
 			go func() {
-				remoteNameManager.establishAgentProxyStream()
+				remoteNameManager.streamSelectors(t.Context(), nil)
 			}()
 			secID, exists := remoteNameManager.LookupSecIDByIP(tt.lookupAddr)
 			if tt.exists != exists {
@@ -423,11 +424,22 @@ func startFakeServer(t *testing.T, opts ...fakeServerOpt) (string, error) {
 	t.Helper()
 
 	fakeImpl := &fakeAgent{
+		ctx:        t.Context(),
 		socketPath: filepath.Join(t.TempDir(), "dnsproxy-test.socket"),
 	}
 	for _, o := range opts {
 		o(fakeImpl)
 	}
+
+	if fakeImpl.stopServerOn != nil {
+		var cancel context.CancelFunc
+		fakeImpl.ctx, cancel = context.WithCancel(fakeImpl.ctx)
+		go func() {
+			<-fakeImpl.stopServerOn
+			cancel()
+		}()
+	}
+
 	grpcServer := grpc.NewServer()
 	pb.RegisterFQDNProxyAgentServer(grpcServer, fakeImpl)
 
@@ -436,12 +448,6 @@ func startFakeServer(t *testing.T, opts ...fakeServerOpt) (string, error) {
 		t.Errorf("failed to listen: %v", err)
 		return "", err
 	}
-	t.Cleanup(func() {
-		grpcServer.Stop()
-		lis.Close()
-		os.Remove(fakeImpl.socketPath)
-	})
-
 	go func() {
 		if fakeImpl.startServerOn != nil {
 			<-fakeImpl.startServerOn
@@ -452,14 +458,12 @@ func startFakeServer(t *testing.T, opts ...fakeServerOpt) (string, error) {
 		}
 	}()
 
-	if fakeImpl.stopServerOn != nil {
-		go func() {
-			<-fakeImpl.stopServerOn
-			grpcServer.Stop()
-			lis.Close()
-			os.Remove(fakeImpl.socketPath)
-		}()
-	}
+	go func() {
+		<-fakeImpl.ctx.Done()
+		grpcServer.Stop()
+		lis.Close()
+		os.Remove(fakeImpl.socketPath)
+	}()
 
 	return fakeImpl.socketPath, nil
 }
@@ -490,7 +494,35 @@ func WithIPIdentites(ipIDMap map[netip.Addr]*pb.Identity) fakeServerOpt {
 	}
 }
 
+// WithSelectorIdentities is a shorthand method that takes an fqdn selector
+// and creates a world-ipv4 and world-ipv6 identity. The numeric identities start at 1001.
+func WithSelectorIdentities(patterns ...string) fakeServerOpt {
+	return func(fa *fakeAgent) {
+		fa.selectorPatterns = patterns
+
+		id := identity.NumericIdentity(1001)
+		fa.identities = make(map[identity.NumericIdentity]labels.Labels, len(patterns)*2)
+
+		for _, pattern := range patterns {
+			sel := api.FQDNSelector{MatchPattern: pattern}
+			lbl := sel.IdentityLabel()
+
+			lbls4 := labels.NewFrom(labels.LabelWorldIPv4)
+			lbls4[lbl.Key] = lbl
+			fa.identities[id] = lbls4
+			id++
+
+			lbls6 := labels.NewFrom(labels.LabelWorldIPv6)
+			lbls6[lbl.Key] = lbl
+			fa.identities[id] = lbls6
+			id++
+		}
+	}
+}
+
 type fakeAgent struct {
+	ctx context.Context
+
 	pb.UnimplementedFQDNProxyAgentServer
 
 	startServerOn chan struct{}
@@ -499,6 +531,9 @@ type fakeAgent struct {
 	socketPath string
 
 	ipIdentityMap map[netip.Addr]*pb.Identity
+
+	selectorPatterns []string
+	identities       map[identity.NumericIdentity]labels.Labels
 }
 
 func (*fakeAgent) GetAllRules(context.Context, *pb.Empty) (*pb.RestoredRulesMap, error) {
@@ -518,7 +553,50 @@ func (fa *fakeAgent) LookupSecurityIdentityByIP(ctx context.Context, in *pb.FQDN
 }
 
 func (fa *fakeAgent) SubscribeSelectors(_ *pb.Empty, stream grpc.ServerStreamingServer[pb.SelectorUpdate]) error {
-	return stream.Send(&pb.SelectorUpdate{}) // TODO
+	for _, sel := range fa.selectorPatterns {
+		err := stream.Send(&pb.SelectorUpdate{
+			FqdnSelector: &pb.FQDNSelectorUpdate{
+				Type:     pb.UpdateType_UPDATETYPE_UPSERT,
+				Selector: &pb.FQDNSelector{MatchPattern: sel},
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	err := stream.Send(&pb.SelectorUpdate{
+		FqdnSelector: &pb.FQDNSelectorUpdate{
+			Type: pb.UpdateType_UPDATETYPE_BOOKMARK,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	for nid, lbls := range fa.identities {
+		err := stream.Send(&pb.SelectorUpdate{
+			FqdnIdentity: &pb.FQDNIdentityUpdate{
+				Type:     pb.UpdateType_UPDATETYPE_UPSERT,
+				Labels:   fromLabels(lbls),
+				Identity: uint64(nid),
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	err = stream.Send(&pb.SelectorUpdate{
+		FqdnIdentity: &pb.FQDNIdentityUpdate{
+			Type: pb.UpdateType_UPDATETYPE_BOOKMARK,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	// idle forever
+	<-fa.ctx.Done()
+	return fa.ctx.Err()
 }
 
 type fakeIPCache struct {
@@ -570,4 +648,16 @@ func (f *fakeIPCache) write(addr netip.Addr, identity identity.NumericIdentity) 
 	f.ipEndpointMap[addr] = identity
 	f.writeCalls = append(f.writeCalls, call)
 	return nil
+}
+
+func fromLabels(lbls labels.Labels) []*pb.Label {
+	res := make([]*pb.Label, 0, len(lbls))
+	for _, l := range lbls {
+		res = append(res, &pb.Label{
+			Key:    l.Key,
+			Value:  l.Value,
+			Source: l.Source,
+		})
+	}
+	return res
 }

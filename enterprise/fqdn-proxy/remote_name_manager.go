@@ -22,9 +22,8 @@ import (
 	"slices"
 
 	"github.com/cilium/dns"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -55,57 +54,76 @@ type remoteNameManager struct {
 	selectorsSynced  bool
 }
 
-func newRemoteNameManager(
-	logger *slog.Logger,
-	cfg Config,
-	client *fqdnAgentClient,
-	ipcache bpfIPCache,
-) *remoteNameManager {
-	return &remoteNameManager{
-		logger:           logger,
-		cfg:              cfg,
-		client:           client,
+type remoteNameManagerParams struct {
+	cell.In
+
+	Logger *slog.Logger
+	JG     job.Group
+
+	Cfg     Config
+	Client  *fqdnAgentClient
+	IPCache bpfIPCache
+}
+
+func newRemoteNameManager(params remoteNameManagerParams) *remoteNameManager {
+	r := &remoteNameManager{
+		logger:           params.Logger,
+		cfg:              params.Cfg,
+		client:           params.Client,
 		cache:            newAgentDataCache(),
-		ipcache:          ipcache,
+		ipcache:          params.IPCache,
 		identities:       newIdentityStore(),
 		selectors:        newSelectorStore(),
 		identitiesSynced: false,
 		selectorsSynced:  false,
 	}
+
+	if params.Cfg.EnableOfflineMode && params.JG != nil {
+		params.JG.Add(job.OneShot("stream-selectors", r.streamSelectors))
+	}
+
+	return r
 }
 
-func (r *remoteNameManager) establishAgentProxyStream() error {
-	r.logger.Info("Starting to stream proxy status from the agent...")
-	var (
-		ps  grpc.ServerStreamingClient[pb.SelectorUpdate]
-		err error
-	)
-	// TODO: This method needs more work to reach maturity
-	// but until the SubscribeProxyStatus server implementation
-	// streams status (rather than just returning on one update)
-	// this stub works fine.
+func (r *remoteNameManager) streamSelectors(ctx context.Context, _ cell.Health) error {
+	var nextLog time.Time
+
 	for {
-		ps, err = r.client.SubscribeSelectors(context.Background(), &pb.Empty{})
+		err := r.tryStreamSelectors(ctx)
+		if ctx.Err() != nil {
+			break
+		}
+
+		retryInterval := time.Second
+		if isUnimplementedError(err) {
+			retryInterval = 5 * time.Minute
+		} else {
+			now := time.Now()
+			if now.After(nextLog) { // silence needless logs.
+				r.logger.Info("SubscribeSelectors() failed", logfields.Error, err)
+				nextLog = now.Add(30 * time.Second)
+			}
+		}
+		sctx, cancel := context.WithTimeout(ctx, retryInterval)
+		r.client.WaitMaybeReconnected(sctx)
+		cancel()
+
+	}
+	return ctx.Err()
+}
+
+func (r *remoteNameManager) tryStreamSelectors(ctx context.Context) error {
+	ps, err := r.client.SubscribeSelectors(ctx, &pb.Empty{})
+	if err != nil {
+		return err
+	}
+
+	for {
+		selectorUpdate, err := ps.Recv()
 		if err != nil {
-			sts, ok := status.FromError(err)
-			// This agent does not support proxy status.
-			// Keep checking though in case the agent upgrades.
-			if ok && sts.Code() == codes.Unimplemented {
-				time.Sleep(time.Minute)
-				continue
-			}
-			return fmt.Errorf("subscribing to selector stream from agent failed: %w", err)
+			return err
 		}
-
-		r.logger.Info("The selector update stream is established.")
-		for {
-			selectorUpdate, err := ps.Recv()
-			if err != nil {
-				return fmt.Errorf("error receiving selector update: %w", err)
-			}
-
-			r.handleSelectorUpdate(selectorUpdate)
-		}
+		r.handleSelectorUpdate(selectorUpdate)
 	}
 }
 
@@ -251,6 +269,10 @@ func (r *remoteNameManager) MaybeUpdateIPCache(msg *dns.Msg) {
 		return
 	}
 
+	r.maybeUpdateIPCache(qname, responseAddrs)
+}
+
+func (r *remoteNameManager) maybeUpdateIPCache(qname string, responseAddrs []netip.Addr) {
 	r.selectors.mu.RLock()
 	selLbls := namemanager.DeriveLabelsForName(qname, r.selectors.selectors)
 	r.selectors.mu.RUnlock()
@@ -262,51 +284,56 @@ func (r *remoteNameManager) MaybeUpdateIPCache(msg *dns.Msg) {
 	}
 
 	for _, addr := range responseAddrs {
-		id, err := r.ipcache.lookup(addr)
-		if err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
-			r.logger.Warn("failed to lookup BPF ipcache map",
-				logfields.Error, err,
-				logfields.Address, addr,
-				logfields.Identity, id,
-			)
-			continue
-		}
-
-		if err == nil && id != identity.GetWorldIdentityFromIP(addr) {
-			// There's information in the ipcache about this IP already. The proxy
-			// cannot overwrite this, since it only has a partial view of the world.
-			r.logger.Debug("can't override mapping, identity doesn't match address world identity",
-				logfields.Address, addr,
-				logfields.Identity, id,
-				logfields.WorldIdentity, identity.GetWorldIdentityFromIP(addr),
-			)
-			continue
-		}
-
 		identityLbls := r.identityLabelsForSelectorLabels(selLbls, addr)
-		id, exists := r.identities.find(identityLbls)
+		newID, exists := r.identities.find(identityLbls)
 		if !exists {
 			// no identity matches all toFQDN selectors.
 			r.logger.Debug("no identity matches toFQDN selector labels",
 				logfields.IdentityLabels, identityLbls,
 				logfields.Labels, selLbls,
+				logfields.Address, addr,
+			)
+			continue
+		}
+		log := r.logger.With(
+			logfields.FQDN, qname,
+			logfields.IdentityLabels, identityLbls,
+			logfields.Labels, selLbls,
+			logfields.Identity, newID,
+			logfields.Address, addr,
+		)
+
+		existingID, err := r.ipcache.lookup(addr)
+		if err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+			log.Warn("failed to lookup BPF ipcache map",
+				logfields.Error, err,
 			)
 			continue
 		}
 
-		r.logger.Debug("writing to BPF ipcache map",
-			logfields.Address, addr,
-			logfields.Identity, id,
-			logfields.IdentityLabels, identityLbls,
-			logfields.Labels, selLbls,
-		)
+		// If the existing ID is not Unknown or any of the World identities, we cannot
+		// overwrite it.
+		if err == nil {
+			switch existingID {
+			case identity.ReservedIdentityWorld, identity.ReservedIdentityWorldIPv4, identity.ReservedIdentityWorldIPv6, identity.IdentityUnknown:
+				// proceed, it's allowed to overwrite these identities.
+			case newID:
+				log.Debug("IP already has desired ID in IPCache")
+				continue
+			default:
+				log.Warn("offline mode: learned new address for name, but IP already in IPCache with different identity. Look for overlapping ToFQDN or CIDR selectors. This may cause traffic drops.",
+					logfields.Old, existingID,
+				)
+				continue
+			}
+		}
 
-		err = r.ipcache.write(addr, id)
+		log.Debug("writing new identity to BPF ipcache map")
+
+		err = r.ipcache.write(addr, newID)
 		if err != nil {
-			r.logger.Warn("failed to write to BPF ipcache map",
+			log.Warn("failed to write to BPF ipcache map",
 				logfields.Error, err,
-				logfields.Address, addr,
-				logfields.Identity, id,
 			)
 			continue
 		}

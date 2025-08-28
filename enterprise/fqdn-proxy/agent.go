@@ -50,19 +50,25 @@ type fqdnAgentClient struct {
 }
 
 func newAgentClient(log *slog.Logger, jg job.Group) (*fqdnAgentClient, error) {
-	conn, err := createClient("unix://" + relay.ProxyRelaySocket)
+	c, err := makeClient(log, "unix://"+relay.ProxyRelaySocket)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create grpc client to talk to agent: %w", err)
-	}
-	c := &fqdnAgentClient{
-		FQDNProxyAgentClient: pb.NewFQDNProxyAgentClient(conn),
-		conn:                 conn,
-		log:                  log,
+		return nil, err
 	}
 
 	jg.Add(job.OneShot("client-log-transition", c.logStateChanges))
-
 	return c, nil
+}
+
+func makeClient(log *slog.Logger, socketPath string) (*fqdnAgentClient, error) {
+	conn, err := createClient(socketPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create grpc client to talk to agent: %w", err)
+	}
+	return &fqdnAgentClient{
+		FQDNProxyAgentClient: pb.NewFQDNProxyAgentClient(conn),
+		conn:                 conn,
+		log:                  log,
+	}, nil
 }
 
 // createClient creates a gRPC client tuned for communication over unix domain sockets, i.e. with
