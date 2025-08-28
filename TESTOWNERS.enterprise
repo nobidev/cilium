@@ -345,7 +345,6 @@
 /tools/dpgen @isovalent/networking-framework
 /.github/**/*enterprise* @isovalent/infrastructure
 /.github/ISSUE_TEMPLATE/enterprise_hubble_cli_release_template.md @isovalent/hubble
-/.github/ISSUE_TEMPLATE/enterprise_release_template.md @isovalent/release-managers
 /.github/enterprise/.grype.yaml @isovalent/security
 /.github/enterprise/.openvex.json @isovalent/security
 /.github/actions/set-env-variables/enterprise-scalability-overrides.sh @isovalent/scalability-performance
@@ -355,7 +354,6 @@
 /.github/workflows/add-pr-to-hubble-project.yml @isovalent/hubble
 /.github/workflows/enterprise-build-cilium-cli-release-image.yaml @isovalent/cli
 /.github/workflows/enterprise-build-images-fips.yaml @isovalent/security
-/.github/workflows/enterprise-close-fixed-issues.yaml @isovalent/backporters
 /.github/workflows/enterprise-clustermesh-*yaml @isovalent/clustermesh
 /.github/workflows/enterprise-codeql.yaml @isovalent/security
 /.github/workflows/enterprise-container-scan.yaml @isovalent/security
@@ -480,7 +478,6 @@
 /enterprise/test/srv6/ @isovalent/traffic-engineering
 /enterprise/test/helpers/hubble.go @isovalent/hubble
 /enterprise/test/hubble-rbac/ @isovalent/hubble
-/enterprise/tools/release-notes/ @isovalent/release-managers
 /hubble/Makefile.override @isovalent/hubble
 /install/kubernetes/Makefile.digests-isovalent @isovalent/infrastructure
 /install/kubernetes/Makefile.override @isovalent/infrastructure
