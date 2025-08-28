@@ -74,6 +74,9 @@ triggers:
   /ci-egress-gateway-ha-eks:
     workflows:
     - enterprise-egress-gateway-ha-eks.yaml
+  /ci-egress-gateway-ha-aks:
+    workflows:
+    - enterprise-egress-gateway-ha-aks.yaml
 
 schedule:
   nightly:

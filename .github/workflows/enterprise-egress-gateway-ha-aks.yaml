@@ -1,0 +1,414 @@
+name: Enterprise Egress Gateway HA on AKS (ci-egress-gateway-ha-aks)
+
+on:
+  schedule:
+    - cron: "0 0 * * 1-5"
+
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: "{}"
+
+# For testing uncomment following lines:
+#  push:
+#    branches:
+#      - your_branch_name
+
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # Required to generate OIDC tokens for `az` authentication
+  id-token: write
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  # renovate: datasource=github-releases depName=kubernetes/kubernetes
+  kubectl_version: v1.33.2
+
+  test_name: egwha-aks
+  cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
+
+  peer_asn: 65001
+  ipam_cidr: 10.0.100.1/30
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+          images: cilium-ci operator-generic-ci cilium-cli-ci
+
+  install-and-connectivity:
+    runs-on: ubuntu-24.04
+    name: Setup and Test
+    needs: wait-for-images
+    timeout-minutes: 120
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] ; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+
+          NAME="${{ env.test_name }}-${{ github.run_id }}-${{ github.run_attempt }}"
+
+          CILIUM_INSTALL_DEFAULTS=" \
+            --chart-directory=untrusted/install/kubernetes/cilium \
+            --wait=false \
+            --set=cluster.name=${NAME} \
+            --set=azure.resourceGroup=${NAME} \
+            --datapath-mode=aks-byocni \
+            --set=enterprise.egressGatewayHA.enabled=true \
+            --set=enterprise.featureGate.approved='{EgressGatewayIPv4,EgressGatewayHA,DNSProxyHA}' \
+            --set=enterprise.bgpControlPlane.enabled=true \
+            --set-string=extraConfig.external-dns-proxy=true \
+            --set=enableIPv4Masquerade=true \
+            --set=bpf.masquerade=true \
+            --set=kubeProxyReplacement=true \
+            --set=ipv4.enabled=true \
+            --set=ipv6.enabled=false \
+            --set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
+            --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
+            --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${SHA} \
+            --nodes-without-cilium
+          "
+
+          CONNECTIVITY_TEST_DEFAULTS=" \
+            --hubble=false \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --flow-validation=disabled \
+            --include-unsafe-tests \
+            --test='seq-egress-gateway-ha-ipam-bgp-advertisement' \
+            --collect-sysdump-on-failure
+          "
+
+          OWNER="${{ github.ref_name }}"
+          OWNER="${OWNER//[.\/]/-}"
+
+          aks_version_and_location=$(yq '.include | sort_by(.version) | reverse | .[0] | "\(.version),\(.location)"' .github/actions/azure/k8s-versions.yaml)
+          AKS_VERSION=$(echo $aks_version_and_location | cut -d',' -f1)
+          AKS_LOCATION=$(echo $aks_version_and_location | cut -d',' -f2)
+
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          echo name=${NAME} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
+          echo aks_version=${AKS_VERSION} >> $GITHUB_OUTPUT
+          echo aks_location=${AKS_LOCATION} >> $GITHUB_OUTPUT
+
+      - name: Install kubectl
+        run: |
+          curl -sLO "https://dl.k8s.io/release/${{ env.kubectl_version }}/bin/linux/amd64/kubectl"
+          curl -sLO "https://dl.k8s.io/${{ env.kubectl_version }}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
+      - name: Login to Azure
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          creds: ${{ secrets.AZURE_PR_SP_CREDS }}
+
+      - name: Display version info of installed tools
+        run: |
+          echo "--- kubectl ---"
+          kubectl version --client
+
+      - name: Configure az command
+        run: |
+          az extension add --name aks-preview
+          az extension update --name aks-preview
+          az feature register --namespace "Microsoft.ContainerService" --name "KubeProxyConfigurationPreview"
+          az feature show --namespace "Microsoft.ContainerService" --name "KubeProxyConfigurationPreview"
+          az provider register --namespace Microsoft.ContainerService
+
+      - name: Create AKS cluster
+        run: |
+          # Create group
+          az group create \
+            --name ${{ steps.vars.outputs.name }} \
+            --location ${{ steps.vars.outputs.aks_location }} \
+            --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
+
+          az network vnet create \
+            --resource-group ${{ steps.vars.outputs.name }} \
+            --location ${{ steps.vars.outputs.aks_location }} \
+            --name ${{ env.test_name }}-vnet \
+            --address-prefixes 192.168.8.0/22 fd00::/48
+
+          EGW_SUBNET_ID=$(az network vnet subnet create \
+            --resource-group ${{ steps.vars.outputs.name }} \
+            --vnet-name ${{ env.test_name }}-vnet \
+            --name egw_subnet \
+            --address-prefixes 192.168.10.0/24 fd00:0:0:10::/64 \
+            --query "id" \
+            -o tsv)
+
+          EXTERNAL_SUBNET_ID=$(az network vnet subnet create \
+            --resource-group ${{ steps.vars.outputs.name }} \
+            --vnet-name ${{ env.test_name }}-vnet \
+            --name external-subnet \
+            --address-prefixes 192.168.11.0/24 fd00:0:0:11::/64 \
+            --query "id" -o tsv)
+
+          # Create AKS cluster
+          az aks create \
+            --resource-group ${{ steps.vars.outputs.name }} \
+            --name ${{ steps.vars.outputs.name }} \
+            --location ${{ steps.vars.outputs.aks_location }} \
+            --kubernetes-version ${{ steps.vars.outputs.aks_version }} \
+            --network-plugin none \
+            --nodepool-name egwnodepool \
+            --nodepool-labels egress-group=test rr-role=client \
+            --kube-proxy-config ./.github/enterprise-egw-ha/kube-proxy.json \
+            --node-count 3 \
+            --ip-families ipv4 \
+            --vnet-subnet-id $EGW_SUBNET_ID \
+            ${{ env.cost_reduction }} \
+            --generate-ssh-keys
+
+          az aks nodepool add \
+            --resource-group ${{ steps.vars.outputs.name }} \
+            --cluster-name ${{ steps.vars.outputs.name }} \
+            --name rrnodepool \
+            --node-count 2 \
+            --labels rr-role=route-reflector \
+            --vnet-subnet-id $EGW_SUBNET_ID
+
+          az aks nodepool add \
+            --resource-group ${{ steps.vars.outputs.name }} \
+            --cluster-name ${{ steps.vars.outputs.name }} \
+            --name nociliumpool \
+            --node-count 1 \
+            --labels cilium.io/no-schedule=true \
+            --node-taints "cilium.io/no-schedule=true:NoSchedule" \
+            --vnet-subnet-id $EXTERNAL_SUBNET_ID
+
+      - name: Get cluster credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ steps.vars.outputs.name }} \
+            --name ${{ steps.vars.outputs.name }}
+
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@746083db48591ffbebd37743873a91a13a6b04b8 # v0.18.6
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout context ref (NOT TRUSTED)
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ steps.vars.outputs.SHA }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          K8S_API_SRV_ADDR=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' | sed 's|https://||')
+          echo "Retrieved Kubernetes API Server address: '${K8S_API_SRV_ADDR}'"
+
+          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
+            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
+
+      - name: Delete context ref
+        run: |
+          rm -rf untrusted/
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait --interactive=false
+
+      - name: Setup Azure Route Server
+        id: setup-azure-route-server
+        run: |
+          az network vnet subnet create \
+            --resource-group ${{ steps.vars.outputs.name }} \
+            --vnet-name ${{ env.test_name }}-vnet \
+            --name RouteServerSubnet \
+            --address-prefixes 192.168.9.0/24
+
+          ARS_SUBNET_ID=$(az network vnet subnet show \
+            --resource-group ${{ steps.vars.outputs.name }} \
+            --vnet-name ${{ env.test_name }}-vnet \
+            --name RouteServerSubnet \
+            --query id \
+            -o tsv)
+
+          az network public-ip create \
+            --resource-group ${{ steps.vars.outputs.name }} \
+            --name ars-pip \
+            --sku Standard \
+            --version IPv4
+
+          az network routeserver create \
+            --resource-group ${{ steps.vars.outputs.name }} \
+            --name ${{ env.test_name }}-ars \
+            --hosted-subnet $ARS_SUBNET_ID \
+            --public-ip-address ars-pip
+
+          RR_NODE_IPS=$(kubectl get nodes -l rr-role=route-reflector -o json \
+              | jq -r '.items[].status.addresses[]
+              | select(.type=="InternalIP").address
+              | select(test("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"))')
+
+          i=0
+          for ip in $RR_NODE_IPS; do
+            az network routeserver peering create \
+              --resource-group ${{ steps.vars.outputs.name }} \
+              --routeserver ${{ env.test_name }}-ars \
+              --name peer-aks-rrnode-$i \
+              --peer-ip "$ip" \
+              --peer-asn ${{ env.peer_asn }}
+            i=$((i+1))
+          done
+
+          json=$(az network routeserver show \
+            --resource-group ${{ steps.vars.outputs.name }} \
+            --name ${{ env.test_name }}-ars \
+            -o json)
+
+          read -r ARS_ASN ARS_VRIP1 ARS_VRIP2 < <(
+            echo "$json" | jq -r '[.virtualRouterAsn, .virtualRouterIps[0], .virtualRouterIps[1]] | @tsv'
+          )
+
+          echo ars_asn=${ARS_ASN} >> $GITHUB_OUTPUT
+          echo ars_vrip1=${ARS_VRIP1} >> $GITHUB_OUTPUT
+          echo ars_vrip2=${ARS_VRIP2} >> $GITHUB_OUTPUT
+
+      - name: Run connectivity egress gateway ha test
+        run: |
+          cilium connectivity test \
+            --namespace kube-system \
+            ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --egw-bgp-peer-addresses ${{ steps.setup-azure-route-server.outputs.ars_vrip1 }} \
+            --egw-bgp-peer-addresses ${{ steps.setup-azure-route-server.outputs.ars_vrip2 }} \
+            --egw-bgp-asn ${{ steps.setup-azure-route-server.outputs.ars_asn }} \
+            --egw-ipam-cidrs ${{ env.ipam_cidr }}
+
+      - name: Post-test information gathering
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump \
+            --output-filename cilium-sysdump-final
+          sudo chmod +r cilium-sysdump-final.zip
+
+      - name: Upload artifacts
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cilium-sysdumps
+          path: cilium-sysdump-*.zip
+          retention-days: 5
+
+      - name: Clean up AKS
+        if: ${{ always() }}
+        run: |
+          az group delete --name ${{ steps.vars.outputs.name }} --yes --no-wait
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: install-and-connectivity
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.install-and-connectivity.result }}
