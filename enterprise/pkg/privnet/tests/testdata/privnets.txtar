@@ -68,12 +68,12 @@ spec:
 
 -- privnet.table --
 Name             ID    Interface   INBs                      Subnets                             Routes
-direct-maggot    0x1   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::0/64   4
+direct-maggot    0x1   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::/64    4
 united-firefly   0x2   N/A         172.128.0.9               192.168.251.0/24                    0
 
 -- privnet.table.v2 --
 Name             ID    Interface   INBs                      Subnets                             Routes
-direct-maggot    0x1   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::0/64   4
+direct-maggot    0x1   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::/64    4
 united-firefly   0x2   N/A         172.128.0.9               192.168.252.0/24                    0
 
 -- privnet.table.v3 --
@@ -82,7 +82,7 @@ united-firefly   0x2   N/A         172.128.0.9               192.168.252.0/24   
 
 -- privnet.table.v4 --
 Name             ID    Interface   INBs                      Subnets                             Routes
-direct-maggot    0x3   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::0/64   4
+direct-maggot    0x3   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::/64    4
 united-firefly   0x2   N/A         172.128.0.9               192.168.252.0/24                    0
 
 -- privnet.direct-maggot.expected.yaml --
@@ -106,4 +106,4 @@ routes:
       gateway: fd10:0:250::200
 subnets:
     - cidr: 192.168.250.0/24
-    - cidr: fd10:0:250::0/64
+    - cidr: fd10:0:250::/64

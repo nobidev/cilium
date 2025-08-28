@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -171,20 +172,93 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *IDPool, sync promise.Pro
 				iface = pn.newInterface(ifname, dev)
 			}
 
+			inbs := pn.extractINBs(privnet)
+			routes := pn.extractRoutes(privnet)
+			subnets := pn.extractSubnets(privnet)
+
 			return func(yield func(tables.PrivateNetwork) bool) {
 				yield(tables.PrivateNetwork{
 					Name:      tables.NetworkName(privnet.Name),
 					ID:        id,
-					INBs:      privnet.Spec.INBs,
+					INBs:      inbs,
 					Interface: iface,
-					Routes:    privnet.Spec.Routes,
-					Subnets:   privnet.Spec.Subnets,
+					Routes:    routes,
+					Subnets:   subnets,
 				})
 			}, nil
 		},
 	}
 
 	return k8s.RegisterReflector(pn.jg, pn.db, cfg)
+}
+
+func (pn *PrivateNetworks) extractINBs(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) []tables.PrivateNetworkINB {
+	inbs := make([]tables.PrivateNetworkINB, 0, len(privnet.Spec.INBs))
+	for _, inbAddr := range privnet.Spec.INBs {
+		inb, err := netip.ParseAddr(string(inbAddr.IP))
+		if err != nil {
+			pn.log.Error("Encountered invalid INB address in private network spec",
+				logfields.IPAddr, inbAddr,
+				logfields.Error, err,
+				logfields.ClusterwidePrivateNetwork, privnet.Name,
+			)
+			continue
+		}
+		inbs = append(inbs, tables.PrivateNetworkINB{
+			IP: inb,
+		})
+	}
+	return inbs
+}
+
+func (pn *PrivateNetworks) extractRoutes(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) []tables.PrivateNetworkRoute {
+	routes := make([]tables.PrivateNetworkRoute, 0, len(privnet.Spec.Routes))
+	for _, routeSpec := range privnet.Spec.Routes {
+		dst, err := netip.ParsePrefix(string(routeSpec.Destination))
+		if err != nil {
+			pn.log.Error("Encountered invalid route destination in private network spec",
+				logfields.CIDR, routeSpec.Destination,
+				logfields.Error, err,
+				logfields.ClusterwidePrivateNetwork, privnet.Name,
+			)
+			continue
+		}
+
+		gw, err := netip.ParseAddr(string(routeSpec.Gateway))
+		if err != nil {
+			pn.log.Error("Encountered invalid route gateway in private network spec",
+				logfields.IPAddr, routeSpec.Gateway,
+				logfields.Error, err,
+				logfields.ClusterwidePrivateNetwork, privnet.Name,
+			)
+			continue
+		}
+
+		routes = append(routes, tables.PrivateNetworkRoute{
+			Destination: dst,
+			Gateway:     gw,
+		})
+	}
+	return routes
+}
+
+func (pn *PrivateNetworks) extractSubnets(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) []tables.PrivateNetworkSubnet {
+	subnets := make([]tables.PrivateNetworkSubnet, 0, len(privnet.Spec.Subnets))
+	for _, subnetPrefix := range privnet.Spec.Subnets {
+		subnet, err := netip.ParsePrefix(string(subnetPrefix.CIDR))
+		if err != nil {
+			pn.log.Error("Encountered invalid subnet CIDR in private network spec",
+				logfields.CIDR, subnetPrefix,
+				logfields.Error, err,
+				logfields.ClusterwidePrivateNetwork, privnet.Name,
+			)
+			continue
+		}
+		subnets = append(subnets, tables.PrivateNetworkSubnet{
+			CIDR: subnet,
+		})
+	}
+	return subnets
 }
 
 func (pn *PrivateNetworks) registerDeviceChangesReconciler() {

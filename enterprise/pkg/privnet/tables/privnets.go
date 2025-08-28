@@ -13,13 +13,13 @@ package tables
 import (
 	"cmp"
 	"math"
+	"net/netip"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 
-	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
@@ -48,18 +48,18 @@ type PrivateNetwork struct {
 	ID NetworkID
 
 	// The list of Isovalent Network Bridges (INBs) serving this private network.
-	INBs []iso_v1alpha1.INBRef
+	INBs []PrivateNetworkINB
 
 	// The network interface providing external connectivity to this private
 	// network. Applies to the Isovalent Network Bridge cluster only.
 	Interface PrivateNetworkInterface
 
 	// The set of routes configured for this private network.
-	Routes []iso_v1alpha1.RouteSpec
+	Routes []PrivateNetworkRoute
 
 	// The set of subnets (that is, L2 domains) associated with, and directly
 	// reachable, from this private network.
-	Subnets []iso_v1alpha1.SubnetSpec
+	Subnets []PrivateNetworkSubnet
 }
 
 // PrivateNetworkInterface is the network interface providing external
@@ -75,6 +75,27 @@ type PrivateNetworkInterface struct {
 	Error string
 }
 
+// PrivateNetworkINB contains the network bridge configuration of the private network
+type PrivateNetworkINB struct {
+	// IP is the IP address of the network bridge
+	IP netip.Addr
+}
+
+// PrivateNetworkRoute is a route configured on the private network
+type PrivateNetworkRoute struct {
+	// Destination is the route's destination CIDR.
+	Destination netip.Prefix
+
+	// Gateway is the route's gateway IP address.
+	Gateway netip.Addr
+}
+
+// PrivateNetworkSubnet is a subnet configured on the private network
+type PrivateNetworkSubnet struct {
+	// CIDR defines the subnet
+	CIDR netip.Prefix
+}
+
 var _ statedb.TableWritable = PrivateNetwork{}
 
 func (pn PrivateNetwork) TableHeader() []string {
@@ -87,10 +108,10 @@ func (pn PrivateNetwork) TableRow() []string {
 		"0x" + strconv.FormatUint(uint64(pn.ID), 16),
 		cmp.Or(pn.Interface.Name, "N/A"),
 		cmp.Or(strings.Join(cslices.Map(pn.INBs,
-			func(i iso_v1alpha1.INBRef) string { return string(i.IP) },
+			func(i PrivateNetworkINB) string { return i.IP.String() },
 		), ","), "N/A"),
 		strings.Join(cslices.Map(pn.Subnets,
-			func(s iso_v1alpha1.SubnetSpec) string { return string(s.CIDR) },
+			func(s PrivateNetworkSubnet) string { return s.CIDR.String() },
 		), ","),
 		strconv.FormatInt(int64(len(pn.Routes)), 10),
 	}
