@@ -1089,6 +1089,9 @@ func (manager *Manager) AdvertisedEgressIPs(policySelector *slimv1.LabelSelector
 	egressIPs := make(map[types.NamespacedName][]netip.Addr)
 	for policyConfig := range manager.policyConfigsTable.All(manager.db.ReadTxn()) {
 		gwc := policyConfig.gatewayConfig
+		if gwc == nil {
+			continue
+		}
 		if gwc.localNodeConfiguredAsGateway && selector.Matches(k8sLabels.Set(policyConfig.labels)) {
 			egressIPs[policyConfig.id] = append(egressIPs[policyConfig.id], gwc.egressIP)
 		}
