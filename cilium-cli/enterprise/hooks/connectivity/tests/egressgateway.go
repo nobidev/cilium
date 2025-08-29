@@ -31,12 +31,10 @@ import (
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/cilium-cli/utils/wait"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -47,12 +45,16 @@ const (
 
 	EgressGatewayIPAMRoutingTable = 2050
 
-	egwBGPAdvertisementName = "test-egw-bgp-advertisement"
-	egwBGPPeerConfigName    = "test-egw-bgp-peer-config"
-	egwBGPClusterConfigName = "test-egw-bgp-cluster-config"
-	egwBFDProfileName       = "test-egw-bfd-profile"
+	egwBGPAdvertisementName        = "test-egw-bgp-advertisement"
+	egwRRCommonBGPPeerConfigName   = "test-egw-rr-common-bgp-peer-config"
+	egwExternalBGPPeerConfigName   = "test-egw-external-bgp-peer-config"
+	egwRRsBGPClusterConfigName     = "test-egw-route-reflectors-bgp-cluster-config"
+	egwClientsBGPClusterConfigName = "test-egw-clients-bgp-cluster-config"
+	egwBFDProfileName              = "test-egw-bfd-profile"
 
-	egwBGPCiliumASN = 65001
+	egwBGPCiliumASN   = 65001
+	egwBGPRRLocalPort = 11179
+	egwBGPRRClusterID = "255.0.0.1"
 )
 
 // bpfEgressGatewayPolicyEntry represents an entry in the BPF egress gateway policy map
@@ -1536,14 +1538,7 @@ func (s *egressGatewayHABGPAdvertisement) Run(ctx context.Context, t *check.Test
 
 func configureBGPPeeringForEGW(ctx context.Context, t *check.Test, ipFamily features.IPFamily, bfdProfile string) {
 	deleteBGPPeeringResources(ctx, t)
-
-	if versioncheck.MustCompile(">=1.17.2")(t.Context().CiliumVersion) {
-		// use v1 API version
-		configureBGPPeeringV1ForEGW(ctx, t, ipFamily, bfdProfile)
-	} else {
-		// use v1alpha1 API version
-		configureBGPPeeringV1Alpha1ForEGW(ctx, t, ipFamily, bfdProfile)
-	}
+	configureBGPPeeringV1ForEGW(ctx, t, ipFamily, bfdProfile)
 }
 
 func configureBGPPeeringV1ForEGW(ctx context.Context, t *check.Test, ipFamily features.IPFamily, bfdProfile string) {
@@ -1574,9 +1569,37 @@ func configureBGPPeeringV1ForEGW(ctx context.Context, t *check.Test, ipFamily fe
 	}
 
 	// configure peer config
-	peerConfig := &v1.IsovalentBGPPeerConfig{
+	rrCommonPeerConfig := &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: egwBGPPeerConfigName,
+			Name: egwRRCommonBGPPeerConfigName,
+		},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			CiliumBGPPeerConfigSpec: ciliumv2.CiliumBGPPeerConfigSpec{
+				Transport: &ciliumv2.CiliumBGPTransport{
+					PeerPort: ptr.To(int32(egwBGPRRLocalPort)),
+				},
+				Families: []ciliumv2.CiliumBGPFamilyWithAdverts{
+					{
+						CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
+							Afi:  ipFamily.String(),
+							Safi: "unicast",
+						},
+						Advertisements: &slimv1.LabelSelector{
+							MatchLabels: advertisement.Labels,
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err = client.IsovalentBGPPeerConfigs().Create(ctx, rrCommonPeerConfig, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create IsovalentBGPPeerConfig: %v", err)
+	}
+
+	externalPeerConfig := &v1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: egwExternalBGPPeerConfigName,
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
 			CiliumBGPPeerConfigSpec: ciliumv2.CiliumBGPPeerConfigSpec{
@@ -1595,122 +1618,78 @@ func configureBGPPeeringV1ForEGW(ctx context.Context, t *check.Test, ipFamily fe
 		},
 	}
 	if bfdProfile != "" {
-		peerConfig.Spec.BFDProfileRef = &bfdProfile
+		externalPeerConfig.Spec.BFDProfileRef = &bfdProfile
 	}
-	_, err = client.IsovalentBGPPeerConfigs().Create(ctx, peerConfig, metav1.CreateOptions{})
+	_, err = client.IsovalentBGPPeerConfigs().Create(ctx, externalPeerConfig, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("failed to create IsovalentBGPPeerConfig: %v", err)
 	}
 
 	// configure cluster config
-	clusterConfig := &v1.IsovalentBGPClusterConfig{
+	rrClusterConfig := &v1.IsovalentBGPClusterConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: egwBGPClusterConfigName,
+			Name: egwRRsBGPClusterConfigName,
 		},
 		Spec: v1.IsovalentBGPClusterConfigSpec{
+			NodeSelector: &slimv1.LabelSelector{
+				MatchLabels: map[string]string{"rr-role": "route-reflector"},
+			},
+			BGPInstances: []v1.IsovalentBGPInstance{
+				{
+					Name:      "test-instance",
+					LocalASN:  ptr.To[int64](egwBGPCiliumASN),
+					LocalPort: ptr.To[int32](egwBGPRRLocalPort),
+					RouteReflector: &v1.RouteReflector{
+						Role:      v1.RouteReflectorRoleRouteReflector,
+						ClusterID: egwBGPRRClusterID,
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: externalPeerConfig.Name,
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, peerAddress := range Params.EgressGateway.PeerAddresses {
+		rrClusterConfig.Spec.BGPInstances[0].Peers = append(rrClusterConfig.Spec.BGPInstances[0].Peers,
+			v1.IsovalentBGPPeer{
+				Name:        "peer-" + peerAddress,
+				PeerAddress: ptr.To[string](peerAddress),
+				PeerASN:     ptr.To[int64](Params.EgressGateway.PeerASN),
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: externalPeerConfig.Name,
+				},
+			})
+	}
+	_, err = client.IsovalentBGPClusterConfigs().Create(ctx, rrClusterConfig, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create IsovalentBGPClusterConfig: %v", err)
+	}
+
+	clientClusterConfig := &v1.IsovalentBGPClusterConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: egwClientsBGPClusterConfigName,
+		},
+		Spec: v1.IsovalentBGPClusterConfigSpec{
+			NodeSelector: &slimv1.LabelSelector{
+				MatchLabels: map[string]string{"rr-role": "client"},
+			},
 			BGPInstances: []v1.IsovalentBGPInstance{
 				{
 					Name:     "test-instance",
 					LocalASN: ptr.To[int64](egwBGPCiliumASN),
-				},
-			},
-		},
-	}
-	clusterConfig.Spec.BGPInstances[0].Peers = append(clusterConfig.Spec.BGPInstances[0].Peers,
-		v1.IsovalentBGPPeer{
-			Name:        "peer-" + Params.EgressGateway.PeerAddress,
-			PeerAddress: ptr.To[string](Params.EgressGateway.PeerAddress),
-			PeerASN:     ptr.To[int64](Params.EgressGateway.PeerASN),
-			PeerConfigRef: &v1.PeerConfigReference{
-				Name: peerConfig.Name,
-			},
-		})
-	_, err = client.IsovalentBGPClusterConfigs().Create(ctx, clusterConfig, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("failed to create IsovalentBGPClusterConfig: %v", err)
-	}
-}
-
-func configureBGPPeeringV1Alpha1ForEGW(ctx context.Context, t *check.Test, ipFamily features.IPFamily, bfdProfile string) {
-	ct := t.Context()
-	client := ct.K8sClient().CiliumClientset.IsovalentV1alpha1()
-
-	// configure advertisement
-	advertisement := &v1alpha1.IsovalentBGPAdvertisement{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   egwBGPAdvertisementName,
-			Labels: map[string]string{"test": "bgp"},
-		},
-		Spec: v1alpha1.IsovalentBGPAdvertisementSpec{
-			Advertisements: []v1alpha1.BGPAdvertisement{
-				{
-					AdvertisementType: v1alpha1.BGPEGWAdvert,
-					Selector: &slimv1.LabelSelector{
-						MatchLabels: map[string]string{"egw": "bgp-advertise"},
-					},
-				},
-			},
-		},
-	}
-
-	_, err := client.IsovalentBGPAdvertisements().Create(ctx, advertisement, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("failed to create IsovalentBGPAdvertisement: %v", err)
-	}
-
-	// configure peer config
-	peerConfig := &v1alpha1.IsovalentBGPPeerConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: egwBGPPeerConfigName,
-		},
-		Spec: v1alpha1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: ciliumv2alpha1.CiliumBGPPeerConfigSpec{
-				Families: []ciliumv2alpha1.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: ciliumv2alpha1.CiliumBGPFamily{
-							Afi:  ipFamily.String(),
-							Safi: "unicast",
-						},
-						Advertisements: &slimv1.LabelSelector{
-							MatchLabels: advertisement.Labels,
+					RouteReflector: &v1.RouteReflector{
+						Role:      v1.RouteReflectorRoleClient,
+						ClusterID: egwBGPRRClusterID,
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: rrCommonPeerConfig.Name,
 						},
 					},
 				},
 			},
 		},
 	}
-	if bfdProfile != "" {
-		peerConfig.Spec.BFDProfileRef = &bfdProfile
-	}
-	_, err = client.IsovalentBGPPeerConfigs().Create(ctx, peerConfig, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("failed to create IsovalentBGPPeerConfig: %v", err)
-	}
-
-	// configure cluster config
-	clusterConfig := &v1alpha1.IsovalentBGPClusterConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: egwBGPClusterConfigName,
-		},
-		Spec: v1alpha1.IsovalentBGPClusterConfigSpec{
-			BGPInstances: []v1alpha1.IsovalentBGPInstance{
-				{
-					Name:     "test-instance",
-					LocalASN: ptr.To[int64](egwBGPCiliumASN),
-				},
-			},
-		},
-	}
-	clusterConfig.Spec.BGPInstances[0].Peers = append(clusterConfig.Spec.BGPInstances[0].Peers,
-		v1alpha1.IsovalentBGPPeer{
-			Name:        "peer-" + Params.EgressGateway.PeerAddress,
-			PeerAddress: ptr.To[string](Params.EgressGateway.PeerAddress),
-			PeerASN:     ptr.To[int64](Params.EgressGateway.PeerASN),
-			PeerConfigRef: &v1alpha1.PeerConfigReference{
-				Name: peerConfig.Name,
-			},
-		})
-	_, err = client.IsovalentBGPClusterConfigs().Create(ctx, clusterConfig, metav1.CreateOptions{})
+	_, err = client.IsovalentBGPClusterConfigs().Create(ctx, clientClusterConfig, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("failed to create IsovalentBGPClusterConfig: %v", err)
 	}
@@ -1725,19 +1704,12 @@ func deleteEGWBGPK8sResources(ctx context.Context, t *check.Test) {
 }
 
 func deleteEGWBGPPeeringResources(ctx context.Context, t *check.Test) {
-	if versioncheck.MustCompile(">=1.17.2")(t.Context().CiliumVersion) {
-		// cleanup v1 resources
-		client := t.Context().K8sClient().CiliumClientset.IsovalentV1()
-		check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPClusterConfigs(), egwBGPClusterConfigName)
-		check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPPeerConfigs(), egwBGPPeerConfigName)
-		check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPAdvertisements(), egwBGPAdvertisementName)
-	} else {
-		// cleanup v1alpha1 resources
-		client := t.Context().K8sClient().CiliumClientset.IsovalentV1alpha1()
-		check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPClusterConfigs(), egwBGPClusterConfigName)
-		check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPPeerConfigs(), egwBGPPeerConfigName)
-		check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPAdvertisements(), egwBGPAdvertisementName)
-	}
+	client := t.Context().K8sClient().CiliumClientset.IsovalentV1()
+	check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPClusterConfigs(), egwRRsBGPClusterConfigName)
+	check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPClusterConfigs(), egwClientsBGPClusterConfigName)
+	check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPPeerConfigs(), egwRRCommonBGPPeerConfigName)
+	check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPPeerConfigs(), egwExternalBGPPeerConfigName)
+	check.DeleteK8sResourceWithWait(ctx, t, client.IsovalentBGPAdvertisements(), egwBGPAdvertisementName)
 }
 
 func generateBFDProfileForEGW() *v1alpha1.IsovalentBFDProfile {

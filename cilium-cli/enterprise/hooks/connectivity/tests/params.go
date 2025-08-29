@@ -19,9 +19,9 @@ type Parameters struct {
 }
 
 type EgressGatewayParameters struct {
-	CIDRs       []string
-	Retry       uint
-	RetryDelay  time.Duration
-	PeerASN     int64
-	PeerAddress string
+	CIDRs         []string
+	Retry         uint
+	RetryDelay    time.Duration
+	PeerASN       int64
+	PeerAddresses []string
 }

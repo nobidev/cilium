@@ -115,7 +115,7 @@ func (ec *EnterpriseConnectivity) addConnectivityTestFlags(flags *pflag.FlagSet)
 	flags.UintVar(&enterpriseTests.Params.EgressGateway.Retry, "egw-ipam-retry", defaults.EgressGatewayConnectRetryDefault, "Number of retries on connection failure to external targets for egress gateway ha IPAM tests")
 	flags.DurationVar(&enterpriseTests.Params.EgressGateway.RetryDelay, "egw-ipam-retry-delay", defaults.EgressGatewayConnectRetryDelayDefault, "Delay between retries to external targets for egress gateway ha IPAM tests")
 	flags.Int64Var(&enterpriseTests.Params.EgressGateway.PeerASN, "egw-bgp-asn", defaults.EgressGatewayPeerASN, "Number of peer ASN")
-	flags.StringVar(&enterpriseTests.Params.EgressGateway.PeerAddress, "egw-bgp-peer-address", "", "")
+	flags.StringSliceVar(&enterpriseTests.Params.EgressGateway.PeerAddresses, "egw-bgp-peer-addresses", nil, "")
 }
 
 func (ec *EnterpriseConnectivity) addHubbleVersionTests(cts ...*check.ConnectivityTest) error {
@@ -308,14 +308,16 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 			WithScenarios(enterpriseTests.EgressGatewayHAIPAMMultipleGateways())
 	}
 
-	if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
+	// This test depends on the Route Reflector feature of the BGP CP, which requires using
+	// v1.18.1 or later.
+	if versioncheck.MustCompile(">=1.18.1")(ct.CiliumVersion) {
 		// prefix the test name with `seq-` to run it sequentially
 		newIPAMTest(ct, "seq-egress-gateway-ha-ipam-bgp-advertisement").
 			WithFeatureRequirements(
 				features.RequireEnabled(enterpriseFeatures.EnterpriseBGPControlPlane),
 				features.RequireEnabled(enterpriseFeatures.BFD),
 			).
-			WithCondition(func() bool { return enterpriseTests.Params.EgressGateway.PeerAddress != "" }).
+			WithCondition(func() bool { return len(enterpriseTests.Params.EgressGateway.PeerAddresses) != 0 }).
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
 				Name:            "iegp-sample-client",
 				Labels:          map[string]string{"egw": "bgp-advertise"},
