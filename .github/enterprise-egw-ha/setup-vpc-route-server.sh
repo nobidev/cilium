@@ -118,9 +118,9 @@ for rtb_id in "${ROUTE_TABLE_IDS[@]}"; do
 done
 
 echo "[5/8] Creating BGP Peers... (BFD enabled: $ENABLE_BFD)"
-EGW_NODE_IPS=$(kubectl get nodes -l "egress-group=test" -o jsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}')
+RR_NODE_IPS=$(kubectl get nodes -l "rr-role=route-reflector" -o jsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}')
 
-for ip in $EGW_NODE_IPS; do
+for ip in $RR_NODE_IPS; do
   echo "  Creating peer for $ip"
   if [[ "$ENABLE_BFD" == "true" ]]; then
     aws ec2 create-route-server-peer \
