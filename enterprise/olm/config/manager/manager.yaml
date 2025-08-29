@@ -25,6 +25,8 @@ spec:
     matchLabels:
       control-plane: controller-manager
   replicas: 1
+  strategy:
+    type: Recreate
   template:
     metadata:
       annotations:
@@ -46,8 +48,6 @@ spec:
                   operator: In
                   values:
                     - linux
-      strategy:
-        type: Recreate
       securityContext:
         runAsNonRoot: true
         seccompProfile:
