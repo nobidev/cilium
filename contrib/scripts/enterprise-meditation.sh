@@ -75,7 +75,6 @@ DIFF_NOISY_GLOBS=(
   ':!contrib/scripts/k8s-code-gen.sh' # Generate Enterprise k8s objects
   ':!pkg/k8s/apis/cell.go' # Register Enterprise CRDs
   ':!pkg/k8s/synced/crd.go' # Register Enterprise CRDs
-  ':!pkg/maps/multicast/subscribermap.go' # https://github.com/isovalent/cilium/issues/7111
   ':!test/helpers/kubectl.go' # https://github.com/isovalent/cilium/issues/7112
 )
 
