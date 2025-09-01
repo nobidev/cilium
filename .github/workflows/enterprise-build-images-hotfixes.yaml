@@ -30,13 +30,6 @@ jobs:
             postfix: ubi
             image_name: cilium
 
-          - name: cilium
-            dockerfile: ./images/cilium/Dockerfile
-            # renovate: datasource=docker
-            base_image: quay.io/cilium/cilium-runtime:ba575a58e82f56179bdfc72251fc6cdcef61ed90
-            postfix: ubuntu
-            image_name: cilium
-
           - name: operator
             dockerfile: ./enterprise/images/operator/Dockerfile
             image_name: operator-generic
@@ -113,7 +106,7 @@ jobs:
           persist-credentials: false
 
       - name: Release Build ${{ matrix.name }} UBI based
-        if: ${{ steps.tag-in-repositories.outputs.exist != 'true' && matrix.postfix == 'ubi' }}
+        if: ${{ steps.tag-in-repositories.outputs.exist != 'true' }}
         id: docker_build_release_ubi
         shell: bash
         working-directory: ./enterprise/images
@@ -128,32 +121,11 @@ jobs:
           make ${{ matrix.name }}-image
           echo digest="$(cat ../../.metadata.json | jq '."containerimage.digest"')" >> $GITHUB_OUTPUT
 
-      - name: Release Build ${{ matrix.name }} non-UBI based
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        if: ${{ steps.tag-in-repositories.outputs.exist != 'true' && matrix.postfix != 'ubi' }}
-        id: docker_build_release
-        with:
-          provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci:${{ github.sha }}
-            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-dev:${{ steps.tag.outputs.tag }}
-          target: release
-          build-args: |
-            OPERATOR_VARIANT=${{ matrix.image_name }}
-
       - name: Release ${{ matrix.name }} digest
         id: docker_digest
         shell: bash
         run: |
-          if [[ ${{ matrix.postfix }} == 'ubi' ]]; then
-            digest=${{ steps.docker_build_release_ubi.outputs.digest }}
-          else
-            digest=$(images/scripts/get-image-digest.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-dev:${{ steps.tag.outputs.tag }}")
-          fi
+          digest=${{ steps.docker_build_release_ubi.outputs.digest }}
           echo digest=${digest} >> $GITHUB_OUTPUT
 
       - name: Install Cosign

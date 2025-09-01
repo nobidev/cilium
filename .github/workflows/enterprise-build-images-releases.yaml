@@ -220,13 +220,6 @@ jobs:
             postfix: ubi
             image_name: cilium
 
-          - name: cilium
-            dockerfile: ./images/cilium/Dockerfile
-            # renovate: datasource=docker
-            base_image: quay.io/cilium/cilium-runtime:ba575a58e82f56179bdfc72251fc6cdcef61ed90
-            postfix: ubuntu
-            image_name: cilium
-
           - name: operator
             dockerfile: ./enterprise/images/operator/Dockerfile
             # renovate: datasource=docker
@@ -292,7 +285,6 @@ jobs:
 
       - name: Release Build ${{ matrix.name }} UBI based
         id: docker_build_release_ubi
-        if: ${{ matrix.postfix == 'ubi' }}
         shell: bash
         working-directory: ./enterprise/images
         run: |
@@ -306,21 +298,6 @@ jobs:
           PLATFORMS=linux/amd64,linux/arm64 \
           EXTRA_ARGS="--provenance=false" \
           make ${{ matrix.name }}-image
-
-      - name: Release Build ${{ matrix.name }} non-UBI based
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        id: docker_build_release
-        if: ${{ matrix.postfix != 'ubi' }}
-        with:
-          provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.tag.outputs.image_tag }}
-          target: release
-          build-args: |
-            OPERATOR_VARIANT=${{ matrix.image_name }}
 
       - name: Release ${{ matrix.name }} digest
         id: docker_digest
