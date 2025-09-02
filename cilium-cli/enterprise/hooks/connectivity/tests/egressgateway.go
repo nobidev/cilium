@@ -1401,14 +1401,16 @@ func getTargetEntriesForEmptyMultipleGateways(t *check.Test, ciliumPod check.Pod
 	return targetEntries
 }
 
-func EgressGatewayHABGPAdvertisement() check.Scenario {
+func EgressGatewayHABGPAdvertisement(bfdEnabled bool) check.Scenario {
 	return &egressGatewayHABGPAdvertisement{
 		ScenarioBase: check.NewScenarioBase(),
+		bfdEnabled:   bfdEnabled,
 	}
 }
 
 type egressGatewayHABGPAdvertisement struct {
 	check.ScenarioBase
+	bfdEnabled bool
 }
 
 func (s *egressGatewayHABGPAdvertisement) Name() string {
@@ -1417,9 +1419,14 @@ func (s *egressGatewayHABGPAdvertisement) Name() string {
 
 func (s *egressGatewayHABGPAdvertisement) Run(ctx context.Context, t *check.Test) {
 	defer deleteEGWBGPK8sResources(ctx, t)
-	configureBGPPeeringForEGW(ctx, t, features.IPFamilyV4, egwBFDProfileName)
-	bfdProfile := generateBFDProfileForEGW()
-	configureBFDProfileForEGW(ctx, t, bfdProfile)
+	bfdProfileName := ""
+	if s.bfdEnabled {
+		bfdProfileName = egwBFDProfileName
+
+		bfdProfile := generateBFDProfileForEGW()
+		configureBFDProfileForEGW(ctx, t, bfdProfile)
+	}
+	configureBGPPeeringForEGW(ctx, t, features.IPFamilyV4, bfdProfileName)
 
 	ct := t.Context()
 

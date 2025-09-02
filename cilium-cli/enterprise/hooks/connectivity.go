@@ -311,11 +311,11 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 	// This test depends on the Route Reflector feature of the BGP CP, which requires using
 	// v1.18.1 or later.
 	if versioncheck.MustCompile(">=1.18.1")(ct.CiliumVersion) {
+		bfdEnabled, _ := ct.Features.MatchRequirements(features.RequireEnabled(enterpriseFeatures.BFD))
 		// prefix the test name with `seq-` to run it sequentially
 		newIPAMTest(ct, "seq-egress-gateway-ha-ipam-bgp-advertisement").
 			WithFeatureRequirements(
 				features.RequireEnabled(enterpriseFeatures.EnterpriseBGPControlPlane),
-				features.RequireEnabled(enterpriseFeatures.BFD),
 			).
 			WithCondition(func() bool { return len(enterpriseTests.Params.EgressGateway.PeerAddresses) != 0 }).
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
@@ -324,7 +324,7 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 				PodSelectorKind: "client",
 				EgressGroup:     enterpriseCheck.AllCiliumNodes,
 			}).
-			WithScenarios(enterpriseTests.EgressGatewayHABGPAdvertisement())
+			WithScenarios(enterpriseTests.EgressGatewayHABGPAdvertisement(bfdEnabled))
 	}
 
 	return nil
