@@ -91,6 +91,7 @@ cilium-operator-alibabacloud hive dot-graph [flags]
       --kvstore-lease-ttl duration                                     Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint                     Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
       --kvstore-opt stringToString                                     Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
+      --loadbalancer-cp-accesslog-enable-grpc                          Whether Envoy Access Log should be sent to a GRPC logger.
       --loadbalancer-cp-accesslog-enable-hc                            Whether Envoy Access Log should be enabled for T1 -> T2 Health Check requests on the T2 Envoy by the LoadBalancer control plane.
       --loadbalancer-cp-accesslog-enable-stdout                        Whether Envoy Access Log should be sent to stdout on the T2 Envoy by the LoadBalancer control plane. (default true)
       --loadbalancer-cp-accesslog-enable-tcp                           Whether Envoy Access Log should be enabled for the TCP listener on the T2 Envoy by the LoadBalancer control plane

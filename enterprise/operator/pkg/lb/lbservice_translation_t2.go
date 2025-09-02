@@ -33,6 +33,7 @@ import (
 	envoy_config_rbac_v3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_extensions_accessloggers_file_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	envoy_extensions_access_loggers_grpc_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	envoy_extensions_accessloggers_stream_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/stream/v3"
 	envoy_extensions_clusters_common_dns_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/common/dns/v3"
 	envoy_extensions_clusters_dns_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dns/v3"
@@ -136,6 +137,18 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 		envoyResources = append(envoyResources, endpointXdsResource)
 	}
 
+	if r.config.AccessLog.EnableGRPC {
+		accessLoggerCluster, err := r.desiredAccessLoggerCluster(model)
+		if err != nil {
+			return nil, err
+		}
+		accessLoggerClusterResource, err := r.toXdsResource(accessLoggerCluster, envoy.ClusterTypeURL)
+		if err != nil {
+			return nil, err
+		}
+		envoyResources = append(envoyResources, accessLoggerClusterResource)
+	}
+
 	t2NodeLabelselector, err := slim_metav1.ParseToLabelSelector(model.t2LabelSelector.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse T2 node label selector: %w", err)
@@ -159,6 +172,66 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
 			NodeSelector: t2NodeLabelselector,
 			Resources:    envoyResources,
+		},
+	}, nil
+}
+
+func (r *lbServiceT2Translator) accessLoggerClusterName(model *lbService) string {
+	return fmt.Sprintf("%s-%s-access-logger", model.namespace, model.name)
+}
+
+func (r *lbServiceT2Translator) accessLoggerClusterAddress(model *lbService) string {
+	return fmt.Sprintf("namespace-logger.%s.svc.cluster.local", model.namespace)
+}
+
+func (r *lbServiceT2Translator) accessLoggerClusterPort(model *lbService) uint32 {
+	return uint32(666)
+}
+
+func (r *lbServiceT2Translator) desiredAccessLoggerCluster(model *lbService) (*envoy_config_cluster_v3.Cluster, error) {
+	return &envoy_config_cluster_v3.Cluster{
+		Name:           r.accessLoggerClusterName(model),
+		ConnectTimeout: &durationpb.Duration{Seconds: 3},
+		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
+			Type: envoy_config_cluster_v3.Cluster_STRICT_DNS,
+		},
+		CommonLbConfig: &envoy_config_cluster_v3.Cluster_CommonLbConfig{
+			// disabling panic mode (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/panic_threshold)
+			HealthyPanicThreshold: &envoy_type_v3.Percent{Value: 0.0},
+		},
+		DnsLookupFamily: envoy_config_cluster_v3.Cluster_V4_ONLY,
+		LbPolicy:        envoy_config_cluster_v3.Cluster_ROUND_ROBIN,
+		TypedExtensionProtocolOptions: map[string]*anypb.Any{
+			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": r.toClusterHTTPProtocolOptions(lbBackendHTTPConfig{
+				enableHTTP11: false,
+				enableHTTP2:  true,
+			}),
+		},
+		LoadAssignment: &envoy_config_endpoint_v3.ClusterLoadAssignment{
+			ClusterName: r.accessLoggerClusterName(model),
+			Endpoints: []*envoy_config_endpoint_v3.LocalityLbEndpoints{
+				{
+					LbEndpoints: []*envoy_config_endpoint_v3.LbEndpoint{
+						{
+							HostIdentifier: &envoy_config_endpoint_v3.LbEndpoint_Endpoint{
+								Endpoint: &envoy_config_endpoint_v3.Endpoint{
+									Address: &envoy_config_core_v3.Address{
+										Address: &envoy_config_core_v3.Address_SocketAddress{
+											SocketAddress: &envoy_config_core_v3.SocketAddress{
+												Protocol: envoy_config_core_v3.SocketAddress_TCP,
+												Address:  r.accessLoggerClusterAddress(model),
+												PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
+													PortValue: r.accessLoggerClusterPort(model),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}, nil
 }
@@ -1230,6 +1303,27 @@ func (r *lbServiceT2Translator) desiredEnvoyAccessLoggers(model *lbService, text
 							},
 							JsonFormatOptions: &envoy_config_core_v3.JsonFormatOptions{
 								SortProperties: true,
+							},
+						},
+					},
+				}),
+			},
+		})
+	}
+
+	if r.config.AccessLog.EnableGRPC {
+		accessLoggers = append(accessLoggers, &envoy_config_accesslog_v3.AccessLog{
+			Name: "envoy.access_loggers.http_grpc",
+			ConfigType: &envoy_config_accesslog_v3.AccessLog_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_access_loggers_grpc_v3.HttpGrpcAccessLogConfig{
+					CommonConfig: &envoy_extensions_access_loggers_grpc_v3.CommonGrpcAccessLogConfig{
+						LogName: "ilb",
+						GrpcService: &envoy_config_core_v3.GrpcService{
+							TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+									// TODO: cleanup once upstream supports namespacing of accesslog cluster
+									ClusterName: fmt.Sprintf("%s/%s/%s", model.namespace, model.getOwningResourceName(), r.accessLoggerClusterName(model)),
+								},
 							},
 						},
 					},

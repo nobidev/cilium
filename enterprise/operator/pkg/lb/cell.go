@@ -42,6 +42,7 @@ type Config struct {
 	LoadBalancerCPEnabled                                 bool
 	LoadBalancerCPSecretsNamespace                        string
 	LoadBalancerCPAccessLogEnableStdOut                   bool
+	LoadBalancerCPAccessLogEnableGRPC                     bool
 	LoadBalancerCPAccessLogFilePath                       string
 	LoadBalancerCPAccessLogEnableHC                       bool
 	LoadBalancerCPAccessLogEnableTCP                      bool
@@ -80,6 +81,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("loadbalancer-cp-enabled", false, "Whether or not the LoadBalancer control plane is enabled.")
 	flags.String("loadbalancer-cp-secrets-namespace", "cilium-secrets", "Namespace that should be used when syncing TLS secrets used by the LoadBalancer control plane.")
 	flags.Bool("loadbalancer-cp-accesslog-enable-stdout", true, "Whether Envoy Access Log should be sent to stdout on the T2 Envoy by the LoadBalancer control plane.")
+	flags.Bool("loadbalancer-cp-accesslog-enable-grpc", false, "Whether Envoy Access Log should be sent to a GRPC logger.")
 	flags.String("loadbalancer-cp-accesslog-file-path", "", "Path where the Envoy Access Log should be sent to on the T2 Envoy by the LoadBalancer control plane.")
 	flags.Bool("loadbalancer-cp-accesslog-enable-hc", false, "Whether Envoy Access Log should be enabled for T1 -> T2 Health Check requests on the T2 Envoy by the LoadBalancer control plane.")
 	flags.Bool("loadbalancer-cp-accesslog-enable-tcp", false, "Whether Envoy Access Log should be enabled for the TCP listener on the T2 Envoy by the LoadBalancer control plane")
@@ -205,6 +207,7 @@ func mapReconcilerConfig(params reconcilerParams) reconcilerConfig {
 		ServerName:       params.Config.LoadBalancerCPHTTPServerName,
 		AccessLog: reconcilerAccesslogConfig{
 			EnableStdOut:             params.Config.LoadBalancerCPAccessLogEnableStdOut,
+			EnableGRPC:               params.Config.LoadBalancerCPAccessLogEnableGRPC,
 			FilePath:                 params.Config.LoadBalancerCPAccessLogFilePath,
 			EnableHC:                 params.Config.LoadBalancerCPAccessLogEnableHC,
 			EnableTCP:                params.Config.LoadBalancerCPAccessLogEnableTCP,

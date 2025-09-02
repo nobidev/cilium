@@ -74,6 +74,7 @@ type reconcilerConfig struct {
 
 type reconcilerAccesslogConfig struct {
 	EnableStdOut             bool
+	EnableGRPC               bool
 	FilePath                 string
 	EnableHC                 bool
 	EnableTCP                bool

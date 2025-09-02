@@ -127,6 +127,7 @@ cilium-operator [flags]
       --leader-election-retry-period duration                          Duration that LeaderElector clients should wait between retries of the actions (default 2s)
       --limit-ipam-api-burst int                                       Upper burst limit when accessing external APIs (default 20)
       --limit-ipam-api-qps float                                       Queries per second limit when accessing external IPAM APIs (default 4)
+      --loadbalancer-cp-accesslog-enable-grpc                          Whether Envoy Access Log should be sent to a GRPC logger.
       --loadbalancer-cp-accesslog-enable-hc                            Whether Envoy Access Log should be enabled for T1 -> T2 Health Check requests on the T2 Envoy by the LoadBalancer control plane.
       --loadbalancer-cp-accesslog-enable-stdout                        Whether Envoy Access Log should be sent to stdout on the T2 Envoy by the LoadBalancer control plane. (default true)
       --loadbalancer-cp-accesslog-enable-tcp                           Whether Envoy Access Log should be enabled for the TCP listener on the T2 Envoy by the LoadBalancer control plane
