@@ -44,8 +44,9 @@ import (
 )
 
 const (
-	testInterface1 = "cilium_egwha1"
-	testInterface2 = "cilium_egwha2"
+	testInterface1          = "cilium_egwha1"
+	testInterfaceAlternate1 = "cilium_egwha1_alt"
+	testInterface2          = "cilium_egwha2"
 
 	node1Name = "k8s1"
 	node2Name = "k8s2"

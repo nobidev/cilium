@@ -317,12 +317,12 @@ func (gwc *gatewayConfig) deriveFromGroupConfig(logger *slog.Logger, gc *groupCo
 	case gc.iface != "":
 		// If the group config specifies an interface, use the first IPv4 assigned to that
 		// interface as egress IP
-		gwc.ifaceName = gc.iface
-
 		iface, err := safenetlink.LinkByName(gc.iface)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve egress interface %s: %w", gc.iface, err)
 		}
+
+		gwc.ifaceName = iface.Attrs().Name
 
 		if iface.Type() == "dummy" {
 			// If the device is a dummy interface, ifindex-based BPF forwarding can't be used.
@@ -332,7 +332,7 @@ func (gwc *gatewayConfig) deriveFromGroupConfig(logger *slog.Logger, gc *groupCo
 			gwc.egressIfindex = uint32(iface.Attrs().Index)
 		}
 
-		egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
+		egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}

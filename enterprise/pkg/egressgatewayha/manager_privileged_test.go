@@ -910,6 +910,45 @@ func TestPrivilegedEgressGatewayManagerHASocketTermination(t *testing.T) {
 	}, time.Second*5, time.Millisecond*500)
 }
 
+func TestPrivilegedEgressGatewayManagerAlternateIfaceName(t *testing.T) {
+	k := setupEgressGatewayTestSuite(t)
+
+	link, err := safenetlink.LinkByName(testInterface1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := netlink.LinkAddAltName(link, testInterfaceAlternate1); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a new HA policy that uses the alternate interface name
+	_ = k.addPolicy(t, &policyParams{
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		egressGroups: []egressGroupParams{{
+			iface:             testInterfaceAlternate1,
+			nodeLabels:        nodeGroup1Labels,
+			activeGatewayIPs:  []string{node1IP},
+			healthyGatewayIPs: []string{node1IP},
+		}},
+	})
+
+	assertRPFilter(t, k.sysctl, []rpFilterSetting{
+		{iFaceName: testInterface1, rpFilterSetting: "2"},
+		{iFaceName: testInterface2, rpFilterSetting: "1"},
+	})
+	k.assertEgressRules(t, []egressRule{})
+
+	// Add a new endpoint which matches policy-1
+	_, _ = k.addEndpoint(t, "ep-1", ep1IP, ep1Labels, node1IP)
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP, 0},
+	})
+}
+
 func TestPrivilegedEgressGatewayManagerHAGroup(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 
