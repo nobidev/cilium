@@ -16,6 +16,9 @@ cilium sysdump
 
 # Collect sysdump from specific nodes.
 cilium sysdump --node-list node-a,node-b,node-c
+
+# Retrieve the current Cilium status and identify feature limitations
+cilium status
 ```
 
 ### Options
@@ -33,6 +36,7 @@ cilium sysdump --node-list node-a,node-b,node-c
 ### SEE ALSO
 
 * [cilium completion](cilium_completion.md)	 - Generate the autocompletion script for the specified shell
+* [cilium status](cilium_status.md)	 - Display status
 * [cilium sysdump](cilium_sysdump.md)	 - Collects information required to troubleshoot issues with Cilium and Hubble
 * [cilium version](cilium_version.md)	 - Display detailed version information
 

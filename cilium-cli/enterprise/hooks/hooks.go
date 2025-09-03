@@ -118,6 +118,7 @@ func (eh *EnterpriseHooks) InitializeCommand(command *cobra.Command) {
 	// This hook removes all subcommands except for those contained in `supportedCommands`.
 	// Therefore, we show a help message only for the `cilium sysdump` usage.
 	supportedCommands := []string{
+		"status",
 		"sysdump",
 		"version",
 	}
@@ -127,7 +128,10 @@ func (eh *EnterpriseHooks) InitializeCommand(command *cobra.Command) {
 cilium sysdump
 
 # Collect sysdump from specific nodes.
-cilium sysdump --node-list node-a,node-b,node-c`
+cilium sysdump --node-list node-a,node-b,node-c
+
+# Retrieve the current Cilium status and identify feature limitations
+cilium status`
 
 	lbCmd := cli.NewCmdLoadbalancer()
 
