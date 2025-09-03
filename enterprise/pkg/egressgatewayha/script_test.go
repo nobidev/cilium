@@ -38,12 +38,15 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/healthconfig"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sFake "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -138,6 +141,7 @@ func TestPrivilegedAgentScripts(t *testing.T) {
 				node.LocalNodeStoreCell,
 				endpointmanager.Cell,
 				gneigh.Cell,
+				tunnel.Cell,
 
 				testCell,
 
@@ -188,6 +192,11 @@ func TestPrivilegedAgentScripts(t *testing.T) {
 					func() *signaler.BGPCPSignaler {
 						return signaler.NewBGPCPSignaler()
 					},
+
+					func() loadbalancer.Config {
+						return loadbalancer.DefaultConfig
+					},
+					func() kpr.KPRConfig { return kpr.KPRConfig{} },
 				),
 
 				cell.Invoke(func(*Manager) {}),

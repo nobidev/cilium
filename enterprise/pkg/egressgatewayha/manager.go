@@ -208,6 +208,7 @@ type Params struct {
 
 	Config            Config
 	DaemonConfig      *option.DaemonConfig
+	TunnelConfig      tunnel.Config
 	IdentityAllocator identityCache.IdentityAllocator
 	PolicyMapV2       egressmapha.PolicyMapV2
 	Policies          resource.Resource[*Policy]
@@ -268,6 +269,10 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 	if !dcfg.EnableIPv4Masquerade || !dcfg.EnableBPFMasquerade {
 		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+	}
+
+	if p.TunnelConfig.UnderlayProtocol() != tunnel.IPv4 {
+		return out, errors.New("egress gateway requires an IPv4 underlay")
 	}
 
 	if !p.HealthConfig.IsHealthCheckingEnabled() {
