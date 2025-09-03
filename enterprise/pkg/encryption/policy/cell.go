@@ -157,9 +157,17 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 		return nil
 	}
 
-	if params.DaemonConfig.TunnelingEnabled() && params.Tunnel.EncapProtocol() != tunnel.VXLAN {
-		params.Log.Error("Encryption Policy requires VXLAN as the tunnel potocol")
-		return nil
+	if params.DaemonConfig.TunnelingEnabled() {
+		if params.Tunnel.EncapProtocol() != tunnel.VXLAN {
+			params.Log.Error("Encryption Policy requires VXLAN as the tunnel potocol")
+			return nil
+		}
+
+		if params.Tunnel.UnderlayProtocol() != tunnel.IPv4 {
+			params.Log.Error("Encryption Policy requires an IPv4 underlay")
+			return nil
+		}
+
 	}
 
 	// Initializers prevent the reconciler from pruning old entries from the BPF map
