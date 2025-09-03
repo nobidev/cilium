@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/cilium/stream"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/tables"
@@ -29,6 +28,9 @@ import (
 
 var startTime = time.Now().Unix()
 
+// onUpdateFn is a function that is called when an update is about to be committed
+type onUpdateFn func(agent tables.AgentState, proxy tables.RemoteProxyState)
+
 type stateManager struct {
 	log    *slog.Logger
 	client *fqdnAgentClient
@@ -38,14 +40,9 @@ type stateManager struct {
 	agentState statedb.RWTable[tables.AgentState]
 	proxyState statedb.RWTable[tables.RemoteProxyState]
 
-	stateUpdates    stream.Observable[stateUpdate]
-	sendStateUpdate func(stateUpdate)
-	stateDone       func(error)
-}
-
-type stateUpdate struct {
-	agent tables.AgentState
-	proxy tables.RemoteProxyState
+	// onUpdates is the list of functions that should be called
+	// as part of a state update transaction
+	onUpdates []onUpdateFn
 }
 
 type stateManagerParams struct {
@@ -71,16 +68,19 @@ func newStateManager(params stateManagerParams) *stateManager {
 		agentState: params.AgentState,
 		proxyState: params.RemoteProxyState,
 	}
-	sm.stateUpdates, sm.sendStateUpdate, sm.stateDone = stream.Multicast[stateUpdate]()
 
+	trig := job.NewTrigger()
+	params.JG.Add(job.Timer("mark-proxy-live", sm.markLive, 0, job.WithTrigger(trig)))
 	params.JG.Add(job.OneShot("sync-state", sm.syncState))
-
-	// if offline mode is disabled, then need to manually transition to live
-	if !sm.cfg.EnableOfflineMode {
-		params.JG.Add(job.OneShot("mark-proxy-live", sm.markLive))
-	}
+	sm.addOnUpdate(sm.triggerMarkLive(trig))
 
 	return sm
+}
+
+// addOnUpdate adds an on-update handler.
+// This should only be called before the Hive is started.
+func (sm *stateManager) addOnUpdate(fn onUpdateFn) {
+	sm.onUpdates = append(sm.onUpdates, fn)
 }
 
 func (sm *stateManager) setAgentState(msg *pb.AgentState, offline bool) {
@@ -91,15 +91,35 @@ func (sm *stateManager) setAgentState(msg *pb.AgentState, offline bool) {
 	if offline {
 		state.Status = pb.AgentStatus_AS_UNSPECIFIED
 	}
-	wtxn := sm.db.WriteTxn(sm.agentState)
+	wtxn := sm.db.WriteTxn(sm.agentState, sm.proxyState)
 	defer wtxn.Abort()
 	if _, _, err := sm.agentState.Insert(wtxn, state); err != nil {
 		sm.log.Error("BUG: failed to update agent state", logfields.Error, err)
 		return
 	}
 	sm.log.Info("remote agent changed state", logfields.State, msg)
-	sm.onStateChange(wtxn)
+	sm.onUpdate(wtxn)
 	wtxn.Commit()
+}
+
+// onUpdate calls the set of update functions during a write transaction.
+//
+// This needs to be synchronous as we need to update our BPF references in lock-step
+// with state changes, otherwise in-flight dns requests may be lost.
+// Thus, we can't use the traditional statedb reconcilers.
+func (sm *stateManager) onUpdate(wtxn statedb.WriteTxn) {
+	if len(sm.onUpdates) == 0 {
+		return
+	}
+	var agent tables.AgentState
+	var proxy tables.RemoteProxyState
+
+	agent, _, _ = sm.agentState.Get(wtxn, tables.AgentStateIndex.Query(""))
+	proxy, _, _ = sm.proxyState.Get(wtxn, tables.RemoteProxyStateIndex.Query(""))
+
+	for _, fn := range sm.onUpdates {
+		fn(agent, proxy)
+	}
 }
 
 // GetCurrentProxyState returns the currently existing state of the remote proxy.
@@ -118,9 +138,14 @@ func (sm *stateManager) GetCurrentProxyState() tables.RemoteProxyState {
 // If `from“ is not UNSPEC, then this will only set the state to `to` if
 // already in state `from`.
 func (sm *stateManager) UpdateProxyState(from, to pb.RemoteProxyStatus) {
-	wtxn := sm.db.WriteTxn(sm.proxyState)
+	wtxn := sm.db.WriteTxn(sm.proxyState, sm.agentState)
 	defer wtxn.Abort()
 
+	sm.updateProxyState(wtxn, from, to)
+}
+
+// updateProxyState generates and commits the proxy state update.
+func (sm *stateManager) updateProxyState(wtxn statedb.WriteTxn, from, to pb.RemoteProxyStatus) {
 	// Check existing state.
 	existing := pb.RemoteProxyStatus_RPS_UNSPECIFIED
 	if old, _, found := sm.proxyState.Get(wtxn, tables.RemoteProxyStateIndex.Query("")); found {
@@ -153,40 +178,36 @@ func (sm *stateManager) UpdateProxyState(from, to pb.RemoteProxyStatus) {
 		return
 	}
 	sm.log.Info("proxy changed state", logfields.State, to)
-	sm.onStateChange(wtxn)
+	sm.onUpdate(wtxn)
 	wtxn.Commit()
 }
 
-// onStateChange is called whenever a state is about to be committed and emits
-// both the agent and proxy states to all observers.
-func (sm *stateManager) onStateChange(txn statedb.ReadTxn) {
-	rps, _, ok := sm.proxyState.Get(txn, tables.RemoteProxyStateIndex.Query(""))
-	if !ok {
-		return
-	}
-	as, _, ok := sm.agentState.Get(txn, tables.AgentStateIndex.Query(""))
-	if !ok {
-		return
-	}
-	sm.sendStateUpdate(stateUpdate{proxy: rps, agent: as})
-}
-
-func (sm *stateManager) WatchStateChanges(ctx context.Context) <-chan stateUpdate {
-	return stream.ToChannel(ctx, sm.stateUpdates, stream.WithBufferSize(10))
-}
-
-// markLive is used when the proxy is not writing to the bpf IPCache directly, and thus
-// nothing else is looking for the agent's REGEN -> LIVE transition.
-//
-// It transitions the proxy from WAITING_FOR_AGENT_LIVE to LIVE when the agent
-// itself transitions to LIVE.
-func (sm *stateManager) markLive(ctx context.Context, _ cell.Health) error {
-	for update := range sm.WatchStateChanges(ctx) {
-		if update.agent.Status == pb.AgentStatus_AS_LIVE && update.proxy.Status == pb.RemoteProxyStatus_RPS_WAITING_FOR_AGENT_LIVE {
-			sm.UpdateProxyState(pb.RemoteProxyStatus_RPS_WAITING_FOR_AGENT_LIVE, pb.RemoteProxyStatus_RPS_LIVE)
+// triggerMarkLive triggers (separately) the markLive job
+// if we have finally reached the proxy state "WAITING_FOR_AGENT_LIVE"
+// and agent state LIVE
+func (sm *stateManager) triggerMarkLive(trig job.Trigger) onUpdateFn {
+	return func(agent tables.AgentState, proxy tables.RemoteProxyState) {
+		if agent.Status == pb.AgentStatus_AS_LIVE && proxy.Status == pb.RemoteProxyStatus_RPS_WAITING_FOR_AGENT_LIVE {
+			trig.Trigger()
 		}
 	}
-	return ctx.Err()
+}
+
+// markLive transitions the proxy from WAITING_FOR_AGENT_LIVE to LIVE when the agent
+// itself transitions to LIVE.
+// These transitions can occur in any order, so we must react to them independently.
+func (sm *stateManager) markLive(ctx context.Context) error {
+	wtxn := sm.db.WriteTxn(sm.proxyState, sm.agentState)
+	defer wtxn.Abort()
+
+	agent, _, _ := sm.agentState.Get(wtxn, tables.AgentStateIndex.Query(""))
+	proxy, _, _ := sm.proxyState.Get(wtxn, tables.RemoteProxyStateIndex.Query(""))
+
+	if agent.Status == pb.AgentStatus_AS_LIVE && proxy.Status == pb.RemoteProxyStatus_RPS_WAITING_FOR_AGENT_LIVE {
+		sm.updateProxyState(wtxn, pb.RemoteProxyStatus_RPS_WAITING_FOR_AGENT_LIVE, pb.RemoteProxyStatus_RPS_LIVE)
+	}
+
+	return nil
 }
 
 func (sm *stateManager) syncState(ctx context.Context, _ cell.Health) error {
@@ -220,7 +241,6 @@ func (sm *stateManager) syncState(ctx context.Context, _ cell.Health) error {
 		cancel()
 	}
 
-	sm.stateDone(ctx.Err())
 	return ctx.Err()
 }
 
