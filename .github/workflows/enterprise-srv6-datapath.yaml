@@ -225,6 +225,7 @@ jobs:
 
             export SRV6_ENCAP_MODE=${{ matrix.encap-mode }}
             export SID_MANGER_ENABLED=${{ matrix.sid-manger-enabled }}
+            export KIND_EXPERIMENTAL_DOCKER_NETWORK=${{ env.KIND_EXPERIMENTAL_DOCKER_NETWORK }}
 
             # NOTE: runs the test from the trusted context (i.e. target branch)
             cd /host/ && ./${{ env.srv6_datapath_test }}
