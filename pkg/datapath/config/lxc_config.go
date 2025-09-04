@@ -38,6 +38,20 @@ type BPFLXC struct {
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 	// The log level for policy verdicts in workload endpoints.
 	PolicyVerdictLogFilter uint32 `config:"policy_verdict_log_filter"`
+	// True if running on network bridge.
+	PrivnetBridgeEnable bool `config:"privnet_bridge_enable"`
+	// True if the endpoint is in a non-default network.
+	PrivnetEnable bool `config:"privnet_enable"`
+	// The endpoint's IPv4 address within the network.
+	PrivnetIPv4 uint32 `config:"privnet_ipv4"`
+	// The endpoint's IPv6 address within the network.
+	PrivnetIPv6 [16]byte `config:"privnet_ipv6"`
+	// The MAC address of the endpoint's interface within the network.
+	PrivnetMAC [8]byte `config:"privnet_mac"`
+	// The identifier of the private network.
+	PrivnetNetworkID uint16 `config:"privnet_network_id"`
+	// The security identifier for unknown network traffic.
+	PrivnetUnknownSecID uint32 `config:"privnet_unknown_sec_id"`
 	// Pull security context from IP cache.
 	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 	// The endpoint's security label.
@@ -52,5 +66,8 @@ func NewBPFLXC(node Node) *BPFLXC {
 		0x0, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, false, 0x0, node}
+		0x0, false, false, 0x0,
+		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		[8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0, 0x0,
+		false, 0x0, node}
 }

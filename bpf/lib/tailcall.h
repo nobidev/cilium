@@ -100,6 +100,8 @@
 #define CILIUM_CALL_IPV4_POLICY_DENIED			48
 #define CILIUM_CALL_SIZE				49
 
+#include "enterprise_tailcall.h"
+
 /* Private per-EP map for internal tail calls. Its bpffs pin is replaced every
  * time the BPF object is loaded. An existing pinned map is never reused.
  */

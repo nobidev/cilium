@@ -57,6 +57,8 @@
 #include "lib/policy_log.h"
 #include "lib/vtep.h"
 
+#include "enterprise_bpf_lxc.h"
+
 /* Per-packet LB is needed if all LB cases can not be handled in bpf_sock.
  * Most services with L7 LB flag can not be redirected to their proxy port
  * in bpf_sock, so we must check for those via per packet LB as well.
@@ -1502,6 +1504,10 @@ int cil_from_container(struct __ctx_buff *ctx)
 		goto out;
 	}
 
+	ret = enterprise_privnet_from_lxc(ctx, proto);
+	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+		goto out;
+
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
@@ -1681,6 +1687,10 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 
 	if (*proxy_port > 0)
 		goto redirect_to_proxy;
+
+	ret = enterprise_privnet_to_lxc_ipv6_policy(ctx);
+	if (IS_ERR(ret))
+		return ret;
 
 	/* Not redirected to host / proxy. */
 	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV6, &orig_sip,
@@ -1994,6 +2004,10 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	if (*proxy_port > 0)
 		goto redirect_to_proxy;
 
+	ret = enterprise_privnet_to_lxc_ipv4_policy(ctx);
+	if (IS_ERR(ret))
+		return ret;
+
 	/* Not redirected to host / proxy. */
 	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV4, orig_sip,
 			   LXC_ID, ifindex, trace.reason, trace.monitor);
@@ -2182,6 +2196,10 @@ int cil_lxc_policy(struct __ctx_buff *ctx)
 		ret = DROP_UNSUPPORTED_L2;
 		goto out;
 	}
+
+	ret = enterprise_privnet_lxc_policy(ctx, proto, src_label, &ext_err);
+	if (IS_ERR(ret))
+		goto out;
 
 	switch (proto) {
 #ifdef ENABLE_IPV6
