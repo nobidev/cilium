@@ -35,9 +35,9 @@ func (s *LoadbalancerClient) getBGPRoutes(ctx context.Context) (map[string][]*mo
 }
 
 // getBGPPeersFromBGPClusterConfig gets BGP peers from T1 IsovalentBGPClusterConfigs.
-func (s *LoadbalancerClient) getBGPPeersFromBGPClusterConfig(ctx context.Context) (map[string]string, map[string]string, error) {
-	bgpPeersByName := map[string]string{} // peerName => peerAddr-peerASN
-	bgpPeersByAddr := map[string]string{} // peerAddr-peerASN => map
+func (s *LoadbalancerClient) getBGPPeersFromBGPClusterConfig(ctx context.Context) (map[string][]string, map[string]string, error) {
+	bgpPeersByName := map[string][]string{} // peerName => peerAddr-peerASN
+	bgpPeersByAddr := map[string]string{}   // peerAddr-peerASN => map
 
 	cfgs, err := s.client.ciliumClient.IsovalentV1().IsovalentBGPClusterConfigs().List(ctx, v1.ListOptions{})
 	if err != nil {
@@ -64,7 +64,7 @@ func (s *LoadbalancerClient) getBGPPeersFromBGPClusterConfig(ctx context.Context
 			for _, peer := range instances.Peers {
 				name := peer.PeerConfigRef.Name
 				addr := fmt.Sprintf("%s-%d", *peer.PeerAddress, *peer.PeerASN)
-				bgpPeersByName[name] = addr
+				bgpPeersByName[name] = append(bgpPeersByName[name], addr)
 				bgpPeersByAddr[addr] = name
 			}
 		}
