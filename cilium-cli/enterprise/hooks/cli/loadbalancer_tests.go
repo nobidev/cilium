@@ -153,6 +153,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 	cmd.Flags().StringSliceVar(&ilbCli.FlagRun, "run", []string{}, "Run tests that match one of the given regular expressions. If an expression starts with '!', then instead, it specifies tests to be skipped. Provide multiple expressions by providing this flag multiple times.")
 
 	cmd.AddCommand(newCmdLoadbalancerTestList())
+	cmd.AddCommand(newCmdLoadbalancerTestCleanup())
 
 	return cmd
 }

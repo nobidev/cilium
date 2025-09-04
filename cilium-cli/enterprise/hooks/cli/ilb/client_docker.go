@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	docker_client "github.com/docker/docker/client"
@@ -215,6 +216,26 @@ func (c *dockerCli) createContainer(ctx context.Context, name, img string, env [
 
 func (c *dockerCli) deleteContainer(ctx context.Context, name string) error {
 	return c.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
+}
+
+func (c *dockerCli) DeleteAllContainers(ctx context.Context) error {
+	containers, err := c.ContainerList(ctx, container.ListOptions{
+		Filters: filters.NewArgs(filters.KeyValuePair{
+			Key:   "label",
+			Value: fmt.Sprintf("%s=true", TestResourceLabelName),
+		}),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list test containers: %w", err)
+	}
+
+	for _, ct := range containers {
+		if err := c.ContainerRemove(ctx, ct.ID, container.RemoveOptions{Force: true}); err != nil {
+			return fmt.Errorf("failed to delete test container %s: %w", ct.ID, err)
+		}
+	}
+
+	return nil
 }
 
 func (c *dockerCli) copyToContainer(ctx context.Context, containerID string, content []byte, dstFile, dstDir string) error {
