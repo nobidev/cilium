@@ -195,6 +195,10 @@ func (e *environment) UserConstant(key string, fallback float64) float64 {
 	return fallback
 }
 
+func (e *environment) Now() time.Time {
+	return time.Now()
+}
+
 var _ Environment = &environment{}
 
 type desc struct {
@@ -223,6 +227,7 @@ type FakeEnvironment struct {
 	FakeMetric                Metric
 	FakeMetricsMatchingLabels []Metric
 	FakeUserConstants         map[string]float64
+	FakeNow                   time.Time
 }
 
 // Gauge implements Environment.
@@ -256,6 +261,10 @@ func (f *FakeEnvironment) UserConstant(key string, fallback float64) float64 {
 		return v
 	}
 	return fallback
+}
+
+func (f *FakeEnvironment) Now() time.Time {
+	return f.FakeNow
 }
 
 var _ Environment = &FakeEnvironment{}

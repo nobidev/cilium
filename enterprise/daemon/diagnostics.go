@@ -13,6 +13,7 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/cilium/hive/cell"
@@ -23,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/health"
 	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -78,7 +80,7 @@ func registerConditions(reg *diagnostics.Registry, db *statedb.DB, dbMetrics hiv
 			SubSystem:   "StateDB",
 			Description: "StateDB metrics indicate a potentially problematic access patterns",
 			Severity:    diagnostics.SeverityDebug,
-			Evaluator:   evalStateDB(dbMetrics),
+			Evaluator:   evalStateDB(db, dbMetrics),
 		},
 	)
 }
@@ -114,11 +116,19 @@ func evalHiveHealth(db *statedb.DB, healthTable statedb.Table[healthTypes.Status
 	}
 }
 
-func evalStateDB(statedbMetrics hive.StateDBMetrics) diagnostics.Evaluator {
+func evalStateDB(db *statedb.DB, statedbMetrics hive.StateDBMetrics) diagnostics.Evaluator {
+	evalInits := evalStateDBPendingInitializers(db)
+
 	return func(env diagnostics.Environment) (msg string, failed bool) {
 		msgTxn, failedTxn := evalStateDBWriteTxnDuration(statedbMetrics, env)
 		msgGraveyard, failedGraveyard := evalStateDBGraveyardObjects(statedbMetrics, env)
-		return strings.Join([]string{msgTxn, msgGraveyard}, ", "), failedTxn || failedGraveyard
+		msgInits, failedInits := evalInits(env)
+
+		return strings.Join(
+				slices.DeleteFunc([]string{msgTxn, msgGraveyard, msgInits}, func(s string) bool { return len(s) == 0 }),
+				", ",
+			),
+			failedTxn || failedGraveyard || failedInits
 	}
 }
 
@@ -184,4 +194,35 @@ func evalStateDBGraveyardObjects(statedbMetrics hive.StateDBMetrics, env diagnos
 		return fmt.Sprintf("Graveyard: Potentially stuck Changes() consumers detected for %v", failedTables), true
 	}
 	return "Graveyard OK", false
+}
+
+const pendingInitializersThresholdDuration = 10 * time.Minute
+
+// evalStateDBPendingInitializers checks if there are any tables that are stuck being initialized.
+func evalStateDBPendingInitializers(db *statedb.DB) diagnostics.Evaluator {
+	uninitializedSince := map[string]time.Time{}
+
+	return func(env diagnostics.Environment) (msg string, failed bool) {
+		txn := db.ReadTxn()
+		now := env.Now()
+		var failures []string
+		for _, tbl := range db.GetTables(txn) {
+			initializers := tbl.PendingInitializers(txn)
+			if len(initializers) == 0 {
+				delete(uninitializedSince, tbl.Name())
+				continue
+			}
+			if t, ok := uninitializedSince[tbl.Name()]; ok && now.Sub(t) > pendingInitializersThresholdDuration {
+				failures = append(failures, fmt.Sprintf("Table %q still waiting for initializers: %v", tbl.Name(), initializers))
+			} else {
+				uninitializedSince[tbl.Name()] = now
+			}
+		}
+		if len(failures) > 0 {
+			msg = strings.Join(failures, ", ")
+			failed = true
+		}
+		return
+	}
+
 }

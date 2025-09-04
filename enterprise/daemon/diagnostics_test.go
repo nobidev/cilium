@@ -13,6 +13,7 @@ package main
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,7 +91,7 @@ func TestStateDBCondition_WriteTxn(t *testing.T) {
 	statedbMetrics := hive.NewStateDBMetrics()
 	fakeEnv := &diagnostics.FakeEnvironment{}
 	strp := func(s string) *string { return &s }
-	eval := evalStateDB(statedbMetrics)
+	eval := evalStateDB(statedb.New(), statedbMetrics)
 
 	// Evaluate without any matching metrics
 	msg, fail := eval(fakeEnv)
@@ -139,7 +140,7 @@ func TestStateDBCondition_Graveyard(t *testing.T) {
 	statedbMetrics := hive.NewStateDBMetrics()
 	fakeEnv := &diagnostics.FakeEnvironment{}
 	strp := func(s string) *string { return &s }
-	eval := evalStateDB(statedbMetrics)
+	eval := evalStateDB(statedb.New(), statedbMetrics)
 
 	fakeEnv.FakeMetricsMatchingLabels = []diagnostics.Metric{
 		{
@@ -166,4 +167,38 @@ func TestStateDBCondition_Graveyard(t *testing.T) {
 	msg, fail = eval(fakeEnv)
 	assert.Regexp(t, `WriteTxn OK.*Graveyard: Potentially stuck.*for \[table=foo\]`, msg)
 	assert.True(t, fail, "Fail with metric above threshold")
+}
+
+func TestStateDBCondition_PendingInitializers(t *testing.T) {
+	db := statedb.New()
+	healthTable, err := newHealthTable(db)
+	require.NoError(t, err)
+	wtxn := db.WriteTxn(healthTable)
+	init := healthTable.RegisterInitializer(wtxn, "test")
+	wtxn.Commit()
+
+	eval := evalStateDBPendingInitializers(db)
+	fakeEnv := &diagnostics.FakeEnvironment{}
+
+	fakeEnv.FakeNow = time.Now()
+
+	// The pending initializer exists, but not enough time has passed.
+	msg, fail := eval(fakeEnv)
+	assert.False(t, fail)
+	assert.Empty(t, msg)
+
+	// Try again after we've exceeded the threshold
+	fakeEnv.FakeNow = fakeEnv.FakeNow.Add(2 * pendingInitializersThresholdDuration)
+	msg, fail = eval(fakeEnv)
+	assert.True(t, fail)
+	assert.Equal(t, `Table "health" still waiting for initializers: [test]`, msg)
+
+	// Marking the table initialized clears the condition
+	wtxn = db.WriteTxn(healthTable)
+	init(wtxn)
+	wtxn.Commit()
+
+	msg, fail = eval(fakeEnv)
+	assert.False(t, fail)
+	assert.Empty(t, msg)
 }

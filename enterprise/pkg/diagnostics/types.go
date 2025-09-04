@@ -221,6 +221,9 @@ type Environment interface {
 
 	// Interval is the interval at which the conditions are evaluated.
 	Interval() time.Duration
+
+	// Now returns the current time for the evaluation
+	Now() time.Time
 }
 
 var (
