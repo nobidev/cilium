@@ -88,7 +88,7 @@ func newLBTestScenario(t T, testName string, ciliumCli *ciliumCli, k8sCli *k8s.C
 		clientCertificates:  map[string]*tlsCertificate{},
 	}
 
-	if _, err := scenario.k8sCli.CoreV1().Namespaces().Create(t.Context(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: k8sNamespace}}, metav1.CreateOptions{}); err != nil {
+	if _, err := scenario.k8sCli.CoreV1().Namespaces().Create(t.Context(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: k8sNamespace, Labels: map[string]string{TestResourceLabelName: "true"}}}, metav1.CreateOptions{}); err != nil {
 		t.Failedf("failed to create test namespace %q: %s", k8sNamespace, err)
 	}
 
@@ -583,7 +583,8 @@ func (r *lbTestScenario) addFRRClients(numberOfClients int, config frrClientConf
 func (r *lbTestScenario) createBGPPeerConfig() {
 	obj := &isovalentv1.IsovalentBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: r.testName,
+			Name:   r.testName,
+			Labels: map[string]string{TestResourceLabelName: "true"},
 		},
 		Spec: isovalentv1.IsovalentBGPPeerConfigSpec{
 			CiliumBGPPeerConfigSpec: ciliumv2.CiliumBGPPeerConfigSpec{
@@ -621,7 +622,8 @@ func (r *lbTestScenario) createBGPPeerConfig() {
 func (r *lbTestScenario) createBFDProfile() {
 	obj := &isovalentv1alpha1.IsovalentBFDProfile{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: r.testName,
+			Name:   r.testName,
+			Labels: map[string]string{TestResourceLabelName: "true"},
 		},
 		Spec: isovalentv1alpha1.BFDProfileSpec{
 			DetectMultiplier:             ptr.To(int32(3)),
@@ -646,7 +648,8 @@ func (r *lbTestScenario) createBGPAdvertisement(ctx context.Context, vipName str
 			Name: vipName,
 			// This label is referenced in the BGPPeerConfig
 			Labels: map[string]string{
-				"scenario": r.testName,
+				"scenario":            r.testName,
+				TestResourceLabelName: "true",
 			},
 		},
 		Spec: isovalentv1.IsovalentBGPAdvertisementSpec{

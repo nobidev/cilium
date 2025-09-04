@@ -1516,7 +1516,8 @@ func lbVIP(name string, opts ...vipOption) *isovalentv1alpha1.LBVIP {
 func bgpClusterConfig(name string) *isovalentv1.IsovalentBGPClusterConfig {
 	obj := &isovalentv1.IsovalentBGPClusterConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name:   name,
+			Labels: map[string]string{TestResourceLabelName: "true"},
 		},
 		Spec: isovalentv1.IsovalentBGPClusterConfigSpec{
 			NodeSelector: &slim_metav1.LabelSelector{

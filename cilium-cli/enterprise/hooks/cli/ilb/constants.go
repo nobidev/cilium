@@ -29,3 +29,7 @@ const (
 	pollInterval     = 1 * time.Second
 	longPollInterval = 5 * time.Second
 )
+
+const (
+	TestResourceLabelName = "loadbalancer.isovalent.com/test"
+)
