@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -45,8 +46,11 @@ func NewNameManagerWrapper(params namemanagerWrapperParams) *namemanagerWrapper 
 
 // Used via DecorateAll, this replaces the normal NameManager with the namemanagerWrapper in the
 // hive object graph.
-func DecorateNameManager(nm namemanager.NameManager, mw *namemanagerWrapper) namemanager.NameManager {
+func DecorateNameManager(pr policy.PolicyRepository, nm namemanager.NameManager, mw *namemanagerWrapper) namemanager.NameManager {
 	mw.NameManager = nm
+
+	// The NameManager does this to break a Hive import loop; we must do the same :-/
+	pr.GetSelectorCache().SetLocalIdentityNotifier(mw)
 	return mw
 }
 
