@@ -176,9 +176,10 @@ func (c *dockerCli) createContainer(ctx context.Context, name, img string, env [
 	resp, err := c.ContainerCreate(ctx,
 		//exhaustruct:ignore
 		&container.Config{
-			Image: img,
-			Env:   env,
-			Cmd:   cmd,
+			Image:  img,
+			Env:    env,
+			Cmd:    cmd,
+			Labels: map[string]string{TestResourceLabelName: "true"},
 		},
 		hostCfg,
 		networkCfg,
@@ -232,7 +233,7 @@ func createTAR(content []byte, path string) (io.Reader, error) {
 	tw := tar.NewWriter(&buf)
 	hdr := &tar.Header{
 		Name: filepath.Base(path),
-		Mode: 0644,
+		Mode: 0o644,
 		Size: int64(len(content)),
 	}
 	if err := tw.WriteHeader(hdr); err != nil {
