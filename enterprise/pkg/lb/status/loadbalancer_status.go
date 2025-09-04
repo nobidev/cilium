@@ -196,7 +196,7 @@ func (s *LoadbalancerClient) getBGPPeersForSvc(ctx context.Context, lbsvc isoval
 				return nil, err
 			}
 			if selector.Matches(labels.Set(lbsvc.ObjectMeta.Labels)) ||
-				selector.Matches(labels.Set{"loadbalancer.isovalent.com/vip-name": lbsvc.ObjectMeta.Name}) {
+				selector.Matches(labels.Set{"loadbalancer.isovalent.com/vip-name": lbsvc.Spec.VIPRef.Name}) {
 
 				advs = append(advs, &advList.Items[i])
 				break
