@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,21 +31,25 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	bgptypes "github.com/cilium/cilium/pkg/bgpv1/types"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 type afSimplePathsMap map[bgptypes.Family][]string // list of nlris
 type resourceAFSimplePathsMap map[resource.Key]afSimplePathsMap
 type vrfSimplePathsMap map[string]resourceAFSimplePathsMap // vrf -> resource -> af -> simplePath
+
+type testService struct {
+	frontend *loadbalancer.Frontend
+	backends []*loadbalancer.Backend
+}
 
 func compareSimplePath(req *require.Assertions, vrfSimplePath vrfSimplePathsMap, vrfPaths VRFPaths) {
 	req.Len(vrfPaths, len(vrfSimplePath))
@@ -86,83 +91,35 @@ var (
 	vrf1LBIngressIP = netip.MustParseAddr("192.168.100.1")
 	vrf2LBIngressIP = netip.MustParseAddr("192.168.200.1")
 
-	vrf1SvcLabel = map[string]string{"svc": "vrf1"}
-	vrf1LBSvc    = &slim_corev1.Service{
-		ObjectMeta: slimv1.ObjectMeta{
-			Name:   "vrf1-service",
-			Labels: vrf1SvcLabel,
-		},
-		Spec: slim_corev1.ServiceSpec{
-			Type:                  slim_corev1.ServiceTypeLoadBalancer,
-			ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyLocal,
-		},
-		Status: slim_corev1.ServiceStatus{
-			LoadBalancer: slim_corev1.LoadBalancerStatus{
-				Ingress: []slim_corev1.LoadBalancerIngress{
-					{
-						IP: vrf1LBIngressIP.String(),
-					},
-				},
-			},
-		},
+	vrf1LBSvcName = loadbalancer.NewServiceName("", "vrf1-service")
+	vrf1SvcLabel  = map[string]string{"svc": "vrf1"}
+	vrf1LBSvc     = &loadbalancer.Service{
+		Name:             vrf1LBSvcName,
+		Labels:           labels.Map2Labels(vrf1SvcLabel, string(source.Kubernetes)),
+		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
+		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 	}
 
-	vrf2SvcLabel = map[string]string{"svc": "vrf2"}
-	vrf2LBSvc    = &slim_corev1.Service{
-		ObjectMeta: slimv1.ObjectMeta{
-			Name:   "vrf2-service",
-			Labels: vrf2SvcLabel,
-		},
-		Spec: slim_corev1.ServiceSpec{
-			Type:                  slim_corev1.ServiceTypeLoadBalancer,
-			ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyLocal,
-		},
-		Status: slim_corev1.ServiceStatus{
-			LoadBalancer: slim_corev1.LoadBalancerStatus{
-				Ingress: []slim_corev1.LoadBalancerIngress{
-					{
-						IP: vrf2LBIngressIP.String(),
-					},
-				},
-			},
-		},
+	vrf2LBSvcName = loadbalancer.NewServiceName("", "vrf2-service")
+	vrf2SvcLabel  = map[string]string{"svc": "vrf2"}
+	vrf2LBSvc     = &loadbalancer.Service{
+		Name:             vrf2LBSvcName,
+		Labels:           labels.Map2Labels(vrf2SvcLabel, string(source.Kubernetes)),
+		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
+		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 	}
 
-	vrfSvcETPCluster = func(svc *slim_corev1.Service) *slim_corev1.Service {
-		newSvc := svc.DeepCopy()
-		newSvc.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyCluster
-		return newSvc
+	vrfSvcETPCluster = func(orig *loadbalancer.Service) *loadbalancer.Service {
+		return &loadbalancer.Service{
+			Name:             orig.Name,
+			Labels:           orig.Labels,
+			ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+			IntTrafficPolicy: orig.IntTrafficPolicy,
+		}
 	}
 
-	vrf1SvcEP1 = &k8s.Endpoints{
-		ObjectMeta: slimv1.ObjectMeta{
-			Name: "vrf1-svc",
-		},
-		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceName:       loadbalancer.NewServiceName(vrf1LBSvc.Namespace, vrf1LBSvc.Name),
-			EndpointSliceName: "vrf1-svc",
-		},
-		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
-			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName: "test-node",
-			},
-		},
-	}
-
-	vrf2SvcEP1 = &k8s.Endpoints{
-		ObjectMeta: slimv1.ObjectMeta{
-			Name: "vrf2-svc",
-		},
-		EndpointSliceID: k8s.EndpointSliceID{
-			ServiceName:       loadbalancer.NewServiceName(vrf2LBSvc.Namespace, vrf2LBSvc.Name),
-			EndpointSliceName: "vrf2-svc",
-		},
-		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
-			cmtypes.MustParseAddrCluster("10.0.0.2"): {
-				NodeName: "test-node",
-			},
-		},
-	}
+	vrf1SvcBackend1 = newTestBackend(vrf1LBSvcName, backendAddr("10.0.0.1", 80), "test-node", loadbalancer.BackendStateActive)
+	vrf2SvcBackend1 = newTestBackend(vrf2LBSvcName, backendAddr("10.0.0.2", 80), "test-node", loadbalancer.BackendStateActive)
 
 	vrf1AdvertLabel = map[string]string{"vrf": "vrf1"}
 	vrf2AdvertLabel = map[string]string{"vrf": "vrf2"}
@@ -360,8 +317,7 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 		prevMetadata    ServiceVRFReconcilerMetadata
 		vrfConfigs      []*v1alpha1.IsovalentBGPVRFConfig
 		adverts         []*v1.IsovalentBGPAdvertisement
-		services        []*slim_corev1.Service
-		endpoints       []*k8s.Endpoints
+		services        []testService
 		bgpNodeInstance *v1.IsovalentBGPNodeInstance
 		expectedAdverts VRFAdvertisements
 		expectedPaths   vrfSimplePathsMap // to keep tests simple, compare nlri which is RD:LBVIP
@@ -372,10 +328,18 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 				vrfPaths:   make(VRFPaths),
 				vrfAdverts: make(VRFAdvertisements),
 			},
-			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config},
-			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
-			services:        []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
-			endpoints:       []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
+			vrfConfigs: []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config},
+			adverts:    []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
+			services: []testService{
+				{
+					frontend: svcLBFrontend(vrf1LBSvc, vrf1LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf1SvcBackend1},
+				},
+				{
+					frontend: svcLBFrontend(vrf2LBSvc, vrf2LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			bgpNodeInstance: testBGPNodeInstance,
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
@@ -387,12 +351,12 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			},
 			expectedPaths: vrfSimplePathsMap{
 				"vrf1": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf1LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf1LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf1LBIngressIPNLRI.String()},
 					},
 				},
 				"vrf2": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf2LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf2LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf2LBIngressIPNLRI.String()},
 					},
 				},
@@ -403,14 +367,14 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			prevMetadata: ServiceVRFReconcilerMetadata{
 				vrfPaths: VRFPaths{
 					"vrf1": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf1LBSvc.Name}: reconcilerv2.AFPathsMap{
+						resource.Key{Name: vrf1LBSvcName.Name()}: reconcilerv2.AFPathsMap{
 							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
 								vrf1LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf1LBIngressIPNLRI}, // dummy path
 							},
 						},
 					},
 					"vrf2": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf2LBSvc.Name}: reconcilerv2.AFPathsMap{
+						resource.Key{Name: vrf2LBSvcName.Name()}: reconcilerv2.AFPathsMap{
 							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
 								vrf2LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf2LBIngressIPNLRI}, // dummy path
 							},
@@ -426,10 +390,18 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 					},
 				},
 			},
-			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config},
-			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
-			services:        []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
-			endpoints:       []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
+			vrfConfigs: []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config},
+			adverts:    []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
+			services: []testService{
+				{
+					frontend: svcLBFrontend(vrf1LBSvc, vrf1LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf1SvcBackend1},
+				},
+				{
+					frontend: svcLBFrontend(vrf2LBSvc, vrf2LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			bgpNodeInstance: testBGPNodeInstance,
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
@@ -438,7 +410,7 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			},
 			expectedPaths: vrfSimplePathsMap{
 				"vrf1": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf1LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf1LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf1LBIngressIPNLRI.String()},
 					},
 				},
@@ -449,14 +421,14 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			prevMetadata: ServiceVRFReconcilerMetadata{
 				vrfPaths: VRFPaths{
 					"vrf1": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf1LBSvc.Name}: reconcilerv2.AFPathsMap{
+						resource.Key{Name: vrf1LBSvcName.Name()}: reconcilerv2.AFPathsMap{
 							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
 								vrf1LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf1LBIngressIPNLRI}, // dummy path
 							},
 						},
 					},
 					"vrf2": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf2LBSvc.Name}: reconcilerv2.AFPathsMap{
+						resource.Key{Name: vrf2LBSvcName.Name()}: reconcilerv2.AFPathsMap{
 							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
 								vrf2LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf2LBIngressIPNLRI}, // dummy path
 							},
@@ -472,10 +444,18 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 					},
 				},
 			},
-			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config},
-			adverts:         []*v1.IsovalentBGPAdvertisement{},
-			services:        []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
-			endpoints:       []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
+			vrfConfigs: []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config},
+			adverts:    []*v1.IsovalentBGPAdvertisement{},
+			services: []testService{
+				{
+					frontend: svcLBFrontend(vrf1LBSvc, vrf1LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf1SvcBackend1},
+				},
+				{
+					frontend: svcLBFrontend(vrf2LBSvc, vrf2LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			bgpNodeInstance: testBGPNodeInstance,
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
@@ -492,14 +472,14 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			prevMetadata: ServiceVRFReconcilerMetadata{
 				vrfPaths: VRFPaths{
 					"vrf1": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf1LBSvc.Name}: reconcilerv2.AFPathsMap{
+						resource.Key{Name: vrf1LBSvcName.Name()}: reconcilerv2.AFPathsMap{
 							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
 								vrf1LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf1LBIngressIPNLRI}, // dummy path
 							},
 						},
 					},
 					"vrf2": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf2LBSvc.Name}: reconcilerv2.AFPathsMap{
+						resource.Key{Name: vrf2LBSvcName.Name()}: reconcilerv2.AFPathsMap{
 							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
 								vrf2LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf2LBIngressIPNLRI}, // dummy path
 							},
@@ -515,10 +495,18 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 					},
 				},
 			},
-			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{},
-			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
-			services:        []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
-			endpoints:       []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
+			vrfConfigs: []*v1alpha1.IsovalentBGPVRFConfig{},
+			adverts:    []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
+			services: []testService{
+				{
+					frontend: svcLBFrontend(vrf1LBSvc, vrf1LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf1SvcBackend1},
+				},
+				{
+					frontend: svcLBFrontend(vrf2LBSvc, vrf2LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			bgpNodeInstance: testBGPNodeInstance,
 			expectedAdverts: VRFAdvertisements{},
 			expectedPaths:   vrfSimplePathsMap{},
@@ -528,14 +516,14 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			prevMetadata: ServiceVRFReconcilerMetadata{
 				vrfPaths: VRFPaths{
 					"vrf1": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf1LBSvc.Name}: reconcilerv2.AFPathsMap{
+						resource.Key{Name: vrf1LBSvcName.Name()}: reconcilerv2.AFPathsMap{
 							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
 								vrf1LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf1LBIngressIPNLRI}, // dummy path with old RD
 							},
 						},
 					},
 					"vrf2": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf2LBSvc.Name}: reconcilerv2.AFPathsMap{
+						resource.Key{Name: vrf2LBSvcName.Name()}: reconcilerv2.AFPathsMap{
 							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
 								vrf2LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf2LBIngressIPNLRI}, // dummy path with old RD
 							},
@@ -551,10 +539,18 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 					},
 				},
 			},
-			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config},
-			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
-			services:        []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
-			endpoints:       []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
+			vrfConfigs: []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config},
+			adverts:    []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
+			services: []testService{
+				{
+					frontend: svcLBFrontend(vrf1LBSvc, vrf1LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf1SvcBackend1},
+				},
+				{
+					frontend: svcLBFrontend(vrf2LBSvc, vrf2LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			bgpNodeInstance: testBGPNodeInstanceUpdatedRD, // updated RD
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
@@ -566,12 +562,12 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			},
 			expectedPaths: vrfSimplePathsMap{
 				"vrf1": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf1LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf1LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf1LBIngressIPNLRIUpdated.String()},
 					},
 				},
 				"vrf2": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf2LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf2LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf2LBIngressIPNLRIUpdated.String()},
 					},
 				},
@@ -582,14 +578,14 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			prevMetadata: ServiceVRFReconcilerMetadata{
 				vrfPaths: VRFPaths{
 					"vrf1": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf1LBSvc.Name}: reconcilerv2.AFPathsMap{
+						resource.Key{Name: vrf1LBSvcName.Name()}: reconcilerv2.AFPathsMap{
 							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
 								vrf1LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf1LBIngressIPNLRI},
 							},
 						},
 					},
 					"vrf2": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf2LBSvc.Name}: reconcilerv2.AFPathsMap{
+						resource.Key{Name: vrf2LBSvcName.Name()}: reconcilerv2.AFPathsMap{
 							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
 								vrf2LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf2LBIngressIPNLRI},
 							},
@@ -605,10 +601,18 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 					},
 				},
 			},
-			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config},
-			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
-			services:        []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
-			endpoints:       []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
+			vrfConfigs: []*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config},
+			adverts:    []*v1.IsovalentBGPAdvertisement{vrf1Advert, vrf2Advert},
+			services: []testService{
+				{
+					frontend: svcLBFrontend(vrf1LBSvc, vrf1LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf1SvcBackend1},
+				},
+				{
+					frontend: svcLBFrontend(vrf2LBSvc, vrf2LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			bgpNodeInstance: testBGPNodeInstanceUpdatedNoVRF, // No VRFs
 			expectedAdverts: VRFAdvertisements{},
 			expectedPaths:   vrfSimplePathsMap{},
@@ -635,15 +639,23 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 				vrfs:    vrfConfigMockStore,
 			}
 
-			// service mocks
-			svcStore := store.NewFakeDiffStore[*slim_corev1.Service]()
+			// init test statedb
+			db := statedb.New()
+			frontendsTable, err := loadbalancer.NewFrontendsTable(loadbalancer.Config{}, db)
+			req.NoError(err)
+
+			// insert frontends & backends into statedb
+			tx := db.WriteTxn(frontendsTable)
+			nextBackendRevision := statedb.Revision(1)
 			for _, svc := range tt.services {
-				svcStore.Upsert(svc)
+				for _, backend := range svc.backends {
+					svc.frontend.Backends = concatBackend(svc.frontend.Backends, *backend.GetInstance(svc.frontend.Service.Name), nextBackendRevision)
+					nextBackendRevision++
+				}
+				_, _, err = frontendsTable.Insert(tx, svc.frontend)
+				req.NoError(err)
 			}
-			epStore := store.NewFakeDiffStore[*k8s.Endpoints]()
-			for _, ep := range tt.endpoints {
-				epStore.Upsert(ep)
-			}
+			tx.Commit()
 
 			// srv6 manager mock
 			srv6Manager := newMockSRv6Manager(map[k8stypes.NamespacedName]*srv6.VRF{
@@ -652,11 +664,11 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			})
 
 			svcVRFReconciler := &ServiceVRFReconciler{
-				logger:       logger,
-				adverts:      isoAdverts,
-				svcDiffStore: svcStore,
-				epDiffStore:  epStore,
-				upgrader:     newUpgraderMock(tt.bgpNodeInstance),
+				logger:    logger,
+				db:        db,
+				frontends: frontendsTable,
+				adverts:   isoAdverts,
+				upgrader:  newUpgraderMock(tt.bgpNodeInstance),
 				srv6Paths: &srv6Paths{
 					Logger:      logger,
 					SRv6Manager: srv6Manager,
@@ -742,22 +754,28 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 
 	tests := []struct {
 		name                       string
-		services                   []*slim_corev1.Service
-		endpoints                  []*k8s.Endpoints
+		services                   []testService
 		expectedAdverts            VRFAdvertisements
 		expectedPaths              vrfSimplePathsMap
 		expectedVRFSIDs            VRFSIDInfo
-		updatedServices            []*slim_corev1.Service
-		updatedEPs                 []*k8s.Endpoints
+		updatedServices            []testService
 		updatedSRv6VRFs            map[k8stypes.NamespacedName]*srv6.VRF
 		expectedAdvertsAfterUpdate VRFAdvertisements
 		expectedPathsAfterUpdate   vrfSimplePathsMap
 		expectedVRFSIDsAfterUpdate VRFSIDInfo
 	}{
 		{
-			name:      "pre config: none, new config: 2 VRFs, expect: 2 paths",
-			services:  []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
-			endpoints: []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
+			name: "pre config: none, new config: 2 VRFs, expect: 2 paths",
+			services: []testService{
+				{
+					frontend: svcLBFrontend(vrf1LBSvc, vrf1LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf1SvcBackend1},
+				},
+				{
+					frontend: svcLBFrontend(vrf2LBSvc, vrf2LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
 					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
@@ -768,12 +786,12 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 			expectedPaths: vrfSimplePathsMap{
 				"vrf1": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf1LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf1LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf1LBIngressIPNLRI.String()},
 					},
 				},
 				"vrf2": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf2LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf2LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf2LBIngressIPNLRI.String()},
 					},
 				},
@@ -793,21 +811,29 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 			expectedPathsAfterUpdate: vrfSimplePathsMap{
 				"vrf1": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf1LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf1LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf1LBIngressIPNLRI.String()},
 					},
 				},
 				"vrf2": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf2LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf2LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf2LBIngressIPNLRI.String()},
 					},
 				},
 			},
 		},
 		{
-			name:      "pre config: 2 paths, update service to eTP=Cluster, expect 1 path removed, 1 path unchanged",
-			services:  []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc},
-			endpoints: []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
+			name: "pre config: 2 paths, update service to eTP=Cluster, expect 1 path removed, 1 path unchanged",
+			services: []testService{
+				{
+					frontend: svcLBFrontend(vrf1LBSvc, vrf1LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf1SvcBackend1},
+				},
+				{
+					frontend: svcLBFrontend(vrf2LBSvc, vrf2LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
 					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
@@ -818,12 +844,12 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 			expectedPaths: vrfSimplePathsMap{
 				"vrf1": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf1LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf1LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf1LBIngressIPNLRI.String()},
 					},
 				},
 				"vrf2": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf2LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf2LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf2LBIngressIPNLRI.String()},
 					},
 				},
@@ -832,7 +858,12 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 				"vrf1": vrf1SIDInfo,
 				"vrf2": vrf2SIDInfo,
 			},
-			updatedServices: []*slim_corev1.Service{vrf1LBSvc, vrfSvcETPCluster(vrf2LBSvc)}, // update 1 service to have eTP=Cluster
+			updatedServices: []testService{
+				{
+					frontend: svcLBFrontend(vrfSvcETPCluster(vrf2LBSvc), vrf2LBIngressIP.String()), // update 1 service to have eTP=Cluster
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			expectedAdvertsAfterUpdate: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
 					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
@@ -843,7 +874,7 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 			expectedPathsAfterUpdate: vrfSimplePathsMap{
 				"vrf1": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf1LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf1LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf1LBIngressIPNLRI.String()},
 					},
 				},
@@ -854,9 +885,17 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 		},
 		{
-			name:      "pre config: 1 paths, update service to eTP=Local, expect 1 path added, 1 path unchanged",
-			services:  []*slim_corev1.Service{vrf1LBSvc, vrfSvcETPCluster(vrf2LBSvc)}, // start with eTP=Cluster
-			endpoints: []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
+			name: "pre config: 1 paths, update service to eTP=Local, expect 1 path added, 1 path unchanged",
+			services: []testService{
+				{
+					frontend: svcLBFrontend(vrf1LBSvc, vrf1LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf1SvcBackend1},
+				},
+				{
+					frontend: svcLBFrontend(vrfSvcETPCluster(vrf2LBSvc), vrf2LBIngressIP.String()), // start with eTP=Cluster
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
 					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
@@ -867,7 +906,7 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 			expectedPaths: vrfSimplePathsMap{
 				"vrf1": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf1LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf1LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf1LBIngressIPNLRI.String()},
 					},
 				},
@@ -876,7 +915,12 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 				"vrf1": vrf1SIDInfo,
 				"vrf2": vrf2SIDInfo,
 			},
-			updatedServices: []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc}, // set eTP=Local
+			updatedServices: []testService{
+				{
+					frontend: svcLBFrontend(vrf2LBSvc, vrf2LBIngressIP.String()), // set eTP=Local
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			expectedAdvertsAfterUpdate: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
 					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
@@ -887,12 +931,12 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 			expectedPathsAfterUpdate: vrfSimplePathsMap{
 				"vrf1": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf1LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf1LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf1LBIngressIPNLRI.String()},
 					},
 				},
 				"vrf2": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf2LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf2LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf2LBIngressIPNLRI.String()},
 					},
 				},
@@ -903,9 +947,15 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 		},
 		{
-			name:      "pre config: 0 paths, add endpoints, expect 2 path added",
-			services:  []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc}, // start with 2 services
-			endpoints: []*k8s.Endpoints{},                           // no endpoints
+			name: "pre config: 0 paths, add endpoints, expect 2 path added",
+			services: []testService{ // start with 2 services with no backends
+				{
+					frontend: svcLBFrontend(vrf1LBSvc, vrf1LBIngressIP.String()),
+				},
+				{
+					frontend: svcLBFrontend(vrf2LBSvc, vrf2LBIngressIP.String()),
+				},
+			},
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
 					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
@@ -919,7 +969,16 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 				"vrf1": vrf1SIDInfo,
 				"vrf2": vrf2SIDInfo,
 			},
-			updatedEPs: []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1}, // add endpoints
+			updatedServices: []testService{ // add backends to services
+				{
+					frontend: svcLBFrontend(vrf1LBSvc, vrf1LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf1SvcBackend1},
+				},
+				{
+					frontend: svcLBFrontend(vrf2LBSvc, vrf2LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			expectedAdvertsAfterUpdate: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
 					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
@@ -930,12 +989,12 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 			expectedPathsAfterUpdate: vrfSimplePathsMap{
 				"vrf1": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf1LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf1LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf1LBIngressIPNLRI.String()},
 					},
 				},
 				"vrf2": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf2LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf2LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf2LBIngressIPNLRI.String()},
 					},
 				},
@@ -946,9 +1005,17 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 		},
 		{
-			name:      "pre config: 2 paths, update SIDInfo, expect 2 path and SIDInfo updated",
-			services:  []*slim_corev1.Service{vrf1LBSvc, vrf2LBSvc}, // start with 2 services
-			endpoints: []*k8s.Endpoints{vrf1SvcEP1, vrf2SvcEP1},
+			name: "pre config: 2 paths, update SIDInfo, expect 2 path and SIDInfo updated",
+			services: []testService{
+				{
+					frontend: svcLBFrontend(vrf1LBSvc, vrf1LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf1SvcBackend1},
+				},
+				{
+					frontend: svcLBFrontend(vrf2LBSvc, vrf2LBIngressIP.String()),
+					backends: []*loadbalancer.Backend{vrf2SvcBackend1},
+				},
+			},
 			expectedAdverts: VRFAdvertisements{
 				"vrf1": FamilyAdvertisements{
 					{Afi: "ipv4", Safi: "mpls_vpn"}: []v1.BGPAdvertisement{vrf1BGPAdvert},
@@ -959,12 +1026,12 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 			expectedPaths: vrfSimplePathsMap{
 				"vrf1": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf1LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf1LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf1LBIngressIPNLRI.String()},
 					},
 				},
 				"vrf2": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf2LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf2LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf2LBIngressIPNLRI.String()},
 					},
 				},
@@ -988,12 +1055,12 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			},
 			expectedPathsAfterUpdate: vrfSimplePathsMap{
 				"vrf1": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf1LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf1LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf1LBIngressIPNLRI.String()},
 					},
 				},
 				"vrf2": resourceAFSimplePathsMap{
-					resource.Key{Name: vrf2LBSvc.Name}: afSimplePathsMap{
+					resource.Key{Name: vrf2LBSvcName.Name()}: afSimplePathsMap{
 						{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: []string{vrf2LBIngressIPNLRI.String()},
 					},
 				},
@@ -1016,15 +1083,23 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 				vrfs:    store.InitMockStore[*v1alpha1.IsovalentBGPVRFConfig]([]*v1alpha1.IsovalentBGPVRFConfig{vrf1Config, vrf2Config}),
 			}
 
-			// service mocks
-			svcStore := store.NewFakeDiffStore[*slim_corev1.Service]()
+			// init test statedb
+			db := statedb.New()
+			frontendsTable, err := loadbalancer.NewFrontendsTable(loadbalancer.Config{}, db)
+			req.NoError(err)
+
+			// insert frontends & backends into statedb
+			tx := db.WriteTxn(frontendsTable)
+			nextBackendRevision := statedb.Revision(1)
 			for _, svc := range tt.services {
-				svcStore.Upsert(svc)
+				for _, backend := range svc.backends {
+					svc.frontend.Backends = concatBackend(svc.frontend.Backends, *backend.GetInstance(svc.frontend.Service.Name), nextBackendRevision)
+					nextBackendRevision++
+				}
+				_, _, err = frontendsTable.Insert(tx, svc.frontend)
+				req.NoError(err)
 			}
-			epStore := store.NewFakeDiffStore[*k8s.Endpoints]()
-			for _, ep := range tt.endpoints {
-				epStore.Upsert(ep)
-			}
+			tx.Commit()
 
 			// srv6 manager mock
 			srv6Manager := newMockSRv6Manager(map[k8stypes.NamespacedName]*srv6.VRF{
@@ -1033,11 +1108,11 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			})
 
 			svcVRFReconciler := &ServiceVRFReconciler{
-				logger:       logger,
-				adverts:      isoAdverts,
-				svcDiffStore: svcStore,
-				epDiffStore:  epStore,
-				upgrader:     newUpgraderMock(testBGPNodeInstance),
+				logger:    logger,
+				db:        db,
+				frontends: frontendsTable,
+				adverts:   isoAdverts,
+				upgrader:  newUpgraderMock(testBGPNodeInstance),
 				srv6Paths: &srv6Paths{
 					Logger:      logger,
 					SRv6Manager: srv6Manager,
@@ -1056,7 +1131,7 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			defer svcVRFReconciler.Cleanup(testOSSBGPInstance)
 
 			// reconcile to test initial state
-			err := svcVRFReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
+			err = svcVRFReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
 				BGPInstance: testOSSBGPInstance,
 				CiliumNode:  testCiliumNodeConfig,
 			})
@@ -1068,13 +1143,17 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			req.Equal(tt.expectedVRFSIDs, runningMetadata.vrfSIDs)
 			compareSimplePath(req, tt.expectedPaths, runningMetadata.vrfPaths)
 
-			// update services and endpoints
+			// update frontends and backends in statedb
+			tx = db.WriteTxn(frontendsTable)
 			for _, svc := range tt.updatedServices {
-				svcStore.Upsert(svc)
+				for _, backend := range svc.backends {
+					svc.frontend.Backends = concatBackend(svc.frontend.Backends, *backend.GetInstance(svc.frontend.Service.Name), nextBackendRevision)
+					nextBackendRevision++
+				}
+				_, _, err = frontendsTable.Insert(tx, svc.frontend)
+				req.NoError(err)
 			}
-			for _, ep := range tt.updatedEPs {
-				epStore.Upsert(ep)
-			}
+			tx.Commit()
 
 			// update SRv6 VRFs
 			for key, vrf := range tt.updatedSRv6VRFs {

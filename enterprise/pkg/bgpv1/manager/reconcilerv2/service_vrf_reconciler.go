@@ -20,6 +20,7 @@ import (
 	"slices"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -29,17 +30,13 @@ import (
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
-	ciliumslices "github.com/cilium/cilium/pkg/slices"
 )
 
 type ServiceVRFReconcilerIn struct {
@@ -48,9 +45,9 @@ type ServiceVRFReconcilerIn struct {
 	Logger       *slog.Logger
 	Config       config.Config
 	DaemonConfig *option.DaemonConfig
+	DB           *statedb.DB
+	Frontends    statedb.Table[*loadbalancer.Frontend]
 	Adverts      *IsovalentAdvertisement
-	SvcDiffStore store.DiffStore[*slim_corev1.Service]
-	EPDiffStore  store.DiffStore[*k8s.Endpoints]
 	Upgrader     paramUpgrader
 	SRv6Paths    *srv6Paths
 	SRv6Manager  *srv6.Manager
@@ -63,14 +60,14 @@ type ServiceVRFReconcilerOut struct {
 }
 
 type ServiceVRFReconciler struct {
-	logger       *slog.Logger
-	adverts      *IsovalentAdvertisement
-	svcDiffStore store.DiffStore[*slim_corev1.Service]
-	epDiffStore  store.DiffStore[*k8s.Endpoints]
-	upgrader     paramUpgrader
-	srv6Paths    *srv6Paths
-	srv6Manager  SRv6Manager
-	metadata     map[string]ServiceVRFReconcilerMetadata
+	logger      *slog.Logger
+	db          *statedb.DB
+	frontends   statedb.Table[*loadbalancer.Frontend]
+	adverts     *IsovalentAdvertisement
+	upgrader    paramUpgrader
+	srv6Paths   *srv6Paths
+	srv6Manager SRv6Manager
+	metadata    map[string]ServiceVRFReconcilerMetadata
 }
 
 func NewServiceVRFReconciler(in ServiceVRFReconcilerIn) ServiceVRFReconcilerOut {
@@ -80,14 +77,14 @@ func NewServiceVRFReconciler(in ServiceVRFReconcilerIn) ServiceVRFReconcilerOut 
 
 	return ServiceVRFReconcilerOut{
 		Reconciler: &ServiceVRFReconciler{
-			logger:       in.Logger.With(types.ReconcilerLogField, "ServiceVRF"),
-			adverts:      in.Adverts,
-			svcDiffStore: in.SvcDiffStore,
-			epDiffStore:  in.EPDiffStore,
-			upgrader:     in.Upgrader,
-			srv6Paths:    in.SRv6Paths,
-			srv6Manager:  in.SRv6Manager,
-			metadata:     make(map[string]ServiceVRFReconcilerMetadata),
+			logger:      in.Logger.With(types.ReconcilerLogField, "ServiceVRF"),
+			db:          in.DB,
+			frontends:   in.Frontends,
+			adverts:     in.Adverts,
+			upgrader:    in.Upgrader,
+			srv6Paths:   in.SRv6Paths,
+			srv6Manager: in.SRv6Manager,
+			metadata:    make(map[string]ServiceVRFReconcilerMetadata),
 		},
 	}
 }
@@ -112,6 +109,10 @@ type ServiceVRFReconcilerMetadata struct {
 
 	// vrfSIDs contains SRv6 SID information for VRFs, like SID structure and behavior
 	vrfSIDs VRFSIDInfo
+
+	// frontendChanges is an iterator of changes in frontends since the last reconciliation
+	frontendChanges            statedb.ChangeIterator[*loadbalancer.Frontend]
+	frontendChangesInitialized bool
 }
 
 func (r *ServiceVRFReconciler) getMetadata(i *EnterpriseBGPInstance) ServiceVRFReconcilerMetadata {
@@ -130,8 +131,6 @@ func (r *ServiceVRFReconciler) Init(i *instance.BGPInstance) error {
 	if i == nil {
 		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
 	}
-	r.svcDiffStore.InitDiff(r.diffID(i.Name))
-	r.epDiffStore.InitDiff(r.diffID(i.Name))
 
 	r.metadata[i.Name] = ServiceVRFReconcilerMetadata{
 		vrfPaths:   make(VRFPaths),
@@ -143,15 +142,9 @@ func (r *ServiceVRFReconciler) Init(i *instance.BGPInstance) error {
 
 func (r *ServiceVRFReconciler) Cleanup(i *instance.BGPInstance) {
 	if i != nil {
-		r.svcDiffStore.CleanupDiff(r.diffID(i.Name))
-		r.epDiffStore.CleanupDiff(r.diffID(i.Name))
 
 		delete(r.metadata, i.Name)
 	}
-}
-
-func (r *ServiceVRFReconciler) diffID(instanceName string) string {
-	return fmt.Sprintf("%s-%s", r.Name(), instanceName)
 }
 
 func (r *ServiceVRFReconciler) Priority() int {
@@ -182,27 +175,21 @@ func (r *ServiceVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.Rec
 		return fmt.Errorf("failed to get SID info: %w", err)
 	}
 
-	ls, err := r.populateLocalServices(p.CiliumNode.Name)
-	if err != nil {
-		return fmt.Errorf("failed to populate local services: %w", err)
-	}
-
-	err = r.reconcileServices(ctx, iParams, ls, desiredVRFAdverts, desiredVRFSIDInfo)
+	err = r.reconcileServices(ctx, iParams, desiredVRFAdverts, desiredVRFSIDInfo)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile services: %w", err)
 	}
 
 	// update metadata with the latest configuration
-	r.setMetadata(iParams.BGPInstance, ServiceVRFReconcilerMetadata{
-		vrfPaths:   r.getMetadata(iParams.BGPInstance).vrfPaths,
-		vrfAdverts: desiredVRFAdverts,
-		vrfConfigs: iParams.DesiredConfig.VRFs,
-		vrfSIDs:    desiredVRFSIDInfo,
-	})
+	metadata := r.getMetadata(iParams.BGPInstance)
+	metadata.vrfAdverts = desiredVRFAdverts
+	metadata.vrfConfigs = iParams.DesiredConfig.VRFs
+	metadata.vrfSIDs = desiredVRFSIDInfo
+	r.setMetadata(iParams.BGPInstance, metadata)
 	return nil
 }
 
-func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p EnterpriseReconcileParams, ls sets.Set[resource.Key], desiredVRFAdverts VRFAdvertisements, desiredVRFSIDInfo VRFSIDInfo) error {
+func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p EnterpriseReconcileParams, desiredVRFAdverts VRFAdvertisements, desiredVRFSIDInfo VRFSIDInfo) error {
 	desiredVRFPaths := make(VRFPaths)
 
 	// check if vrf is removed, we clean up the service paths.
@@ -222,15 +209,19 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 		}
 	}
 
-	if r.configModified(p, desiredVRFAdverts, desiredVRFSIDInfo) {
-		r.logger.Debug("performing all services reconciliation")
+	reqFullReconcile := r.configModified(p, desiredVRFAdverts, desiredVRFSIDInfo)
 
-		r.svcDiffStore.InitDiff(r.diffID(p.BGPInstance.Name))
-		r.epDiffStore.InitDiff(r.diffID(p.BGPInstance.Name))
+	// if frontend changes iterator has not been initialized yet (first reconcile), perform full reconciliation
+	if !metadata.frontendChangesInitialized {
+		reqFullReconcile = true
+	}
+
+	if reqFullReconcile {
+		r.logger.Debug("performing all services reconciliation")
 
 		for _, vrf := range p.DesiredConfig.VRFs {
 			// BGP configuration for service advertisement changed, we should reconcile all services.
-			desiredSvcPaths, err := r.getAllPaths(p, ls, vrf, desiredVRFAdverts)
+			desiredSvcPaths, err := r.getAllPaths(p, vrf, desiredVRFAdverts)
 			if err != nil {
 				return err
 			}
@@ -241,14 +232,14 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 
 		// get services to reconcile and to withdraw.
 		// Note : we should only call svc diff only once in a reconcile loop.
-		toReconcile, toWithdraw, err := r.diffReconciliationServiceList(p.BGPInstance)
+		toReconcile, rx, err := r.diffReconciliationServiceList(p.BGPInstance)
 		if err != nil {
 			return err
 		}
 
 		for _, vrf := range p.DesiredConfig.VRFs {
 			// BGP configuration is unchanged, only reconcile modified services.
-			updatedSvcPaths, err := r.getDiffPaths(toReconcile, toWithdraw, ls, vrf, desiredVRFAdverts)
+			updatedSvcPaths, err := r.getDiffPaths(p, toReconcile, vrf, desiredVRFAdverts, rx)
 			if err != nil {
 				return err
 			}
@@ -324,134 +315,93 @@ func (r *ServiceVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseR
 	return updatedSvcPaths, err
 }
 
-func (r *ServiceVRFReconciler) getAllPaths(p EnterpriseReconcileParams, ls sets.Set[resource.Key], bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements) (reconcilerv2.ResourceAFPathsMap, error) {
+func (r *ServiceVRFReconciler) getAllPaths(p EnterpriseReconcileParams, bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements) (reconcilerv2.ResourceAFPathsMap, error) {
+	var err error
 	desiredServiceAFPaths := make(reconcilerv2.ResourceAFPathsMap)
+	metadata := r.getMetadata(p.BGPInstance)
+
+	// re-init changes interator, so that it contains changes since the last full reconciliation
+	tx := r.db.WriteTxn(r.frontends)
+	metadata.frontendChanges, err = r.frontends.Changes(tx)
+	if err != nil {
+		tx.Abort()
+		return nil, fmt.Errorf("error subscribing to frontends changes: %w", err)
+	}
+	rx := tx.Commit()
+	metadata.frontendChangesInitialized = true
+	r.setMetadata(p.BGPInstance, metadata)
+
+	// the initial set of changes emits all existing frontends
+	events, _ := metadata.frontendChanges.Next(rx)
+
+	svcMap := make(map[loadbalancer.ServiceName]*loadbalancer.Service)
+	for frontendEvent := range events {
+		frontend := frontendEvent.Object
+		svcMap[frontend.Service.Name] = frontend.Service
+	}
 
 	// check for services which are no longer present
 	if serviceAFPaths, vrfExists := r.getMetadata(p.BGPInstance).vrfPaths[bgpVRF.VRFRef]; vrfExists {
 		for svcKey := range serviceAFPaths {
-			_, exists, err := r.svcDiffStore.GetByKey(svcKey)
-			if err != nil {
-				return nil, fmt.Errorf("svcDiffStore.GetByKey(): %w", err)
-			}
-
+			svcName := loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name)
 			// if the service no longer exists, withdraw it
-			if !exists {
+			if _, exists := svcMap[svcName]; !exists {
 				desiredServiceAFPaths[svcKey] = nil
 			}
 		}
 	}
 
 	// check all services for advertisement
-	svcList, err := r.svcDiffStore.List()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list services from svcDiffstore: %w", err)
-	}
+	for _, svc := range slices.Collect(maps.Values(svcMap)) {
+		svcKey := resource.Key{Name: svc.Name.Name(), Namespace: svc.Name.Namespace()}
 
-	for _, svc := range svcList {
-		svcKey := resource.Key{
-			Name:      svc.GetName(),
-			Namespace: svc.GetNamespace(),
-		}
-
-		afPaths, err := r.getServiceAFPaths(svc, ls, bgpVRF, desiredVRFAdverts)
+		afPaths, err := r.getServiceAFPaths(p, svc, bgpVRF, desiredVRFAdverts, rx)
 		if err != nil {
 			return nil, err
 		}
-
 		desiredServiceAFPaths[svcKey] = afPaths
 	}
 
 	return desiredServiceAFPaths, nil
 }
 
-func (r *ServiceVRFReconciler) diffReconciliationServiceList(i *EnterpriseBGPInstance) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
-	upserted, deleted, err := r.svcDiffStore.Diff(r.diffID(i.Name))
-	if err != nil {
-		return nil, nil, fmt.Errorf("svc store diff: %w", err)
+func (r *ServiceVRFReconciler) diffReconciliationServiceList(i *EnterpriseBGPInstance) (toReconcile []*loadbalancer.Service, rx statedb.ReadTxn, err error) {
+	metadata := r.getMetadata(i)
+	rx = r.db.ReadTxn()
+
+	// list frontends which changed since the last reconciliation (includes frontends with just backend changed)
+	if !metadata.frontendChangesInitialized {
+		return nil, rx, fmt.Errorf("BUG: frontend changes tracker not initialized, cannot perform diff reconciliation")
 	}
+	events, _ := metadata.frontendChanges.Next(rx)
 
-	// For externalTrafficPolicy=local, we need to take care of
-	// the endpoint changes in addition to the service changes.
-	// Take a diff of the EPs and get affected services.
-	// Also upsert services with deleted endpoints to handle potential withdrawal.
-	epsUpserted, epsDeleted, err := r.epDiffStore.Diff(r.diffID(i.Name))
-	if err != nil {
-		return nil, nil, fmt.Errorf("EPs store diff: %w", err)
+	svcMap := make(map[loadbalancer.ServiceName]*loadbalancer.Service)
+	for frontendEvent := range events {
+		frontend := frontendEvent.Object
+		// even if the frontend was deleted, we still don't know whether whole service was deleted,
+		// so we need to perform its reconciliation instead of just withdrawal
+		svcMap[frontend.Service.Name] = frontend.Service
 	}
-
-	for _, eps := range slices.Concat(epsUpserted, epsDeleted) {
-		svc, exists, err := r.resolveSvcFromEndpoints(eps)
-		if err != nil {
-			// Cannot resolve service from EPs. We have nothing to do here.
-			continue
-		}
-
-		if !exists {
-			// No service associated with this endpoint. We're not interested in this.
-			continue
-		}
-
-		if svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
-			// We only care about LoadBalancer services.
-			continue
-		}
-
-		upserted = append(upserted, svc)
-	}
-
-	// We may have duplicated services that changes happened for both of
-	// service and associated EPs.
-	deduped := ciliumslices.UniqueFunc(
-		upserted,
-		func(i int) resource.Key {
-			return resource.Key{
-				Name:      upserted[i].GetName(),
-				Namespace: upserted[i].GetNamespace(),
-			}
-		},
-	)
-
-	deletedKeys := make([]resource.Key, 0, len(deleted))
-	for _, svc := range deleted {
-		deletedKeys = append(deletedKeys, resource.Key{Name: svc.Name, Namespace: svc.Namespace})
-	}
-
-	return deduped, deletedKeys, nil
+	toReconcile = slices.Collect(maps.Values(svcMap))
+	return
 }
 
-func (r *ServiceVRFReconciler) getDiffPaths(
-	toReconcile []*slim_corev1.Service,
-	toWithdraw []resource.Key,
-	ls sets.Set[resource.Key],
-	bgpVRF v1.IsovalentBGPNodeVRF,
-	desiredVRFAdverts VRFAdvertisements,
-) (reconcilerv2.ResourceAFPathsMap, error) {
-
+func (r *ServiceVRFReconciler) getDiffPaths(p EnterpriseReconcileParams, toReconcile []*loadbalancer.Service, bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements, rx statedb.ReadTxn) (reconcilerv2.ResourceAFPathsMap, error) {
 	desiredServiceAFPaths := make(reconcilerv2.ResourceAFPathsMap)
 	for _, svc := range toReconcile {
-		svcKey := resource.Key{
-			Name:      svc.GetName(),
-			Namespace: svc.GetNamespace(),
-		}
+		svcKey := resource.Key{Name: svc.Name.Name(), Namespace: svc.Name.Namespace()}
 
-		afPaths, err := r.getServiceAFPaths(svc, ls, bgpVRF, desiredVRFAdverts)
+		afPaths, err := r.getServiceAFPaths(p, svc, bgpVRF, desiredVRFAdverts, rx)
 		if err != nil {
 			return nil, err
 		}
-
 		desiredServiceAFPaths[svcKey] = afPaths
-	}
-
-	for _, svcKey := range toWithdraw {
-		// for withdrawn services, we need to set paths to nil.
-		desiredServiceAFPaths[svcKey] = nil
 	}
 
 	return desiredServiceAFPaths, nil
 }
 
-func (r *ServiceVRFReconciler) getServiceAFPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key], bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements) (reconcilerv2.AFPathsMap, error) {
+func (r *ServiceVRFReconciler) getServiceAFPaths(p EnterpriseReconcileParams, svc *loadbalancer.Service, bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements, rx statedb.ReadTxn) (reconcilerv2.AFPathsMap, error) {
 	desiredFamilyPaths := make(reconcilerv2.AFPathsMap)
 
 	vrfFamilyAdvertisements, exists := desiredVRFAdverts[bgpVRF.VRFRef]
@@ -465,7 +415,7 @@ func (r *ServiceVRFReconciler) getServiceAFPaths(svc *slim_corev1.Service, ls se
 
 		for _, advert := range familyAdverts {
 			// get prefixes for the service
-			desiredPrefixes, err := r.getServicePrefixes(svc, advert, ls)
+			desiredPrefixes, err := r.getServicePrefixes(p, svc, advert, rx)
 			if err != nil {
 				return nil, err
 			}
@@ -485,63 +435,6 @@ func (r *ServiceVRFReconciler) getServiceAFPaths(svc *slim_corev1.Service, ls se
 		}
 	}
 	return desiredFamilyPaths, nil
-}
-
-// Populate locally available services used for externalTrafficPolicy=local handling
-func (r *ServiceVRFReconciler) populateLocalServices(localNodeName string) (sets.Set[resource.Key], error) {
-	ls := sets.New[resource.Key]()
-
-	epList, err := r.epDiffStore.List()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list EPs from diffstore: %w", err)
-	}
-
-endpointsLoop:
-	for _, eps := range epList {
-		svc, exists, err := r.resolveSvcFromEndpoints(eps)
-		if err != nil {
-			// Cannot resolve service from EPs. We have nothing to do here.
-			continue
-		}
-
-		if !exists {
-			// No service associated with this endpoint. We're not interested in this.
-			continue
-		}
-
-		if svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
-			// We only care about LoadBalancer services.
-			continue
-		}
-
-		svcKey := resource.Key{
-			Name:      eps.ServiceName.Name(),
-			Namespace: eps.ServiceName.Namespace(),
-		}
-
-		for _, be := range eps.Backends {
-			if !be.Conditions.IsTerminating() && be.NodeName == localNodeName {
-				// At least one endpoint is available on this node. We
-				// can add service to the local services set.
-				ls.Insert(svcKey)
-				continue endpointsLoop
-			}
-		}
-	}
-
-	return ls, nil
-}
-
-func hasLocalEndpoints(svc *slim_corev1.Service, ls sets.Set[resource.Key]) bool {
-	return ls.Has(resource.Key{Name: svc.GetName(), Namespace: svc.GetNamespace()})
-}
-
-func (r *ServiceVRFReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_corev1.Service, bool, error) {
-	k := resource.Key{
-		Name:      eps.ServiceName.Name(),
-		Namespace: eps.ServiceName.Namespace(),
-	}
-	return r.svcDiffStore.GetByKey(k)
 }
 
 // configModified checks if the any of the following configurations have modified
@@ -597,7 +490,7 @@ func (r *ServiceVRFReconciler) vrfSIDInfoEqual(firstVRFs, secondVRFs VRFSIDInfo)
 	return true
 }
 
-func (r *ServiceVRFReconciler) getServicePrefixes(svc *slim_corev1.Service, advert v1.BGPAdvertisement, ls sets.Set[resource.Key]) ([]netip.Prefix, error) {
+func (r *ServiceVRFReconciler) getServicePrefixes(p EnterpriseReconcileParams, svc *loadbalancer.Service, advert v1.BGPAdvertisement, rx statedb.ReadTxn) ([]netip.Prefix, error) {
 	if advert.AdvertisementType != v1.BGPServiceAdvert {
 		return nil, fmt.Errorf("BUG: unexpected advertisement type: %s", advert.AdvertisementType)
 	}
@@ -607,61 +500,55 @@ func (r *ServiceVRFReconciler) getServicePrefixes(svc *slim_corev1.Service, adve
 		return nil, nil
 	}
 
-	// The instance has a service selector, so determine the desired routes.
-	svcSelector, err := slim_metav1.LabelSelectorAsSelector(advert.Selector)
+	// Ignore non matching services.
+	svcSelector, err := slimmetav1.LabelSelectorAsSelector(advert.Selector)
 	if err != nil {
 		return nil, fmt.Errorf("labelSelectorAsSelector: %w", err)
 	}
-
-	// Ignore non matching services.
-	if !svcSelector.Matches(serviceLabelSet(svc)) {
+	if !svcSelector.Matches(svcLabelSet(svc)) {
 		return nil, nil
 	}
+
+	// Lookup service frontends
+	frontends := slices.Collect(statedb.ToSeq(r.frontends.List(rx, loadbalancer.FrontendByServiceName(svc.Name))))
 
 	var desiredRoutes []netip.Prefix
 	// Loop over the service upsertAdverts and determine the desired routes.
 	for _, svcAdv := range advert.Service.Addresses {
 		if svcAdv == v2.BGPLoadBalancerIPAddr {
-			desiredRoutes = append(desiredRoutes, r.getETPLocalLBSvcPaths(svc, ls)...)
+			desiredRoutes = append(desiredRoutes, r.getETPLocalLBSvcPaths(p, svc, frontends)...)
 		}
 	}
 
 	return desiredRoutes, nil
 }
 
-func (r *ServiceVRFReconciler) getETPLocalLBSvcPaths(svc *slim_corev1.Service, ls sets.Set[resource.Key]) []netip.Prefix {
-	var desiredPrefixes []netip.Prefix
-	if svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
-		return desiredPrefixes
+func (r *ServiceVRFReconciler) getETPLocalLBSvcPaths(p EnterpriseReconcileParams, svc *loadbalancer.Service, frontends []*loadbalancer.Frontend) []netip.Prefix {
+	desiredPrefixes := sets.New[netip.Prefix]()
+
+	// Ignore service managed by an unsupported LB class.
+	if svc.LoadBalancerClass != nil && *svc.LoadBalancerClass != v2.BGPLoadBalancerClass {
+		return nil
 	}
 
 	// Ignore externalTrafficPolicy other than local. Current SRv6 datapath does not support eTP cluster.
-	if svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
-		return desiredPrefixes
+	if svc.ExtTrafficPolicy != loadbalancer.SVCTrafficPolicyLocal {
+		return nil
 	}
 
-	// Ignore if there is no local EPs.
-	if !hasLocalEndpoints(svc, ls) {
-		return desiredPrefixes
-	}
-
-	// Ignore service managed by an unsupported LB class.
-	if svc.Spec.LoadBalancerClass != nil && *svc.Spec.LoadBalancerClass != v2.BGPLoadBalancerClass {
-		// The service is managed by a different LB class.
-		return desiredPrefixes
-	}
-
-	for _, ingress := range svc.Status.LoadBalancer.Ingress {
-		if ingress.IP == "" {
+	for _, fe := range frontends {
+		if fe.Type != loadbalancer.SVCTypeLoadBalancer {
 			continue
 		}
-		addr, err := netip.ParseAddr(ingress.IP)
-		if err != nil {
+		// Ignore if there is no local EPs.
+		if !hasLocalBackends(p, fe) {
 			continue
 		}
-		desiredPrefixes = append(desiredPrefixes, netip.PrefixFrom(addr, addr.BitLen()))
+		addr := fe.Address.Addr()
+		desiredPrefixes.Insert(netip.PrefixFrom(addr, addr.BitLen()))
 	}
-	return desiredPrefixes
+
+	return desiredPrefixes.UnsortedList()
 }
 
 func (r *ServiceVRFReconciler) getConfiguredSIDInfo(bgpConfig *v1.IsovalentBGPNodeInstance) (VRFSIDInfo, error) {
@@ -675,14 +562,4 @@ func (r *ServiceVRFReconciler) getConfiguredSIDInfo(bgpConfig *v1.IsovalentBGPNo
 		desiredVRFSIDInfo[bgpVRF.VRFRef] = vrfInfo.SIDInfo
 	}
 	return desiredVRFSIDInfo, nil
-}
-
-func serviceLabelSet(svc *slim_corev1.Service) labels.Labels {
-	svcLabels := maps.Clone(svc.Labels)
-	if svcLabels == nil {
-		svcLabels = make(map[string]string)
-	}
-	svcLabels["io.kubernetes.service.name"] = svc.Name
-	svcLabels["io.kubernetes.service.namespace"] = svc.Namespace
-	return labels.Set(svcLabels)
 }
