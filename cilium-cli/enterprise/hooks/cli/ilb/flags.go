@@ -34,6 +34,7 @@ var (
 
 	FlagMode             string
 	FlagSingleNodeIPAddr string
+	FlagNetworkName      string
 
 	FlagRun []string
 

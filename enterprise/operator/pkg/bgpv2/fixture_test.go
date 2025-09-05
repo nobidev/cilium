@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bfd"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
@@ -106,11 +107,11 @@ func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, fc f
 			operatorK8s.CiliumBGPNodeConfigOverrideResource,
 		),
 
-		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset) resource.Resource[*cilium_v2.CiliumNode] {
+		cell.Provide(func(lc cell.Lifecycle, c k8s_client.Clientset, mp workqueue.MetricsProvider) resource.Resource[*cilium_v2.CiliumNode] {
 			return resource.New[*cilium_v2.CiliumNode](
 				lc, utils.ListerWatcherFromTyped(
 					c.CiliumV2().CiliumNodes(),
-				),
+				), mp,
 			)
 		}),
 

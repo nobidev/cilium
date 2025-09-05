@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
+	"k8s.io/client-go/util/workqueue"
 
 	bgpv2config "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
@@ -70,11 +71,11 @@ func newFixture(t *testing.T, ctx context.Context, req *require.Assertions) *fix
 			k8s.IsovalentBGPPeerConfigResource,
 		),
 
-		cell.Provide(func(lc cell.Lifecycle, c k8sclient.Clientset) resource.Resource[*ciliumv2.CiliumNode] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sclient.Clientset, mp workqueue.MetricsProvider) resource.Resource[*ciliumv2.CiliumNode] {
 			return resource.New[*ciliumv2.CiliumNode](
 				lc, utils.ListerWatcherFromTyped[*ciliumv2.CiliumNodeList](
 					c.CiliumV2().CiliumNodes(),
-				),
+				), mp,
 			)
 		}),
 

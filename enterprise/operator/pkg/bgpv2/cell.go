@@ -12,6 +12,7 @@ package bgpv2
 
 import (
 	"github.com/cilium/hive/cell"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
@@ -65,7 +66,7 @@ var Cell = cell.Module(
 	),
 )
 
-func newSecretResource(lc cell.Lifecycle, c client.Clientset, cc config.Config, dc *option.DaemonConfig) resource.Resource[*slim_core_v1.Secret] {
+func newSecretResource(lc cell.Lifecycle, c client.Clientset, mp workqueue.MetricsProvider, cc config.Config, dc *option.DaemonConfig) resource.Resource[*slim_core_v1.Secret] {
 	if !c.IsEnabled() || !cc.Enabled {
 		return nil
 	}
@@ -75,5 +76,5 @@ func newSecretResource(lc cell.Lifecycle, c client.Clientset, cc config.Config, 
 	return resource.New[*slim_core_v1.Secret](
 		lc, utils.ListerWatcherFromTyped(
 			c.Slim().CoreV1().Secrets(dc.BGPSecretsNamespace),
-		))
+		), mp)
 }

@@ -504,6 +504,12 @@ bgpControlPlane:
     mode: "default"
     # -- IP pool to allocate the BGP router-id from when the mode is ip-pool.
     ipPool: ""
+  # -- Legacy BGP ORIGIN attribute settings (BGPv2 only)
+  legacyOriginAttribute:
+    # -- Enable/Disable advertising LoadBalancerIP routes with the legacy
+    # BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0).
+    # Enable for compatibility with the legacy behavior of MetalLB integration.
+    enabled: false
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
@@ -555,7 +561,7 @@ bpf:
   # Helm configuration for BPF events map rate limiting is experimental and might change
   # in upcoming releases.
   events:
-    # -- Default settings for all types of events except dbg and pcap.
+    # -- Default settings for all types of events except dbg.
     default:
       # @schema
       # type: [null, integer]
@@ -615,6 +621,12 @@ bpf:
   # type: [null, integer]
   # @schema
   policyMapMax: 16384
+  # -- (float64) Configure threshold for emitting pressure metrics of policy maps.
+  # @schema
+  # type: [null, number]
+  # @schema
+  # @default -- `0.1`
+  policyMapPressureMetricsThreshold: ~
   # -- Configure the maximum number of entries in global policy stats map.
   # @schema
   # type: [null, integer]
@@ -1739,6 +1751,10 @@ hubble:
       address: localhost
       # -- Configure pprof listen port for hubble-relay
       port: 6062
+      # -- Enable mutex contention profiling for hubble-relay and set the fraction of sampled events (set to 1 to sample all events)
+      mutexProfileFraction: 0
+      # -- Enable goroutine blocking profiling for hubble-relay and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+      blockProfileRate: 0
   ui:
     # -- Whether to enable the Hubble UI.
     enabled: false
@@ -2183,7 +2199,7 @@ maglev: {}
 # type: [null, boolean]
 # @schema
 # -- (bool) Enables masquerading of IPv4 traffic leaving the node from endpoints.
-# @default -- `true` unless ipam eni mode is active 
+# @default -- `true` unless ipam eni mode is active
 enableIPv4Masquerade: ~
 # -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
 enableIPv6Masquerade: true
@@ -2296,8 +2312,6 @@ loadBalancer:
     algorithm: round_robin
 # -- Configure N-S k8s service loadbalancing
 nodePort:
-  # -- Enable the Cilium NodePort service implementation.
-  enabled: false
   # -- Port range to use for NodePort services.
   # range: "30000,32767"
 
@@ -2342,6 +2356,10 @@ pprof:
   address: localhost
   # -- Configure pprof listen port for cilium-agent
   port: 6060
+  # -- Enable mutex contention profiling for cilium-agent and set the fraction of sampled events (set to 1 to sample all events)
+  mutexProfileFraction: 0
+  # -- Enable goroutine blocking profiling for cilium-agent and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+  blockProfileRate: 0
 # -- Configure prometheus metrics on the configured port at /metrics
 prometheus:
   metricsService: false
@@ -2732,7 +2750,6 @@ resourceQuotas:
       pods: "15"
 # Need to document default
 ##################
-#sessionAffinity: false
 
 # -- Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
 secretsNamespaceAnnotations: {}
@@ -2741,8 +2758,6 @@ secretsNamespaceAnnotations: {}
 # uninstall Cilium as it will stop Cilium from starting and create artifacts
 # in the node.
 sleepAfterInit: false
-# -- Enable check of service source ranges (currently, only for LoadBalancer).
-svcSourceRangeCheck: true
 # -- Synchronize Kubernetes nodes to kvstore and perform CNP GC.
 synchronizeK8sNodes: true
 # -- Configure TLS configuration in the agent.
@@ -3022,6 +3037,10 @@ operator:
     address: localhost
     # -- Configure pprof listen port for cilium-operator
     port: 6061
+    # -- Enable mutex contention profiling for cilium-operator and set the fraction of sampled events (set to 1 to sample all events)
+    mutexProfileFraction: 0
+    # -- Enable goroutine blocking profiling for cilium-operator and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+    blockProfileRate: 0
   # -- Enable prometheus metrics for cilium-operator on the configured port at
   # /metrics
   prometheus:
@@ -3088,6 +3107,12 @@ operator:
     # -- Interval, in seconds, to check if there are any pods that are not
     # managed by Cilium.
     intervalSeconds: 15
+    # -- Selector for pods that should be restarted when not managed by Cilium.
+    # If not set, defaults to built-in selector "k8s-app=kube-dns". Set to empty string to select all pods.
+    # @schema
+    # type: [null, string]
+    # @schema
+    selector: ~
 nodeinit:
   # -- Enable the node initialization DaemonSet
   enabled: false
@@ -4120,4 +4145,3 @@ authentication:
 enableInternalTrafficPolicy: true
 # -- Enable LoadBalancer IP Address Management
 enableLBIPAM: true
-

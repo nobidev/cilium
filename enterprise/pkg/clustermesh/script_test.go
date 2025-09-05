@@ -28,7 +28,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
@@ -44,11 +43,12 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dial"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
-	"github.com/cilium/cilium/pkg/k8s/testutils"
+	k8stestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -64,6 +64,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -72,17 +73,17 @@ var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
 	// Catch any leaked goroutines. Ignoring goroutines possibly left by other tests.
-	leakOpts := goleak.IgnoreCurrent()
+	leakOpts := testutils.GoleakIgnoreCurrent()
 	t.Cleanup(func() {
-		goleak.VerifyNone(t,
+		testutils.GoleakVerifyNone(t,
 			leakOpts,
 			// Ignore workqueue metrics collection goroutine, this would otherwise be
 			// cleaned up shortly after the tests complete.
-			goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Typed[...]).updateUnfinishedWorkLoop"),
+			testutils.GoleakIgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Typed[...]).updateUnfinishedWorkLoop"),
 		)
 	})
 
-	version.Force(testutils.DefaultVersion)
+	version.Force(k8stestutils.DefaultVersion)
 
 	var opts []hivetest.LogOption
 	if *debug {
@@ -107,10 +108,11 @@ func TestScript(t *testing.T) {
 			k8sfake.FakeClientCell(),
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,
+			cell.Config(envoyCfg.SecretSyncConfig{}),
 			lbcell.Cell,
 
 			maglev.Cell,
-			node.LocalNodeStoreCell,
+			node.LocalNodeStoreTestCell,
 			cni.Cell,
 			ipset.Cell,
 			dial.ServiceResolverCell,
@@ -131,8 +133,7 @@ func TestScript(t *testing.T) {
 				},
 				func() kpr.KPRConfig {
 					return kpr.KPRConfig{
-						EnableNodePort:       true,
-						KubeProxyReplacement: option.KubeProxyReplacementTrue,
+						KubeProxyReplacement: true,
 					}
 				},
 				func() store.Factory {

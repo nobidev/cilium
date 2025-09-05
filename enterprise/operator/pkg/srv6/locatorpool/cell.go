@@ -13,6 +13,7 @@ package locatorpool
 import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+	"k8s.io/client-go/util/workqueue"
 
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -58,7 +59,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(srv6LocatorBoolEnabled, cfg.Enabled, "Enable SRv6 locator pool in Cilium")
 }
 
-func newLocatorPoolResource(lc cell.Lifecycle, c client.Clientset, cfg Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentSRv6LocatorPool] {
+func newLocatorPoolResource(lc cell.Lifecycle, c client.Clientset, mp workqueue.MetricsProvider, cfg Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentSRv6LocatorPool] {
 	if !cfg.Enabled {
 		return nil
 	}
@@ -66,10 +67,10 @@ func newLocatorPoolResource(lc cell.Lifecycle, c client.Clientset, cfg Config) r
 	return resource.New[*isovalent_api_v1alpha1.IsovalentSRv6LocatorPool](
 		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentSRv6LocatorPoolList](
 			c.IsovalentV1alpha1().IsovalentSRv6LocatorPools(),
-		), resource.WithMetric("IsovalentSRv6LocatorPool"))
+		), mp, resource.WithMetric("IsovalentSRv6LocatorPool"))
 }
 
-func newSIDManagerResource(lc cell.Lifecycle, c client.Clientset, cfg Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentSRv6SIDManager] {
+func newSIDManagerResource(lc cell.Lifecycle, c client.Clientset, mp workqueue.MetricsProvider, cfg Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentSRv6SIDManager] {
 	if !cfg.Enabled {
 		return nil
 	}
@@ -77,10 +78,10 @@ func newSIDManagerResource(lc cell.Lifecycle, c client.Clientset, cfg Config) re
 	return resource.New[*isovalent_api_v1alpha1.IsovalentSRv6SIDManager](
 		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentSRv6SIDManagerList](
 			c.IsovalentV1alpha1().IsovalentSRv6SIDManagers(),
-		), resource.WithMetric("IsovalentSRv6SIDManager"))
+		), mp, resource.WithMetric("IsovalentSRv6SIDManager"))
 }
 
-func newNodeResource(lc cell.Lifecycle, c client.Clientset, cfg Config) resource.Resource[*slim_core_v1.Node] {
+func newNodeResource(lc cell.Lifecycle, c client.Clientset, mp workqueue.MetricsProvider, cfg Config) resource.Resource[*slim_core_v1.Node] {
 	if !cfg.Enabled {
 		return nil
 	}
@@ -88,5 +89,5 @@ func newNodeResource(lc cell.Lifecycle, c client.Clientset, cfg Config) resource
 	return resource.New[*slim_core_v1.Node](
 		lc, utils.ListerWatcherFromTyped[*slim_core_v1.NodeList](
 			c.Slim().CoreV1().Nodes(),
-		), resource.WithMetric("Node"))
+		), mp, resource.WithMetric("Node"))
 }

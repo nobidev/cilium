@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	containerNetwork = "kind-cilium"
+	DefaultContainerNetwork = "kind-cilium"
 )
 
 const (

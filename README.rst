@@ -38,8 +38,8 @@ and flexible. To learn more about eBPF, visit `eBPF.io`_.
    </a>
    <a href="https://ebpf.io/">
       <picture>
-         <source media="(prefers-color-scheme: light)" srcset=".github/assets/powered-by-ebpf.svg" />
-         <img src=".github/assets/powered-by-ebpf_white.svg" alt="Powered by eBPF" height="80" align="right" />
+         <source media="(prefers-color-scheme: light)" srcset=".github/assets/ebpf-horizontal.svg" />
+         <img src=".github/assets/ebpf-horizontal-dark-back.svg" alt="eBPF Logo" height="80" align="right" />
       </picture>
    </a>
 
@@ -56,11 +56,11 @@ Listed below are the actively maintained release branches along with their lates
 patch release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.18 <https://github.com/cilium/cilium/tree/v1.18>`__ | 2025-07-29 | ``quay.io/cilium/cilium:v1.18.0``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.18.0>`__  |
+| `v1.18 <https://github.com/cilium/cilium/tree/v1.18>`__ | 2025-08-15 | ``quay.io/cilium/cilium:v1.18.1``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.18.1>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.17 <https://github.com/cilium/cilium/tree/v1.17>`__ | 2025-07-16 | ``quay.io/cilium/cilium:v1.17.6``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.17.6>`__  |
+| `v1.17 <https://github.com/cilium/cilium/tree/v1.17>`__ | 2025-08-15 | ``quay.io/cilium/cilium:v1.17.7``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.17.7>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.16 <https://github.com/cilium/cilium/tree/v1.16>`__ | 2025-07-16 | ``quay.io/cilium/cilium:v1.16.12`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.16.12>`__ |
+| `v1.16 <https://github.com/cilium/cilium/tree/v1.16>`__ | 2025-08-15 | ``quay.io/cilium/cilium:v1.16.13`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.16.13>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 
 Architectures

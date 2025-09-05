@@ -12,6 +12,7 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/api/v1/models"
@@ -61,7 +62,7 @@ func (c Config) Flags(flags *pflag.FlagSet) {
 // Note: Ideally, his would live in github.com/cilium/cilium/daemon/k8s
 // But to keep merge conflicts with Cilium OSS to a minimum, and since we are
 // the only user of this resource anyway, we keep this private for now.
-func isovalentPodNetworkResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*iso_v1alpha1.IsovalentPodNetwork], error) {
+func isovalentPodNetworkResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*iso_v1alpha1.IsovalentPodNetwork], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -69,7 +70,7 @@ func isovalentPodNetworkResource(lc cell.Lifecycle, cs client.Clientset, opts ..
 		utils.ListerWatcherFromTyped[*iso_v1alpha1.IsovalentPodNetworkList](cs.IsovalentV1alpha1().IsovalentPodNetworks()),
 		opts...,
 	)
-	return resource.New[*iso_v1alpha1.IsovalentPodNetwork](lc, lw, resource.WithMetric("IsovalentPodNetwork")), nil
+	return resource.New[*iso_v1alpha1.IsovalentPodNetwork](lc, lw, mp, resource.WithMetric("IsovalentPodNetwork")), nil
 }
 
 type managerParams struct {

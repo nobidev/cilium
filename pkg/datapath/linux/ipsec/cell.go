@@ -55,11 +55,11 @@ func (kc *keyCustodian) Start(cell.HookContext) error {
 	}
 
 	var err error
-	kc.authKeySize, kc.spi, err = LoadIPSecKeysFile(kc.log, option.Config.IPSecKeyFile)
+	kc.authKeySize, kc.spi, err = LoadIPSecKeysFile(option.Config.IPSecKeyFile)
 	if err != nil {
 		return err
 	}
-	if err := SetIPSecSPI(kc.log, kc.spi); err != nil {
+	if err := kc.setIPSecSPI(kc.spi); err != nil {
 		return err
 	}
 
@@ -73,7 +73,7 @@ func (kc *keyCustodian) Start(cell.HookContext) error {
 // StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
 func (kc *keyCustodian) StartBackgroundJobs(handler types.NodeHandler) error {
 	if option.Config.EnableIPSec {
-		if err := StartKeyfileWatcher(kc.log, kc.jobs, option.Config.IPSecKeyFile, handler); err != nil {
+		if err := kc.startKeyfileWatcher(option.Config.IPSecKeyFile, handler); err != nil {
 			return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
 		}
 

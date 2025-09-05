@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -129,25 +130,25 @@ func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, init
 	}
 
 	f.hive = hive.New(
-		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*isovalent_api_v1alpha1.IsovalentMulticastGroup] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset, mp workqueue.MetricsProvider) resource.Resource[*isovalent_api_v1alpha1.IsovalentMulticastGroup] {
 			return resource.New[*isovalent_api_v1alpha1.IsovalentMulticastGroup](
 				lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentMulticastGroupList](
 					c.IsovalentV1alpha1().IsovalentMulticastGroups(),
-				),
+				), mp,
 			)
 		}),
 
-		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*isovalent_api_v1alpha1.IsovalentMulticastNode] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset, mp workqueue.MetricsProvider) resource.Resource[*isovalent_api_v1alpha1.IsovalentMulticastNode] {
 			return resource.New[*isovalent_api_v1alpha1.IsovalentMulticastNode](
 				lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentMulticastNodeList](
 					c.IsovalentV1alpha1().IsovalentMulticastNodes(),
-				),
+				), mp,
 			)
 		}),
 
-		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*k8sTypes.CiliumEndpoint] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset, mp workqueue.MetricsProvider) resource.Resource[*k8sTypes.CiliumEndpoint] {
 			lw := utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumEndpointList](c.CiliumV2().CiliumEndpoints(slim_corev1.NamespaceAll))
-			return resource.New[*k8sTypes.CiliumEndpoint](lc, lw,
+			return resource.New[*k8sTypes.CiliumEndpoint](lc, lw, mp,
 				resource.WithLazyTransform(func() runtime.Object {
 					return &cilium_api_v2.CiliumEndpoint{}
 				}, k8s.TransformToCiliumEndpoint),

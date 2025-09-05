@@ -47,7 +47,7 @@ func TestConfigValidate(t *testing.T) {
 				RoutingMode: option.RoutingModeNative,
 			},
 			kprCfg: kpr.KPRConfig{
-				KubeProxyReplacement: option.KubeProxyReplacementFalse,
+				KubeProxyReplacement: false,
 			},
 			assertion: assert.NoError,
 		},
@@ -74,62 +74,6 @@ func TestConfigValidate(t *testing.T) {
 			assertion: assert.Error,
 		},
 		{
-			name: "ClusterAwareAddressing enabled and KPR true (NodePort disabled)",
-			cfg: Config{
-				EnableClusterAwareAddressing: true,
-				EnableInterClusterSNAT:       false,
-				EnablePhantomServices:        true,
-			},
-			dcfg: &option.DaemonConfig{},
-			kprCfg: kpr.KPRConfig{
-				KubeProxyReplacement: option.KubeProxyReplacementTrue,
-				EnableNodePort:       false,
-			},
-			assertion: assert.NoError,
-		},
-		{
-			name: "ClusterAwareAddressing enabled and KPR true (NodePort enabled)",
-			cfg: Config{
-				EnableClusterAwareAddressing: true,
-				EnableInterClusterSNAT:       false,
-				EnablePhantomServices:        true,
-			},
-			dcfg: &option.DaemonConfig{},
-			kprCfg: kpr.KPRConfig{
-				KubeProxyReplacement: option.KubeProxyReplacementTrue,
-				EnableNodePort:       true,
-			},
-			assertion: assert.NoError,
-		},
-		{
-			name: "ClusterAwareAddressing enabled and KPR false (NodePort disabled)",
-			cfg: Config{
-				EnableClusterAwareAddressing: true,
-				EnableInterClusterSNAT:       false,
-				EnablePhantomServices:        true,
-			},
-			dcfg: &option.DaemonConfig{},
-			kprCfg: kpr.KPRConfig{
-				KubeProxyReplacement: option.KubeProxyReplacementFalse,
-				EnableNodePort:       false,
-			},
-			assertion: assert.Error,
-		},
-		{
-			name: "ClusterAwareAddressing enabled and KPR false (NodePort enabled)",
-			cfg: Config{
-				EnableClusterAwareAddressing: true,
-				EnableInterClusterSNAT:       false,
-				EnablePhantomServices:        true,
-			},
-			dcfg: &option.DaemonConfig{},
-			kprCfg: kpr.KPRConfig{
-				KubeProxyReplacement: option.KubeProxyReplacementFalse,
-				EnableNodePort:       true,
-			},
-			assertion: assert.NoError,
-		},
-		{
 			name: "ClusterAwareAddressing enabled and KPR true",
 			cfg: Config{
 				EnableClusterAwareAddressing: true,
@@ -138,8 +82,22 @@ func TestConfigValidate(t *testing.T) {
 			},
 			dcfg: &option.DaemonConfig{},
 			kprCfg: kpr.KPRConfig{
-				KubeProxyReplacement: option.KubeProxyReplacementTrue},
+				KubeProxyReplacement: true,
+			},
 			assertion: assert.NoError,
+		},
+		{
+			name: "ClusterAwareAddressing enabled and KPR false",
+			cfg: Config{
+				EnableClusterAwareAddressing: true,
+				EnableInterClusterSNAT:       false,
+				EnablePhantomServices:        true,
+			},
+			dcfg: &option.DaemonConfig{},
+			kprCfg: kpr.KPRConfig{
+				KubeProxyReplacement: false,
+			},
+			assertion: assert.Error,
 		},
 		{
 			name: "ClusterAwareAddressing enabled and EndpointRoutes enabled",

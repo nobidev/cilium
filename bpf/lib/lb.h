@@ -280,21 +280,13 @@ bool lb6_svc_is_loopback(const struct lb6_service *svc __maybe_unused)
 static __always_inline
 bool lb4_svc_has_src_range_check(const struct lb4_service *svc __maybe_unused)
 {
-#ifdef ENABLE_SRC_RANGE_CHECK
 	return svc->flags & SVC_FLAG_SOURCE_RANGE;
-#else
-	return false;
-#endif /* ENABLE_SRC_RANGE_CHECK */
 }
 
 static __always_inline
 bool lb6_svc_has_src_range_check(const struct lb6_service *svc __maybe_unused)
 {
-#ifdef ENABLE_SRC_RANGE_CHECK
 	return svc->flags & SVC_FLAG_SOURCE_RANGE;
-#else
-	return false;
-#endif /* ENABLE_SRC_RANGE_CHECK */
 }
 
 static __always_inline
@@ -573,16 +565,9 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off, __u16
 }
 
 static __always_inline void
-lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
-		     __u8 protocol __maybe_unused)
-{
-	key->proto = protocol;
-}
-
-static __always_inline void
 lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
 {
-	lb6_key_set_protocol(key, tuple->nexthdr);
+	key->proto = tuple->nexthdr;
 	ipv6_addr_copy(&key->address, &tuple->daddr);
 	key->dport = tuple->sport;
 }
@@ -627,7 +612,6 @@ static __always_inline
 bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 		      const union v6addr *saddr __maybe_unused)
 {
-#ifdef ENABLE_SRC_RANGE_CHECK
 	struct lb6_src_range_key key;
 	bool verdict = false;
 
@@ -644,9 +628,6 @@ bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 		verdict = true;
 
 	return verdict ^ !!(svc->flags2 & SVC_FLAG_SOURCE_RANGE_DENY);
-#else
-	return true;
-#endif /* ENABLE_SRC_RANGE_CHECK */
 }
 
 static __always_inline bool
@@ -662,37 +643,68 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 static __always_inline
 struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 {
-	struct lb6_service *svc;
+	return map_lookup_elem(&cilium_lb6_services_v2, key);
+}
 
-	svc = map_lookup_elem(&cilium_lb6_services_v2, key);
+static __always_inline
+bool lb6_key_is_wildcard(const struct lb6_key *key)
+{
+	return unlikely(key->dport == LB_SVC_WILDCARD_DPORT &&
+			key->proto == LB_SVC_WILDCARD_PROTO);
+}
 
-	/* If there are no elements for a specific protocol, check for ANY entries. */
-	if (!svc && key->proto != IPPROTO_ANY) {
-		key->proto = IPPROTO_ANY;
-		svc = map_lookup_elem(&cilium_lb6_services_v2, key);
-	}
+static __always_inline
+void lb6_key_to_wildcard(struct lb6_key *key, __u8 *proto, __u16 *dport)
+{
+	*proto = key->proto;
+	*dport = key->dport;
 
-	return svc;
+	key->dport = LB_SVC_WILDCARD_DPORT;
+	key->proto = LB_SVC_WILDCARD_PROTO;
+}
+
+static __always_inline
+void lb6_wildcard_to_key(struct lb6_key *key, __u8 proto, __u16 dport)
+{
+	key->proto = proto;
+	key->dport = dport;
 }
 
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key,
-				       const bool scope_switch)
+				       const bool east_west)
 {
-	__u8 orig_proto = key->proto;
 	struct lb6_service *svc;
+	__u16 dport;
+	__u8 proto;
 
 	key->backend_slot = 0;
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb6_lookup_service(key);
-	if (!svc)
-		return NULL;
+	if (!svc) {
+		if (east_west)
+			return NULL;
 
-	if (!scope_switch || !lb6_svc_is_two_scopes(svc))
+		/* If wildcard lookup was successful, we return the wildcard
+		 * service while leaving the modified dport/proto values in
+		 * the key. A wildcard service entry will have no backends
+		 * and so caller should trigger a drop.
+		 */
+		lb6_key_to_wildcard(key, &proto, &dport);
+		svc = __lb6_lookup_service(key);
+		if (svc)
+			return svc;
+
+		/* If we have no external scope for this, it's safe to return
+		 * NULL here because there can't be an internal scope today.
+		 */
+		lb6_wildcard_to_key(key, proto, dport);
+		return NULL;
+	}
+	if (!east_west || !lb6_svc_is_two_scopes(svc))
 		return svc;
 
-	key->proto = orig_proto;
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb6_lookup_service(key);
 }
@@ -860,7 +872,6 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 			   backend->port);
 }
 
-#ifdef ENABLE_SESSION_AFFINITY
 static __always_inline __u32 lb6_affinity_timeout(const struct lb6_service *svc)
 {
 	return svc->affinity_timeout & AFFINITY_TIMEOUT_MASK;
@@ -942,17 +953,12 @@ lb6_update_affinity_by_addr(const struct lb6_service *svc,
 {
 	__lb6_update_affinity(svc, false, id, backend_id);
 }
-#endif /* ENABLE_SESSION_AFFINITY */
 
 static __always_inline __u32
 lb6_affinity_backend_id_by_netns(const struct lb6_service *svc __maybe_unused,
 				 union lb6_affinity_client_id *id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY)
 	return __lb6_affinity_backend_id(svc, true, id);
-#else
-	return 0;
-#endif
 }
 
 static __always_inline void
@@ -960,9 +966,7 @@ lb6_update_affinity_by_netns(const struct lb6_service *svc __maybe_unused,
 			     union lb6_affinity_client_id *id __maybe_unused,
 			     __u32 backend_id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY)
 	__lb6_update_affinity(svc, true, id, backend_id);
-#endif
 }
 
 static __always_inline int
@@ -1015,11 +1019,9 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	struct lb6_backend *backend;
 	__u32 backend_id = 0;
 	int ret;
-#ifdef ENABLE_SESSION_AFFINITY
 	union lb6_affinity_client_id client_id;
 
 	ipv6_addr_copy(&client_id.client_ip, &tuple->saddr);
-#endif
 
 	state->rev_nat_index = svc->rev_nat_index;
 
@@ -1034,7 +1036,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (unlikely(svc->count == 0))
 			goto no_service;
 
-#ifdef ENABLE_SESSION_AFFINITY
 		if (lb6_svc_is_affinity(svc)) {
 			backend_id = lb6_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
@@ -1043,7 +1044,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 					backend_id = 0;
 			}
 		}
-#endif
 		if (backend_id == 0) {
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 			backend = lb6_lookup_backend(ctx, backend_id);
@@ -1110,10 +1110,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
 	tuple->flags = flags;
-#ifdef ENABLE_SESSION_AFFINITY
 	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id, backend_id);
-#endif
 
 #if defined(ENABLE_LOCAL_REDIRECT_POLICY)
 	if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
@@ -1184,15 +1182,9 @@ static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
  */
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key __maybe_unused,
-				       const bool scope_switch __maybe_unused)
+				       const bool east_west __maybe_unused)
 {
 	return NULL;
-}
-
-static __always_inline void
-lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
-		     __u8 protocol __maybe_unused)
-{
 }
 
 static __always_inline
@@ -1313,16 +1305,9 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 }
 
 static __always_inline void
-lb4_key_set_protocol(struct lb4_key *key __maybe_unused,
-		     __u8 protocol __maybe_unused)
-{
-	key->proto = protocol;
-}
-
-static __always_inline void
 lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
 {
-	lb4_key_set_protocol(key, tuple->nexthdr);
+	key->proto = tuple->nexthdr;
 	key->address = tuple->daddr;
 	/* CT tuple has ports in reverse order: */
 	key->dport = tuple->sport;
@@ -1367,7 +1352,6 @@ static __always_inline
 bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 		      __u32 saddr __maybe_unused)
 {
-#ifdef ENABLE_SRC_RANGE_CHECK
 	struct lb4_src_range_key key;
 	bool verdict = false;
 
@@ -1384,9 +1368,6 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 		verdict = true;
 
 	return verdict ^ !!(svc->flags2 & SVC_FLAG_SOURCE_RANGE_DENY);
-#else
-	return true;
-#endif /* ENABLE_SRC_RANGE_CHECK */
 }
 
 static __always_inline bool
@@ -1402,37 +1383,68 @@ lb4_to_lb6_service(const struct lb4_service *svc __maybe_unused)
 static __always_inline
 struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 {
-	struct lb4_service *svc;
+	return map_lookup_elem(&cilium_lb4_services_v2, key);
+}
 
-	svc = map_lookup_elem(&cilium_lb4_services_v2, key);
+static __always_inline
+bool lb4_key_is_wildcard(const struct lb4_key *key)
+{
+	return unlikely(key->dport == LB_SVC_WILDCARD_DPORT &&
+			key->proto == LB_SVC_WILDCARD_PROTO);
+}
 
-	/* If there are no elements for a specific protocol, check for ANY entries. */
-	if (!svc && key->proto != IPPROTO_ANY) {
-		key->proto = IPPROTO_ANY;
-		svc = map_lookup_elem(&cilium_lb4_services_v2, key);
-	}
+static __always_inline
+void lb4_key_to_wildcard(struct lb4_key *key, __u8 *proto, __u16 *dport)
+{
+	*proto = key->proto;
+	*dport = key->dport;
 
-	return svc;
+	key->dport = LB_SVC_WILDCARD_DPORT;
+	key->proto = LB_SVC_WILDCARD_PROTO;
+}
+
+static __always_inline
+void lb4_wildcard_to_key(struct lb4_key *key, __u8 proto, __u16 dport)
+{
+	key->proto = proto;
+	key->dport = dport;
 }
 
 static __always_inline
 struct lb4_service *lb4_lookup_service(struct lb4_key *key,
-				       const bool scope_switch)
+				       const bool east_west)
 {
-	__u8 orig_proto = key->proto;
 	struct lb4_service *svc;
+	__u16 dport;
+	__u8 proto;
 
 	key->backend_slot = 0;
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb4_lookup_service(key);
-	if (!svc)
-		return NULL;
+	if (!svc) {
+		if (east_west)
+			return NULL;
 
-	if (!scope_switch || !lb4_svc_is_two_scopes(svc))
+		/* If wildcard lookup was successful, we return the wildcard
+		 * service while leaving the modified dport/proto values in
+		 * the key. A wildcard service entry will have no backends
+		 * and so caller should trigger a drop.
+		 */
+		lb4_key_to_wildcard(key, &proto, &dport);
+		svc = __lb4_lookup_service(key);
+		if (svc)
+			return svc;
+
+		/* If we have no external scope for this, it's safe to return
+		 * NULL here because there can't be an internal scope today.
+		 */
+		lb4_wildcard_to_key(key, proto, dport);
+		return NULL;
+	}
+	if (!east_west || !lb4_svc_is_two_scopes(svc))
 		return svc;
 
-	key->proto = orig_proto;
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb4_lookup_service(key);
 }
@@ -1618,7 +1630,6 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 			       CTX_ACT_OK;
 }
 
-#ifdef ENABLE_SESSION_AFFINITY
 static __always_inline __u32 lb4_affinity_timeout(const struct lb4_service *svc)
 {
 	return svc->affinity_timeout & AFFINITY_TIMEOUT_MASK;
@@ -1698,17 +1709,12 @@ lb4_update_affinity_by_addr(const struct lb4_service *svc,
 {
 	__lb4_update_affinity(svc, false, id, backend_id);
 }
-#endif /* ENABLE_SESSION_AFFINITY */
 
 static __always_inline __u32
 lb4_affinity_backend_id_by_netns(const struct lb4_service *svc __maybe_unused,
 				 union lb4_affinity_client_id *id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY)
 	return __lb4_affinity_backend_id(svc, true, id);
-#else
-	return 0;
-#endif
 }
 
 static __always_inline void
@@ -1716,9 +1722,7 @@ lb4_update_affinity_by_netns(const struct lb4_service *svc __maybe_unused,
 			     union lb4_affinity_client_id *id __maybe_unused,
 			     __u32 backend_id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY)
 	__lb4_update_affinity(svc, true, id, backend_id);
-#endif
 }
 
 static __always_inline int
@@ -1792,11 +1796,9 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	__u32 backend_id = 0;
 	__be32 new_saddr = 0;
 	int ret;
-#ifdef ENABLE_SESSION_AFFINITY
 	union lb4_affinity_client_id client_id = {
 		.client_ip = saddr,
 	};
-#endif
 
 	state->rev_nat_index = svc->rev_nat_index;
 
@@ -1810,7 +1812,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		if (unlikely(svc->count == 0))
 			goto no_service;
 
-#ifdef ENABLE_SESSION_AFFINITY
 		if (lb4_svc_is_affinity(svc)) {
 			backend_id = lb4_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
@@ -1819,7 +1820,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 					backend_id = 0;
 			}
 		}
-#endif
 		if (backend_id == 0) {
 			/* No CT entry has been found, so select a svc endpoint */
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
@@ -1891,10 +1891,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
 	tuple->flags = flags;
-#ifdef ENABLE_SESSION_AFFINITY
 	if (lb4_svc_is_affinity(svc))
 		lb4_update_affinity_by_addr(svc, &client_id, backend_id);
-#endif
 
 #if defined(USE_LOOPBACK_LB) || defined(ENABLE_LOCAL_REDIRECT_POLICY)
 	if (saddr == backend->address) {

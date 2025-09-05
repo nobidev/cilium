@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/daemon/cmd"
 	"github.com/cilium/cilium/enterprise/features"
@@ -23,25 +22,26 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
-var goleakOptions = []goleak.Option{
+var goleakOptions = []testutils.GoleakOption{
 	// Ignore all the currently running goroutines spawned
 	// by prior tests or by package init() functions (like the
 	// client-go logger).
-	goleak.IgnoreCurrent(),
+	testutils.GoleakIgnoreCurrent(),
 	// Ignore goroutines started by the policy trifecta, see [newPolicyTrifecta].
-	goleak.IgnoreTopFunction("github.com/cilium/cilium/pkg/identity/cache.(*identityWatcher).watch.func1"),
-	goleak.IgnoreTopFunction("github.com/cilium/cilium/pkg/trigger.(*Trigger).waiter"),
+	testutils.GoleakIgnoreTopFunction("github.com/cilium/cilium/pkg/identity/cache.(*identityWatcher).watch.func1"),
+	testutils.GoleakIgnoreTopFunction("github.com/cilium/cilium/pkg/trigger.(*Trigger).waiter"),
 	// Ignore goroutine started by the ipset reconciler rate limiter
-	goleak.IgnoreTopFunction("github.com/cilium/cilium/pkg/rate.NewLimiter.func1"),
+	testutils.GoleakIgnoreTopFunction("github.com/cilium/cilium/pkg/rate.NewLimiter.func1"),
 }
 
 // TestEnterpriseAgentCell verifies that the EnterpriseAgent can be instantiated with
 // default configuration and thus the EnterpriseAgent hive can be inspected with
 // the hive commands and documentation can be generated from it.
 func TestEnterpriseAgentCell(t *testing.T) {
-	defer goleak.VerifyNone(t, goleakOptions...)
+	defer testutils.GoleakVerifyNone(t, goleakOptions...)
 	defer metrics.Reinitialize()
 
 	logging.SetLogLevelToDebug()

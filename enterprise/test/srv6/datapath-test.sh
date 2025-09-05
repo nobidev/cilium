@@ -32,7 +32,7 @@ sid_manager_enabled="${SID_MANGER_ENABLED:-false}" # "true" / "false"
 cilium_node_name="kind-worker"
 external_node_name="external-node"
 
-kind_network="kind-cilium"
+kind_network="${KIND_EXPERIMENTAL_DOCKER_NETWORK:-kind-cilium}"
 pod_cidr="10.244.0.0/16"
 vpn_peer_ip="10.100.1.100"
 vpn_peer_gw_ip="10.100.1.1"

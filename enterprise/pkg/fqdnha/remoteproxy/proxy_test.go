@@ -18,7 +18,6 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	"google.golang.org/grpc"
 
 	dnsproxypb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
@@ -31,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -94,7 +94,7 @@ func TestConnectionLifecycle(t *testing.T) {
 	// Make sure no goroutines leak
 	t.Cleanup(func() {
 		db.Stop()
-		goleak.VerifyNone(t)
+		testutils.GoleakVerifyNone(t)
 	})
 
 	tbl, _, err := tables.NewProxyConfigTable(cfg, db)

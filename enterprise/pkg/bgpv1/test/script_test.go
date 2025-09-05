@@ -51,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -138,6 +139,7 @@ func TestPrivilegedScript(t *testing.T) {
 			k8sfake.FakeClientCell(),
 			daemonk8s.ResourcesCell,
 			daemonk8s.TablesCell,
+			cell.Config(envoyCfg.SecretSyncConfig{}),
 			metrics.Cell,
 			lbcell.Cell,
 			maglev.Cell,
@@ -212,8 +214,7 @@ func TestPrivilegedScript(t *testing.T) {
 			},
 				func() kpr.KPRConfig {
 					return kpr.KPRConfig{
-						KubeProxyReplacement: option.KubeProxyReplacementTrue,
-						EnableNodePort:       true,
+						KubeProxyReplacement: true,
 					}
 				},
 			),
@@ -223,7 +224,7 @@ func TestPrivilegedScript(t *testing.T) {
 				BFDEnabled: true,
 			}),
 
-			node.LocalNodeStoreCell,
+			node.LocalNodeStoreTestCell,
 			cell.Invoke(func() {
 				types.SetName(testNodeName)
 			}),

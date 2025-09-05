@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"go.uber.org/goleak"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/enterprise/operator/dnsclient"
@@ -32,10 +31,11 @@ import (
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestManagerSingleFQDNGroup(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	// mock dns server handlers
 	ipv4 := func(_ context.Context, fqdn string) ([]netip.Addr, []time.Duration, error) {
@@ -143,7 +143,7 @@ func TestManagerSingleFQDNGroup(t *testing.T) {
 }
 
 func TestManagerSingleFQDNGroupSameCIDRs(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	// mock dns server handlers
 	ipv4 := func(_ context.Context, fqdn string) ([]netip.Addr, []time.Duration, error) {
@@ -261,7 +261,7 @@ func TestManagerSingleFQDNGroupSameCIDRs(t *testing.T) {
 }
 
 func TestManagerMultipleSets(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	// mock dns server handlers
 	ipv4 := func(_ context.Context, fqdn string) ([]netip.Addr, []time.Duration, error) {
@@ -415,7 +415,7 @@ func TestManagerMultipleSets(t *testing.T) {
 }
 
 func TestManagerPeriodicResolver(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	// mock dns server handlers
 	var steps atomic.Int32

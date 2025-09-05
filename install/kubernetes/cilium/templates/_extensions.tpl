@@ -13,6 +13,24 @@ Allow packagers to add extra volumes to cilium-agent.
 {{- end }}
 
 {{/*
+Allow packagers to set dnsPolicy for cilium-agent.
+*/}}
+{{- define "cilium-agent.dnsPolicy" }}
+{{- if .Values.dnsPolicy }}
+dnsPolicy: {{ .Values.dnsPolicy }}
+{{- end }}
+{{- end }}
+
+{{/*
+Allow packagers to add extra volumes to cilium-operator.
+*/}}
+{{- define "cilium-operator.volumes.extra" }}
+{{- end }}
+
+{{- define "cilium-operator.volumeMounts.extra" }}
+{{- end }}
+
+{{/*
 Intentionally empty to allow downstream chart packagers to add extra
 containers to hubble-relay without having to modify the deployment manifest
 directly.

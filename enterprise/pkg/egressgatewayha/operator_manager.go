@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	typedv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/healthcheck"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -220,7 +221,7 @@ func newEgressGatewayOperatorManager(p OperatorParams) *OperatorManager {
 	return operatorManager
 }
 
-func newNodeResource(lc cell.Lifecycle, cs k8sClient.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Node], error) {
+func newNodeResource(lc cell.Lifecycle, cs k8sClient.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Node], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -228,7 +229,7 @@ func newNodeResource(lc cell.Lifecycle, cs k8sClient.Clientset, opts ...func(*me
 		utils.ListerWatcherFromTyped[*slim_corev1.NodeList](cs.Slim().CoreV1().Nodes()),
 		opts...,
 	)
-	return resource.New[*slim_corev1.Node](lc, lw, resource.WithMetric("Node")), nil
+	return resource.New[*slim_corev1.Node](lc, lw, mp, resource.WithMetric("Node")), nil
 }
 
 func newEventRecorder(cs k8sClient.Clientset) record.EventRecorder {

@@ -205,7 +205,7 @@ func (r *lbTestScenario) addCoreDNS() *coreDNSContainer {
 	}
 
 	// Override the default port to avoid colliding with the rest of the system
-	id, ip, err := r.dockerCli.createContainer(r.t.Context(), name, FlagCoreDNSImage, nil, containerNetwork, false, []string{"-conf", "/tmp/Corefile", "-dns.port", "10053"}, preStart)
+	id, ip, err := r.dockerCli.createContainer(r.t.Context(), name, FlagCoreDNSImage, nil, FlagNetworkName, false, []string{"-conf", "/tmp/Corefile", "-dns.port", "10053"}, preStart)
 	if err != nil {
 		r.t.Failedf("cannot create CoreDNS container: %s", err)
 	}
@@ -235,7 +235,7 @@ func (r *lbTestScenario) addNginx() *nginxContainer {
 
 	name := fmt.Sprintf("%s-nginx", r.testName)
 
-	id, ip, err := r.dockerCli.createContainer(r.t.Context(), name, FlagNginxImage, nil, containerNetwork, false, nil, nil)
+	id, ip, err := r.dockerCli.createContainer(r.t.Context(), name, FlagNginxImage, nil, FlagNetworkName, false, nil, nil)
 	if err != nil {
 		r.t.Failedf("cannot create Nginx container: %s", err)
 	}
@@ -272,7 +272,7 @@ func (r *lbTestScenario) addBackendApplications(numberOfBackends int, config bac
 		appName := fmt.Sprintf("%s-app-%d", r.testName, i)
 		envVars := r.getBackendApplicationEnvVars(appName, config)
 
-		id, ip, err := r.dockerCli.createContainer(r.t.Context(), appName, config.image, envVars, containerNetwork, false, nil, nil)
+		id, ip, err := r.dockerCli.createContainer(r.t.Context(), appName, config.image, envVars, FlagNetworkName, false, nil, nil)
 		if err != nil {
 			r.t.Failedf("cannot create app container (%s): %s", appName, err)
 		}
@@ -527,7 +527,7 @@ func (r *lbTestScenario) addFRRClients(numberOfClients int, config frrClientConf
 			"NEIGHBORS=" + getBGPNeighborString(r.t, r.k8sCli),
 		}
 
-		id, ip, err := r.dockerCli.createContainer(r.t.Context(), clientName, FlagClientImage, env, containerNetwork, true, nil, nil)
+		id, ip, err := r.dockerCli.createContainer(r.t.Context(), clientName, FlagClientImage, env, FlagNetworkName, true, nil, nil)
 		if err != nil {
 			r.t.Failedf("cannot create frr client container (%s): %s", clientName, err)
 		}

@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/cilium/stream"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/enterprise/pkg/encryption/policy/types"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -86,14 +87,14 @@ var defaultConfig = types.Config{
 	EnableEncryptionPolicy: false,
 }
 
-func isovalentClusterwideEncryptionPolicyResource(cfg types.Config, lc cell.Lifecycle, cs client.Clientset) (resource.Resource[*iso_v1alpha1.IsovalentClusterwideEncryptionPolicy], error) {
+func isovalentClusterwideEncryptionPolicyResource(cfg types.Config, lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*iso_v1alpha1.IsovalentClusterwideEncryptionPolicy], error) {
 	if !(cs.IsEnabled() && cfg.EnableEncryptionPolicy) {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
 		utils.ListerWatcherFromTyped[*iso_v1alpha1.IsovalentClusterwideEncryptionPolicyList](cs.IsovalentV1alpha1().IsovalentClusterwideEncryptionPolicies()),
 	)
-	return resource.New[*iso_v1alpha1.IsovalentClusterwideEncryptionPolicy](lc, lw, resource.WithMetric("IsovalentClusterwideEncryptionPolicy")), nil
+	return resource.New[*iso_v1alpha1.IsovalentClusterwideEncryptionPolicy](lc, lw, mp, resource.WithMetric("IsovalentClusterwideEncryptionPolicy")), nil
 }
 
 type identityObserverOut struct {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/workerpool"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/enterprise/operator/dnsclient"
 	"github.com/cilium/cilium/pkg/controller"
@@ -268,10 +269,10 @@ func (mgr *manager) syncResolvers(fqdnGroup string, fqdns []string) error {
 	return nil
 }
 
-func isovalentFQDNGroup(lc cell.Lifecycle, cs client.Clientset) (resource.Resource[*v1alpha1.IsovalentFQDNGroup], error) {
+func isovalentFQDNGroup(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*v1alpha1.IsovalentFQDNGroup], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherFromTyped[*v1alpha1.IsovalentFQDNGroupList](cs.IsovalentV1alpha1().IsovalentFQDNGroups())
-	return resource.New[*v1alpha1.IsovalentFQDNGroup](lc, lw, resource.WithMetric("IsovalentFQDNGroup")), nil
+	return resource.New[*v1alpha1.IsovalentFQDNGroup](lc, lw, mp, resource.WithMetric("IsovalentFQDNGroup")), nil
 }
