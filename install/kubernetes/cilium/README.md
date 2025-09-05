@@ -411,9 +411,9 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.clustermesh.enableOverlappingPodCIDRSupport | bool | `false` | Enable overlapping PodCIDR support |
 | enterprise.clustermesh.mixedRoutingMode.enabled | bool | `false` | Enable meshing clusters configured with a different primary routing mode. Inter-cluster traffic is forwarded according to the locally configured mode when matching that of the target cluster, native routing if both clusters use native routing, tunnel if both clusters use tunnel, and defaults to tunnel in the case of a mismatch. The tunnel protocol must be configured to the same value in all clusters. Limited to Cluster Scope or Kubernetes Host Scope IPAM modes. Incompatible with the Direct Server Return (DSR) LB mode. |
 | enterprise.clustermesh.phantomServices.enabled | bool | `false` | Enable Phantom Services support |
-| enterprise.diagnostics | object | `{"constants":[],"exportFilePath":null,"interval":"5m"}` | Diagnostics |
+| enterprise.diagnostics | object | `{"constants":[],"exportFilePath":"/var/run/cilium/hubble/status.log","interval":"5m"}` | Diagnostics |
 | enterprise.diagnostics.constants | list | `[]` | Constants as a list of key-value pairs (e.g. "foo=1.2"). @schema type: [array] @schema |
-| enterprise.diagnostics.exportFilePath | string | `nil` | Path to the file to which diagnostics status updates are appended. For example "/var/run/cilium/hubble/status.log" If not set the diagnostics evaluation and exporting is disabled. @schema type: [null, string] @schema |
+| enterprise.diagnostics.exportFilePath | string | `"/var/run/cilium/hubble/status.log"` | Path to the file to which diagnostics status updates are appended. For example "/var/run/cilium/hubble/status.log" If not set the diagnostics evaluation and exporting is disabled. @schema type: [null, string] @schema |
 | enterprise.diagnostics.interval | string | `"5m"` | Evaluation interval @schema type: [string] @schema |
 | enterprise.egressGatewayHA | object | `{"enabled":false,"reconciliationTriggerInterval":"1s","socketTermination":{"enabled":false}}` | Enables egress gateway HA |
 | enterprise.egressGatewayHA.reconciliationTriggerInterval | string | `"1s"` | Time between triggers of egress gateway state reconciliations |
