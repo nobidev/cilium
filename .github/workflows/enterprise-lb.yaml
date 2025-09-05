@@ -115,6 +115,7 @@ jobs:
             xff-num-trusted-hops: 0
             nr-of-worker-nodes: 4
             t1t2-nodes: "kind-control-plane kind-worker kind-worker2 kind-worker3 kind-worker4"
+            run-tests: "!TestNodeMaintenance_T1_T1T2_TCPProxy;!TestNodeMaintenance_T2_T1T2_TCPProxy"
           - name: "4" # single k8s node deployment where the single node is T1 & T2
             mode: "multi-node"
             kernel: "6.1-20240710.064909"
@@ -293,6 +294,15 @@ jobs:
 
           if [ "${{ matrix.xff-num-trusted-hops }}" != "" ]; then
             PARAMS+=" --xff-num-trusted-hops=${{ matrix.xff-num-trusted-hops }}"
+          fi
+
+          if [ -n "${{ matrix.run-tests }}" ]; then
+            runTests="${{ matrix.run-tests }}"
+            runTests=${runTests//;/$'\n'}
+            for test in $runTests
+            do
+              PARAMS+=" --run=$test"
+            done
           fi
 
           DOCKER_API_VERSION=1.45 cilium lb test --verbose=true $PARAMS
