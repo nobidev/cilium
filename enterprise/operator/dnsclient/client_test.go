@@ -21,9 +21,9 @@ import (
 	"github.com/cilium/dns"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func typeA(w dns.ResponseWriter, req *dns.Msg) {
@@ -78,7 +78,7 @@ func server(
 }
 
 func TestClient(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	var client Resolver
 

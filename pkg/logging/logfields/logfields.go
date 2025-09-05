@@ -1156,6 +1156,10 @@ const (
 
 	HTTPRoute = "httpRoute"
 
+	TLSRoute = "tlsRoute"
+
+	GRPCRoute = "grpcRoute"
+
 	Secret = "secret"
 
 	Nodes = "nodes"
@@ -1799,4 +1803,13 @@ const (
 	Matcher = "matcher"
 
 	ParentResource = "parentResource"
+
+	Fraction = "fraction"
+
+	Rate = "rate"
+
+	KPRConfiguration = "kprConfiguration"
+
+	// CESFeatureEnabled indicates whether CiliumEndpointSlice feature is enabled.
+	CESFeatureEnabled = "cesEnabled"
 )

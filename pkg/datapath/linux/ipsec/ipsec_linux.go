@@ -1031,22 +1031,16 @@ func decodeIPSecKey(keyRaw string) (int, []byte, error) {
 // LoadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
 // is to put a key per line as follows, (auth-algo auth-key enc-algo enc-key)
 // Returns the authentication overhead in bytes, the key ID, and an error.
-func LoadIPSecKeysFile(log *slog.Logger, path string) (int, uint8, error) {
-	log.Info("Loading IPsec keyfile",
-		logfields.Path, path,
-		logfields.LogSubsys, subsystem,
-	)
-
+func LoadIPSecKeysFile(path string) (int, uint8, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return 0, 0, err
 	}
 	defer file.Close()
-	return LoadIPSecKeys(log, file)
+	return LoadIPSecKeys(file)
 }
 
-func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
-	log = log.With(logfields.LogSubsys, subsystem)
+func LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 	var spi uint8
 	var keyLen int
 
@@ -1081,7 +1075,7 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 			return 0, 0, fmt.Errorf("missing IPSec key or invalid format")
 		}
 
-		spi, offsetBase, err = parseSPI(log, s[offsetSPI])
+		spi, offsetBase, err = parseSPI(s[offsetSPI])
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to parse SPI: %w", err)
 		}
@@ -1157,7 +1151,7 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 	return keyLen, spi, nil
 }
 
-func parseSPI(log *slog.Logger, spiStr string) (uint8, int, error) {
+func parseSPI(spiStr string) (uint8, int, error) {
 	if spiStr[len(spiStr)-1] == '+' {
 		spiStr = spiStr[:len(spiStr)-1]
 	}
@@ -1174,12 +1168,12 @@ func parseSPI(log *slog.Logger, spiStr string) (uint8, int, error) {
 	return uint8(spi), 0, nil
 }
 
-func SetIPSecSPI(log *slog.Logger, spi uint8) error {
-	log = log.With(logfields.LogSubsys, subsystem)
+func (kc *keyCustodian) setIPSecSPI(spi uint8) error {
 	if err := encrypt.MapUpdateContext(0, spi); err != nil {
-		log.Warn("cilium_encrypt_state map updated failed", logfields.Error, err)
+		kc.log.Warn("cilium_encrypt_state map updated failed", logfields.Error, err)
 		return err
 	}
+	kc.spi = spi
 	return nil
 }
 
@@ -1209,7 +1203,7 @@ func DeleteIPsecEncryptRoute(log *slog.Logger) {
 	}
 }
 
-func keyfileWatcher(log *slog.Logger, ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler datapath.NodeHandler, health cell.Health) error {
+func (kc *keyCustodian) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler datapath.NodeHandler, health cell.Health) error {
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -1217,10 +1211,10 @@ func keyfileWatcher(log *slog.Logger, ctx context.Context, watcher *fswatcher.Wa
 				continue
 			}
 
-			_, spi, err := LoadIPSecKeysFile(log, keyfilePath)
+			_, spi, err := LoadIPSecKeysFile(keyfilePath)
 			if err != nil {
 				health.Degraded(fmt.Sprintf("Failed to load keyfile %q", keyfilePath), err)
-				log.Error("Failed to load IPsec keyfile", logfields.Error, err)
+				kc.log.Error("Failed to load IPsec keyfile", logfields.Error, err)
 				continue
 			}
 
@@ -1238,14 +1232,14 @@ func keyfileWatcher(log *slog.Logger, ctx context.Context, watcher *fswatcher.Wa
 
 			// Push SPI update into BPF datapath now that XFRM state
 			// is configured.
-			if err := SetIPSecSPI(log, spi); err != nil {
+			if err := kc.setIPSecSPI(spi); err != nil {
 				health.Degraded("Failed to set IPsec SPI", err)
-				log.Error("Failed to set IPsec SPI", logfields.Error, err)
+				kc.log.Error("Failed to set IPsec SPI", logfields.Error, err)
 				continue
 			}
 			health.OK("Watching keyfiles")
 		case err := <-watcher.Errors:
-			log.Warn("Error encountered while watching file with fsnotify",
+			kc.log.Warn("Error encountered while watching file with fsnotify",
 				logfields.Error, err,
 				logfields.Path, keyfilePath,
 			)
@@ -1258,18 +1252,18 @@ func keyfileWatcher(log *slog.Logger, ctx context.Context, watcher *fswatcher.Wa
 	}
 }
 
-func StartKeyfileWatcher(log *slog.Logger, group job.Group, keyfilePath string, nodeHandler datapath.NodeHandler) error {
+func (kc *keyCustodian) startKeyfileWatcher(keyfilePath string, nodeHandler datapath.NodeHandler) error {
 	if !option.Config.EnableIPsecKeyWatcher {
 		return nil
 	}
 
-	watcher, err := fswatcher.New(log, []string{keyfilePath})
+	watcher, err := fswatcher.New(kc.log, []string{keyfilePath})
 	if err != nil {
 		return err
 	}
 
-	group.Add(job.OneShot("keyfile-watcher", func(ctx context.Context, health cell.Health) error {
-		return keyfileWatcher(log, ctx, watcher, keyfilePath, nodeHandler, health)
+	kc.jobs.Add(job.OneShot("keyfile-watcher", func(ctx context.Context, health cell.Health) error {
+		return kc.keyfileWatcher(ctx, watcher, keyfilePath, nodeHandler, health)
 	}))
 
 	return nil

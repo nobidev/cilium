@@ -21,14 +21,13 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/goleak"
-
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestProbe(t *testing.T) {
-	t.Cleanup(func() { goleak.VerifyNone(t) })
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
 	const (
 		testHTTPHost      = "test.cilium.io"

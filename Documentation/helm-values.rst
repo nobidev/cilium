@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:f9a104fddb33220ec80fc45a4e606c74aadf1ef7a3832eb0b05be9e90cd61f5f","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:ab33eacc8251e3807b85bb6dba570e4698c3998eca6f0fc2ccb60575a563ea74","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -275,9 +275,17 @@
    * - :spelling:ignore:`bgpControlPlane`
      - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
-     - ``{"enabled":false,"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
+     - ``{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
      - Enables the BGP control plane.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute`
+     - Legacy BGP ORIGIN attribute settings (BGPv2 only)
+     - object
+     - ``{"enabled":false}``
+   * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute.enabled`
+     - Enable/Disable advertising LoadBalancerIP routes with the legacy BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0). Enable for compatibility with the legacy behavior of MetalLB integration.
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane.routerIDAllocation`
@@ -357,7 +365,7 @@
      - object
      - ``{"default":{"burstLimit":null,"rateLimit":null},"drop":{"enabled":true},"policyVerdict":{"enabled":true},"trace":{"enabled":true}}``
    * - :spelling:ignore:`bpf.events.default`
-     - Default settings for all types of events except dbg and pcap.
+     - Default settings for all types of events except dbg.
      - object
      - ``{"burstLimit":null,"rateLimit":null}``
    * - :spelling:ignore:`bpf.events.default.burstLimit`
@@ -440,6 +448,10 @@
      - Configure the maximum number of entries in endpoint policy map (per endpoint). @schema type: [null, integer] @schema
      - int
      - ``16384``
+   * - :spelling:ignore:`bpf.policyMapPressureMetricsThreshold`
+     - Configure threshold for emitting pressure metrics of policy maps. @schema type: [null, number] @schema
+     - float64
+     - ``0.1``
    * - :spelling:ignore:`bpf.policyStatsMapMax`
      - Configure the maximum number of entries in global policy stats map. @schema type: [null, integer] @schema
      - int
@@ -1599,7 +1611,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:2173f013b41e71cf8d65503cc9710c106746efbd93ae0ef3f46ee65de13b19f6","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.0-1754542821-43b62ac18029bf5e22cbcc9e7141ee55eb09555d","useDigest":true}``
+     - ``{"digest":"sha256:4a7b4ea470b2f3027ac9115c5b392bf3ba91315fb258f27af318023f2d367578","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.1-1756466197-aecbf661041fc680854fc765e54a283af11db731","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -2320,10 +2332,18 @@
      - Configure pprof listen address for hubble-relay
      - string
      - ``"localhost"``
+   * - :spelling:ignore:`hubble.relay.pprof.blockProfileRate`
+     - Enable goroutine blocking profiling for hubble-relay and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+     - int
+     - ``0``
    * - :spelling:ignore:`hubble.relay.pprof.enabled`
      - Enable pprof for hubble-relay
      - bool
      - ``false``
+   * - :spelling:ignore:`hubble.relay.pprof.mutexProfileFraction`
+     - Enable mutex contention profiling for hubble-relay and set the fraction of sampled events (set to 1 to sample all events)
+     - int
+     - ``0``
    * - :spelling:ignore:`hubble.relay.pprof.port`
      - Configure pprof listen port for hubble-relay
      - int
@@ -3327,7 +3347,7 @@
    * - :spelling:ignore:`nodePort`
      - Configure N-S k8s service loadbalancing
      - object
-     - ``{"addresses":null,"autoProtectPortRange":true,"bindProtection":true,"enableHealthCheck":true,"enableHealthCheckLoadBalancerIP":false,"enabled":false}``
+     - ``{"addresses":null,"autoProtectPortRange":true,"bindProtection":true,"enableHealthCheck":true,"enableHealthCheckLoadBalancerIP":false}``
    * - :spelling:ignore:`nodePort.addresses`
      - List of CIDRs for choosing which IP addresses assigned to native devices are used for NodePort load-balancing. By default this is empty and the first suitable, preferably private, IPv4 and IPv6 address assigned to each device is used.  Example:    addresses: ["192.168.1.0/24", "2001::/64"]
      - string
@@ -3346,10 +3366,6 @@
      - ``true``
    * - :spelling:ignore:`nodePort.enableHealthCheckLoadBalancerIP`
      - Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs EnableHealthCheck to be enabled
-     - bool
-     - ``false``
-   * - :spelling:ignore:`nodePort.enabled`
-     - Enable the Cilium NodePort service implementation.
      - bool
      - ``false``
    * - :spelling:ignore:`nodeSelector`
@@ -3391,7 +3407,7 @@
    * - :spelling:ignore:`nodeinit.image`
      - node-init image.
      - object
-     - ``{"digest":"sha256:8d7b41c4ca45860254b3c19e20210462ef89479bb6331d6760c4e609d651b29c","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"c54c7edeab7fde4da68e59acd319ab24af242c3f","useDigest":true}``
+     - ``{"digest":"sha256:0c91245afb3a4ff78b5cc8c09226806e94a9a10eb0adb74a85e0eeed2a5cae8c","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}``
    * - :spelling:ignore:`nodeinit.nodeSelector`
      - Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -3540,10 +3556,18 @@
      - Configure pprof listen address for cilium-operator
      - string
      - ``"localhost"``
+   * - :spelling:ignore:`operator.pprof.blockProfileRate`
+     - Enable goroutine blocking profiling for cilium-operator and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+     - int
+     - ``0``
    * - :spelling:ignore:`operator.pprof.enabled`
      - Enable pprof for cilium-operator
      - bool
      - ``false``
+   * - :spelling:ignore:`operator.pprof.mutexProfileFraction`
+     - Enable mutex contention profiling for cilium-operator and set the fraction of sampled events (set to 1 to sample all events)
+     - int
+     - ``0``
    * - :spelling:ignore:`operator.pprof.port`
      - Configure pprof listen port for cilium-operator
      - int
@@ -3636,6 +3660,10 @@
      - Restart any pod that are not managed by Cilium.
      - bool
      - ``true``
+   * - :spelling:ignore:`operator.unmanagedPodWatcher.selector`
+     - Selector for pods that should be restarted when not managed by Cilium. If not set, defaults to built-in selector "k8s-app=kube-dns". Set to empty string to select all pods. @schema type: [null, string] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`operator.updateStrategy`
      - cilium-operator update strategy
      - object
@@ -3672,10 +3700,18 @@
      - Configure pprof listen address for cilium-agent
      - string
      - ``"localhost"``
+   * - :spelling:ignore:`pprof.blockProfileRate`
+     - Enable goroutine blocking profiling for cilium-agent and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+     - int
+     - ``0``
    * - :spelling:ignore:`pprof.enabled`
      - Enable pprof for cilium-agent
      - bool
      - ``false``
+   * - :spelling:ignore:`pprof.mutexProfileFraction`
+     - Enable mutex contention profiling for cilium-agent and set the fraction of sampled events (set to 1 to sample all events)
+     - int
+     - ``0``
    * - :spelling:ignore:`pprof.port`
      - Configure pprof listen port for cilium-agent
      - int
@@ -3695,7 +3731,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:2173f013b41e71cf8d65503cc9710c106746efbd93ae0ef3f46ee65de13b19f6","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.0-1754542821-43b62ac18029bf5e22cbcc9e7141ee55eb09555d","useDigest":true}``
+     - ``{"digest":"sha256:4a7b4ea470b2f3027ac9115c5b392bf3ba91315fb258f27af318023f2d367578","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.1-1756466197-aecbf661041fc680854fc765e54a283af11db731","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
@@ -3956,10 +3992,6 @@
      - interval between checks of the startup probe
      - int
      - ``2``
-   * - :spelling:ignore:`svcSourceRangeCheck`
-     - Enable check of service source ranges (currently, only for LoadBalancer).
-     - bool
-     - ``true``
    * - :spelling:ignore:`synchronizeK8sNodes`
      - Synchronize Kubernetes nodes to kvstore and perform CNP GC.
      - bool

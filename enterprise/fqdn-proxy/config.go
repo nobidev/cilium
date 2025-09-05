@@ -62,9 +62,11 @@ var defaultConfig = Config{
 const DefaultGopsPort = 8910
 
 var pprofConfig = pprof.Config{
-	Pprof:        false,
-	PprofAddress: "localhost",
-	PprofPort:    8920,
+	Pprof:                     false,
+	PprofAddress:              "localhost",
+	PprofPort:                 8920,
+	PprofMutexProfileFraction: 0,
+	PprofBlockProfileRate:     0,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {

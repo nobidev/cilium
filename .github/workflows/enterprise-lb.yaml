@@ -205,7 +205,7 @@ jobs:
           export DOCKER_HOST="tcp://127.0.0.1:22375"
 
           # Create DIND container to simulate the testing host
-          docker run -d --name testing-host --env DOCKER_TLS_CERTDIR="" -p 22376:2375 --privileged --network kind-cilium docker:27.3.1-dind
+          docker run -d --name testing-host --env DOCKER_TLS_CERTDIR="" -p 22376:2375 --privileged --network ${{ env.KIND_EXPERIMENTAL_DOCKER_NETWORK }} docker:27.3.1-dind
           ip=$(docker inspect '--format={{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' testing-host)
           echo ip=${ip} >> $GITHUB_OUTPUT
 
@@ -294,6 +294,7 @@ jobs:
           if [ "${{ matrix.xff-num-trusted-hops }}" != "" ]; then
             PARAMS+=" --xff-num-trusted-hops=${{ matrix.xff-num-trusted-hops }}"
           fi
+          PARAMS+=" --network-name=${{ env.KIND_EXPERIMENTAL_DOCKER_NETWORK }}"
 
           DOCKER_API_VERSION=1.45 cilium lb test --verbose=true $PARAMS
 

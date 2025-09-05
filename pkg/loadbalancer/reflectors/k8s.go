@@ -106,7 +106,7 @@ type reflectorParams struct {
 	ExtConfig              loadbalancer.ExternalConfig
 	HaveNetNSCookieSupport lbmaps.HaveNetNSCookieSupport
 	TestConfig             *loadbalancer.TestConfig `optional:"true"`
-	LocalNodeStore         *node.LocalNodeStore
+	Nodes                  statedb.Table[*node.LocalNode]
 	SVCMetrics             SVCMetrics `optional:"true"`
 }
 
@@ -166,7 +166,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 			podName := obj.Namespace + "/" + obj.Name
 			if change.Deleted {
 				rh.update(podName, nil)
-				if p.ExtConfig.EnableHostPort {
+				if p.ExtConfig.KubeProxyReplacement {
 					if err := deleteHostPort(p, txn, obj); err != nil {
 						p.Log.Error("BUG: Unexpected failure in deleteHostPort",
 							logfields.Error, err)
@@ -178,7 +178,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 					// Pod has been terminated. Clean up the HostPort already even before the Pod object
 					// has been removed to free up the HostPort for other pods.
 					rh.update(podName, nil)
-					if p.ExtConfig.EnableHostPort {
+					if p.ExtConfig.KubeProxyReplacement {
 						if err := deleteHostPort(p, txn, obj); err != nil {
 							p.Log.Error("BUG: Unexpected failure in deleteHostPort",
 								logfields.Error, err)
@@ -193,7 +193,7 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 						continue
 					}
 
-					if p.ExtConfig.EnableHostPort {
+					if p.ExtConfig.KubeProxyReplacement {
 						err = upsertHostPort(p.HaveNetNSCookieSupport, p.Config, p.ExtConfig, p.Log, txn, p.Writer, obj)
 					}
 					rh.update(podName, err)
@@ -239,7 +239,8 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			initServices(txn)
 
 		case resource.Upsert:
-			svc, fes := convertService(p.Config, p.ExtConfig, p.Log, p.LocalNodeStore, obj, source.Kubernetes)
+			localNode, _, _ := p.Nodes.Get(txn, node.LocalNodeQuery)
+			svc, fes := convertService(p.Config, p.ExtConfig, p.Log, localNode, obj, source.Kubernetes)
 			if svc == nil {
 				// The service should not be provisioned on this agent. Try to delete if it was previously.
 				name := loadbalancer.NewServiceName(obj.Namespace, obj.Name)

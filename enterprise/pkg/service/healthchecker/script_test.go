@@ -31,13 +31,13 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
-	"github.com/cilium/cilium/pkg/k8s/testutils"
+	k8stestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -49,20 +49,21 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
-	t.Cleanup(func() { goleak.VerifyNone(t) })
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
 	// version/capabilities are unfortunately a global variable, so we're forcing it here.
 	// This makes it difficult to have different k8s version/capabilities (e.g. use Endpoints
 	// not EndpointSlice) in the tests here, which is why we're currently only testing against
 	// the default.
 	// Issue for fixing this: https://github.com/cilium/cilium/issues/35537
-	version.Force(testutils.DefaultVersion)
+	version.Force(k8stestutils.DefaultVersion)
 
 	// Set the node name
 	nodeTypes.SetName("testnode")
@@ -133,10 +134,11 @@ func TestScript(t *testing.T) {
 				k8sfake.FakeClientCell(),
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
+				cell.Config(envoyCfg.SecretSyncConfig{}),
 				lbcell.Cell,
 				cell.Config(lb.TestConfig{}),
 				maglev.Cell,
-				node.LocalNodeStoreCell,
+				node.LocalNodeStoreTestCell,
 				metrics.Cell,
 
 				cell.Provide(
@@ -153,8 +155,7 @@ func TestScript(t *testing.T) {
 					},
 					func() kpr.KPRConfig {
 						return kpr.KPRConfig{
-							KubeProxyReplacement: option.KubeProxyReplacementTrue,
-							EnableNodePort:       true,
+							KubeProxyReplacement: true,
 						}
 					},
 				),

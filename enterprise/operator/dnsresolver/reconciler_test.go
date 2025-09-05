@@ -18,12 +18,12 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"go.uber.org/goleak"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/controller"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type testNotifier struct {
@@ -44,7 +44,7 @@ func (n *testNotifier) get(fqdns ...string) []netip.Prefix {
 }
 
 func TestReconciler(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	// create a test logger
 	logger := hivetest.Logger(t)

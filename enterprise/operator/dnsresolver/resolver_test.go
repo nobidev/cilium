@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
-	"go.uber.org/goleak"
 
 	"github.com/cilium/cilium/enterprise/operator/dnsclient"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type mockStore struct {
@@ -34,7 +34,7 @@ func (s *mockStore) set(fqdn string, prefixes []netip.Prefix) {
 }
 
 func TestResolver(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	done := make(chan struct{})
 
@@ -98,7 +98,7 @@ func TestResolver(t *testing.T) {
 }
 
 func TestResolverNonExistentDomain(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	done := make(chan struct{})
 
@@ -162,7 +162,7 @@ func TestResolverNonExistentDomain(t *testing.T) {
 }
 
 func TestResolverQueryError(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	done := make(chan struct{})
 

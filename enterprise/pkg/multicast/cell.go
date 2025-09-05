@@ -12,6 +12,7 @@ package multicast
 
 import (
 	"github.com/cilium/hive/cell"
+	"k8s.io/client-go/util/workqueue"
 
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -33,7 +34,7 @@ var Cell = cell.Module(
 	cell.Invoke(func(manager *MulticastManager) {}),
 )
 
-func newMulticastGroupResource(lc cell.Lifecycle, c client.Clientset, cfg maps_multicast.Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentMulticastGroup] {
+func newMulticastGroupResource(lc cell.Lifecycle, c client.Clientset, mp workqueue.MetricsProvider, cfg maps_multicast.Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentMulticastGroup] {
 	if !cfg.MulticastEnabled {
 		return nil
 	}
@@ -41,10 +42,10 @@ func newMulticastGroupResource(lc cell.Lifecycle, c client.Clientset, cfg maps_m
 	return resource.New[*isovalent_api_v1alpha1.IsovalentMulticastGroup](
 		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentMulticastGroupList](
 			c.IsovalentV1alpha1().IsovalentMulticastGroups(),
-		), resource.WithMetric("IsovalentMulticastGroup"))
+		), mp, resource.WithMetric("IsovalentMulticastGroup"))
 }
 
-func newMulticastNodeResource(lc cell.Lifecycle, c client.Clientset, cfg maps_multicast.Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentMulticastNode] {
+func newMulticastNodeResource(lc cell.Lifecycle, c client.Clientset, mp workqueue.MetricsProvider, cfg maps_multicast.Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentMulticastNode] {
 	if !cfg.MulticastEnabled {
 		return nil
 	}
@@ -52,5 +53,5 @@ func newMulticastNodeResource(lc cell.Lifecycle, c client.Clientset, cfg maps_mu
 	return resource.New[*isovalent_api_v1alpha1.IsovalentMulticastNode](
 		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentMulticastNodeList](
 			c.IsovalentV1alpha1().IsovalentMulticastNodes(),
-		), resource.WithMetric("IsovalentMulticastNode"))
+		), mp, resource.WithMetric("IsovalentMulticastNode"))
 }

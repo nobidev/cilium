@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/enterprise/pkg/k8s/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -153,22 +154,22 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 	})
 }
 
-func isovalentNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset) (resource.Resource[*isovalent_v1alpha1.IsovalentNetworkPolicy], error) {
+func isovalentNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*isovalent_v1alpha1.IsovalentNetworkPolicy], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
 		utils.ListerWatcherFromTyped[*isovalent_v1alpha1.IsovalentNetworkPolicyList](cs.IsovalentV1alpha1().IsovalentNetworkPolicies("")),
 	)
-	return resource.New[*isovalent_v1alpha1.IsovalentNetworkPolicy](lc, lw, resource.WithMetric("IsovalentNetworkPolicy")), nil
+	return resource.New[*isovalent_v1alpha1.IsovalentNetworkPolicy](lc, lw, mp, resource.WithMetric("IsovalentNetworkPolicy")), nil
 }
 
-func isovalentClusterwideNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset) (resource.Resource[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicy], error) {
+func isovalentClusterwideNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicy], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
 		utils.ListerWatcherFromTyped[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicyList](cs.IsovalentV1alpha1().IsovalentClusterwideNetworkPolicies()),
 	)
-	return resource.New[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicy](lc, lw, resource.WithMetric("IsovalentClusterwideNetworkPolicy")), nil
+	return resource.New[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicy](lc, lw, mp, resource.WithMetric("IsovalentClusterwideNetworkPolicy")), nil
 }

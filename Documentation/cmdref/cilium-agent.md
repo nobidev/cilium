@@ -62,6 +62,7 @@ cilium-agent [flags]
       --bpf-neigh-global-max int                                       Maximum number of entries for the global BPF neighbor table (default 524288)
       --bpf-node-map-max uint32                                        Sets size of node bpf map which will be the max number of unique Node IPs in the cluster (default 16384)
       --bpf-policy-map-max int                                         Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
+      --bpf-policy-map-pressure-metrics-threshold float                Sets threshold for emitting pressure metrics of policy maps (default 0.1)
       --bpf-policy-stats-map-max int                                   Maximum number of entries in bpf policy stats map (default 65536)
       --bpf-root string                                                Path to BPF filesystem
       --bpf-sock-rev-map-max int                                       Maximum number of entries for the SockRevNAT BPF map
@@ -119,6 +120,7 @@ cilium-agent [flags]
       --enable-bfd                                                     Enables BFD subsystem
       --enable-bgp-control-plane                                       Enable the BGP control plane.
       --enable-bgp-control-plane-status-report                         Enable the BGP control plane status reporting (default true)
+      --enable-bgp-legacy-origin-attribute                             Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
       --enable-bgp-maintenance-graceful-shutdown-community             Enables sending GRACEFUL_SHUTDOWN BGP community when the node is in maintenance mode
       --enable-bgp-svc-health-checking                                 Enables BGP integration with service health-checking
       --enable-bpf-clock-probe                                         Enable BPF clock source probing for more efficient tick retrieval
@@ -188,6 +190,7 @@ cilium-agent [flags]
       --enable-pmtu-discovery                                          Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                           Enable policy enforcement (default "default")
       --enable-policy-secrets-sync                                     Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
+      --enable-remote-node-masquerade                                  Masquerade packets from endpoints leaving the host destined to a remote node in BPF masquerading mode. This option requires to set enable-bpf-masquerade to true.
       --enable-route-mtu-for-cni-chaining                              Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp                                                    Enable SCTP support (beta)
       --enable-service-topology                                        Enable support for service topology aware hints
@@ -288,7 +291,7 @@ cilium-agent [flags]
       --hubble-metrics-server-tls-cert-file string                     Path to the public key file for the Hubble metrics server. The file must contain PEM encoded data.
       --hubble-metrics-server-tls-client-ca-files strings              Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
       --hubble-metrics-server-tls-key-file string                      Path to the private key file for the Hubble metrics server. The file must contain PEM encoded data.
-      --hubble-monitor-events strings                                  Cilium monitor events for Hubble to observe: [drop debug capture trace policy-verdict recorder trace-sock l7 agent]. By default, Hubble observes all monitor events.
+      --hubble-monitor-events strings                                  Cilium monitor events for Hubble to observe: [drop debug capture trace policy-verdict trace-sock l7 agent]. By default, Hubble observes all monitor events.
       --hubble-network-policy-correlation-enabled                      Enable network policy correlation of Hubble flows (default true)
       --hubble-prefer-ipv6                                             Prefer IPv6 addresses for announcing nodes when both address types are available.
       --hubble-redact-enabled                                          Hubble redact sensitive information from flows
@@ -347,7 +350,7 @@ cilium-agent [flags]
       --k8s-require-ipv6-pod-cidr                                      Require IPv6 PodCIDR to be specified in node resource
       --k8s-service-proxy-name string                                  Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --keep-config                                                    When restoring state, keeps containers' configuration in place
-      --kube-proxy-replacement string                                  Enable kube-proxy replacement (default "false")
+      --kube-proxy-replacement                                         Enable kube-proxy replacement
       --kube-proxy-replacement-healthz-bind-address string             The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.
       --kvstore string                                                 Key-value store type
       --kvstore-lease-ttl duration                                     Time-to-live for the KVstore lease. (default 15m0s)
@@ -413,6 +416,8 @@ cilium-agent [flags]
       --policy-secrets-only-from-secrets-namespace                     Configures the agent to only read policy Secrets from the policy-secrets-namespace
       --pprof                                                          Enable serving pprof debugging API
       --pprof-address string                                           Address that pprof listens on (default "localhost")
+      --pprof-block-profile-rate int                                   Enable goroutine blocking profiling and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
+      --pprof-mutex-profile-fraction int                               Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)
       --pprof-port uint16                                              Port that pprof listens on (default 6060)
       --preallocate-bpf-maps                                           Enable BPF map pre-allocation (default true)
       --prepend-iptables-chains                                        Prepend custom iptables chains instead of appending (default true)

@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 // Configure a generous timeout to prevent flakes when running in a noisy CI environment.
@@ -43,7 +43,7 @@ var (
 )
 
 func TestServiceResolver(t *testing.T) {
-	t.Cleanup(func() { goleak.VerifyNone(t) })
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
 	var (
 		tlog = hivetest.Logger(t)
@@ -60,6 +60,7 @@ func TestServiceResolver(t *testing.T) {
 		ServiceResolverCell,
 
 		cell.Config(k8s.DefaultConfig),
+		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Provide(k8s.ServiceResource),
 
 		cell.Invoke(func(cl_ *k8sClient.FakeClientset, resolver_ *ServiceResolver) {
@@ -179,7 +180,7 @@ func TestServiceBackendResolver(t *testing.T) {
 
 	h := hive.New(
 		lb.ConfigCell,
-		node.LocalNodeStoreCell,
+		node.LocalNodeStoreTestCell,
 		writer.Cell,
 
 		cell.Provide(

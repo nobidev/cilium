@@ -22,7 +22,6 @@
 /api/v1/health/ @isovalent/cni
 /api/v1/observer/ @isovalent/hubble-api
 /api/v1/peer/ @isovalent/hubble-api
-/api/v1/recorder/ @isovalent/hubble-api
 /api/v1/relay/ @isovalent/hubble-api
 /bpf/ @isovalent/cni
 /bpf/bpf_wireguard.c @isovalent/encryption @isovalent/cni
@@ -305,7 +304,6 @@
 /pkg/proxy/dns.go @isovalent/service-mesh @isovalent/dns-proxy
 /pkg/proxy/envoyproxy.go @isovalent/service-mesh @isovalent/service-mesh
 /pkg/rate/ @isovalent/cni
-/pkg/recorder @isovalent/cni
 /pkg/resiliency @isovalent/cni
 /pkg/revert/ @isovalent/cni
 /pkg/safeio @isovalent/cni

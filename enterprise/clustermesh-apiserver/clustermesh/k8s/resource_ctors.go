@@ -12,6 +12,7 @@ package k8s
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -19,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
-func PrivateNetworkEndpointSliceResource(params k8s.CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*iso_v1alpha1.PrivateNetworkEndpointSlice], error) {
+func PrivateNetworkEndpointSliceResource(params k8s.CiliumResourceParams, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*iso_v1alpha1.PrivateNetworkEndpointSlice], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
@@ -27,7 +28,7 @@ func PrivateNetworkEndpointSliceResource(params k8s.CiliumResourceParams, opts .
 		utils.ListerWatcherFromTyped(params.ClientSet.IsovalentV1alpha1().PrivateNetworkEndpointSlices(metav1.NamespaceAll)),
 		opts...,
 	)
-	return resource.New[*iso_v1alpha1.PrivateNetworkEndpointSlice](params.Lifecycle, lw,
+	return resource.New[*iso_v1alpha1.PrivateNetworkEndpointSlice](params.Lifecycle, lw, mp,
 		resource.WithMetric("PrivateNetworkEndpointSlices"), resource.WithCRDSync(params.CRDSyncPromise),
 	), nil
 }

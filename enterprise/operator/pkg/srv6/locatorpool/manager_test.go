@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -92,27 +93,27 @@ func newFixture(t *testing.T, ctx context.Context, req *require.Assertions) *fix
 	f.nodeResClient = f.fakeClientSet.SlimFakeClientset.CoreV1().Nodes()
 
 	f.hive = hive.New(
-		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*isovalent_api_v1alpha1.IsovalentSRv6SIDManager] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset, mp workqueue.MetricsProvider) resource.Resource[*isovalent_api_v1alpha1.IsovalentSRv6SIDManager] {
 			return resource.New[*isovalent_api_v1alpha1.IsovalentSRv6SIDManager](
 				lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentSRv6SIDManagerList](
 					c.IsovalentV1alpha1().IsovalentSRv6SIDManagers(),
-				),
+				), mp,
 			)
 		}),
 
-		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*isovalent_api_v1alpha1.IsovalentSRv6LocatorPool] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset, mp workqueue.MetricsProvider) resource.Resource[*isovalent_api_v1alpha1.IsovalentSRv6LocatorPool] {
 			return resource.New[*isovalent_api_v1alpha1.IsovalentSRv6LocatorPool](
 				lc, utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentSRv6LocatorPoolList](
 					c.IsovalentV1alpha1().IsovalentSRv6LocatorPools(),
-				),
+				), mp,
 			)
 		}),
 
-		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*slim_core_v1.Node] {
+		cell.Provide(func(lc cell.Lifecycle, c k8sClient.Clientset, mp workqueue.MetricsProvider) resource.Resource[*slim_core_v1.Node] {
 			return resource.New[*slim_core_v1.Node](
 				lc, utils.ListerWatcherFromTyped[*slim_core_v1.NodeList](
 					c.Slim().CoreV1().Nodes(),
-				),
+				), mp,
 			)
 		}),
 

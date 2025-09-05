@@ -43,6 +43,8 @@ import (
 //        Number of trusted hops in X-Forwarded-For header (default 0)
 //  --run string
 //        Run only the tests matching the regular expression (only respecting top level test functions)
+//  --network-name string
+//        The network name where external test containers (client & backends) should be attached to
 //  --verbose bool
 //        Verbose log output (default false)
 //
@@ -142,6 +144,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 
 	cmd.Flags().StringVar(&ilbCli.FlagMode, "mode", "multi-node", "Testing mode ('multi-node' or 'single-node'). 'multi-node' deploys client and LB app containers in separate network namespaces (to simulate multi-node LB environments). 'single-node' deploys the containers on a single node in the same host network namespace.")
 	cmd.Flags().StringVar(&ilbCli.FlagSingleNodeIPAddr, "single-node-ip", "", "The IP addr of the test runner node. The IP addr should be reachable by T1 and T2 nodes. Required when --mode=single-node.")
+	cmd.Flags().StringVar(&ilbCli.FlagNetworkName, "network-name", ilb.DefaultContainerNetwork, "The network name where external test containers (client & backends) should be attached to")
 
 	// TODO (sayboras): Remove these flags once we have feature auto-detection
 	cmd.Flags().BoolVar(&ilbCli.FlagUseRemoteAddress, "use-remote-address", true, "Use remote address for client IP in HTTP requests")

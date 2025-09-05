@@ -463,6 +463,14 @@
         "enabled": {
           "type": "boolean"
         },
+        "legacyOriginAttribute": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "routerIDAllocation": {
           "properties": {
             "ipPool": {
@@ -658,6 +666,12 @@
           "type": [
             "null",
             "integer"
+          ]
+        },
+        "policyMapPressureMetricsThreshold": {
+          "type": [
+            "null",
+            "number"
           ]
         },
         "policyStatsMapMax": {
@@ -3788,8 +3802,14 @@
                 "address": {
                   "type": "string"
                 },
+                "blockProfileRate": {
+                  "type": "integer"
+                },
                 "enabled": {
                   "type": "boolean"
+                },
+                "mutexProfileFraction": {
+                  "type": "integer"
                 },
                 "port": {
                   "type": "integer"
@@ -5642,9 +5662,6 @@
         },
         "enableHealthCheckLoadBalancerIP": {
           "type": "boolean"
-        },
-        "enabled": {
-          "type": "boolean"
         }
       },
       "type": "object"
@@ -6058,8 +6075,14 @@
             "address": {
               "type": "string"
             },
+            "blockProfileRate": {
+              "type": "integer"
+            },
             "enabled": {
               "type": "boolean"
+            },
+            "mutexProfileFraction": {
+              "type": "integer"
             },
             "port": {
               "type": "integer"
@@ -6230,6 +6253,12 @@
             },
             "restart": {
               "type": "boolean"
+            },
+            "selector": {
+              "type": [
+                "null",
+                "string"
+              ]
             }
           },
           "type": "object"
@@ -6312,8 +6341,14 @@
         "address": {
           "type": "string"
         },
+        "blockProfileRate": {
+          "type": "integer"
+        },
         "enabled": {
           "type": "boolean"
+        },
+        "mutexProfileFraction": {
+          "type": "integer"
         },
         "port": {
           "type": "integer"
@@ -7084,9 +7119,6 @@
         }
       },
       "type": "object"
-    },
-    "svcSourceRangeCheck": {
-      "type": "boolean"
     },
     "synchronizeK8sNodes": {
       "type": "boolean"

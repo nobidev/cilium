@@ -13,6 +13,7 @@ package srv6manager
 import (
 	"github.com/cilium/hive/cell"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/workqueue"
 
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -46,7 +47,7 @@ var Cell = cell.Module(
 	}),
 )
 
-func newIsovalentVRFResource(lc cell.Lifecycle, dc *option.DaemonConfig, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*iso_v1alpha1.IsovalentVRF], error) {
+func newIsovalentVRFResource(lc cell.Lifecycle, dc *option.DaemonConfig, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*iso_v1alpha1.IsovalentVRF], error) {
 	if !cs.IsEnabled() || !dc.EnableSRv6 {
 		return nil, nil
 	}
@@ -54,10 +55,10 @@ func newIsovalentVRFResource(lc cell.Lifecycle, dc *option.DaemonConfig, cs clie
 		utils.ListerWatcherFromTyped[*iso_v1alpha1.IsovalentVRFList](cs.IsovalentV1alpha1().IsovalentVRFs()),
 		opts...,
 	)
-	return resource.New[*iso_v1alpha1.IsovalentVRF](lc, lw, resource.WithMetric("IsovalentVRFResource")), nil
+	return resource.New[*iso_v1alpha1.IsovalentVRF](lc, lw, mp, resource.WithMetric("IsovalentVRFResource")), nil
 }
 
-func newIsovalentSRv6EgressPolicyResource(lc cell.Lifecycle, dc *option.DaemonConfig, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*iso_v1alpha1.IsovalentSRv6EgressPolicy], error) {
+func newIsovalentSRv6EgressPolicyResource(lc cell.Lifecycle, dc *option.DaemonConfig, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*iso_v1alpha1.IsovalentSRv6EgressPolicy], error) {
 	if !cs.IsEnabled() || !dc.EnableSRv6 {
 		return nil, nil
 	}
@@ -65,5 +66,5 @@ func newIsovalentSRv6EgressPolicyResource(lc cell.Lifecycle, dc *option.DaemonCo
 		utils.ListerWatcherFromTyped[*iso_v1alpha1.IsovalentSRv6EgressPolicyList](cs.IsovalentV1alpha1().IsovalentSRv6EgressPolicies()),
 		opts...,
 	)
-	return resource.New[*iso_v1alpha1.IsovalentSRv6EgressPolicy](lc, lw, resource.WithMetric("IsovalentSRv6EgressPolicyResource")), nil
+	return resource.New[*iso_v1alpha1.IsovalentSRv6EgressPolicy](lc, lw, mp, resource.WithMetric("IsovalentSRv6EgressPolicyResource")), nil
 }

@@ -2,7 +2,7 @@ allowed-teams:
   - organization-members
 
 triggers:
-  /test:
+  /test\s*:
     workflows:
     - conformance-aws-cni.yaml
     - conformance-clustermesh.yaml
@@ -95,6 +95,13 @@ triggers:
   /ci-ces-migrate:
     workflows:
     - tests-ces-migrate.yaml
+
+schedule:
+  nightly:
+    workflows:
+    - conformance-aks.yaml
+    - conformance-gateway-api.yaml
+    - conformance-gke.yaml
 
 workflows:
   conformance-aks.yaml:

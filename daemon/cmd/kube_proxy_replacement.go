@@ -43,11 +43,13 @@ import (
 // if this function cannot determine the strictness an error is returned and the boolean
 // is false. If an error is returned the boolean is of no meaning.
 func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, tunnelConfig tunnel.Config, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig) error {
-	if !kprCfg.EnableNodePort {
+	if !kprCfg.KubeProxyReplacement {
 		option.Config.EnableHostLegacyRouting = true
 	}
+	logger.Info("kube-proxy replacement starting with the following config",
+		logfields.KPRConfiguration, kprCfg)
 
-	if kprCfg.EnableNodePort {
+	if kprCfg.KubeProxyReplacement {
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
 			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
 			if ip.To4() == nil {
@@ -144,9 +146,9 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 		// InstallNoConntrackIptRules can only be enabled when Cilium is
 		// running in full KPR mode as otherwise conntrack would be
 		// required for NAT operations
-		if !(kprCfg.EnableHostPort && kprCfg.EnableNodePort && kprCfg.EnableExternalIPs && kprCfg.EnableSocketLB) {
-			return fmt.Errorf("%s requires the agent to run with %s=%s.",
-				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
+		if !(kprCfg.KubeProxyReplacement && kprCfg.EnableSocketLB) {
+			return fmt.Errorf("%s requires the agent to run with %s.",
+				option.InstallNoConntrackIptRules, option.KubeProxyReplacement)
 		}
 
 		if option.Config.MasqueradingEnabled() && !option.Config.EnableBPFMasquerade {
@@ -171,19 +173,13 @@ func initKubeProxyReplacementOptions(logger *slog.Logger, sysctl sysctl.Sysctl, 
 // the running kernel.
 func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, sysctl sysctl.Sysctl) error {
 
-	if kprCfg.EnableNodePort {
+	if kprCfg.KubeProxyReplacement {
 		if probes.HaveProgramHelper(logger, ebpf.SchedCLS, asm.FnFibLookup) != nil {
 			return fmt.Errorf("BPF NodePort services needs kernel 4.17.0 or newer")
 		}
 
 		if err := checkNodePortAndEphemeralPortRanges(lbConfig, sysctl); err != nil {
 			return err
-		}
-
-		if option.Config.EnableRecorder {
-			if probes.HaveProgramHelper(logger, ebpf.XDP, asm.FnKtimeGetBootNs) != nil {
-				return fmt.Errorf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
-			}
 		}
 
 		if option.Config.EnableHealthDatapath {
@@ -277,8 +273,8 @@ func finishKubeProxyReplacementInit(logger *slog.Logger, sysctl sysctl.Sysctl, d
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
 		// KPR=true is needed or we might rely on netfilter.
-		case kprCfg.KubeProxyReplacement != option.KubeProxyReplacementTrue:
-			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
+		case !kprCfg.KubeProxyReplacement:
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.KubeProxyReplacement)
 		}
 		if msg != "" {
 			option.Config.EnableHostLegacyRouting = true

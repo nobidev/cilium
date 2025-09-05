@@ -20,10 +20,10 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
@@ -48,7 +48,7 @@ import (
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	version.Force(k8sTestutils.DefaultVersion)
 	nodeTypes.SetName("testnode")
@@ -69,12 +69,13 @@ func TestScript(t *testing.T) {
 			h := hive.New(
 				k8sClient.FakeClientCell(),
 				daemonk8s.ResourcesCell,
+				cell.Config(envoyCfg.SecretSyncConfig{}),
 				daemonk8s.TablesCell,
 				metrics.Cell,
 
 				lbcell.Cell,
 
-				node.LocalNodeStoreCell,
+				node.LocalNodeStoreTestCell,
 				maglev.Cell,
 				cell.Provide(
 					source.NewSources,
@@ -90,8 +91,7 @@ func TestScript(t *testing.T) {
 					},
 					func() kpr.KPRConfig {
 						return kpr.KPRConfig{
-							EnableNodePort:       true,
-							KubeProxyReplacement: option.KubeProxyReplacementTrue,
+							KubeProxyReplacement: true,
 						}
 					},
 					func() redirectpolicy.TestSkipLBMap {

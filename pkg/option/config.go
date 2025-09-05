@@ -219,9 +219,6 @@ const (
 	// EnableHostLegacyRouting enables the old routing path via stack.
 	EnableHostLegacyRouting = "enable-host-legacy-routing"
 
-	// EnableNodePort enables NodePort services implemented by Cilium in BPF
-	EnableNodePort = "enable-node-port"
-
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic", "native", or "best-effort")
 	NodePortAcceleration = "node-port-acceleration"
@@ -257,9 +254,6 @@ const (
 	// features in BPF datapath
 	KubeProxyReplacement = "kube-proxy-replacement"
 
-	// EnableSessionAffinity enables a support for service sessionAffinity
-	EnableSessionAffinity = "enable-session-affinity"
-
 	// EnableIdentityMark enables setting the mark field with the identity for
 	// local traffic. This may be disabled if chaining modes and Cilium use
 	// conflicting marks.
@@ -268,9 +262,6 @@ const (
 	// AddressScopeMax controls the maximum address scope for addresses to be
 	// considered local ones with HOST_ID in the ipcache
 	AddressScopeMax = "local-max-addr-scope"
-
-	// EnableRecorder enables the datapath pcap recorder
-	EnableRecorder = "enable-recorder"
 
 	// EnableLocalRedirectPolicy enables support for local redirect policy
 	EnableLocalRedirectPolicy = "enable-local-redirect-policy"
@@ -289,6 +280,9 @@ const (
 
 	// LogOpt sets log driver options for cilium
 	LogOpt = "log-opt"
+
+	// EnableRemoteNodeMasquerade Masquerade packets from endpoints leaving the host destined to a remote node in BPF masquerading mode. This option requires to set enable-bpf-masquerade to true.
+	EnableRemoteNodeMasquerade = "enable-remote-node-masquerade"
 
 	// EnableIPv4Masquerade masquerades IPv4 packets from endpoints leaving the host.
 	EnableIPv4Masquerade = "enable-ipv4-masquerade"
@@ -628,7 +622,7 @@ const (
 	IPv6MCastDevice = "ipv6-mcast-device"
 
 	// BPFEventsDefaultRateLimit specifies limit of messages per second that can be written to
-	// BPF events map. This limit is defined for all types of events except dbg and pcap.
+	// BPF events map. This limit is defined for all types of events except dbg.
 	// The number of messages is averaged, meaning that if no messages were written
 	// to the map over 5 seconds, it's possible to write more events than the value of rate limit
 	// in the 6th second.
@@ -639,7 +633,7 @@ const (
 	BPFEventsDefaultRateLimit = "bpf-events-default-rate-limit"
 
 	// BPFEventsDefaultBurstLimit specifies the maximum number of messages that can be written
-	// to BPF events map in 1 second. This limit is defined for all types of events except dbg and pcap.
+	// to BPF events map in 1 second. This limit is defined for all types of events except dbg.
 	//
 	// If BPFEventsDefaultBurstLimit > 0, non-zero value for BPFEventsDefaultRateLimit must also be provided
 	// lest the configuration is considered invalid.
@@ -1016,9 +1010,6 @@ const (
 	// BPFConntrackAccounting controls whether CT accounting for packets and bytes is enabled
 	BPFConntrackAccounting = "bpf-conntrack-accounting"
 
-	// EnableInternalTrafficPolicy enables handling routing for services with internalTrafficPolicy configured
-	EnableInternalTrafficPolicy = "enable-internal-traffic-policy"
-
 	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
 	EnableNonDefaultDenyPolicies = "enable-non-default-deny-policies"
 
@@ -1098,14 +1089,6 @@ const (
 
 	// NodePortAccelerationBestEffort means we accelerate NodePort via native XDP in the driver (preferred), but will skip devices without driver support
 	NodePortAccelerationBestEffort = XDPModeBestEffort
-
-	// KubeProxyReplacementTrue specifies to enable all kube-proxy replacement
-	// features (might panic).
-	KubeProxyReplacementTrue = "true"
-
-	// KubeProxyReplacementFalse specifies to enable only selected kube-proxy
-	// replacement features (might panic).
-	KubeProxyReplacementFalse = "false"
 
 	// PprofAddressAgent is the default value for pprof in the agent
 	PprofAddressAgent = "localhost"
@@ -1309,7 +1292,7 @@ type DaemonConfig struct {
 	MonitorAggregationFlags uint16
 
 	// BPFEventsDefaultRateLimit specifies limit of messages per second that can be written to
-	// BPF events map. This limit is defined for all types of events except dbg and pcap.
+	// BPF events map. This limit is defined for all types of events except dbg.
 	// The number of messages is averaged, meaning that if no messages were written
 	// to the map over 5 seconds, it's possible to write more events than the value of rate limit
 	// in the 6th second.
@@ -1319,7 +1302,7 @@ type DaemonConfig struct {
 	BPFEventsDefaultRateLimit uint32
 
 	// BPFEventsDefaultBurstLimit specifies the maximum number of messages that can be written
-	// to BPF events map in 1 second. This limit is defined for all types of events except dbg and pcap.
+	// to BPF events map in 1 second. This limit is defined for all types of events except dbg.
 	//
 	// If BPFEventsDefaultBurstLimit > 0, non-zero value for BPFEventsDefaultRateLimit must also be provided
 	// lest the configuration is considered invalid.
@@ -1474,6 +1457,7 @@ type DaemonConfig struct {
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
+	EnableRemoteNodeMasquerade  bool
 	EnableIPv4Masquerade        bool
 	EnableIPv6Masquerade        bool
 	EnableBPFMasquerade         bool
@@ -1682,9 +1666,6 @@ type DaemonConfig struct {
 	// AddressScopeMax controls the maximum address scope for addresses to be
 	// considered local ones with HOST_ID in the ipcache
 	AddressScopeMax int
-
-	// EnableRecorder enables the datapath pcap recorder
-	EnableRecorder bool
 
 	// EnableMKE enables MKE specific 'chaining' for kube-proxy replacement
 	EnableMKE bool
@@ -1916,8 +1897,7 @@ type DaemonConfig struct {
 
 	// PolicyCIDRMatchMode is the list of entities that can be selected by CIDR policy.
 	// Currently supported values:
-	// - world
-	// - world, remote-node
+	// - nodes
 	PolicyCIDRMatchMode []string
 
 	// MaxConnectedClusters sets the maximum number of clusters that can be
@@ -1943,9 +1923,6 @@ type DaemonConfig struct {
 	// EnableSocketLBPodConnectionTermination enables the termination of connections from pods
 	// to deleted service backends when socket-LB is enabled
 	EnableSocketLBPodConnectionTermination bool
-
-	// EnableInternalTrafficPolicy enables handling routing for services with internalTrafficPolicy configured
-	EnableInternalTrafficPolicy bool
 
 	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
 	EnableNonDefaultDenyPolicies bool
@@ -2014,7 +1991,6 @@ var (
 		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
 		BPFConntrackAccounting:        defaults.BPFConntrackAccounting,
 		EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
-		EnableInternalTrafficPolicy:   defaults.EnableInternalTrafficPolicy,
 
 		EnableNonDefaultDenyPolicies: defaults.EnableNonDefaultDenyPolicies,
 
@@ -2079,7 +2055,7 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig, wireguardEnabled bool) bool {
-	return kprCfg.EnableNodePort || c.EnableHostFirewall || wireguardEnabled ||
+	return kprCfg.KubeProxyReplacement || c.EnableBPFMasquerade || c.EnableHostFirewall || wireguardEnabled ||
 		c.EnableL2Announcements || c.ForceDeviceRequired || c.EnableIPSec
 }
 
@@ -2105,7 +2081,7 @@ func (c *DaemonConfig) NeedIngressOnWireGuardDevice(kprCfg kpr.KPRConfig, wiregu
 	// from the remote node, we need to attach bpf_host to the Cilium's WG
 	// netdev (otherwise, the WG netdev after decrypting the reply will pass
 	// it to the stack which drops the packet).
-	if kprCfg.EnableNodePort && c.EncryptNode {
+	if kprCfg.KubeProxyReplacement && c.EncryptNode {
 		return true
 	}
 
@@ -2126,7 +2102,7 @@ func (c *DaemonConfig) NeedEgressOnWireGuardDevice(kprCfg kpr.KPRConfig, wiregua
 
 	// Attaching cil_to_wireguard to cilium_wg0 egress is required for handling
 	// the rev-NAT xlations when encrypting KPR traffic.
-	if kprCfg.EnableNodePort && c.EnableL7Proxy && kprCfg.KubeProxyReplacement == KubeProxyReplacementTrue {
+	if c.EnableL7Proxy && kprCfg.KubeProxyReplacement {
 		return true
 	}
 
@@ -2265,11 +2241,11 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired(kprCfg kpr.KPRConfig, wiregua
 	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
 
 	// XDP needs IPV4_DIRECT_ROUTING when building tunnel headers:
-	if kprCfg.EnableNodePort && c.NodePortAcceleration != NodePortAccelerationDisabled {
+	if kprCfg.KubeProxyReplacement && c.NodePortAcceleration != NodePortAccelerationDisabled {
 		return true
 	}
 
-	return kprCfg.EnableNodePort || BPFHostRoutingEnabled || wireguardEnabled
+	return kprCfg.KubeProxyReplacement || BPFHostRoutingEnabled || wireguardEnabled
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
@@ -2576,7 +2552,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.NodePortBindProtection = vp.GetBool(NodePortBindProtection)
 	c.NodePortNat46X64 = vp.GetBool(LoadBalancerNat46X64)
 	c.EnableAutoProtectNodePortRange = vp.GetBool(EnableAutoProtectNodePortRange)
-	c.EnableRecorder = vp.GetBool(EnableRecorder)
 	c.EnableMKE = vp.GetBool(EnableMKE)
 	c.CgroupPathMKE = vp.GetString(CgroupPathMKE)
 	c.EnableHostFirewall = vp.GetBool(EnableHostFirewall)
@@ -2651,6 +2626,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableCustomCalls = vp.GetBool(EnableCustomCallsName)
 	c.BGPSecretsNamespace = vp.GetString(BGPSecretsNamespace)
 	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
+	c.EnableRemoteNodeMasquerade = vp.GetBool(EnableRemoteNodeMasquerade)
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
@@ -2985,7 +2961,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		c.IdentityRestoreGracePeriod = defaults.IdentityRestoreGracePeriodKvstore
 	}
 
-	c.EnableInternalTrafficPolicy = vp.GetBool(EnableInternalTrafficPolicy)
 	c.EnableSourceIPVerification = vp.GetBool(EnableSourceIPVerification)
 
 	// Allow the range [0.0, 1.0].

@@ -14,7 +14,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -25,9 +24,7 @@ import (
 )
 
 func TestDatapathNodeHeaderConfigProvider(t *testing.T) {
-	localNode, err := node.NewLocalNodeStore(
-		node.LocalNodeStoreParams{Lifecycle: hivetest.Lifecycle(t)})
-	assert.NoError(t, err)
+	localNode := node.NewTestLocalNodeStore(node.LocalNode{})
 	localNode.Update(func(ln *node.LocalNode) { ln.SetNodeInternalIP(net.ParseIP("1.2.3.4")) })
 
 	tests := []struct {

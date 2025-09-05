@@ -17,7 +17,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/goleak"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestStoreSet(t *testing.T) {
@@ -106,7 +107,7 @@ func TestStoreSet(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		defer goleak.VerifyNone(t)
+		defer testutils.GoleakVerifyNone(t)
 
 		store := newStore()
 
@@ -118,7 +119,7 @@ func TestStoreSet(t *testing.T) {
 }
 
 func TestStoreConcurrentSet(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	apply := [...]func(*fqdnStore){
 		func(store *fqdnStore) {
@@ -171,7 +172,7 @@ func TestStoreConcurrentSet(t *testing.T) {
 }
 
 func TestStoreSubscriber(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	before := func(store *fqdnStore) {
 		store.set("cilium.io", []netip.Prefix{netip.MustParsePrefix("3.3.3.3/32")})
@@ -280,7 +281,7 @@ func TestStoreSubscriber(t *testing.T) {
 }
 
 func TestStoreConcurrentSubscribers(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	apply := func(store *fqdnStore) {
 		store.set("cilium.io", []netip.Prefix{netip.MustParsePrefix("3.3.3.3/32")})

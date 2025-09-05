@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/backoff"
@@ -674,7 +675,7 @@ func (m *sidManager) Sync() {
 // node name.
 type LocalIsovalentSRv6SIDManagerResource resource.Resource[*v1alpha1.IsovalentSRv6SIDManager]
 
-func NewLocalIsovalentSRv6SIDManagerResource(dc *option.DaemonConfig, lc cell.Lifecycle, cs client.Clientset) LocalIsovalentSRv6SIDManagerResource {
+func NewLocalIsovalentSRv6SIDManagerResource(dc *option.DaemonConfig, lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) LocalIsovalentSRv6SIDManagerResource {
 	if !dc.EnableSRv6 || !cs.IsEnabled() {
 		return nil
 	}
@@ -685,5 +686,5 @@ func NewLocalIsovalentSRv6SIDManagerResource(dc *option.DaemonConfig, lc cell.Li
 			opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
 		},
 	)
-	return resource.New[*v1alpha1.IsovalentSRv6SIDManager](lc, lw, resource.WithMetric("IsovalentSRv6SIDManager"))
+	return resource.New[*v1alpha1.IsovalentSRv6SIDManager](lc, lw, mp, resource.WithMetric("IsovalentSRv6SIDManager"))
 }

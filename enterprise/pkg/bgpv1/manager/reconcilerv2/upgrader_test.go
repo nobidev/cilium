@@ -126,7 +126,7 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 			return resource.New[*v2.CiliumNode](
 				lc, utils.ListerWatcherFromTyped[*v2.CiliumNodeList](
 					c.CiliumV2().CiliumNodes(),
-				),
+				), nil,
 			)
 		}),
 

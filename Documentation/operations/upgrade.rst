@@ -304,10 +304,28 @@ communicating via the proxy must reconnect to re-establish connections.
   across different clusters. See :ref:`change_policy_default_local_cluster` for more details and migration recommendations
   to update your network policies.
 * Kafka Network Policy support is deprecated and will be removed in Cilium v1.20.
+* Hubble field mask support was stabilized. In the Observer gRPC API, ``GetFlowsRequest.Experimental.field_mask`` was removed in favor of ``GetFlowsRequest.field_mask``. In the Hubble CLI, the ``--experimental-field-mask`` has been renamed to ``--field-mask`` and ``--experimental-use-default-field-mask`` renamed to ``-use-default-field-mask`` (now ``true`` by default).
+
+* ``enable-remote-node-masquerade`` config option is introduced.
+  To masquerade traffic to remote nodes in BPF masquerading mode,
+  use the option ``enable-remote-node-masquerade: "true"``.
+  This option requires ``enable-bpf-masquerade: "true"`` and also either
+  ``enable-ipv4-masquerade: "true"`` or ``enable-ipv6-masquerade: "true"``
+  to SNAT traffic for IPv4 and IPv6, respectively.
+  This flag currently masquerades traffic to node ``InternalIP`` addresses.
+  This may change in future. See :gh-issue:`35823`
+  and :gh-issue:`17177` for further discussion on this topic.
 
 Removed Options
 ~~~~~~~~~~~~~~~
 * The previously deprecated ``--bpf-lb-proto-diff`` flag has been removed.
+* The previously deprecated PCAP recorder feature and its accompanying flags (``--enable-recorder``,
+  ``--hubble-recorder-*``) have been removed.
+* The previously deprecated ``--enable-session-affinity``, ``--enable-internal-traffic-policy``, and
+  ``--enable-svc-source-range-check`` flags have been removed. Their corresponding features are
+  enabled by default.
+* The previously deprecated ``--enable-node-port``, ``--enable-host-port``, and ``--enable-external-ips``
+  flags have been removed. To enable the corresponding features, users must set ``--kube-proxy-replacement=true``.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -341,10 +359,26 @@ Added Metrics
 Removed Metrics
 ~~~~~~~~~~~~~~~
 
+* ``k8s_internal_traffic_policy_enabled`` has been removed, because the corresponding feature is enabled by default.
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
 
+The following metrics previously had instances (i.e. for some watcher K8s resource type labels) under ``workqueue_``.
+In this release any such metrics have been renamed and combined into the correct metric name prefixed with ``cilium_operator_``.
+
+As well, any remaining Operator k8s workqueue metrics that use the label ``queue_name`` have had it renamed to 
+``name`` to be consistent with agent k8s workqueue metrics.
+
+* The metric ``workqueue_adds_total`` has been renamed and combined into to ``cilium_operator_k8s_workqueue_adds_total``, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_depth`` has been renamed and combined into ``cilium_operator_k8s_workqueue_adds_total``, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_longest_running_processor_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_longest_running_processor_seconds``, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_queue_duration_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_queue_duration_seconds``, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_retries_total`` has been renamed and combined into ``cilium_operator_k8s_workqueue_retries_total`, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_unfinished_work_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_unfinished_work_seconds`, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_work_duration_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_work_duration_seconds``, the label ``queue_name`` has been renamed to ``name``.
+
+* ``k8s_client_rate_limiter_duration_seconds`` no longer has labels ``path`` and ``method``.
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
@@ -571,7 +605,7 @@ Below is an example where there is one network policy that needs to be updated:
 
 .. code-block:: shell-session
 
-    $ cilium clustermesh prepare-policy-default-local-cluster --all-namespaces
+    $ cilium clustermesh inspect-policy-default-local-cluster --all-namespaces
 
     ⚠️ CiliumNetworkPolicy 0/1
             ⚠️ default/allow-from-bar

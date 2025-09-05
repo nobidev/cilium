@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/hive/job"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
@@ -303,7 +304,7 @@ type meshEndpointResourceParams struct {
 	Config Config
 }
 
-func NewIsovalentMeshEndpointResource(p meshEndpointResourceParams, lc cell.Lifecycle, cs client.Clientset) IsovalentMeshEndpointResource {
+func NewIsovalentMeshEndpointResource(p meshEndpointResourceParams, lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) IsovalentMeshEndpointResource {
 	if !p.Config.EnableCiliumMesh || !cs.IsEnabled() {
 		return nil
 	}
@@ -311,5 +312,5 @@ func NewIsovalentMeshEndpointResource(p meshEndpointResourceParams, lc cell.Life
 		utils.ListerWatcherFromTyped[*v1alpha1.IsovalentMeshEndpointList](cs.IsovalentV1alpha1().IsovalentMeshEndpoints(v1.NamespaceAll)),
 		fields.Everything(),
 	)
-	return resource.New[*v1alpha1.IsovalentMeshEndpoint](lc, lw, resource.WithMetric("IsovalentMeshEndpointResource"))
+	return resource.New[*v1alpha1.IsovalentMeshEndpoint](lc, lw, mp, resource.WithMetric("IsovalentMeshEndpointResource"))
 }

@@ -27,6 +27,7 @@ import (
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
@@ -78,6 +79,7 @@ func TestScript(t *testing.T) {
 				k8sClient.FakeClientCell(),
 				daemonk8s.ResourcesCell,
 				daemonk8s.TablesCell,
+				cell.Config(envoyCfg.SecretSyncConfig{}),
 
 				cell.Config(loadbalancer.TestConfig{
 					// By default 10% of the time the LBMap operations fail
@@ -85,7 +87,7 @@ func TestScript(t *testing.T) {
 				}),
 				metrics.Cell,
 				maglev.Cell,
-				node.LocalNodeStoreCell,
+				node.LocalNodeStoreTestCell,
 				cell.Provide(
 					func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
@@ -93,18 +95,13 @@ func TestScript(t *testing.T) {
 					source.NewSources,
 					func(cfg loadbalancer.TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:                  true,
-							EnableIPv6:                  true,
-							EnableInternalTrafficPolicy: true,
+							EnableIPv4: true,
+							EnableIPv6: true,
 						}
 					},
 					func() kpr.KPRConfig {
 						return kpr.KPRConfig{
-							KubeProxyReplacement:      option.KubeProxyReplacementTrue,
-							EnableNodePort:            true,
-							EnableHostPort:            true,
-							EnableSessionAffinity:     true,
-							EnableSVCSourceRangeCheck: true,
+							KubeProxyReplacement: true,
 						}
 					},
 					func(ops *lbreconciler.BPFOps, lns *node.LocalNodeStore, w *writer.Writer, waitFn loadbalancer.InitWaitFunc) uhive.ScriptCmdsOut {
