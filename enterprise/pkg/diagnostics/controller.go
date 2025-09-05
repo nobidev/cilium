@@ -108,8 +108,9 @@ func (c *controller) evalLoop(ctx context.Context, health cell.Health) error {
 
 	if c.Config.DiagnosticsExportFile != "" {
 		fw, err := exporter.FileWriter(exporter.FileWriterConfig{
-			Filename: c.Config.DiagnosticsExportFile,
-			MaxSize:  10 * 1024 * 1024, // 10MB
+			Filename:   c.Config.DiagnosticsExportFile,
+			MaxSize:    10 * 1024 * 1024, // 10MB
+			MaxBackups: 1,
 		})()
 		if err != nil {
 			return fmt.Errorf("failed to create a file writer: %w", err)
