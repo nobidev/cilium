@@ -73,6 +73,7 @@ env:
   ocp_version_multi: 4.18.20-multi
   pod_cidr: 10.244.0.0/16
   pod_cidr_host_prefix: 23
+  test_vm_tunnel_port: 8888
 
 jobs:
   commit-status-start:
@@ -221,7 +222,6 @@ jobs:
           if [[ "${zone}" == "null" || "${zone}" == "" ]]; then
             zone="${region}a"
           fi
-          allow_ssh_from_cidr=$(echo $extra_args | jq -r '.allowSshFromCidr')
           ocp_minor_version=$(echo ${ocp_version} | cut -d '.' -f 1,2)
           echo "ocp_version=${ocp_version}" | tee -a $GITHUB_OUTPUT
           echo "ocp_minor_version=${ocp_minor_version}" | tee -a $GITHUB_OUTPUT
@@ -229,7 +229,6 @@ jobs:
           echo "owner=${OWNER}" | tee -a $GITHUB_OUTPUT
           echo "region=${region}" | tee -a $GITHUB_OUTPUT
           echo "zone=${zone}" | tee -a $GITHUB_OUTPUT
-          echo "allow_ssh_from_cidr=${allow_ssh_from_cidr}" | tee -a $GITHUB_OUTPUT
 
       - name: Install kubectl
         run: |
@@ -380,22 +379,22 @@ jobs:
                                                    --query 'KeyPairs[?starts_with(KeyName, `${{ env.clusterName }}`) == `true`]|[].[KeyName]' \
                                                    --no-cli-pager \
                                                    --output text)
-          # Read public subnet ID
-          publicSubnetId=$(aws ec2 describe-subnets --region ${{ steps.vars.outputs.region }} \
-                                                    --filters 'Name=tag:Name,Values=${{ env.clusterName }}*public*' \
-                                                    --query "Subnets[*].SubnetId" \
-                                                    --no-cli-pager \
-                                                    --output text)
+          # Read private subnet ID
+          privateSubnetId=$(aws ec2 describe-subnets --region ${{ steps.vars.outputs.region }} \
+                                                     --filters 'Name=tag:Name,Values=${{ env.clusterName }}*private*' \
+                                                     --query 'Subnets[*].SubnetId' \
+                                                     --no-cli-pager \
+                                                     --output text)
           # Read all security group IDs
           # The following schellcheck disabled because AWS CLI --query requires single quotes.
           # shellcheck disable=SC2016
           allSecurityGroupIds=$(aws ec2 describe-security-groups --region ${{ steps.vars.outputs.region }} \
-                                                                  --query 'SecurityGroups[?starts_with(GroupName, `${{ env.clusterName }}`) == `true`]|[].GroupId' \
-                                                                  --no-cli-pager \
-                                                                  --output text)
+                                                                 --query 'SecurityGroups[?starts_with(GroupName, `${{ env.clusterName }}`) == `true`]|[].GroupId' \
+                                                                 --no-cli-pager \
+                                                                 --output text)
           echo "workersSGId=${workersSGId}" | tee -a $GITHUB_OUTPUT
           echo "keyPairName=${keyPairName}" | tee -a $GITHUB_OUTPUT
-          echo "publicSubnetId=${publicSubnetId}" | tee -a $GITHUB_OUTPUT
+          echo "privateSubnetId=${privateSubnetId}" | tee -a $GITHUB_OUTPUT
           echo "allSecurityGroupIds=${allSecurityGroupIds}" | tee -a $GITHUB_OUTPUT
 
       - name: Test VM pre-install script
@@ -437,8 +436,7 @@ jobs:
                                          --user-data file://./test-vm-setup.sh \
                                          --key-name ${{ steps.aws-env.outputs.keyPairName }} \
                                          --instance-type t3.micro \
-                                         --subnet-id ${{ steps.aws-env.outputs.publicSubnetId }} \
-                                         --associate-public-ip-address \
+                                         --subnet-id ${{ steps.aws-env.outputs.privateSubnetId }} \
                                          --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=${{ env.clusterName }}-test-vm}]' \
                                          --security-group-ids ${{ steps.aws-env.outputs.allSecurityGroupIds }} \
                                          --no-cli-pager)
@@ -454,34 +452,32 @@ jobs:
                                                    --cidr 100.64.0.0/16 \
                                                    --no-cli-pager
 
-      - name: Get runner public IP
-        id: gh-runner
+      - name: Provision AWS endpoint
+        id: aws-endpoint
+        timeout-minutes: 15
         run: |
-          public_ip="$(curl -s ipinfo.io/ip)"
-          if [[ -z "$public_ip" ]]
-          then
-            echo "unable to get my public ip!"
-            exit 1
-          fi
-          echo "public_ip=$public_ip" | tee -a $GITHUB_OUTPUT
-
-      - name: Allow SSH access to test VM
-        run: |
-          aws ec2 authorize-security-group-ingress --region ${{ steps.vars.outputs.region }} \
-                                                   --group-id ${{ steps.aws-env.outputs.workersSGId }} \
-                                                   --protocol tcp \
-                                                   --port 22 \
-                                                   --cidr ${{ steps.gh-runner.outputs.public_ip }}/32 \
-                                                   --no-cli-pager
-          if [[ -n "${{ steps.vars.outputs.allow_ssh_from_cidr }}" ]]
-          then
-            aws ec2 authorize-security-group-ingress --region ${{ steps.vars.outputs.region }} \
-                                                     --group-id ${{ steps.aws-env.outputs.workersSGId }} \
-                                                     --protocol tcp \
-                                                     --port 22 \
-                                                     --cidr ${{ steps.vars.outputs.allow_ssh_from_cidr }} \
-                                                     --no-cli-pager
-          fi
+          endpointID=$(aws ec2 create-instance-connect-endpoint --region ${{ steps.vars.outputs.region }} \
+                                                                --security-group-ids ${{ steps.aws-env.outputs.allSecurityGroupIds }} \
+                                                                --subnet-id ${{ steps.aws-env.outputs.privateSubnetId }} \
+                                                                --no-cli-pager \
+                                                                --output json | \
+                       jq .InstanceConnectEndpoint.InstanceConnectEndpointId -r)
+          while true
+          do
+            status=$(aws ec2 describe-instance-connect-endpoints --region ${{ steps.vars.outputs.region }} \
+                                                                 --instance-connect-endpoint-ids $endpointID \
+                                                                 --query InstanceConnectEndpoints[*].State \
+                                                                 --no-cli-pager \
+                                                                 --output text || true)
+            if [ "${status}" == "create-complete" ]
+            then
+              echo "Endpoint is ready!"
+              break
+            fi
+            echo "Endpoint is not ready yet: ${status} ..."
+            sleep 10
+          done
+          echo "id=${endpointID}" | tee -a $GITHUB_OUTPUT
 
       - name: Wait for Cluster operators to be ready
         if: ${{ steps.cluster.outcome == 'success' }}
@@ -572,27 +568,29 @@ jobs:
         run: |
           cilium lb status -n cilium
 
-      - name: Read test VM props
-        id: test-vm-props
+      - name: Open tunnel to test VM
+        id: aws-tunnel
         run: |
-          fqdn=$(aws ec2 describe-instances --region ${{ steps.vars.outputs.region }} \
-                                            --instance-ids ${{ steps.test-vm.outputs.id }} \
-                                            --query 'Reservations[].Instances[].PublicDnsName' \
-                                            --no-cli-pager \
-                                            --output text)
-
-          echo "fqdn=${fqdn}" | tee -a $GITHUB_OUTPUT
+          aws ec2-instance-connect open-tunnel --region ${{ steps.vars.outputs.region }} \
+                                               --instance-id ${{ steps.test-vm.outputs.id }} \
+                                               --local-port ${{ env.test_vm_tunnel_port }} &
+          pid=$!
+          echo "pid=${pid}" >> $GITHUB_OUTPUT
 
       - name: Copy kubeconfig to test VM
         run: |
-          scp -i ~/.ssh/ci_key -o stricthostkeychecking=no ~/.kube/config ubuntu@${{ steps.test-vm-props.outputs.fqdn }}:.
+          scp -i ~/.ssh/ci_key \
+              -P ${{ env.test_vm_tunnel_port }} \
+              -o stricthostkeychecking=no \
+              ~/.kube/config ubuntu@localhost:.
 
       - name: Run ILB tests
         uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
         env:
           KUBECONFIG: "/home/ubuntu/config"
         with:
-          host: ${{ steps.test-vm-props.outputs.fqdn }}
+          host: localhost
+          port: ${{ env.test_vm_tunnel_port }}
           username: ubuntu
           key_path: "/home/runner/.ssh/ci_key"
           command_timeout: 60m
@@ -655,6 +653,22 @@ jobs:
           aws ec2 terminate-instances --region ${{ steps.vars.outputs.region }} \
                                       --instance-ids ${{ steps.test-vm.outputs.id }} \
                                       --no-cli-pager
+
+      # Happens independently of the success or the failure of the provisioning and tests
+      - name: Close endpoint tunnel
+        if: always() && steps.aws-tunnel.outcome != 'skipped'
+        run: |
+          echo "terminating AWS tunnel process: ${{ steps.aws-tunnel.outputs.pid }} ..."
+          kill -9 ${{ steps.aws-tunnel.outputs.pid }} || true
+
+      # Happens independently of the success or the failure of the provisioning and tests
+      - name: Terminate AWS endpoint
+        if: always() && steps.aws-endpoint.outcome != 'skipped'
+        run: |
+          echo "terminating AWS endpoint: ${{ steps.aws-endpoint.outputs.id }} ..."
+          aws ec2 delete-instance-connect-endpoint --region ${{ steps.vars.outputs.region }} \
+                                                   --instance-connect-endpoint-id ${{ steps.aws-endpoint.outputs.id }} \
+                                                   --no-cli-pager
 
       # Happens independently of the success or the failure of the provisioning and tests
       - name: Clean up Cluster
