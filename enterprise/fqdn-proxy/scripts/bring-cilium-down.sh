@@ -6,6 +6,18 @@ set -eu -o pipefail
 nb_cilium_instances_ok=$(kubectl -n kube-system get ds/cilium -o jsonpath='{.status.numberAvailable}')
 echo "Number of Cilium instances available: ${nb_cilium_instances_ok}"
 
+if [[ ${CLEAR_CACHE} == "true" ]]; then
+	for pod in $(kubectl -n kube-system get pods -l k8s-app=cilium -o name); do
+		echo "Clearing the FQDN cache in pod ${pod}"
+		kubectl exec -n kube-system "${pod}" -- cilium-dbg fqdn cache clean --force
+		kubectl exec -n kube-system "${pod}" -- cilium-dbg fqdn cache list
+	done
+
+	# give just a bit of time for IPs to be removed from the ipcache
+	sleep 2
+fi
+
+
 # Change the image of cilium for an invalid one to bring Cilium down.
 kubectl -n kube-system set image ds/cilium cilium-agent=cilium-cee/no-such-image-lol/
 sleep 2
