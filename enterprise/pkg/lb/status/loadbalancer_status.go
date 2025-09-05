@@ -64,8 +64,18 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 		NrOfVIPs:     len(vips.Items),
 	}
 
+	bgpPeerCfgList, err := s.client.ciliumClient.IsovalentV1().IsovalentBGPPeerConfigs().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	bgpAdvList, err := s.client.ciliumClient.IsovalentV1().IsovalentBGPAdvertisements().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
 	for _, f := range services.Items {
-		bgpPeersForSvc, err := s.getBGPPeersForSvc(ctx, f, bgpPeersFromCRDByName)
+		bgpPeersForSvc, err := s.getBGPPeersForSvc(ctx, f, bgpPeersFromCRDByName, bgpPeerCfgList, bgpAdvList)
 		if err != nil {
 			return nil, err
 		}
@@ -172,18 +182,16 @@ func (s *LoadbalancerClient) getVIP(lbsvc isovalentv1alpha1.LBService) string {
 	return "N/A"
 }
 
-func (s *LoadbalancerClient) getBGPPeersForSvc(ctx context.Context, lbsvc isovalentv1alpha1.LBService,
+func (s *LoadbalancerClient) getBGPPeersForSvc(ctx context.Context,
+	lbsvc isovalentv1alpha1.LBService,
 	bgpPeersByNameFromT1ClusterCfg map[string][]string,
+	bgpPeerConfigs *isovalentv1.IsovalentBGPPeerConfigList,
+	bgpAdvertisements *isovalentv1.IsovalentBGPAdvertisementList,
 ) ([]string, error) {
 	// Find IsovalentBGPAdvertisements which apply to a given LBService
 	var advs []*isovalentv1.IsovalentBGPAdvertisement
 
-	advList, err := s.client.ciliumClient.IsovalentV1().IsovalentBGPAdvertisements().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	for i, adv := range advList.Items {
+	for i, adv := range bgpAdvertisements.Items {
 		for _, a := range adv.Spec.Advertisements {
 			if a.AdvertisementType != isovalentv1.BGPServiceAdvert {
 				continue
@@ -198,21 +206,17 @@ func (s *LoadbalancerClient) getBGPPeersForSvc(ctx context.Context, lbsvc isoval
 			if selector.Matches(labels.Set(lbsvc.ObjectMeta.Labels)) ||
 				selector.Matches(labels.Set{"loadbalancer.isovalent.com/vip-name": lbsvc.Spec.VIPRef.Name}) {
 
-				advs = append(advs, &advList.Items[i])
+				advs = append(advs, &bgpAdvertisements.Items[i])
 				break
 			}
 		}
 	}
 
 	// Find BGPPeers which match the IsovalentBGPAdvertisements from above
-	peerCfgList, err := s.client.ciliumClient.IsovalentV1().IsovalentBGPPeerConfigs().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
 
 	peers := []string{}
 
-	for _, peerCfg := range peerCfgList.Items {
+	for _, peerCfg := range bgpPeerConfigs.Items {
 		// Ignore peers which are not listed in the T1's IsovalentBGPClusterConfig
 		if _, found := bgpPeersByNameFromT1ClusterCfg[peerCfg.GetName()]; !found {
 			continue
