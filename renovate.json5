@@ -18,11 +18,11 @@
     'images/cilium/download-hubble-enterprise.sh',
     'install/kubernetes/cilium/zz_enterprise_values.yaml.tmpl',
   ],
-  "schedule": [
-    "on monday"
+  schedule: [
+    'on monday',
   ],
   postUpdateOptions: [
-    "gomodTidy"
+    'gomodTidy',
   ],
   pinDigests: true,
   // We don't want to separate major and minor upgrades in separate PRs since
@@ -32,7 +32,7 @@
   // we can upgrade them together in a single PR.
   separateMinorPatch: false,
   pruneStaleBranches: true,
-  baseBranches: [
+  baseBranchPatterns: [
     'main-ce',
     'v1.18-ce',
     'v1.17-ce',
@@ -280,8 +280,8 @@
         'patch',
         'pin',
         'pinDigest',
-      ]
-    }
+      ],
+    },
   ],
   customManagers: [
     {
