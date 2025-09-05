@@ -187,6 +187,7 @@ func (c *controller) writeStatusUpdate(fileEncoder *json.Encoder, txn statedb.Re
 	ev.NodeName = types.GetName()
 	status := &ipa_sys.SystemStatusUpdate{}
 	ev.Event.Event = &ipa_sys.SystemStatusEvent_Status{Status: status}
+	ev.Event.Time = timestamppb.New(ev.Time)
 
 	status.ClusterName = types.GetClusterName()
 	status.NodeName = types.GetName()

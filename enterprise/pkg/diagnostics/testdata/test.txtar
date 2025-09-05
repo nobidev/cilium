@@ -3,13 +3,13 @@
 hive/start
 
 # Check that metadata and diagnostics updates are being posted
-* grep '"system_status":{"metadata".*diagnostics_simulated_failure' status.log
-* grep '"system_status":{"status":.*"total_conditions":2}' status.log
-! grep '"system_status":{"status":.*failing_conditions' status.log
+* grep '"system_status":{.*"metadata".*diagnostics_simulated_failure' status.log
+cat status.log
+* grep '"system_status":{.*"status":.*"total_conditions":2' status.log
+! grep '"system_status":{.*"status":.*failing_conditions' status.log
 
 # Validate table
 db/cmp diagnostics diagnostics.table
-
 
 # Toggle the simulated failure
 diagnostics/toggle-fail
@@ -27,7 +27,7 @@ sed '"FailedCount": \d+,' '"FailedCount": <not-zero>,' diagnostics-actual.json
 * cmp diagnostics-actual.json diagnostics.json
 
 # Verify that a failing conditions is posted
-* grep '"system_status":{"status":.*failing_conditions.*diagnostics_simulated_failure' status.log
+* grep '"system_status":{.*"status":.*failing_conditions.*diagnostics_simulated_failure' status.log
 
 ###
 
