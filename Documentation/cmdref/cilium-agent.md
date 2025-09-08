@@ -151,6 +151,7 @@ cilium-agent [flags]
       --enable-health-check-loadbalancer-ip                              Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled
       --enable-health-check-nodeport                                     Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)
       --enable-health-checking                                           Enable connectivity health checking (default true)
+      --enable-health-server-without-active-checks                       Enable health server without active health checks
       --enable-host-firewall                                             Enable host network policies
       --enable-host-legacy-routing                                       Enable the legacy host forwarding model which does not bypass upper stack in host namespace
       --enable-hubble                                                    Enable hubble server

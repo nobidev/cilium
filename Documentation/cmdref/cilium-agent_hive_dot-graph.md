@@ -89,6 +89,7 @@ cilium-agent hive dot-graph [flags]
       --enable-gops                                                      Enable gops server (default true)
       --enable-health-check-nodeport                                     Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)
       --enable-health-checking                                           Enable connectivity health checking (default true)
+      --enable-health-server-without-active-checks                       Enable health server without active health checks
       --enable-hubble                                                    Enable hubble server
       --enable-hubble-open-metrics                                       Enable exporting hubble metrics in OpenMetrics format.
       --enable-ingress-controller                                        Enables Envoy secret sync for Ingress controller related TLS secrets

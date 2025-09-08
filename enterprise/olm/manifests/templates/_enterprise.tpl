@@ -80,7 +80,7 @@ auto-create-default-pod-network: {{ .Values.enterprise.multiNetwork.autoCreateDe
 
 
 # If user did not provide any extraConfig or didn't provide export-file-path,
-# use the default value for export and aggregation. 
+# use the default value for export and aggregation.
 
 {{- $defaultExportFilePath := "" }}
 {{- $defaultExportAggregation := "" }}
@@ -154,6 +154,12 @@ loadbalancer-metrics-enabled: "true"
 enable-active-lb-health-checking: "true"
 enable-ipip-termination: "true"
 bpf-lb-ipip-sock-mark: "true"
+{{- end }}
+
+{{- if .Values.enterprise.healthServerWithoutActiveChecks.enabled }}
+  enable-health-server-without-active-checks: "true"
+{{- else }}
+  enable-health-server-without-active-checks: "false"
 {{- end }}
 
 {{- end }}

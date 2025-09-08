@@ -1492,6 +1492,10 @@
      - Enable strict feature gate validation. Will cause agent and/or operator to not start if non-approved features are enabled. In non-strict mode failure will be logged as a warning.
      - bool
      - ``true``
+   * - :spelling:ignore:`enterprise.healthServerWithoutActiveChecks.enabled`
+     - Enable health server without active health checks.
+     - bool
+     - ``false``
    * - :spelling:ignore:`enterprise.loadbalancer.enabled`
      - Enables Loadbalancer mode (Control Plane)
      - bool

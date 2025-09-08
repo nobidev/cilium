@@ -5008,3 +5008,6 @@ enterprise:
     # enum: ["default", "bridge"]
     # @schema
     mode: default
+  healthServerWithoutActiveChecks:
+    # -- Enable health server without active health checks.
+    enabled: false

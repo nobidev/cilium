@@ -2137,6 +2137,14 @@
           },
           "type": "object"
         },
+        "healthServerWithoutActiveChecks": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "loadbalancer": {
           "properties": {
             "enabled": {

@@ -118,6 +118,10 @@ enterprise:
     # -- Enables Loadbalancer mode (Control Plane)
     enabled: false
 
+  healthServerWithoutActiveChecks:
+    # -- Enable health server without active health checks.
+    enabled: false
+
 serviceAccounts:
   hubbleK8sExporter:
     create: true

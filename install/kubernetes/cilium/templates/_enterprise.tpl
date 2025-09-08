@@ -271,4 +271,6 @@ diagnostics-constants: {{ .Values.enterprise.diagnostics.constants | join "," | 
 private-networks-enabled: {{ .Values.enterprise.privateNetworks.enabled | quote }}
 private-networks-mode: {{ .Values.enterprise.privateNetworks.mode | quote }}
 
+enable-health-server-without-active-checks: {{ .Values.enterprise.healthServerWithoutActiveChecks.enabled | quote }}
+
 {{- end }}
