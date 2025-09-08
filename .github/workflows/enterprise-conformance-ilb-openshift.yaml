@@ -222,6 +222,7 @@ jobs:
           if [[ "${zone}" == "null" || "${zone}" == "" ]]; then
             zone="${region}a"
           fi
+          build_cilium_cli=$(echo $extra_args | jq -r '.buildCiliumCli')
           ocp_minor_version=$(echo ${ocp_version} | cut -d '.' -f 1,2)
           echo "ocp_version=${ocp_version}" | tee -a $GITHUB_OUTPUT
           echo "ocp_minor_version=${ocp_minor_version}" | tee -a $GITHUB_OUTPUT
@@ -229,6 +230,7 @@ jobs:
           echo "owner=${OWNER}" | tee -a $GITHUB_OUTPUT
           echo "region=${region}" | tee -a $GITHUB_OUTPUT
           echo "zone=${zone}" | tee -a $GITHUB_OUTPUT
+          echo "build_cilium_cli=${build_cilium_cli}" | tee -a $GITHUB_OUTPUT
 
       - name: Install kubectl
         run: |
@@ -255,10 +257,24 @@ jobs:
           terraform_wrapper: false
 
       - name: Install Cilium CLI
+        if: ${{ steps.vars.outputs.build_cilium_cli != 'true' }}
         run: |
           curl -LO https://github.com/isovalent/cilium-cli-releases/releases/latest/download/cilium-linux-amd64.tar.gz
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
           rm cilium-linux-amd64.tar.gz
+
+      - name: Install Go
+        if: ${{ steps.vars.outputs.build_cilium_cli == 'true' }}
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.25.0
+
+      - name: Build Cilium CLI CEE
+        if: ${{ steps.vars.outputs.build_cilium_cli == 'true' }}
+        run: |
+          go build -o cilium ./cilium-cli/enterprise/cmd/cilium
+          sudo mv cilium /usr/local/bin
 
       - name: Checkout the OpenShift CuTE repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -404,7 +420,7 @@ jobs:
 
           # install docker
           sudo apt-get update
-          sudo apt-get install -y ca-certificates curl
+          sudo apt-get install -y ca-certificates curl unzip
           sudo install -m 0755 -d /etc/apt/keyrings
           sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
           sudo chmod a+r /etc/apt/keyrings/docker.asc
@@ -422,7 +438,7 @@ jobs:
           chmod +x kubectl
           sudo mv kubectl /usr/bin
 
-          # install latest Cilium EE CLI
+          # install Cilium CLI
           curl -LO https://github.com/isovalent/cilium-cli-releases/releases/latest/download/cilium-linux-amd64.tar.gz
           sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
           rm cilium-linux-amd64.tar.gz
@@ -584,6 +600,15 @@ jobs:
               -o stricthostkeychecking=no \
               ~/.kube/config ubuntu@localhost:.
 
+      - name: Copy Cilium CLI CEE to test VM
+        if: ${{ steps.vars.outputs.build_cilium_cli == 'true' }}
+        run: |
+          zip -j cilium.zip /usr/local/bin/cilium
+          scp -i ~/.ssh/ci_key \
+              -P ${{ env.test_vm_tunnel_port }} \
+              -o stricthostkeychecking=no \
+              cilium.zip ubuntu@localhost:.
+
       - name: Run ILB tests
         uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
         env:
@@ -596,6 +621,13 @@ jobs:
           command_timeout: 60m
           envs: KUBECONFIG
           script: |
+            if [[ "${{ steps.vars.outputs.build_cilium_cli }}" == "true" ]]
+            then
+              unzip cilium.zip
+              sudo mv cilium /usr/local/bin
+            fi
+            cilium version
+            cilium lb status -n cilium
             # TODO: investigate and fix the skipped tests
             cilium lb test -n cilium \
                            --mode=single-node \
