@@ -10,8 +10,8 @@ contents:
     - mount=2.41.1-r4 #Needed by the mount-bpf-fs init container
     - util-linux-misc=2.41.1-r4 #nsenter, used by the init script that calls cilium-tools-mount, but not that package itself
     - bash=5.3-r3
-    - busybox=1.37.0-r49
-    - ca-certificates=20250619-r5
+    - busybox=1.37.0-r50
+    - ca-certificates=20250619-r6
     - ip6tables=1.8.9
     - iproute2=6.16.0-r1
     - ipset=7.24-r2
