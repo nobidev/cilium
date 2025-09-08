@@ -127,10 +127,19 @@
       ],
       allowedVersions: '<1.23',
       matchBaseBranches: [
-        'v1.14-ce',
         'v1.15-ce',
+      ],
+    },
+    {
+      matchPackageNames: [
+        'docker.io/library/golang',
+        'go',
+      ],
+      allowedVersions: '<1.24',
+      matchBaseBranches: [
         'v1.16-ce',
         'v1.17-ce',
+        'v1.18-ce',
       ],
     },
     {
