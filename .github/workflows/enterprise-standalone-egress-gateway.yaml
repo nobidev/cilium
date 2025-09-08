@@ -197,7 +197,6 @@ jobs:
                 --enable-k8s=false \
                 --enable-l7-proxy=false \
                 --enable-local-node-route=false \
-                --enable-node-port=true \
                 --enable-well-known-identities=false \
                 --identity-allocation-mode=crd \
                 --install-iptables-rules=false \
