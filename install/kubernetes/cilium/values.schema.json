@@ -4620,6 +4620,9 @@
                 },
                 "image": {
                   "properties": {
+                    "digest": {
+                      "type": "string"
+                    },
                     "override": {
                       "type": [
                         "null",
@@ -4634,6 +4637,9 @@
                     },
                     "tag": {
                       "type": "string"
+                    },
+                    "useDigest": {
+                      "type": "boolean"
                     }
                   },
                   "type": "object"

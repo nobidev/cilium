@@ -232,9 +232,9 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-timescape
-      tag: v1.7.2
-      digest: ""
-      useDigest: false
+      tag: v1.7.5
+      digest: sha256:6614334b71a5a5431d8f06acbb9186c7275f109cec965e2be86158409dc977db
+      useDigest: true
       pullPolicy: "Always"
     clickhouse:
       image:
@@ -242,9 +242,9 @@ hubble:
         # type: [null, string]
         # @schema
         override: ~
-        repository: docker.io/clickhouse/clickhouse-server
-        tag: 25.3.3.42-alpine
-        digest: "sha256:99035ebbfc90d3a670ee381ac91c591cac8786b722268f4002d999ea1e210cee"
+        repository: quay.io/isovalent/clickhouse-server
+        tag: 25.3.6.56-alpine
+        digest: sha256:157423fca52f596b62a1bf301b037b9f74bfca38089aa57d1bd36c9025f7ecef
         useDigest: true
         pullPolicy: "Always"
       resources: {}
@@ -383,9 +383,9 @@ hubble:
         # @schema
         override: ~
         repository: quay.io/isovalent/vector
-        tag: 0.48.0-distroless-libc
-        digest: ""
-        useDigest: false
+        tag: 0.49.0-distroless-libc
+        digest: sha256:d185107307ddb3a713765a75caea45e81f85e079f2c1f9eb970e9b4bbdf7360f
+        useDigest: true
         pullPolicy: "Always"
       resources: {}
       affinity: {}
@@ -449,7 +449,9 @@ hubble:
         # @schema
         override: ~
         repository: quay.io/isovalent/hubble-timescape-ui
-        tag: "v1.7.2"
+        tag: v1.7.5
+        digest: sha256:9221f1b911b8aa76112c7f791a465dc8fc7da10d0a4ac13a100223a67bd35d90
+        useDigest: true
         pullPolicy: IfNotPresent
       securityContext:
         # readOnlyRootFilesystem: true
@@ -533,9 +535,9 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-k8s-exporter
-      tag: "v1.7.2"
-      digest: ""
-      useDigest: false
+      tag: v1.7.5
+      digest: sha256:6f1be8ccd1581e974208ea71fd03771298785dd1e19748b2e8921be26aeda0a4
+      useDigest: true
       pullPolicy: "Always"
     # -- Specifies the resources for the hubble-k8s-exporter pods
     resources: {}
@@ -582,9 +584,9 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-rbac
-      tag: v1.10.3
-      digest: ""
-      useDigest: false
+      tag: v1.10.5
+      digest: sha256:30b13744a41efbe2849e0a7e47bade03f18a61c58ef9394f5b0ea785ac19e17f
+      useDigest: true
       pullPolicy: "Always"
     extraArgs: {}
     extraEnv: []
