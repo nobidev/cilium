@@ -1432,7 +1432,7 @@ func (s *egressGatewayHABGPAdvertisement) Run(ctx context.Context, t *check.Test
 
 	gatewayIPsToNames := map[string]string{}
 	for _, node := range ct.Nodes() {
-		if _, ok := node.GetLabels()[defaults.CiliumNoScheduleLabel]; ok {
+		if value, ok := node.GetLabels()[EgressGroupLabelKey]; !ok || value != EgressGroupLabelValue {
 			continue
 		}
 
