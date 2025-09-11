@@ -300,7 +300,7 @@ jobs:
             - ${{ steps.vars.outputs.node_instance_type }}
             availabilityZones:
             - ${{ steps.vars.outputs.eks_zone_1 }}
-            desiredCapacity: 2
+            desiredCapacity: 3
             spot: false
             privateNetworking: true
             taints:
@@ -315,7 +315,7 @@ jobs:
             - ${{ steps.vars.outputs.node_instance_type }}
             availabilityZones:
             - ${{ steps.vars.outputs.eks_zone_1 }}
-            desiredCapacity: 1
+            desiredCapacity: 2
             spot: false
             privateNetworking: true
             taints:
@@ -323,7 +323,6 @@ jobs:
               value: "true"
               effect: "NoExecute"
             labels:
-              egress-group: "test"
               rr-role: "route-reflector"
           - name: ng-amd64-no-cilium
             instanceTypes:
