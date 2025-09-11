@@ -33,6 +33,7 @@ type T interface {
 	RunTestCase(f func(t T))
 	Context() context.Context
 	Log(msg string, a ...any)
+	CiliumNamespace() string
 }
 
 type LbTestFunc struct {
@@ -76,6 +77,10 @@ func (r *LbTestFunc) Log(msg string, a ...any) {
 	}
 
 	fmt.Printf(msg+"\n", a...)
+}
+
+func (r *LbTestFunc) CiliumNamespace() string {
+	return r.run.ciliumNamespace
 }
 
 func (r *LbTestFunc) sysdump() error {

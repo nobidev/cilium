@@ -21,12 +21,14 @@ import (
 )
 
 type lbTestRun struct {
-	cleanupCb []func(ctx context.Context) error
+	ciliumNamespace string
+	cleanupCb       []func(ctx context.Context) error
 }
 
-func NewLBTestRun(ctx context.Context) *lbTestRun {
+func NewLBTestRun(ctx context.Context, ciliumNamespace string) *lbTestRun {
 	return &lbTestRun{
-		cleanupCb: []func(ctx context.Context) error{},
+		ciliumNamespace: ciliumNamespace,
+		cleanupCb:       []func(ctx context.Context) error{},
 	}
 }
 

@@ -23,22 +23,21 @@ import (
 )
 
 const (
-	ciliumNamespace             = "kube-system"
 	ciliumAgentPodLabelSelector = "app.kubernetes.io/name=cilium-agent"
 )
 
 func GetCiliumVersion(t T, clientset *clientset.Clientset) semver.Version {
-	return GetCiliumVersionRaw(t.Context(), t, clientset)
+	return GetCiliumVersionRaw(t.Context(), t, clientset, t.CiliumNamespace())
 }
 
-func GetCiliumVersionRaw(ctx context.Context, f FailureReporter, clientset *clientset.Clientset) semver.Version {
+func GetCiliumVersionRaw(ctx context.Context, f FailureReporter, clientset *clientset.Clientset, ciliumNamespace string) semver.Version {
 	// use of k8s.Client that supporteds Cilium version evaluation
 	ciliumK8sClient := &k8s.Client{
 		Clientset: clientset,
 		Config:    newK8sClientRestConfig(f),
 	}
 
-	v, err := detectMinimumCiliumVersion(ctx, ciliumK8sClient)
+	v, err := detectMinimumCiliumVersion(ctx, ciliumK8sClient, ciliumNamespace)
 	if err != nil {
 		f.Failedf("failed to evaluate cilium version: %s", err)
 	}
@@ -46,7 +45,7 @@ func GetCiliumVersionRaw(ctx context.Context, f FailureReporter, clientset *clie
 	return *v
 }
 
-func detectMinimumCiliumVersion(ctx context.Context, k8sClient *k8s.Client) (*semver.Version, error) {
+func detectMinimumCiliumVersion(ctx context.Context, k8sClient *k8s.Client, ciliumNamespace string) (*semver.Version, error) {
 	podList, err := k8sClient.Clientset.CoreV1().Pods(ciliumNamespace).List(ctx, metav1.ListOptions{
 		LabelSelector: ciliumAgentPodLabelSelector,
 	})

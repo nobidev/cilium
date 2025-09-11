@@ -130,7 +130,7 @@ func (r *lbTestScenario) waitForAllT2EndpointsActive(testName string, vipIP stri
 
 // allT2EndpointsActive checks that all T2 endpoints are active on all T1 nodes
 func (r *lbTestScenario) allT2EndpointsActive(testName string, vipIP string, vipPort uint16, t1NodeList *corev1.NodeList, t2NodeList *corev1.NodeList) error {
-	podList, err := r.k8sCli.CoreV1().Pods(ciliumNamespace).List(r.t.Context(), metav1.ListOptions{
+	podList, err := r.k8sCli.CoreV1().Pods(r.t.CiliumNamespace()).List(r.t.Context(), metav1.ListOptions{
 		LabelSelector: ciliumAgentPodLabelSelector,
 	})
 	if err != nil {
@@ -143,7 +143,7 @@ func (r *lbTestScenario) allT2EndpointsActive(testName string, vipIP string, vip
 			return fmt.Errorf("failed to get cilium agent pod for node %s: %w", t1.Name, err)
 		}
 
-		stdout, _, err := execIntoPod(r.t, r.k8sCli, ciliumNamespace, podName, "cilium-agent", []string{"cilium-dbg", "service", "list", "-o", "json"})
+		stdout, _, err := execIntoPod(r.t, r.k8sCli, r.t.CiliumNamespace(), podName, "cilium-agent", []string{"cilium-dbg", "service", "list", "-o", "json"})
 		if err != nil {
 			return fmt.Errorf("failed to list service info on node %s: %w", t1.Name, err)
 		}

@@ -25,7 +25,7 @@ func newCmdLoadbalancerTestCleanup() *cobra.Command {
 			defer cancel()
 			c.SetContext(ctx)
 
-			lbTestRun := ilbCli.NewLBTestRun(c.Context())
+			lbTestRun := ilbCli.NewLBTestRun(c.Context(), ciliumNamespace(c))
 			ciliumCli, k8sCli := ilbCli.NewCiliumAndK8sCli(lbTestRun)
 			dockerCli := ilbCli.NewDockerCli(lbTestRun)
 

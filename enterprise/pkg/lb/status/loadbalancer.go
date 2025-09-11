@@ -78,7 +78,7 @@ func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
 		t2NodeNames = append(t2NodeNames, t2.Name)
 	}
 
-	agentPods, err := s.client.k8sClient.CoreV1().Pods("kube-system").List(ctx, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+	agentPods, err := s.client.k8sClient.CoreV1().Pods(s.params.CiliumNamespace).List(ctx, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
 	if err != nil {
 		return fmt.Errorf("failed to list agent pods: %w", err)
 	}

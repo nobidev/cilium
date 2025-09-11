@@ -58,7 +58,7 @@ func Test_testsToExecute(t *testing.T) {
 	for _, tt := range testCases {
 		FlagRun = tt.flagRun
 		// function to test
-		actualTests, err := NewLBTestRun(t.Context()).testsToExecute(t.Context())
+		actualTests, err := NewLBTestRun(t.Context(), "cilium").testsToExecute(t.Context())
 
 		require.NoError(t, err)
 		require.Len(t, actualTests, len(tt.expectedTests))

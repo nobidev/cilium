@@ -65,7 +65,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			if ilbCli.FlagMode != "single-node" && ilbCli.FlagMode != "multi-node" {
 				return fmt.Errorf("invalid --mode: %s", ilbCli.FlagMode)
 			}
-			lbTestRun := ilbCli.NewLBTestRun(c.Context())
+			lbTestRun := ilbCli.NewLBTestRun(c.Context(), ciliumNamespace(c))
 			ciliumCli, k8sCli := ilbCli.NewCiliumAndK8sCli(lbTestRun)
 			dockerCli := ilbCli.NewDockerCli(lbTestRun)
 
@@ -84,7 +84,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			// Create LBIPPool (it is shared among all test cases)
 
 			minVersion := ">=1.18.0"
-			currentVersion := ilb.GetCiliumVersionRaw(ctx, lbTestRun, k8sCli)
+			currentVersion := ilb.GetCiliumVersionRaw(ctx, lbTestRun, k8sCli, ciliumNamespace(c))
 
 			if versioncheck.MustCompile(minVersion)(currentVersion) {
 				lbIPPool := ilbCli.LbIPPool(ilbCli.LbIPPoolName, "100.64.0.0/24")
