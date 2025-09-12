@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/healthcheck"
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
@@ -88,13 +89,13 @@ func setupEgressGatewayOperatorTestSuite(t *testing.T) *EgressGatewayOperatorTes
 		Metrics:            newMetrics(),
 	})
 
-	k.healthcheckerMock.nodes = map[string]struct{}{
-		"k8s1": {},
-		"k8s2": {},
-		"k8s3": {},
-		"k8s4": {},
-		"k8s5": {},
-		"k8s6": {},
+	k.healthcheckerMock.nodes = map[string]healthcheck.NodeHealth{
+		"k8s1": {Reachable: true, AgentUp: true},
+		"k8s2": {Reachable: true, AgentUp: true},
+		"k8s3": {Reachable: true, AgentUp: true},
+		"k8s4": {Reachable: true, AgentUp: true},
+		"k8s5": {Reachable: true, AgentUp: true},
+		"k8s6": {Reachable: true, AgentUp: true},
 	}
 
 	require.NotNil(t, k.manager)
@@ -171,6 +172,11 @@ func (k *EgressGatewayOperatorTestSuite) makeNodesHealthy(nodes ...string) {
 
 func (k *EgressGatewayOperatorTestSuite) makeNodesUnhealthy(nodes ...string) {
 	k.healthcheckerMock.deleteNodes(nodes...)
+	k.manager.reconciliationTrigger.Trigger()
+}
+
+func (k *EgressGatewayOperatorTestSuite) makeNodesAgentDown(nodes ...string) {
+	k.healthcheckerMock.addAgentDownNodes(nodes...)
 	k.manager.reconciliationTrigger.Trigger()
 }
 
@@ -406,6 +412,18 @@ func TestEgressGatewayOperatorManagerHAGroup(t *testing.T) {
 		healthyGatewayIPs: []string{node1IP, node2IP},
 	})
 	k.assertIegpMetrics(t, policyName, gatewayMetrics{activeGatewaysCount: float64(2), healthyGatewaysCount: float64(2)})
+
+	k.makeNodesAgentDown(node1Name)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs:  []string{node2IP},
+		healthyGatewayIPs: []string{node1IP, node2IP},
+	})
+
+	k.makeNodesHealthy(node1Name)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs:  []string{node1IP, node2IP},
+		healthyGatewayIPs: []string{node1IP, node2IP},
+	})
 
 	k.makeNodeUnschedulableByTaint(t, node1)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
@@ -748,6 +766,26 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnly(t *testing.T) {
 
 	// Add back k8s2
 	node2 = k.updateNodeLabels(t, node2, nodeGroup1LabelsAZ1)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node1IP, node2IP},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	k.makeNodesAgentDown(node1Name)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node2IP},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	k.makeNodesHealthy(node1Name)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
 		activeGatewayIPsByAZ: map[string][]string{
@@ -1422,6 +1460,26 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnlyFirst(t *testing.
 		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
 	})
 
+	k.makeNodesAgentDown(node1Name)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node2IP},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	k.makeNodesHealthy(node1Name)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node1IP, node2IP},
+			"az-2": {node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
 	k.makeNodeUnschedulableByTaint(t, node1)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node2IP, node3IP, node4IP},
@@ -1935,6 +1993,26 @@ func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalPriority(t *testing.T
 	})
 
 	node2 = k.updateNodeLabels(t, node2, nodeGroup1LabelsAZ1)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node1IP, node2IP, node3IP, node4IP},
+			"az-2": {node1IP, node2IP, node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	k.makeNodesAgentDown(node1Name)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs: []string{node2IP, node3IP, node4IP},
+		activeGatewayIPsByAZ: map[string][]string{
+			"az-1": {node2IP, node3IP, node4IP},
+			"az-2": {node2IP, node3IP, node4IP},
+		},
+		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+
+	k.makeNodesHealthy(node1Name)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
 		activeGatewayIPsByAZ: map[string][]string{

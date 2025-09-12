@@ -4,16 +4,14 @@
 package healthcheck
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
+	"sync"
 
 	"github.com/cilium/hive/cell"
-	probing "github.com/prometheus-community/pro-bing"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -23,11 +21,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
-)
-
-const (
-	NodeHealthy = iota
-	NodeUnhealthy
 )
 
 // Cell provides a [Healthchecker] for consumption with hive.
@@ -60,117 +53,52 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 // Event represents a healthchecking event such as a node becoming healthy/unhealthy
 type Event struct {
 	NodeName string
-	Status   int
+	Status   nodeHealth
 }
 
 // Healthchecker is the public interface exposed by the egress gateway healthchecker
 type Healthchecker interface {
-	UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string], probeModeByNode map[string]ProbeMode)
-	NodeIsHealthy(nodeName string) bool
+	UpdateNodeList(nodes map[string]nodeTypes.Node, healthy, active sets.Set[string])
+	NodeHealth(nodeName string) NodeHealth
 	Events() chan Event
-	SetProber(node nodeTypes.Node, mode ProbeMode) bool
 }
 
-type ProbeMode int
+type NodeHealth struct {
+	Reachable bool
+	AgentUp   bool
+}
+
+type probeMode int
 
 const (
-	HTTP ProbeMode = iota
+	HTTP probeMode = iota
 	ICMP
 )
 
-func (p ProbeMode) String() string {
-	switch p {
-	case HTTP:
-		return "http"
-	case ICMP:
-		return "icmp"
+type healthProber interface {
+	runHealthcheckProbe() bool
+	mode() probeMode
+}
+
+type nodeHealth int
+
+const (
+	NodeUnReachable nodeHealth = iota
+	NodeReachableAgentDown
+	NodeReachableAgentUp
+)
+
+func (n nodeHealth) String() string {
+	switch n {
+	case NodeUnReachable:
+		return "unreachable"
+	case NodeReachableAgentDown:
+		return "reachable but agent down"
+	case NodeReachableAgentUp:
+		return "reachable and agent up"
 	default:
 		return "unknown"
 	}
-}
-
-func ParseProbeMode(s string) (ProbeMode, error) {
-	switch strings.ToLower(s) {
-	case "http":
-		return HTTP, nil
-	case "icmp":
-		return ICMP, nil
-	default:
-		return 0, errors.New("invalid probe mode: " + s)
-	}
-}
-
-type healthProber interface {
-	runHealthcheckProbe() bool
-	mode() ProbeMode
-}
-
-type httpProber struct {
-	netClient *http.Client
-	url       string
-}
-
-func (h *httpProber) runHealthcheckProbe() bool {
-	r, err := h.netClient.Get(h.url)
-	if err != nil {
-		return false
-	}
-	defer r.Body.Close()
-
-	return r.StatusCode == 200
-}
-
-func (h *httpProber) mode() ProbeMode {
-	return HTTP
-}
-
-const (
-	probeInterval    = 100 * time.Millisecond
-	failureThreshold = 3
-)
-
-type icmpProber struct {
-	logger  *slog.Logger
-	ip      string
-	timeout time.Duration
-}
-
-func (i *icmpProber) runHealthcheckProbe() bool {
-	result := false
-	pinger, err := probing.NewPinger(i.ip)
-	if err != nil {
-		i.logger.Error("Failed to create pinger", logfields.Error, err)
-		return false
-	}
-
-	pinger.Timeout = i.timeout
-	pinger.Count = failureThreshold
-	pinger.Interval = probeInterval
-	pinger.OnRecv = func(pkt *probing.Packet) {
-		pinger.Stop()
-	}
-	pinger.OnFinish = func(stats *probing.Statistics) {
-		if stats.PacketsRecv > 0 && len(stats.Rtts) > 0 {
-			result = true
-		} else {
-			result = false
-		}
-	}
-	pinger.SetPrivileged(true)
-	err = pinger.Run()
-	if err != nil {
-		i.logger.Error("Failed to run pinger for IP",
-			logfields.IPAddr, i.ip,
-			logfields.Error, err,
-		)
-		return false
-	}
-
-	return result
-}
-
-func (i *icmpProber) mode() ProbeMode {
-	return ICMP
 }
 
 type nodeStatus struct {
@@ -180,8 +108,7 @@ type nodeStatus struct {
 	// healthcheckerTickerCh is the channel used to stop the healthcheck goroutine for the node
 	healthcheckerTickerCh *time.Ticker
 
-	// healthProber performs health checks on the node using the configured probe mode
-	healthProber healthProber
+	health nodeHealth
 }
 
 type healthchecker struct {
@@ -211,7 +138,7 @@ func NewHealthchecker(logger *slog.Logger, config Config) Healthchecker {
 // should periodically check. The healthy parameter is a subset of node names
 // that should be initialized as healthy even before the first health probe
 // verdict is available.
-func (h *healthchecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string], probeModeByNode map[string]ProbeMode) {
+func (h *healthchecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy, active sets.Set[string]) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -223,11 +150,7 @@ func (h *healthchecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy 
 
 	for _, newNode := range nodes {
 		if _, ok := h.nodes[newNode.Name]; !ok {
-			probeMode := HTTP
-			if p, ok := probeModeByNode[newNode.Name]; ok {
-				probeMode = p
-			}
-			h.startNodeHealthcheck(newNode, healthy.Has(newNode.Name), probeMode)
+			h.startNodeHealthcheck(newNode, healthy.Has(newNode.Name), active.Has(newNode.Name))
 		}
 	}
 
@@ -245,31 +168,29 @@ func (h *healthchecker) NodeIsHealthy(nodeName string) bool {
 	return ok && h.probeTimestampIsFresh(status.lastSuccessfulProbeTimestamp)
 }
 
+func (h *healthchecker) NodeHealth(nodeName string) NodeHealth {
+	h.RLock()
+	defer h.RUnlock()
+
+	status, ok := h.statuses[nodeName]
+	if !ok {
+		return NodeHealth{}
+	}
+
+	reachable := h.probeTimestampIsFresh(status.lastSuccessfulProbeTimestamp)
+
+	return NodeHealth{
+		Reachable: reachable,
+		AgentUp:   reachable && status.health == NodeReachableAgentUp,
+	}
+}
+
 // Events returns the healthchecker events channel
 func (h *healthchecker) Events() chan Event {
 	return h.events
 }
 
-// SetProber sets the health prober
-func (h *healthchecker) SetProber(node nodeTypes.Node, mode ProbeMode) bool {
-	h.Lock()
-	defer h.Unlock()
-
-	status, ok := h.statuses[node.Name]
-	if !ok {
-		return false
-	}
-
-	if mode == status.healthProber.mode() {
-		return false
-	}
-
-	status.healthProber = h.createProber(node, mode)
-
-	return true
-}
-
-func (h *healthchecker) createProber(node nodeTypes.Node, mode ProbeMode) healthProber {
+func (h *healthchecker) createProber(node nodeTypes.Node, mode probeMode) healthProber {
 	switch mode {
 	case HTTP:
 		return h.createHttpProber(node)
@@ -297,21 +218,28 @@ func (h *healthchecker) probeTimestampIsFresh(probeTimestamp time.Time) bool {
 }
 
 // Caller must hold h.RwMutex
-func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node, isHealthy bool, probeMode ProbeMode) {
+func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node, isHealthy bool, isActive bool) {
 	var (
 		tickerCh = time.NewTicker(h.EgressGatewayHAHealthcheckTimeout / 2)
 		logger   = h.logger.With(logfields.NodeName, node.Name)
+		probers  = []healthProber{h.createProber(node, HTTP), h.createProber(node, ICMP)}
 	)
 
 	logger.Info("Starting health check for node")
 
 	status := &nodeStatus{
 		healthcheckerTickerCh: tickerCh,
-		healthProber:          h.createProber(node, probeMode),
 	}
 	if isHealthy {
-		logger.Debug("Node health status is initialized as healthy")
 		status.lastSuccessfulProbeTimestamp = time.Now()
+		if isActive {
+			status.health = NodeReachableAgentUp
+		} else {
+			status.health = NodeReachableAgentDown
+		}
+		logger.Debug("Node health status is initialized as healthy", logfields.Status, status.health)
+	} else {
+		status.health = NodeUnReachable
 	}
 	h.statuses[node.Name] = status
 
@@ -319,11 +247,7 @@ func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node, isHealthy bool
 		for range tickerCh.C {
 			var event *Event
 
-			prober := h.getProber(node)
-			if prober == nil {
-				continue
-			}
-			probeSuccessful := prober.runHealthcheckProbe()
+			nodeHealth := runHealthcheckProbe(probers)
 
 			h.Lock()
 			nodeStatus, ok := h.statuses[node.Name]
@@ -332,24 +256,27 @@ func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node, isHealthy bool
 				continue
 			}
 
-			if !probeSuccessful {
+			switch nodeHealth {
+			case NodeUnReachable:
 				if !h.probeTimestampIsFresh(nodeStatus.lastSuccessfulProbeTimestamp) &&
 					!nodeStatus.lastSuccessfulProbeTimestamp.IsZero() {
-					logger.Info("Node became unhealthy")
+					logger.Info("Node became unreachable", logfields.Status, nodeHealth)
 
-					// When a node becomes unhealthy, set its last successful probe TS to 0 so next
-					// time we run this check we'll know the node was already unhealthy (allowing us
+					// When a node becomes unreachable, set its last successful probe TS to 0 so next
+					// time we run this check we'll know the node was already unreachable (allowing us
 					// to skip logging and emitting the event multiple times)
 					nodeStatus.lastSuccessfulProbeTimestamp = time.Time{}
-					event = &Event{NodeName: node.Name, Status: NodeUnhealthy}
+					nodeStatus.health = nodeHealth
+					event = &Event{NodeName: node.Name, Status: nodeHealth}
 				}
-			} else {
-				if !h.probeTimestampIsFresh(nodeStatus.lastSuccessfulProbeTimestamp) {
-					logger.Info("Node became healthy")
-					event = &Event{NodeName: node.Name, Status: NodeHealthy}
+			case NodeReachableAgentUp, NodeReachableAgentDown:
+				if !h.probeTimestampIsFresh(nodeStatus.lastSuccessfulProbeTimestamp) || nodeStatus.health != nodeHealth {
+					logger.Info("Node became reachable", logfields.Status, nodeHealth)
+					event = &Event{NodeName: node.Name, Status: nodeHealth}
 				}
 
 				nodeStatus.lastSuccessfulProbeTimestamp = time.Now()
+				nodeStatus.health = nodeHealth
 			}
 
 			h.Unlock()
@@ -361,16 +288,52 @@ func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node, isHealthy bool
 	}()
 }
 
-func (h *healthchecker) getProber(node nodeTypes.Node) healthProber {
-	h.Lock()
-	defer h.Unlock()
+type probeResult struct {
+	mode probeMode
+	ok   bool
+}
 
-	nodeStatus, ok := h.statuses[node.Name]
-	if !ok {
-		return nil
+func runHealthcheckProbe(probers []healthProber) nodeHealth {
+	resCh := make(chan probeResult, len(probers))
+	var wg sync.WaitGroup
+
+	for _, p := range probers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ok := p.runHealthcheckProbe()
+			resCh <- probeResult{mode: p.mode(), ok: ok}
+		}()
 	}
 
-	return nodeStatus.healthProber
+	go func() {
+		wg.Wait()
+		close(resCh)
+	}()
+
+	var (
+		httpOK, icmpOK bool
+		hasICMP        bool
+	)
+
+	for r := range resCh {
+		switch r.mode {
+		case HTTP:
+			httpOK = r.ok
+		case ICMP:
+			hasICMP = true
+			icmpOK = r.ok
+		}
+	}
+
+	switch {
+	case httpOK:
+		return NodeReachableAgentUp
+	case hasICMP && icmpOK:
+		return NodeReachableAgentDown
+	default:
+		return NodeUnReachable
+	}
 }
 
 // Caller must hold h.RwMutex

@@ -42,7 +42,6 @@ var OperatorCell = cell.Module(
 	cell.Config(defaultOperatorConfig),
 	cell.Provide(NewEgressGatewayOperatorManager),
 	cell.Provide(newNodeResource),
-	cell.Provide(newEventRecorder),
 
 	cell.ProvidePrivate(newOperatorTables),
 	cell.Provide(statedb.RWTable[*PolicyConfig].ToTable),

@@ -28,7 +28,9 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func TestHealthCheckerHealthyNode(t *testing.T) {
+func TestPrivilegedHealthCheckerHealthyNode(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
 	hc, nodeAddr := setup(t, 50*time.Millisecond,
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -47,16 +49,17 @@ func TestHealthCheckerHealthyNode(t *testing.T) {
 	}
 
 	// node is initially marked as unhealthy
-	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New[string](), map[string]ProbeMode{n.Name: HTTP})
+	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New[string](), sets.New[string]())
 
 	// node should be marked as healthy
 	ev := <-events
 	require.Equal(t, n.Name, ev.NodeName)
-	require.Equal(t, NodeHealthy, ev.Status)
-	require.True(t, hc.NodeIsHealthy(n.Name))
+	require.Equal(t, NodeReachableAgentUp, ev.Status)
+	require.True(t, hc.NodeHealth(n.Name).Reachable)
+	require.True(t, hc.NodeHealth(n.Name).AgentUp)
 }
 
-func TestPrivilegedHealthCheckerHealthyNodeWithICMPProber(t *testing.T) {
+func TestPrivilegedHealthCheckerReachableAgentDownNode(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	hc, nodeAddr := setup(t, 50*time.Millisecond,
@@ -77,51 +80,18 @@ func TestPrivilegedHealthCheckerHealthyNodeWithICMPProber(t *testing.T) {
 	}
 
 	// node is initially marked as healthy
-	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New(n.Name), map[string]ProbeMode{n.Name: HTTP})
+	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New(n.Name), sets.New(n.Name))
 
-	// node should be marked as unhealthy because the http endpoint returns 500
+	// node should be marked as degrade because the http endpoint returns 500,
+	// the ICMP request to 127.0.0.1 succeeds
 	ev := <-events
 	require.Equal(t, n.Name, ev.NodeName)
-	require.Equal(t, NodeUnhealthy, ev.Status)
-	require.False(t, hc.NodeIsHealthy(n.Name))
-
-	// node should be marked as healthy because the ICMP request to 127.0.0.1 succeeds
-	require.True(t, hc.SetProber(n, ICMP))
-	ev = <-events
-	require.Equal(t, n.Name, ev.NodeName)
-	require.Equal(t, NodeHealthy, ev.Status)
-	require.True(t, hc.NodeIsHealthy(n.Name))
+	require.Equal(t, NodeReachableAgentDown, ev.Status)
+	require.True(t, hc.NodeHealth(n.Name).Reachable)
+	require.False(t, hc.NodeHealth(n.Name).AgentUp)
 }
 
-func TestHealthCheckerUnhealthyNode(t *testing.T) {
-	hc, nodeAddr := setup(t, 50*time.Millisecond,
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusInternalServerError)
-		}))
-
-	events := hc.Events()
-
-	n := nodeTypes.Node{
-		Name: "test",
-		IPAddresses: []nodeTypes.Address{
-			{
-				Type: addressing.NodeInternalIP,
-				IP:   nodeAddr,
-			},
-		},
-	}
-
-	// node is initially marked as healthy
-	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New(n.Name), map[string]ProbeMode{n.Name: HTTP})
-
-	// node should be marked as unhealthy
-	ev := <-events
-	require.Equal(t, n.Name, ev.NodeName)
-	require.Equal(t, NodeUnhealthy, ev.Status)
-	require.False(t, hc.NodeIsHealthy(n.Name))
-}
-
-func TestPrivilegedHealthCheckerUnhealthyNodeWithICMPProber(t *testing.T) {
+func TestPrivilegedHealthCheckerUnhealthyNode(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	hc, _ := setup(t, 50*time.Millisecond, nil)
@@ -133,20 +103,21 @@ func TestPrivilegedHealthCheckerUnhealthyNodeWithICMPProber(t *testing.T) {
 		IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				// Send ICMP requests to a non-existent address
+				// Send HTTP/ICMP requests to a non-existent address
 				IP: net.ParseIP("192.168.111.111"),
 			},
 		},
 	}
 
 	// node is initially marked as healthy
-	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New(n.Name), map[string]ProbeMode{n.Name: ICMP})
+	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New(n.Name), sets.New(n.Name))
 
 	// node should be marked as unhealthy
 	ev := <-events
 	require.Equal(t, n.Name, ev.NodeName)
-	require.Equal(t, NodeUnhealthy, ev.Status)
-	require.False(t, hc.NodeIsHealthy(n.Name))
+	require.Equal(t, NodeUnReachable, ev.Status)
+	require.False(t, hc.NodeHealth(n.Name).Reachable)
+	require.False(t, hc.NodeHealth(n.Name).AgentUp)
 }
 
 func setup(t *testing.T, hcTimeout time.Duration, handler http.HandlerFunc) (Healthchecker, net.IP) {

@@ -226,27 +226,26 @@ func addNode(tb testing.TB, nodeResources fakeResource[*slim_corev1.Node], ciliu
 type healthcheckerMock struct {
 	lock.RWMutex
 
-	nodes  map[string]struct{}
+	nodes  map[string]healthcheck.NodeHealth
 	events chan healthcheck.Event
 }
 
-func (h *healthcheckerMock) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string], probeModeByNode map[string]healthcheck.ProbeMode) {
+func (h *healthcheckerMock) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy, active sets.Set[string]) {
 }
 
-func (h *healthcheckerMock) NodeIsHealthy(nodeName string) bool {
+func (h *healthcheckerMock) NodeHealth(nodeName string) healthcheck.NodeHealth {
 	h.Lock()
 	defer h.Unlock()
 
-	_, ok := h.nodes[nodeName]
-	return ok
+	health, ok := h.nodes[nodeName]
+	if ok {
+		return health
+	}
+	return healthcheck.NodeHealth{Reachable: false, AgentUp: false}
 }
 
 func (h *healthcheckerMock) Events() chan healthcheck.Event {
 	return h.events
-}
-
-func (h *healthcheckerMock) SetProber(node nodeTypes.Node, mode healthcheck.ProbeMode) bool {
-	return false
 }
 
 func (h *healthcheckerMock) addNodes(nodes ...string) {
@@ -254,7 +253,16 @@ func (h *healthcheckerMock) addNodes(nodes ...string) {
 	defer h.Unlock()
 
 	for _, n := range nodes {
-		h.nodes[n] = struct{}{}
+		h.nodes[n] = healthcheck.NodeHealth{Reachable: true, AgentUp: true}
+	}
+}
+
+func (h *healthcheckerMock) addAgentDownNodes(nodes ...string) {
+	h.Lock()
+	defer h.Unlock()
+
+	for _, n := range nodes {
+		h.nodes[n] = healthcheck.NodeHealth{Reachable: true, AgentUp: false}
 	}
 }
 
@@ -269,7 +277,7 @@ func (h *healthcheckerMock) deleteNodes(nodes ...string) {
 
 func newHealthcheckerMock() *healthcheckerMock {
 	return &healthcheckerMock{
-		nodes:  make(map[string]struct{}),
+		nodes:  make(map[string]healthcheck.NodeHealth),
 		events: make(chan healthcheck.Event),
 	}
 }

@@ -48,7 +48,6 @@ const (
 	egressGatewayPrefix                 = "egw.isovalent.com"
 	nodeEgressGatewayKey                = egressGatewayPrefix + "/node"
 	nodeEgressGatewayUnschedulableValue = "unschedulable"
-	nodeHealthProbeEgressGatewayKey     = egressGatewayPrefix + "/node-health-probe"
 )
 
 // affinityZoneNoZone is the name of an "internal-only" affinity zone used to group together all
@@ -162,7 +161,7 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 		}
 
 		// if the node is not healthy, ignore it and move to the next one
-		if !operatorManager.nodeIsHealthy(node.Name) {
+		if !operatorManager.nodeIsReachable(node.Name) {
 			continue
 		}
 
@@ -180,7 +179,7 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 		// This list is global (i.e. it doesn't take into account the AZ of the node)
 		healthyGatewayIPs = append(healthyGatewayIPs, nodeIP)
 
-		if operatorManager.nodeIsUnschedulable(node) {
+		if !operatorManager.nodeIsAvailable(node) {
 			continue
 		}
 
@@ -349,12 +348,12 @@ func (gc *groupConfig) selectActiveGWsIf(operatorManager *OperatorManager, az st
 	return gc.excludeUnavailableGWs(operatorManager, localGWs)
 }
 
-// excludeUnavailableGWs excludes unhealthy or unschedulable or non-gateway nodes from the current active GWs.
+// excludeUnavailableGWs excludes unavailable or non-gateway nodes from the current active GWs.
 func (gc *groupConfig) excludeUnavailableGWs(operatorManager *OperatorManager, currentActiveGWs []netip.Addr) []netip.Addr {
 	var activeGWs []netip.Addr
 	for _, gw := range currentActiveGWs {
 		node, ok := operatorManager.nodesByIP[gw.String()]
-		if ok && operatorManager.nodeIsHealthy(node.Name) && !operatorManager.nodeIsUnschedulable(node) && gc.selectsNodeAsGateway(node) {
+		if ok && operatorManager.nodeIsAvailable(node) && gc.selectsNodeAsGateway(node) {
 			activeGWs = append(activeGWs, gw)
 		}
 	}

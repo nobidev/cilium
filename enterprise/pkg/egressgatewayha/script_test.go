@@ -234,17 +234,14 @@ var testCell = cell.Group(
 
 type mockHealthChecker struct{}
 
-func (m *mockHealthChecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy sets.Set[string], probeModeByNode map[string]healthcheck.ProbeMode) {
+func (m *mockHealthChecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy, active sets.Set[string]) {
 }
-func (m *mockHealthChecker) NodeIsHealthy(nodeName string) bool {
-	return true
+func (m *mockHealthChecker) NodeHealth(nodeName string) healthcheck.NodeHealth {
+	return healthcheck.NodeHealth{Reachable: true, AgentUp: true}
 }
 func (m *mockHealthChecker) Events() chan healthcheck.Event {
 	ch := make(chan healthcheck.Event)
 	return ch
-}
-func (m *mockHealthChecker) SetProber(node nodeTypes.Node, mode healthcheck.ProbeMode) bool {
-	return false
 }
 
 type mockNodeSync struct{}
