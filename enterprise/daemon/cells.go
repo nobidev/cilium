@@ -26,6 +26,7 @@ import (
 	segw "github.com/cilium/cilium/enterprise/pkg/egressgatewayha/standalone"
 	encryptionPolicy "github.com/cilium/cilium/enterprise/pkg/encryption/policy"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha"
+	"github.com/cilium/cilium/enterprise/pkg/healthconfig"
 	"github.com/cilium/cilium/enterprise/pkg/hubble"
 	cecIngressPolicy "github.com/cilium/cilium/enterprise/pkg/ingresspolicy"
 	"github.com/cilium/cilium/enterprise/pkg/lb"
@@ -111,6 +112,8 @@ var (
 		cecIngressPolicy.Cell,
 
 		metricsFeatures.EnterpriseCell,
+
+		healthconfig.Cell,
 	)
 
 	Datapath = cell.Module(

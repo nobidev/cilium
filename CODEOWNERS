@@ -910,6 +910,7 @@ Makefile* @cilium/build
 /enterprise/pkg/encryption/ @isovalent/encryption
 /enterprise/pkg/fqdnha/ @isovalent/dns-proxy
 /enterprise/pkg/ingresspolicy/ @isovalent/service-mesh
+/enterprise/pkg/healthconfig/ @isovalent/cni
 /enterprise/pkg/hubble/ @isovalent/hubble
 /enterprise/pkg/hubble/aggregation/api @isovalent/hubble-api
 /enterprise/pkg/k8s/ @isovalent/sig-k8s
