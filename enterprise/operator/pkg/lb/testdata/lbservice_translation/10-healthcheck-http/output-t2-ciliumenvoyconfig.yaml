@@ -151,6 +151,7 @@ spec:
         - healthyThreshold: 2
           httpHealthCheck:
             host: my-hostname
+            method: HEAD
             path: /health-endpoint
           interval: 15s
           noTrafficInterval: 15s
@@ -196,6 +197,7 @@ spec:
         - healthyThreshold: 2
           httpHealthCheck:
             host: my-hostname
+            method: GET
             path: /health-endpoint
           interval: 15s
           noTrafficInterval: 15s

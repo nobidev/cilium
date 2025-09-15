@@ -537,8 +537,38 @@ func (r *ingestor) toHTTPHealthCheck(hc *isovalentv1alpha1.HealthCheck) *lbBacke
 	}
 
 	return &lbBackendHealthCheckHTTPConfig{
-		host: *hc.HTTP.Host,
-		path: *hc.HTTP.Path,
+		host:   *hc.HTTP.Host,
+		path:   *hc.HTTP.Path,
+		method: r.toHealthCheckHTTPMethod(hc.HTTP.Method),
+	}
+}
+
+func (r *ingestor) toHealthCheckHTTPMethod(method *isovalentv1alpha1.HealthCheckHTTPMethod) lbBackendHealthCheckHTTPMethod {
+	if method == nil {
+		return lbBackendHealthCheckHTTPMethodGet
+	}
+
+	switch *method {
+	case isovalentv1alpha1.HealthCheckHTTPMethodGet:
+		return lbBackendHealthCheckHTTPMethodGet
+	case isovalentv1alpha1.HealthCheckHTTPMethodConnect:
+		return lbBackendHealthCheckHTTPMethodConnect
+	case isovalentv1alpha1.HealthCheckHTTPMethodDelete:
+		return lbBackendHealthCheckHTTPMethodDelete
+	case isovalentv1alpha1.HealthCheckHTTPMethodHead:
+		return lbBackendHealthCheckHTTPMethodHead
+	case isovalentv1alpha1.HealthCheckHTTPMethodOptions:
+		return lbBackendHealthCheckHTTPMethodOptions
+	case isovalentv1alpha1.HealthCheckHTTPMethodPatch:
+		return lbBackendHealthCheckHTTPMethodPatch
+	case isovalentv1alpha1.HealthCheckHTTPMethodPost:
+		return lbBackendHealthCheckHTTPMethodPost
+	case isovalentv1alpha1.HealthCheckHTTPMethodPut:
+		return lbBackendHealthCheckHTTPMethodPut
+	case isovalentv1alpha1.HealthCheckHTTPMethodTrace:
+		return lbBackendHealthCheckHTTPMethodTrace
+	default:
+		return lbBackendHealthCheckHTTPMethodGet
 	}
 }
 

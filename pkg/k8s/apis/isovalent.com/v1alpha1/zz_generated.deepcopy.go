@@ -632,6 +632,11 @@ func (in *HealthCheckHTTP) DeepCopyInto(out *HealthCheckHTTP) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.Method != nil {
+		in, out := &in.Method, &out.Method
+		*out = new(HealthCheckHTTPMethod)
+		**out = **in
+	}
 	return
 }
 

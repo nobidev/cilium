@@ -19,3 +19,4 @@ spec:
     http:
       host: my-hostname
       path: /health-endpoint
+      method: HEAD

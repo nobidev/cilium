@@ -1824,9 +1824,35 @@ func (r *lbServiceT2Translator) toClusterHealthChecks(healthCheckConfig lbBacken
 func (r *lbServiceT2Translator) toClusterHealthCheckerHTTP(healthCheckConfig lbBackendHealthCheckConfig) *envoy_config_core_v3.HealthCheck_HttpHealthCheck_ {
 	return &envoy_config_core_v3.HealthCheck_HttpHealthCheck_{
 		HttpHealthCheck: &envoy_config_core_v3.HealthCheck_HttpHealthCheck{
-			Host: healthCheckConfig.http.host,
-			Path: healthCheckConfig.http.path,
+			Host:   healthCheckConfig.http.host,
+			Path:   healthCheckConfig.http.path,
+			Method: r.toHealthCheckHTTPMethod(healthCheckConfig.http.method),
 		},
+	}
+}
+
+func (r *lbServiceT2Translator) toHealthCheckHTTPMethod(method lbBackendHealthCheckHTTPMethod) envoy_config_core_v3.RequestMethod {
+	switch method {
+	case lbBackendHealthCheckHTTPMethodGet:
+		return envoy_config_core_v3.RequestMethod_GET
+	case lbBackendHealthCheckHTTPMethodConnect:
+		return envoy_config_core_v3.RequestMethod_CONNECT
+	case lbBackendHealthCheckHTTPMethodDelete:
+		return envoy_config_core_v3.RequestMethod_DELETE
+	case lbBackendHealthCheckHTTPMethodHead:
+		return envoy_config_core_v3.RequestMethod_HEAD
+	case lbBackendHealthCheckHTTPMethodOptions:
+		return envoy_config_core_v3.RequestMethod_OPTIONS
+	case lbBackendHealthCheckHTTPMethodPatch:
+		return envoy_config_core_v3.RequestMethod_PATCH
+	case lbBackendHealthCheckHTTPMethodPost:
+		return envoy_config_core_v3.RequestMethod_POST
+	case lbBackendHealthCheckHTTPMethodPut:
+		return envoy_config_core_v3.RequestMethod_PUT
+	case lbBackendHealthCheckHTTPMethodTrace:
+		return envoy_config_core_v3.RequestMethod_TRACE
+	default:
+		return envoy_config_core_v3.RequestMethod_GET
 	}
 }
 

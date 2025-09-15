@@ -693,6 +693,14 @@ func (in *HealthCheckHTTP) DeepEqual(other *HealthCheckHTTP) bool {
 		}
 	}
 
+	if (in.Method == nil) != (other.Method == nil) {
+		return false
+	} else if in.Method != nil {
+		if *in.Method != *other.Method {
+			return false
+		}
+	}
+
 	return true
 }
 

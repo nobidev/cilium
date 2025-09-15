@@ -2069,7 +2069,29 @@ type HealthCheckHTTP struct {
 	// +kubebuilder:default=/healthz
 	// +kubebuilder:validation:MinLength=1
 	Path *string `json:"path,omitempty"`
+
+	// The method to use in the HTTP health checking probe. When omitted, the
+	// probe uses "GET".
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=GET
+	Method *HealthCheckHTTPMethod `json:"method,omitempty"`
 }
+
+// +kubebuilder:validation:Enum=GET;HEAD;POST;PUT;DELETE;CONNECT;OPTIONS;TRACE;PATCH
+type HealthCheckHTTPMethod string
+
+const (
+	HealthCheckHTTPMethodGet     HealthCheckHTTPMethod = "GET"
+	HealthCheckHTTPMethodHead    HealthCheckHTTPMethod = "HEAD"
+	HealthCheckHTTPMethodPost    HealthCheckHTTPMethod = "POST"
+	HealthCheckHTTPMethodPut     HealthCheckHTTPMethod = "PUT"
+	HealthCheckHTTPMethodDelete  HealthCheckHTTPMethod = "DELETE"
+	HealthCheckHTTPMethodConnect HealthCheckHTTPMethod = "CONNECT"
+	HealthCheckHTTPMethodOptions HealthCheckHTTPMethod = "OPTIONS"
+	HealthCheckHTTPMethodTrace   HealthCheckHTTPMethod = "TRACE"
+	HealthCheckHTTPMethodPatch   HealthCheckHTTPMethod = "PATCH"
+)
 
 type HealthCheckTCP struct{}
 

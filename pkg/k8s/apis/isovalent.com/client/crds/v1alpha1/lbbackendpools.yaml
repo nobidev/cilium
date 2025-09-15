@@ -187,6 +187,22 @@ spec:
                           omitted, the probe uses "lb".
                         minLength: 1
                         type: string
+                      method:
+                        default: GET
+                        description: |-
+                          The method to use in the HTTP health checking probe. When omitted, the
+                          probe uses "GET".
+                        enum:
+                        - GET
+                        - HEAD
+                        - POST
+                        - PUT
+                        - DELETE
+                        - CONNECT
+                        - OPTIONS
+                        - TRACE
+                        - PATCH
+                        type: string
                       path:
                         default: /healthz
                         description: |-

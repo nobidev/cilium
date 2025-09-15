@@ -680,9 +680,24 @@ type lbBackendHealthCheckConfig struct {
 }
 
 type lbBackendHealthCheckHTTPConfig struct {
-	host string
-	path string
+	host   string
+	path   string
+	method lbBackendHealthCheckHTTPMethod
 }
+
+type lbBackendHealthCheckHTTPMethod int
+
+const (
+	lbBackendHealthCheckHTTPMethodGet lbBackendHealthCheckHTTPMethod = iota
+	lbBackendHealthCheckHTTPMethodHead
+	lbBackendHealthCheckHTTPMethodPost
+	lbBackendHealthCheckHTTPMethodPut
+	lbBackendHealthCheckHTTPMethodDelete
+	lbBackendHealthCheckHTTPMethodConnect
+	lbBackendHealthCheckHTTPMethodOptions
+	lbBackendHealthCheckHTTPMethodTrace
+	lbBackendHealthCheckHTTPMethodPatch
+)
 
 type lbBackendHealthCheckTCPConfig struct{}
 

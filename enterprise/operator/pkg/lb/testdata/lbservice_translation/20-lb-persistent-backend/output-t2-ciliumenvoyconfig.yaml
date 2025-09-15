@@ -197,6 +197,7 @@ spec:
         - healthyThreshold: 1
           httpHealthCheck:
             host: lb
+            method: GET
             path: /healthz
           interval: 30s
           noTrafficInterval: 30s
@@ -244,6 +245,7 @@ spec:
         - healthyThreshold: 1
           httpHealthCheck:
             host: lb
+            method: GET
             path: /healthz
           interval: 20s
           noTrafficInterval: 20s
@@ -291,6 +293,7 @@ spec:
         - healthyThreshold: 1
           httpHealthCheck:
             host: lb
+            method: GET
             path: /healthz
           interval: 20s
           noTrafficInterval: 20s
