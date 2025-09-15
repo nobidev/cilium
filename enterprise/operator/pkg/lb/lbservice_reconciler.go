@@ -1173,25 +1173,55 @@ func (r *lbServiceReconciler) getIncompatibleT1TLSHealthCheckBackends(lbsvc *iso
 		backendMap[b.Name] = b
 	}
 
-	backendsWithHTTPHealthCheck := []string{}
+	backendsWithHTTPTLSHealthCheck := []string{}
+	backendsWithPayloadInHealthCheck := []string{}
+	backendsWithMethodOrStatusCodesInHealthCheck := []string{}
 
 	if lbsvc.Spec.Applications.TCPProxy != nil && lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode != nil && *lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode == isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1 {
 		for _, t1r := range lbsvc.Spec.Applications.TCPProxy.Routes {
-			if b, ok := backendMap[t1r.BackendRef.Name]; ok && b.Spec.HealthCheck.TLSConfig != nil {
-				backendsWithHTTPHealthCheck = append(backendsWithHTTPHealthCheck, t1r.BackendRef.Name)
+			if b, ok := backendMap[t1r.BackendRef.Name]; ok {
+				if b.Spec.HealthCheck.TLSConfig != nil {
+					backendsWithHTTPTLSHealthCheck = append(backendsWithHTTPTLSHealthCheck, t1r.BackendRef.Name)
+				}
+
+				if b.Spec.HealthCheck.ConfiguresPayload() {
+					backendsWithPayloadInHealthCheck = append(backendsWithPayloadInHealthCheck, t1r.BackendRef.Name)
+				}
+
+				if b.Spec.HealthCheck.ConfiguresHTTPMethodOrStatusCodes() {
+					backendsWithMethodOrStatusCodesInHealthCheck = append(backendsWithMethodOrStatusCodesInHealthCheck, t1r.BackendRef.Name)
+				}
 			}
 		}
 	} else if lbsvc.Spec.Applications.UDPProxy != nil && lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode != nil && *lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode == isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1 {
 		for _, t1r := range lbsvc.Spec.Applications.UDPProxy.Routes {
-			if b, ok := backendMap[t1r.BackendRef.Name]; ok && b.Spec.HealthCheck.TLSConfig != nil {
-				backendsWithHTTPHealthCheck = append(backendsWithHTTPHealthCheck, t1r.BackendRef.Name)
+			if b, ok := backendMap[t1r.BackendRef.Name]; ok {
+				if b.Spec.HealthCheck.TLSConfig != nil {
+					backendsWithHTTPTLSHealthCheck = append(backendsWithHTTPTLSHealthCheck, t1r.BackendRef.Name)
+				}
+
+				if b.Spec.HealthCheck.ConfiguresPayload() {
+					backendsWithPayloadInHealthCheck = append(backendsWithPayloadInHealthCheck, t1r.BackendRef.Name)
+				}
+
+				if b.Spec.HealthCheck.ConfiguresHTTPMethodOrStatusCodes() {
+					backendsWithMethodOrStatusCodesInHealthCheck = append(backendsWithMethodOrStatusCodesInHealthCheck, t1r.BackendRef.Name)
+				}
 			}
 		}
 	}
 	incompatibleBackendMessages := []string{}
 
-	if len(backendsWithHTTPHealthCheck) > 0 {
-		incompatibleBackendMessages = append(incompatibleBackendMessages, fmt.Sprintf("forceDeploymentMode t1-only is incompatible with LBBackendPools that configure TLS health checks %v", backendsWithHTTPHealthCheck))
+	if len(backendsWithHTTPTLSHealthCheck) > 0 {
+		incompatibleBackendMessages = append(incompatibleBackendMessages, fmt.Sprintf("forceDeploymentMode t1-only is incompatible with LBBackendPools that configure TLS health checks %v", backendsWithHTTPTLSHealthCheck))
+	}
+
+	if len(backendsWithPayloadInHealthCheck) > 0 {
+		incompatibleBackendMessages = append(incompatibleBackendMessages, fmt.Sprintf("forceDeploymentMode t1-only is incompatible with LBBackendPools that configure health checks with payloads (sent/receive) %v", backendsWithPayloadInHealthCheck))
+	}
+
+	if len(backendsWithMethodOrStatusCodesInHealthCheck) > 0 {
+		incompatibleBackendMessages = append(incompatibleBackendMessages, fmt.Sprintf("forceDeploymentMode t1-only is incompatible with LBBackendPools that configure health checks with method or status codes %v", backendsWithMethodOrStatusCodesInHealthCheck))
 	}
 
 	return incompatibleBackendMessages

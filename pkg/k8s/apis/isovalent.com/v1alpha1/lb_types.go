@@ -2053,6 +2053,23 @@ type HealthCheck struct {
 	TCP *HealthCheckTCP `json:"tcp,omitempty"`
 }
 
+func (r *HealthCheck) ConfiguresPayload() bool {
+	if (r.HTTP != nil && (r.HTTP.Send != nil || len(r.HTTP.Receive) > 0)) ||
+		(r.TCP != nil && (r.TCP.Send != nil || len(r.TCP.Receive) > 0)) {
+		return true
+	}
+
+	return false
+}
+
+func (r *HealthCheck) ConfiguresHTTPMethodOrStatusCodes() bool {
+	if r.HTTP != nil && (len(r.HTTP.HealthyStatusCodes) > 0 || (r.HTTP.Method != nil && *r.HTTP.Method != HealthCheckHTTPMethodGet)) {
+		return true
+	}
+
+	return false
+}
+
 type HealthCheckHTTP struct {
 	// The host name to use in the HTTP health checking probe. When
 	// omitted, the probe uses "lb".

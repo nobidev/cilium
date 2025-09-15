@@ -604,14 +604,14 @@ func (r *ingestor) toHealthCheckPayload(payload *isovalentv1alpha1.HealthCheckPa
 	return result
 }
 
+var defaultHealthCheckStatusCodes = []lbBackendHealthCheckHTTPStatusRange{{
+	start: 200,
+	end:   201,
+}}
+
 func (r *ingestor) toHealthCheckHTTPStatusCodes(codes []*isovalentv1alpha1.HealthCheckHTTPStatusRange) []lbBackendHealthCheckHTTPStatusRange {
 	if len(codes) == 0 {
-		return []lbBackendHealthCheckHTTPStatusRange{
-			{
-				start: 200,
-				end:   201,
-			},
-		}
+		return defaultHealthCheckStatusCodes
 	}
 
 	result := []lbBackendHealthCheckHTTPStatusRange{}
@@ -1412,6 +1412,17 @@ func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 			return tierModeT2
 		}
 
+		// Cilium Agent health checking doesn't support custom payload (sending and validating response)
+		if (v.healthCheckConfig.http != nil && (v.healthCheckConfig.http.send != nil || len(v.healthCheckConfig.http.receive) > 0)) ||
+			(v.healthCheckConfig.tcp != nil && (v.healthCheckConfig.tcp.send != nil || len(v.healthCheckConfig.tcp.receive) > 0)) {
+			return tierModeT2
+		}
+
+		// Cilium Agent health checking doesn't support custom HTTP method & status codes
+		if v.healthCheckConfig.http != nil && (!slices.Equal(v.healthCheckConfig.http.healthyStatusCodes, defaultHealthCheckStatusCodes) || v.healthCheckConfig.http.method != lbBackendHealthCheckHTTPMethodGet) {
+			return tierModeT2
+		}
+
 		// Cilium Agent health checking doesn't support TLS
 		if v.healthCheckConfig.tlsConfig != nil {
 			return tierModeT2
@@ -1462,6 +1473,18 @@ func (r *ingestor) evaluateUDPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 	for _, v := range referencedBackends {
 		// Cilium Agent health checking doesn't support changing the host header of a HTTP health check request
 		if v.healthCheckConfig.http != nil && v.healthCheckConfig.http.host != "lb" {
+			return tierModeT2
+		}
+
+		// Cilium Agent health checking doesn't support custom payload (sending and validating response)
+		if (v.healthCheckConfig.http != nil && (v.healthCheckConfig.http.send != nil || len(v.healthCheckConfig.http.receive) > 0)) ||
+			(v.healthCheckConfig.tcp != nil && (v.healthCheckConfig.tcp.send != nil || len(v.healthCheckConfig.tcp.receive) > 0)) {
+			return tierModeT2
+		}
+
+		// Cilium Agent health checking doesn't support custom HTTP method & status codes
+
+		if v.healthCheckConfig.http != nil && (!slices.Equal(v.healthCheckConfig.http.healthyStatusCodes, defaultHealthCheckStatusCodes) || v.healthCheckConfig.http.method != lbBackendHealthCheckHTTPMethodGet) {
 			return tierModeT2
 		}
 
