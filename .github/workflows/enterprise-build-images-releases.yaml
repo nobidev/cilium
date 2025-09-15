@@ -166,7 +166,7 @@ jobs:
 
       - name: Install Cosign
         if: ${{ steps.version.outputs.rebuild == 'true' }}
-        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
 
       - name: Sign Container Images
         if: ${{ steps.version.outputs.rebuild == 'true' }}
@@ -307,7 +307,7 @@ jobs:
           echo digest=${digest} >> $GITHUB_OUTPUT
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
 
       - name: Sign Container Images
         run: |
@@ -437,7 +437,7 @@ jobs:
           # renovate: datasource=github-releases depName=mikefarah/yq
           yq_version: 4.47.1
           # renovate: datasource=github-releases depName=operator-framework/operator-registry
-          opm_version: 1.56.0
+          opm_version: 1.58.0
           VERSION: "${{ steps.tag.outputs.tag }}"
           CATALOG_TAG: "1.0.0"
           IMAGE_TAG_BASE: "${{ steps.tag.outputs.image_tag_base }}"
@@ -464,7 +464,7 @@ jobs:
           echo catalog=${digest} >> $GITHUB_OUTPUT
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
 
       - name: Sign Container Images
         run: |

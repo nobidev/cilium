@@ -41,7 +41,7 @@ env:
   name: ${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.33.4
+  kubectl_version: v1.34.1
   terraform_version: 1.10.5
   upload_dir: github-upload
   artifact_retention_days: 15
@@ -323,7 +323,7 @@ jobs:
 
       - name: Set up gcloud CLI
         if: steps.cute_props.outputs.provider == 'gcp'
-        uses: google-github-actions/setup-gcloud@ed8ba68de5f95fc08e400796581a06a4acab88ae
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
