@@ -193,6 +193,9 @@ spec:
       healthChecks:
         - healthyThreshold: 2
           httpHealthCheck:
+            expectedStatuses:
+            - end: "201"
+              start: "200"
             host: my-hostname
             method: GET
             path: /health-endpoint

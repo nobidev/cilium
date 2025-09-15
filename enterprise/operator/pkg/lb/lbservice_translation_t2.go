@@ -1824,9 +1824,10 @@ func (r *lbServiceT2Translator) toClusterHealthChecks(healthCheckConfig lbBacken
 func (r *lbServiceT2Translator) toClusterHealthCheckerHTTP(healthCheckConfig lbBackendHealthCheckConfig) *envoy_config_core_v3.HealthCheck_HttpHealthCheck_ {
 	return &envoy_config_core_v3.HealthCheck_HttpHealthCheck_{
 		HttpHealthCheck: &envoy_config_core_v3.HealthCheck_HttpHealthCheck{
-			Host:   healthCheckConfig.http.host,
-			Path:   healthCheckConfig.http.path,
-			Method: r.toHealthCheckHTTPMethod(healthCheckConfig.http.method),
+			Host:             healthCheckConfig.http.host,
+			Path:             healthCheckConfig.http.path,
+			Method:           r.toHealthCheckHTTPMethod(healthCheckConfig.http.method),
+			ExpectedStatuses: r.toHealthCheckHTTPStatusCodes(healthCheckConfig.http.healthyStatusCodes),
 		},
 	}
 }
@@ -1854,6 +1855,19 @@ func (r *lbServiceT2Translator) toHealthCheckHTTPMethod(method lbBackendHealthCh
 	default:
 		return envoy_config_core_v3.RequestMethod_GET
 	}
+}
+
+func (r *lbServiceT2Translator) toHealthCheckHTTPStatusCodes(codes []lbBackendHealthCheckHTTPStatusRange) []*envoy_type_v3.Int64Range {
+	result := []*envoy_type_v3.Int64Range{}
+
+	for _, hchr := range codes {
+		result = append(result, &envoy_type_v3.Int64Range{
+			Start: int64(hchr.start),
+			End:   int64(hchr.end),
+		})
+	}
+
+	return result
 }
 
 func (r *lbServiceT2Translator) toClusterHealthCheckerTCP(_ lbBackendHealthCheckConfig) *envoy_config_core_v3.HealthCheck_TcpHealthCheck_ {

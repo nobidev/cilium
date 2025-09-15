@@ -2076,6 +2076,14 @@ type HealthCheckHTTP struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=GET
 	Method *HealthCheckHTTPMethod `json:"method,omitempty"`
+
+	// The list of healthy status code ranges to use in the HTTP health checking probe. When omitted, the
+	// probe uses "200" (OK).
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
+	HealthyStatusCodes []*HealthCheckHTTPStatusRange `json:"healthyStatusCodes,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=GET;HEAD;POST;PUT;DELETE;CONNECT;OPTIONS;TRACE;PATCH
@@ -2092,6 +2100,20 @@ const (
 	HealthCheckHTTPMethodTrace   HealthCheckHTTPMethod = "TRACE"
 	HealthCheckHTTPMethodPatch   HealthCheckHTTPMethod = "PATCH"
 )
+
+type HealthCheckHTTPStatusRange struct {
+	// Start of the range (inclusive)
+	//
+	// +kubebuilder:validation:Minimum=100
+	// +kubebuilder:validation:Maximum=600
+	Start uint `json:"start"`
+
+	// End of the range (exclusive)
+	//
+	// +kubebuilder:validation:Minimum=100
+	// +kubebuilder:validation:Maximum=600
+	End uint `json:"end"`
+}
 
 type HealthCheckTCP struct{}
 

@@ -537,9 +537,10 @@ func (r *ingestor) toHTTPHealthCheck(hc *isovalentv1alpha1.HealthCheck) *lbBacke
 	}
 
 	return &lbBackendHealthCheckHTTPConfig{
-		host:   *hc.HTTP.Host,
-		path:   *hc.HTTP.Path,
-		method: r.toHealthCheckHTTPMethod(hc.HTTP.Method),
+		host:               *hc.HTTP.Host,
+		path:               *hc.HTTP.Path,
+		method:             r.toHealthCheckHTTPMethod(hc.HTTP.Method),
+		healthyStatusCodes: r.toHealthCheckHTTPStatusCodes(hc.HTTP.HealthyStatusCodes),
 	}
 }
 
@@ -570,6 +571,28 @@ func (r *ingestor) toHealthCheckHTTPMethod(method *isovalentv1alpha1.HealthCheck
 	default:
 		return lbBackendHealthCheckHTTPMethodGet
 	}
+}
+
+func (r *ingestor) toHealthCheckHTTPStatusCodes(codes []*isovalentv1alpha1.HealthCheckHTTPStatusRange) []lbBackendHealthCheckHTTPStatusRange {
+	if len(codes) == 0 {
+		return []lbBackendHealthCheckHTTPStatusRange{
+			{
+				start: 200,
+				end:   201,
+			},
+		}
+	}
+
+	result := []lbBackendHealthCheckHTTPStatusRange{}
+
+	for _, hchr := range codes {
+		result = append(result, lbBackendHealthCheckHTTPStatusRange{
+			start: hchr.Start,
+			end:   hchr.End,
+		})
+	}
+
+	return result
 }
 
 func (r *ingestor) toTCPHealthCheck(hc *isovalentv1alpha1.HealthCheck) *lbBackendHealthCheckTCPConfig {

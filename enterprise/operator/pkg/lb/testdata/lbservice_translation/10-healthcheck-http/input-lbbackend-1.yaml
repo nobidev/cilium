@@ -20,3 +20,6 @@ spec:
       host: my-hostname
       path: /health-endpoint
       method: HEAD
+      healthyStatusCodes:
+        - start: 200
+          end: 300

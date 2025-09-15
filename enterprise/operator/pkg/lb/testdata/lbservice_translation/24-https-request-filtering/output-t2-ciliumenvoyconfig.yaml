@@ -290,6 +290,9 @@ spec:
       healthChecks:
         - healthyThreshold: 1
           httpHealthCheck:
+            expectedStatuses:
+            - end: "201"
+              start: "200"
             host: lb
             method: GET
             path: /healthz
@@ -336,6 +339,9 @@ spec:
       healthChecks:
         - healthyThreshold: 1
           httpHealthCheck:
+            expectedStatuses:
+            - end: "201"
+              start: "200"
             host: lb
             method: GET
             path: /healthz

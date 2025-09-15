@@ -180,6 +180,29 @@ spec:
                       The HTTP health check configuration. Exactly one of http or tcp must
                       be specified.
                     properties:
+                      healthyStatusCodes:
+                        description: |-
+                          The list of healthy status code ranges to use in the HTTP health checking probe. When omitted, the
+                          probe uses "200" (OK).
+                        items:
+                          properties:
+                            end:
+                              description: End of the range (exclusive)
+                              maximum: 600
+                              minimum: 100
+                              type: integer
+                            start:
+                              description: Start of the range (inclusive)
+                              maximum: 600
+                              minimum: 100
+                              type: integer
+                          required:
+                          - end
+                          - start
+                          type: object
+                        maxItems: 10
+                        minItems: 1
+                        type: array
                       host:
                         default: lb
                         description: |-
