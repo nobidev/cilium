@@ -2084,6 +2084,26 @@ type HealthCheckHTTP struct {
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=10
 	HealthyStatusCodes []*HealthCheckHTTPStatusRange `json:"healthyStatusCodes,omitempty"`
+
+	// Send configures HTTP specific payload to use in the HTTP health checking probe.
+	// If specified, the method should support a request body (POST, PUT, PATCH, etc.).
+	//
+	// +kubebuilder:validation:Optional
+	Send *HealthCheckPayload `json:"send,omitempty"`
+
+	// Expected payloads to match when checking the response in the HTTP health checking probe.
+	//
+	// +kubebuilder:validation:Optional
+	Receive []*HealthCheckPayload `json:"receive,omitempty"`
+}
+
+type HealthCheckPayload struct {
+	// Text contains the hex encoded payload.
+	//
+	// +kubebuilder:validation:OneOf
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Text *string `json:"text,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=GET;HEAD;POST;PUT;DELETE;CONNECT;OPTIONS;TRACE;PATCH
@@ -2115,7 +2135,19 @@ type HealthCheckHTTPStatusRange struct {
 	End uint `json:"end"`
 }
 
-type HealthCheckTCP struct{}
+// +kubebuilder:validation:XValidation:message="Receive must be configured if send is defined.",rule="!has(self.send) || has(self.receive)"
+type HealthCheckTCP struct {
+	// Send configures TCP specific payload to use in the TCP health checking probe.
+	// Note: Only works if receive (response payload validation) is configured too.
+	//
+	// +kubebuilder:validation:Optional
+	Send *HealthCheckPayload `json:"send,omitempty"`
+
+	// Expected payloads to match when checking the response in the TCP health checking probe.
+	//
+	// +kubebuilder:validation:Optional
+	Receive []*HealthCheckPayload `json:"receive,omitempty"`
+}
 
 type Loadbalancing struct {
 	// LB algorithm configuration.

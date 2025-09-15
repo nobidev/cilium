@@ -1822,7 +1822,7 @@ func (r *lbServiceT2Translator) toClusterHealthChecks(healthCheckConfig lbBacken
 }
 
 func (r *lbServiceT2Translator) toClusterHealthCheckerHTTP(healthCheckConfig lbBackendHealthCheckConfig) *envoy_config_core_v3.HealthCheck_HttpHealthCheck_ {
-	return &envoy_config_core_v3.HealthCheck_HttpHealthCheck_{
+	check := &envoy_config_core_v3.HealthCheck_HttpHealthCheck_{
 		HttpHealthCheck: &envoy_config_core_v3.HealthCheck_HttpHealthCheck{
 			Host:             healthCheckConfig.http.host,
 			Path:             healthCheckConfig.http.path,
@@ -1830,6 +1830,36 @@ func (r *lbServiceT2Translator) toClusterHealthCheckerHTTP(healthCheckConfig lbB
 			ExpectedStatuses: r.toHealthCheckHTTPStatusCodes(healthCheckConfig.http.healthyStatusCodes),
 		},
 	}
+
+	if healthCheckConfig.http.send != nil {
+		check.HttpHealthCheck.Send = r.toHealthPayload(healthCheckConfig.http.send)
+	}
+
+	if healthCheckConfig.http.receive != nil {
+		check.HttpHealthCheck.ResponseBufferSize = wrapperspb.UInt64(0) // Match on entire response
+		receive := []*envoy_config_core_v3.HealthCheck_Payload{}
+
+		for _, p := range healthCheckConfig.http.receive {
+			receive = append(receive, r.toHealthPayload(p))
+		}
+
+		check.HttpHealthCheck.Receive = receive
+	}
+
+	return check
+}
+
+func (r *lbServiceT2Translator) toHealthPayload(input *lbBackendHealthCheckPayload) *envoy_config_core_v3.HealthCheck_Payload {
+	result := &envoy_config_core_v3.HealthCheck_Payload{}
+
+	switch {
+	case input.text != nil:
+		result.Payload = &envoy_config_core_v3.HealthCheck_Payload_Text{
+			Text: *input.text,
+		}
+	}
+
+	return result
 }
 
 func (r *lbServiceT2Translator) toHealthCheckHTTPMethod(method lbBackendHealthCheckHTTPMethod) envoy_config_core_v3.RequestMethod {
@@ -1870,10 +1900,26 @@ func (r *lbServiceT2Translator) toHealthCheckHTTPStatusCodes(codes []lbBackendHe
 	return result
 }
 
-func (r *lbServiceT2Translator) toClusterHealthCheckerTCP(_ lbBackendHealthCheckConfig) *envoy_config_core_v3.HealthCheck_TcpHealthCheck_ {
-	return &envoy_config_core_v3.HealthCheck_TcpHealthCheck_{
+func (r *lbServiceT2Translator) toClusterHealthCheckerTCP(healthCheckConfig lbBackendHealthCheckConfig) *envoy_config_core_v3.HealthCheck_TcpHealthCheck_ {
+	check := &envoy_config_core_v3.HealthCheck_TcpHealthCheck_{
 		TcpHealthCheck: &envoy_config_core_v3.HealthCheck_TcpHealthCheck{},
 	}
+
+	if healthCheckConfig.tcp.send != nil {
+		check.TcpHealthCheck.Send = r.toHealthPayload(healthCheckConfig.tcp.send)
+	}
+
+	if healthCheckConfig.tcp.receive != nil {
+		receive := []*envoy_config_core_v3.HealthCheck_Payload{}
+
+		for _, p := range healthCheckConfig.tcp.receive {
+			receive = append(receive, r.toHealthPayload(p))
+		}
+
+		check.TcpHealthCheck.Receive = receive
+	}
+
+	return check
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyClusterLoadAssignments(model *lbService) []*envoy_config_endpoint_v3.ClusterLoadAssignment {

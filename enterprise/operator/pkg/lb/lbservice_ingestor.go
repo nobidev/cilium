@@ -541,6 +541,8 @@ func (r *ingestor) toHTTPHealthCheck(hc *isovalentv1alpha1.HealthCheck) *lbBacke
 		path:               *hc.HTTP.Path,
 		method:             r.toHealthCheckHTTPMethod(hc.HTTP.Method),
 		healthyStatusCodes: r.toHealthCheckHTTPStatusCodes(hc.HTTP.HealthyStatusCodes),
+		send:               r.toHealthCheckPayload(hc.HTTP.Send),
+		receive:            r.toHealthCheckPayloads(hc.HTTP.Receive),
 	}
 }
 
@@ -573,6 +575,35 @@ func (r *ingestor) toHealthCheckHTTPMethod(method *isovalentv1alpha1.HealthCheck
 	}
 }
 
+func (r *ingestor) toHealthCheckPayloads(payload []*isovalentv1alpha1.HealthCheckPayload) []*lbBackendHealthCheckPayload {
+	if payload == nil {
+		return nil
+	}
+
+	result := []*lbBackendHealthCheckPayload{}
+
+	for _, p := range payload {
+		result = append(result, r.toHealthCheckPayload(p))
+	}
+
+	return result
+}
+
+func (r *ingestor) toHealthCheckPayload(payload *isovalentv1alpha1.HealthCheckPayload) *lbBackendHealthCheckPayload {
+	if payload == nil {
+		return nil
+	}
+
+	result := &lbBackendHealthCheckPayload{}
+
+	switch {
+	case payload.Text != nil:
+		result.text = payload.Text
+	}
+
+	return result
+}
+
 func (r *ingestor) toHealthCheckHTTPStatusCodes(codes []*isovalentv1alpha1.HealthCheckHTTPStatusRange) []lbBackendHealthCheckHTTPStatusRange {
 	if len(codes) == 0 {
 		return []lbBackendHealthCheckHTTPStatusRange{
@@ -600,7 +631,10 @@ func (r *ingestor) toTCPHealthCheck(hc *isovalentv1alpha1.HealthCheck) *lbBacken
 		return nil
 	}
 
-	return &lbBackendHealthCheckTCPConfig{}
+	return &lbBackendHealthCheckTCPConfig{
+		send:    r.toHealthCheckPayload(hc.TCP.Send),
+		receive: r.toHealthCheckPayloads(hc.TCP.Receive),
+	}
 }
 
 func (r *ingestor) toBackendType(backendType isovalentv1alpha1.BackendType) lbBackendType {

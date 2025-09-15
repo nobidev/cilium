@@ -156,6 +156,11 @@ spec:
             host: my-hostname
             method: HEAD
             path: /health-endpoint
+            receive:
+              - text: 7b22737461747573223a20224845414c544859227d
+            responseBufferSize: "0"
+            send:
+              text: 7b22666f6f223a2022626172227d
           interval: 15s
           noTrafficInterval: 15s
           timeout: 2s

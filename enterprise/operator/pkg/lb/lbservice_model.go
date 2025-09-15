@@ -684,6 +684,12 @@ type lbBackendHealthCheckHTTPConfig struct {
 	path               string
 	method             lbBackendHealthCheckHTTPMethod
 	healthyStatusCodes []lbBackendHealthCheckHTTPStatusRange
+	send               *lbBackendHealthCheckPayload
+	receive            []*lbBackendHealthCheckPayload
+}
+
+type lbBackendHealthCheckPayload struct {
+	text *string
 }
 
 type lbBackendHealthCheckHTTPMethod int
@@ -705,7 +711,10 @@ type lbBackendHealthCheckHTTPStatusRange struct {
 	end   uint
 }
 
-type lbBackendHealthCheckTCPConfig struct{}
+type lbBackendHealthCheckTCPConfig struct {
+	send    *lbBackendHealthCheckPayload
+	receive []*lbBackendHealthCheckPayload
+}
 
 type lbBackendTCPConfig struct {
 	connectTimeoutSeconds int32

@@ -149,7 +149,11 @@ spec:
       connectTimeout: 5s
       healthChecks:
         - healthyThreshold: 2
-          tcpHealthCheck: {}
+          tcpHealthCheck:
+            receive:
+              - text: 7b22737461747573223a20224845414c544859227d
+            send:
+              text: 7b22666f6f223a2022626172227d
           interval: 15s
           noTrafficInterval: 15s
           timeout: 2s
@@ -194,8 +198,8 @@ spec:
         - healthyThreshold: 2
           httpHealthCheck:
             expectedStatuses:
-            - end: "201"
-              start: "200"
+              - end: "201"
+                start: "200"
             host: my-hostname
             method: GET
             path: /health-endpoint

@@ -12,6 +12,7 @@ package lb
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -207,6 +208,10 @@ func (r *lbBackendPoolReconciler) updateAcceptedStatusCondition(lbbp *isovalentv
 		invalidMessages = append(invalidMessages, invalidMessage)
 	}
 
+	if valid, invalidMessage := r.validateHealthChecks(lbbp); !valid {
+		invalidMessages = append(invalidMessages, invalidMessage)
+	}
+
 	if len(invalidMessages) > 0 {
 		backendPoolValidCondition.Status = metav1.ConditionFalse
 		backendPoolValidCondition.Reason = isovalentv1alpha1.BackendAcceptedConditionReasonInvalid
@@ -254,6 +259,49 @@ func (r *lbBackendPoolReconciler) validateK8sServiceRefs(lbbp *isovalentv1alpha1
 			if !portFound {
 				return false, fmt.Sprintf("The backend port %d doesn't exist on the referenced K8s Service %q", b.Port, b.K8sServiceRef.Name)
 			}
+		}
+	}
+
+	return true, ""
+}
+
+func (r *lbBackendPoolReconciler) validateHealthChecks(lbbp *isovalentv1alpha1.LBBackendPool) (bool, string) {
+	if lbbp.Spec.HealthCheck.HTTP != nil {
+		if lbbp.Spec.HealthCheck.HTTP.Send != nil {
+			if valid, message := r.validateHealthCheckPayloadEncoding(lbbp.Spec.HealthCheck.HTTP.Send); !valid {
+				return valid, fmt.Sprintf("The HTTP health check send is invalid: %s", message)
+			}
+		}
+
+		for _, hcp := range lbbp.Spec.HealthCheck.HTTP.Receive {
+			if valid, message := r.validateHealthCheckPayloadEncoding(hcp); !valid {
+				return valid, fmt.Sprintf("One HTTP health check receive is invalid: %s", message)
+			}
+		}
+
+	} else if lbbp.Spec.HealthCheck.TCP != nil {
+		if lbbp.Spec.HealthCheck.TCP.Send != nil {
+			if valid, message := r.validateHealthCheckPayloadEncoding(lbbp.Spec.HealthCheck.TCP.Send); !valid {
+				return valid, fmt.Sprintf("The TCP health check send is invalid: %s", message)
+			}
+		}
+
+		for _, hcp := range lbbp.Spec.HealthCheck.TCP.Receive {
+			if valid, message := r.validateHealthCheckPayloadEncoding(hcp); !valid {
+				return valid, fmt.Sprintf("One TCP health check receive is invalid: %s", message)
+			}
+		}
+
+	}
+
+	return true, ""
+}
+
+func (r *lbBackendPoolReconciler) validateHealthCheckPayloadEncoding(payload *isovalentv1alpha1.HealthCheckPayload) (bool, string) {
+	switch {
+	case payload.Text != nil:
+		if _, err := hex.DecodeString(*payload.Text); err != nil {
+			return false, "non hex encoded text payload defined"
 		}
 	}
 

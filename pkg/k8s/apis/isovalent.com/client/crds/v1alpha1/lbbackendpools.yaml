@@ -233,6 +233,37 @@ spec:
                           probe uses "/healthz".
                         minLength: 1
                         type: string
+                      receive:
+                        description: Expected payloads to match when checking the
+                          response in the HTTP health checking probe.
+                        items:
+                          oneOf:
+                          - properties:
+                              text: {}
+                            required:
+                            - text
+                          properties:
+                            text:
+                              description: Text contains the hex encoded payload.
+                              minLength: 1
+                              type: string
+                          type: object
+                        type: array
+                      send:
+                        description: |-
+                          Send configures HTTP specific payload to use in the HTTP health checking probe.
+                          If specified, the method should support a request body (POST, PUT, PATCH, etc.).
+                        oneOf:
+                        - properties:
+                            text: {}
+                          required:
+                          - text
+                        properties:
+                          text:
+                            description: Text contains the hex encoded payload.
+                            minLength: 1
+                            type: string
+                        type: object
                     type: object
                   intervalSeconds:
                     default: 30
@@ -244,7 +275,42 @@ spec:
                     description: |-
                       The TCP health check configuration. Exactly one of http or tcp must
                       be specified.
+                    properties:
+                      receive:
+                        description: Expected payloads to match when checking the
+                          response in the TCP health checking probe.
+                        items:
+                          oneOf:
+                          - properties:
+                              text: {}
+                            required:
+                            - text
+                          properties:
+                            text:
+                              description: Text contains the hex encoded payload.
+                              minLength: 1
+                              type: string
+                          type: object
+                        type: array
+                      send:
+                        description: |-
+                          Send configures TCP specific payload to use in the TCP health checking probe.
+                          Note: Only works if receive (response payload validation) is configured too.
+                        oneOf:
+                        - properties:
+                            text: {}
+                          required:
+                          - text
+                        properties:
+                          text:
+                            description: Text contains the hex encoded payload.
+                            minLength: 1
+                            type: string
+                        type: object
                     type: object
+                    x-kubernetes-validations:
+                    - message: Receive must be configured if send is defined.
+                      rule: '!has(self.send) || has(self.receive)'
                   timeoutSeconds:
                     default: 5
                     description: The timeout for each health check probe.
