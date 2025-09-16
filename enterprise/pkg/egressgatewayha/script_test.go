@@ -29,6 +29,7 @@ import (
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/healthcheck"
+	enterpriseHealthConfig "github.com/cilium/cilium/enterprise/pkg/healthconfig"
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -38,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/healthconfig"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sFake "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -85,7 +87,6 @@ func TestOperatorScripts(t *testing.T) {
 							EnableBPFMasquerade:    true,
 							EnableIPv4Masquerade:   true,
 							IdentityAllocationMode: option.IdentityAllocationModeCRD,
-							EnableHealthChecking:   true,
 							Debug:                  false,
 						}
 					},
@@ -96,6 +97,8 @@ func TestOperatorScripts(t *testing.T) {
 
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 			h.RegisterFlags(flags)
+			flags.Set(healthconfig.EnableHealthCheckingName, "false")
+			flags.Set(enterpriseHealthConfig.EnableHealthServerName, "true")
 
 			t.Cleanup(func() {
 				assert.NoError(t, h.Stop(log, context.TODO()))
@@ -139,6 +142,9 @@ func TestPrivilegedAgentScripts(t *testing.T) {
 				testCell,
 
 				PolicyCell,
+
+				enterpriseHealthConfig.Cell,
+				healthconfig.Cell,
 				cell.Config(metrics.RegistryConfig{}),
 				cell.Config(cmtypes.DefaultClusterInfo),
 				cell.Provide(
@@ -160,7 +166,6 @@ func TestPrivilegedAgentScripts(t *testing.T) {
 							EnableBPFMasquerade:    true,
 							EnableIPv4Masquerade:   true,
 							IdentityAllocationMode: option.IdentityAllocationModeCRD,
-							EnableHealthChecking:   true,
 							Debug:                  false,
 						}
 					},
@@ -190,6 +195,9 @@ func TestPrivilegedAgentScripts(t *testing.T) {
 
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 			h.RegisterFlags(flags)
+			// Enterprise config overrides the OSS config.
+			flags.Set(healthconfig.EnableHealthCheckingName, "false")
+			flags.Set(enterpriseHealthConfig.EnableHealthServerName, "true")
 
 			t.Cleanup(func() {
 				assert.NoError(t, h.Stop(log, context.TODO()))

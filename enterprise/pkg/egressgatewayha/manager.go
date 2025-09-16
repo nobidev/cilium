@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/healthconfig"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -226,6 +227,8 @@ type Params struct {
 
 	Lifecycle cell.Lifecycle
 	Health    cell.Health
+
+	HealthConfig healthconfig.CiliumHealthConfig
 }
 
 // EgressIPsProvider provides policy to egress IPs mappings.
@@ -267,7 +270,7 @@ func NewEgressGatewayManager(p Params) (out struct {
 		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	}
 
-	if !p.DaemonConfig.HealthCheckingEnabled() {
+	if !p.HealthConfig.IsHealthCheckingEnabled() {
 		return out, fmt.Errorf("egress gateway HA requires healthchecking to be enabled")
 	}
 

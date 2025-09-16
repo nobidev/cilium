@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/healthconfig"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -33,7 +34,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 		"Name of the egress interface for the standalone gateway; if empty, it automatically selects the interface with the default route")
 }
 
-func (cfg Config) Validate(dcfg *option.DaemonConfig) error {
+func (cfg Config) Validate(dcfg *option.DaemonConfig, healthConfig healthconfig.CiliumHealthConfig) error {
 	if !cfg.EnableIPv4StandaloneEgressGateway {
 		return nil
 	}
@@ -46,7 +47,7 @@ func (cfg Config) Validate(dcfg *option.DaemonConfig) error {
 		return fmt.Errorf("standalone egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	}
 
-	if !dcfg.HealthCheckingEnabled() {
+	if !healthConfig.IsHealthCheckingEnabled() {
 		return fmt.Errorf("standalone egress gateway requires healthchecking to be enabled")
 	}
 

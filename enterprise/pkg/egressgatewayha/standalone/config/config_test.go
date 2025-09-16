@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/cilium/cilium/pkg/healthconfig"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -23,6 +24,7 @@ func TestConfigValidate(t *testing.T) {
 		name      string
 		cfg       Config
 		dcfg      func(*option.DaemonConfig)
+		healthCfg healthconfig.Config
 		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
 	}{
 		{
@@ -32,6 +34,7 @@ func TestConfigValidate(t *testing.T) {
 				StandaloneEgressGatewayInterface:  "",
 			},
 			dcfg:      func(dcfg *option.DaemonConfig) {},
+			healthCfg: healthconfig.Config{EnableHealthChecking: true},
 			assertion: assert.NoError,
 		},
 		{
@@ -41,6 +44,7 @@ func TestConfigValidate(t *testing.T) {
 				StandaloneEgressGatewayInterface:  "",
 			},
 			dcfg:      func(dcfg *option.DaemonConfig) { dcfg.EnableIPv4EgressGatewayHA = true },
+			healthCfg: healthconfig.Config{EnableHealthChecking: true},
 			assertion: assert.NoError,
 		},
 		{
@@ -50,6 +54,7 @@ func TestConfigValidate(t *testing.T) {
 				StandaloneEgressGatewayInterface:  "",
 			},
 			dcfg:      func(dcfg *option.DaemonConfig) { dcfg.EnableIPv4EgressGatewayHA = true },
+			healthCfg: healthconfig.Config{EnableHealthChecking: true},
 			assertion: assert.Error,
 		},
 		{
@@ -59,6 +64,7 @@ func TestConfigValidate(t *testing.T) {
 				StandaloneEgressGatewayInterface:  "",
 			},
 			dcfg:      func(dcfg *option.DaemonConfig) { dcfg.EnableBPFMasquerade = false },
+			healthCfg: healthconfig.Config{EnableHealthChecking: true},
 			assertion: assert.Error,
 		},
 		{
@@ -67,7 +73,8 @@ func TestConfigValidate(t *testing.T) {
 				EnableIPv4StandaloneEgressGateway: true,
 				StandaloneEgressGatewayInterface:  "",
 			},
-			dcfg:      func(dcfg *option.DaemonConfig) { dcfg.EnableHealthChecking = false },
+			dcfg:      func(dcfg *option.DaemonConfig) {},
+			healthCfg: healthconfig.Config{EnableHealthChecking: false},
 			assertion: assert.Error,
 		},
 	}
@@ -77,11 +84,10 @@ func TestConfigValidate(t *testing.T) {
 			dcfg := option.DaemonConfig{
 				EnableIPv4Masquerade: true,
 				EnableBPFMasquerade:  true,
-				EnableHealthChecking: true,
 			}
 
 			tt.dcfg(&dcfg)
-			tt.assertion(t, tt.cfg.Validate(&dcfg))
+			tt.assertion(t, tt.cfg.Validate(&dcfg, tt.healthCfg))
 		})
 	}
 }
