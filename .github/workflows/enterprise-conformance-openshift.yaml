@@ -83,7 +83,7 @@ concurrency:
 env:
   clusterName: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=quay.io/openshift-release-dev/ocp-release
-  ocp_version_multi: 4.17.17-multi
+  ocp_version_multi: 4.19.11-multi
   pod_cidr: 10.244.0.0/16
   pod_cidr_host_prefix: 23
 
@@ -250,7 +250,7 @@ jobs:
           fi
           region=$(echo $extra_args | jq -r '.region')
           if [[ "${region}" == "null" || "${region}" == "" ]]; then
-            region="us-east-1"
+            region="eu-central-1"
           fi
           ocp_minor_version=$(echo ${ocp_version} | cut -d '.' -f 1,2)
           echo ocp_version=${ocp_version} | tee -a $GITHUB_OUTPUT
@@ -262,10 +262,8 @@ jobs:
 
           # Disabling log check as it also considers logs before the tests started and
           # disruptions are expected during the installation process.
-          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
-            --test='!check-log-errors' \
-            -n cilium"
-          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          connectivity_test_flags="${{ steps.e2e_config.outputs.test_flags }} --test='!check-log-errors'"
+          echo connectivity_test_flags="${connectivity_test_flags}" >> $GITHUB_OUTPUT
 
       - name: Setup go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
@@ -287,7 +285,9 @@ jobs:
           echo "$(cat sha256sum.txt | grep 'openshift-client-linux-4' | cut -f1 -d ' ') openshift-client-linux.tar.gz" | sha256sum --check
           tar -zxvf openshift-client-linux.tar.gz oc
           sudo install -o root -g root -m 0755 oc /usr/local/bin/kubectl
+          sudo install -o root -g root -m 0755 oc /usr/local/bin/oc
           kubectl version --client
+          oc version --client
           mkdir -p /home/runner/.kube
           touch /home/runner/.kube/config
 
@@ -297,95 +297,87 @@ jobs:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.region }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        with:
-          terraform_version: "^1.10.4"
-          terraform_wrapper: false
-
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@024e340cca1465e2a6336521f12370c7ca58c59a # v0.18.7
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
-      - name: Checkout the OpenShift CuTE repository
+      - name: Checkout the openshift-ci repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
-          repository: isovalent/cute-openshift-aws
+          repository: isovalent/openshift-ci
           token: ${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}
-          path: cute
+          path: openshift-ci
+
+      - name: Install OpenShift installer
+        working-directory: ./openshift-ci/aws-ipi
+        run: |
+          URL=https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/${{ steps.vars.outputs.ocp_version }}/openshift-install-linux-${{ steps.vars.outputs.ocp_version }}.tar.gz
+          curl -fsSL -o openshift-install.tar.gz ${URL}
+          tar zxvf openshift-install.tar.gz
+          sudo install -o root -g root -m 0755 openshift-install /usr/local/bin/openshift-install
+          rm openshift-install.tar.gz
+
 
       - name: Configuration for the OpenShift cluster installation
-        id: cute_config
-        working-directory: ./cute
+        id: openshift_ci_config
+        working-directory: ./openshift-ci/aws-ipi
         run: |
-          cute_dir=ocp-$(echo ${{ steps.vars.outputs.ocp_minor_version }} | tr '.' '-')
-          echo dir="${cute_dir}" >> $GITHUB_OUTPUT
-          cd "${cute_dir}"
-          # Generation of the terraform configuration.
+          # Generation of the installation configuration.
           echo "${{ secrets.OPENSHIFT_PULL_SECRET }}" | base64 -d > .pullsecret.json
           # exclude 0 from the random range to avoid conflicts with the pod CIDR 10.0.0.0/16
           range=$(shuf -i 1-255 -n 1)
-          cat > terraform.tfvars << EOF
-          cluster_name="${{ env.clusterName }}"
-          owner="${{ steps.vars.outputs.owner }}"
-          region="${{ steps.vars.outputs.region }}"
-          pull_secret_path="${PWD}/.pullsecret.json"
-          base_domain="${{ vars.AWS_BASE_DOMAIN }}"
-          pod_cidr="${{ env.pod_cidr }}"
-          pod_cidr_host_prefix="${{ env.pod_cidr_host_prefix }}"
-          cilium_kpr_enabled="${{ steps.vars.outputs.kpr }}"
-          cilium_olm_repo_type="clife"
-          cilium_olm_repo="dir:$(pwd)/../.."
-          cilium_olm_repo_branch="${{ steps.vars.outputs.sha }}"
-          cilium_version="${{ steps.vars.outputs.sha }}"
-          cilium_path_to_ciliumconfig_file="clife-ciliumconfig.yaml"
-          vpc_cidr="10.${range}.0.0/16"
-          openshift_version="${{ steps.vars.outputs.ocp_version }}"
+          cat > setup.conf << EOF
+          CLUSTER_NAME="${{ env.clusterName }}"
+          OWNER="${{ steps.vars.outputs.owner }}"
+          REGION="${{ steps.vars.outputs.region }}"
+          PULL_SECRET_PATH="${PWD}/.pullsecret.json"
+          BASE_DOMAIN="${{ vars.AWS_BASE_DOMAIN }}"
+          POD_IPV4_CIDR="${{ env.pod_cidr }}"
+          POD_IPV4_HOST_PREFIX="${{ env.pod_cidr_host_prefix }}"
+          KPR_ENABLED="${{ steps.vars.outputs.kpr }}"
+          MACHINE_IPV4_CIDR="10.${range}.0.0/16"
+          MANIFESTS_DIR="${{ github.workspace }}/enterprise/olm/dist/manifests"
+          CREDENTIALS_MODE="Manual"
           EOF
+          # TODO: make WORKERS_INSTANCE_TYPE and COUNT configurable: .compute.platform.aws.type .compute.replicas
           if [ "${{ steps.vars.outputs.kubevirt }}" != "true" ]; then
-            cat >> terraform.tfvars << EOF
-          worker_instance_type="m5.xlarge"
-          workers_count=3
+            cat >> setup.conf << EOF
+          WORKERS_INSTANCE_TYPE="m5.xlarge"
+          WORKERS_INSTANCE_COUNT=3
           EOF
           fi
-          cat terraform.tfvars
+          cat setup.conf
           # Use the CI CiliumConfig
           if [[ "${{ steps.vars.outputs.kpr }}" == "true" ]]
           then
-            cp ../../enterprise/olm/config/samples/openshift_ci_ciliumconfig_kpr.yaml clife-ciliumconfig.yaml
+            cp ../../enterprise/olm/config/samples/openshift_ci_ciliumconfig_kpr.yaml ${{ github.workspace }}/enterprise/olm/dist/manifests/ciliumconfig.yaml
           else
-            cp ../../enterprise/olm/config/samples/openshift_ci_ciliumconfig.yaml clife-ciliumconfig.yaml
+            cp ../../enterprise/olm/config/samples/openshift_ci_ciliumconfig.yaml ${{ github.workspace }}/enterprise/olm/dist/manifests/ciliumconfig.yaml
           fi
 
-      # replace git SSH by HTTPS and use a private access token so that `terraform get`
-      # can download modules from private repositories.
-      - name: Git config for terraform
-        run: |
-          git config --global url."https://oauth2:${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}@github.com".insteadOf ssh://git@github.com
-
       - name: Provision the OpenShift cluster
-        id: cluster
+        id: provisioning
         timeout-minutes: 120
-        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
+        working-directory: "./openshift-ci/aws-ipi"
         run: |
-          make apply AUTO_APPROVE=true
+          ./scripts/provision.sh
 
       - name: Kubeconfig Setup
-        if: always() && steps.cluster.outcome != 'skipped'
+        if: always() && steps.provisioning.outcome != 'skipped'
         id: kubeconfig
-        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
+        working-directory: "./openshift-ci/aws-ipi"
         run: |
-          eval "$(make kubeconfig | grep KUBECONFIG)"
-          [[ ! "$KUBECONFIG" =~ ^/.* ]] && KUBECONFIG="$(pwd)/$KUBECONFIG"
+          source .workdir/current.properties
+          export KUBECONFIG=${PWD}/.workdir/${CLUSTER_NAME}/auth/kubeconfig
           echo "base64 encoded kubeconfig:"
           cat $KUBECONFIG | base64 # useful for troubleshooting
           # required by the Cilium CLI container
           cp $KUBECONFIG /home/runner/.kube/config
 
       - name: Cluster state
-        if: always() && steps.cluster.outcome != 'skipped'
+        if: always() && steps.provisioning.outcome != 'skipped'
         run: |
           kubectl get pods -A -o wide
           kubectl get nodes
@@ -393,13 +385,11 @@ jobs:
           kubectl get ciliumconfig -o yaml
           kubectl get events -n cilium
           kubectl get pods -n cilium -o yaml
-          kubectl get events -n cilium
-          kubectl get pods -n cilium -o yaml
           kubectl logs -n cilium deployment/clife-controller-manager
           kubectl logs -n cilium daemonset/cilium --all-containers=true
 
       - name: Wait for Cluster operators to be ready
-        if: ${{ !cancelled() && steps.cluster.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.provisioning.outcome == 'success' }}
         id: wait-for-co
         timeout-minutes: 15
         run: |
@@ -418,7 +408,7 @@ jobs:
           set -e
 
       - name: Cluster operators not ready
-        if: ${{ !cancelled() && steps.cluster.outcome != 'skipped' && steps.wait-for-co.outcome == 'failure' }}
+        if: ${{ !cancelled() && steps.provisioning.outcome != 'skipped' && steps.wait-for-co.outcome == 'failure' }}
         run: |
           kubectl get co -o yaml
           kubectl get events -n cilium
@@ -453,179 +443,97 @@ jobs:
             exit 1
           fi
 
-      - name: Configure SecurityContextConstraints
-        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
-        shell: bash
-        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
-        run: |
-          # Create the SCC to provide the required privileges for running the tests
-          #
-          # SecurityContextConstraints would need to be amended (additional namespaces) to allow TEST_CONCURRENCY=3
-          kubectl apply -f ../common/test-scc.yaml
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features"
+          json-filename: "OpenShift"
 
       - name: Cilium connectivity tests
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
         timeout-minutes: 60
+        working-directory: ./openshift-ci/aws-ipi
         run: |
+          cp ${{ github.workspace }}/CODEOWNERS .
+          cp ${{ github.workspace }}/TESTOWNERS.enterprise .
           mkdir -p test-results
           mkdir -p cilium-junits
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --junit-file "cilium-junits/openshift-1.xml" \
-            --junit-property github_job_step="Cilium connectivity tests" \
-          | tee test-results/cilium-cli-results.txt
+          export CILIUM_TEST_RESULTS_DIR=${PWD}/test-results
+          # Disable history expension because of the exclamation mark in the flags
+          set +H
+          export CILIUM_TEST_FLAGS="${{ steps.vars.outputs.connectivity_test_flags }}
+            --junit-file \"${PWD}/cilium-junits/openshift-1.xml\"
+            --junit-property github_job_step=\"Cilium connectivity tests\""
+          set -H
+          ./scripts/cilium-cli-tests.sh
 
       - name: CNI conformance tests
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
-        uses: ./.github/actions/enterprise-openshift-cni-tests
         timeout-minutes: 60
-        with:
-          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
+        working-directory: ./openshift-ci/aws-ipi
+        run: |
+          mkdir -p test-results
+          export CNI_TEST_RESULTS_DIR=${PWD}/test-results
+          ./scripts/cni-tests.sh
 
       - name: KubeVirt conformance tests
         # Please create a comment with /ci-openshift {\"kubevirt\":\"true\"} if you want to run them
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.kubevirt == 'true' }}
-        uses: ./.github/actions/enterprise-openshift-kubevirt-tests
         timeout-minutes: 60
-        with:
-          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
+        working-directory: ./openshift-ci/aws-ipi
+        run: |
+          mkdir -p test-results
+          export KUBEVIRT_TEST_RESULTS_DIR=${PWD}/test-results
+          ./scripts/kubevirt-tests.sh
 
       - name: OpenShift Service Mesh conformance tests
         # Please create a comment with /ci-openshift {\"ossm\":\"true\"} if you want to run them
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.ossm == 'true' }}
-        uses: ./.github/actions/enterprise-openshift-ossm-tests
         timeout-minutes: 60
-        with:
-          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
-
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features with KPR"
-          json-filename: "OpenShift - with KPR"
-
-      - name: Enable KPR [if disabled]
-        if: ${{ steps.vars.outputs.kpr == 'false' }}
-        run: |
-          cp enterprise/olm/config/samples/openshift_ci_ciliumconfig_kpr.yaml clife-ciliumconfig.yaml
-          yq e -i 'with(.spec.ipam.operator; .clusterPoolIPv4MaskSize = '${{ env.pod_cidr_host_prefix }}' | .clusterPoolIPv4PodCIDRList[] = "'${{ env.pod_cidr }}'")' clife-ciliumconfig.yaml
-          yq e -i 'with(.spec; .k8sServiceHost = "'${{ steps.cluster-info.outputs.k8s_service_host }}'" | .k8sServicePort = "'${{ steps.cluster-info.outputs.k8s_service_port }}'")' clife-ciliumconfig.yaml
-          kubectl apply -f clife-ciliumconfig.yaml
-
-      - name: Restart cilium to pick up new config
-        if: ${{ steps.vars.outputs.kpr == 'false' }}
-        run: |
-          kubectl -n cilium delete ds cilium
-          cilium status -n cilium --wait
-
-      - name: Verifying KPR has been enabled
-        if: ${{ steps.vars.outputs.kpr == 'false' }}
-        run: |
-          kpr_status="$(kubectl -n cilium exec ds/cilium -c cilium-agent -- cilium-dbg status -o json | jq --raw-output '."kube-proxy-replacement".mode')"
-          if [ ${kpr_status} != "True" ]
-          then
-            echo "KPR is not enabled [status: $kpr_status]"
-            exit 1
-          fi
-
-      - name: Remove OpenShift kube-proxy
-        if: ${{ steps.vars.outputs.kpr == 'false' }}
-        run: |
-          kubectl patch network.operator cluster \
-                  --type=merge \
-                  --patch='{"spec":{"deployKubeProxy":false}}'
-
-          removed="false"
-          for _ in {1..30} # wait 5 mins and give up
-          do
-            sleep 10
-            count="$(kubectl get pods -A -l app=kube-proxy | wc -l || true)"
-            if [[ $count -eq 0 ]]
-            then
-              echo "OpenShift kube-proxy removed"
-              removed="true"
-              break
-            fi
-            echo "waiting for kube-proxy to be removed [remaining pods: $count]"
-          done
-          if [[ $removed != "true" ]]
-          then
-            echo "can not remove kube-proxy"
-            exit 1
-          fi
-
-      - name: Cilium connectivity tests [KPR]
-        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.kpr == 'false' }}
-        timeout-minutes: 60
+        working-directory: ./openshift-ci/aws-ipi
         run: |
           mkdir -p test-results
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --junit-file "cilium-junits/openshift-kpr.xml" \
-            --junit-property github_job_step="Cilium connectivity tests" \
-          | tee test-results/cilium-cli-results-kpr.txt
-
-      - name: CNI conformance tests [KPR]
-        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.kpr == 'false' }}
-        uses: ./.github/actions/enterprise-openshift-cni-tests
-        timeout-minutes: 60
-        with:
-          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
-
-      - name: KubeVirt conformance tests [KPR]
-        # Please create a comment with /ci-openshift {\"kubevirt\":\"true\"} if you want to run them
-        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.kpr == 'false' && steps.vars.outputs.kubevirt == 'true' }}
-        uses: ./.github/actions/enterprise-openshift-kubevirt-tests
-        timeout-minutes: 60
-        with:
-          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
-
-      - name: OpenShift Service Mesh conformance tests [KPR]
-        # Please create a comment with /ci-openshift {\"ossm\":\"true\"} if you want to run them
-        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.kpr == 'false' && steps.vars.outputs.ossm == 'true' }}
-        uses: ./.github/actions/enterprise-openshift-ossm-tests
-        timeout-minutes: 60
-        with:
-          working-dir: "./cute/${{ steps.cute_config.outputs.dir }}"
-
-      - name: Features tested with KPR
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features with KPR"
-          json-filename: "OpenShift - with KPR"
+          export MESH_TEST_RESULTS_DIR=${PWD}/test-results
+          ./scripts/mesh-tests.sh
 
       - name: Collect sysdumps
-        if: ${{ !success() && steps.cluster.outcome != 'skipped' }}
+        if: ${{ !success() && steps.provisioning.outcome != 'skipped' }}
         shell: bash
-        working-directory: ./cute/${{ steps.cute_config.outputs.dir }}
+        working-directory: ./openshift-ci/aws-ipi
         run: |
           mkdir -p ./test-results
           cilium status -n cilium
           cilium sysdump -n cilium --output-filename ./test-results/cilium-sysdump.dmp
 
       # This is to work around the fact that relative paths in actions/upload-artifact@v3 are rooted
-      # against the workspace, which causes an "Invalid pattern" if the CuTE repo dir is ".".
+      # against the workspace, which causes an "Invalid pattern" if the repo dir is ".".
       - name: Prepare upload
         if: always() && steps.wait-for-co.outcome != 'skipped'
         id: upload_dir
-        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
+        working-directory: ./openshift-ci/aws-ipi
         run: |
           if test -d ./test-results; then
             echo path="$(realpath ./test-results)" >> $GITHUB_OUTPUT
           else
             echo path=nothingtoupload >> $GITHUB_OUTPUT
           fi
+          if test -d ./cilium-junits; then
+            mv ./cilium-junits ${GITHUB_WORKSPACE}/.
+          fi
+          mv cilium-sysdump-*.zip ${GITHUB_WORKSPACE}/. || true
 
       - name: Upload Artifacts
         if: always() && steps.wait-for-co.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: output-kpr-default-${{ steps.vars.outputs.kpr }}
+          name: test-results
           path: ${{ steps.upload_dir.outputs.path }}
           if-no-files-found: ignore
           retention-days: 3
 
       # refresh credentials
       - name: Set up AWS CLI credentials
-        if: always() && steps.cluster.outcome != 'skipped'
+        if: always() && steps.provisioning.outcome != 'skipped'
         uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
@@ -633,19 +541,12 @@ jobs:
 
       # Happens independently of the success or the failure of the provisioning and tests
       - name: Clean up Cluster
-        if: always() && steps.cluster.outcome != 'skipped'
+        if: always() && steps.provisioning.outcome != 'skipped'
         timeout-minutes: 60
-        working-directory: "./cute/${{ steps.cute_config.outputs.dir }}"
+        working-directory: "./openshift-ci/aws-ipi"
         run: |
-          echo "killing terraform processes ..."
-          pkill -9 terraform || true
-          if [ -f .terraform.tfstate.lock.info ]; then
-            echo "unlocking terraform state ..."
-            LOCK_ID=$(jq -r '.ID' .terraform.tfstate.lock.info)
-            terraform force-unlock -force "$LOCK_ID" || true
-          fi
-          echo "destroying infra ..."
-          make destroy AUTO_APPROVE=true
+          echo "destroying cluster ..."
+          scripts/destroy.sh
 
       - name: Run common post steps
         if: ${{ always() }}

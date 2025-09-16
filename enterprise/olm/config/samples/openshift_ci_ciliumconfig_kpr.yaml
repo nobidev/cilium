@@ -18,10 +18,9 @@ spec:
   ipam:
     mode: "cluster-pool"
     operator:
-      # it gets automatically populated by the CuTE
-      clusterPoolIPv4MaskSize: ${POD_CIDR_HOST_PREFIX}
+      # it gets automatically populated based on CI settings 
+      clusterPoolIPv4MaskSize:
       clusterPoolIPv4PodCIDRList:
-      - ${POD_CIDR}
   cni:
     binPath: "/var/lib/cni/bin"
     confPath: "/var/run/multus/cni/net.d"
@@ -40,8 +39,8 @@ spec:
   # host namespace only is required for running OpenShift Service Mesh
   socketLB:
     hostNamespaceOnly: true
-  k8sServiceHost: ${KUBERNETES_SERVICE_HOST}
-  k8sServicePort: ${KUBERNETES_SERVICE_PORT}
+  k8sServiceHost:
+  k8sServicePort:
   # TODO: not sure this is needed, was historically used in the CuTE configuration
   endpointRoutes: {enabled: true}
   # avoid conflicts

@@ -18,10 +18,8 @@ spec:
   ipam:
     mode: "cluster-pool"
     operator:
-      # it gets automatically populated by the CuTE
-      clusterPoolIPv4MaskSize: ${POD_CIDR_HOST_PREFIX}
+      clusterPoolIPv4MaskSize: 
       clusterPoolIPv4PodCIDRList:
-      - ${POD_CIDR}
   cni:
     binPath: "/var/lib/cni/bin"
     confPath: "/var/run/multus/cni/net.d"
