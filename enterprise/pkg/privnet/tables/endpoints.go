@@ -11,6 +11,8 @@
 package tables
 
 import (
+	"iter"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/statedb"
@@ -18,8 +20,13 @@ import (
 	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
+	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+// Source identifies the resource propagating the endpoint information.
+type Source = kvstore.Source
 
 // Endpoint represents a single private network endpoint, for either IPv4 or IPv6.
 type Endpoint struct {
@@ -94,6 +101,14 @@ func (ep Endpoint) TableRow() []string {
 	}
 }
 
+// EndpointsFromEndpointSliceEntry returns an iterator of Endpoint objects generated from the specific EndpointSlice.
+func EndpointsFromEndpointSlice(logger *slog.Logger, clusterName string, slice *iso_v1alpha1.PrivateNetworkEndpointSlice) iter.Seq[Endpoint] {
+	return slices.MapIter(
+		kvstore.EndpointsFromEndpointSlice(logger, clusterName, slice),
+		func(in *kvstore.Endpoint) Endpoint { return Endpoint{Endpoint: in} },
+	)
+}
+
 const (
 	// indexDelimiter is the delimited used to concatenate strings for composite indexes.
 	indexDelimiter = "|"
@@ -110,11 +125,11 @@ func newEndpointKeyFromCluster(cluster string) EndpointKey {
 	return EndpointKey(cluster + indexDelimiter)
 }
 
-func newEndpointKeyFromSource(source kvstore.Source) EndpointKey {
+func newEndpointKeyFromSource(source Source) EndpointKey {
 	return newEndpointKeyFromCluster(source.Cluster) + EndpointKey(source.Namespace+indexDelimiter+source.Name+indexDelimiter)
 }
 
-func newEndpointKey(source kvstore.Source, network NetworkName, networkIP netip.Addr) EndpointKey {
+func newEndpointKey(source Source, network NetworkName, networkIP netip.Addr) EndpointKey {
 	return newEndpointKeyFromSource(source) + EndpointKey(string(network)+indexDelimiter+networkIP.String())
 }
 
@@ -175,7 +190,7 @@ func EndpointsByCluster(cluster string) statedb.Query[Endpoint] {
 }
 
 // EndpointsBySource queries the endpoints table by source.
-func EndpointsBySource(source kvstore.Source) statedb.Query[Endpoint] {
+func EndpointsBySource(source Source) statedb.Query[Endpoint] {
 	return endpointsPrimaryIndex.Query(newEndpointKeyFromSource(source))
 }
 

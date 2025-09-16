@@ -134,7 +134,7 @@ func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync]) 
 				return nil, nil
 			}
 
-			source := kvstore.Source{
+			source := tables.Source{
 				Cluster:   ep.cinfo.Name,
 				Namespace: slice.GetNamespace(),
 				Name:      slice.GetName(),
@@ -146,8 +146,7 @@ func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync]) 
 			}
 
 			current := make(map[tables.EndpointKey]tables.Endpoint)
-			for inner := range kvstore.EndpointsFromEndpointSlice(ep.log, ep.cinfo.Name, slice) {
-				endpoint := tables.Endpoint{Endpoint: inner}
+			for endpoint := range tables.EndpointsFromEndpointSlice(ep.log, ep.cinfo.Name, slice) {
 				current[endpoint.Key()] = endpoint
 			}
 
