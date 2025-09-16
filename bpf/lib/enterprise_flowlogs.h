@@ -324,15 +324,14 @@ lb_flow_log(struct __ctx_buff *ctx, __u16 proto)
 #endif /* LB_FLOW_LOGS_ENABLED */
 
 static __always_inline int
-xdp_early_hook(struct __ctx_buff *ctx __maybe_unused, __u16 proto __maybe_unused)
+lb_early_hook(struct __ctx_buff *ctx __maybe_unused, __u16 proto __maybe_unused)
 {
 	int ret = CTX_ACT_OK;
 
 #ifdef LB_FLOW_LOGS_ENABLED
 	ret = lb_flow_log(ctx, proto);
 #endif
-
 	return ret;
 }
 
-#define xdp_early_hook xdp_early_hook
+#define xdp_early_hook	lb_early_hook

@@ -322,7 +322,7 @@ static __always_inline int check_v6(struct __ctx_buff *ctx)
 #endif /* ENABLE_PREFILTER */
 #endif /* ENABLE_IPV6 */
 
-#include "lib/enterprise_xdp.h"
+#include "lib/enterprise_flowlogs.h"
 
 #ifndef xdp_early_hook
 #define xdp_early_hook(ctx, proto) CTX_ACT_OK
