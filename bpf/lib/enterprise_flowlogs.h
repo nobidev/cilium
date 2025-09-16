@@ -335,3 +335,4 @@ lb_early_hook(struct __ctx_buff *ctx __maybe_unused, __u16 proto __maybe_unused)
 }
 
 #define xdp_early_hook	lb_early_hook
+#define tcx_early_hook	lb_early_hook

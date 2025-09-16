@@ -63,6 +63,7 @@
 #include "enterprise_bpf_host.h"
 #include "lib/enterprise_vxlan.h"
 #include "lib/enterprise_encrypt.h"
+#include "lib/enterprise_flowlogs.h"
 
 #ifndef tcx_early_hook
 #define tcx_early_hook(ctx, proto) CTX_ACT_OK
