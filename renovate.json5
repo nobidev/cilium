@@ -305,5 +305,23 @@
         '# renovate: datasource=(?<datasource>.*?)\\s+RENOVATE_IMAGE="(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
       ],
     },
+    {
+      customType: "regex",
+      description: "Match image tag and digest in enterprise helm values",
+      managerFilePatterns: [
+        "/^install/kubernetes/cilium/zz_enterprise_values\\.yaml\\.tmpl$/",
+      ],
+      datasourceTemplate: "docker",
+      // Supports the following schema (digest is optional):
+      //
+      // ```yaml
+      // repository: quay.io/isovalent/my-image
+      // tag: 0.1.2-alpine
+      // digest: sha256:d185107307ddb3a713765a75caea45e81f85e079f2c1f9eb970e9b4bb
+      // ```
+      matchStrings: [
+        "repository:\\s+[\"']?(?<depName>.+?)[\"']?\\s+tag:\\s*[\"']?(?<currentValue>.+?)[\"']?\\s+(digest:\\s*[\"']?(?<currentDigest>sha256:[a-f0-9]+)[\"']?\\s)?",
+      ],
+    },
   ],
 }
