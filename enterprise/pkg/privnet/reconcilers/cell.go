@@ -19,6 +19,7 @@ var Cell = cell.Group(
 	MapEntriesCell,
 	PodsCell,
 	LocalWorkloadsCell,
+	LocalEndpointSlicesCell,
 
 	// Infrastructure shared between some of the reconcilers
 	cell.Provide(

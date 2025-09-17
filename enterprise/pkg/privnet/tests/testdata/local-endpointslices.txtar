@@ -1,0 +1,348 @@
+#! --private-networks-enabled
+
+# Setup pre-restoration state:
+#  - namespace foo: Orphaned endpoint slice (should be deleted by prune)
+#  - namespace bar: Outdated endpoint slice (should be updated by prune)
+#  - namespace qux: Missing endpoint slice  (should be created by prune)
+
+k8s/add icpn-red.v1.yaml
+k8s/add privnet-eps-foo.v1.yaml
+k8s/add privnet-eps-bar.v1.yaml
+
+privnet/epm-create ep-hopeful-wombat.json   # in bar
+privnet/epm-create ep-competent-dophin.json # in bar
+privnet/epm-create ep-awesome-gnu.json      # in qux
+
+hive start
+clustermesh/endpoints/sync
+db/initialized
+
+# Ensure slice in foo is deleted
+!* k8s/get isovalent.com.v1alpha1.privatenetworkendpointslices foo/foobar-worker-1
+
+# Ensure slice in bar is updated
+* k8s/get isovalent.com.v1alpha1.privatenetworkendpointslices bar/foobar-worker-1 -o privnet-eps-bar.actual.v2.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' privnet-eps-bar.actual.v2.yaml
+* cmp privnet-eps-bar.expected.v2.yaml privnet-eps-bar.actual.v2.yaml
+
+# Ensure slice in qux is created
+* k8s/get isovalent.com.v1alpha1.privatenetworkendpointslices qux/foobar-worker-1 -o privnet-eps-qux.actual.v2.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' privnet-eps-qux.actual.v2.yaml
+* cmp privnet-eps-qux.expected.v2.yaml privnet-eps-qux.actual.v2.yaml
+
+# Wait for reconciler to reach steady state
+db/show privnet-local-endpointslices  -o local-endpointslices.actual.v2.table
+sed 'Done (.*)' 'Done (<time>)' local-endpointslices.actual.v2.table
+* cmp local-endpointslices.expected.v2.table local-endpointslices.actual.v2.table
+
+# Add endpoint in qux
+privnet/epm-create ep-reverent-chicken.json # in qux
+
+# Wait for updated qux slice
+k8s/get isovalent.com.v1alpha1.privatenetworkendpointslices qux/foobar-worker-1 -o privnet-eps-qux.actual.v3.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' privnet-eps-qux.actual.v3.yaml
+* cmp privnet-eps-qux.expected.v3.yaml privnet-eps-qux.actual.v3.yaml
+
+# Delete endpoint in bar,
+privnet/epm-delete bar/hopeful-wombat
+
+# Wait for updated bar slice
+k8s/get isovalent.com.v1alpha1.privatenetworkendpointslices bar/foobar-worker-1 -o privnet-eps-bar.actual.v3.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' privnet-eps-bar.actual.v3.yaml
+* cmp privnet-eps-bar.expected.v3.yaml privnet-eps-bar.actual.v3.yaml
+
+# Modify bar slice (malicious update to stale version)
+k8s/add privnet-eps-bar.v1.yaml
+
+# Wait for the reconciler to restore correct version
+k8s/get isovalent.com.v1alpha1.privatenetworkendpointslices bar/foobar-worker-1 -o privnet-eps-bar.actual.v3.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' privnet-eps-bar.actual.v3.yaml
+* cmp privnet-eps-bar.expected.v3.yaml privnet-eps-bar.actual.v3.yaml
+
+# Delete last endpoint in bar
+privnet/epm-delete bar/competent-dophin
+
+# Wait for removed bar slice
+!* k8s/get isovalent.com.v1alpha1.privatenetworkendpointslices bar/foobar-worker-1
+
+# Delete qux slice (malicious update)
+k8s/delete privnet-eps-qux.actual.v3.yaml
+
+# Wait for the reconciler to restore correct version
+* k8s/get isovalent.com.v1alpha1.privatenetworkendpointslices qux/foobar-worker-1 -o privnet-eps-qux.actual.v3.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' privnet-eps-qux.actual.v3.yaml
+* cmp privnet-eps-qux.expected.v3.yaml privnet-eps-qux.actual.v3.yaml
+
+-- icpn-red.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: red-segment
+spec:
+  networkBridges:
+  - ip: 172.128.0.6
+  routes: []
+  subnets:
+  - cidr: 10.0.100.0/24
+  - cidr: fd00:10:100::0/64
+
+-- privnet-eps-foo.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+endpoints:
+- activatedAt: "2025-06-20T15:54:04.501000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.108
+      ipv6: fd00:10:244:5::108
+    name: hungry-raven
+  interface:
+    addressing:
+      ipv4: 10.0.100.8
+      ipv6: fd00:10:100::8
+    mac: 00:50:56:ad:45:ec
+    network: red-segment
+kind: PrivateNetworkEndpointSlice
+metadata:
+  name: foobar-worker-1
+  namespace: foo
+  ownerReferences:
+  - apiVersion: cilium.io/v2
+    kind: CiliumNode
+    name: foobar-worker-1
+    uid: a354cce5-e6dc-4cb1-8125-a3a1bf93fd8a
+-- privnet-eps-bar.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+endpoints:
+- activatedAt: "2025-06-20T15:54:03.421000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.109
+      ipv6: fd00:10:244:5::109
+    name: hopeful-wombat
+  interface:
+    addressing:
+      ipv4: 10.0.100.9
+      ipv6: fd00:10:100::9
+    mac: 00:50:56:ad:11:99
+    network: red-segment
+- activatedAt: "2025-06-20T16:30:00.000000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.0.100.10
+      ipv6: fd00:10:100::10
+    name: musing-fox
+  interface:
+    addressing:
+      ipv4: 10.0.100.30
+      ipv6: fd00:10:100::30
+    mac: 00:50:56:ad:45:d8
+    network: red-segment
+kind: PrivateNetworkEndpointSlice
+metadata:
+  name: foobar-worker-1
+  namespace: bar
+  ownerReferences:
+  - apiVersion: cilium.io/v2
+    kind: CiliumNode
+    name: foobar-worker-1
+    uid: a354cce5-e6dc-4cb1-8125-a3a1bf93fd8a
+-- privnet-eps-bar.expected.v2.yaml --
+apiVersion: isovalent.com/v1alpha1
+endpoints:
+- activatedAt: "2025-06-20T15:54:03.421000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.109
+      ipv6: fd00:10:244:5::109
+    name: hopeful-wombat
+  interface:
+    addressing:
+      ipv4: 10.0.100.9
+      ipv6: fd00:10:100::9
+    mac: 00:50:56:ad:11:99
+    network: red-segment
+- activatedAt: "2025-06-20T15:58:07.000000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.112
+      ipv6: fd00:10:244:5::112
+    name: competent-dophin
+  interface:
+    addressing:
+      ipv4: 10.0.100.12
+      ipv6: fd00:10:100::12
+    mac: 00:50:56:ad:11:81
+    network: red-segment
+kind: PrivateNetworkEndpointSlice
+metadata:
+  name: foobar-worker-1
+  namespace: bar
+  ownerReferences:
+  - apiVersion: cilium.io/v2
+    kind: CiliumNode
+    name: foobar-worker-1
+    uid: a354cce5-e6dc-4cb1-8125-a3a1bf93fd8a
+  resourceVersion: "<nr>"
+-- privnet-eps-bar.expected.v3.yaml --
+apiVersion: isovalent.com/v1alpha1
+endpoints:
+- activatedAt: "2025-06-20T15:58:07.000000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.112
+      ipv6: fd00:10:244:5::112
+    name: competent-dophin
+  interface:
+    addressing:
+      ipv4: 10.0.100.12
+      ipv6: fd00:10:100::12
+    mac: 00:50:56:ad:11:81
+    network: red-segment
+kind: PrivateNetworkEndpointSlice
+metadata:
+  name: foobar-worker-1
+  namespace: bar
+  ownerReferences:
+  - apiVersion: cilium.io/v2
+    kind: CiliumNode
+    name: foobar-worker-1
+    uid: a354cce5-e6dc-4cb1-8125-a3a1bf93fd8a
+  resourceVersion: "<nr>"
+-- privnet-eps-qux.expected.v2.yaml --
+apiVersion: isovalent.com/v1alpha1
+endpoints:
+- activatedAt: "2025-06-20T16:29:50.200000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.111
+      ipv6: fd00:10:244:5::111
+    name: awesome-gnu
+  interface:
+    addressing:
+      ipv4: 10.0.100.11
+      ipv6: fd00:10:100::11
+    mac: 00:50:56:ad:45:f7
+    network: red-segment
+kind: PrivateNetworkEndpointSlice
+metadata:
+  name: foobar-worker-1
+  namespace: qux
+  ownerReferences:
+  - apiVersion: cilium.io/v2
+    kind: CiliumNode
+    name: foobar-worker-1
+    uid: a354cce5-e6dc-4cb1-8125-a3a1bf93fd8a
+  resourceVersion: "<nr>"
+-- privnet-eps-qux.expected.v3.yaml --
+apiVersion: isovalent.com/v1alpha1
+endpoints:
+- activatedAt: "2025-06-20T16:29:50.200000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.111
+      ipv6: fd00:10:244:5::111
+    name: awesome-gnu
+  interface:
+    addressing:
+      ipv4: 10.0.100.11
+      ipv6: fd00:10:100::11
+    mac: 00:50:56:ad:45:f7
+    network: red-segment
+- activatedAt: "2025-06-20T16:14:50.200000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.114
+      ipv6: fd00:10:244:5::114
+    name: reverent-chicken
+  interface:
+    addressing:
+      ipv4: 10.0.100.14
+      ipv6: fd00:10:100::14
+    mac: 00:50:56:ad:45:14
+    network: red-segment
+kind: PrivateNetworkEndpointSlice
+metadata:
+  name: foobar-worker-1
+  namespace: qux
+  ownerReferences:
+  - apiVersion: cilium.io/v2
+    kind: CiliumNode
+    name: foobar-worker-1
+    uid: a354cce5-e6dc-4cb1-8125-a3a1bf93fd8a
+  resourceVersion: "<nr>"
+-- ep-hopeful-wombat.json --
+{
+  "ID": 9,
+  "addressing": {
+    "ipv4": "10.244.5.109",
+    "ipv6": "fd00:10:244:5::109"
+  },
+  "k8s-pod-name": "hopeful-wombat",
+  "k8s-namespace": "bar",
+  "mac": "00:50:56:ad:11:99",
+  "properties": {
+    "isovalent-privnet-network": "red-segment",
+    "isovalent-privnet-activated-at": "2025-06-20T15:54:03.421000Z",
+    "isovalent-privnet-ipv4-addr": "10.0.100.9",
+    "isovalent-privnet-ipv6-addr": "fd00:10:100::9"
+  }
+}
+
+-- ep-competent-dophin.json --
+{
+  "ID": 12,
+  "addressing": {
+    "ipv4": "10.244.5.112",
+    "ipv6": "fd00:10:244:5::112"
+  },
+  "k8s-pod-name": "competent-dophin",
+  "k8s-namespace": "bar",
+  "mac": "00:50:56:ad:11:81",
+  "properties": {
+    "isovalent-privnet-network": "red-segment",
+    "isovalent-privnet-activated-at": "2025-06-20T15:58:07.00000Z",
+    "isovalent-privnet-ipv4-addr": "10.0.100.12",
+    "isovalent-privnet-ipv6-addr": "fd00:10:100::12"
+  }
+}
+
+-- ep-awesome-gnu.json --
+{
+  "ID": 11,
+  "addressing": {
+    "ipv4": "10.244.5.111",
+    "ipv6": "fd00:10:244:5::111"
+  },
+  "k8s-pod-name": "awesome-gnu",
+  "k8s-namespace": "qux",
+  "mac": "00:50:56:ad:45:f7",
+  "properties": {
+    "isovalent-privnet-network": "red-segment",
+    "isovalent-privnet-activated-at": "2025-06-20T16:29:50.200000Z",
+    "isovalent-privnet-ipv4-addr": "10.0.100.11",
+    "isovalent-privnet-ipv6-addr": "fd00:10:100::11"
+  }
+}
+
+-- ep-reverent-chicken.json --
+{
+  "ID": 14,
+  "addressing": {
+    "ipv4": "10.244.5.114",
+    "ipv6": "fd00:10:244:5::114"
+  },
+  "k8s-pod-name": "reverent-chicken",
+  "k8s-namespace": "qux",
+  "mac": "00:50:56:ad:45:14",
+  "properties": {
+    "isovalent-privnet-network": "red-segment",
+    "isovalent-privnet-activated-at": "2025-06-20T16:14:50.200000Z",
+    "isovalent-privnet-ipv4-addr": "10.0.100.14",
+    "isovalent-privnet-ipv6-addr": "fd00:10:100::14"
+  }
+}
+
+-- local-endpointslices.expected.v2.table --
+Namespace   Slice             Endpoints   Status
+bar         foobar-worker-1   2           Done (<time>)
+qux         foobar-worker-1   1           Done (<time>)

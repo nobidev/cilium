@@ -28,8 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 )
 
-const nodeName = "foobar-worker-1"
-
 func NewTestHive(t testing.TB) *hive.Hive {
 	return hive.New(
 		k8sClient.FakeClientCell(),
@@ -40,6 +38,7 @@ func NewTestHive(t testing.TB) *hive.Hive {
 		daemonk8s.TablesCell,
 
 		mockEndpointCell(t),
+		mockLocalCiliumNodeCell(t),
 
 		cell.Provide(
 			dptables.NewDeviceTable,
