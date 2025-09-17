@@ -264,6 +264,10 @@ func (r *lbTestScenario) addBackendApplications(numberOfBackends int, config bac
 		config.listenPort = 8080
 	}
 
+	if config.controlListenPort == 0 {
+		config.controlListenPort = 8079
+	}
+
 	if config.image == "" {
 		config.image = FlagAppImage
 	}
@@ -295,6 +299,8 @@ func (r *lbTestScenario) addBackendApplications(numberOfBackends int, config bac
 			// On the single node all containers are deployed in the host
 			// netns. To avoid port collisions, we keep +1 for each instance.
 			config.listenPort++
+			// -1 for control listen port
+			config.controlListenPort--
 		}
 
 		r.t.RegisterCleanup(func(ctx context.Context) error { return r.dockerCli.deleteContainer(ctx, id) })
@@ -499,6 +505,10 @@ func (r *lbTestScenario) getBackendApplicationEnvVars(appName string, config bac
 
 	if config.listenPort != 0 {
 		env = append(env, fmt.Sprintf("LISTEN_ADDRESS=:%d", config.listenPort))
+	}
+
+	if config.controlListenPort != 0 {
+		env = append(env, fmt.Sprintf("CONTROL_LISTEN_ADDRESS=:%d", config.controlListenPort))
 	}
 
 	// add additional env vars

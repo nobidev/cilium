@@ -21,11 +21,12 @@ type hcAppContainer struct {
 }
 
 type backendApplicationConfig struct {
-	h2cEnabled      bool
-	tlsCertHostname string
-	listenPort      uint32
-	image           string
-	envVars         map[string]string
+	h2cEnabled        bool
+	tlsCertHostname   string
+	listenPort        uint32
+	controlListenPort uint32
+	image             string
+	envVars           map[string]string
 }
 
 type hcState string
@@ -39,17 +40,13 @@ func (c *hcAppContainer) SetHC(t T, hc hcState) {
 	scheme := "http"
 	options := "--silent -XPOST"
 
-	if c.config.tlsCertHostname != "" {
-		scheme = "https"
-		options += " -k"
-	}
-
-	stdout, stderr, err := c.Exec(t.Context(),
-		fmt.Sprintf(
-			"curl %s %s://127.0.0.1:%d/control/healthcheck/"+string(hc),
-			options, scheme, c.port,
-		),
+	cmd := fmt.Sprintf(
+		"curl %s %s://127.0.0.1:%d/control/healthcheck/"+string(hc),
+		options, scheme, c.config.controlListenPort,
 	)
+
+	t.Log("Executing command on container %q: %q", c.id, cmd)
+	stdout, stderr, err := c.Exec(t.Context(), cmd)
 	if err != nil {
 		t.Failedf("failed to set hc status to %s: stdout: %s stderr: %s err: %v",
 			string(hc), stdout, stderr, err)
