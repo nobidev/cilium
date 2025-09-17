@@ -81,7 +81,7 @@ func testUDPProxy(t T, forceDeploymentMode isovalentv1alpha1.LBUDPProxyForceDepl
 			return fmt.Errorf("remote exec failed: cmd='%q' stdout='%q' stderr='%q': '%w'", cmd, stdout, stderr, err)
 		}
 
-		resp := toTestAppUDPResponse(t, stdout)
+		resp := toTestAppL4Response(t, stdout)
 		if resp.Response == "deadbeef" {
 			return nil
 		}

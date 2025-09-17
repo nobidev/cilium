@@ -122,7 +122,7 @@ func testUDPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 					}
 
 					if !tt.blocked {
-						resp := toTestAppUDPResponse(t, stdout)
+						resp := toTestAppL4Response(t, stdout)
 						if resp.Response != "deadbeef" {
 							return fmt.Errorf("UDP request returned unexpected response (cmd: %q, stdout: %q, stderr: %q, resp: %q): %w", testCmd, stdout, stderr, resp.Response, err)
 						}

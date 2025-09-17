@@ -44,11 +44,11 @@ type testAppUDPResponseData struct {
 }
 
 // <service-name>:<instance-name>:<echo>
-func toTestAppUDPResponse(t T, response string) testAppUDPResponseData {
+func toTestAppL4Response(t T, response string) testAppUDPResponseData {
 	s := strings.SplitN(response, ":", 3)
 
 	if len(s) != 3 {
-		t.Log("failed to parse udp response: %q - retrying...", response)
+		t.Log("failed to parse l4 (TCP/UDP) response: %q - retrying...", response)
 		return testAppUDPResponseData{}
 	}
 

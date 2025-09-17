@@ -90,7 +90,7 @@ func testUDPSessionWithNRequests(t T, client *frrContainer, testCmd string, tota
 			return fmt.Errorf("empty response %w", err)
 		}
 
-		resp := toTestAppUDPResponse(t, stdout)
+		resp := toTestAppL4Response(t, stdout)
 
 		assertPersistentBackend(t, previousServiceName, resp.ServiceName)
 		previousServiceName = resp.ServiceName
