@@ -1,0 +1,125 @@
+#! --private-networks-enabled
+
+# Restore endpoint
+privnet/epm-restore ep-curious-koala.json
+db/cmp privnet-local-workloads local-workloads.v1.table
+
+# Ensure the table is not initialized before restoration finishes
+! db/initialized --timeout 0 privnet-local-workloads
+
+# Start hive (this will also finish restoration)
+hive start
+clustermesh/endpoints/sync
+db/initialized
+
+# Create three endpoints - clever-fox is a regular endpoint without privnet
+privnet/epm-create ep-speedy-cheetah.json
+privnet/epm-create ep-sleepy-sloth.json
+privnet/epm-create ep-clever-fox.json
+db/cmp privnet-local-workloads local-workloads.v2.table
+
+# Mark speedy-cheetah as inactive via pod annotation
+k8s/add pod-speedy-cheetah.v1.yaml
+
+# Remove curious-koala
+privnet/epm-delete foo/curious-koala
+
+# Assert that both changes are visible in the table
+db/cmp privnet-local-workloads local-workloads.v3.table
+
+-- local-workloads.v1.table --
+Endpoint             ID   Network         NetworkIPv4     NetworkIPv6           PodIPv4        PodIPv6              ActivatedAt
+foo/curious-koala    15   green-segment   10.20.0.10      fd00:10:20::10        10.244.5.115   fd00:10:244:5::115   2025-09-17T12:40:00Z
+
+-- local-workloads.v2.table --
+Endpoint             ID   Network         NetworkIPv4     NetworkIPv6           PodIPv4        PodIPv6              ActivatedAt
+foo/curious-koala    15   green-segment   10.20.0.10      fd00:10:20::10        10.244.5.115   fd00:10:244:5::115   2025-09-17T12:40:00Z
+bar/speedy-cheetah   16   green-segment   10.20.0.11      fd00:10:20::11        10.244.5.116   fd00:10:244:5::116   2025-09-17T12:41:00Z
+qux/sleepy-sloth     17   blue-segment    192.168.30.10   fd00:192:168:30::10   10.244.5.117   fd00:10:244:5::117   2025-09-17T12:42:00Z
+
+-- local-workloads.v3.table --
+Endpoint             ID   Network         NetworkIPv4     NetworkIPv6           PodIPv4        PodIPv6              ActivatedAt
+bar/speedy-cheetah   16   green-segment   10.20.0.11      fd00:10:20::11        10.244.5.116   fd00:10:244:5::116   <inactive>
+qux/sleepy-sloth     17   blue-segment    192.168.30.10   fd00:192:168:30::10   10.244.5.117   fd00:10:244:5::117   2025-09-17T12:42:00Z
+
+-- ep-curious-koala.json --
+{
+  "ID": 15,
+  "addressing": {
+    "ipv4": "10.244.5.115",
+    "ipv6": "fd00:10:244:5::115"
+  },
+  "k8s-pod-name": "curious-koala",
+  "k8s-namespace": "foo",
+  "mac": "00:50:56:ad:11:01",
+  "properties": {
+    "isovalent-privnet-network": "green-segment",
+    "isovalent-privnet-activated-at": "2025-09-17T12:40:00.000000Z",
+    "isovalent-privnet-ipv4-addr": "10.20.0.10",
+    "isovalent-privnet-ipv6-addr": "fd00:10:20::10"
+  }
+}
+
+-- ep-speedy-cheetah.json --
+{
+  "ID": 16,
+  "addressing": {
+    "ipv4": "10.244.5.116",
+    "ipv6": "fd00:10:244:5::116"
+  },
+  "k8s-pod-name": "speedy-cheetah",
+  "k8s-namespace": "bar",
+  "mac": "00:50:56:ad:11:02",
+  "properties": {
+    "isovalent-privnet-network": "green-segment",
+    "isovalent-privnet-activated-at": "2025-09-17T12:41:00.000000Z",
+    "isovalent-privnet-ipv4-addr": "10.20.0.11",
+    "isovalent-privnet-ipv6-addr": "fd00:10:20::11"
+  }
+}
+
+-- ep-sleepy-sloth.json --
+{
+  "ID": 17,
+  "addressing": {
+    "ipv4": "10.244.5.117",
+    "ipv6": "fd00:10:244:5::117"
+  },
+  "k8s-pod-name": "sleepy-sloth",
+  "k8s-namespace": "qux",
+  "mac": "00:50:56:ad:11:03",
+  "properties": {
+    "isovalent-privnet-network": "blue-segment",
+    "isovalent-privnet-activated-at": "2025-09-17T12:42:00.000000Z",
+    "isovalent-privnet-ipv4-addr": "192.168.30.10",
+    "isovalent-privnet-ipv6-addr": "fd00:192:168:30::10"
+  }
+}
+
+-- ep-clever-fox.json --
+{
+  "ID": 18,
+  "addressing": {
+    "ipv4": "10.244.5.118",
+    "ipv6": "fd00:10:244:5::118"
+  },
+  "k8s-pod-name": "clever-fox",
+  "k8s-namespace": "foo",
+  "mac": "00:50:56:ad:11:04"
+}
+
+-- pod-speedy-cheetah.v1.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: speedy-cheetah
+  namespace: bar
+  annotations:
+    network.v1alpha1.isovalent.com/inactive: "true"
+    network.v1alpha1.isovalent.com/network-attachment: '{"network":"green-segment","ipv4":"10.20.0.11","ipv6":"fd00:10:244:5::116","mac":"00:50:56:ad:11:02"}'
+spec:
+  containers:
+  - name: sleep
+    image: busybox
+    command: ["sleep", "3600"]
+  nodeName: foobar-worker-1
