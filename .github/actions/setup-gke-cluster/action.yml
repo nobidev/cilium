@@ -44,6 +44,9 @@ runs:
 
         if [[ -n "${{ inputs.labels }}" ]]; then
           LABELS="--labels ${{ inputs.labels }}"
+          LABELS="$LABELS,svic_falco_supported=no"
+        else
+          LABELS="--labels svic_falco_supported=no"
         fi
 
         if [[ -n "${{ inputs.cluster-version }}" ]]; then
@@ -68,7 +71,8 @@ runs:
           --no-enable-insecure-kubelet-readonly-port \
           $VERSION \
           $LABELS \
-          $TAINTS
+          $TAINTS \
+          --node-labels="svic_osquery_supported=no"
 
         native_cidr=$(gcloud container clusters describe "${{ inputs.cluster-name }}" --zone "${{ inputs.zone }}" --format 'value(clusterIpv4Cidr)')
         echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT

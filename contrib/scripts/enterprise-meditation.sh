@@ -40,6 +40,7 @@ DIFF_EXCL_GLOBS=(
   ':!.github/actions/setup-eks-cluster/action.yml' # Enterprise infra tagging for security purposes
   ':!.github/actions/setup-eks-nodegroup/action.yml' # Enterprise infra tagging for security purposes
   ':!.github/actions/setup-aks-cluster/action.yml' # Enterprise infra tagging for security purposes
+  ':!.github/actions/setup-gke-cluster/action.yml' # Enterprise infra tagging for security purposes
   ':!.github/pull_request_template.md' # PR templates can differ
   ':!.github/workflows/ariane-scheduled.yaml' # EOL differs in CEE
   ':!.github/workflows/build-images-ci.yaml' # We build extra CEE components
