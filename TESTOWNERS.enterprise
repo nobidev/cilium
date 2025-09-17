@@ -212,7 +212,7 @@
 /pkg/crypto/certificatemanager @isovalent/service-mesh @isovalent/service-mesh
 /pkg/crypto/certloader @isovalent/hubble
 /pkg/datapath/ @isovalent/cni
-/pkg/datapath/fake/ipsec.go @isovalent/encryption
+/pkg/datapath/fake/types/ipsec.go @isovalent/encryption
 /pkg/datapath/ipcache/ @isovalent/policy-identity-networking
 /pkg/datapath/linux/config/ @isovalent/networking-framework
 /pkg/datapath/linux/ipsec/ @isovalent/encryption
@@ -278,6 +278,7 @@
 /pkg/maglev @isovalent/isovalent-loadbalancer
 /pkg/maps/ @isovalent/cni
 /pkg/maps/egressmap @isovalent/egress-gateway
+/pkg/maps/encrypt @isovalent/encryption
 /pkg/mcastmanager @isovalent/cni
 /pkg/monitor @isovalent/cni
 /pkg/monitor/api @isovalent/cni

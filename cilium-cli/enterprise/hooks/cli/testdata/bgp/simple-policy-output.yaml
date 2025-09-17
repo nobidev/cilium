@@ -1,7 +1,6 @@
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPAdvertisement
 metadata:
-  creationTimestamp: null
   labels:
     advertise: tor
   name: tor
@@ -22,7 +21,6 @@ spec:
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
-  creationTimestamp: null
   name: tor
 spec:
   families:
@@ -41,7 +39,6 @@ status: {}
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPClusterConfig
 metadata:
-  creationTimestamp: null
   name: tor
 spec:
   bgpInstances:

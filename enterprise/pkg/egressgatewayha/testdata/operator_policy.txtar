@@ -81,7 +81,6 @@ spec:
 apiVersion: isovalent.com/v1
 kind: IsovalentEgressGatewayPolicy
 metadata:
-  creationTimestamp: null
   name: namespace-1-netshoot
   resourceVersion: "9"
   uid: 00000000-0000-0000-0000-000000000002
