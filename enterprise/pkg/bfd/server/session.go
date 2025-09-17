@@ -266,7 +266,6 @@ func newBFDSession(logger *slog.Logger, cfg *types.BFDPeerConfig, conn, echoConn
 
 	s := &bfdSession{
 		logger: logger.With(
-			types.PeerAddressField, cfg.PeerAddress,
 			types.DiscriminatorField, localDiscr,
 		),
 		peerAddress:      cfg.PeerAddress,
