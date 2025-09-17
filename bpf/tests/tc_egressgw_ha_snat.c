@@ -137,6 +137,39 @@ int egressgw_ha_snat1_2_reply_check(const struct __ctx_buff *ctx)
 		});
 }
 
+/* Test that replies are still handled even when the gateway is no longer active. */
+PKTGEN("tc", "tc_egressgw_ha_snat1_3_reply_inactive_gw")
+int egressgw_ha_snat1_3_reply_inactive_gw_pktgen(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_HA_SNAT1,
+			.dir = CT_INGRESS,
+		});
+}
+
+SETUP("tc", "tc_egressgw_ha_snat1_3_reply_inactive_gw")
+int egressgw_ha_snat1_3_reply_inactive_gw_setup(struct __ctx_buff *ctx)
+{
+	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 0,
+				     { 0 }, 0, 0);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_egressgw_ha_snat1_3_reply_inactive_gw")
+int egressgw_ha_snat1_3_reply_inactive_gw_check(const struct __ctx_buff *ctx)
+{
+	return egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_HA_SNAT1,
+			.dir = CT_INGRESS,
+			.packets = 3,
+			.status_code = CTX_ACT_REDIRECT,
+		});
+}
+
 PKTGEN("tc", "tc_egressgw_ha_snat2")
 int egressgw_ha_snat2_pktgen(struct __ctx_buff *ctx)
 {
@@ -148,6 +181,9 @@ int egressgw_ha_snat2_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_ha_snat2")
 int egressgw_ha_snat2_setup(struct __ctx_buff *ctx)
 {
+	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
+				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
+
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);

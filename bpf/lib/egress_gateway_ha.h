@@ -204,19 +204,14 @@ egress_gw_ha_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY_HA)
 	struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
-	struct egress_gw_ha_policy_entry *egress_gw_policy;
 
 	/* Find a matching policy by looking up the reverse address tuple: */
 	egress_gw_policy_v2 = lookup_ip4_egress_gw_ha_policy_v2(ip4->daddr, ip4->saddr);
 	if (!egress_gw_policy_v2)
 		return false;
 
-	egress_gw_policy = &egress_gw_policy_v2->policy;
-	if (!egress_gw_policy->size)
-		return false;
-
 	/* If this is an excluded CIDR, skip redirection */
-	if (egress_gw_ha_policy_entry_is_excluded_cidr(egress_gw_policy))
+	if (egress_gw_ha_policy_entry_is_excluded_cidr(&egress_gw_policy_v2->policy))
 		return false;
 
 	return true;
