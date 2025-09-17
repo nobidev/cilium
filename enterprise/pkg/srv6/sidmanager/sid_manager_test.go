@@ -424,10 +424,18 @@ func TestSIDManagerStatusReconciliation(t *testing.T) {
 			if !assert.NotNil(t, sm.Status, "Status is nil") {
 				return
 			}
-			assert.Len(t, sm.Status.SIDAllocations, 1, "Invalid SIDAllocations length")
-			assert.Equal(t, poolName1, sm.Status.SIDAllocations[0].PoolRef, "Pool name mismatched between status and allocation")
-			assert.Len(t, sm.Status.SIDAllocations[0].SIDs, 1, "More than one SID is on status")
-			assert.Equal(t, sidInfo.SID.String(), sm.Status.SIDAllocations[0].SIDs[0].SID.Addr, "SID mismatched between status and allocation")
+			if !assert.Len(t, sm.Status.SIDAllocations, 1, "Invalid SIDAllocations length") {
+				return
+			}
+			if !assert.Equal(t, poolName1, sm.Status.SIDAllocations[0].PoolRef, "Pool name mismatched between status and allocation") {
+				return
+			}
+			if !assert.Len(t, sm.Status.SIDAllocations[0].SIDs, 1, "More than one SID is on status") {
+				return
+			}
+			if !assert.Equal(t, sidInfo.SID.String(), sm.Status.SIDAllocations[0].SIDs[0].SID.Addr, "SID mismatched between status and allocation") {
+				return
+			}
 		})
 	})
 
