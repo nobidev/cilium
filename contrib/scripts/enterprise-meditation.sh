@@ -38,6 +38,7 @@ DIFF_EXCL_GLOBS=(
   ':!.github/ISSUE_TEMPLATE/*' # OSS updates these with renovate
   ':!.github/actions/*/k8s-versions.yaml' # K8s versions often diverge
   ':!.github/actions/setup-eks-nodegroup/action.yml' # Enterprise infra tagging for security purposes
+  ':!.github/actions/setup-aks-cluster/action.yml' # Enterprise infra tagging for security purposes
   ':!.github/pull_request_template.md' # PR templates can differ
   ':!.github/workflows/ariane-scheduled.yaml' # EOL differs in CEE
   ':!.github/workflows/build-images-ci.yaml' # We build extra CEE components
