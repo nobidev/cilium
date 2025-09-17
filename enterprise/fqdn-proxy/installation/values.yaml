@@ -15,7 +15,8 @@ gke: false
 debug: false
 pprof:
   enabled: false
-enableOfflineMode: false
+offlineMode:
+  enabled: false
 extraArgs: []
 extraVolumes: []
 extraVolumeMounts: []
