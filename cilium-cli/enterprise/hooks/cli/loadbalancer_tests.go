@@ -26,7 +26,7 @@ import (
 // ILB test flags:
 //
 //  --app-image string
-//        app container image name (default "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.11")
+//        app container image name (default "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.13")
 //  --cleanup
 //        Cleanup created resources after each test case run (default true)
 //  --client-image string
@@ -125,7 +125,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&ilbCli.FlagAppImage, "app-image", "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.11", "app container image name")
+	cmd.Flags().StringVar(&ilbCli.FlagAppImage, "app-image", "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.13", "app container image name")
 	cmd.Flags().StringVar(&ilbCli.FlagClientImage, "client-image", "quay.io/isovalent-dev/lb-frr-client:v0.0.14", "client container image name")
 	cmd.Flags().StringVar(&ilbCli.FlagUtilsImage, "utils-image", "busybox:1.37.0-musl", "utils container image name")
 	cmd.Flags().StringVar(&ilbCli.FlagCoreDNSImage, "coredns-image", "coredns/coredns:1.11.1", "coredns container image name")
