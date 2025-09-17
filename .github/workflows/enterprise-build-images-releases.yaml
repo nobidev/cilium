@@ -175,7 +175,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.version.outputs.rebuild == 'true' }}
-        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
         with:
           artifact-name: sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json
           output-file: ./sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json
@@ -314,7 +314,7 @@ jobs:
           cosign sign -y ${{ steps.tag.outputs.image_tag }}@${{ steps.docker_digest.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
         with:
           artifact-name: sbom_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -372,7 +372,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.0
+          go-version: 1.25.1
 
       - name: Getting image tag
         id: tag
@@ -435,7 +435,7 @@ jobs:
         working-directory: ./enterprise/olm
         env:
           # renovate: datasource=github-releases depName=mikefarah/yq
-          yq_version: 4.47.1
+          yq_version: 4.47.2
           # renovate: datasource=github-releases depName=operator-framework/operator-registry
           opm_version: 1.58.0
           VERSION: "${{ steps.tag.outputs.tag }}"
@@ -473,7 +473,7 @@ jobs:
           cosign sign -y ${{ steps.tag.outputs.image_tag_base }}-catalog:1.0.0@${{ steps.clife_docker_digests.outputs.catalog }}
 
       - name: Generate SBOM for CLife
-        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
         with:
           artifact-name: sbom_clife_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_clife_${{ steps.tag.outputs.tag }}.spdx.json
@@ -485,7 +485,7 @@ jobs:
           cosign attest -y --predicate sbom_clife_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.image_tag }}
 
       - name: Generate SBOM for the bundle
-        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
         with:
           artifact-name: sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json
@@ -497,7 +497,7 @@ jobs:
           cosign attest -y --predicate sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.image_tag_base }}-bundle:${{ steps.tag.outputs.tag }}
 
       - name: Generate SBOM for the catalog
-        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
         with:
           artifact-name: sbom_clife_catalog_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_clife_catalog_${{ steps.tag.outputs.tag }}.spdx.json
