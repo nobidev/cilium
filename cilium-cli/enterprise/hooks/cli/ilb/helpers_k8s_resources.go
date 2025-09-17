@@ -11,6 +11,7 @@
 package ilb
 
 import (
+	"encoding/hex"
 	"maps"
 
 	corev1 "k8s.io/api/core/v1"
@@ -1445,11 +1446,24 @@ func withHealthCheckTLS() backendPoolOption {
 	}
 }
 
-func withTCPHealthCheck() backendPoolOption {
+func withTCPHealthCheck(sendPayload *string, receivePayload *string) backendPoolOption {
 	return func(o *isovalentv1alpha1.LBBackendPool) {
 		o.Spec.HealthCheck = isovalentv1alpha1.HealthCheck{
 			IntervalSeconds: ptr.To[int32](5),
 			TCP:             &isovalentv1alpha1.HealthCheckTCP{},
+		}
+
+		if sendPayload != nil && receivePayload != nil {
+			sendPayloadHex := hex.EncodeToString([]byte(*sendPayload))
+			receivePayloadHex := hex.EncodeToString([]byte(*receivePayload))
+
+			o.Spec.HealthCheck.TCP.Send = &isovalentv1alpha1.HealthCheckPayload{
+				Text: &sendPayloadHex,
+			}
+
+			o.Spec.HealthCheck.TCP.Receive = append(o.Spec.HealthCheck.TCP.Receive, &isovalentv1alpha1.HealthCheckPayload{
+				Text: &receivePayloadHex,
+			})
 		}
 	}
 }

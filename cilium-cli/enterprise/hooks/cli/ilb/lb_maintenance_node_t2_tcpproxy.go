@@ -83,7 +83,7 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 
 		t.Log("Creating LB BackendPool resources...")
 		backends := []backendPoolOption{
-			withTCPHealthCheck(),
+			withTCPHealthCheck(nil, nil),
 		}
 
 		sqlServerIP := ""

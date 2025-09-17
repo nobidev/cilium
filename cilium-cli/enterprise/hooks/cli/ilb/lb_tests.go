@@ -16,6 +16,7 @@ var Tests = []func(t T){
 	TestBGPHealthCheck,
 	TestBGPHealthCheckSubset,
 	TestT2HealthCheckHTTP,
+	TestT2HealthCheckTCP,
 	TestHTTP2,
 	TestHTTPPath,
 	TestHTTPMultiNamespaceInClusterHostname,
