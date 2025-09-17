@@ -75,6 +75,24 @@ spec:
                       maximum: 65535
                       minimum: 1
                       type: integer
+                    maintenance:
+                      description: Maintenance allows enabling maintenance mode of
+                        this BGP instance.
+                      properties:
+                        mode:
+                          description: |-
+                            Mode defines the maintenance mode of a BGP instance on the node:
+                            - "Community" enables sending of the GRACEFUL_SHUTDOWN BGP community in the k8s service advertisements.
+                            - "Withdrawal" enforces withdrawal of k8s service advertisements.
+                            - "Disabled" explicitly disables maintenance mode of a BGP instance on the node.
+                          enum:
+                          - Disabled
+                          - Community
+                          - Withdrawal
+                          type: string
+                      required:
+                      - mode
+                      type: object
                     name:
                       description: Name is the name of the BGP instance. This name
                         is used to identify the BGP instance on the node.

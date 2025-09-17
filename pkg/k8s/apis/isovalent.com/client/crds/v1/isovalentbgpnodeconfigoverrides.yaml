@@ -67,6 +67,26 @@ spec:
                       description: LocalPort is port to use for this BGP instance.
                       format: int32
                       type: integer
+                    maintenance:
+                      description: |-
+                        Maintenance allows overriding maintenance mode of this BGP instance on the node.
+                        If configured, it overrides the node's maintenance mode that would be otherwise set
+                        automatically when the node is cordoned / uncordoned (if that feature is enabled).
+                      properties:
+                        mode:
+                          description: |-
+                            Mode defines the maintenance mode of a BGP instance on the node:
+                            - "Community" enables sending of the GRACEFUL_SHUTDOWN BGP community in the k8s service advertisements.
+                            - "Withdrawal" enforces withdrawal of k8s service advertisements.
+                            - "Disabled" explicitly disables maintenance mode of a BGP instance on the node.
+                          enum:
+                          - Disabled
+                          - Community
+                          - Withdrawal
+                          type: string
+                      required:
+                      - mode
+                      type: object
                     name:
                       description: Name is the name of the BGP instance for which
                         the configuration is overridden.

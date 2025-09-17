@@ -88,6 +88,13 @@ type IsovalentBGPNodeConfigInstanceOverride struct {
 	// +listType=map
 	// +listMapKey=name
 	Peers []IsovalentBGPNodeConfigPeerOverride `json:"peers,omitempty"`
+
+	// Maintenance allows overriding maintenance mode of this BGP instance on the node.
+	// If configured, it overrides the node's maintenance mode that would be otherwise set
+	// automatically when the node is cordoned / uncordoned (if that feature is enabled).
+	//
+	// +kubebuilder:validation:Optional
+	Maintenance *IsovalentBGPMaintenance `json:"maintenance"`
 }
 
 // IsovalentBGPNodeConfigPeerOverride defines configuration options which can be overridden for a specific peer.
@@ -114,4 +121,32 @@ type IsovalentBGPNodeConfigPeerOverride struct {
 	//
 	// +kubebuilder:validation:Optional
 	LocalPort *int32 `json:"localPort,omitempty"`
+}
+
+// BGPMaintenanceMode defines the maintenance mode of a BGP instance on the node.
+//
+// +kubebuilder:validation:Enum=Disabled;Community;Withdrawal
+type BGPMaintenanceMode string
+
+const (
+	// BGPMaintenanceModeDisabled disables maintenance mode of a BGP instance on the node.
+	BGPMaintenanceModeDisabled BGPMaintenanceMode = "Disabled"
+
+	// BGPMaintenanceModeCommunity enables sending of the GRACEFUL_SHUTDOWN BGP community
+	// with the k8s service routes advertised to the peers.
+	BGPMaintenanceModeCommunity BGPMaintenanceMode = "Community"
+
+	// BGPMaintenanceModeWithdrawal enforces withdrawal of k8s service routes advertised to the peers.
+	BGPMaintenanceModeWithdrawal BGPMaintenanceMode = "Withdrawal"
+)
+
+// IsovalentBGPMaintenance allows configuring maintenance mode of a BGP instance on the node.
+type IsovalentBGPMaintenance struct {
+	// Mode defines the maintenance mode of a BGP instance on the node:
+	// - "Community" enables sending of the GRACEFUL_SHUTDOWN BGP community in the k8s service advertisements.
+	// - "Withdrawal" enforces withdrawal of k8s service advertisements.
+	// - "Disabled" explicitly disables maintenance mode of a BGP instance on the node.
+	//
+	// +kubebuilder:validation:Required
+	Mode BGPMaintenanceMode `json:"mode"`
 }

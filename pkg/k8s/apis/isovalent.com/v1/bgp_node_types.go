@@ -116,6 +116,11 @@ type IsovalentBGPNodeInstance struct {
 	//
 	// +kubebuilder:validation:Optional
 	RouteReflector *NodeRouteReflector `json:"routeReflector,omitempty"`
+
+	// Maintenance allows enabling maintenance mode of this BGP instance.
+	//
+	// +kubebuilder:validation:Optional
+	Maintenance *IsovalentBGPMaintenance `json:"maintenance"`
 }
 
 type IsovalentBGPNodePeer struct {
