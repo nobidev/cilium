@@ -63,8 +63,11 @@ rules:
   - isovalent.com
   resources:
   - lbservices/status
+  - lbservices/finalizers
   - lbbackendpools/status
+  - lbbackendpools/finalizers
   - lbvips/status
+  - lbvips/finalizers
   - lbdeployments/status
   verbs:
   - get
