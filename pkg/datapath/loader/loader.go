@@ -531,7 +531,7 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 			return fmt.Errorf("interface %s ingress: %w", device, err)
 		}
 
-		if option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard) {
+		if option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard, lnc.EnableIPSec) {
 			// Attach cil_to_netdev to egress.
 			if err := attachSKBProgram(logger, iface, netdevObj.ToNetdev, symbolToHostNetdevEp,
 				linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
@@ -700,7 +700,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(logger, overlayObj)
+	spec, err := ebpf.LoadCollectionSpec(overlayObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
@@ -747,7 +747,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
 
-	spec, err := bpf.LoadCollectionSpec(logger, wireguardObj)
+	spec, err := ebpf.LoadCollectionSpec(wireguardObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", wireguardObj, err)
 	}

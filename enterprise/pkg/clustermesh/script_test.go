@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	dpTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dial"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
@@ -135,6 +136,9 @@ func TestScript(t *testing.T) {
 					return kpr.KPRConfig{
 						KubeProxyReplacement: true,
 					}
+				},
+				func() dpTypes.IPsecConfig {
+					return fakeTypes.IPsecConfig{}
 				},
 				func() store.Factory {
 					return storeFactory

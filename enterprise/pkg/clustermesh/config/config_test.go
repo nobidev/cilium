@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -34,6 +35,7 @@ func TestConfigValidate(t *testing.T) {
 		dcfg      *option.DaemonConfig
 		kprCfg    kpr.KPRConfig
 		wgCfg     fakeWgConfig
+		ipsecCfg  fakeTypes.IPsecConfig
 		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
 	}{
 		{
@@ -128,8 +130,9 @@ func TestConfigValidate(t *testing.T) {
 				EnableInterClusterSNAT:       false,
 				EnablePhantomServices:        true,
 			},
-			dcfg:      &option.DaemonConfig{EnableIPSec: true},
+			dcfg:      &option.DaemonConfig{},
 			kprCfg:    kpr.KPRConfig{},
+			ipsecCfg:  fakeTypes.IPsecConfig{EnableIPsec: true},
 			assertion: assert.Error,
 		},
 		{
@@ -148,7 +151,7 @@ func TestConfigValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.assertion(t, tt.cfg.Validate(tt.dcfg, tt.kprCfg, tt.wgCfg))
+			tt.assertion(t, tt.cfg.Validate(tt.dcfg, tt.kprCfg, tt.wgCfg, tt.ipsecCfg))
 		})
 	}
 }

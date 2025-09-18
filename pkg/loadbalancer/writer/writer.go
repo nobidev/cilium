@@ -237,6 +237,13 @@ func (w *Writer) UpsertFrontend(txn WriteTxn, params loadbalancer.FrontendParams
 	return w.upsertFrontendParams(txn, params, svc)
 }
 
+func (w *Writer) DeleteFrontend(txn WriteTxn, addr loadbalancer.L3n4Addr) {
+	fe, _, found := w.fes.Get(txn, loadbalancer.FrontendByAddress(addr))
+	if found {
+		w.fes.Delete(txn, fe)
+	}
+}
+
 func (w *Writer) UpdateBackendHealth(txn WriteTxn, serviceName loadbalancer.ServiceName, backend loadbalancer.L3n4Addr, healthy bool) (bool, error) {
 	be, _, ok := w.bes.Get(txn, loadbalancer.BackendByAddress(backend))
 	if !ok {
@@ -446,9 +453,9 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[loadba
 				continue
 			}
 			if fe != nil {
-				if fe.PortName != "" {
+				if fe.PortName != "" && len(be.PortNames) > 0 {
 					// A backend with specific port name requested. Look up what this backend
-					// is called for this service.
+					// is called for this service when the backend has multiple (named) ports.
 					if !slices.Contains(be.PortNames, string(fe.PortName)) {
 						continue
 					}

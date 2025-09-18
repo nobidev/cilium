@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	dpopt "github.com/cilium/cilium/pkg/datapath/option"
 	ipamopt "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -30,6 +31,7 @@ func TestConfigValidate(t *testing.T) {
 		cfg       Config
 		dcfg      *option.DaemonConfig
 		cmcfg     cecmcfg.Config
+		ipsecCfg  fakeTypes.IPsecConfig
 		lbmode    string
 		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
 	}{
@@ -77,7 +79,8 @@ func TestConfigValidate(t *testing.T) {
 		{
 			name:      "mixed routing mode enabled, fallback tunnel, IPSec encryption enabled",
 			cfg:       Config{FallbackRoutingMode: FallbackTunnel},
-			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMKubernetes, EnableIPSec: true},
+			dcfg:      &option.DaemonConfig{IPAM: ipamopt.IPAMKubernetes},
+			ipsecCfg:  fakeTypes.IPsecConfig{EnableIPsec: true},
 			assertion: assert.Error,
 		},
 		{
@@ -99,7 +102,7 @@ func TestConfigValidate(t *testing.T) {
 				lbcfg.LBMode = tt.lbmode
 			}
 
-			tt.assertion(t, tt.cfg.Validate(tt.dcfg, tt.cmcfg, &fakecni.FakeCNIConfigManager{}, lbcfg))
+			tt.assertion(t, tt.cfg.Validate(tt.dcfg, tt.cmcfg, &fakecni.FakeCNIConfigManager{}, lbcfg, tt.ipsecCfg))
 		})
 	}
 }

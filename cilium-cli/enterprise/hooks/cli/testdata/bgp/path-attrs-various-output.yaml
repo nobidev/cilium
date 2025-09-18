@@ -1,7 +1,6 @@
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPAdvertisement
 metadata:
-  creationTimestamp: null
   labels:
     advertise: tor-peer-172.0.0.1
   name: tor-peer-172.0.0.1
@@ -24,7 +23,6 @@ spec:
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
-  creationTimestamp: null
   name: tor-peer-172.0.0.1
 spec:
   families:
@@ -43,7 +41,6 @@ status: {}
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPAdvertisement
 metadata:
-  creationTimestamp: null
   labels:
     advertise: tor-peer-fd00.10.0.1-1
   name: tor-peer-fd00.10.0.1-1
@@ -66,7 +63,6 @@ spec:
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
-  creationTimestamp: null
   name: tor-peer-fd00.10.0.1-1
 spec:
   families:
@@ -85,7 +81,6 @@ status: {}
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPClusterConfig
 metadata:
-  creationTimestamp: null
   name: tor
 spec:
   bgpInstances:

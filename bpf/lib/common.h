@@ -298,7 +298,8 @@ struct remote_endpoint_info {
 	__u8		flag_skip_tunnel:1,
 			flag_has_tunnel_ep:1,
 			flag_ipv6_tunnel_ep:1,
-			pad2:5;
+			flag_remote_cluster:1,
+			pad2:4;
 };
 
 /*
@@ -566,29 +567,9 @@ enum metric_dir {
 #define MARK_MAGIC_TO_PROXY		0x0200
 #define MARK_MAGIC_SNAT_DONE		0x0300
 #define MARK_MAGIC_OVERLAY		0x0400 /* mark carries identity */
-/* used to indicate encrypted traffic was tunnel encapsulated
- * this is useful in the IPsec code paths where we need to know if overlay
- * traffic is encrypted or not.
- *
- * the SPI bit can be reused since this magic mark is only used POST encryption.
- */
-#define MARK_MAGIC_OVERLAY_ENCRYPTED	(MARK_MAGIC_OVERLAY | 0x1000)
 #define MARK_MAGIC_EGW_DONE		0x0500 /* mark carries identity */
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
-
-
-/* The mark is used to indicate that the WireGuard tunnel device is done
- * encrypting a packet. The MSB invades the Kubernetes mark "space" which is
- * fine, as it's not used by K8s. See pkg/datapath/linux/linux_defaults/mark.go
- * for more details.
- *
- * NOTE: from v1.18 we reuse MARK_MAGIC_ENCRYPT for WireGuard-encrypted packets,
- * but we still need this value to handle upgrades from v1.17.
- *
- * TODO: can be removed in v1.19 in favor of MARK_MAGIC_ENCRYPT.
- */
-#define MARK_MAGIC_WG_ENCRYPTED		0x1E00
 
 /* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both
  * being mutual exclusive given former is only under DSR. Used to push health

@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	dpTypes "github.com/cilium/cilium/pkg/datapath/types"
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ebpf"
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -63,6 +64,7 @@ type MulticastManagerParams struct {
 	Cfg                    maps_multicast.Config
 	Sysctl                 sysctl.Sysctl
 	Config                 *option.DaemonConfig
+	IPsecConfig            dpTypes.IPsecConfig
 	TunnelConfig           tunnel.Config
 	MulticastMaps          maps_multicast.GroupV4Map
 	MulticastGroupResource resource.Resource[*isovalent_api_v1alpha1.IsovalentMulticastGroup]
@@ -196,7 +198,7 @@ func newMulticastManager(p MulticastManagerParams) (*MulticastManager, error) {
 		}),
 
 		job.OneShot("multicast-sysctl-config", func(ctx context.Context, health cell.Health) error {
-			if p.Config.EnableIPSecEncryptedOverlay {
+			if p.IPsecConfig.EncryptedOverlayEnabled() {
 				// set sysctl values
 				err := p.Sysctl.Enable([]string{"net", "ipv4", "conf", "all", "accept_local"})
 				if err != nil {

@@ -1,7 +1,6 @@
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPAdvertisement
 metadata:
-  creationTimestamp: null
   labels:
     advertise: tor-65001
   name: tor-65001
@@ -12,7 +11,6 @@ spec:
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
-  creationTimestamp: null
   name: tor-65001-peer-172.0.0.1
 spec:
   families:
@@ -28,7 +26,6 @@ status: {}
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
-  creationTimestamp: null
   name: tor-65001-peer-fd00.10.0.1-1
 spec:
   families:
@@ -49,7 +46,6 @@ status: {}
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPAdvertisement
 metadata:
-  creationTimestamp: null
   labels:
     advertise: tor-65002
   name: tor-65002
@@ -67,7 +63,6 @@ spec:
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
-  creationTimestamp: null
   name: tor-65002-peer-172.0.0.2
 spec:
   ebgpMultihop: 4
@@ -82,7 +77,6 @@ status: {}
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
-  creationTimestamp: null
   name: tor-65002-peer-fd00.10.0.1-2
 spec:
   authSecretRef: bgp-password
@@ -97,7 +91,6 @@ status: {}
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPClusterConfig
 metadata:
-  creationTimestamp: null
   name: tor
 spec:
   bgpInstances:
@@ -135,7 +128,6 @@ status: {}
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPNodeConfigOverride
 metadata:
-  creationTimestamp: null
   name: node-1
 spec:
   bgpInstances:
@@ -148,7 +140,6 @@ spec:
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPNodeConfigOverride
 metadata:
-  creationTimestamp: null
   name: node-2
 spec:
   bgpInstances:

@@ -1,7 +1,6 @@
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPAdvertisement
 metadata:
-  creationTimestamp: null
   labels:
     advertise: worker
   name: worker
@@ -19,7 +18,6 @@ spec:
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPPeerConfig
 metadata:
-  creationTimestamp: null
   name: worker
 spec:
   families:
@@ -33,7 +31,6 @@ status: {}
 apiVersion: isovalent.com/v1
 kind: IsovalentBGPClusterConfig
 metadata:
-  creationTimestamp: null
   name: worker
 spec:
   bgpInstances:

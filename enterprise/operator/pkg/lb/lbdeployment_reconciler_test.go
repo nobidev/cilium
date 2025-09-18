@@ -77,7 +77,7 @@ func TestLBDeploymentStatusAccepted(t *testing.T) {
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionFalse,
 			expectedReason:         "Invalid",
-			expectedMessage:        "Deployment is invalid: Invalid service labelselector: values: Invalid value: []string{}: for 'in', 'notin' operators, values set can't be empty",
+			expectedMessage:        "Deployment is invalid: Invalid service labelselector: values: Invalid value: []: for 'in', 'notin' operators, values set can't be empty",
 		},
 		{
 			desc: "Invalid T1 node labelselectors",
@@ -104,7 +104,7 @@ func TestLBDeploymentStatusAccepted(t *testing.T) {
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionFalse,
 			expectedReason:         "Invalid",
-			expectedMessage:        "Deployment is invalid: Invalid T1 node labelselector: values: Invalid value: []string{}: for 'in', 'notin' operators, values set can't be empty",
+			expectedMessage:        "Deployment is invalid: Invalid T1 node labelselector: values: Invalid value: []: for 'in', 'notin' operators, values set can't be empty",
 		},
 		{
 			desc: "Invalid T2 node labelselectors",
@@ -131,7 +131,7 @@ func TestLBDeploymentStatusAccepted(t *testing.T) {
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionFalse,
 			expectedReason:         "Invalid",
-			expectedMessage:        "Deployment is invalid: Invalid T2 node labelselector: values: Invalid value: []string{}: for 'in', 'notin' operators, values set can't be empty",
+			expectedMessage:        "Deployment is invalid: Invalid T2 node labelselector: values: Invalid value: []: for 'in', 'notin' operators, values set can't be empty",
 		},
 		{
 			desc: "Update existing condition",
