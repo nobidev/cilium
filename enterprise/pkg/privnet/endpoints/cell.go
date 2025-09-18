@@ -8,21 +8,18 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package privnet
+package endpoints
 
-import (
-	"github.com/cilium/hive/cell"
+import "github.com/cilium/hive/cell"
 
-	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
-)
-
-var Cell = cell.Module(
-	"private-networks",
-	"Support for Private Networks",
-
-	pncfg.Cell,
-	reconcilers.Cell,
-	endpoints.Cell,
+// Cell provides the various interfaces defined in this package, implemented as adapters
+// on top of the upstream pkg/endpoint and pkg/endpointmanager packages.
+// The types provided by this cell are usually overwritten via `cell.DecorateAll` in
+// unit tests. As this cell is therefore not covered by script tests, it should be
+// kept as simple possible. Any control-plane logic must be added elsewhere.
+var Cell = cell.Group(
+	cell.Provide(
+		newEndpointManagerAdapter,
+		newEndpointAPIManagerAdapter,
+	),
 )

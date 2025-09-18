@@ -28,6 +28,7 @@ import (
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -37,6 +38,7 @@ func TestScript(t *testing.T) {
 	defer testutils.GoleakVerifyNone(t)
 
 	version.Force(k8sTestutils.DefaultVersion)
+	nodeTypes.SetName(nodeName)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	t.Cleanup(cancel)

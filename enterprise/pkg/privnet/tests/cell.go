@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
+	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/pkg/privnet"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
@@ -27,11 +28,18 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 )
 
+const nodeName = "foobar-worker-1"
+
 func NewTestHive(t testing.TB) *hive.Hive {
 	return hive.New(
 		k8sClient.FakeClientCell(),
 
 		cell.Config(cmtypes.DefaultClusterInfo),
+
+		daemonk8s.ResourcesCell,
+		daemonk8s.TablesCell,
+
+		mockEndpointCell(t),
 
 		cell.Provide(
 			dptables.NewDeviceTable,
