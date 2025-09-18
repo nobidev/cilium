@@ -44,7 +44,7 @@ jobs:
           name: ${{ steps.tag.outputs.tag }}
           tag_name: ${{ steps.tag.outputs.tag }}
           # Need to use PAT with "repo" access to create a release in another repo.
-          token: ${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}
+          token: ${{ secrets.ISOVALENT_RELEASE_BOT_TOKEN }}
           draft: true
           files: |
             cilium-cli/release/*
