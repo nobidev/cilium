@@ -1,0 +1,147 @@
+//  Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+//  NOTICE: All information contained herein is, and remains the property of
+//  Isovalent Inc and its suppliers, if any. The intellectual and technical
+//  concepts contained herein are proprietary to Isovalent Inc and its suppliers
+//  and may be covered by U.S. and Foreign Patents, patents in process, and are
+//  protected by trade secret or copyright law.  Dissemination of this information
+//  or reproduction of this material is strictly forbidden unless prior written
+//  permission is obtained from Isovalent Inc.
+
+package reconcilers
+
+import (
+	"context"
+	"log/slog"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+
+	daemonK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
+)
+
+var PodsCell = cell.Group(
+	cell.ProvidePrivate(
+		// Provides the reconciler handling updates to private-network enabeld pods.
+		newPods,
+	),
+
+	cell.Invoke(
+		(*Pods).registerReconciler,
+	),
+)
+
+// Pods is a reconciler which watches local pods and updates the activatedAt status
+// if changes are detected
+type Pods struct {
+	log *slog.Logger
+	jg  job.Group
+
+	cfg config.Config
+
+	endpointManager           endpoints.EndpointGetter
+	endpointActivationManager *EndpointActivationManager
+
+	db   *statedb.DB
+	pods statedb.Table[daemonK8s.LocalPod]
+}
+
+func newPods(in struct {
+	cell.In
+
+	Log      *slog.Logger
+	JobGroup job.Group
+
+	Config config.Config
+
+	EndpointManager           endpoints.EndpointGetter
+	EndpointActivationManager *EndpointActivationManager
+
+	DB   *statedb.DB
+	Pods statedb.Table[daemonK8s.LocalPod]
+}) (*Pods, error) {
+	reconciler := &Pods{
+		log: in.Log,
+		jg:  in.JobGroup,
+
+		cfg: in.Config,
+
+		endpointManager:           in.EndpointManager,
+		endpointActivationManager: in.EndpointActivationManager,
+
+		db:   in.DB,
+		pods: in.Pods,
+	}
+
+	return reconciler, nil
+}
+
+func (p *Pods) registerReconciler() {
+	if !p.cfg.Enabled {
+		return
+	}
+
+	p.jg.Add(job.OneShot("reconcile-pod-activation", func(ctx context.Context, health cell.Health) error {
+		for {
+			pods, watch := p.pods.AllWatch(p.db.ReadTxn())
+			eventTime := time.Now()
+			for pod := range pods {
+				if _, ok := pod.Annotations[types.PrivateNetworkAnnotation]; !ok {
+					continue // ignore pods without a private network annotation
+				}
+
+				podFullName := pod.GetNamespace() + "/" + pod.GetName()
+				newIsInactive, err := types.ExtractInactiveAnnotation(pod.Annotations)
+				if err != nil {
+					p.log.Warn("Failed to parse pod annotation",
+						logfields.Pod, podFullName,
+						logfields.Error, err)
+					continue
+				}
+
+				eps := p.endpointManager.GetEndpointsByPodName(podFullName)
+				for ep := range eps {
+					properties, ok := endpoints.ExtractEndpointProperties(ep)
+					if !ok {
+						// Endpoint was not created on a private network, but now has the annotation
+						p.log.Warn("Ignoring annotation on pod without prior private network attachment",
+							logfields.Pod, podFullName,
+							logfields.Annotation, types.PrivateNetworkInactiveAnnotation)
+						continue
+					}
+
+					oldActivatedAt, err := properties.ActivatedAt()
+					if err != nil {
+						p.log.Error("Invalid activated-at property on endpoint",
+							logfields.Pod, podFullName,
+							logfields.Error, err)
+						continue
+					}
+
+					oldIsInactive := oldActivatedAt.IsZero()
+					if oldIsInactive != newIsInactive {
+						// Endpoint activation state has changed. Set new activatedAt timestamp
+						newActivatedAt := eventTime
+						if newIsInactive {
+							newActivatedAt = time.Time{} // zero means inactive
+						}
+						// Update endpoint property and inform subscribers
+						p.endpointActivationManager.SetActivatedAt(ep, newActivatedAt)
+					}
+				}
+			}
+
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-watch:
+			}
+		}
+	}))
+}

@@ -17,4 +17,10 @@ var Cell = cell.Group(
 	EndpointsCell,
 	RoutesCell,
 	MapEntriesCell,
+	PodsCell,
+
+	// Infrastructure shared between some of the reconcilers
+	cell.Provide(
+		newEndpointActivationManager,
+	),
 )
