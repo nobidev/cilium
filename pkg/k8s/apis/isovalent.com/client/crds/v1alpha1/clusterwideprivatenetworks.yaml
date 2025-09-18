@@ -19,7 +19,11 @@ spec:
     singular: clusterwideprivatenetwork
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.vni
+      name: VNI
+      type: integer
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ClusterwidePrivateNetwork defines a private network to which
@@ -166,11 +170,30 @@ spec:
                   type: object
                 minItems: 1
                 type: array
+              vni:
+                description: |-
+                  A 24bit numeric identifier of this private network. Specify this
+                  field when you wish to integrate this private network with
+                  EVPN/VXLAN. In that case, the value will be reflected to the BGP
+                  advertisement and dataplane handling of ingress traffic over VXLAN.
+                format: int32
+                maximum: 16777215
+                type: integer
             required:
             - subnets
+            type: object
+          status:
+            description: The private network status.
+            properties:
+              vni:
+                description: An allocated VNI value
+                format: int32
+                type: integer
             type: object
         required:
         - spec
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}

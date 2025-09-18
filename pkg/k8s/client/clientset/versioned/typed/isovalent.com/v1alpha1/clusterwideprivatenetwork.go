@@ -26,6 +26,8 @@ type ClusterwidePrivateNetworksGetter interface {
 type ClusterwidePrivateNetworkInterface interface {
 	Create(ctx context.Context, clusterwidePrivateNetwork *isovalentcomv1alpha1.ClusterwidePrivateNetwork, opts v1.CreateOptions) (*isovalentcomv1alpha1.ClusterwidePrivateNetwork, error)
 	Update(ctx context.Context, clusterwidePrivateNetwork *isovalentcomv1alpha1.ClusterwidePrivateNetwork, opts v1.UpdateOptions) (*isovalentcomv1alpha1.ClusterwidePrivateNetwork, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, clusterwidePrivateNetwork *isovalentcomv1alpha1.ClusterwidePrivateNetwork, opts v1.UpdateOptions) (*isovalentcomv1alpha1.ClusterwidePrivateNetwork, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
 	Get(ctx context.Context, name string, opts v1.GetOptions) (*isovalentcomv1alpha1.ClusterwidePrivateNetwork, error)

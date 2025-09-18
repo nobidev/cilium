@@ -14,7 +14,9 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalent},singular="clusterwideprivatenetwork",path="clusterwideprivatenetworks",scope="Cluster",shortName={icpn}
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:storageversion
+// +kubebuilder:printcolumn:JSONPath=".status.vni",name="VNI",type=integer
 // +deepequal-gen=false
 
 // ClusterwidePrivateNetwork defines a private network to which workloads can be attached.
@@ -28,6 +30,11 @@ type ClusterwidePrivateNetwork struct {
 	//
 	// +kubebuilder:validation:Required
 	Spec PrivateNetworkSpec `json:"spec"`
+
+	// The private network status.
+	//
+	// +kubebuilder:validation:Optional
+	Status *PrivateNetworkStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -43,6 +50,15 @@ type ClusterwidePrivateNetworkList struct {
 }
 
 type PrivateNetworkSpec struct {
+	// A 24bit numeric identifier of this private network. Specify this
+	// field when you wish to integrate this private network with
+	// EVPN/VXLAN. In that case, the value will be reflected to the BGP
+	// advertisement and dataplane handling of ingress traffic over VXLAN.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Maximum=16777215
+	VNI *uint32 `json:"vni,omitempty"`
+
 	// The list of Isovalent Network Bridges (INBs) serving this private network.
 	// This stanza shall be specified in the main workload cluster(s) only, and
 	// not in the INB clusters.
@@ -102,6 +118,13 @@ type InterfaceSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	Name string `json:"name,omitempty"`
+}
+
+type PrivateNetworkStatus struct {
+	// An allocated VNI value
+	//
+	// +kubebuilder:validation:Optional
+	VNI *uint32 `json:"vni,omitempty"`
 }
 
 // +genclient
