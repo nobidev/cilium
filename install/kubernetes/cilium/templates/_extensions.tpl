@@ -44,8 +44,20 @@ Allow packagers to add extra volumes to cilium-operator.
 Allow packagers to set securityContext for cilium-operator.
 */}}
 {{- define "cilium.operator.securityContext" }}
-{{- with .Values.operator.securityContext }}
-{{ toYaml . }}
+{{- $base := (deepCopy (.Values.operator.securityContext | default dict)) }}
+{{- $caps := (get $base "capabilities") | default dict }}
+{{- $add  := (get $caps "add") | default nil }}
+{{- if and .Values.enterprise.egressGatewayHA.enabled .Values.enterprise.egressGatewayHA.icmpHealthProbe.enabled }}
+{{- $add = concat ($add | default (list)) (list "NET_RAW") }}
+{{- end }}
+{{- if $add }}
+{{- $_ := set $caps "add" (uniq $add) }}
+{{- end }}
+{{- if $caps }}
+{{- $_ := set $base "capabilities" $caps }}
+{{- end }}
+{{- if (ne (toYaml $base | trim) "") }}
+{{ toYaml $base }}
 {{- end }}
 {{- end }}
 
