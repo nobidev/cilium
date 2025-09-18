@@ -57,6 +57,11 @@ egress-gateway-ha-healthcheck-timeout: {{ .Values.enterprise.egressGatewayHA.hea
 {{- else if hasKey .Values.egressGateway "healthcheckTimeout" }}
 egress-gateway-ha-healthcheck-timeout: {{ .Values.egressGateway.healthcheckTimeout | quote }}
 {{- end }}
+{{- if hasKey .Values.enterprise.egressGatewayHA "icmpHealthProbe" }}
+enable-egress-gateway-ha-icmp-health-probe: {{ .Values.enterprise.egressGatewayHA.icmpHealthProbe.enabled | default "true" | quote }}
+egress-gateway-ha-icmp-health-probe-interval: {{ .Values.enterprise.egressGatewayHA.icmpHealthProbe.interval | quote }}
+egress-gateway-ha-icmp-health-probe-failure-threshold: {{ .Values.enterprise.egressGatewayHA.icmpHealthProbe.failureThreshold | quote }}
+{{- end }}
 
 {{- if .Values.enterprise.clustermesh.mixedRoutingMode.enabled }}
 fallback-routing-mode: tunnel

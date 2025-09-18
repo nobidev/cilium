@@ -415,7 +415,8 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.diagnostics.constants | list | `[]` | Constants as a list of key-value pairs (e.g. "foo=1.2"). @schema type: [array] @schema |
 | enterprise.diagnostics.exportFilePath | string | `"/var/run/cilium/hubble/status.log"` | Path to the file to which diagnostics status updates are appended. For example "/var/run/cilium/hubble/status.log" If not set the diagnostics evaluation and exporting is disabled. @schema type: [null, string] @schema |
 | enterprise.diagnostics.interval | string | `"5m"` | Evaluation interval @schema type: [string] @schema |
-| enterprise.egressGatewayHA | object | `{"enabled":false,"reconciliationTriggerInterval":"1s","socketTermination":{"enabled":false}}` | Enables egress gateway HA |
+| enterprise.egressGatewayHA | object | `{"enabled":false,"icmpHealthProbe":{"enabled":true,"failureThreshold":3,"interval":"100ms"},"reconciliationTriggerInterval":"1s","socketTermination":{"enabled":false}}` | Enables egress gateway HA |
+| enterprise.egressGatewayHA.icmpHealthProbe | object | `{"enabled":true,"failureThreshold":3,"interval":"100ms"}` | Enables ICMP health probing of egress gateway nodes. When enabled, the cilium-operator periodically sends ICMP echo requests to gateway nodes to verify their availability. |
 | enterprise.egressGatewayHA.reconciliationTriggerInterval | string | `"1s"` | Time between triggers of egress gateway state reconciliations |
 | enterprise.egressGatewayHA.socketTermination | object | `{"enabled":false}` | Enables socket termination which will close client sockets on connections being forwarded to a egress gateway node when the node is no longer available. |
 | enterprise.encryption | object | `{"policy":{"enabled":false,"fallbackBehavior":null}}` | Transparent encryption |

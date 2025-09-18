@@ -28,10 +28,13 @@ cilium-operator-generic hive [flags]
       --dns-server-addresses strings                                   A list of DNS server addresses to be used by the operator DNS client for resolution of FQDNs in IsovalentFQDNGroup CRDs. Each address should be in the form "<ip>:<port>". When resolving an FQDN, the operator will try to query the first server. If it fails, it will try the next one and so on, following the order specified by the user.
       --double-write-metric-reporter-interval duration                 Refresh interval for the Double Write Metric Reporter (default 1m0s)
       --egress-gateway-ha-healthcheck-timeout duration                 Healthcheck timeout after which an egress gateway is marked not healthy. This also configures the frequency of probes to a value of healthcheckTimeout / 2 (default 2s)
+      --egress-gateway-ha-icmp-health-probe-failure-threshold int      The number of consecutive failed ICMP probes after which a gateway node is considered unhealthy (default 3)
+      --egress-gateway-ha-icmp-health-probe-interval duration          The interval at which ICMP echo requests are sent to gateway nodes for health verification (default 100ms)
       --egress-gateway-ha-reconciliation-trigger-interval duration     Time between triggers of egress gateway state reconciliations (default 2s)
       --enable-bfd                                                     Enables BFD subsystem
       --enable-cilium-mesh                                             Enable Cilium Mesh feature
       --enable-cilium-operator-server-access strings                   List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
+      --enable-egress-gateway-ha-icmp-health-probe                     Enables egress-gateway ha ICMP health probing of egress gateway nodes (default true)
       --enable-enterprise-bgp-control-plane                            Enable enterprise BGP in Cilium
       --enable-enterprise-bgp-control-plane-status-report              Enable enterprise BGP status report in Cilium (default true)
       --enable-gateway-api-alpn                                        Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API

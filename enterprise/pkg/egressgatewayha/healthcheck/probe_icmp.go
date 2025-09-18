@@ -12,15 +12,12 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-const (
-	probeInterval    = 100 * time.Millisecond
-	failureThreshold = 3
-)
-
 type icmpProber struct {
-	logger  *slog.Logger
-	ip      string
-	timeout time.Duration
+	logger           *slog.Logger
+	ip               string
+	timeout          time.Duration
+	failureThreshold int
+	interval         time.Duration
 }
 
 func (i *icmpProber) runHealthcheckProbe() bool {
@@ -32,8 +29,8 @@ func (i *icmpProber) runHealthcheckProbe() bool {
 	}
 
 	pinger.Timeout = i.timeout
-	pinger.Count = failureThreshold
-	pinger.Interval = probeInterval
+	pinger.Count = i.failureThreshold
+	pinger.Interval = i.interval
 	pinger.OnRecv = func(pkt *probing.Packet) {
 		pinger.Stop()
 	}

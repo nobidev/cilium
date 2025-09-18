@@ -1463,7 +1463,11 @@
    * - :spelling:ignore:`enterprise.egressGatewayHA`
      - Enables egress gateway HA
      - object
-     - ``{"enabled":false,"reconciliationTriggerInterval":"1s","socketTermination":{"enabled":false}}``
+     - ``{"enabled":false,"icmpHealthProbe":{"enabled":true,"failureThreshold":3,"interval":"100ms"},"reconciliationTriggerInterval":"1s","socketTermination":{"enabled":false}}``
+   * - :spelling:ignore:`enterprise.egressGatewayHA.icmpHealthProbe`
+     - Enables ICMP health probing of egress gateway nodes. When enabled, the cilium-operator periodically sends ICMP echo requests to gateway nodes to verify their availability.
+     - object
+     - ``{"enabled":true,"failureThreshold":3,"interval":"100ms"}``
    * - :spelling:ignore:`enterprise.egressGatewayHA.reconciliationTriggerInterval`
      - Time between triggers of egress gateway state reconciliations
      - string

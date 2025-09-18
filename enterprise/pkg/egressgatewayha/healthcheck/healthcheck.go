@@ -36,16 +36,35 @@ type Config struct {
 	// This also configures the frequency of probes to a value of healthcheckTimeout / 2
 	EgressGatewayHAHealthcheckTimeout time.Duration
 
+	// EnableEgressGatewayHAICMPHealthProbe enables ICMP health probing of egress gateway nodes.
+	// When enabled, the cilium-operator periodically sends ICMP echo requests to gateway nodes
+	// to verify their availability.
+	EnableEgressGatewayHAICMPHealthProbe bool `mapstructure:"enable-egress-gateway-ha-icmp-health-probe"`
+
+	// EgressGatewayHAHealthcheckICMPHealthProbeInterval defines the interval at which
+	// ICMP echo requests are sent to gateway nodes for health verification.
+	EgressGatewayHAHealthcheckICMPHealthProbeInterval time.Duration `mapstructure:"egress-gateway-ha-icmp-health-probe-interval"`
+
+	// EgressGatewayHAHealthcheckICMPHealthProbeFailureThreshold specifies the number
+	// of consecutive failed ICMP probes after which a gateway node is considered unhealthy.
+	EgressGatewayHAHealthcheckICMPHealthProbeFailureThreshold int `mapstructure:"egress-gateway-ha-icmp-health-probe-failure-threshold"`
+
 	ClusterHealthPort int
 }
 
 var defaultConfig = Config{
-	EgressGatewayHAHealthcheckTimeout: 2 * time.Second,
-	ClusterHealthPort:                 defaults.ClusterHealthPort,
+	EgressGatewayHAHealthcheckTimeout:                         2 * time.Second,
+	EnableEgressGatewayHAICMPHealthProbe:                      true,
+	EgressGatewayHAHealthcheckICMPHealthProbeInterval:         100 * time.Millisecond,
+	EgressGatewayHAHealthcheckICMPHealthProbeFailureThreshold: 3,
+	ClusterHealthPort: defaults.ClusterHealthPort,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("egress-gateway-ha-healthcheck-timeout", def.EgressGatewayHAHealthcheckTimeout, "Healthcheck timeout after which an egress gateway is marked not healthy. This also configures the frequency of probes to a value of healthcheckTimeout / 2")
+	flags.Bool("enable-egress-gateway-ha-icmp-health-probe", def.EnableEgressGatewayHAICMPHealthProbe, "Enables egress-gateway ha ICMP health probing of egress gateway nodes")
+	flags.Duration("egress-gateway-ha-icmp-health-probe-interval", def.EgressGatewayHAHealthcheckICMPHealthProbeInterval, "The interval at which ICMP echo requests are sent to gateway nodes for health verification")
+	flags.Int("egress-gateway-ha-icmp-health-probe-failure-threshold", def.EgressGatewayHAHealthcheckICMPHealthProbeFailureThreshold, "The number of consecutive failed ICMP probes after which a gateway node is considered unhealthy")
 	flags.Int(option.ClusterHealthPort, defaultConfig.ClusterHealthPort, "")
 	flags.MarkHidden(option.ClusterHealthPort)
 }
@@ -196,9 +215,11 @@ func (h *healthchecker) createProber(node nodeTypes.Node, mode probeMode) health
 		return h.createHttpProber(node)
 	case ICMP:
 		return &icmpProber{
-			logger:  h.logger,
-			ip:      node.GetNodeIP(false).String(),
-			timeout: h.EgressGatewayHAHealthcheckTimeout,
+			logger:           h.logger,
+			ip:               node.GetNodeIP(false).String(),
+			timeout:          h.EgressGatewayHAHealthcheckTimeout,
+			failureThreshold: h.EgressGatewayHAHealthcheckICMPHealthProbeFailureThreshold,
+			interval:         h.EgressGatewayHAHealthcheckICMPHealthProbeInterval,
 		}
 	default:
 		return h.createHttpProber(node)
@@ -222,7 +243,14 @@ func (h *healthchecker) startNodeHealthcheck(node nodeTypes.Node, isHealthy bool
 	var (
 		tickerCh = time.NewTicker(h.EgressGatewayHAHealthcheckTimeout / 2)
 		logger   = h.logger.With(logfields.NodeName, node.Name)
-		probers  = []healthProber{h.createProber(node, HTTP), h.createProber(node, ICMP)}
+		probers  = func() []healthProber {
+			ps := []healthProber{h.createProber(node, HTTP)}
+			if h.EnableEgressGatewayHAICMPHealthProbe {
+				ps = append(ps, h.createProber(node, ICMP))
+			}
+
+			return ps
+		}()
 	)
 
 	logger.Info("Starting health check for node")

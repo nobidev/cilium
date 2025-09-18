@@ -42,6 +42,13 @@ enterprise:
     # forwarded to a egress gateway node when the node is no longer available.
     socketTermination:
       enabled: false
+    # -- Enables ICMP health probing of egress gateway nodes.
+    # When enabled, the cilium-operator periodically sends ICMP echo requests
+    # to gateway nodes to verify their availability.
+    icmpHealthProbe:
+      enabled: true
+      interval: 100ms
+      failureThreshold: 3
 
   srv6:
     # -- Enable SRv6 encapsulation support.

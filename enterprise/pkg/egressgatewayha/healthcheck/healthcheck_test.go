@@ -31,7 +31,7 @@ import (
 func TestPrivilegedHealthCheckerHealthyNode(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	hc, nodeAddr := setup(t, 50*time.Millisecond,
+	hc, nodeAddr := setup(t, 50*time.Millisecond, true,
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}))
@@ -62,7 +62,7 @@ func TestPrivilegedHealthCheckerHealthyNode(t *testing.T) {
 func TestPrivilegedHealthCheckerReachableAgentDownNode(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	hc, nodeAddr := setup(t, 50*time.Millisecond,
+	hc, nodeAddr := setup(t, 50*time.Millisecond, true,
 		func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		})
@@ -91,10 +91,40 @@ func TestPrivilegedHealthCheckerReachableAgentDownNode(t *testing.T) {
 	require.False(t, hc.NodeHealth(n.Name).AgentUp)
 }
 
+func TestPrivilegedHealthCheckerReachableAgentDownNodeWithoutICMP(t *testing.T) {
+	hc, nodeAddr := setup(t, 50*time.Millisecond, false,
+		func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		})
+
+	events := hc.Events()
+
+	n := nodeTypes.Node{
+		Name: "test",
+		IPAddresses: []nodeTypes.Address{
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   nodeAddr,
+			},
+		},
+	}
+
+	// node is initially marked as healthy
+	hc.UpdateNodeList(map[string]nodeTypes.Node{n.Name: n}, sets.New(n.Name), sets.New(n.Name))
+
+	// node should be marked as unreachable because the http endpoint returns 500,
+	// and the ICMP probe is disabled
+	ev := <-events
+	require.Equal(t, n.Name, ev.NodeName)
+	require.Equal(t, NodeUnReachable, ev.Status)
+	require.False(t, hc.NodeHealth(n.Name).Reachable)
+	require.False(t, hc.NodeHealth(n.Name).AgentUp)
+}
+
 func TestPrivilegedHealthCheckerUnhealthyNode(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	hc, _ := setup(t, 50*time.Millisecond, nil)
+	hc, _ := setup(t, 50*time.Millisecond, true, nil)
 
 	events := hc.Events()
 
@@ -120,7 +150,7 @@ func TestPrivilegedHealthCheckerUnhealthyNode(t *testing.T) {
 	require.False(t, hc.NodeHealth(n.Name).AgentUp)
 }
 
-func setup(t *testing.T, hcTimeout time.Duration, handler http.HandlerFunc) (Healthchecker, net.IP) {
+func setup(t *testing.T, hcTimeout time.Duration, enableICMP bool, handler http.HandlerFunc) (Healthchecker, net.IP) {
 	t.Helper()
 
 	port := 0
@@ -142,8 +172,11 @@ func setup(t *testing.T, hcTimeout time.Duration, handler http.HandlerFunc) (Hea
 
 	// create a new healthchecker
 	hc := NewHealthchecker(slog.New(slog.DiscardHandler), Config{
-		EgressGatewayHAHealthcheckTimeout: hcTimeout,
-		ClusterHealthPort:                 port,
+		EgressGatewayHAHealthcheckTimeout:                         hcTimeout,
+		EnableEgressGatewayHAICMPHealthProbe:                      enableICMP,
+		EgressGatewayHAHealthcheckICMPHealthProbeInterval:         defaultConfig.EgressGatewayHAHealthcheckICMPHealthProbeInterval,
+		EgressGatewayHAHealthcheckICMPHealthProbeFailureThreshold: defaultConfig.EgressGatewayHAHealthcheckICMPHealthProbeFailureThreshold,
+		ClusterHealthPort: port,
 	})
 
 	return hc, addr

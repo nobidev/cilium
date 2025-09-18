@@ -2092,6 +2092,20 @@
             "enabled": {
               "type": "boolean"
             },
+            "icmpHealthProbe": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "failureThreshold": {
+                  "type": "integer"
+                },
+                "interval": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
             "reconciliationTriggerInterval": {
               "type": "string"
             },
