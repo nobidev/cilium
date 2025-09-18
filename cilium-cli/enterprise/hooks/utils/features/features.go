@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -112,9 +111,7 @@ func extractFromConfigMap(ctx context.Context, ct *check.ConnectivityTest) error
 	}
 
 	ct.Features[EgressGatewayHA] = features.Status{
-		Enabled: cm.Data["enable-ipv4-egress-gateway-ha"] == "true" ||
-			// in Cilium v1.14-ce we auto opt into egress gateway HA in case the OSS feature is enabled, for backward compatibility with 1.13-ce
-			(versioncheck.MustCompile(">=1.14.0 <1.15.0")(ct.CiliumVersion) && cm.Data["enable-ipv4-egress-gateway"] == "true"),
+		Enabled: cm.Data["enable-ipv4-egress-gateway-ha"] == "true",
 	}
 
 	ct.Features[CiliumDNSProxyHA] = features.Status{
@@ -214,11 +211,6 @@ func ExtractFromSysdumpCollector(collector *sysdump.Collector) error {
 }
 
 func phantomServicesEnabled(cfg map[string]string, ciliumVersion semver.Version) bool {
-	// Phantom service support has been introduced in Isovalent Enterprise for Cilium v1.13.2
-	if ciliumVersion.LT(semver.MustParse("1.13.2")) {
-		return false
-	}
-
 	value, ok := cfg[string(PhantomServices)]
 
 	// Until Cilium v1.16-ce, the phantom service support was not guarded by a feature
