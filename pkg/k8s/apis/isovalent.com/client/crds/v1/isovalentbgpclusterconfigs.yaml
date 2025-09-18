@@ -260,6 +260,16 @@ spec:
                             items:
                               type: string
                             type: array
+                          privateNetworkRef:
+                            description: |-
+                              PrivateNetworkRef is a reference to a ClusterPrivateNetwork
+                              resource. It cannot be set together with vrfRef.
+                            properties:
+                              name:
+                                type: string
+                            required:
+                            - name
+                            type: object
                           rd:
                             description: RD is the Route Distinguisher of the VRF.
                             type: string

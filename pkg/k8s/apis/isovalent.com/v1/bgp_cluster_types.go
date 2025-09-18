@@ -285,6 +285,12 @@ type BGPVRF struct {
 	// +kubebuilder:validation:MaxLength=255
 	VRFRef string `json:"vrfRef"`
 
+	// PrivateNetworkRef is a reference to a ClusterPrivateNetwork
+	// resource. It cannot be set together with vrfRef.
+	//
+	// +kubebuilder:validation:Optional
+	PrivateNetworkRef *BGPPrivateNetworkReference `json:"privateNetworkRef,omitempty"`
+
 	// ConfigRef is a reference to a IsovalentBGPVRFConfig resource.
 	//
 	// +kubebuilder:validation:Optional
@@ -304,6 +310,11 @@ type BGPVRF struct {
 	//
 	// +kubebuilder:validation:Optional
 	ExportRTs []string `json:"exportRTs,omitempty"`
+}
+
+type BGPPrivateNetworkReference struct {
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
 }
 
 // Conditions for IsovalentBGPClusterConfig

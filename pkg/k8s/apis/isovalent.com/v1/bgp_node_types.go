@@ -215,6 +215,12 @@ type IsovalentBGPNodeVRF struct {
 	// +kubebuilder:validation:MaxLength=255
 	VRFRef string `json:"vrfRef"`
 
+	// PrivateNetworkRef is a reference to a ClusterPrivateNetwork
+	// resource. It cannot be set together with vrfRef.
+	//
+	// +kubebuilder:validation:Optional
+	PrivateNetworkRef *BGPPrivateNetworkReference `json:"privateNetworkRef,omitempty"`
+
 	// ConfigRef is a reference to a IsovalentBGPVRFConfig resource.
 	//
 	// +kubebuilder:validation:Optional

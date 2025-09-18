@@ -260,6 +260,16 @@ spec:
                               type: string
                             type: array
                             x-kubernetes-list-type: set
+                          privateNetworkRef:
+                            description: |-
+                              PrivateNetworkRef is a reference to a ClusterPrivateNetwork
+                              resource. It cannot be set together with vrfRef.
+                            properties:
+                              name:
+                                type: string
+                            required:
+                            - name
+                            type: object
                           rd:
                             description: RD is the route distinguisher for the VRF.
                             type: string
