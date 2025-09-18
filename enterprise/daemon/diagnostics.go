@@ -63,7 +63,6 @@ func registerConditions(reg *diagnostics.Registry, db *statedb.DB, dbMetrics hiv
 			ID:          "endpoint_regeneration",
 			SubSystem:   "Endpoint",
 			Description: "Endpoint regeneration is taking longer than expected",
-			Severity:    diagnostics.SeverityDebug,
 			Evaluator:   evalEndpointRegeneration,
 		},
 
@@ -71,7 +70,6 @@ func registerConditions(reg *diagnostics.Registry, db *statedb.DB, dbMetrics hiv
 			ID:          "hive_degraded_modules",
 			SubSystem:   "Hive",
 			Description: "One or more agent module is reporting degraded status",
-			Severity:    diagnostics.SeverityDebug,
 			Evaluator:   evalHiveHealth(db, healthTable),
 		},
 
@@ -79,56 +77,55 @@ func registerConditions(reg *diagnostics.Registry, db *statedb.DB, dbMetrics hiv
 			ID:          "statedb",
 			SubSystem:   "StateDB",
 			Description: "StateDB metrics indicate a potentially problematic access patterns",
-			Severity:    diagnostics.SeverityDebug,
 			Evaluator:   evalStateDB(db, dbMetrics),
 		},
 	)
 }
 
-func evalEndpointRegeneration(env diagnostics.Environment) (msg string, failed bool) {
+func evalEndpointRegeneration(env diagnostics.Environment) (msg string, severity diagnostics.Severity) {
 	stats, err := env.Histogram(metrics.EndpointRegenerationTimeStats.Opts().ConfigName, map[string]string{metrics.LabelScope: "total", metrics.LabelStatus: "success"})
 	if err != nil {
-		return err.Error(), true
+		return err.Error(), diagnostics.OK
 	}
 
 	// Default to 3x the 24h average as the threshold, but allow override with "endpoint_regen_multiplier" constant.
 	multp := env.UserConstant(keyEndpointRegenMultiplier, defaultEndpointRegenMultiplier)
 
 	if stats.Avg_24h > 0.0 && stats.Avg_Latest > multp*stats.Avg_24h {
-		msg = fmt.Sprintf("Current average endpoint regeneration latency %.1fs is >%.1fx the 24 hour average of %.1fs",
-			stats.Avg_Latest, multp, stats.Avg_24h)
-		failed = true
-		return
+		return fmt.Sprintf("Current average endpoint regeneration latency %.1fs is >%.1fx the 24 hour average of %.1fs",
+			stats.Avg_Latest, multp, stats.Avg_24h), diagnostics.Minor
 	}
-	return fmt.Sprintf("%.2fs OK", stats.Avg_Latest), false
+	return fmt.Sprintf("%.2fs OK", stats.Avg_Latest), diagnostics.OK
 }
 
 func evalHiveHealth(db *statedb.DB, healthTable statedb.Table[healthTypes.Status]) diagnostics.Evaluator {
-	return func(env diagnostics.Environment) (string, bool) {
+	return func(env diagnostics.Environment) (string, diagnostics.Severity) {
 		degraded := []string{}
 		for status := range healthTable.List(db.ReadTxn(), health.LevelIndex.Query(healthTypes.LevelDegraded)) {
 			degraded = append(degraded, status.ID.String())
 		}
 		if len(degraded) > 0 {
-			return "Degraded modules: " + strings.Join(degraded, ", "), true
+			return "Degraded modules: " + strings.Join(degraded, ", "), diagnostics.Debug
 		}
-		return "", false
+		return "", diagnostics.OK
 	}
 }
 
 func evalStateDB(db *statedb.DB, statedbMetrics hive.StateDBMetrics) diagnostics.Evaluator {
 	evalInits := evalStateDBPendingInitializers(db)
 
-	return func(env diagnostics.Environment) (msg string, failed bool) {
+	return func(env diagnostics.Environment) (msg string, severity diagnostics.Severity) {
 		msgTxn, failedTxn := evalStateDBWriteTxnDuration(statedbMetrics, env)
 		msgGraveyard, failedGraveyard := evalStateDBGraveyardObjects(statedbMetrics, env)
 		msgInits, failedInits := evalInits(env)
-
-		return strings.Join(
-				slices.DeleteFunc([]string{msgTxn, msgGraveyard, msgInits}, func(s string) bool { return len(s) == 0 }),
-				", ",
-			),
-			failedTxn || failedGraveyard || failedInits
+		severity = diagnostics.OK
+		if failedTxn || failedGraveyard || failedInits {
+			severity = diagnostics.Debug
+		}
+		msg = strings.Join(
+			slices.DeleteFunc([]string{msgTxn, msgGraveyard, msgInits}, func(s string) bool { return len(s) == 0 }),
+			", ")
+		return
 	}
 }
 
@@ -199,7 +196,7 @@ func evalStateDBGraveyardObjects(statedbMetrics hive.StateDBMetrics, env diagnos
 const pendingInitializersThresholdDuration = 10 * time.Minute
 
 // evalStateDBPendingInitializers checks if there are any tables that are stuck being initialized.
-func evalStateDBPendingInitializers(db *statedb.DB) diagnostics.Evaluator {
+func evalStateDBPendingInitializers(db *statedb.DB) func(diagnostics.Environment) (string, bool) {
 	uninitializedSince := map[string]time.Time{}
 
 	return func(env diagnostics.Environment) (msg string, failed bool) {

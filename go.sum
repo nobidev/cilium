@@ -461,8 +461,8 @@ github.com/isovalent/go-ra v0.0.0-20241125075947-1274124821d6 h1:OV+faAvpYGaoBrm
 github.com/isovalent/go-ra v0.0.0-20241125075947-1274124821d6/go.mod h1:r5ppO5qsH+CLp5hcc5pHvytUlOgcI0vuAwpywt6y/Eg=
 github.com/isovalent/hubble-timescape/api v1.8.0 h1:7X+37t9r1Pwk9e5FM0zy3UKlzYu00/EpWxQ1ehRl7H4=
 github.com/isovalent/hubble-timescape/api v1.8.0/go.mod h1:zLmmN2MZMY4hsZWdD9w8FlYMUe+VfGI56w8wcGfZgXI=
-github.com/isovalent/ipa v1.18.0-pre.1 h1:Hl7vRPljar4awKZB0YNbFlE/PmOOaVzvhSwyMHUDlQ8=
-github.com/isovalent/ipa v1.18.0-pre.1/go.mod h1:OkHYSN678FJjFDRPW2++mmW9qrOuUcuwGse+VFhL4pQ=
+github.com/isovalent/ipa v1.18.0-pre.2 h1:b0ercUl2nGpFLv3I/B6aUFVOF0s/fyAmGG0AtBig96I=
+github.com/isovalent/ipa v1.18.0-pre.2/go.mod h1:4VKsoi0OTUUyHdgTe4ZJ2EB3RlZV8WxPtX30DCZ1lW0=
 github.com/jeremywohl/flatten v1.0.1 h1:LrsxmB3hfwJuE+ptGOijix1PIfOoKLJ3Uee/mzbgtrs=
 github.com/jeremywohl/flatten v1.0.1/go.mod h1:4AmD/VxjWcI5SRB0n6szE2A6s2fsNHDLO0nAlMHgfLQ=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=

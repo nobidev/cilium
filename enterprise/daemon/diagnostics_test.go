@@ -30,26 +30,26 @@ import (
 func TestEndpointRegenCondition(t *testing.T) {
 	fakeEnv := &diagnostics.FakeEnvironment{}
 
-	msg, fail := evalEndpointRegeneration(fakeEnv)
+	msg, sev := evalEndpointRegeneration(fakeEnv)
 	assert.Contains(t, msg, "OK")
-	assert.False(t, fail)
+	assert.Equal(t, diagnostics.OK, sev)
 
 	fakeEnv.FakeHistogram = diagnostics.HistogramStats{
 		Avg_24h:    1.0,
 		Avg_Latest: 10.0,
 	}
 
-	msg, fail = evalEndpointRegeneration(fakeEnv)
+	msg, sev = evalEndpointRegeneration(fakeEnv)
 	assert.Contains(t, msg, "10.0s is >3.0x the 24 hour average of 1.0s")
-	assert.True(t, fail)
+	assert.Equal(t, diagnostics.Minor, sev)
 
 	fakeEnv.FakeUserConstants = map[string]float64{
 		keyEndpointRegenMultiplier: 2.5,
 	}
 
-	msg, fail = evalEndpointRegeneration(fakeEnv)
+	msg, sev = evalEndpointRegeneration(fakeEnv)
 	assert.Contains(t, msg, "10.0s is >2.5x the 24 hour average of 1.0s")
-	assert.True(t, fail)
+	assert.Equal(t, diagnostics.Minor, sev)
 }
 
 func TestHiveHealthCondition(t *testing.T) {
@@ -59,9 +59,9 @@ func TestHiveHealthCondition(t *testing.T) {
 	require.NoError(t, err, "newHealthTable")
 	eval := evalHiveHealth(db, healthTable)
 
-	msg, fail := eval(fakeEnv)
+	msg, sev := eval(fakeEnv)
 	assert.Empty(t, msg)
-	assert.False(t, fail)
+	assert.Equal(t, diagnostics.OK, sev)
 
 	wtxn := db.WriteTxn(healthTable)
 	healthTable.Insert(wtxn,
@@ -74,9 +74,9 @@ func TestHiveHealthCondition(t *testing.T) {
 		})
 	wtxn.Commit()
 
-	msg, fail = eval(fakeEnv)
+	msg, sev = eval(fakeEnv)
 	assert.Contains(t, msg, "Degraded modules: foo.bar")
-	assert.True(t, fail)
+	assert.Equal(t, diagnostics.Debug, sev)
 }
 
 func newHealthTable(db *statedb.DB) (statedb.RWTable[types.Status], error) {
@@ -94,9 +94,9 @@ func TestStateDBCondition_WriteTxn(t *testing.T) {
 	eval := evalStateDB(statedb.New(), statedbMetrics)
 
 	// Evaluate without any matching metrics
-	msg, fail := eval(fakeEnv)
+	msg, sev := eval(fakeEnv)
 	assert.Contains(t, msg, "OK")
-	assert.False(t, fail)
+	assert.Equal(t, diagnostics.OK, sev)
 
 	fakeEnv.FakeMetricsMatchingLabels = []diagnostics.Metric{
 		{
@@ -112,28 +112,28 @@ func TestStateDBCondition_WriteTxn(t *testing.T) {
 	fakeEnv.FakeHistogram.Avg_Latest = defaultStateDBWriteTxnThresholdSeconds / 2
 
 	// Evaluate with a matching metric but below the threshold
-	msg, fail = eval(fakeEnv)
+	msg, sev = eval(fakeEnv)
 	assert.Equal(t, fmt.Sprintf("WriteTxn OK (max %.1fs), Graveyard OK", fakeEnv.FakeHistogram.Avg_Latest), msg)
-	assert.False(t, fail, "Succeed with metric below threshold")
+	assert.Equal(t, diagnostics.OK, sev, "Succeed with metric below threshold")
 
 	// Set the metrics above the threshold
 	fakeEnv.FakeHistogram.Avg_Latest = defaultStateDBWriteTxnThresholdSeconds * 2
 
 	// Evaluate with metric above the threshold
-	msg, fail = eval(fakeEnv)
+	msg, sev = eval(fakeEnv)
 	assert.Equal(t, fmt.Sprintf("WriteTxn latency >%.1fs for [handle=foo], Graveyard OK", defaultStateDBWriteTxnThresholdSeconds), msg)
-	assert.True(t, fail, "Fail with metric above threshold")
+	assert.Equal(t, diagnostics.Debug, sev, "Fail with metric above threshold")
 
 	// Test with a custom user constant
 	fakeEnv.FakeUserConstants = map[string]float64{
 		keyStateDBWriteTxnThreshold: 2.0,
 	}
 	fakeEnv.FakeHistogram.Avg_Latest = 1.5
-	_, fail = eval(fakeEnv)
-	assert.False(t, fail)
+	_, sev = eval(fakeEnv)
+	assert.Equal(t, diagnostics.OK, sev)
 	fakeEnv.FakeHistogram.Avg_Latest = 2.5
-	_, fail = eval(fakeEnv)
-	assert.True(t, fail)
+	_, sev = eval(fakeEnv)
+	assert.Equal(t, diagnostics.Debug, sev)
 }
 
 func TestStateDBCondition_Graveyard(t *testing.T) {
@@ -156,17 +156,17 @@ func TestStateDBCondition_Graveyard(t *testing.T) {
 	fakeEnv.FakeGauge.Avg_1h = 0.1
 
 	// Evaluate with a matching metric but below the threshold
-	msg, fail := eval(fakeEnv)
+	msg, sev := eval(fakeEnv)
 	assert.Regexp(t, `WriteTxn OK.*Graveyard OK`, msg)
-	assert.False(t, fail, "Succeed with metric below threshold")
+	assert.Equal(t, diagnostics.OK, sev, "Succeed with metric below threshold")
 
 	// Set the metrics above the threshold
 	fakeEnv.FakeGauge.Avg_1h = 2.0
 
 	// Evaluate with metric above the threshold
-	msg, fail = eval(fakeEnv)
+	msg, sev = eval(fakeEnv)
 	assert.Regexp(t, `WriteTxn OK.*Graveyard: Potentially stuck.*for \[table=foo\]`, msg)
-	assert.True(t, fail, "Fail with metric above threshold")
+	assert.Equal(t, diagnostics.Debug, sev, "Fail with metric above threshold")
 }
 
 func TestStateDBCondition_PendingInitializers(t *testing.T) {

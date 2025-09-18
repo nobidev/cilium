@@ -122,11 +122,11 @@ func (c *controller) evalLoop(ctx context.Context, health cell.Health) error {
 		// Evaluate the conditions
 		for cond := range c.Conditions.All(wtxn) {
 			cond.Latest.EvaluatedAt = now
-			cond.Latest.Message, cond.Latest.Failure = evalCondition(
+			cond.Latest.Message, cond.Latest.Severity = evalCondition(
 				env.use(&cond, now),
 				cond.Condition,
 			)
-			if cond.Latest.Failure {
+			if cond.Latest.Severity != OK {
 				cond.LastFailure = cond.Latest
 				cond.FailedCount++
 				totalFailures++
@@ -165,11 +165,11 @@ func (c *controller) evalLoop(ctx context.Context, health cell.Health) error {
 	}
 }
 
-func evalCondition(env Environment, cond Condition) (msg string, failed bool) {
+func evalCondition(env Environment, cond Condition) (msg string, severity Severity) {
 	defer func() {
 		if err := recover(); err != nil {
 			msg = fmt.Sprintf("panic: %s", err)
-			failed = true
+			severity = Debug
 		}
 	}()
 	return cond.Evaluator(env)
@@ -195,7 +195,7 @@ func (c *controller) writeStatusUpdate(fileEncoder *json.Encoder, txn statedb.Re
 	status.System = c.controllerParams.SystemID
 	status.TotalConditions = uint32(c.Conditions.NumObjects(txn))
 	for cond := range c.Conditions.All(txn) {
-		if !cond.Latest.Failure {
+		if cond.Latest.Severity == OK {
 			continue
 		}
 		status.FailingConditions = append(status.FailingConditions,

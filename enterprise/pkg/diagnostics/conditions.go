@@ -24,14 +24,12 @@ func newInternalConditions(m diagnosticMetrics, reg *Registry) (*internalConditi
 			ID:          "diagnostics_evaluation_duration",
 			SubSystem:   "Agent",
 			Description: "The evaluation of diagnostics conditions is taking longer than expected.",
-			Severity:    SeverityDebug,
 			Evaluator:   ic.checkEvaluationDuration,
 		},
 		Condition{
 			ID:          "diagnostics_simulated_failure",
 			SubSystem:   "Agent",
 			Description: "This is a simulated failure toggled by the 'diagnostics/toggle-fail' shell command.",
-			Severity:    SeverityDebug,
 			Evaluator:   ic.checkSimulatedFailure,
 		},
 	)
@@ -46,34 +44,34 @@ type internalConditions struct {
 	simulatedFailure atomic.Bool
 }
 
-func (ic *internalConditions) checkEvaluationDuration(env Environment) (Message, bool) {
+func (ic *internalConditions) checkEvaluationDuration(env Environment) (Message, Severity) {
 	stats, err := env.Histogram(
 		ic.m.ControllerDuration.Opts().ConfigName,
 		nil,
 	)
 	if err != nil {
-		return err.Error(), true
+		return err.Error(), Debug
 	}
 
 	// Worse than 3x the 24 hour average?
 	if stats.Avg_24h > 0.0 && stats.Avg_Latest > 3*stats.Avg_24h {
 		return fmt.Sprintf("Diagnostics evaluation taking %.2fs which is 3x the 24h average (%.2fs)",
 			stats.Avg_Latest,
-			stats.Avg_24h), true
+			stats.Avg_24h), Debug
 	}
 
 	// Worse than the fixed threshold?
 	if stats.Avg_Latest > evaluationThresholdSeconds {
 		return fmt.Sprintf("Diagnostic evaluation taking %.2fs (threshold %f)", stats.Avg_Latest, evaluationThresholdSeconds),
-			true
+			Debug
 	}
 
-	return "OK", false
+	return "OK", OK
 }
 
-func (ic *internalConditions) checkSimulatedFailure(env Environment) (Message, bool) {
+func (ic *internalConditions) checkSimulatedFailure(env Environment) (Message, Severity) {
 	if ic.simulatedFailure.Load() {
-		return "Simulated failure triggered", true
+		return "Simulated failure triggered", Debug
 	}
-	return "OK", false
+	return "OK", OK
 }

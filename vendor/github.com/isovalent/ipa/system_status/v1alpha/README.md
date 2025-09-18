@@ -10,6 +10,7 @@
     - [SystemMetadataUpdate](#system_status-v1alpha-SystemMetadataUpdate)
     - [SystemStatusEvent](#system_status-v1alpha-SystemStatusEvent)
     - [SystemStatusUpdate](#system_status-v1alpha-SystemStatusUpdate)
+    - [SystemStatusUpdate.ExtraDataEntry](#system_status-v1alpha-SystemStatusUpdate-ExtraDataEntry)
   
     - [Severity](#system_status-v1alpha-Severity)
   
@@ -33,7 +34,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | condition_id | [string](#string) |  | The identifier for the condition within a system |
-| severity | [Severity](#system_status-v1alpha-Severity) |  | Severity of the condition |
 | subsystem | [string](#string) |  | The sub-system that is impacted by the condition. This should be fairly high-level and user should be able to easily infer what functionality is being impacted. |
 | description | [string](#string) |  | A detailed description about the condition |
 | resolution | [string](#string) |  | An optional description on how to either mitigate or resolve the condition |
@@ -52,6 +52,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | condition_id | [string](#string) |  | Identifier to identify a condition within a system. For a globally unique identifier this must be paired with [SystemID]. |
+| severity | [Severity](#system_status-v1alpha-Severity) |  | Severity of the failure |
 | message | [string](#string) |  | Optional details on why the condition is failing |
 
 
@@ -130,6 +131,23 @@ on a particular node.
 | started_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | The local node time at which this system was started |
 | total_conditions | [uint32](#uint32) |  | The total number of evaluated diagnostic conditions |
 | failing_conditions | [FailingCondition](#system_status-v1alpha-FailingCondition) | repeated | The currently failing conditions |
+| extra_data | [SystemStatusUpdate.ExtraDataEntry](#system_status-v1alpha-SystemStatusUpdate-ExtraDataEntry) | repeated | Extra unstructured data to include in the status update. Each system may use this field to send arbitrary key value pairs as a part of the status update. It is up to each consumer of the status update to interpret or ignore this field. |
+
+
+
+
+
+
+<a name="system_status-v1alpha-SystemStatusUpdate-ExtraDataEntry"></a>
+
+### SystemStatusUpdate.ExtraDataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -146,10 +164,10 @@ on a particular node.
 | Name | Number | Description |
 | ---- | ------ | ----------- |
 | SEVERITY_UNSPECIFIED | 0 |  |
-| SEVERITY_DEBUG | 1 | Debug severity is for conditions that are not by default shown to the user, but can aid with debugging issues |
-| SEVERITY_MINOR | 2 | Minor severity is for conditions that are noteworthy, but have limited impact to the system. |
-| SEVERITY_MAJOR | 3 | Major severity is for conditions that have a clear impact to the functioning of the system. |
-| SEVERITY_CRITICAL | 4 | Critical severity is for conditions that have significant impact to the whole cluster. |
+| SEVERITY_DEBUG | 1 | Debug severity is for failures that are not by default shown to the user, but can aid with debugging issues |
+| SEVERITY_MINOR | 2 | Minor severity is for failures that are noteworthy, but have limited impact to the system. |
+| SEVERITY_MAJOR | 3 | Major severity is for failures that have a clear impact to the functioning of the system. |
+| SEVERITY_CRITICAL | 4 | Critical severity is for failures that have significant impact to the whole cluster. |
 
 
  

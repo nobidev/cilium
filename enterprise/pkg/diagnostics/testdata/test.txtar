@@ -33,13 +33,13 @@ sed '"FailedCount": \d+,' '"FailedCount": <not-zero>,' diagnostics-actual.json
 
 -- diagnostics.table --
 ID                              Failed  Latest                      LastFailure     Evaluator
-diagnostics_evaluation_duration 0       Succeeded 0s ago (OK)       <none>          diagnostics.(*internalConditions).checkEvaluationDuration
-diagnostics_simulated_failure   0       Succeeded 0s ago (OK)       <none>          diagnostics.(*internalConditions).checkSimulatedFailure
+diagnostics_evaluation_duration 0       Succeeded 0s ago: OK        <none>          diagnostics.(*internalConditions).checkEvaluationDuration
+diagnostics_simulated_failure   0       Succeeded 0s ago: OK        <none>          diagnostics.(*internalConditions).checkSimulatedFailure
 
 -- diagnostics_fail.table --
-ID                              Latest                                      LastFailure
-diagnostics_evaluation_duration Succeeded 0s ago (OK)                       <none>
-diagnostics_simulated_failure   Failed 0s ago: Simulated failure triggered  Failed 0s ago: Simulated failure triggered
+ID                              Latest                                              LastFailure
+diagnostics_evaluation_duration Succeeded 0s ago: OK                                <none>
+diagnostics_simulated_failure   Failed 0s ago (DEBUG): Simulated failure triggered  Failed 0s ago (DEBUG): Simulated failure triggered
 
 -- diagnostics.json --
 {
@@ -51,12 +51,12 @@ diagnostics_simulated_failure   Failed 0s ago: Simulated failure triggered  Fail
   "FailedCount": <zero>,
   "Latest": {
     "EvaluatedAt": <sanitized>,
-    "Failure": false,
+    "Severity": 0,
     "Message": "OK"
   },
   "LastFailure": {
     "EvaluatedAt": <sanitized>,
-    "Failure": false,
+    "Severity": 0,
     "Message": ""
   },
   "Samplers": [
@@ -94,12 +94,12 @@ diagnostics_simulated_failure   Failed 0s ago: Simulated failure triggered  Fail
   "FailedCount": <not-zero>,
   "Latest": {
     "EvaluatedAt": <sanitized>,
-    "Failure": true,
+    "Severity": 1,
     "Message": "Simulated failure triggered"
   },
   "LastFailure": {
     "EvaluatedAt": <sanitized>,
-    "Failure": true,
+    "Severity": 1,
     "Message": "Simulated failure triggered"
   },
   "Samplers": []

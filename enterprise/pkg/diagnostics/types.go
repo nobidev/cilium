@@ -64,9 +64,6 @@ type Condition struct {
 	// the issue.
 	Resolution string
 
-	// Severity of the condition
-	Severity Severity
-
 	// Evaluator is the function for evaluating whether the condition is
 	// triggered.
 	Evaluator Evaluator `json:"-" yaml:"-"`
@@ -96,8 +93,6 @@ func (c Condition) validate() error {
 		return fmt.Errorf("'SubSystem' must be specified")
 	case c.Description == "":
 		return fmt.Errorf("'Description' must be given")
-	case c.Severity == ipasys.Severity_SEVERITY_UNSPECIFIED:
-		return fmt.Errorf("'Severity' must be specified")
 	case c.Evaluator == nil:
 		return fmt.Errorf("'Evaluator' must be specified")
 	}
@@ -107,7 +102,6 @@ func (c Condition) validate() error {
 func (c Condition) toMetadata() *ipasys.ConditionMetadata {
 	return &ipasys.ConditionMetadata{
 		ConditionId: string(c.ID),
-		Severity:    c.Severity,
 		Subsystem:   c.SubSystem,
 		Description: c.Description,
 		Resolution:  c.Resolution,
@@ -118,10 +112,11 @@ type Severity = ipasys.Severity
 
 // Aliases for the severity levels
 const (
-	SeverityDebug    = ipasys.Severity_SEVERITY_DEBUG
-	SeverityMinor    = ipasys.Severity_SEVERITY_MINOR
-	SeverityMajor    = ipasys.Severity_SEVERITY_MAJOR
-	SeverityCritical = ipasys.Severity_SEVERITY_CRITICAL
+	OK       = ipasys.Severity_SEVERITY_UNSPECIFIED
+	Debug    = ipasys.Severity_SEVERITY_DEBUG
+	Minor    = ipasys.Severity_SEVERITY_MINOR
+	Major    = ipasys.Severity_SEVERITY_MAJOR
+	Critical = ipasys.Severity_SEVERITY_CRITICAL
 )
 
 // Evaluator is a function for evaluating a diagnostic condition.
@@ -130,7 +125,7 @@ const (
 // The evaluator is allowed to access other state, but it is encouraged
 // to avoid this if the information is available as a metric to keep
 // the evaluators simple and predictable.
-type Evaluator = func(Environment) (msg Message, failed bool)
+type Evaluator = func(Environment) (msg Message, severity ipasys.Severity)
 
 // Message is additional information about why the condition
 // has failed. This will be user-facing!
@@ -273,24 +268,18 @@ func (c ConditionStatus) TableHeader() []string {
 		"Failed",
 		"Latest",
 		"LastFailure",
-		"Samplers",
 		"Evaluator",
 	}
 }
 
 // TableRow implements statedb.TableWritable.
 func (c ConditionStatus) TableRow() []string {
-	var samplerStatus []string
-	for key, s := range c.Samplers.All() {
-		samplerStatus = append(samplerStatus, key+": "+s.Status())
-	}
 	return []string{
 		string(c.Condition.ID),
 		strconv.FormatInt(int64(c.TotalCount), 10),
 		strconv.FormatInt(int64(c.FailedCount), 10),
 		c.Latest.String(),
 		c.LastFailure.String(),
-		strings.Join(samplerStatus, ", "),
 		funcNameAndLocation(c.Condition.Evaluator),
 	}
 }
@@ -300,7 +289,7 @@ var _ statedb.TableWritable = ConditionStatus{}
 // Evaluation is the result of an condition evaluation.
 type Evaluation struct {
 	EvaluatedAt time.Time
-	Failure     bool
+	Severity    Severity
 	Message     Message
 }
 
@@ -310,12 +299,15 @@ func (e Evaluation) String() string {
 	}
 
 	var b strings.Builder
-	if e.Failure {
-		fmt.Fprintf(&b, "Failed %s ago: %s", duration.HumanDuration(time.Since(e.EvaluatedAt)), e.Message)
+
+	if e.Severity != OK {
+		sev := e.Severity.String()
+		sev, _ = strings.CutPrefix(sev, "SEVERITY_")
+		fmt.Fprintf(&b, "Failed %s ago (%s): %s", duration.HumanDuration(time.Since(e.EvaluatedAt)), sev, e.Message)
 	} else {
 		fmt.Fprintf(&b, "Succeeded %s ago", duration.HumanDuration(time.Since(e.EvaluatedAt)))
 		if e.Message != "" {
-			fmt.Fprintf(&b, " (%s)", e.Message)
+			fmt.Fprintf(&b, ": %s", e.Message)
 		}
 	}
 	return b.String()

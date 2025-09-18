@@ -46,6 +46,12 @@ message SystemStatusUpdate {
 
   // The currently failing conditions
   repeated FailingCondition failing_conditions = 6;
+
+  // Extra unstructured data to include in the status update. Each system may
+  // use this field to send arbitrary key value pairs as a part of the status
+  // update. It is up to each consumer of the status update to interpret or
+  // ignore this field.
+  map<string, string> extra_data = 7;
 }
 
 // System identifier
@@ -64,8 +70,11 @@ message FailingCondition {
   // [SystemID].
   string condition_id = 1;
 
+  // Severity of the failure
+  Severity severity = 2;
+
   // Optional details on why the condition is failing
-  string message = 2;
+  string message = 3;
 }
 
 // Update of the metadata associated with system's known conditions.
@@ -88,9 +97,6 @@ message ConditionMetadata {
   // The identifier for the condition within a system
   string condition_id = 1;
 
-  // Severity of the condition
-  Severity severity = 2;
-
   // The sub-system that is impacted by the condition. This should be
   // fairly high-level and user should be able to easily infer what
   // functionality is being impacted.
@@ -107,19 +113,19 @@ message ConditionMetadata {
 enum Severity {
   SEVERITY_UNSPECIFIED = 0;
 
-  // Debug severity is for conditions that are not by default shown to the
+  // Debug severity is for failures that are not by default shown to the
   // user, but can aid with debugging issues
   SEVERITY_DEBUG = 1;
 
-  // Minor severity is for conditions that are noteworthy, but have limited
+  // Minor severity is for failures that are noteworthy, but have limited
   // impact to the system.
   SEVERITY_MINOR = 2;
 
-  // Major severity is for conditions that have a clear impact to the
+  // Major severity is for failures that have a clear impact to the
   // functioning of the system.
   SEVERITY_MAJOR = 3;
 
-  // Critical severity is for conditions that have significant impact to
+  // Critical severity is for failures that have significant impact to
   // the whole cluster.
   SEVERITY_CRITICAL = 4;
 }

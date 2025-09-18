@@ -36,16 +36,16 @@ type Severity int32
 
 const (
 	Severity_SEVERITY_UNSPECIFIED Severity = 0
-	// Debug severity is for conditions that are not by default shown to the
+	// Debug severity is for failures that are not by default shown to the
 	// user, but can aid with debugging issues
 	Severity_SEVERITY_DEBUG Severity = 1
-	// Minor severity is for conditions that are noteworthy, but have limited
+	// Minor severity is for failures that are noteworthy, but have limited
 	// impact to the system.
 	Severity_SEVERITY_MINOR Severity = 2
-	// Major severity is for conditions that have a clear impact to the
+	// Major severity is for failures that have a clear impact to the
 	// functioning of the system.
 	Severity_SEVERITY_MAJOR Severity = 3
-	// Critical severity is for conditions that have significant impact to
+	// Critical severity is for failures that have significant impact to
 	// the whole cluster.
 	Severity_SEVERITY_CRITICAL Severity = 4
 )
@@ -203,8 +203,13 @@ type SystemStatusUpdate struct {
 	TotalConditions uint32 `protobuf:"varint,5,opt,name=total_conditions,json=totalConditions,proto3" json:"total_conditions,omitempty"`
 	// The currently failing conditions
 	FailingConditions []*FailingCondition `protobuf:"bytes,6,rep,name=failing_conditions,json=failingConditions,proto3" json:"failing_conditions,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Extra unstructured data to include in the status update. Each system may
+	// use this field to send arbitrary key value pairs as a part of the status
+	// update. It is up to each consumer of the status update to interpret or
+	// ignore this field.
+	ExtraData     map[string]string `protobuf:"bytes,7,rep,name=extra_data,json=extraData,proto3" json:"extra_data,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SystemStatusUpdate) Reset() {
@@ -279,6 +284,13 @@ func (x *SystemStatusUpdate) GetFailingConditions() []*FailingCondition {
 	return nil
 }
 
+func (x *SystemStatusUpdate) GetExtraData() map[string]string {
+	if x != nil {
+		return x.ExtraData
+	}
+	return nil
+}
+
 // System identifier
 type SystemID struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -341,8 +353,10 @@ type FailingCondition struct {
 	// For a globally unique identifier this must be paired with
 	// [SystemID].
 	ConditionId string `protobuf:"bytes,1,opt,name=condition_id,json=conditionId,proto3" json:"condition_id,omitempty"`
+	// Severity of the failure
+	Severity Severity `protobuf:"varint,2,opt,name=severity,proto3,enum=system_status.v1alpha.Severity" json:"severity,omitempty"`
 	// Optional details on why the condition is failing
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -382,6 +396,13 @@ func (x *FailingCondition) GetConditionId() string {
 		return x.ConditionId
 	}
 	return ""
+}
+
+func (x *FailingCondition) GetSeverity() Severity {
+	if x != nil {
+		return x.Severity
+	}
+	return Severity_SEVERITY_UNSPECIFIED
 }
 
 func (x *FailingCondition) GetMessage() string {
@@ -457,8 +478,6 @@ type ConditionMetadata struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The identifier for the condition within a system
 	ConditionId string `protobuf:"bytes,1,opt,name=condition_id,json=conditionId,proto3" json:"condition_id,omitempty"`
-	// Severity of the condition
-	Severity Severity `protobuf:"varint,2,opt,name=severity,proto3,enum=system_status.v1alpha.Severity" json:"severity,omitempty"`
 	// The sub-system that is impacted by the condition. This should be
 	// fairly high-level and user should be able to easily infer what
 	// functionality is being impacted.
@@ -509,13 +528,6 @@ func (x *ConditionMetadata) GetConditionId() string {
 	return ""
 }
 
-func (x *ConditionMetadata) GetSeverity() Severity {
-	if x != nil {
-		return x.Severity
-	}
-	return Severity_SEVERITY_UNSPECIFIED
-}
-
 func (x *ConditionMetadata) GetSubsystem() string {
 	if x != nil {
 		return x.Subsystem
@@ -546,7 +558,7 @@ const file_system_status_v1alpha_system_status_proto_rawDesc = "" +
 	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12C\n" +
 	"\x06status\x18\x02 \x01(\v2).system_status.v1alpha.SystemStatusUpdateH\x00R\x06status\x12I\n" +
 	"\bmetadata\x18\x03 \x01(\v2+.system_status.v1alpha.SystemMetadataUpdateH\x00R\bmetadataB\a\n" +
-	"\x05event\"\xcb\x02\n" +
+	"\x05event\"\xe2\x03\n" +
 	"\x12SystemStatusUpdate\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x1b\n" +
 	"\tnode_name\x18\x02 \x01(\tR\bnodeName\x127\n" +
@@ -554,21 +566,26 @@ const file_system_status_v1alpha_system_status_proto_rawDesc = "" +
 	"\n" +
 	"started_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12)\n" +
 	"\x10total_conditions\x18\x05 \x01(\rR\x0ftotalConditions\x12V\n" +
-	"\x12failing_conditions\x18\x06 \x03(\v2'.system_status.v1alpha.FailingConditionR\x11failingConditions\"8\n" +
+	"\x12failing_conditions\x18\x06 \x03(\v2'.system_status.v1alpha.FailingConditionR\x11failingConditions\x12W\n" +
+	"\n" +
+	"extra_data\x18\a \x03(\v28.system_status.v1alpha.SystemStatusUpdate.ExtraDataEntryR\textraData\x1a<\n" +
+	"\x0eExtraDataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"8\n" +
 	"\bSystemID\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion\"O\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\"\x8c\x01\n" +
 	"\x10FailingCondition\x12!\n" +
-	"\fcondition_id\x18\x01 \x01(\tR\vconditionId\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\x99\x01\n" +
+	"\fcondition_id\x18\x01 \x01(\tR\vconditionId\x12;\n" +
+	"\bseverity\x18\x02 \x01(\x0e2\x1f.system_status.v1alpha.SeverityR\bseverity\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"\x99\x01\n" +
 	"\x14SystemMetadataUpdate\x127\n" +
 	"\x06system\x18\x01 \x01(\v2\x1f.system_status.v1alpha.SystemIDR\x06system\x12H\n" +
 	"\n" +
 	"conditions\x18\x02 \x03(\v2(.system_status.v1alpha.ConditionMetadataR\n" +
-	"conditions\"\xd3\x01\n" +
+	"conditions\"\x96\x01\n" +
 	"\x11ConditionMetadata\x12!\n" +
-	"\fcondition_id\x18\x01 \x01(\tR\vconditionId\x12;\n" +
-	"\bseverity\x18\x02 \x01(\x0e2\x1f.system_status.v1alpha.SeverityR\bseverity\x12\x1c\n" +
+	"\fcondition_id\x18\x01 \x01(\tR\vconditionId\x12\x1c\n" +
 	"\tsubsystem\x18\x03 \x01(\tR\tsubsystem\x12 \n" +
 	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x1e\n" +
 	"\n" +
@@ -594,7 +611,7 @@ func file_system_status_v1alpha_system_status_proto_rawDescGZIP() []byte {
 }
 
 var file_system_status_v1alpha_system_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_system_status_v1alpha_system_status_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_system_status_v1alpha_system_status_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_system_status_v1alpha_system_status_proto_goTypes = []any{
 	(Severity)(0),                 // 0: system_status.v1alpha.Severity
 	(*SystemStatusEvent)(nil),     // 1: system_status.v1alpha.SystemStatusEvent
@@ -603,23 +620,25 @@ var file_system_status_v1alpha_system_status_proto_goTypes = []any{
 	(*FailingCondition)(nil),      // 4: system_status.v1alpha.FailingCondition
 	(*SystemMetadataUpdate)(nil),  // 5: system_status.v1alpha.SystemMetadataUpdate
 	(*ConditionMetadata)(nil),     // 6: system_status.v1alpha.ConditionMetadata
-	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
+	nil,                           // 7: system_status.v1alpha.SystemStatusUpdate.ExtraDataEntry
+	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
 }
 var file_system_status_v1alpha_system_status_proto_depIdxs = []int32{
-	7, // 0: system_status.v1alpha.SystemStatusEvent.time:type_name -> google.protobuf.Timestamp
-	2, // 1: system_status.v1alpha.SystemStatusEvent.status:type_name -> system_status.v1alpha.SystemStatusUpdate
-	5, // 2: system_status.v1alpha.SystemStatusEvent.metadata:type_name -> system_status.v1alpha.SystemMetadataUpdate
-	3, // 3: system_status.v1alpha.SystemStatusUpdate.system:type_name -> system_status.v1alpha.SystemID
-	7, // 4: system_status.v1alpha.SystemStatusUpdate.started_at:type_name -> google.protobuf.Timestamp
-	4, // 5: system_status.v1alpha.SystemStatusUpdate.failing_conditions:type_name -> system_status.v1alpha.FailingCondition
-	3, // 6: system_status.v1alpha.SystemMetadataUpdate.system:type_name -> system_status.v1alpha.SystemID
-	6, // 7: system_status.v1alpha.SystemMetadataUpdate.conditions:type_name -> system_status.v1alpha.ConditionMetadata
-	0, // 8: system_status.v1alpha.ConditionMetadata.severity:type_name -> system_status.v1alpha.Severity
-	9, // [9:9] is the sub-list for method output_type
-	9, // [9:9] is the sub-list for method input_type
-	9, // [9:9] is the sub-list for extension type_name
-	9, // [9:9] is the sub-list for extension extendee
-	0, // [0:9] is the sub-list for field type_name
+	8,  // 0: system_status.v1alpha.SystemStatusEvent.time:type_name -> google.protobuf.Timestamp
+	2,  // 1: system_status.v1alpha.SystemStatusEvent.status:type_name -> system_status.v1alpha.SystemStatusUpdate
+	5,  // 2: system_status.v1alpha.SystemStatusEvent.metadata:type_name -> system_status.v1alpha.SystemMetadataUpdate
+	3,  // 3: system_status.v1alpha.SystemStatusUpdate.system:type_name -> system_status.v1alpha.SystemID
+	8,  // 4: system_status.v1alpha.SystemStatusUpdate.started_at:type_name -> google.protobuf.Timestamp
+	4,  // 5: system_status.v1alpha.SystemStatusUpdate.failing_conditions:type_name -> system_status.v1alpha.FailingCondition
+	7,  // 6: system_status.v1alpha.SystemStatusUpdate.extra_data:type_name -> system_status.v1alpha.SystemStatusUpdate.ExtraDataEntry
+	0,  // 7: system_status.v1alpha.FailingCondition.severity:type_name -> system_status.v1alpha.Severity
+	3,  // 8: system_status.v1alpha.SystemMetadataUpdate.system:type_name -> system_status.v1alpha.SystemID
+	6,  // 9: system_status.v1alpha.SystemMetadataUpdate.conditions:type_name -> system_status.v1alpha.ConditionMetadata
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_system_status_v1alpha_system_status_proto_init() }
@@ -637,7 +656,7 @@ func file_system_status_v1alpha_system_status_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_system_status_v1alpha_system_status_proto_rawDesc), len(file_system_status_v1alpha_system_status_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
