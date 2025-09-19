@@ -35,6 +35,7 @@ runs:
           tags:
            usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
            owner: "${{ inputs.owner }}"
+           svic_osquery_supported: "no"
 
         managedNodeGroups:
         - name: ng-amd64
@@ -64,7 +65,3 @@ runs:
         EOF
 
         eksctl create nodegroup -f ./eks-nodegroups.yaml
-
-    - name: Add SVIC tags
-      shell: bash
-      run: ${{ github.action_path }}/svic-tags.sh ${{ inputs.cluster_name }} ${{ inputs.region }}
