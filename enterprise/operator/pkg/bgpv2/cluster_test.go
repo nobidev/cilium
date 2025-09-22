@@ -887,10 +887,14 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 						LocalASN: ptr.To(int64(65000)),
 						// TODO: Specify port
 						RouteReflector: &v1.RouteReflector{
-							Role:      role,
-							ClusterID: clusterID,
-							PeerConfigRef: &v1.PeerConfigReference{
-								Name: clusterID + "-peer-config",
+							Role:                 role,
+							ClusterID:            clusterID,
+							PeeringAddressFamily: ptr.To(v1.RouteReflectorPeeringAddressFamilyDual),
+							PeerConfigRefV4: &v1.PeerConfigReference{
+								Name: clusterID + "-peer-config-v4",
+							},
+							PeerConfigRefV6: &v1.PeerConfigReference{
+								Name: clusterID + "-peer-config-v6",
 							},
 						},
 					},
@@ -899,7 +903,7 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 		}
 	}
 
-	newNode := func(name string, rrRole v1.RouteReflectorRole, clusterID, ip string) *cilium_v2.CiliumNode {
+	newNode := func(name string, rrRole v1.RouteReflectorRole, clusterID, ipv4, ipv6 string) *cilium_v2.CiliumNode {
 		return &cilium_v2.CiliumNode{
 			ObjectMeta: meta_v1.ObjectMeta{
 				Name: name,
@@ -912,7 +916,11 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 				Addresses: []cilium_v2.NodeAddress{
 					{
 						Type: addressing.NodeInternalIP,
-						IP:   ip,
+						IP:   ipv4,
+					},
+					{
+						Type: addressing.NodeInternalIP,
+						IP:   ipv6,
 					},
 				},
 			},
@@ -934,19 +942,19 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 				newClusterConfig("clients", v1.RouteReflectorRoleClient, "255.0.0.1"),
 			},
 			nodes: []*cilium_v2.CiliumNode{
-				newNode("node0", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.0"),
-				newNode("node1", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.1"),
-				newNode("node2", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.2"),
-				newNode("node3", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.3"),
+				newNode("node0", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.0", "fd00:10::"),
+				newNode("node1", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.1", "fd00:10::1"),
+				newNode("node2", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.2", "fd00:10::2"),
+				newNode("node3", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.3", "fd00:10::3"),
 			},
 			expectedNodePeers: map[string][]v1.IsovalentBGPNodePeer{
 				"node0": {
 					{
-						Name:        "rr-client-node2-instance0",
+						Name:        "rr-client-node2-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.2"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleClient,
@@ -954,11 +962,23 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 						},
 					},
 					{
-						Name:        "rr-client-node3-instance0",
+						Name:        "rr-client-node2-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::2"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleClient,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-client-node3-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.3"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleClient,
@@ -966,11 +986,35 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 						},
 					},
 					{
-						Name:        "rr-route-reflector-node1-instance0",
+						Name:        "rr-client-node3-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::3"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleClient,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node1-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.1"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node1-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::1"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleRouteReflector,
@@ -980,11 +1024,11 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 				},
 				"node1": {
 					{
-						Name:        "rr-client-node2-instance0",
+						Name:        "rr-client-node2-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.2"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleClient,
@@ -992,11 +1036,23 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 						},
 					},
 					{
-						Name:        "rr-client-node3-instance0",
+						Name:        "rr-client-node2-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::2"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleClient,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-client-node3-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.3"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleClient,
@@ -1004,11 +1060,35 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 						},
 					},
 					{
-						Name:        "rr-route-reflector-node0-instance0",
+						Name:        "rr-client-node3-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::3"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleClient,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node0-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.0"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node0-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleRouteReflector,
@@ -1018,11 +1098,11 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 				},
 				"node2": {
 					{
-						Name:        "rr-route-reflector-node0-instance0",
+						Name:        "rr-route-reflector-node0-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.0"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleRouteReflector,
@@ -1030,11 +1110,35 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 						},
 					},
 					{
-						Name:        "rr-route-reflector-node1-instance0",
+						Name:        "rr-route-reflector-node0-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node1-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.1"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node1-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::1"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleRouteReflector,
@@ -1044,11 +1148,11 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 				},
 				"node3": {
 					{
-						Name:        "rr-route-reflector-node0-instance0",
+						Name:        "rr-route-reflector-node0-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.0"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleRouteReflector,
@@ -1056,11 +1160,35 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 						},
 					},
 					{
-						Name:        "rr-route-reflector-node1-instance0",
+						Name:        "rr-route-reflector-node0-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node1-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.1"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node1-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::1"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleRouteReflector,
@@ -1079,19 +1207,31 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 				newClusterConfig("clients-cluster1", v1.RouteReflectorRoleClient, "255.0.0.2"),
 			},
 			nodes: []*cilium_v2.CiliumNode{
-				newNode("node0", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.0"),
-				newNode("node1", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.1"),
-				newNode("node2", v1.RouteReflectorRoleRouteReflector, "255.0.0.2", "10.0.0.2"),
-				newNode("node3", v1.RouteReflectorRoleClient, "255.0.0.2", "10.0.0.3"),
+				newNode("node0", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.0", "fd00:10::"),
+				newNode("node1", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.1", "fd00:10::1"),
+				newNode("node2", v1.RouteReflectorRoleRouteReflector, "255.0.0.2", "10.0.0.2", "fd00:10::2"),
+				newNode("node3", v1.RouteReflectorRoleClient, "255.0.0.2", "10.0.0.3", "fd00:10::3"),
 			},
 			expectedNodePeers: map[string][]v1.IsovalentBGPNodePeer{
 				"node0": {
 					{
-						Name:        "rr-client-node1-instance0",
+						Name:        "rr-client-node1-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.1"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleClient,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-client-node1-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::1"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleClient,
@@ -1101,11 +1241,23 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 				},
 				"node1": {
 					{
-						Name:        "rr-route-reflector-node0-instance0",
+						Name:        "rr-route-reflector-node0-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.0"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node0-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleRouteReflector,
@@ -1115,11 +1267,23 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 				},
 				"node2": {
 					{
-						Name:        "rr-client-node3-instance0",
+						Name:        "rr-client-node3-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.3"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.2-peer-config",
+							Name: "255.0.0.2-peer-config-v4",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleClient,
+							ClusterID: "255.0.0.2",
+						},
+					},
+					{
+						Name:        "rr-client-node3-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::3"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.2-peer-config-v6",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleClient,
@@ -1129,11 +1293,23 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 				},
 				"node3": {
 					{
-						Name:        "rr-route-reflector-node2-instance0",
+						Name:        "rr-route-reflector-node2-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.2"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.2-peer-config",
+							Name: "255.0.0.2-peer-config-v4",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.2",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node2-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::2"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.2-peer-config-v6",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleRouteReflector,
@@ -1150,8 +1326,8 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 				newClusterConfig("clients", v1.RouteReflectorRoleClient, "255.0.0.1"),
 			},
 			nodes: []*cilium_v2.CiliumNode{
-				newNode("node0", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.0"),
-				newNode("node1", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.1"),
+				newNode("node0", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.0", "fd00:10::"),
+				newNode("node1", v1.RouteReflectorRoleClient, "255.0.0.1", "10.0.0.1", "fd00:10::1"),
 			},
 			expectedNodePeers: map[string][]v1.IsovalentBGPNodePeer{
 				"node0": nil,
@@ -1165,17 +1341,29 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 				newClusterConfig("clients", v1.RouteReflectorRoleClient, "255.0.0.1"),
 			},
 			nodes: []*cilium_v2.CiliumNode{
-				newNode("node0", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.0"),
-				newNode("node1", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.1"),
+				newNode("node0", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.0", "fd00:10::"),
+				newNode("node1", v1.RouteReflectorRoleRouteReflector, "255.0.0.1", "10.0.0.1", "fd00:10::1"),
 			},
 			expectedNodePeers: map[string][]v1.IsovalentBGPNodePeer{
 				"node0": {
 					{
-						Name:        "rr-route-reflector-node1-instance0",
+						Name:        "rr-route-reflector-node1-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.1"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node1-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::1"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleRouteReflector,
@@ -1185,11 +1373,23 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 				},
 				"node1": {
 					{
-						Name:        "rr-route-reflector-node0-instance0",
+						Name:        "rr-route-reflector-node0-instance0-v4",
 						PeerAddress: ptr.To("10.0.0.0"),
 						PeerASN:     ptr.To(int64(65000)),
 						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+							Name: "255.0.0.1-peer-config-v4",
+						},
+						RouteReflector: &v1.NodeRouteReflector{
+							Role:      v1.RouteReflectorRoleRouteReflector,
+							ClusterID: "255.0.0.1",
+						},
+					},
+					{
+						Name:        "rr-route-reflector-node0-instance0-v6",
+						PeerAddress: ptr.To("fd00:10::"),
+						PeerASN:     ptr.To(int64(65000)),
+						PeerConfigRef: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
 						},
 						RouteReflector: &v1.NodeRouteReflector{
 							Role:      v1.RouteReflectorRoleRouteReflector,
@@ -1203,7 +1403,7 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cache := populateReconcileCache(tt.clusterConfigs, []*v1.IsovalentBGPNodeConfig{}, tt.nodes, []*v1.IsovalentBGPNodeConfigOverride{})
+			cache := populateReconcileCache(tt.clusterConfigs, []*v1.IsovalentBGPNodeConfig{}, tt.nodes, []*v1.IsovalentBGPNodeConfigOverride{}, v1.RouteReflectorPeeringAddressFamilyDual)
 			for _, nodeConfig := range (&BGPResourceMapper{}).desiredNodeConfigs(cache) {
 				require.Equal(t, nodeConfig.Spec.BGPInstances[0].Peers, tt.expectedNodePeers[nodeConfig.Name])
 			}
@@ -1212,7 +1412,7 @@ func TestRRPeeringSingleInstance(t *testing.T) {
 }
 
 func TestRRPeeringMultiInstance(t *testing.T) {
-	newNode := func(name string, rrRole v1.RouteReflectorRole, ip string) *cilium_v2.CiliumNode {
+	newNode := func(name string, rrRole v1.RouteReflectorRole, ipv4, ipv6 string) *cilium_v2.CiliumNode {
 		return &cilium_v2.CiliumNode{
 			ObjectMeta: meta_v1.ObjectMeta{
 				Name: name,
@@ -1224,7 +1424,11 @@ func TestRRPeeringMultiInstance(t *testing.T) {
 				Addresses: []cilium_v2.NodeAddress{
 					{
 						Type: addressing.NodeInternalIP,
-						IP:   ip,
+						IP:   ipv4,
+					},
+					{
+						Type: addressing.NodeInternalIP,
+						IP:   ipv6,
 					},
 				},
 			},
@@ -1247,10 +1451,14 @@ func TestRRPeeringMultiInstance(t *testing.T) {
 					LocalASN: ptr.To(int64(65000)),
 					// TODO: Specify port
 					RouteReflector: &v1.RouteReflector{
-						Role:      v1.RouteReflectorRoleRouteReflector,
-						ClusterID: "255.0.0.1",
-						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+						Role:                 v1.RouteReflectorRoleRouteReflector,
+						ClusterID:            "255.0.0.1",
+						PeeringAddressFamily: ptr.To(v1.RouteReflectorPeeringAddressFamilyDual),
+						PeerConfigRefV4: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v4",
+						},
+						PeerConfigRefV6: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
 						},
 					},
 				},
@@ -1259,10 +1467,14 @@ func TestRRPeeringMultiInstance(t *testing.T) {
 					LocalASN: ptr.To(int64(65000)),
 					// TODO: Specify port
 					RouteReflector: &v1.RouteReflector{
-						Role:      v1.RouteReflectorRoleRouteReflector,
-						ClusterID: "255.0.0.2",
-						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.2-peer-config",
+						Role:                 v1.RouteReflectorRoleRouteReflector,
+						ClusterID:            "255.0.0.2",
+						PeeringAddressFamily: ptr.To(v1.RouteReflectorPeeringAddressFamilyDual),
+						PeerConfigRefV4: &v1.PeerConfigReference{
+							Name: "255.0.0.2-peer-config-v4",
+						},
+						PeerConfigRefV6: &v1.PeerConfigReference{
+							Name: "255.0.0.2-peer-config-v6",
 						},
 					},
 				},
@@ -1286,10 +1498,14 @@ func TestRRPeeringMultiInstance(t *testing.T) {
 					LocalASN: ptr.To(int64(65000)),
 					// TODO: Specify port
 					RouteReflector: &v1.RouteReflector{
-						Role:      v1.RouteReflectorRoleClient,
-						ClusterID: "255.0.0.2",
-						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.2-peer-config",
+						Role:                 v1.RouteReflectorRoleClient,
+						ClusterID:            "255.0.0.2",
+						PeeringAddressFamily: ptr.To(v1.RouteReflectorPeeringAddressFamilyDual),
+						PeerConfigRefV4: &v1.PeerConfigReference{
+							Name: "255.0.0.2-peer-config-v4",
+						},
+						PeerConfigRefV6: &v1.PeerConfigReference{
+							Name: "255.0.0.2-peer-config-v6",
 						},
 					},
 				},
@@ -1298,10 +1514,14 @@ func TestRRPeeringMultiInstance(t *testing.T) {
 					LocalASN: ptr.To(int64(65000)),
 					// TODO: Specify port
 					RouteReflector: &v1.RouteReflector{
-						Role:      v1.RouteReflectorRoleClient,
-						ClusterID: "255.0.0.1",
-						PeerConfigRef: &v1.PeerConfigReference{
-							Name: "255.0.0.1-peer-config",
+						Role:                 v1.RouteReflectorRoleClient,
+						ClusterID:            "255.0.0.1",
+						PeeringAddressFamily: ptr.To(v1.RouteReflectorPeeringAddressFamilyDual),
+						PeerConfigRefV4: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v4",
+						},
+						PeerConfigRefV6: &v1.PeerConfigReference{
+							Name: "255.0.0.1-peer-config-v6",
 						},
 					},
 				},
@@ -1314,11 +1534,23 @@ func TestRRPeeringMultiInstance(t *testing.T) {
 		"node0": {
 			"instance0": {
 				{
-					Name:        "rr-client-node1-instance1",
+					Name:        "rr-client-node1-instance1-v4",
 					PeerAddress: ptr.To("10.0.0.1"),
 					PeerASN:     ptr.To(int64(65000)),
 					PeerConfigRef: &v1.PeerConfigReference{
-						Name: "255.0.0.1-peer-config",
+						Name: "255.0.0.1-peer-config-v4",
+					},
+					RouteReflector: &v1.NodeRouteReflector{
+						Role:      v1.RouteReflectorRoleClient,
+						ClusterID: "255.0.0.1",
+					},
+				},
+				{
+					Name:        "rr-client-node1-instance1-v6",
+					PeerAddress: ptr.To("fd00:10::1"),
+					PeerASN:     ptr.To(int64(65000)),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "255.0.0.1-peer-config-v6",
 					},
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleClient,
@@ -1328,11 +1560,23 @@ func TestRRPeeringMultiInstance(t *testing.T) {
 			},
 			"instance1": {
 				{
-					Name:        "rr-client-node1-instance0",
+					Name:        "rr-client-node1-instance0-v4",
 					PeerAddress: ptr.To("10.0.0.1"),
 					PeerASN:     ptr.To(int64(65000)),
 					PeerConfigRef: &v1.PeerConfigReference{
-						Name: "255.0.0.2-peer-config",
+						Name: "255.0.0.2-peer-config-v4",
+					},
+					RouteReflector: &v1.NodeRouteReflector{
+						Role:      v1.RouteReflectorRoleClient,
+						ClusterID: "255.0.0.2",
+					},
+				},
+				{
+					Name:        "rr-client-node1-instance0-v6",
+					PeerAddress: ptr.To("fd00:10::1"),
+					PeerASN:     ptr.To(int64(65000)),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "255.0.0.2-peer-config-v6",
 					},
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleClient,
@@ -1344,11 +1588,23 @@ func TestRRPeeringMultiInstance(t *testing.T) {
 		"node1": {
 			"instance0": {
 				{
-					Name:        "rr-route-reflector-node0-instance1",
+					Name:        "rr-route-reflector-node0-instance1-v4",
 					PeerAddress: ptr.To("10.0.0.0"),
 					PeerASN:     ptr.To(int64(65000)),
 					PeerConfigRef: &v1.PeerConfigReference{
-						Name: "255.0.0.2-peer-config",
+						Name: "255.0.0.2-peer-config-v4",
+					},
+					RouteReflector: &v1.NodeRouteReflector{
+						Role:      v1.RouteReflectorRoleRouteReflector,
+						ClusterID: "255.0.0.2",
+					},
+				},
+				{
+					Name:        "rr-route-reflector-node0-instance1-v6",
+					PeerAddress: ptr.To("fd00:10::"),
+					PeerASN:     ptr.To(int64(65000)),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "255.0.0.2-peer-config-v6",
 					},
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleRouteReflector,
@@ -1358,11 +1614,23 @@ func TestRRPeeringMultiInstance(t *testing.T) {
 			},
 			"instance1": {
 				{
-					Name:        "rr-route-reflector-node0-instance0",
+					Name:        "rr-route-reflector-node0-instance0-v4",
 					PeerAddress: ptr.To("10.0.0.0"),
 					PeerASN:     ptr.To(int64(65000)),
 					PeerConfigRef: &v1.PeerConfigReference{
-						Name: "255.0.0.1-peer-config",
+						Name: "255.0.0.1-peer-config-v4",
+					},
+					RouteReflector: &v1.NodeRouteReflector{
+						Role:      v1.RouteReflectorRoleRouteReflector,
+						ClusterID: "255.0.0.1",
+					},
+				},
+				{
+					Name:        "rr-route-reflector-node0-instance0-v6",
+					PeerAddress: ptr.To("fd00:10::"),
+					PeerASN:     ptr.To(int64(65000)),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "255.0.0.1-peer-config-v6",
 					},
 					RouteReflector: &v1.NodeRouteReflector{
 						Role:      v1.RouteReflectorRoleRouteReflector,
@@ -1373,14 +1641,15 @@ func TestRRPeeringMultiInstance(t *testing.T) {
 		},
 	}
 
-	node0 := newNode("node0", v1.RouteReflectorRoleRouteReflector, "10.0.0.0")
-	node1 := newNode("node1", v1.RouteReflectorRoleClient, "10.0.0.1")
+	node0 := newNode("node0", v1.RouteReflectorRoleRouteReflector, "10.0.0.0", "fd00:10::")
+	node1 := newNode("node1", v1.RouteReflectorRoleClient, "10.0.0.1", "fd00:10::1")
 
 	cache := populateReconcileCache(
 		[]*v1.IsovalentBGPClusterConfig{&rrClusterConfig, &clientClusterConfig},
 		[]*v1.IsovalentBGPNodeConfig{},
 		[]*cilium_v2.CiliumNode{node0, node1},
 		[]*v1.IsovalentBGPNodeConfigOverride{},
+		v1.RouteReflectorPeeringAddressFamilyDual,
 	)
 	for _, nodeConfig := range (&BGPResourceMapper{}).desiredNodeConfigs(cache) {
 		for _, instance := range nodeConfig.Spec.BGPInstances {

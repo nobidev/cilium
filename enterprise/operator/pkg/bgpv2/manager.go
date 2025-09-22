@@ -71,6 +71,9 @@ type BGPResourceMapper struct {
 
 	// toggle status reporting
 	enableStatusReporting bool
+
+	// Default RR peering mode
+	defaultRRPeeringAddressFamily v1.RouteReflectorPeeringAddressFamily
 }
 
 type BGPResourceManagerParams struct {
@@ -123,6 +126,15 @@ func RegisterBGPResourceMapper(in BGPResourceManagerParams) error {
 		vrf:                   in.VRF,
 		vrfConfig:             in.VRFConfig,
 		enableStatusReporting: in.Config.StatusReportEnabled,
+	}
+
+	switch {
+	case in.DaemonCfg.EnableIPv4 && !in.DaemonCfg.EnableIPv6:
+		m.defaultRRPeeringAddressFamily = v1.RouteReflectorPeeringAddressFamilyIPv4Only
+	case !in.DaemonCfg.EnableIPv4 && in.DaemonCfg.EnableIPv6:
+		m.defaultRRPeeringAddressFamily = v1.RouteReflectorPeeringAddressFamilyIPv6Only
+	case in.DaemonCfg.EnableIPv4 && in.DaemonCfg.EnableIPv6:
+		m.defaultRRPeeringAddressFamily = v1.RouteReflectorPeeringAddressFamilyDual
 	}
 
 	in.Jobs.Add(

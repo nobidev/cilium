@@ -48,6 +48,7 @@ func populateReconcileCache(
 	nodeConfigs []*v1.IsovalentBGPNodeConfig,
 	nodes []*v2.CiliumNode,
 	overrides []*v1.IsovalentBGPNodeConfigOverride,
+	defaultRRPeeringAddressFamily v1.RouteReflectorPeeringAddressFamily,
 ) *reconcileCache {
 	cache := &reconcileCache{
 		ClusterConfigsByName:            make(map[string]*v1.IsovalentBGPClusterConfig),
@@ -150,7 +151,7 @@ func populateReconcileCache(
 			for _, node := range cache.NodesByClusterConfigName[clusterConfig.Name] {
 				cluster, found := cache.RouteReflectorClusters[instance.RouteReflector.ClusterID]
 				if !found {
-					cluster = newRRCluster()
+					cluster = newRRCluster(defaultRRPeeringAddressFamily)
 					cache.RouteReflectorClusters[instance.RouteReflector.ClusterID] = cluster
 				}
 				cluster.AddInstance(node, &instance)
@@ -179,7 +180,7 @@ func (m *BGPResourceMapper) reconcileClusterConfigs(ctx context.Context) error {
 		return err
 	}
 
-	cache := populateReconcileCache(clusterConfigs, nodeConfigs, nodes, overrides)
+	cache := populateReconcileCache(clusterConfigs, nodeConfigs, nodes, overrides, m.defaultRRPeeringAddressFamily)
 
 	// Update/Delete NodeConfigs
 	if err = m.reconcileNodeConfigs(ctx, cache); err != nil {
