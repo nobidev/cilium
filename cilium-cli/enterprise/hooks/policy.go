@@ -31,11 +31,15 @@ var (
 	client2Label = map[string]string{"name": "client2"}
 )
 
+// orderedPolicyVersion is the version ranges that support ordered policy.
+// This is <1.19 because main-ce does not support ordered policy
+const orderedPolicyVersion = ">=1.17.0 < 1.19.0"
+
 func (ec *EnterpriseConnectivity) addOrderedPolicyTests(ct *check.ConnectivityTest, templates map[string]string) error {
 	test := check.NewTest("ordered-policy-ns", ct.Params().Verbose, ct.Params().Debug)
 	ct.AddTest(test).
 		WithResources(templates["clientIngressToEchoOrderedNS"]).
-		WithCiliumVersion(">=1.17.0 < 1.18.0"). // TODO: update this when main-ce gets ordered policy
+		WithCiliumVersion(orderedPolicyVersion).
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
 			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
@@ -50,7 +54,7 @@ func (ec *EnterpriseConnectivity) addOrderedPolicyTests(ct *check.ConnectivityTe
 	test2 := check.NewTest("ordered-policy-wildcard", ct.Params().Verbose, ct.Params().Debug)
 	ct.AddTest(test2).
 		WithResources(templates["clientIngressToEchoOrderedWildcard"]).
-		WithCiliumVersion(">=1.17.0 < 1.18.0"). // TODO: update this when main-ce gets ordered policy
+		WithCiliumVersion(orderedPolicyVersion).
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
 			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
