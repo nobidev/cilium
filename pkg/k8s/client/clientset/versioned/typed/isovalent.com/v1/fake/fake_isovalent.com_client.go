@@ -35,8 +35,16 @@ func (c *FakeIsovalentV1) IsovalentBGPPeerConfigs() v1.IsovalentBGPPeerConfigInt
 	return newFakeIsovalentBGPPeerConfigs(c)
 }
 
+func (c *FakeIsovalentV1) IsovalentClusterwideNetworkPolicies() v1.IsovalentClusterwideNetworkPolicyInterface {
+	return newFakeIsovalentClusterwideNetworkPolicies(c)
+}
+
 func (c *FakeIsovalentV1) IsovalentEgressGatewayPolicies() v1.IsovalentEgressGatewayPolicyInterface {
 	return newFakeIsovalentEgressGatewayPolicies(c)
+}
+
+func (c *FakeIsovalentV1) IsovalentNetworkPolicies(namespace string) v1.IsovalentNetworkPolicyInterface {
+	return newFakeIsovalentNetworkPolicies(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -41,6 +41,14 @@ const (
 	IsovalentBGPAdvertisementName      = IsovalentBGPAdvertisementPluralName + "." + CustomResourceDefinitionGroup
 	IsovalentBGPNodeConfigName         = IsovalentBGPNodeConfigPluralName + "." + CustomResourceDefinitionGroup
 	IsovalentBGPNodeConfigOverrideName = IsovalentBGPNodeConfigOverridePluralName + "." + CustomResourceDefinitionGroup
+
+	// Isovalent Network Policy (INP) and Isovalent Clusterwide Network Policy (ICNP)
+	IsovalentNetworkPolicyPluralName                = "isovalentnetworkpolicies"
+	IsovalentClusterwideNetworkPolicyPluralName     = "isovalentclusterwidenetworkpolicies"
+	IsovalentNetworkPolicyKindDefinition            = "IsovalentNetworkPolicy"
+	IsovalentClusterwideNetworkPolicyKindDefinition = "IsovalentClusterwideNetworkPolicy"
+	IsovalentNetworkPolicyName                      = IsovalentNetworkPolicyPluralName + "." + CustomResourceDefinitionGroup
+	IsovalentClusterwideNetworkPolicyName           = IsovalentClusterwideNetworkPolicyPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -96,6 +104,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&IsovalentBGPNodeConfigList{},
 		&IsovalentBGPNodeConfigOverride{},
 		&IsovalentBGPNodeConfigOverrideList{},
+		&IsovalentNetworkPolicy{},
+		&IsovalentNetworkPolicyList{},
+		&IsovalentClusterwideNetworkPolicy{},
+		&IsovalentClusterwideNetworkPolicyList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

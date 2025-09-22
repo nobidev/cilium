@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v1alpha1
+package v1
 
 import (
 	"encoding/json"
@@ -28,6 +28,7 @@ import (
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:printcolumn:JSONPath=".status.conditions[?(@.type=='Valid')].status",name="Valid",type=string
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 
 // IsovalentNetworkPolicy is a Kubernetes third-party resource with an extended
 // version of CiliumNetworkPolicy.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v1alpha1
+package v1
 
 import (
 	"fmt"
@@ -19,6 +19,7 @@ import (
 // +kubebuilder:resource:categories={cilium,ciliumpolicy,isovalent},singular="isovalentclusterwidenetworkpolicy",path="isovalentclusterwidenetworkpolicies",scope="Cluster",shortName={icnp}
 // +kubebuilder:printcolumn:JSONPath=".status.conditions[?(@.type=='Valid')].status",name="Valid",type=string
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 
 // IsovalentClusterwideNetworkPolicy is a Kubernetes third-party resource with an
 // modified version of IsovalentNetworkPolicy which is cluster scoped rather than

@@ -117,8 +117,12 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1().IsovalentBGPNodeConfigOverrides().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("isovalentbgppeerconfigs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1().IsovalentBGPPeerConfigs().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("isovalentclusterwidenetworkpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1().IsovalentClusterwideNetworkPolicies().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("isovalentegressgatewaypolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1().IsovalentEgressGatewayPolicies().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("isovalentnetworkpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1().IsovalentNetworkPolicies().Informer()}, nil
 
 		// Group=isovalent.com, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("clusterwideprivatenetworks"):

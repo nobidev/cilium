@@ -15,4 +15,8 @@ type IsovalentBGPNodeConfigOverrideExpansion interface{}
 
 type IsovalentBGPPeerConfigExpansion interface{}
 
+type IsovalentClusterwideNetworkPolicyExpansion interface{}
+
 type IsovalentEgressGatewayPolicyExpansion interface{}
+
+type IsovalentNetworkPolicyExpansion interface{}

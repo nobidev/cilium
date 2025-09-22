@@ -21,8 +21,12 @@ type Interface interface {
 	IsovalentBGPNodeConfigOverrides() IsovalentBGPNodeConfigOverrideInformer
 	// IsovalentBGPPeerConfigs returns a IsovalentBGPPeerConfigInformer.
 	IsovalentBGPPeerConfigs() IsovalentBGPPeerConfigInformer
+	// IsovalentClusterwideNetworkPolicies returns a IsovalentClusterwideNetworkPolicyInformer.
+	IsovalentClusterwideNetworkPolicies() IsovalentClusterwideNetworkPolicyInformer
 	// IsovalentEgressGatewayPolicies returns a IsovalentEgressGatewayPolicyInformer.
 	IsovalentEgressGatewayPolicies() IsovalentEgressGatewayPolicyInformer
+	// IsovalentNetworkPolicies returns a IsovalentNetworkPolicyInformer.
+	IsovalentNetworkPolicies() IsovalentNetworkPolicyInformer
 }
 
 type version struct {
@@ -61,7 +65,17 @@ func (v *version) IsovalentBGPPeerConfigs() IsovalentBGPPeerConfigInformer {
 	return &isovalentBGPPeerConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// IsovalentClusterwideNetworkPolicies returns a IsovalentClusterwideNetworkPolicyInformer.
+func (v *version) IsovalentClusterwideNetworkPolicies() IsovalentClusterwideNetworkPolicyInformer {
+	return &isovalentClusterwideNetworkPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // IsovalentEgressGatewayPolicies returns a IsovalentEgressGatewayPolicyInformer.
 func (v *version) IsovalentEgressGatewayPolicies() IsovalentEgressGatewayPolicyInformer {
 	return &isovalentEgressGatewayPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// IsovalentNetworkPolicies returns a IsovalentNetworkPolicyInformer.
+func (v *version) IsovalentNetworkPolicies() IsovalentNetworkPolicyInformer {
+	return &isovalentNetworkPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

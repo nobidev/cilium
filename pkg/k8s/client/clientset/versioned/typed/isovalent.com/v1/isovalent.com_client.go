@@ -20,7 +20,9 @@ type IsovalentV1Interface interface {
 	IsovalentBGPNodeConfigsGetter
 	IsovalentBGPNodeConfigOverridesGetter
 	IsovalentBGPPeerConfigsGetter
+	IsovalentClusterwideNetworkPoliciesGetter
 	IsovalentEgressGatewayPoliciesGetter
+	IsovalentNetworkPoliciesGetter
 }
 
 // IsovalentV1Client is used to interact with features provided by the isovalent.com group.
@@ -48,8 +50,16 @@ func (c *IsovalentV1Client) IsovalentBGPPeerConfigs() IsovalentBGPPeerConfigInte
 	return newIsovalentBGPPeerConfigs(c)
 }
 
+func (c *IsovalentV1Client) IsovalentClusterwideNetworkPolicies() IsovalentClusterwideNetworkPolicyInterface {
+	return newIsovalentClusterwideNetworkPolicies(c)
+}
+
 func (c *IsovalentV1Client) IsovalentEgressGatewayPolicies() IsovalentEgressGatewayPolicyInterface {
 	return newIsovalentEgressGatewayPolicies(c)
+}
+
+func (c *IsovalentV1Client) IsovalentNetworkPolicies(namespace string) IsovalentNetworkPolicyInterface {
+	return newIsovalentNetworkPolicies(c, namespace)
 }
 
 // NewForConfig creates a new IsovalentV1Client for the given config.
