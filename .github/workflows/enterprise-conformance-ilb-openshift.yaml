@@ -635,17 +635,21 @@ jobs:
                            --run '!^TestLabelBasedBackend_T1Only$' \
                            --run '!^TestNodeMaintenance_T2_T1T2_TCPProxy$' \
                            --run '!^TestNodeMaintenance_T2_T1T2_HTTP$' \
+                           --sysdump-on-failure \
+                           --sysdump-output-filename ilb-sysdump \
                            --verbose
 
-      - name: Collect sysdumps
+      - name: Download sysdump
         if: ${{ !success() && steps.cluster.outcome != 'skipped' }}
         shell: bash
         working-directory: ./cute/${{ steps.cute_config.outputs.dir }}
         run: |
           mkdir -p ./test-results
           cilium status -n cilium
-          cilium lb status -n cilium
-          cilium sysdump -n cilium --output-filename ./test-results/cilium-sysdump.dmp
+          scp -i ~/.ssh/ci_key \
+              -P ${{ env.test_vm_tunnel_port }} \
+              -o stricthostkeychecking=no \
+              ubuntu@localhost:ilb-sysdump.zip ./test-results/ilb-sysdump.zip
 
       # This is to work around the fact that relative paths in actions/upload-artifact@v3 are rooted
       # against the workspace, which causes an "Invalid pattern" if the CuTE repo dir is ".".
