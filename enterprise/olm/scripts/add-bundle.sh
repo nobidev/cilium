@@ -57,7 +57,7 @@ if [[ ! "${channel_entries}" =~ clife.v"${bundle_version}" ]]; then
     docker run --rm -v "${olm_dir}":/workdir --user "$(id -u):$(id -g)" mikefarah/yq:${yq_version} e -i "select (.schema == \"olm.channel\" and .name == \"${channel}\").entries = [{\"name\": \"clife.v${bundle_version}\"}]" /workdir/catalog-dev/index.yaml
   else
     # Retrieve the name of the last bundle in the channel
-    readarray channel_entries < <(docker run --rm -v "${olm_dir}":/workdir mikefarah/yq:${yq_version} -o=j -I=0 '.entries[]' /workdir/catalog-dev/index.yaml)
+    readarray channel_entries < <(docker run --rm -v "${olm_dir}":/workdir mikefarah/yq:${yq_version} -o=j -I=0 ". | select (.schema == \"olm.channel\" and .name == \"${channel}\") | .entries[]" /workdir/catalog-dev/index.yaml)
     printf "channel entries:\n"
     printf "%s" "${channel_entries[@]}"
     nb_entries=${#channel_entries[@]}
