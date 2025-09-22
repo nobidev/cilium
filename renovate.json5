@@ -83,6 +83,20 @@
       matchFileNames: [
         'enterprise/**/go.mod',
         'enterprise/**/go.sum',
+        '!enterprise/hubble-timescape/go.mod',
+        '!enterprise/hubble-timescape/go.sum',
+      ],
+      postUpdateOptions: [
+        // update source import paths on major updates
+        'gomodUpdateImportPaths',
+      ],
+    },
+    {
+      groupName: 'Hubble Timescape go dependencies',
+      groupSlug: 'hubble-timescape-go-deps',
+      matchFileNames: [
+        'enterprise/hubble-timescape/go.mod',
+        'enterprise/hubble-timescape/go.sum',
       ],
       postUpdateOptions: [
         // update source import paths on major updates
