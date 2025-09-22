@@ -282,9 +282,10 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) 
 		if r.Spec.NodeSelector.LabelSelector != nil {
 			return nil, NewErrParse("Invalid IsovalentNetworkPolicy spec: rule cannot have NodeSelector")
 		}
-		if err := r.Spec.SanitizeOrder(); err != nil {
-			return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy spec: %s", err))
+		if err := r.Spec.SanitizeINP(); err != nil {
+			return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
 		}
+
 		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, clusterName, namespace, name, uid)
 		retRules = append(retRules, cr)
 	}
@@ -294,7 +295,10 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) 
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
 
 			}
-			if err := rule.SanitizeOrder(); err != nil {
+			if r.Spec.NodeSelector.LabelSelector != nil {
+				return nil, NewErrParse("Invalid IsovalentNetworkPolicy spec: rule cannot have NodeSelector")
+			}
+			if err := r.Spec.SanitizeINP(); err != nil {
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
 			}
 			cr := rule.parseToIsovalentNetworkPolicyRule(logger, clusterName, namespace, name, uid)
@@ -305,7 +309,36 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) 
 	return retRules, nil
 }
 
-func (r *IsovalentNetworkPolicyRule) SanitizeOrder() error {
+func (r *IsovalentNetworkPolicyRule) Sanitize() error {
+	if err := r.Rule.Sanitize(); err != nil {
+		return err
+	}
+
+	for _, ingress := range r.Ingress {
+		if len(ingress.FromGroups) != 0 {
+			return errors.New("ingress.fromGroups is not supported in IsovalentNetworkPolicy")
+		}
+	}
+	for _, ingress := range r.IngressDeny {
+		if len(ingress.FromGroups) != 0 {
+			return errors.New("ingressDeny.fromGroups is not supported in IsovalentNetworkPolicy")
+		}
+	}
+	for _, egress := range r.Egress {
+		if len(egress.ToGroups) != 0 {
+			return errors.New("egress.toGroups is not supported in IsovalentNetworkPolicy")
+		}
+	}
+	for _, egress := range r.EgressDeny {
+		if len(egress.ToGroups) != 0 {
+			return errors.New("egressDeny.toGroups is not supported in IsovalentNetworkPolicy")
+		}
+	}
+	return nil
+}
+
+// SanitizeINP applies INP-only restrictions that do not apply to an ICNP.
+func (r *IsovalentNetworkPolicyRule) SanitizeINP() error {
 	if order := r.Order; order != nil && *order < 0 {
 		return errors.New("rule order must be ≥ 0")
 	}
