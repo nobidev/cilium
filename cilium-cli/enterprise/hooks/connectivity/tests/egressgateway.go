@@ -1649,13 +1649,19 @@ func configureBGPPeeringV1ForEGW(ctx context.Context, t *check.Test, ipFamily fe
 					RouteReflector: &v1.RouteReflector{
 						Role:      v1.RouteReflectorRoleRouteReflector,
 						ClusterID: egwBGPRRClusterID,
-						PeerConfigRef: &v1.PeerConfigReference{
-							Name: externalPeerConfig.Name,
-						},
 					},
 				},
 			},
 		},
+	}
+	if ipFamily == features.IPFamilyV4 {
+		rrClusterConfig.Spec.BGPInstances[0].RouteReflector.PeerConfigRefV4 = &v1.PeerConfigReference{
+			Name: rrCommonPeerConfig.Name,
+		}
+	} else {
+		rrClusterConfig.Spec.BGPInstances[0].RouteReflector.PeerConfigRefV6 = &v1.PeerConfigReference{
+			Name: rrCommonPeerConfig.Name,
+		}
 	}
 	for _, peerAddress := range Params.EgressGateway.PeerAddresses {
 		rrClusterConfig.Spec.BGPInstances[0].Peers = append(rrClusterConfig.Spec.BGPInstances[0].Peers,
@@ -1688,13 +1694,19 @@ func configureBGPPeeringV1ForEGW(ctx context.Context, t *check.Test, ipFamily fe
 					RouteReflector: &v1.RouteReflector{
 						Role:      v1.RouteReflectorRoleClient,
 						ClusterID: egwBGPRRClusterID,
-						PeerConfigRef: &v1.PeerConfigReference{
-							Name: rrCommonPeerConfig.Name,
-						},
 					},
 				},
 			},
 		},
+	}
+	if ipFamily == features.IPFamilyV4 {
+		clientClusterConfig.Spec.BGPInstances[0].RouteReflector.PeerConfigRefV4 = &v1.PeerConfigReference{
+			Name: rrCommonPeerConfig.Name,
+		}
+	} else {
+		clientClusterConfig.Spec.BGPInstances[0].RouteReflector.PeerConfigRefV6 = &v1.PeerConfigReference{
+			Name: rrCommonPeerConfig.Name,
+		}
 	}
 	_, err = client.IsovalentBGPClusterConfigs().Create(ctx, clientClusterConfig, metav1.CreateOptions{})
 	if err != nil {

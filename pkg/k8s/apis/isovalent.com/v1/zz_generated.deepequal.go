@@ -1203,10 +1203,26 @@ func (in *RouteReflector) DeepEqual(other *RouteReflector) bool {
 	if in.ClusterID != other.ClusterID {
 		return false
 	}
-	if (in.PeerConfigRef == nil) != (other.PeerConfigRef == nil) {
+	if (in.PeeringAddressFamily == nil) != (other.PeeringAddressFamily == nil) {
 		return false
-	} else if in.PeerConfigRef != nil {
-		if !in.PeerConfigRef.DeepEqual(other.PeerConfigRef) {
+	} else if in.PeeringAddressFamily != nil {
+		if *in.PeeringAddressFamily != *other.PeeringAddressFamily {
+			return false
+		}
+	}
+
+	if (in.PeerConfigRefV4 == nil) != (other.PeerConfigRefV4 == nil) {
+		return false
+	} else if in.PeerConfigRefV4 != nil {
+		if !in.PeerConfigRefV4.DeepEqual(other.PeerConfigRefV4) {
+			return false
+		}
+	}
+
+	if (in.PeerConfigRefV6 == nil) != (other.PeerConfigRefV6 == nil) {
+		return false
+	} else if in.PeerConfigRefV6 != nil {
+		if !in.PeerConfigRefV6.DeepEqual(other.PeerConfigRefV6) {
 			return false
 		}
 	}

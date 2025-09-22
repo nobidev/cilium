@@ -127,11 +127,38 @@ type RouteReflector struct {
 	// +kubebuilder:validation:Format=ipv4
 	ClusterID string `json:"clusterID"`
 
-	// PeerConfigRef is a reference to the IsovalentBGPPeerConfig when this
-	// instance peers with other peers in the same route reflector cluster.
+	// PeeringAddressFamily controls the way how route reflectors and
+	// clients make peering session(s). Available options are following:
+	//
+	// - IPv4Only: Makes single IPv4 peering session
+	// - IPv6Only: Makes single IPv6 peering session
+	// - Dual: Makes both IPv4 and IPv6 peering sessions
+	//
+	// If omitted, the default value will be selected based on the Cilium's
+	// configuration. When Cilium is configured as IPv4 single-stack or
+	// IPv6 single-stack, the default are `IPv4Only` and `IPv6Only`
+	// respectively. If Cilium is configured as dual-stack, the default is
+	// `Dual`.
 	//
 	// +kubebuilder:validation:Optional
-	PeerConfigRef *PeerConfigReference `json:"peerConfigRef,omitempty"`
+	// +kubebuilder:validation:Enum=IPv4Only;IPv6Only;Dual
+	PeeringAddressFamily *RouteReflectorPeeringAddressFamily `json:"peeringAddressFamily,omitempty"`
+
+	// PeerConfigRefV4 is a reference to the IsovalentBGPPeerConfig when
+	// this instance peers with other peers in the same route reflector
+	// cluster with IPv4. Only valid when the peeringAddressFamily is
+	// `IPv4Only` or `Dual`.
+	//
+	// +kubebuilder:validation:Optional
+	PeerConfigRefV4 *PeerConfigReference `json:"peerConfigRefV4,omitempty"`
+
+	// PeerConfigRefV6 is a reference to the IsovalentBGPPeerConfig when
+	// this instance peers with other peers in the same route reflector
+	// cluster with IPv6. Only valid when the peeringAddressFamily is
+	// `IPv6Only` or `Dual`.
+	//
+	// +kubebuilder:validation:Optional
+	PeerConfigRefV6 *PeerConfigReference `json:"peerConfigRefV6,omitempty"`
 }
 
 type RouteReflectorRole string
@@ -139,6 +166,14 @@ type RouteReflectorRole string
 const (
 	RouteReflectorRoleRouteReflector RouteReflectorRole = "route-reflector"
 	RouteReflectorRoleClient         RouteReflectorRole = "client"
+)
+
+type RouteReflectorPeeringAddressFamily string
+
+const (
+	RouteReflectorPeeringAddressFamilyIPv4Only RouteReflectorPeeringAddressFamily = "IPv4Only"
+	RouteReflectorPeeringAddressFamilyIPv6Only RouteReflectorPeeringAddressFamily = "IPv6Only"
+	RouteReflectorPeeringAddressFamilyDual     RouteReflectorPeeringAddressFamily = "Dual"
 )
 
 // IsovalentBGPPeer contains configuration for a BGP peer.
