@@ -92,18 +92,6 @@
       ],
     },
     {
-      groupName: 'Hubble Timescape go dependencies',
-      groupSlug: 'hubble-timescape-go-deps',
-      matchFileNames: [
-        'enterprise/hubble-timescape/go.mod',
-        'enterprise/hubble-timescape/go.sum',
-      ],
-      postUpdateOptions: [
-        // update source import paths on major updates
-        'gomodUpdateImportPaths',
-      ],
-    },
-    {
       groupName: 'Hubble CLI Enterprise',
       groupSlug: 'hubble-cli-ee',
       ignoreUnstable: false,
@@ -232,12 +220,25 @@
         'quay.io/isovalent/vector',
         'quay.io/isovalent/hubble-rbac',
         'quay.io/isovalent/hubble-timescape',
+        'quay.io/isovalent/hubble-timescape-lite',
         'quay.io/isovalent/hubble-timescape-ui',
         'quay.io/isovalent/hubble-k8s-exporter',
         'github.com/isovalent/hubble-timescape/api', // API go module needs to be updated at the same time for e2e to pass.
       ],
       reviewers: [
         'isovalent/hubble',
+      ],
+    },
+    {
+      // Group go updates with Hubble depenencies group
+      groupName: 'Hubble dependencies',
+      matchFileNames: [
+        'enterprise/hubble-timescape/go.mod',
+        'enterprise/hubble-timescape/go.sum',
+      ],
+      postUpdateOptions: [
+        // update source import paths on major updates
+        'gomodUpdateImportPaths',
       ],
     },
     {
