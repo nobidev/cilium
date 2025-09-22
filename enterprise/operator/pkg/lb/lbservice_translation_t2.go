@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	cilium_proxy_api "github.com/cilium/proxy/go/cilium/api"
 	cncf_xds_core_v3 "github.com/cncf/xds/go/xds/core/v3"
 	cncf_xds_matcher_v3 "github.com/cncf/xds/go/xds/type/matcher/v3"
 	envoy_config_accesslog_v3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -1900,6 +1901,19 @@ func (r *lbServiceT2Translator) toClusterHealthChecks(healthCheckConfig lbBacken
 		HealthyThreshold:             &wrapperspb.UInt32Value{Value: uint32(healthCheckConfig.healthyThreshold)},
 		UnhealthyThreshold:           &wrapperspb.UInt32Value{Value: uint32(healthCheckConfig.unhealthyThreshold)},
 		TransportSocketMatchCriteria: hcTransportSocketMatchCriteria,
+	}
+
+	if r.config.T1T2HealthCheck.T2EnvoyHCEventLoggingEnabled {
+		healthCheck.AlwaysLogHealthCheckFailures = true
+		healthCheck.AlwaysLogHealthCheckSuccess = true
+		healthCheck.EventLogger = []*envoy_config_core_v3.TypedExtensionConfig{
+			{
+				Name: "cilium.health_check.event_sink.pipe",
+				TypedConfig: toAny(&cilium_proxy_api.HealthCheckEventPipeSink{
+					Path: envoy.GetSocketDir(r.config.T1T2HealthCheck.T2EnvoyHCEventLoggingStateDir) + "/healthcheck_sink.sock",
+				}),
+			},
+		}
 	}
 
 	switch {

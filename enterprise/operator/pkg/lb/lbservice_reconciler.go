@@ -113,6 +113,8 @@ type reconcilerT1T2HealthCheckConfig struct {
 	T1ProbeHttpMethod                  string
 	T1ProbeHttpUserAgentPrefix         string
 	T2ProbeMinHealthyBackendPercentage uint
+	T2EnvoyHCEventLoggingEnabled       bool
+	T2EnvoyHCEventLoggingStateDir      string
 }
 
 type reconcilerOriginalIPDetectionConfig struct {

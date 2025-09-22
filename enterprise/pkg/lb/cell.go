@@ -13,6 +13,7 @@ package lb
 import (
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/enterprise/pkg/lb/envoyhealthcheck"
 	"github.com/cilium/cilium/enterprise/pkg/lb/envoyhealthsync"
 	flowlogs "github.com/cilium/cilium/enterprise/pkg/lb/flowlogs"
 	"github.com/cilium/cilium/enterprise/pkg/lb/metrics"
@@ -22,4 +23,5 @@ var Cell = cell.Group(
 	flowlogs.Cell,
 	metrics.Cell,
 	envoyhealthsync.Cell,
+	envoyhealthcheck.Cell,
 )
