@@ -25,9 +25,12 @@
     "gomodTidy"
   ],
   pinDigests: true,
-  separateMajorMinor: true,
-  separateMultipleMajor: true,
-  separateMinorPatch: true,
+  // We don't want to separate major and minor upgrades in separate PRs since
+  // we can upgrade them together in a single PR.
+  separateMajorMinor: false,
+  // We don't want to separate minor patch upgrades in separate PRs since
+  // we can upgrade them together in a single PR.
+  separateMinorPatch: false,
   pruneStaleBranches: true,
   baseBranches: [
     'main-ce',
@@ -166,6 +169,17 @@
         'quay.io/lvh-images/kind',
       ],
       versioning: 'regex:^((?<compatibility>[a-z-]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$',
+    },
+      // Separate major minor and patch so that renovate can update the patch
+      // versions of the images.
+      matchPackageNames: [
+        'quay.io/lvh-images/complexity-test',
+        'quay.io/lvh-images/kind',
+        'kindest/node',
+        'quay.io/cilium/kindest-node',
+      ],
+      separateMajorMinor: true,
+      separateMinorPatch: true,
     },
     {
       // Do not allow any updates for major.minor, they will be done by maintainers
