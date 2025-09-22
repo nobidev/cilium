@@ -2,7 +2,7 @@
 
 ## Install Isovalent LoadBalancer on a local Kind cluster
 
-The next set of commands will install ILB with the default configuration and Prometheus + Perses as observability stack.
+The next set of commands will install ILB with the default configuration and Prometheus + Grafana as the observability stack.
 
 ```sh
 make kind-loadbalancer && \
@@ -10,7 +10,7 @@ kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheu
 ADDITIONAL_KIND_VALUES_FILE=contrib/testing/enterprise-kind-loadbalancer.yaml make kind-install-cilium-fast && \
 make kind-image-enterprise-fast && \
 ./enterprise/examples/kubernetes/loadbalancer/configure_ilb_nodes.sh && \
-./enterprise/examples/kubernetes/loadbalancer/deploy_perses.sh
+./enterprise/examples/kubernetes/loadbalancer/deploy_grafana.sh
 ```
 
 To setup the kind cluster for in-cluster mode where all nodes have T1 & T2 functionality configured,
@@ -20,10 +20,10 @@ just pass `in-cluster` as first argument to `configure_ilb_nodes.sh`.
 ./enterprise/examples/kubernetes/loadbalancer/configure_ilb_nodes.sh in-cluster
 ```
 
-Alternatively, to deploy the Grafana dashboards visualisation, replace the last line above with:
+Alternatively, to deploy Perses as the visualization stack, replace the last line above with:
 
 ```sh
-./enterprise/examples/kubernetes/loadbalancer/deploy_grafana.sh
+./enterprise/examples/kubernetes/loadbalancer/deploy_perses.sh
 ```
 
 Recompiling and deploying Cilium/ILB with the local changes run:
