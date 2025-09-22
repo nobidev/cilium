@@ -319,7 +319,7 @@ jobs:
           owner="${{ steps.vars.outputs.owner }}"
           region="${{ steps.vars.outputs.region }}"
           pull_secret_path="${PWD}/.pullsecret.json"
-          base_domain="ci.covalent.lol"
+          base_domain="${{ vars.AWS_BASE_DOMAIN }}"
           pod_cidr="${{ env.pod_cidr }}"
           pod_cidr_host_prefix="${{ env.pod_cidr_host_prefix }}"
           cilium_kpr_enabled="${{ steps.vars.outputs.kpr }}"
