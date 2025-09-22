@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/api"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli"
+	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli/bgp"
 	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/connectivity/tests"
 	enterpriseFeatures "github.com/cilium/cilium/cilium-cli/enterprise/hooks/utils/features"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
@@ -142,7 +143,7 @@ cilium sysdump --node-list node-a,node-b,node-c`
 		}
 
 		if cmd.Name() == "bgp" {
-			cmd.AddCommand(cli.NewCmdBGPRenderAPI())
+			cmd.AddCommand(bgp.NewCmdBGPRenderAPI())
 		}
 
 		if cmd.Name() == "sysdump" {

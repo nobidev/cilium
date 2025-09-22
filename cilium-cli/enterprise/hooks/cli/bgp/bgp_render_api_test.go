@@ -8,7 +8,7 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package cli
+package bgp
 
 import (
 	"bytes"
@@ -22,7 +22,6 @@ import (
 
 const (
 	testDataDir           = "testdata"
-	testDataSubDir        = "bgp"
 	inputFileSuffix       = "-input.yaml"
 	goldenFileSuffix      = "-output.yaml"
 	unsupportedFilePrefix = "unsupported-"
@@ -32,7 +31,7 @@ const (
 // You can run 'UPDATE_TESTDATA=1 go test .' to automatically update golden files in testdata/ to the new expected values.
 func TestRenderBGPv2API(t *testing.T) {
 	// list all input files in testdata subdir
-	inputFiles, err := filepath.Glob(filepath.Join(testDataDir, testDataSubDir, "*"+inputFileSuffix))
+	inputFiles, err := filepath.Glob(filepath.Join(testDataDir, "*"+inputFileSuffix))
 	assert.NoError(t, err)
 
 	// run a test per each input file
@@ -41,7 +40,7 @@ func TestRenderBGPv2API(t *testing.T) {
 		testName, _ := strings.CutSuffix(fileName, inputFileSuffix)
 
 		t.Run(testName, func(t *testing.T) {
-			goldenFile := filepath.Join(testDataDir, testDataSubDir, testName+goldenFileSuffix)
+			goldenFile := filepath.Join(testDataDir, testName+goldenFileSuffix)
 			buffer := bytes.Buffer{}
 
 			err := renderBGPv2APIFromYamlFile(inputFile, &buffer)
