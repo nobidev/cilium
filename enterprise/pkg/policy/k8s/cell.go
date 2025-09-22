@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/k8s/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipcache"
-	isovalent_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalent_v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/synced"
@@ -41,8 +41,8 @@ import (
 )
 
 const (
-	k8sAPIGroupIsovalentNetworkPolicyV1alpha1            = "isovalent/v1alpha1::IsovalentNetworkPolicy"
-	k8sAPIGroupIsovalentClusterwideNetworkPolicyV1alpha1 = "isovalent/v1alpha1::IsovalentClusterwideNetworkPolicy"
+	k8sAPIGroupIsovalentNetworkPolicyV1            = "isovalent/v1::IsovalentNetworkPolicy"
+	k8sAPIGroupIsovalentClusterwideNetworkPolicyV1 = "isovalent/v1::IsovalentClusterwideNetworkPolicy"
 )
 
 // Cell starts the K8s policy watcher. The K8s policy watcher watches all Isovalent policy related
@@ -89,8 +89,8 @@ type PolicyWatcherParams struct {
 	IPCache        *ipcache.IPCache
 	PolicyImporter policycell.PolicyImporter
 
-	IsovalentNetworkPolicies            resource.Resource[*isovalent_v1alpha1.IsovalentNetworkPolicy]
-	IsovalentClusterwideNetworkPolicies resource.Resource[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicy]
+	IsovalentNetworkPolicies            resource.Resource[*isovalent_v1.IsovalentNetworkPolicy]
+	IsovalentClusterwideNetworkPolicies resource.Resource[*isovalent_v1.IsovalentClusterwideNetworkPolicy]
 
 	ClusterInfo             cmtypes.ClusterInfo
 	ClusterMeshPolicyConfig cmtypes.PolicyConfig
@@ -144,32 +144,32 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 	})
 
 	p.inpSyncPending.Store(1)
-	p.registerResourceWithSyncFn(ctx, k8sAPIGroupIsovalentNetworkPolicyV1alpha1, func() bool {
+	p.registerResourceWithSyncFn(ctx, k8sAPIGroupIsovalentNetworkPolicyV1, func() bool {
 		return p.inpSyncPending.Load() == 0
 	})
 
 	p.icnpSyncPending.Store(1)
-	p.registerResourceWithSyncFn(ctx, k8sAPIGroupIsovalentClusterwideNetworkPolicyV1alpha1, func() bool {
+	p.registerResourceWithSyncFn(ctx, k8sAPIGroupIsovalentClusterwideNetworkPolicyV1, func() bool {
 		return p.icnpSyncPending.Load() == 0
 	})
 }
 
-func isovalentNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*isovalent_v1alpha1.IsovalentNetworkPolicy], error) {
+func isovalentNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*isovalent_v1.IsovalentNetworkPolicy], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*isovalent_v1alpha1.IsovalentNetworkPolicyList](cs.IsovalentV1alpha1().IsovalentNetworkPolicies("")),
+		utils.ListerWatcherFromTyped[*isovalent_v1.IsovalentNetworkPolicyList](cs.IsovalentV1().IsovalentNetworkPolicies("")),
 	)
-	return resource.New[*isovalent_v1alpha1.IsovalentNetworkPolicy](lc, lw, mp, resource.WithMetric("IsovalentNetworkPolicy")), nil
+	return resource.New[*isovalent_v1.IsovalentNetworkPolicy](lc, lw, mp, resource.WithMetric("IsovalentNetworkPolicy")), nil
 }
 
-func isovalentClusterwideNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicy], error) {
+func isovalentClusterwideNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*isovalent_v1.IsovalentClusterwideNetworkPolicy], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicyList](cs.IsovalentV1alpha1().IsovalentClusterwideNetworkPolicies()),
+		utils.ListerWatcherFromTyped[*isovalent_v1.IsovalentClusterwideNetworkPolicyList](cs.IsovalentV1().IsovalentClusterwideNetworkPolicies()),
 	)
-	return resource.New[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicy](lc, lw, mp, resource.WithMetric("IsovalentClusterwideNetworkPolicy")), nil
+	return resource.New[*isovalent_v1.IsovalentClusterwideNetworkPolicy](lc, lw, mp, resource.WithMetric("IsovalentClusterwideNetworkPolicy")), nil
 }

@@ -9,7 +9,7 @@
 package types
 
 import (
-	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -18,7 +18,7 @@ func (in *SlimINP) DeepCopyInto(out *SlimINP) {
 	*out = *in
 	if in.IsovalentNetworkPolicy != nil {
 		in, out := &in.IsovalentNetworkPolicy, &out.IsovalentNetworkPolicy
-		*out = new(v1alpha1.IsovalentNetworkPolicy)
+		*out = new(v1.IsovalentNetworkPolicy)
 		(*in).DeepCopyInto(*out)
 	}
 	return

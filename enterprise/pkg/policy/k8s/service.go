@@ -18,7 +18,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/k8s/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -298,7 +298,7 @@ func (p *policyWatcher) clearINPForService(key resource.Key, svcID loadbalancer.
 
 // specHasMatchingToServices returns true if the rule contains a ToServices rule which
 // matches the provided service svcID/svc
-func hasMatchingToServices(spec *v1alpha1.IsovalentNetworkPolicyRule, ev serviceEvent) bool {
+func hasMatchingToServices(spec *v1.IsovalentNetworkPolicyRule, ev serviceEvent) bool {
 	if spec == nil {
 		return false
 	}
@@ -328,7 +328,7 @@ func hasToServices(inp *types.SlimINP) bool {
 }
 
 // specHasToServices returns true if the rule contains a ToServices rule
-func specHasToServices(spec *v1alpha1.IsovalentNetworkPolicyRule) bool {
+func specHasToServices(spec *v1.IsovalentNetworkPolicyRule) bool {
 	if spec == nil {
 		return false
 	}
@@ -444,7 +444,7 @@ func appendSelector(toEndpoints *[]api.EndpointSelector, svcSelector map[string]
 
 // processRule parses the ToServices selectors in the provided rule and translates
 // it to ToCIDRSet entries
-func (s *serviceEndpoints) processRule(rule *v1alpha1.IsovalentNetworkPolicyRule) (numMatches int) {
+func (s *serviceEndpoints) processRule(rule *v1.IsovalentNetworkPolicyRule) (numMatches int) {
 	if rule == nil {
 		return
 	}

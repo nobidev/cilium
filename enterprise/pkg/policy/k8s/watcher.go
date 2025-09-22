@@ -26,7 +26,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/k8s/types"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	isovalent_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalent_v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -57,8 +57,8 @@ type policyWatcher struct {
 	// as new work is learned and decrement them as the importer makes progress.
 	inpSyncPending, icnpSyncPending atomic.Int64
 
-	isovalentNetworkPolicies            resource.Resource[*isovalent_v1alpha1.IsovalentNetworkPolicy]
-	isovalentClusterwideNetworkPolicies resource.Resource[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicy]
+	isovalentNetworkPolicies            resource.Resource[*isovalent_v1.IsovalentNetworkPolicy]
+	isovalentClusterwideNetworkPolicies resource.Resource[*isovalent_v1.IsovalentClusterwideNetworkPolicy]
 
 	// inpCache contains both INPs and ICNPs, stored using a common intermediate
 	// representation (*types.SlimINP). The cache is indexed on resource.Key,
@@ -102,8 +102,8 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 	}()
 	go func() {
 		var (
-			inpEvents     <-chan resource.Event[*isovalent_v1alpha1.IsovalentNetworkPolicy]
-			icnpEvents    <-chan resource.Event[*isovalent_v1alpha1.IsovalentClusterwideNetworkPolicy]
+			inpEvents     <-chan resource.Event[*isovalent_v1.IsovalentNetworkPolicy]
+			icnpEvents    <-chan resource.Event[*isovalent_v1.IsovalentClusterwideNetworkPolicy]
 			serviceEvents <-chan serviceEvent
 		)
 		// copy the done-channels so we can nil them here and stop sending, without
@@ -133,7 +133,7 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				}
 
 				slimINP := &types.SlimINP{
-					IsovalentNetworkPolicy: &isovalent_v1alpha1.IsovalentNetworkPolicy{
+					IsovalentNetworkPolicy: &isovalent_v1.IsovalentNetworkPolicy{
 						TypeMeta:   event.Object.TypeMeta,
 						ObjectMeta: event.Object.ObjectMeta,
 						Spec:       event.Object.Spec,
@@ -149,9 +149,9 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.onUpsert(slimINP, event.Key, k8sAPIGroupIsovalentNetworkPolicyV1alpha1, resourceID, inpDone)
+					err = p.onUpsert(slimINP, event.Key, k8sAPIGroupIsovalentNetworkPolicyV1, resourceID, inpDone)
 				case resource.Delete:
-					p.onDelete(slimINP, event.Key, k8sAPIGroupIsovalentNetworkPolicyV1alpha1, resourceID, inpDone)
+					p.onDelete(slimINP, event.Key, k8sAPIGroupIsovalentNetworkPolicyV1, resourceID, inpDone)
 				}
 				reportINPChangeMetrics(err)
 				event.Done(err)
@@ -169,7 +169,7 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				}
 
 				slimINP := &types.SlimINP{
-					IsovalentNetworkPolicy: &isovalent_v1alpha1.IsovalentNetworkPolicy{
+					IsovalentNetworkPolicy: &isovalent_v1.IsovalentNetworkPolicy{
 						TypeMeta:   event.Object.TypeMeta,
 						ObjectMeta: event.Object.ObjectMeta,
 						Spec:       event.Object.Spec,
@@ -185,9 +185,9 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.onUpsert(slimINP, event.Key, k8sAPIGroupIsovalentClusterwideNetworkPolicyV1alpha1, resourceID, icnpDone)
+					err = p.onUpsert(slimINP, event.Key, k8sAPIGroupIsovalentClusterwideNetworkPolicyV1, resourceID, icnpDone)
 				case resource.Delete:
-					p.onDelete(slimINP, event.Key, k8sAPIGroupIsovalentClusterwideNetworkPolicyV1alpha1, resourceID, icnpDone)
+					p.onDelete(slimINP, event.Key, k8sAPIGroupIsovalentClusterwideNetworkPolicyV1, resourceID, icnpDone)
 				}
 				reportINPChangeMetrics(err)
 				event.Done(err)

@@ -152,24 +152,24 @@ func IsovalentVRFResource(lc cell.Lifecycle, dc *option.DaemonConfig, bgpConfig 
 		), mp, resource.WithMetric("IsovalentVRFResource"))
 }
 
-func IsovalentNetworkPolicyResource(params CiliumResourceParams, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*isovalent_api_v1alpha1.IsovalentNetworkPolicy], error) {
+func IsovalentNetworkPolicyResource(params CiliumResourceParams, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*isovalent_api_v1.IsovalentNetworkPolicy], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentNetworkPolicyList](params.ClientSet.IsovalentV1alpha1().IsovalentNetworkPolicies("")),
+		utils.ListerWatcherFromTyped[*isovalent_api_v1.IsovalentNetworkPolicyList](params.ClientSet.IsovalentV1().IsovalentNetworkPolicies("")),
 		opts...,
 	)
-	return resource.New[*isovalent_api_v1alpha1.IsovalentNetworkPolicy](params.Lifecycle, lw, mp, resource.WithMetric("IsovalentNetworkPolicy"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+	return resource.New[*isovalent_api_v1.IsovalentNetworkPolicy](params.Lifecycle, lw, mp, resource.WithMetric("IsovalentNetworkPolicy"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
-func IsovalentClusterwideNetworkPolicyResource(params CiliumResourceParams, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*isovalent_api_v1alpha1.IsovalentClusterwideNetworkPolicy], error) {
+func IsovalentClusterwideNetworkPolicyResource(params CiliumResourceParams, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*isovalent_api_v1.IsovalentClusterwideNetworkPolicy], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*isovalent_api_v1alpha1.IsovalentClusterwideNetworkPolicyList](params.ClientSet.IsovalentV1alpha1().IsovalentClusterwideNetworkPolicies()),
+		utils.ListerWatcherFromTyped[*isovalent_api_v1.IsovalentClusterwideNetworkPolicyList](params.ClientSet.IsovalentV1().IsovalentClusterwideNetworkPolicies()),
 		opts...,
 	)
-	return resource.New[*isovalent_api_v1alpha1.IsovalentClusterwideNetworkPolicy](params.Lifecycle, lw, mp, resource.WithMetric("IsovalentClusterwideNetworkPolicy"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+	return resource.New[*isovalent_api_v1.IsovalentClusterwideNetworkPolicy](params.Lifecycle, lw, mp, resource.WithMetric("IsovalentClusterwideNetworkPolicy"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }

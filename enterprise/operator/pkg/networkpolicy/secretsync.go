@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/networkpolicy/helpers"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
-	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalent_api_v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -72,7 +72,7 @@ func registerINPSecretSync(params networkPolicyParams) secretsync.SecretSyncRegi
 
 	return secretsync.SecretSyncRegistrationOut{
 		SecretSyncRegistration: &secretsync.SecretSyncRegistration{
-			RefObject:            &isovalent_api_v1alpha1.IsovalentNetworkPolicy{},
+			RefObject:            &isovalent_api_v1.IsovalentNetworkPolicy{},
 			RefObjectEnqueueFunc: EnqueueTLSSecrets(params.CtrlRuntimeManager.GetClient(), params.Logger),
 			RefObjectCheckFunc:   IsReferencedByIsovalentNetworkPolicy,
 			SecretsNamespace:     params.NetworkPolicyConfig.PolicySecretsNamespace,
@@ -89,7 +89,7 @@ func registerICNPSecretSync(params networkPolicyParams) secretsync.SecretSyncReg
 
 	return secretsync.SecretSyncRegistrationOut{
 		SecretSyncRegistration: &secretsync.SecretSyncRegistration{
-			RefObject:            &isovalent_api_v1alpha1.IsovalentClusterwideNetworkPolicy{},
+			RefObject:            &isovalent_api_v1.IsovalentClusterwideNetworkPolicy{},
 			RefObjectEnqueueFunc: EnqueueTLSSecrets(params.CtrlRuntimeManager.GetClient(), params.Logger),
 			RefObjectCheckFunc:   IsReferencedByIsovalentClusterwideNetworkPolicy,
 			SecretsNamespace:     params.NetworkPolicyConfig.PolicySecretsNamespace,
@@ -115,7 +115,7 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 		var specs []*api.Rule
 
 		switch o := obj.(type) {
-		case *isovalent_api_v1alpha1.IsovalentNetworkPolicy:
+		case *isovalent_api_v1.IsovalentNetworkPolicy:
 			if o.Spec != nil {
 				specs = append(specs, &o.Spec.Rule)
 			}
@@ -123,7 +123,7 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 				specs = append(specs, &rule.Rule)
 			}
 			scopedLog = scopedLog.With(logfields.Kind, "IsovalentNetworkPolicy")
-		case *isovalent_api_v1alpha1.IsovalentClusterwideNetworkPolicy:
+		case *isovalent_api_v1.IsovalentClusterwideNetworkPolicy:
 			if o.Spec != nil {
 				specs = append(specs, &o.Spec.Rule)
 			}
@@ -159,7 +159,7 @@ func IsReferencedByIsovalentNetworkPolicy(ctx context.Context, c client.Client, 
 		Name:      obj.GetName(),
 	}
 
-	inpList := &isovalent_api_v1alpha1.IsovalentNetworkPolicyList{}
+	inpList := &isovalent_api_v1.IsovalentNetworkPolicyList{}
 	if err := c.List(ctx, inpList); err != nil {
 		scopedLog.Warn("Unable to list IsovalentNetworkPolicies", logfields.Error, err)
 		return false
@@ -203,7 +203,7 @@ func IsReferencedByIsovalentClusterwideNetworkPolicy(ctx context.Context, c clie
 		Name:      obj.GetName(),
 	}
 
-	icnpList := &isovalent_api_v1alpha1.IsovalentClusterwideNetworkPolicyList{}
+	icnpList := &isovalent_api_v1.IsovalentClusterwideNetworkPolicyList{}
 	if err := c.List(ctx, icnpList); err != nil {
 		scopedLog.Warn("Unable to list IsovalentClusterwideNetworkPolicies", logfields.Error, err)
 		return false

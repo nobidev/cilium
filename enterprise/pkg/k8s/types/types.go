@@ -16,10 +16,10 @@
 
 package types
 
-import "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+import v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen=true
 type SlimINP struct {
-	*v1alpha1.IsovalentNetworkPolicy
+	*v1.IsovalentNetworkPolicy
 }

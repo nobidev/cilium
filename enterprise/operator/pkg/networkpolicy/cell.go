@@ -33,7 +33,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/pkg/fqdn/re"
-	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	isovalent_api_v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -60,8 +60,8 @@ type PolicyParams struct {
 
 	Scheme *runtime.Scheme
 
-	INPResource  resource.Resource[*isovalent_api_v1alpha1.IsovalentNetworkPolicy]
-	ICNPResource resource.Resource[*isovalent_api_v1alpha1.IsovalentClusterwideNetworkPolicy]
+	INPResource  resource.Resource[*isovalent_api_v1.IsovalentNetworkPolicy]
+	ICNPResource resource.Resource[*isovalent_api_v1.IsovalentClusterwideNetworkPolicy]
 }
 
 // The policyValidator validates network policy and reports the results in to the
@@ -77,7 +77,7 @@ func registerPolicyValidator(params PolicyParams) {
 		return
 	}
 
-	if err := isovalent_api_v1alpha1.AddToScheme(params.Scheme); err != nil {
+	if err := isovalent_api_v1.AddToScheme(params.Scheme); err != nil {
 		params.Logger.Error("INP / ICNP validator can't run due to failure to add scheme.", logfields.Error, err)
 		return
 	}
@@ -103,7 +103,7 @@ func registerPolicyValidator(params PolicyParams) {
 	))
 }
 
-func (pv *policyValidator) handleINPEvent(ctx context.Context, event resource.Event[*isovalent_api_v1alpha1.IsovalentNetworkPolicy]) error {
+func (pv *policyValidator) handleINPEvent(ctx context.Context, event resource.Event[*isovalent_api_v1.IsovalentNetworkPolicy]) error {
 	var err error
 	defer func() {
 		event.Done(err)
@@ -121,12 +121,10 @@ func (pv *policyValidator) handleINPEvent(ctx context.Context, event resource.Ev
 	var errs error
 	if r := pol.Spec; r != nil {
 		errs = errors.Join(errs, r.Sanitize())
-		errs = errors.Join(errs, r.SanitizeOrder())
 
 	}
 	for _, r := range pol.Specs {
 		errs = errors.Join(errs, r.Sanitize())
-		errs = errors.Join(errs, r.SanitizeOrder())
 	}
 
 	newPol := pol.DeepCopy()
@@ -141,7 +139,7 @@ func (pv *policyValidator) handleINPEvent(ctx context.Context, event resource.Ev
 		log.Debug("INP now valid, setting condition")
 	}
 	// Using the UpdateStatus subresource will prevent the generation from being bumped.
-	_, err = pv.params.Clientset.IsovalentV1alpha1().IsovalentNetworkPolicies(pol.Namespace).UpdateStatus(
+	_, err = pv.params.Clientset.IsovalentV1().IsovalentNetworkPolicies(pol.Namespace).UpdateStatus(
 		ctx,
 		newPol,
 		metav1.UpdateOptions{},
@@ -156,7 +154,7 @@ func (pv *policyValidator) handleINPEvent(ctx context.Context, event resource.Ev
 	return err
 }
 
-func (pv *policyValidator) handleICNPEvent(ctx context.Context, event resource.Event[*isovalent_api_v1alpha1.IsovalentClusterwideNetworkPolicy]) error {
+func (pv *policyValidator) handleICNPEvent(ctx context.Context, event resource.Event[*isovalent_api_v1.IsovalentClusterwideNetworkPolicy]) error {
 	var err error
 	defer func() {
 		event.Done(err)
@@ -191,7 +189,7 @@ func (pv *policyValidator) handleICNPEvent(ctx context.Context, event resource.E
 		log.Debug("ICNP now valid, setting condition")
 	}
 	// Using the UpdateStatus subresource will prevent the generation from being bumped.
-	_, err = pv.params.Clientset.IsovalentV1alpha1().IsovalentClusterwideNetworkPolicies().UpdateStatus(
+	_, err = pv.params.Clientset.IsovalentV1().IsovalentClusterwideNetworkPolicies().UpdateStatus(
 		ctx,
 		newPol,
 		metav1.UpdateOptions{},
@@ -208,7 +206,7 @@ func (pv *policyValidator) handleICNPEvent(ctx context.Context, event resource.E
 
 // updateCondition creates or updates the policy validation condition in Conditions, setting
 // the transition time as necessary.
-func updateCondition(conditions []isovalent_api_v1alpha1.NetworkPolicyCondition, errs error) []isovalent_api_v1alpha1.NetworkPolicyCondition {
+func updateCondition(conditions []isovalent_api_v1.NetworkPolicyCondition, errs error) []isovalent_api_v1.NetworkPolicyCondition {
 	wantCondition := corev1.ConditionTrue
 	message := "Policy validation succeeded"
 	if errs != nil {
@@ -219,7 +217,7 @@ func updateCondition(conditions []isovalent_api_v1alpha1.NetworkPolicyCondition,
 	// look for the condition type already existing.
 	foundIdx := -1
 	for i, cond := range conditions {
-		if cond.Type == isovalent_api_v1alpha1.PolicyConditionValid {
+		if cond.Type == isovalent_api_v1.PolicyConditionValid {
 			foundIdx = i
 			// If nothing important changed, short-circuit
 			if cond.Status == wantCondition && cond.Message == message {
@@ -230,8 +228,8 @@ func updateCondition(conditions []isovalent_api_v1alpha1.NetworkPolicyCondition,
 	}
 
 	// Otherwise, set / update the condition
-	newCond := isovalent_api_v1alpha1.NetworkPolicyCondition{
-		Type:               isovalent_api_v1alpha1.PolicyConditionValid,
+	newCond := isovalent_api_v1.NetworkPolicyCondition{
+		Type:               isovalent_api_v1.PolicyConditionValid,
 		Status:             wantCondition,
 		LastTransitionTime: slimv1.Now(),
 		Message:            message,
