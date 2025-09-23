@@ -169,11 +169,11 @@ spec:
                                 format: ipv4
                                 type: string
                               role:
-                                description: Role is a role (route-reflector or client)
-                                  within the RR cluster.
+                                description: Role is a role of the instance within
+                                  the RR cluster
                                 enum:
-                                - route-reflector
-                                - client
+                                - RouteReflector
+                                - Client
                                 type: string
                             required:
                             - clusterID
@@ -198,11 +198,11 @@ spec:
                           format: ipv4
                           type: string
                         role:
-                          description: Role is a role (route-reflector or client)
-                            within the RR cluster.
+                          description: Role is a role of the instance within the RR
+                            cluster
                           enum:
-                          - route-reflector
-                          - client
+                          - RouteReflector
+                          - Client
                           type: string
                       required:
                       - clusterID

@@ -114,10 +114,9 @@ type IsovalentBGPInstance struct {
 }
 
 type RouteReflector struct {
-	// Role is a role (rr or client) within the RR cluster
+	// Role is a role of the instance within the RR cluster
 	//
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=route-reflector;client
 	Role RouteReflectorRole `json:"role"`
 
 	// ClusterID is the ID of the route reflector cluster that this
@@ -161,11 +160,12 @@ type RouteReflector struct {
 	PeerConfigRefV6 *PeerConfigReference `json:"peerConfigRefV6,omitempty"`
 }
 
+// +kubebuilder:validation:Enum=RouteReflector;Client
 type RouteReflectorRole string
 
 const (
-	RouteReflectorRoleRouteReflector RouteReflectorRole = "route-reflector"
-	RouteReflectorRoleClient         RouteReflectorRole = "client"
+	RouteReflectorRoleRouteReflector RouteReflectorRole = "RouteReflector"
+	RouteReflectorRoleClient         RouteReflectorRole = "Client"
 )
 
 type RouteReflectorPeeringAddressFamily string

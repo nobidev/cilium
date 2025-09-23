@@ -230,11 +230,11 @@ spec:
                           - Dual
                           type: string
                         role:
-                          description: Role is a role (rr or client) within the RR
+                          description: Role is a role of the instance within the RR
                             cluster
                           enum:
-                          - route-reflector
-                          - client
+                          - RouteReflector
+                          - Client
                           type: string
                       required:
                       - clusterID

@@ -200,5 +200,9 @@ func (c *rrCluster) ListPeers(instanceID instanceID) []*rrClusterPeer {
 }
 
 func (c *rrCluster) instanceName(role v1.RouteReflectorRole, nodeName, instanceName string) string {
-	return "rr-" + string(role) + "-" + nodeName + "-" + instanceName
+	r := "route-reflector"
+	if role == v1.RouteReflectorRoleClient {
+		r = "client"
+	}
+	return "rr-" + r + "-" + nodeName + "-" + instanceName
 }

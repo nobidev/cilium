@@ -167,10 +167,9 @@ type IsovalentBGPNodePeer struct {
 }
 
 type NodeRouteReflector struct {
-	// Role is a role (route-reflector or client) within the RR cluster.
+	// Role is a role of the instance within the RR cluster
 	//
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=route-reflector;client
 	Role RouteReflectorRole `json:"role"`
 
 	// ClusterID is the ID of the route reflector cluster that this

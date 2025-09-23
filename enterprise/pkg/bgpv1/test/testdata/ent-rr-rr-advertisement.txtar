@@ -117,7 +117,7 @@ spec:
       peerConfigRef:
         name: common
       routeReflector:
-        role: client
+        role: Client
         clusterID: 255.0.0.1
     - name: client-v6
       peerASN: 65010
@@ -126,7 +126,7 @@ spec:
       peerConfigRef:
         name: common
       routeReflector:
-        role: client
+        role: Client
         clusterID: 255.0.0.1
     - name: rr-v4
       peerASN: 65010
@@ -135,7 +135,7 @@ spec:
       peerConfigRef:
         name: common
       routeReflector:
-        role: route-reflector
+        role: RouteReflector
         clusterID: 255.0.0.1
     - name: rr-v6
       peerASN: 65010
@@ -144,7 +144,7 @@ spec:
       peerConfigRef:
         name: common
       routeReflector:
-        role: route-reflector
+        role: RouteReflector
         clusterID: 255.0.0.1
     - name: external-v4
       peerASN: 65011
@@ -171,7 +171,7 @@ spec:
       peerConfigRef:
         name: common
     routeReflector:
-      role: route-reflector
+      role: RouteReflector
       clusterID: 255.0.0.1
 
 -- bgp-peer-config.yaml --
