@@ -199,7 +199,7 @@ jobs:
         working-directory: cilium/enterprise/olm
         env:
           CL_TAG: "${{ env.VERSION }}"
-          IMG_REPO: "quay.io/${{ env.QUAY_ORGANIZATION }}/clife"
+          IMG_REPO: "quay.io/isovalent/clife"
         run: |
           digest=$(../../images/scripts/get-image-digest.sh ${IMG_REPO}:${CL_TAG})
           export IMG=${IMG_REPO}:${CL_TAG}@${digest}
