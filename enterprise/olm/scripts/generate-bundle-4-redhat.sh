@@ -34,7 +34,8 @@ make bundle
 mkdir -p "${rh_repo}/operators/isovalent-networking/${tag}"
 cp -R ${root_dir}/enterprise/olm/bundle/manifests "${rh_repo}/operators/isovalent-networking/${tag}/"
 cp -R ${root_dir}/enterprise/olm/bundle/metadata "${rh_repo}/operators/isovalent-networking/${tag}/"
-printf "\n  # Red Hat annotations\n  com.redhat.openshift.versions: \"v4.14\"" >> "${rh_repo}/operators/isovalent-networking/${tag}/metadata/annotations.yaml"
+echo "  # Red Hat annotations"  >> "${rh_repo}/operators/isovalent-networking/${tag}/metadata/annotations.yaml"
+echo "  com.redhat.openshift.versions: \"v4.14\"" >> "${rh_repo}/operators/isovalent-networking/${tag}/metadata/annotations.yaml"
 
 echo "Bundle manifests and metadata added"
 
