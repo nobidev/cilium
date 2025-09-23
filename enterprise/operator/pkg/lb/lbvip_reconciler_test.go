@@ -45,10 +45,16 @@ func TestLBVIPReconciler(t *testing.T) {
 
 		// Output Service annotations. Rest of the fields are fixed.
 		svcAnnotations map[string]string
+
+		// Output Service labels. Rest of the fields are fixed.
+		svcLabels map[string]string
 	}{
 		{
 			name:      "IPv4 dynamic allocation",
 			lbvipSpec: isovalentv1alpha1.LBVIPSpec{},
+			svcLabels: map[string]string{
+				"loadbalancer.isovalent.com/vip-name": lbvipName,
+			},
 			svcAnnotations: map[string]string{
 				ossannotation.LBIPAMSharingKey:       lbvipName,
 				ceeannotation.ServiceNoAdvertisement: "true",
@@ -58,6 +64,9 @@ func TestLBVIPReconciler(t *testing.T) {
 			name: "IPv4 static allocation",
 			lbvipSpec: isovalentv1alpha1.LBVIPSpec{
 				IPv4Request: ptr.To(ipv4VIP),
+			},
+			svcLabels: map[string]string{
+				"loadbalancer.isovalent.com/vip-name": lbvipName,
 			},
 			svcAnnotations: map[string]string{
 				ossannotation.LBIPAMSharingKey:       lbvipName,
@@ -120,8 +129,9 @@ func TestLBVIPReconciler(t *testing.T) {
 				svc,
 			))
 
-			// Ensure the annotation is expected one
+			// Ensure the annotations and labels match the expected ones
 			require.Equal(t, tt.svcAnnotations, svc.Annotations)
+			require.Equal(t, tt.svcLabels, svc.Labels)
 
 			// Assign VIP to the Service. Emulate the behavior of the LBIPAM.
 			svc.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{

@@ -186,8 +186,11 @@ func (r *lbVIPReconciler) desiredService(svcName k8stypes.NamespacedName, lbvip 
 	}
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   svcName.Namespace,
-			Name:        svcName.Name,
+			Namespace: svcName.Namespace,
+			Name:      svcName.Name,
+			Labels: map[string]string{
+				"loadbalancer.isovalent.com/vip-name": lbvip.Name,
+			},
 			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
