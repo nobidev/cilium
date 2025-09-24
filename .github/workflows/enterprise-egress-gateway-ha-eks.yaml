@@ -130,6 +130,7 @@ jobs:
           CILIUM_INSTALL_DEFAULTS=" \
             --chart-directory=untrusted/install/kubernetes/cilium \
             --wait=false \
+            --set=debug.enabled=true \
             --set=cluster.name=${{ env.cluster_name }} \
             --set=enterprise.egressGatewayHA.enabled=true \
             --set=enterprise.featureGate.approved='{EgressGatewayIPv4,EgressGatewayHA,BFD,DNSProxyHA}' \
