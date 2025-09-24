@@ -35,6 +35,18 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+var (
+	isoNodeConfigSpecWithOverride = func() v1.IsovalentBGPNodeInstance {
+		cpy := isoNodeConfigSpec.DeepCopy()
+		cpy.SRv6Responder = ptr.To[bool](true)
+		cpy.LocalPort = ptr.To[int32](1179)
+		cpy.Maintenance = &v1.IsovalentBGPMaintenance{
+			Mode: v1.BGPMaintenanceModeCommunity,
+		}
+		return *cpy
+	}
+)
+
 func Test_ClusterConfigSteps(t *testing.T) {
 	steps := []struct {
 		name                   string
@@ -142,6 +154,9 @@ func Test_ClusterConfigSteps(t *testing.T) {
 							Name:          "instance-1",
 							LocalPort:     ptr.To[int32](1179),
 							SRv6Responder: ptr.To[bool](true),
+							Maintenance: &v1.IsovalentBGPMaintenance{
+								Mode: v1.BGPMaintenanceModeCommunity,
+							},
 						},
 					},
 				},

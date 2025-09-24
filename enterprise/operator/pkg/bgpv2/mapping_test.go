@@ -102,12 +102,6 @@ var (
 			},
 		},
 	}
-	isoNodeConfigSpecWithOverride = func() v1.IsovalentBGPNodeInstance {
-		cpy := isoNodeConfigSpec.DeepCopy()
-		cpy.SRv6Responder = ptr.To[bool](true)
-		cpy.LocalPort = ptr.To[int32](1179)
-		return *cpy
-	}
 
 	ossClusterConfig = &v2.CiliumBGPClusterConfig{
 		ObjectMeta: meta_v1.ObjectMeta{

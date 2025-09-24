@@ -520,6 +520,9 @@ func toNodeBGPInstance(
 					nodeBGPInstance.LocalPort = overrideBGPInstance.LocalPort
 				}
 				nodeBGPInstance.SRv6Responder = overrideBGPInstance.SRv6Responder
+				if overrideBGPInstance.Maintenance != nil {
+					nodeBGPInstance.Maintenance = overrideBGPInstance.Maintenance
+				}
 				override = overrideBGPInstance
 				break
 			}
