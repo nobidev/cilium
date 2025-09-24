@@ -15,6 +15,7 @@ import (
 	"iter"
 	"log/slog"
 	"net/netip"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -103,7 +104,10 @@ func (m *MapEntries) registerReconciler() {
 	// This job watches the upstream endpoints, private networks and routes table
 	// and pushes endpoint and routes entries into the downstream map entries table
 	m.jg.Add(job.OneShot("populate-mapentries-table", func(ctx context.Context, _ cell.Health) error {
-		var initDone bool
+		var (
+			initDone      bool
+			knownNetworks = make(map[tables.NetworkName]tables.PrivateNetwork)
+		)
 
 		txn := m.db.WriteTxn(m.networks, m.endpoints, m.routes)
 		epsChangeIter, _ := m.endpoints.Changes(txn)
@@ -119,7 +123,7 @@ func (m *MapEntries) registerReconciler() {
 			rtsChanges, rtsWatch := rtsChangeIter.Next(txn)
 
 			// Handle network change events
-			addedNetworks := make(sets.Set[tables.NetworkName])
+			upsertedNetworks := make(sets.Set[tables.NetworkName])
 			removedNetworks := make(sets.Set[tables.NetworkName])
 			for netChange := range netChanges {
 				m.log.Debug("Processing table event",
@@ -134,15 +138,23 @@ func (m *MapEntries) registerReconciler() {
 						return err
 					}
 					removedNetworks.Insert(network)
+					delete(knownNetworks, network)
 				} else {
-					if !m.isKnownNetwork(txn, network) {
-						// If this is the first time we see this network, upsert all
-						// endpoints and routes which we previously skipped
+					// We need to process all endpoints and routes both if this
+					// is the first time that we see this network, and if something
+					// in the network spec changed (e.g., INB, interface), to adapt
+					// all entries accordingly. Still, let's try to be a bit smart
+					// and skip updates that do not modify any relevant field.
+					// The deletion of possible stale entries is deferred to the
+					// processing of the corresponding endpoint/route deletion
+					// events, which are not filtered out below.
+					if !m.skipNetworkEvent(knownNetworks[network], netChange.Object) {
 						if err := m.upsertAllNetworkEntries(txn, network); err != nil {
 							txn.Abort()
 							return err
 						}
-						addedNetworks.Insert(network)
+						upsertedNetworks.Insert(network)
+						knownNetworks[network] = netChange.Object
 					}
 				}
 			}
@@ -150,7 +162,7 @@ func (m *MapEntries) registerReconciler() {
 			// Handle route change events
 			for rtChange := range rtsChanges {
 				// Skip change event if it was already handled in {upsert,delete}AllNetworkEntries
-				if skipChangeEvent(rtChange, rtChange.Object.Network, addedNetworks, removedNetworks) {
+				if skipChangeEvent(rtChange, rtChange.Object.Network, upsertedNetworks, removedNetworks) {
 					continue
 				}
 
@@ -176,7 +188,7 @@ func (m *MapEntries) registerReconciler() {
 			for epChange := range epsChanges {
 				// Skip change event if it was already handled in {upsert,delete}AllNetworkEntries
 				epNetwork := tables.NetworkName(epChange.Object.Network.Name)
-				if skipChangeEvent(epChange, epNetwork, addedNetworks, removedNetworks) {
+				if skipChangeEvent(epChange, epNetwork, upsertedNetworks, removedNetworks) {
 					continue
 				}
 
@@ -324,12 +336,6 @@ func (m *MapEntries) findConflictingNATEntriesForActiveEP(txn statedb.ReadTxn, a
 	}
 }
 
-// isKnownNetwork returns true if there is at least one map entry for the given network
-func (m *MapEntries) isKnownNetwork(txn statedb.ReadTxn, network tables.NetworkName) bool {
-	_, _, found := m.tbl.Get(txn, tables.MapEntriesByNetwork(network))
-	return found
-}
-
 // upsertAllNetworkEntries queries the upstream endpoints and routes tables and performs an
 // upsert operation for each endpoint and route which belongs to the given network.
 func (m *MapEntries) upsertAllNetworkEntries(txn statedb.WriteTxn, network tables.NetworkName) error {
@@ -361,10 +367,21 @@ func (m *MapEntries) deleteAllNetworkEntries(txn statedb.WriteTxn, privNetName t
 	return nil
 }
 
+// skipNetworkUpdate determines if the two networks are identical from the MapEntries
+// reconciler point of view, and the event can be skipped.
+func (m *MapEntries) skipNetworkEvent(old, current tables.PrivateNetwork) bool {
+	// * The network name is the primary key, so it cannot change.
+	// * We only care about the interface ID, not its name or the reconciliation status.
+	// * Route and subnet changes are already processed via the dedicated table.
+	return old.ID == current.ID &&
+		old.Interface.Index == current.Interface.Index &&
+		slices.Equal(old.INBs, current.INBs)
+}
+
 // skipChangeEvent is called for endpoint and route change events to determine if
 // it can safely be skipped to avoid duplicated work
 func skipChangeEvent[T any](changeEvent statedb.Change[T], network tables.NetworkName,
-	addedNetworks, removedNetworks sets.Set[tables.NetworkName]) bool {
+	upsertedNetworks, removedNetworks sets.Set[tables.NetworkName]) bool {
 	// If the network of this change event has just been removed, then we can skip
 	// handling the change event:
 	//  - If `change` is an upsert event, we can no longer add it to the
@@ -381,7 +398,7 @@ func skipChangeEvent[T any](changeEvent statedb.Change[T], network tables.Networ
 	//    downstream table when in upsertAllNetworkEntries.
 	//  - If `change` is a delete event, then we still need to process it,
 	//    as it not handled in upsertAllNetworkEntries.
-	if !changeEvent.Deleted && addedNetworks.Has(network) {
+	if !changeEvent.Deleted && upsertedNetworks.Has(network) {
 		return true
 	}
 
