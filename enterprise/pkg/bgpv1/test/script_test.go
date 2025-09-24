@@ -86,10 +86,11 @@ const (
 	testLink2Name        = "centbgptest2"
 
 	// test arguments
-	testPeeringIPsFlag     = "test-peering-ips"
-	ipamFlag               = "ipam"
-	probeTCPMD5Flag        = "probe-tcp-md5"
-	requireIPv6LLAddrsFlag = "require-ipv6-lladdrs"
+	testPeeringIPsFlag               = "test-peering-ips"
+	ipamFlag                         = "ipam"
+	probeTCPMD5Flag                  = "probe-tcp-md5"
+	requireIPv6LLAddrsFlag           = "require-ipv6-lladdrs"
+	enableNodeMaintenanceHelpersFlag = "enable-node-maintenance-helpers"
 
 	// test environment variables
 	link1EnvVar   = "LINK1"
@@ -124,6 +125,7 @@ func TestPrivilegedScript(t *testing.T) {
 		useIPAM := flags.String(ipamFlag, ipamOption.IPAMKubernetes, "IPAM used by the test")
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
 		requireIPv6LLAddrs := flags.Bool(requireIPv6LLAddrsFlag, false, "Require IPv6 link local addresses to be present on the test links")
+		enableNodeMaintenanceHelpers := flags.Bool(enableNodeMaintenanceHelpersFlag, false, "Enable node maintenance helpers")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
 
 		if *probeTCPMD5 {
@@ -251,8 +253,10 @@ func TestPrivilegedScript(t *testing.T) {
 		)
 		hive.AddConfigOverride(h, func(cfg *reconcilerv2.Config) {
 			cfg.SvcHealthCheckingEnabled = true
-			cfg.MaintenanceGracefulShutdownEnabled = true
-			cfg.MaintenanceWithdrawTime = 1 * time.Second
+			if *enableNodeMaintenanceHelpers {
+				cfg.MaintenanceGracefulShutdownEnabled = true
+				cfg.MaintenanceWithdrawTime = 1 * time.Second
+			}
 		})
 		hive.AddConfigOverride(h, func(cfg *config.Config) {
 			cfg.Enabled = true
