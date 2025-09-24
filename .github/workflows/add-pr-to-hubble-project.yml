@@ -10,6 +10,8 @@ jobs:
   add-pr-to-project:
     name: Add PR to Hubble project
     runs-on: ubuntu-24.04
+    permissions:
+      {}
     timeout-minutes: 5
     if: contains(github.event.pull_request.labels.*.name, 'vertical/hubble')
     steps:
