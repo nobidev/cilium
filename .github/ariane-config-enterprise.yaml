@@ -2,7 +2,7 @@ allowed-teams:
   - isovalent
 
 triggers:
-  /test:
+  /test\s*:
     workflows:
     - enterprise-clustermesh-mixed-routing.yaml
     - enterprise-clustermesh-overlapping-podcidr.yaml
