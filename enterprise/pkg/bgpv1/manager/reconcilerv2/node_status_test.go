@@ -91,23 +91,23 @@ func TestNodeStatus(t *testing.T) {
 		expectStatus NodeStatus
 	}{
 		{
-			name:         "local node resource not yet present",
+			name:         "local node resource not yet present - assume maintenance mode",
 			expectSignal: false,
-			expectStatus: NodeReady,
+			expectStatus: NodeMaintenanceTimeExpired,
 		},
 		{
-			name: "local node running",
+			name: "local node running - node ready",
 			localNode: &slimcorev1.Node{
 				ObjectMeta: slimmetav1.ObjectMeta{
 					Name: nodeStatusTestNodeName,
 				},
 				Spec: slimcorev1.NodeSpec{},
 			},
-			expectSignal: false,
+			expectSignal: true,
 			expectStatus: NodeReady,
 		},
 		{
-			name: "local node tainted",
+			name: "local node tainted - maintenance mode",
 			localNode: &slimcorev1.Node{
 				ObjectMeta: slimmetav1.ObjectMeta{
 					Name: nodeStatusTestNodeName,
@@ -131,7 +131,7 @@ func TestNodeStatus(t *testing.T) {
 			expectStatus: NodeMaintenanceTimeExpired,
 		},
 		{
-			name: "local node running again",
+			name: "local node running again - node read",
 			localNode: &slimcorev1.Node{
 				ObjectMeta: slimmetav1.ObjectMeta{
 					Name: nodeStatusTestNodeName,

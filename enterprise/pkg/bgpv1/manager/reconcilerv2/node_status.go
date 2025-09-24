@@ -93,11 +93,19 @@ func NewNodeStatusReconciler(params NodeStatusReconcilerIn) NodeStatusReconciler
 		config:   params.Config,
 		signaler: params.Signaler,
 	}
-	r.nodeStatus.Store(uint32(NodeReady))
 
 	if !params.Config.MaintenanceGracefulShutdownEnabled && params.Config.MaintenanceWithdrawTime == 0 {
 		// no need to track node events, will always report node as ready
+		r.nodeStatus.Store(uint32(NodeReady))
 		return NodeStatusReconcilerOut{NSProvider: r}
+	}
+
+	// Set the initial state to maintenance mode, so that we do not advertise the routes unexpectedly
+	// upon node restart while the node status is not known, or it is in the maintenance mode.
+	if params.Config.MaintenanceWithdrawTime > 0 {
+		r.nodeStatus.Store(uint32(NodeMaintenanceTimeExpired))
+	} else {
+		r.nodeStatus.Store(uint32(NodeMaintenance))
 	}
 
 	// init local node store
