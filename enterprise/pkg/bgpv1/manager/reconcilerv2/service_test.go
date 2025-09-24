@@ -49,15 +49,16 @@ import (
 // Each step builds on the state of the previous step: if some of the step resources is provided,
 // the resource is upserted (in case of the "delete" prefix, it is deleted).
 type svcTestStep struct {
-	name             string
-	peers            []v1.IsovalentBGPNodePeer
-	peerConfigs      []*v1.IsovalentBGPPeerConfig
-	advertisements   []*v1.IsovalentBGPAdvertisement
-	frontends        []*loadbalancer.Frontend
-	deleteFrontends  []*loadbalancer.Frontend
-	backends         []*loadbalancer.Backend
-	expectedMetadata ServiceReconcilerMetadata
-	nodeStatus       NodeStatus
+	name                string
+	peers               []v1.IsovalentBGPNodePeer
+	peerConfigs         []*v1.IsovalentBGPPeerConfig
+	advertisements      []*v1.IsovalentBGPAdvertisement
+	frontends           []*loadbalancer.Frontend
+	deleteFrontends     []*loadbalancer.Frontend
+	backends            []*loadbalancer.Backend
+	expectedMetadata    ServiceReconcilerMetadata
+	nodeStatus          NodeStatus
+	maintenanceOverride *v1.IsovalentBGPMaintenance
 }
 
 type svcTestFixture struct {
@@ -3110,6 +3111,76 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 }
 
 func Test_ServiceNodeMaintenance(t *testing.T) {
+	var (
+		peerAdvertisements = PeerAdvertisements{
+			testPeerID: FamilyAdvertisements{
+				{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
+					lbSvcAdvertWithSelector(redSvcSelector),
+				},
+				{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
+			},
+		}
+		expectedServicePaths = reconcilerv2.ResourceAFPathsMap{
+			redSvcKey: reconcilerv2.AFPathsMap{
+				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+					ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+				},
+			},
+		}
+		expectedPolicies = reconcilerv2.ResourceRoutePolicyMap{
+			redSvcKey: reconcilerv2.RoutePolicyMap{
+				redPeer65001v4LBRPName: &types.RoutePolicy{
+					Name: redPeer65001v4LBRPName,
+					Type: types.RoutePolicyTypeExport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
+								MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+									{
+										CIDR:         netip.MustParsePrefix(ingressV4Prefix),
+										PrefixLenMin: 32,
+										PrefixLenMax: 32,
+									},
+								},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction:    types.RoutePolicyActionAccept,
+								AddCommunities: []string{"65535:65281"},
+							},
+						},
+					},
+				},
+			},
+		}
+		expectedPoliciesWithGSCommunity = reconcilerv2.ResourceRoutePolicyMap{
+			redSvcKey: reconcilerv2.RoutePolicyMap{
+				redPeer65001v4LBRPName: &types.RoutePolicy{
+					Name: redPeer65001v4LBRPName,
+					Type: types.RoutePolicyTypeExport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
+								MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+									{
+										CIDR:         netip.MustParsePrefix(ingressV4Prefix),
+										PrefixLenMin: 32,
+										PrefixLenMax: 32,
+									},
+								},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction:    types.RoutePolicyActionAccept,
+								AddCommunities: []string{"65535:65281", gracefulShutdownCommunityValue},
+							},
+						},
+					},
+				},
+			},
+		}
+	)
+
 	runServiceTests(t, []svcTestStep{
 		{
 			name:        "Add service and advertisement - advertise normally",
@@ -3120,182 +3191,86 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 			frontends:  []*loadbalancer.Frontend{svcLBFrontend(redSvcTPCluster, ingressV4), svcLBFrontend(redSvcTPCluster, ingressV6)},
 			nodeStatus: NodeReady,
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
-						},
-					},
-				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
-						redPeer65001v4LBRPName: &types.RoutePolicy{
-							Name: redPeer65001v4LBRPName,
-							Type: types.RoutePolicyTypeExport,
-							Statements: []*types.RoutePolicyStatement{
-								{
-									Conditions: types.RoutePolicyConditions{
-										MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
-										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-											{
-												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
-												PrefixLenMin: 32,
-												PrefixLenMax: 32,
-											},
-										},
-									},
-									Actions: types.RoutePolicyActions{
-										RouteAction:    types.RoutePolicyActionAccept,
-										AddCommunities: []string{"65535:65281"},
-									},
-								},
-							},
-						},
-					},
-				},
-				ServiceAdvertisements: PeerAdvertisements{
-					testPeerID: FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
-							lbSvcAdvertWithSelector(redSvcSelector),
-						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
-					},
-				},
+				ServiceAdvertisements: peerAdvertisements,
+				ServiceRoutePolicies:  expectedPolicies,
+				ServicePaths:          expectedServicePaths,
 			},
 		},
 		{
 			name:       "Update node status - node maintenance, advertise GS community",
 			nodeStatus: NodeMaintenance,
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
-						},
-					},
-				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
-						redPeer65001v4LBRPName: &types.RoutePolicy{
-							Name: redPeer65001v4LBRPName,
-							Type: types.RoutePolicyTypeExport,
-							Statements: []*types.RoutePolicyStatement{
-								{
-									Conditions: types.RoutePolicyConditions{
-										MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
-										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-											{
-												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
-												PrefixLenMin: 32,
-												PrefixLenMax: 32,
-											},
-										},
-									},
-									Actions: types.RoutePolicyActions{
-										RouteAction:    types.RoutePolicyActionAccept,
-										AddCommunities: []string{"65535:65281", gracefulShutdownCommunityValue},
-									},
-								},
-							},
-						},
-					},
-				},
-				ServiceAdvertisements: PeerAdvertisements{
-					testPeerID: FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
-							lbSvcAdvertWithSelector(redSvcSelector),
-						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
-					},
-				},
+				ServiceAdvertisements: peerAdvertisements,
+				ServiceRoutePolicies:  expectedPoliciesWithGSCommunity,
+				ServicePaths:          expectedServicePaths,
 			},
 		},
 		{
 			name:       "Update node status - node maintenance timeout expired, withdraw",
 			nodeStatus: NodeMaintenanceTimeExpired,
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
-						redPeer65001v4LBRPName: &types.RoutePolicy{
-							Name: redPeer65001v4LBRPName,
-							Type: types.RoutePolicyTypeExport,
-							Statements: []*types.RoutePolicyStatement{
-								{
-									Conditions: types.RoutePolicyConditions{
-										MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
-										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-											{
-												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
-												PrefixLenMin: 32,
-												PrefixLenMax: 32,
-											},
-										},
-									},
-									Actions: types.RoutePolicyActions{
-										RouteAction:    types.RoutePolicyActionAccept,
-										AddCommunities: []string{"65535:65281", gracefulShutdownCommunityValue},
-									},
-								},
-							},
-						},
-					},
-				},
-				ServiceAdvertisements: PeerAdvertisements{
-					testPeerID: FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
-							lbSvcAdvertWithSelector(redSvcSelector),
-						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
-					},
-				},
+				ServiceAdvertisements: peerAdvertisements,
+				ServiceRoutePolicies:  expectedPoliciesWithGSCommunity,
+				ServicePaths:          reconcilerv2.ResourceAFPathsMap{},
+			},
+		},
+		{
+			name:                "Add maintenance override - force disable maintenance mode, advertise again",
+			nodeStatus:          NodeMaintenance,
+			maintenanceOverride: &v1.IsovalentBGPMaintenance{Mode: v1.BGPMaintenanceModeDisabled},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: peerAdvertisements,
+				ServiceRoutePolicies:  expectedPolicies,
+				ServicePaths:          expectedServicePaths,
+			},
+		},
+		{
+			name:                "Delete maintenance override - withdraw again",
+			nodeStatus:          NodeMaintenanceTimeExpired,
+			maintenanceOverride: nil,
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: peerAdvertisements,
+				ServiceRoutePolicies:  expectedPoliciesWithGSCommunity,
+				ServicePaths:          reconcilerv2.ResourceAFPathsMap{},
 			},
 		},
 		{
 			name:       "Update node status - node ready, advertise again",
 			nodeStatus: NodeReady,
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
-						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
-							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
-						},
-					},
-				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
-						redPeer65001v4LBRPName: &types.RoutePolicy{
-							Name: redPeer65001v4LBRPName,
-							Type: types.RoutePolicyTypeExport,
-							Statements: []*types.RoutePolicyStatement{
-								{
-									Conditions: types.RoutePolicyConditions{
-										MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
-										MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-											{
-												CIDR:         netip.MustParsePrefix(ingressV4Prefix),
-												PrefixLenMin: 32,
-												PrefixLenMax: 32,
-											},
-										},
-									},
-									Actions: types.RoutePolicyActions{
-										RouteAction:    types.RoutePolicyActionAccept,
-										AddCommunities: []string{"65535:65281"},
-									},
-								},
-							},
-						},
-					},
-				},
-				ServiceAdvertisements: PeerAdvertisements{
-					testPeerID: FamilyAdvertisements{
-						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
-							lbSvcAdvertWithSelector(redSvcSelector),
-						},
-						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
-					},
-				},
+				ServiceAdvertisements: peerAdvertisements,
+				ServiceRoutePolicies:  expectedPolicies,
+				ServicePaths:          expectedServicePaths,
+			},
+		},
+		{
+			name:                "Add maintenance override - force maintenance, advertise GS community",
+			nodeStatus:          NodeReady,
+			maintenanceOverride: &v1.IsovalentBGPMaintenance{Mode: v1.BGPMaintenanceModeCommunity},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: peerAdvertisements,
+				ServiceRoutePolicies:  expectedPoliciesWithGSCommunity,
+				ServicePaths:          expectedServicePaths,
+			},
+		},
+		{
+			name:                "Update maintenance override - force maintenance withdrawal",
+			nodeStatus:          NodeReady,
+			maintenanceOverride: &v1.IsovalentBGPMaintenance{Mode: v1.BGPMaintenanceModeWithdrawal},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: peerAdvertisements,
+				ServiceRoutePolicies:  expectedPolicies,
+				ServicePaths:          reconcilerv2.ResourceAFPathsMap{},
+			},
+		},
+		{
+			name:                "Delete maintenance override - advertise again",
+			nodeStatus:          NodeReady,
+			maintenanceOverride: nil,
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServiceAdvertisements: peerAdvertisements,
+				ServiceRoutePolicies:  expectedPolicies,
+				ServicePaths:          expectedServicePaths,
 			},
 		},
 	})
@@ -3359,12 +3334,13 @@ func runServiceTests(t *testing.T, steps []svcTestStep) {
 			}
 			tx.Commit()
 
+			// update node instance config
+			desiredConfig := testBGPInstanceConfig.DeepCopy()
 			if len(tt.peers) > 0 {
-				// set peers in the node instance
-				desiredConfig := testBGPInstanceConfig.DeepCopy()
 				desiredConfig.Peers = tt.peers
-				f.svcReconciler.upgrader = newUpgraderMock(desiredConfig)
 			}
+			desiredConfig.Maintenance = tt.maintenanceOverride
+			f.svcReconciler.upgrader = newUpgraderMock(desiredConfig)
 
 			// reconcile twice to validate idempotency
 			for range 2 {

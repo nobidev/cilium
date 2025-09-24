@@ -70,9 +70,7 @@ type ServiceReconciler struct {
 	db        *statedb.DB
 	frontends statedb.Table[*loadbalancer.Frontend]
 
-	// node status tracking
 	nodeStatusProvider NodeStatusProvider
-	nodeStatus         NodeStatus
 }
 
 type ServiceReconcilerOut struct {
@@ -104,6 +102,8 @@ type ServiceReconcilerMetadata struct {
 	ServiceAdvertisements      PeerAdvertisements
 	FrontendChanges            statedb.ChangeIterator[*loadbalancer.Frontend]
 	FrontendChangesInitialized bool
+	LastNodeStatus             NodeStatus
+	LastMaintenance            *v1.IsovalentBGPMaintenance
 }
 
 func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
@@ -197,8 +197,8 @@ func (r *ServiceReconciler) setMetadata(i *EnterpriseBGPInstance, metadata Servi
 }
 
 // Reconcile mirrors the OSS reconciler's Reconcile() code path but calls enterprise-specific reconcileServices().
-func (r *ServiceReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.ReconcileParams) error {
-	iParams, err := r.upgrader.upgrade(p)
+func (r *ServiceReconciler) Reconcile(ctx context.Context, ossParams ossreconcilerv2.ReconcileParams) error {
+	p, err := r.upgrader.upgrade(ossParams)
 	if err != nil {
 		if errors.Is(err, ErrEntNodeConfigNotFound) {
 			r.logger.Debug("Enterprise node config not found yet, skipping reconciliation")
@@ -209,33 +209,45 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ossreconcilerv2.Rec
 
 	r.logger.Debug("Performing CEE Service reconciliation")
 
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredPeerAdvertisements(iParams.DesiredConfig, v1.BGPServiceAdvert)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredPeerAdvertisements(p.DesiredConfig, v1.BGPServiceAdvert)
 	if err != nil {
 		return err
 	}
 
 	// must be done before reconciling paths and policies since it sets metadata with latest desiredPeerAdverts
-	reqFullReconcile := r.modifiedServiceAdvertisements(iParams, desiredPeerAdverts)
+	reqFullReconcile := r.modifiedServiceAdvertisements(p, desiredPeerAdverts)
 
 	// if frontend changes iterator has not been initialized yet (first reconcile), perform full reconciliation
-	if !r.getMetadata(iParams.BGPInstance).FrontendChangesInitialized {
+	if !r.getMetadata(p.BGPInstance).FrontendChangesInitialized {
 		reqFullReconcile = true
 	}
 
+	// if node status changed, perform full reconcile
+	nodeStatus := r.nodeStatusProvider.GetNodeStatus()
 	if r.cfg.MaintenanceGracefulShutdownEnabled || r.cfg.MaintenanceWithdrawTime > 0 {
-		// if node status changed, perform full reconcile
-		nodeStatus := r.nodeStatusProvider.GetNodeStatus()
-		if nodeStatus != r.nodeStatus {
-			r.nodeStatus = nodeStatus
+		if nodeStatus != r.getMetadata(p.BGPInstance).LastNodeStatus {
 			reqFullReconcile = true
 		}
 	}
+	// if override maintenance config changed, perform full reconcile
+	lastMaintenance := r.getMetadata(p.BGPInstance).LastMaintenance
+	if lastMaintenance == nil {
+		if p.DesiredConfig.Maintenance != nil {
+			reqFullReconcile = true
+		}
+	} else if !lastMaintenance.DeepEqual(p.DesiredConfig.Maintenance) {
+		reqFullReconcile = true
+	}
 
-	err = r.reconcileServices(ctx, iParams, desiredPeerAdverts, reqFullReconcile)
+	err = r.reconcileServices(ctx, p, desiredPeerAdverts, reqFullReconcile)
 
 	if err == nil && reqFullReconcile {
-		// update svc advertisements in metadata only if the reconciliation was successful
-		r.updateServiceAdvertisementsMetadata(iParams, desiredPeerAdverts)
+		// update svc advertisements and other metadata only if the reconciliation was successful
+		metadata := r.getMetadata(p.BGPInstance) // obtain fresh metadata, it is modified in reconcileServices
+		metadata.ServiceAdvertisements = desiredPeerAdverts
+		metadata.LastNodeStatus = nodeStatus
+		metadata.LastMaintenance = p.DesiredConfig.Maintenance
+		r.setMetadata(p.BGPInstance, metadata)
 	}
 	return err
 }
@@ -349,8 +361,8 @@ func (r *ServiceReconciler) getDesiredPaths(p EnterpriseReconcileParams, desired
 // getServiceAFPaths applies enterprise-specific filtering for paths that should be advertised for a service.
 func (r *ServiceReconciler) getServiceAFPaths(p EnterpriseReconcileParams, desiredPeerAdverts PeerAdvertisements, svc *loadbalancer.Service, rx statedb.ReadTxn) (ossreconcilerv2.AFPathsMap, error) {
 
-	// do not advertise the service if node in maintenance mode with withdraw timeout expired
-	if r.nodeStatus == NodeMaintenanceTimeExpired {
+	// do not advertise the service if node is in the withdrawal maintenance mode
+	if r.maintenanceModeWithdrawal(p) {
 		return nil, nil
 	}
 
@@ -593,16 +605,6 @@ func (r *ServiceReconciler) modifiedServiceAdvertisements(iParams EnterpriseReco
 	return !PeerAdvertisementsEqual(currentMetadata.ServiceAdvertisements, desiredPeerAdverts)
 }
 
-// updateServiceAdvertisementsMetadata updates the provided ServiceAdvertisements in the reconciler metadata.
-func (r *ServiceReconciler) updateServiceAdvertisementsMetadata(iParams EnterpriseReconcileParams, peerAdverts PeerAdvertisements) {
-	// current metadata
-	serviceMetadata := r.getMetadata(iParams.BGPInstance)
-
-	// update ServiceAdvertisements in the metadata
-	serviceMetadata.ServiceAdvertisements = peerAdverts
-	r.setMetadata(iParams.BGPInstance, serviceMetadata)
-}
-
 func (r *ServiceReconciler) fullReconciliationServiceList(p EnterpriseReconcileParams) (toReconcile []*loadbalancer.Service, toWithdraw []loadbalancer.ServiceName, rx statedb.ReadTxn, err error) {
 	metadata := r.getMetadata(p.BGPInstance)
 
@@ -736,7 +738,7 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcilePara
 					slices.SortFunc(prefixesArr, func(a, b netip.Prefix) int {
 						return a.Addr().Compare(b.Addr()) // NOTE: Compare for netip.Prefix us unexported as of Go 1.22 (see go.dev/issue/61642), address compare is good enough here
 					})
-					policy, err := r.getServiceRoutePolicy(peer, agentFamily, svc, prefixesArr, advert, advertType)
+					policy, err := r.getServiceRoutePolicy(p, peer, agentFamily, svc, prefixesArr, advert, advertType)
 					if err != nil {
 						return nil, fmt.Errorf("failed to get desired %s route policy: %w", advertType, err)
 					}
@@ -758,7 +760,7 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p EnterpriseReconcilePara
 	return desiredSvcRoutePolicies, nil
 }
 
-func (r *ServiceReconciler) getServiceRoutePolicy(peer PeerID, family bgptypes.Family, svc *loadbalancer.Service, svcPrefixes []netip.Prefix, advert v1.BGPAdvertisement, advertType v2.BGPServiceAddressType) (*bgptypes.RoutePolicy, error) {
+func (r *ServiceReconciler) getServiceRoutePolicy(p EnterpriseReconcileParams, peer PeerID, family bgptypes.Family, svc *loadbalancer.Service, svcPrefixes []netip.Prefix, advert v1.BGPAdvertisement, advertType v2.BGPServiceAddressType) (*bgptypes.RoutePolicy, error) {
 	if peer.Address == "" {
 		return nil, nil
 	}
@@ -786,7 +788,7 @@ func (r *ServiceReconciler) getServiceRoutePolicy(peer PeerID, family bgptypes.F
 	}
 
 	attributes := advert.Attributes
-	if r.cfg.MaintenanceGracefulShutdownEnabled && r.nodeStatus != NodeReady {
+	if r.maintenanceModeCommunity(p) {
 		// advertise with GRACEFUL_SHUTDOWN community
 		if advert.Attributes == nil {
 			attributes = &v2.BGPAttributes{}
@@ -818,6 +820,34 @@ func svcLabelSet(svc *loadbalancer.Service) labels.Labels {
 	svcLabels["io.kubernetes.service.name"] = svc.Name.Name()
 	svcLabels["io.kubernetes.service.namespace"] = svc.Name.Namespace()
 	return labels.Set(svcLabels)
+}
+
+// maintenanceModeWithdrawal returns true if the local node is in the maintenance mode and routes should be withdrawn.
+func (r *ServiceReconciler) maintenanceModeWithdrawal(p EnterpriseReconcileParams) bool {
+	// if maintenance is set in the node config, prioritize it
+	if p.DesiredConfig.Maintenance != nil {
+		return p.DesiredConfig.Maintenance.Mode == v1.BGPMaintenanceModeWithdrawal
+	}
+	// if maintenance is not set in the node config, use the actual node status
+	if r.cfg.MaintenanceWithdrawTime > 0 && r.nodeStatusProvider.GetNodeStatus() == NodeMaintenanceTimeExpired {
+		return true
+	}
+	return false
+}
+
+// maintenanceModeCommunity returns true if the local node is in the maintenance mode and routes should be advertised with GS community.
+func (r *ServiceReconciler) maintenanceModeCommunity(p EnterpriseReconcileParams) bool {
+	// if maintenance is set in the node config, prioritize it
+	if p.DesiredConfig.Maintenance != nil {
+		return p.DesiredConfig.Maintenance.Mode == v1.BGPMaintenanceModeCommunity
+	}
+	// if maintenance is not set in the node config, use the actual node status
+	if r.cfg.MaintenanceGracefulShutdownEnabled && r.nodeStatusProvider.GetNodeStatus() != NodeReady {
+		// Note: we keep the GS community even if the node is in NodeMaintenanceTimeExpired state,
+		// to not advertise the route without GS community unexpectedly when switching between these two states.
+		return true
+	}
+	return false
 }
 
 func (r *ServiceReconciler) getServicePrefixLength(fe *loadbalancer.Frontend, advert v1.BGPAdvertisement, addrType v2.BGPServiceAddressType) int {
