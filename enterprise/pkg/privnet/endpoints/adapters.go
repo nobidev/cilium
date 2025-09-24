@@ -65,7 +65,13 @@ func (e endpointManagerAdapter) RemoveByCEPName(nsname string) (Endpoint, error)
 
 // LookupCEPName implements EndpointGetter.
 func (e endpointManagerAdapter) LookupCEPName(nsname string) Endpoint {
-	return e.epm.LookupCEPName(nsname)
+	ep := e.epm.LookupCEPName(nsname)
+	if ep == nil {
+		// This is needed to avoid having the returned interface value
+		// holding a nil concrete value that is itself non-nil.
+		return nil
+	}
+	return ep
 }
 
 // GetEndpointsByPodName implements EndpointGetter.
