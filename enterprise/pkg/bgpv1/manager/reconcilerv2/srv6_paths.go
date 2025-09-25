@@ -58,17 +58,20 @@ func newSRv6Paths(in srv6PathsIn) *srv6Paths {
 }
 
 func (s *srv6Paths) GetSRv6VPNPath(prefix netip.Prefix, bgpVRF v1.IsovalentBGPNodeVRF) (*types.Path, string, error) {
+	if bgpVRF.VRFRef == nil {
+		return nil, "", fmt.Errorf("cannot map VRF without VRFRef")
+	}
 	if bgpVRF.RD == nil || *bgpVRF.RD == "" {
 		return nil, "", fmt.Errorf("cannot map VRF without an RD")
 	}
 
-	srv6VRF, exists := s.SRv6Manager.GetVRFByName(k8sTypes.NamespacedName{Name: bgpVRF.VRFRef})
+	srv6VRF, exists := s.SRv6Manager.GetVRFByName(k8sTypes.NamespacedName{Name: *bgpVRF.VRFRef})
 	if !exists {
-		return nil, "", fmt.Errorf("VRF %s not found in SRv6 manager", bgpVRF.VRFRef)
+		return nil, "", fmt.Errorf("VRF %s not found in SRv6 manager", *bgpVRF.VRFRef)
 	}
 
 	if srv6VRF.SIDInfo == nil {
-		return nil, "", fmt.Errorf("cannot map VRF %s without SID allocation", bgpVRF.VRFRef)
+		return nil, "", fmt.Errorf("cannot map VRF %s without SID allocation", *bgpVRF.VRFRef)
 	}
 
 	var extComms []bgp.ExtendedCommunityInterface

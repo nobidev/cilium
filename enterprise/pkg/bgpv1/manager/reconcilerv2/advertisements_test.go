@@ -219,9 +219,9 @@ func TestVRFAdvertisements(t *testing.T) {
 				LocalASN: ptr.To[int64](65001),
 				VRFs: []v1.IsovalentBGPNodeVRF{
 					{
-						VRFRef:    "vrf-1",
-						ConfigRef: ptr.To[string]("vrf-config"),
-						RD:        ptr.To[string]("65001:1"),
+						VRFRef:    ptr.To("vrf-1"),
+						ConfigRef: ptr.To("vrf-config"),
+						RD:        ptr.To("65001:1"),
 					},
 				},
 			},
@@ -237,9 +237,9 @@ func TestVRFAdvertisements(t *testing.T) {
 				LocalASN: ptr.To[int64](65001),
 				VRFs: []v1.IsovalentBGPNodeVRF{
 					{
-						VRFRef:    "vrf-1",
-						ConfigRef: ptr.To[string]("vrf-config"),
-						RD:        ptr.To[string]("65001:1"),
+						VRFRef:    ptr.To("vrf-1"),
+						ConfigRef: ptr.To("vrf-config"),
+						RD:        ptr.To("65001:1"),
 					},
 				},
 			},
@@ -259,9 +259,9 @@ func TestVRFAdvertisements(t *testing.T) {
 				LocalASN: ptr.To[int64](65001),
 				VRFs: []v1.IsovalentBGPNodeVRF{
 					{
-						VRFRef:    "vrf-1",
-						ConfigRef: ptr.To[string]("vrf-config"),
-						RD:        ptr.To[string]("65001:1"),
+						VRFRef:    ptr.To("vrf-1"),
+						ConfigRef: ptr.To("vrf-config"),
+						RD:        ptr.To("65001:1"),
 					},
 				},
 			},

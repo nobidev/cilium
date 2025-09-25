@@ -199,7 +199,10 @@ func (p *IsovalentAdvertisement) GetConfiguredVRFAdvertisements(conf *v1.Isovale
 	l := p.logger.With(types.InstanceLogField, conf.Name)
 
 	for _, vrf := range conf.VRFs {
-		lv := l.With(entTypes.VRFLogField, vrf.VRFRef)
+		if vrf.VRFRef == nil {
+			continue
+		}
+		lv := l.With(entTypes.VRFLogField, *vrf.VRFRef)
 
 		if vrf.ConfigRef == nil {
 			lv.Debug("VRF config ref not set, skipping advertisement check")
@@ -223,7 +226,7 @@ func (p *IsovalentAdvertisement) GetConfiguredVRFAdvertisements(conf *v1.Isovale
 		if err != nil {
 			return nil, err
 		}
-		result[vrf.VRFRef] = vrfAdverts
+		result[*vrf.VRFRef] = vrfAdverts
 	}
 	return result, nil
 }

@@ -101,8 +101,6 @@ type IsovalentBGPInstance struct {
 	// VRFs is a list of VRFs for this virtual router
 	//
 	// +kubebuilder:validation:Optional
-	// +listType=map
-	// +listMapKey=vrfRef
 	VRFs []BGPVRF `json:"vrfs,omitempty"`
 
 	// RouteReflector defines which route reflector cluster this instance
@@ -276,14 +274,16 @@ type IsovalentBGPClusterConfigStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="has(self.vrfRef) != has(self.privateNetworkRef)", message="either vrfRef or privateNetworkRef must be specified"
 type BGPVRF struct {
-	// VRFRef is a reference to a IsovalentVRF resource. It should be the same as the name of the
-	// IsovalentVRF object to which this BGPVRF is associated.
+	// VRFRef is a reference to a IsovalentVRF resource. It should be the
+	// same as the name of the IsovalentVRF object to which this BGPVRF is
+	// associated. It cannot be set together with privateNetworkRef.
 	//
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=255
-	VRFRef string `json:"vrfRef"`
+	VRFRef *string `json:"vrfRef"`
 
 	// PrivateNetworkRef is a reference to a ClusterPrivateNetwork
 	// resource. It cannot be set together with vrfRef.

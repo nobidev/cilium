@@ -274,17 +274,18 @@ spec:
                             description: RD is the route distinguisher for the VRF.
                             type: string
                           vrfRef:
-                            description: VRFRef is a reference to a IsovalentVRF resource.
+                            description: |-
+                              VRFRef is a reference to a IsovalentVRF resource. It should be the
+                              same as the name of the IsovalentVRF object to which this BGPVRF is
+                              associated. It cannot be set together with privateNetworkRef.
                             maxLength: 255
                             minLength: 1
                             type: string
-                        required:
-                        - vrfRef
                         type: object
+                        x-kubernetes-validations:
+                        - message: either vrfRef or privateNetworkRef must be specified
+                          rule: has(self.vrfRef) != has(self.privateNetworkRef)
                       type: array
-                      x-kubernetes-list-map-keys:
-                      - vrfRef
-                      x-kubernetes-list-type: map
                   required:
                   - name
                   type: object

@@ -197,7 +197,7 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 	for runningVRF := range metadata.vrfPaths {
 		found := false
 		for _, desiredVRF := range p.DesiredConfig.VRFs {
-			if runningVRF == desiredVRF.VRFRef {
+			if desiredVRF.VRFRef != nil && runningVRF == *desiredVRF.VRFRef {
 				found = true
 				break
 			}
@@ -225,18 +225,21 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 			return err
 		}
 		for _, vrf := range p.DesiredConfig.VRFs {
+			if vrf.VRFRef == nil {
+				continue
+			}
 			desiredSvcPaths, err := r.getDesiredPaths(p, toReconcile, vrf, desiredVRFAdverts, rx)
 			if err != nil {
 				return err
 			}
 			// check for services which are no longer present
-			for serviceKey := range metadata.vrfPaths[vrf.VRFRef] {
+			for serviceKey := range metadata.vrfPaths[*vrf.VRFRef] {
 				// if the service no longer exists, withdraw it
 				if _, exists := desiredSvcPaths[serviceKey]; !exists {
 					desiredSvcPaths[serviceKey] = nil
 				}
 			}
-			desiredVRFPaths[vrf.VRFRef] = desiredSvcPaths
+			desiredVRFPaths[*vrf.VRFRef] = desiredSvcPaths
 		}
 	} else {
 		r.logger.Debug("performing modified services reconciliation")
@@ -247,6 +250,9 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 			return err
 		}
 		for _, vrf := range p.DesiredConfig.VRFs {
+			if vrf.VRFRef == nil {
+				continue
+			}
 			updatedSvcPaths, err := r.getDesiredPaths(p, toReconcile, vrf, desiredVRFAdverts, rx)
 			if err != nil {
 				return err
@@ -257,9 +263,9 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 			// we need to only touch services which are modified.
 
 			// check if vrf is present
-			currentSvcPaths, exists := metadata.vrfPaths[vrf.VRFRef]
+			currentSvcPaths, exists := metadata.vrfPaths[*vrf.VRFRef]
 			if !exists {
-				desiredVRFPaths[vrf.VRFRef] = updatedSvcPaths
+				desiredVRFPaths[*vrf.VRFRef] = updatedSvcPaths
 				continue
 			}
 
@@ -269,7 +275,7 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 
 			// override only modified services
 			maps.Copy(desiredSvcPaths, updatedSvcPaths)
-			desiredVRFPaths[vrf.VRFRef] = desiredSvcPaths
+			desiredVRFPaths[*vrf.VRFRef] = desiredSvcPaths
 		}
 	}
 
@@ -386,8 +392,11 @@ func (r *ServiceVRFReconciler) getDesiredPaths(p EnterpriseReconcileParams, toRe
 
 func (r *ServiceVRFReconciler) getServiceAFPaths(p EnterpriseReconcileParams, svc *loadbalancer.Service, bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements, rx statedb.ReadTxn) (reconciler.AFPathsMap, error) {
 	desiredFamilyPaths := make(reconciler.AFPathsMap)
+	if bgpVRF.VRFRef == nil {
+		return desiredFamilyPaths, nil
+	}
 
-	vrfFamilyAdvertisements, exists := desiredVRFAdverts[bgpVRF.VRFRef]
+	vrfFamilyAdvertisements, exists := desiredVRFAdverts[*bgpVRF.VRFRef]
 	if !exists {
 		// no advertisement found for this VRF, nothing to do.
 		return nil, nil
@@ -537,12 +546,15 @@ func (r *ServiceVRFReconciler) getETPLocalLBSvcPaths(p EnterpriseReconcileParams
 func (r *ServiceVRFReconciler) getConfiguredSIDInfo(bgpConfig *v1.IsovalentBGPNodeInstance) (VRFSIDInfo, error) {
 	desiredVRFSIDInfo := make(VRFSIDInfo)
 	for _, bgpVRF := range bgpConfig.VRFs {
-		vrfInfo, exists := r.srv6Manager.GetVRFByName(k8stypes.NamespacedName{Name: bgpVRF.VRFRef})
+		if bgpVRF.VRFRef == nil {
+			continue
+		}
+		vrfInfo, exists := r.srv6Manager.GetVRFByName(k8stypes.NamespacedName{Name: *bgpVRF.VRFRef})
 		if !exists {
 			r.logger.Debug("VRF not found in SRv6 Manager", entTypes.VRFLogField, bgpVRF.VRFRef)
 			continue
 		}
-		desiredVRFSIDInfo[bgpVRF.VRFRef] = vrfInfo.SIDInfo
+		desiredVRFSIDInfo[*bgpVRF.VRFRef] = vrfInfo.SIDInfo
 	}
 	return desiredVRFSIDInfo, nil
 }

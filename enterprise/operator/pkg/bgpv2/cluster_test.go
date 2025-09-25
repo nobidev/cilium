@@ -457,7 +457,7 @@ func TestClusterConfigConditions(t *testing.T) {
 						{
 							VRFs: []v1.BGPVRF{
 								{
-									VRFRef:    vrfName,
+									VRFRef:    &vrfName,
 									ConfigRef: ptr.To[string](bgpVrfConfigName),
 								},
 							},
@@ -481,8 +481,8 @@ func TestClusterConfigConditions(t *testing.T) {
 						{
 							VRFs: []v1.BGPVRF{
 								{
-									VRFRef:    "foo",
-									ConfigRef: ptr.To[string](bgpVrfConfigName),
+									VRFRef:    ptr.To("foo"),
+									ConfigRef: ptr.To(bgpVrfConfigName),
 								},
 							},
 						},
@@ -505,8 +505,8 @@ func TestClusterConfigConditions(t *testing.T) {
 						{
 							VRFs: []v1.BGPVRF{
 								{
-									VRFRef:    "foo",
-									ConfigRef: ptr.To[string]("bar"),
+									VRFRef:    ptr.To("foo"),
+									ConfigRef: ptr.To("bar"),
 								},
 							},
 						},

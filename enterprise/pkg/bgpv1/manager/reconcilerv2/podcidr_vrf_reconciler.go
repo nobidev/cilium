@@ -197,7 +197,10 @@ func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams,
 
 		found := false
 		for _, bgpVRF := range p.DesiredConfig.VRFs {
-			bgpVRFKey := resource.Key{Name: bgpVRF.VRFRef}
+			if bgpVRF.VRFRef == nil {
+				continue
+			}
+			bgpVRFKey := resource.Key{Name: *bgpVRF.VRFRef}
 			if vrfNamespacedName == bgpVRFKey {
 				found = true
 				break
@@ -210,14 +213,17 @@ func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams,
 	}
 
 	for _, bgpVRF := range p.DesiredConfig.VRFs {
+		if bgpVRF.VRFRef == nil {
+			continue
+		}
 		// check if pod CIDR advertisement is configured for this BGP VRF
-		afAdverts, exists := desiredVRFAdverts[bgpVRF.VRFRef]
+		afAdverts, exists := desiredVRFAdverts[*bgpVRF.VRFRef]
 		if !exists {
 			continue
 		}
 
 		// get isoVRF resource
-		_, exists = r.SRv6Manager.GetVRFByName(k8sTypes.NamespacedName{Name: bgpVRF.VRFRef})
+		_, exists = r.SRv6Manager.GetVRFByName(k8sTypes.NamespacedName{Name: *bgpVRF.VRFRef})
 		if !exists {
 			r.Logger.Warn("VRF not found in SRv6 Manager", entTypes.VRFLogField, bgpVRF.VRFRef)
 			continue
@@ -261,7 +267,7 @@ func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams,
 				}
 			}
 		}
-		desiredVRFsAFPaths[resource.Key{Name: bgpVRF.VRFRef}] = desiredVRFAFPaths
+		desiredVRFsAFPaths[resource.Key{Name: *bgpVRF.VRFRef}] = desiredVRFAFPaths
 	}
 	return desiredVRFsAFPaths, nil
 }

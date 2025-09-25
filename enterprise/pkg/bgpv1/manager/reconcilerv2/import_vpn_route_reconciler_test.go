@@ -257,11 +257,11 @@ func TestSRv6RouteImport(t *testing.T) {
 					LocalASN: inst.Config.LocalASN,
 					VRFs: []v1.IsovalentBGPNodeVRF{
 						{
-							VRFRef:    "vrf0",
+							VRFRef:    ptr.To("vrf0"),
 							ImportRTs: []string{"65000:1"},
 						},
 						{
-							VRFRef:    "vrf1",
+							VRFRef:    ptr.To("vrf1"),
 							ImportRTs: []string{"65000:2"},
 						},
 					},

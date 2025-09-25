@@ -336,9 +336,11 @@ func (m *BGPResourceMapper) missingVRFs(config *v1.IsovalentBGPClusterConfig) []
 	missing := []string{}
 	for _, instance := range config.Spec.BGPInstances {
 		for _, vrf := range instance.VRFs {
-			_, exists, _ := m.vrf.GetByKey(resource.Key{Name: vrf.VRFRef})
-			if !exists {
-				missing = append(missing, vrf.VRFRef)
+			if vrf.VRFRef != nil {
+				_, exists, _ := m.vrf.GetByKey(resource.Key{Name: *vrf.VRFRef})
+				if !exists {
+					missing = append(missing, *vrf.VRFRef)
+				}
 			}
 		}
 	}

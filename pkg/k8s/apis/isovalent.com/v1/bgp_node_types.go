@@ -107,8 +107,6 @@ type IsovalentBGPNodeInstance struct {
 	// VRFs is a list of VRFs for this virtual router
 	//
 	// +kubebuilder:validation:Optional
-	// +listType=map
-	// +listMapKey=vrfRef
 	VRFs []IsovalentBGPNodeVRF `json:"vrfs,omitempty"`
 
 	// RouteReflector indicates whether this BGP instance is a route
@@ -207,13 +205,16 @@ type IsovalentBGPNodeInstanceStatus struct {
 	v2.CiliumBGPNodeInstanceStatus `json:",inline"`
 }
 
+// +kubebuilder:validation:XValidation:rule="has(self.vrfRef) != has(self.privateNetworkRef)", message="either vrfRef or privateNetworkRef must be specified"
 type IsovalentBGPNodeVRF struct {
-	// VRFRef is a reference to a IsovalentVRF resource.
+	// VRFRef is a reference to a IsovalentVRF resource. It should be the
+	// same as the name of the IsovalentVRF object to which this BGPVRF is
+	// associated. It cannot be set together with privateNetworkRef.
 	//
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=255
-	VRFRef string `json:"vrfRef"`
+	VRFRef *string `json:"vrfRef"`
 
 	// PrivateNetworkRef is a reference to a ClusterPrivateNetwork
 	// resource. It cannot be set together with vrfRef.

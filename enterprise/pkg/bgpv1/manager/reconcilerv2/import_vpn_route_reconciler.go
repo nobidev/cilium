@@ -272,7 +272,10 @@ func (r *importVPNRouteReconciler) desiredRoutes(
 	// Map VRF ID to the list of routes
 	desiredRoutes := map[uint32]*bitlpm.CIDRTrie[*rib.Route]{}
 	for _, vrf := range bgpVRFs {
-		vrfID, ok := vrfIDs[vrf.VRFRef]
+		if vrf.VRFRef == nil {
+			continue
+		}
+		vrfID, ok := vrfIDs[*vrf.VRFRef]
 		if !ok {
 			continue
 		}

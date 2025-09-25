@@ -212,31 +212,31 @@ var (
 	}
 
 	vrf1RDConfig = v1.IsovalentBGPNodeVRF{
-		VRFRef:    "vrf1",
-		ConfigRef: ptr.To[string]("vrf1-config"),
-		RD:        ptr.To[string]("65001:1"),
+		VRFRef:    ptr.To("vrf1"),
+		ConfigRef: ptr.To("vrf1-config"),
+		RD:        ptr.To("65001:1"),
 		ImportRTs: []string{"65001:1"},
 		ExportRTs: []string{"65001:1"},
 	}
 	vrf1RDConfigUpdated = v1.IsovalentBGPNodeVRF{
-		VRFRef:    "vrf1",
-		ConfigRef: ptr.To[string]("vrf1-config"),
-		RD:        ptr.To[string]("65101:1"),
+		VRFRef:    ptr.To("vrf1"),
+		ConfigRef: ptr.To("vrf1-config"),
+		RD:        ptr.To("65101:1"),
 		ImportRTs: []string{"65101:1"},
 		ExportRTs: []string{"65101:1"},
 	}
 
 	vrf2RDConfig = v1.IsovalentBGPNodeVRF{
-		VRFRef:    "vrf2",
-		ConfigRef: ptr.To[string]("vrf2-config"),
-		RD:        ptr.To[string]("65001:2"),
+		VRFRef:    ptr.To("vrf2"),
+		ConfigRef: ptr.To("vrf2-config"),
+		RD:        ptr.To("65001:2"),
 		ImportRTs: []string{"65001:2"},
 		ExportRTs: []string{"65001:2"},
 	}
 	vrf2ConfigUpdated = v1.IsovalentBGPNodeVRF{
-		VRFRef:    "vrf2",
-		ConfigRef: ptr.To[string]("vrf2-config"),
-		RD:        ptr.To[string]("65101:2"),
+		VRFRef:    ptr.To("vrf2"),
+		ConfigRef: ptr.To("vrf2-config"),
+		RD:        ptr.To("65101:2"),
 		ImportRTs: []string{"65101:2"},
 		ExportRTs: []string{"65101:2"},
 	}

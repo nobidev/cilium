@@ -237,9 +237,14 @@ func (in *BGPVRF) DeepEqual(other *BGPVRF) bool {
 		return false
 	}
 
-	if in.VRFRef != other.VRFRef {
+	if (in.VRFRef == nil) != (other.VRFRef == nil) {
 		return false
+	} else if in.VRFRef != nil {
+		if *in.VRFRef != *other.VRFRef {
+			return false
+		}
 	}
+
 	if (in.PrivateNetworkRef == nil) != (other.PrivateNetworkRef == nil) {
 		return false
 	} else if in.PrivateNetworkRef != nil {
@@ -971,9 +976,14 @@ func (in *IsovalentBGPNodeVRF) DeepEqual(other *IsovalentBGPNodeVRF) bool {
 		return false
 	}
 
-	if in.VRFRef != other.VRFRef {
+	if (in.VRFRef == nil) != (other.VRFRef == nil) {
 		return false
+	} else if in.VRFRef != nil {
+		if *in.VRFRef != *other.VRFRef {
+			return false
+		}
 	}
+
 	if (in.PrivateNetworkRef == nil) != (other.PrivateNetworkRef == nil) {
 		return false
 	} else if in.PrivateNetworkRef != nil {

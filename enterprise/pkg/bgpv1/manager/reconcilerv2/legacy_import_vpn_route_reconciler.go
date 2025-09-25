@@ -447,18 +447,21 @@ func (r *legacyImportVPNRouteReconciler) mapSRv6PathToEgressPolicy(l *slog.Logge
 	// map into EgressPolicies
 	policies := []*srv6.EgressPolicy{}
 	for _, bgpVRF := range bgpVRFs {
+		if bgpVRF.VRFRef == nil {
+			continue
+		}
 		for _, configuredRT := range bgpVRF.ImportRTs {
 			// Path should match one of the configured import route targets.
 			if configuredRT == RT {
 				l.Debug("Matched vrf route target with discovered route targe",
-					ceetypes.VRFLogField, bgpVRF.VRFRef,
+					ceetypes.VRFLogField, *bgpVRF.VRFRef,
 					ceetypes.RouteTargetLogField, RT,
 				)
 
 				// find IsovalentVRF instance corresponding to matched vrf
-				vrf, exists := r.SRv6Manager.GetVRFByName(k8sTypes.NamespacedName{Name: bgpVRF.VRFRef})
+				vrf, exists := r.SRv6Manager.GetVRFByName(k8sTypes.NamespacedName{Name: *bgpVRF.VRFRef})
 				if !exists {
-					l.Debug("VRF does not exist in SRv6 Manager", ceetypes.VRFLogField, bgpVRF.VRFRef)
+					l.Debug("VRF does not exist in SRv6 Manager", ceetypes.VRFLogField, *bgpVRF.VRFRef)
 					continue
 				}
 
