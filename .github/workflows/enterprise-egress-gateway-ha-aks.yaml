@@ -133,15 +133,16 @@ jobs:
             --set=azure.resourceGroup=${NAME} \
             --datapath-mode=aks-byocni \
             --set=enterprise.egressGatewayHA.enabled=true \
-            --set=enterprise.featureGate.approved='{EgressGatewayIPv4,EgressGatewayHA,DNSProxyHA}' \
+            --set=enterprise.featureGate.approved='{EgressGatewayIPv4,EgressGatewayHA,DNSProxyHA,DatapathIPModeDualStack}' \
             --set=enterprise.bgpControlPlane.enabled=true \
             --set-string=extraConfig.external-dns-proxy=true \
             --set=enableIPv4Masquerade=true \
             --set=bpf.masquerade=true \
             --set=kubeProxyReplacement=true \
             --set=ipv4.enabled=true \
-            --set=ipv6.enabled=false \
-            --set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
+            --set=ipv6.enabled=true \
+            --set=ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
+            --set=ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104 \
             --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
             --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${SHA} \
             --nodes-without-cilium
@@ -238,7 +239,7 @@ jobs:
             --nodepool-labels egress-group=test rr-role=client \
             --kube-proxy-config ./.github/enterprise-egw-ha/kube-proxy.json \
             --node-count 3 \
-            --ip-families ipv4 \
+            --ip-families ipv4,ipv6 \
             --vnet-subnet-id $EGW_SUBNET_ID \
             ${{ env.cost_reduction }} \
             --generate-ssh-keys
