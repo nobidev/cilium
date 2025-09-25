@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
@@ -298,6 +299,7 @@ func newFixture(t *testing.T, useRealSIDManager bool, invokeFn any) *fixture {
 	cells = append(cells,
 		// Test module so that NewSRv6Manager gets a job.Group.
 		cell.Module("srv-manager-test", "SRv6 Manager test",
+			cell.Config(cmtypes.DefaultClusterInfo),
 			cell.Provide(
 				func() *option.DaemonConfig {
 					return &option.DaemonConfig{

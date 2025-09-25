@@ -15,7 +15,8 @@ cilium-dbg bfd peers [flags]
 ### Options
 
 ```
-  -h, --help   help for peers
+  -h, --help                     help for peers
+      --shell-sock-path string   Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
 ```
 
 ### Options inherited from parent commands

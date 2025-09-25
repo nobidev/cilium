@@ -308,7 +308,7 @@ maybe_encrypt: __maybe_unused
 	if (dst && dst->key) {
 		set_identity_mark(ctx, src_sec_identity, MARK_MAGIC_IDENTITY);
 overlay_encrypt: __maybe_unused
-		return ctx_redirect(ctx, WG_IFINDEX, 0);
+		return ctx_redirect(ctx, CONFIG(wg_ifindex), 0);
 	}
 
 out:

@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.19.1
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.11.0
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.12.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7 v7.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7 v7.0.0
 	github.com/YutaroHayakawa/bgplay v0.0.3
@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.39.0
 	github.com/aws/aws-sdk-go-v2/config v1.31.8
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.7
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.251.2
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.253.0
 	github.com/aws/smithy-go v1.23.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
@@ -132,21 +132,21 @@ require (
 	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.8
 	helm.sh/helm/v3 v3.18.6
-	k8s.io/api v0.34.0
-	k8s.io/apiextensions-apiserver v0.34.0
-	k8s.io/apimachinery v0.34.0
-	k8s.io/cli-runtime v0.34.0
-	k8s.io/client-go v0.34.0
-	k8s.io/component-base v0.34.0
+	k8s.io/api v0.34.1
+	k8s.io/apiextensions-apiserver v0.34.1
+	k8s.io/apimachinery v0.34.1
+	k8s.io/cli-runtime v0.34.1
+	k8s.io/client-go v0.34.1
+	k8s.io/component-base v0.34.1
 	k8s.io/endpointslice v0.34.0
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kubectl v0.34.0
-	k8s.io/metrics v0.34.0
+	k8s.io/kubectl v0.34.1
+	k8s.io/metrics v0.34.1
 	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/gateway-api v1.3.1-0.20250611112659-17a60f668a0d
-	sigs.k8s.io/mcs-api v0.3.0
-	sigs.k8s.io/mcs-api/controllers v0.0.0-20250908090929-79efdd37ed2b
+	sigs.k8s.io/mcs-api v0.3.1-0.20250908090929-79efdd37ed2b
+	sigs.k8s.io/mcs-api/controllers v0.0.0-20250731081715-a807ec696257
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -164,7 +164,7 @@ require (
 	github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20250520111509-a70c2aa677fa // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
-	github.com/AzureAD/microsoft-authentication-library-for-go v1.4.2 // indirect
+	github.com/AzureAD/microsoft-authentication-library-for-go v1.5.0 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -346,8 +346,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.0 // indirect
-	k8s.io/apiserver v0.34.0 // indirect
-	k8s.io/code-generator v0.34.0 // indirect
+	k8s.io/apiserver v0.34.1 // indirect
+	k8s.io/code-generator v0.34.1 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250604051438-85fd79dbfd9f // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
 	oras.land/oras-go/v2 v2.6.0 // indirect

@@ -560,6 +560,10 @@ data:
   service-no-backend-response: "{{ .Values.serviceNoBackendResponse }}"
 {{- end}}
 
+{{- if .Values.policyDenyResponse }}
+  policy-deny-response: "{{ .Values.policyDenyResponse }}"
+{{- end}}
+
 {{- if .Values.MTU }}
   mtu: {{ .Values.MTU | quote }}
 {{- end }}
@@ -775,6 +779,10 @@ data:
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}
 
+{{- if hasKey .Values "enableNoServiceEndpointsRoutable" }}
+  enable-no-service-endpoints-routable: {{ .Values.enableNoServiceEndpointsRoutable | quote }}
+{{- end }}
+
 {{- if $socketLB }}
 {{- if hasKey $socketLB "enabled" }}
   bpf-lb-sock: {{ $socketLB.enabled | quote }}
@@ -965,6 +973,10 @@ data:
 {{- if hasKey .Values.hubble "eventBufferCapacity" }}
   # Capacity of the buffer to store recent events.
   hubble-event-buffer-capacity: {{ .Values.hubble.eventBufferCapacity | quote }}
+{{- end }}
+{{- if hasKey .Values.hubble "lostEventSendInterval" }}
+  # Interval to send lost events from Observer server.
+  hubble-lost-event-send-interval: {{ include "validateDuration" .Values.hubble.lostEventSendInterval | quote }}
 {{- end }}
 {{- if or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled}}
   # Address to expose Hubble metrics (e.g. ":7070"). Metrics server will be disabled if this

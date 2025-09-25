@@ -33,6 +33,7 @@ import (
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -139,6 +140,7 @@ func TestPrivilegedAgentScripts(t *testing.T) {
 
 				PolicyCell,
 				cell.Config(metrics.RegistryConfig{}),
+				cell.Config(cmtypes.DefaultClusterInfo),
 				cell.Provide(
 					metrics.NewRegistry,
 					// LocalNodeSynchronizer syncs via apiserver, after the node is initialized, generally

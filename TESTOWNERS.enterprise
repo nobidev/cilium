@@ -144,6 +144,7 @@
 /Documentation/network/servicemesh/ @isovalent/service-mesh
 /Documentation/observability/ @isovalent/policy-identity-networking
 /Documentation/observability/hubble* @isovalent/hubble
+/Documentation/observability/metrics.rst @isovalent/hubble
 /Documentation/operations/performance/ @isovalent/cni
 /Documentation/operations/system_requirements.rst @isovalent/cni
 /Documentation/operations/troubleshooting_clustermesh.rst @isovalent/clustermesh
@@ -244,6 +245,7 @@
 /pkg/fswatcher/ @isovalent/cni @isovalent/hubble
 /pkg/gops/ @isovalent/cni
 /pkg/health/ @isovalent/cni
+/pkg/healthconfig/ @isovalent/cni
 /pkg/hive/ @isovalent/ci-structure
 /pkg/hubble/ @isovalent/hubble
 /pkg/hubble/metrics @isovalent/hubble
@@ -317,6 +319,7 @@
 /pkg/source @isovalent/policy-identity-networking
 /pkg/spanstat/ @isovalent/cni
 /pkg/status/ @isovalent/cni
+/pkg/svcrouteconfig/ @isovalent/cni @isovalent/traffic-engineering
 /pkg/testutils/scriptnet @isovalent/ci-structure
 /pkg/time @isovalent/cni
 /pkg/trigger/ @isovalent/cni

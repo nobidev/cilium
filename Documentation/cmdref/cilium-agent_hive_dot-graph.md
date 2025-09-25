@@ -82,18 +82,19 @@ cilium-agent hive dot-graph [flags]
       --enable-dynamic-lifecycle-manager                                 Enables support for dynamic lifecycle management
       --enable-egress-gateway-ha-socket-termination                      Enables egress-gateway ha closing sockets for unavailable gateways (default true)
       --enable-encryption-policy                                         Enable support for encryption policies. When enabled, only selected traffic will be encrypted.
+      --enable-endpoint-health-checking                                  Enable connectivity health checking between virtual endpoints (default true)
       --enable-enterprise-bgp-control-plane                              Enable enterprise BGP in Cilium
       --enable-enterprise-bgp-control-plane-status-report                Enable enterprise BGP status report in Cilium (default true)
       --enable-gateway-api                                               Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-gops                                                      Enable gops server (default true)
       --enable-health-check-nodeport                                     Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)
+      --enable-health-checking                                           Enable connectivity health checking (default true)
       --enable-hubble                                                    Enable hubble server
       --enable-hubble-open-metrics                                       Enable exporting hubble metrics in OpenMetrics format.
       --enable-ingress-controller                                        Enables Envoy secret sync for Ingress controller related TLS secrets
       --enable-inter-cluster-snat                                        Enable inter-cluster SNAT, to support overlapping PodCIDRs
       --enable-ip-masq-agent                                             Enable BPF ip-masq-agent
       --enable-ipsec                                                     Enable IPsec
-      --enable-ipsec-encrypted-overlay                                   Enable IPsec encrypted overlay. If enabled tunnel traffic will be encrypted before leaving the host. Requires ipsec and tunnel mode vxlan to be enabled.
       --enable-ipsec-key-watcher                                         Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations. (default true)
       --enable-ipv4-big-tcp                                              Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4
       --enable-ipv4-standalone-egress-gateway                            Enable standalone egress gateway for IPv4
@@ -104,6 +105,7 @@ cilium-agent hive dot-graph [flags]
       --enable-l2-pod-announcements                                      Enable announcing Pod IPs with Gratuitous ARP and NDP
       --enable-monitor                                                   Enable the monitor unix domain socket server (default true)
       --enable-multi-network                                             Enable support for multiple pod networks
+      --enable-no-service-endpoints-routable                             Enable routes when service has 0 endpoints (default true)
       --enable-phantom-services                                          Enable phantom services handling (default true)
       --enable-policy-secrets-sync                                       Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
       --enable-route-mtu-for-cni-chaining                                Enable route MTU for pod netns when CNI chaining is used
@@ -200,6 +202,7 @@ cilium-agent hive dot-graph [flags]
       --hubble-export-timescape-tls-key-file string                      Path to the private key file for the client certificate to connect to the remote server using mTLS (the file must contain PEM encoded data)
       --hubble-flowlogs-config-path string                               Filepath with configuration of hubble flowlogs
       --hubble-listen-address string                                     An additional address for Hubble server to listen to, e.g. ":4244"
+      --hubble-lost-event-send-interval duration                         Interval at which lost events are sent from the Observer server, if any. (default 1s)
       --hubble-metrics string                                            List of Hubble metrics to enable.
       --hubble-metrics-server string                                     Address to serve Hubble metrics on.
       --hubble-metrics-server-enable-tls                                 Run the Hubble metrics server on the given listen address with TLS.
@@ -214,7 +217,6 @@ cilium-agent hive dot-graph [flags]
       --hubble-redact-http-headers-deny strings                          HTTP headers to redact from flows
       --hubble-redact-http-urlquery                                      Hubble redact http URL query from flows
       --hubble-redact-http-userinfo                                      Hubble redact http user info from flows (default true)
-      --hubble-redact-kafka-apikey                                       Hubble redact Kafka API key from flows
       --hubble-skip-unknown-cgroup-ids                                   Skip Hubble events with unknown cgroup ids (default true)
       --hubble-socket-path string                                        Set hubble's socket path to listen for connections (default "/var/run/cilium/hubble.sock")
       --hubble-tls-cert-file string                                      Path to the public key file for the Hubble server. The file must contain PEM encoded data.
@@ -308,6 +310,7 @@ cilium-agent hive dot-graph [flags]
       --read-cni-conf string                                             CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
       --restored-proxy-ports-age-limit uint                              Time after which a restored proxy ports file is considered stale (in minutes) (default 15)
       --router-advertisement-interval duration                           Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled (default 3s)
+      --shell-sock-path string                                           Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
       --standalone-dns-proxy-server-port int                             Global port on which the gRPC server for standalone DNS proxy should listen (default 40045)
       --standalone-egress-gateway-interface string                       Name of the egress interface for the standalone gateway; if empty, it automatically selects the interface with the default route
       --standalone-egress-gateway-map-max int                            Maximum number of entries in the standalone egress gateway map (default 16384)

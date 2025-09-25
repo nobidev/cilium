@@ -485,7 +485,6 @@ keyless
 keypair
 keyspace
 keyspaces
-kiam
 kops
 kprobe
 kprobes

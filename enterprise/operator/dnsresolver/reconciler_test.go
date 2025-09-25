@@ -51,7 +51,7 @@ func TestReconciler(t *testing.T) {
 
 	// create fake clientsets
 	cs, _ := k8sFakeClient.NewFakeClientset(hivetest.Logger(t))
-	clientset := cs.CiliumV2alpha1().CiliumCIDRGroups()
+	clientset := cs.CiliumV2().CiliumCIDRGroups()
 
 	first, last := make(chan struct{}), make(chan struct{})
 
