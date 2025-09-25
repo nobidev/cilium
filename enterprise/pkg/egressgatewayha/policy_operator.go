@@ -124,7 +124,7 @@ func getIEGPForStatusUpdate(iegp *Policy, groupStatuses []groupStatus, condition
 	return policy
 }
 
-func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, config *PolicyConfig, status *groupStatus) (groupStatus, error) {
+func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, config *PolicyConfig, status *groupStatus) (groupStatus, gatewaySelectionMetrics, error) {
 	healthyGatewayIPs := []netip.Addr{}
 	availableHealthyGatewayIPs := []netip.Addr{}
 
@@ -132,6 +132,12 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 	availableHealthyGatewayIPsByAZ := make(map[string][]netip.Addr)
 
 	isLocalSelectedByAZ := make(map[string]bool)
+
+	selectionMetrics := gatewaySelectionMetrics{
+		activeGateways:     0,
+		activeGatewaysByAZ: make(map[string]activeGatewaysByMetrics),
+		healthyGateways:    0,
+	}
 
 	for _, node := range operatorManager.nodes {
 		// if AZ affinity is enabled for the egress group, track the node's AZ.
@@ -205,9 +211,11 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 			}
 			activeGWs, err := selectActiveGWs(az, gc.maxGatewayNodes, currentLocalActiveGWs, healthyGatewayIPs)
 			if err != nil {
-				return groupStatus{}, err
+				return groupStatus{}, gatewaySelectionMetrics{}, err
 			}
 			activeGatewayIPsByAZ[az] = activeGWs
+
+			selectionMetrics.activeGatewaysByAZ[az] = activeGatewaysByMetrics{local: len(activeGWs), remote: 0}
 		}
 	}
 
@@ -251,10 +259,13 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 				}
 				nonLocalActiveGWs, err := nonLocalActiveGatewayIPs(az, gc.maxGatewayNodes, currentNonLocalActiveGWs)
 				if err != nil {
-					return groupStatus{}, err
+					return groupStatus{}, gatewaySelectionMetrics{}, err
 				}
 				activeGatewayIPsByAZ[az] = nonLocalActiveGWs
 				isLocalSelectedByAZ[az] = false
+
+				selectionMetrics.activeGatewaysByAZ[az] = activeGatewaysByMetrics{local: 0, remote: len(nonLocalActiveGWs)}
+
 			} else {
 				isLocalSelectedByAZ[az] = true
 			}
@@ -269,10 +280,15 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 				}
 				nonLocalActiveGWs, err := nonLocalActiveGatewayIPs(az, gc.maxGatewayNodes-len(activeGatewayIPsByAZ[az]), currentNonLocalActiveGWs)
 				if err != nil {
-					return groupStatus{}, err
+					return groupStatus{}, gatewaySelectionMetrics{}, err
 				}
 
 				activeGatewayIPsByAZ[az] = append(activeGatewayIPsByAZ[az], nonLocalActiveGWs...)
+
+				selectionMetrics.activeGatewaysByAZ[az] = activeGatewaysByMetrics{
+					local:  selectionMetrics.activeGatewaysByAZ[az].local,
+					remote: len(nonLocalActiveGWs)}
+
 			}
 		}
 	}
@@ -289,15 +305,18 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 	}
 	activeGatewayIPs, err := selectActiveGWs(string(config.uid), gc.maxGatewayNodes, currentActiveGWs, availableHealthyGatewayIPs)
 	if err != nil {
-		return groupStatus{}, err
+		return groupStatus{}, gatewaySelectionMetrics{}, err
 	}
+
+	selectionMetrics.activeGateways = len(activeGatewayIPs)
+	selectionMetrics.healthyGateways = len(healthyGatewayIPs)
 
 	return groupStatus{
 		activeGatewayIPs:          activeGatewayIPs,
 		activeGatewayIPsByAZ:      activeGatewayIPsByAZ,
 		isLocalActiveGatewaysByAZ: isLocalSelectedByAZ,
 		healthyGatewayIPs:         healthyGatewayIPs,
-	}, nil
+	}, selectionMetrics, nil
 }
 
 // selectCurrentLocalActiveGWs selects the current local active GWs.
@@ -802,6 +821,17 @@ func mergeEgressIPs(allocatedEgressIPs, egressIPsOfInactiveGateways map[netip.Ad
 	return egressIPs
 }
 
+type gatewaySelectionMetrics struct {
+	activeGateways     int
+	activeGatewaysByAZ map[string]activeGatewaysByMetrics
+	healthyGateways    int
+}
+
+type activeGatewaysByMetrics struct {
+	local  int
+	remote int
+}
+
 // updateGroupStatuses updates the list of active and healthy gateway IPs in the
 // IEGP k8s resource for the receiver PolicyConfig
 func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager, tx statedb.WriteTxn) error {
@@ -809,12 +839,13 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 
 	groupStatuses := make([]groupStatus, 0, len(config.groupConfigs))
 	zoneHasAnyLocalGateway := make(map[string]bool)
+	selectionMetricsList := make([]gatewaySelectionMetrics, 0, len(config.groupConfigs))
 	for i, gc := range config.groupConfigs {
 		var status *groupStatus
 		if haveSeenLatestIEGP && i < len(config.groupStatuses) {
 			status = &config.groupStatuses[i]
 		}
-		gs, err := gc.computeGroupStatus(operatorManager, config, status)
+		gs, sm, err := gc.computeGroupStatus(operatorManager, config, status)
 		if err != nil {
 			return err
 		}
@@ -823,12 +854,19 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 		for zone, isLocal := range gs.isLocalActiveGatewaysByAZ {
 			zoneHasAnyLocalGateway[zone] = zoneHasAnyLocalGateway[zone] || isLocal
 		}
+
+		selectionMetricsList = append(selectionMetricsList, sm)
 	}
 
+	selectionMetrics := aggregateSelectionMetrics(selectionMetricsList)
 	if config.azAffinity == azAffinityLocalOnlyFirst && len(groupStatuses) > 1 {
 		for _, gs := range groupStatuses {
 			for zone, isLocal := range gs.isLocalActiveGatewaysByAZ {
 				if zoneHasAnyLocalGateway[zone] && !isLocal {
+					if activeGatewaysByAZStats, ok := selectionMetrics.activeGatewaysByAZ[zone]; ok {
+						activeGatewaysByAZStats.remote = activeGatewaysByAZStats.remote - len(gs.activeGatewayIPsByAZ[zone])
+						selectionMetrics.activeGatewaysByAZ[zone] = activeGatewaysByAZStats
+					}
 					gs.activeGatewayIPsByAZ[zone] = nil
 				}
 			}
@@ -883,6 +921,18 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 
 		return err
 	}
+
+	policyName := updatedIEGP.Name
+	if config.azAffinity.enabled() {
+		for zone, activeGatewaysByAZCount := range selectionMetrics.activeGatewaysByAZ {
+			operatorManager.metrics.ActiveGatewaysByAZ.WithLabelValues(policyName, zone, labelValueScopeLocal).Set(float64(activeGatewaysByAZCount.local))
+			operatorManager.metrics.ActiveGatewaysByAZ.WithLabelValues(policyName, zone, labelValueScopeRemote).Set(float64(activeGatewaysByAZCount.remote))
+		}
+	} else {
+		operatorManager.metrics.ActiveGateways.WithLabelValues(policyName).Set(float64(selectionMetrics.activeGateways))
+	}
+	operatorManager.metrics.HealthyGateways.WithLabelValues(policyName).Set(float64(selectionMetrics.healthyGateways))
+
 	// Now we've updated the IsovalentEgressGatewayPolicy, we need to update our local cache. The UpdateStatus
 	// method on the Kubernetes client object helpfully returned the updated iegp. So we can just write that back to
 	// the cache. By definition, if that call did not error, it's the most up-to-date version of the object.
@@ -905,4 +955,26 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 	}
 
 	return nil
+}
+
+func aggregateSelectionMetrics(list []gatewaySelectionMetrics) gatewaySelectionMetrics {
+	total := gatewaySelectionMetrics{
+		activeGateways:     0,
+		activeGatewaysByAZ: make(map[string]activeGatewaysByMetrics),
+		healthyGateways:    0,
+	}
+
+	for _, m := range list {
+		total.activeGateways += m.activeGateways
+		total.healthyGateways += m.healthyGateways
+
+		for az, ag := range m.activeGatewaysByAZ {
+			sum := total.activeGatewaysByAZ[az]
+			sum.local += ag.local
+			sum.remote += ag.remote
+			total.activeGatewaysByAZ[az] = sum
+		}
+	}
+
+	return total
 }

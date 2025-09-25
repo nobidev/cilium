@@ -12,6 +12,7 @@ package egressgatewayha
 
 import (
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/egressipconf"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -37,6 +38,7 @@ var Cell = cell.Module(
 var OperatorCell = cell.Module(
 	"egressgatewayha-operator",
 	"The Egress Gateway Operator manages cluster wide EGW state",
+	metrics.Metric(newMetrics),
 	cell.Config(defaultOperatorConfig),
 	cell.Provide(NewEgressGatewayOperatorManager),
 	cell.Provide(newNodeResource),

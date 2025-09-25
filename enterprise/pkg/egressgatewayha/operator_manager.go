@@ -61,6 +61,7 @@ type OperatorParams struct {
 
 	Config       OperatorConfig
 	DaemonConfig *option.DaemonConfig
+	Metrics      *Metrics
 
 	Health        cell.Health
 	Clientset     k8sClient.Clientset
@@ -146,6 +147,8 @@ type OperatorManager struct {
 
 	// eventRecorder is used to emit Event resources
 	eventRecorder record.EventRecorder
+
+	metrics *Metrics
 }
 
 func NewEgressGatewayOperatorManager(p OperatorParams) (out struct {
@@ -181,6 +184,7 @@ func newEgressGatewayOperatorManager(p OperatorParams) *OperatorManager {
 		healthchecker:        p.Healthchecker,
 		db:                   p.DB,
 		eventRecorder:        p.EventRecorder,
+		metrics:              p.Metrics,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -407,7 +411,20 @@ func (operatorManager *OperatorManager) onDeleteEgressPolicy(policy *Policy) {
 	logger.Debug("Deleted IsovalentEgressGatewayPolicy")
 	tx.Commit()
 
+	operatorManager.deleteGatewaySelectionMetrics(policy)
+
 	operatorManager.reconciliationTrigger.TriggerWithReason("IsovalentEgressGatewayPolicy deleted")
+}
+
+func (operatorManager *OperatorManager) deleteGatewaySelectionMetrics(policy *Policy) {
+	operatorManager.metrics.ActiveGateways.DeleteLabelValues(policy.Name)
+	operatorManager.metrics.HealthyGateways.DeleteLabelValues(policy.Name)
+	for _, gs := range policy.Status.GroupStatuses {
+		for az := range gs.ActiveGatewayIPsByAZ {
+			operatorManager.metrics.ActiveGatewaysByAZ.DeleteLabelValues(policy.Name, az, labelValueScopeLocal)
+			operatorManager.metrics.ActiveGatewaysByAZ.DeleteLabelValues(policy.Name, az, labelValueScopeRemote)
+		}
+	}
 }
 
 // handleCiliumNodeEvent takes care of node upserts and removals.
