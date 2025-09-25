@@ -131,6 +131,8 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 	activeGatewayIPsByAZ := make(map[string][]netip.Addr)
 	availableHealthyGatewayIPsByAZ := make(map[string][]netip.Addr)
 
+	isLocalSelectedByAZ := make(map[string]bool)
+
 	for _, node := range operatorManager.nodes {
 		// if AZ affinity is enabled for the egress group, track the node's AZ.
 		//
@@ -252,6 +254,9 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 					return groupStatus{}, err
 				}
 				activeGatewayIPsByAZ[az] = nonLocalActiveGWs
+				isLocalSelectedByAZ[az] = false
+			} else {
+				isLocalSelectedByAZ[az] = true
 			}
 		}
 
@@ -288,9 +293,10 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 	}
 
 	return groupStatus{
-		activeGatewayIPs:     activeGatewayIPs,
-		activeGatewayIPsByAZ: activeGatewayIPsByAZ,
-		healthyGatewayIPs:    healthyGatewayIPs,
+		activeGatewayIPs:          activeGatewayIPs,
+		activeGatewayIPsByAZ:      activeGatewayIPsByAZ,
+		isLocalActiveGatewaysByAZ: isLocalSelectedByAZ,
+		healthyGatewayIPs:         healthyGatewayIPs,
 	}, nil
 }
 
@@ -802,6 +808,7 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 	haveSeenLatestIEGP := config.groupStatusesGeneration == config.generation
 
 	groupStatuses := make([]groupStatus, 0, len(config.groupConfigs))
+	zoneHasAnyLocalGateway := make(map[string]bool)
 	for i, gc := range config.groupConfigs {
 		var status *groupStatus
 		if haveSeenLatestIEGP && i < len(config.groupStatuses) {
@@ -813,6 +820,19 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 		}
 
 		groupStatuses = append(groupStatuses, gs)
+		for zone, isLocal := range gs.isLocalActiveGatewaysByAZ {
+			zoneHasAnyLocalGateway[zone] = zoneHasAnyLocalGateway[zone] || isLocal
+		}
+	}
+
+	if config.azAffinity == azAffinityLocalOnlyFirst && len(groupStatuses) > 1 {
+		for _, gs := range groupStatuses {
+			for zone, isLocal := range gs.isLocalActiveGatewaysByAZ {
+				if zoneHasAnyLocalGateway[zone] && !isLocal {
+					gs.activeGatewayIPsByAZ[zone] = nil
+				}
+			}
+		}
 	}
 
 	var conditions []meta_v1.Condition

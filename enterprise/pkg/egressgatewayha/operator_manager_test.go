@@ -199,40 +199,56 @@ func (k *EgressGatewayOperatorTestSuite) assertIegpGatewayStatus(tb testing.TB, 
 	k.assertIegpGatewayStatusFromPolicy(tb, "policy-1", gs)
 }
 
+func (k *EgressGatewayOperatorTestSuite) assertIegpGatewayStatuses(tb testing.TB, gatewayStatuses []gatewayStatus) {
+	k.assertIegpGatewayStatusesFromPolicy(tb, "policy-1", gatewayStatuses)
+}
+
 func (k *EgressGatewayOperatorTestSuite) assertIegpGatewayStatusFromPolicy(tb testing.TB, policy string, gs gatewayStatus) {
+	k.assertIegpGatewayStatusesFromPolicy(tb, policy, []gatewayStatus{gs})
+}
+
+func (k *EgressGatewayOperatorTestSuite) assertIegpGatewayStatusesFromPolicy(tb testing.TB, policy string, gatewayStatuses []gatewayStatus) {
 	var err error
 	for i := 0; i < 10; i++ {
-		if err = tryAssertIegpGatewayStatus(k.fakeSet, policy, gs); err == nil {
+		if err = tryAssertIegpGatewayStatuses(k.fakeSet, policy, gatewayStatuses); err == nil {
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-
 	assert.NoError(tb, err)
 }
 
-func tryAssertIegpGatewayStatus(fakeSet *k8sFake.FakeClientset, policy string, gs gatewayStatus) error {
+func tryAssertIegpGatewayStatuses(fakeSet *k8sFake.FakeClientset, policy string, gatewayStatuses []gatewayStatus) error {
 	iegp, err := fakeSet.CiliumFakeClientset.IsovalentV1().IsovalentEgressGatewayPolicies().Get(context.TODO(), policy, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
-	iegpGs := iegp.Status.GroupStatuses[0]
-
-	if !cmp.Equal(gs.activeGatewayIPs, iegpGs.ActiveGatewayIPs, cmpopts.EquateEmpty()) {
-		return fmt.Errorf("active gateway IPs don't match expected ones: %v vs expected %v", iegpGs.ActiveGatewayIPs, gs.activeGatewayIPs)
+	if len(iegp.Status.GroupStatuses) != len(gatewayStatuses) {
+		return fmt.Errorf(
+			"groupStatuses length mismatch: actual: %+v vs expected: %+v",
+			iegp.Status.GroupStatuses,
+			gatewayStatuses,
+		)
 	}
 
-	if !cmp.Equal(gs.activeGatewayIPsByAZ, iegpGs.ActiveGatewayIPsByAZ, cmpopts.EquateEmpty()) {
-		return fmt.Errorf("active gateway IPs by AZ don't match expected ones: %v vs expected %v", iegpGs.ActiveGatewayIPsByAZ, gs.activeGatewayIPsByAZ)
-	}
+	for i, iegpGs := range iegp.Status.GroupStatuses {
+		gs := gatewayStatuses[i]
+		if !cmp.Equal(gs.activeGatewayIPs, iegpGs.ActiveGatewayIPs, cmpopts.EquateEmpty()) {
+			return fmt.Errorf("active gateway IPs don't match expected ones: %v vs expected %v", iegpGs.ActiveGatewayIPs, gs.activeGatewayIPs)
+		}
 
-	if !cmp.Equal(gs.healthyGatewayIPs, iegpGs.HealthyGatewayIPs, cmpopts.EquateEmpty()) {
-		return fmt.Errorf("healthy gateway IPs don't match expected ones: %v vs expected %v", iegpGs.HealthyGatewayIPs, gs.healthyGatewayIPs)
-	}
+		if !cmp.Equal(gs.activeGatewayIPsByAZ, iegpGs.ActiveGatewayIPsByAZ, cmpopts.EquateEmpty()) {
+			return fmt.Errorf("active gateway IPs by AZ don't match expected ones: %v vs expected %v", iegpGs.ActiveGatewayIPsByAZ, gs.activeGatewayIPsByAZ)
+		}
 
-	if !cmp.Equal(gs.egressIPByGatewayIP, iegpGs.EgressIPByGatewayIP, cmpopts.EquateEmpty()) {
-		return fmt.Errorf("egress IPs by gateway IPs don't match expected ones: %v vs expected %v", iegpGs.EgressIPByGatewayIP, gs.egressIPByGatewayIP)
+		if !cmp.Equal(gs.healthyGatewayIPs, iegpGs.HealthyGatewayIPs, cmpopts.EquateEmpty()) {
+			return fmt.Errorf("healthy gateway IPs don't match expected ones: %v vs expected %v", iegpGs.HealthyGatewayIPs, gs.healthyGatewayIPs)
+		}
+
+		if !cmp.Equal(gs.egressIPByGatewayIP, iegpGs.EgressIPByGatewayIP, cmpopts.EquateEmpty()) {
+			return fmt.Errorf("egress IPs by gateway IPs don't match expected ones: %v vs expected %v", iegpGs.EgressIPByGatewayIP, gs.egressIPByGatewayIP)
+		}
 	}
 
 	return nil
@@ -852,6 +868,150 @@ func TestEgressGatewayOperatorManagerNodeRestartScenarioLocalOnly(t *testing.T) 
 			"az-2": {node4IP},
 		},
 		healthyGatewayIPs: []string{node1IP, node2IP, node3IP, node4IP},
+	})
+}
+
+func TestEgressGatewayOperatorManagerHAGroupAZAffinityLocalOnlyFirstInMultipleEgressGroups(t *testing.T) {
+	k := setupEgressGatewayOperatorTestSuite(t)
+
+	k.addNode(t, node1Name, node1IP, nodeGroup1LabelsAZ1)
+	k.addNode(t, node2Name, node2IP, nodeGroup1LabelsAZ1)
+	k.addNode(t, node3Name, node3IP, nodeGroup1LabelsAZ2)
+	k.addNode(t, node4Name, node4IP, nodeGroup1LabelsAZ2)
+
+	// Create an HA policy with azAffinity=localOnlyFirst and two egress groups:
+	// - one group selects only AZ1 nodes
+	// - the other selects only AZ2 nodes
+	k.addPolicy(t, &policyParams{
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		azAffinity:       azAffinityLocalOnlyFirst,
+		egressGroups: []egressGroupParams{
+			{
+				iface:      testInterface1,
+				nodeLabels: nodeGroup1LabelsAZ1,
+			},
+			{
+				iface:      testInterface2,
+				nodeLabels: nodeGroup1LabelsAZ2,
+			},
+		},
+	})
+
+	// Initial state: all nodes are healthy.
+	//
+	// egressGroup1 selects nodes in AZ1 (node1, node2)
+	// egressGroup2 selects nodes in AZ2 (node3, node4)
+	//
+	// Since both AZ1 and AZ2 have local gateways across the entire policy,
+	// no non-local fallback should be used by any group.
+	k.assertIegpGatewayStatuses(t, []gatewayStatus{
+		{
+			activeGatewayIPs: []string{node1IP, node2IP},
+			activeGatewayIPsByAZ: map[string][]string{
+				"az-1": {node1IP, node2IP},
+				"az-2": {},
+			},
+			healthyGatewayIPs: []string{node1IP, node2IP},
+		},
+		{
+			activeGatewayIPs: []string{node3IP, node4IP},
+			activeGatewayIPsByAZ: map[string][]string{
+				"az-1": {},
+				"az-2": {node3IP, node4IP},
+			},
+			healthyGatewayIPs: []string{node3IP, node4IP},
+		},
+	})
+
+	k.makeNodesUnhealthy(node1Name)
+	k.assertIegpGatewayStatuses(t, []gatewayStatus{
+		{
+			activeGatewayIPs: []string{node2IP},
+			activeGatewayIPsByAZ: map[string][]string{
+				"az-1": {node2IP},
+				"az-2": {},
+			},
+			healthyGatewayIPs: []string{node2IP},
+		},
+		{
+			activeGatewayIPs: []string{node3IP, node4IP},
+			activeGatewayIPsByAZ: map[string][]string{
+				"az-1": {},
+				"az-2": {node3IP, node4IP},
+			},
+			healthyGatewayIPs: []string{node3IP, node4IP},
+		},
+	})
+
+	// Mark node2 (AZ1) as unhealthy.
+	// Now, both node1 and node2 are unhealthy, so AZ1 has no local gateways.
+	//
+	// Since no egress group has local gateways in AZ1 anymore,
+	// AZ1 is now eligible for non-local fallback.
+	//
+	// egressGroup2 is therefore allowed to assign node3 and node4 (AZ2) as active gateways for AZ1,
+	// despite them being non-local to that zone.
+	k.makeNodesUnhealthy(node2Name)
+	k.assertIegpGatewayStatuses(t, []gatewayStatus{
+		{
+			activeGatewayIPs: []string{},
+			activeGatewayIPsByAZ: map[string][]string{
+				"az-1": {},
+				"az-2": {},
+			},
+			healthyGatewayIPs: []string{},
+		},
+		{
+			activeGatewayIPs: []string{node3IP, node4IP},
+			activeGatewayIPsByAZ: map[string][]string{
+				"az-1": {node3IP, node4IP},
+				"az-2": {node3IP, node4IP},
+			},
+			healthyGatewayIPs: []string{node3IP, node4IP},
+		},
+	})
+
+	k.makeNodesHealthy(node1Name)
+	k.assertIegpGatewayStatuses(t, []gatewayStatus{
+		{
+			activeGatewayIPs: []string{node1IP},
+			activeGatewayIPsByAZ: map[string][]string{
+				"az-1": {node1IP},
+				"az-2": {},
+			},
+			healthyGatewayIPs: []string{node1IP},
+		},
+		{
+			activeGatewayIPs: []string{node3IP, node4IP},
+			activeGatewayIPsByAZ: map[string][]string{
+				"az-1": {},
+				"az-2": {node3IP, node4IP},
+			},
+			healthyGatewayIPs: []string{node3IP, node4IP},
+		},
+	})
+
+	k.makeNodesHealthy(node2Name)
+	k.assertIegpGatewayStatuses(t, []gatewayStatus{
+		{
+			activeGatewayIPs: []string{node1IP, node2IP},
+			activeGatewayIPsByAZ: map[string][]string{
+				"az-1": {node1IP, node2IP},
+				"az-2": {},
+			},
+			healthyGatewayIPs: []string{node1IP, node2IP},
+		},
+		{
+			activeGatewayIPs: []string{node3IP, node4IP},
+			activeGatewayIPsByAZ: map[string][]string{
+				"az-1": {},
+				"az-2": {node3IP, node4IP},
+			},
+			healthyGatewayIPs: []string{node3IP, node4IP},
+		},
 	})
 }
 
