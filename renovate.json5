@@ -225,7 +225,7 @@
       groupName: 'clickhouse server',
       matchDepNames: [
         'docker.io/clickhouse/clickhouse-server',
-        'clickhouse/clickhouse-server',
+        'quay.io/isovalent/clickhouse-server',
       ],
     },
     {
