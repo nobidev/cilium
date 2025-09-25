@@ -46,7 +46,7 @@ db/cmp privnet-mapentries mapentries.v5.table
 k8s/add icpn-blue.v2.yaml
 db/cmp privnet-mapentries mapentries.v6.table
 
-# Delete remaining endpionts in blue network (this should unshadow a subnet route)
+# Delete remaining endpoints in blue network (this should unshadow a subnet route)
 k8s/delete privnet-alt-eps.v1.yaml
 db/cmp privnet-mapentries mapentries.v7.table
 

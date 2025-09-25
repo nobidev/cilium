@@ -464,9 +464,8 @@ func (m *MapEntries) deleteEndpointEntry(txn statedb.WriteTxn, privNet tables.Pr
 	return nil
 }
 
-// upsertRoute inserts a new route entry into the table. If there is already exists
-// an endpoint entry with the same target, we skip the insertion as the endpoint entry
-// should take precedence
+// upsertRoute inserts a new route entry into the table. If an endpoint entry with the same target
+// already exists, we skip the insertion as the endpoint entry should take precedence.
 func (m *MapEntries) upsertRoute(txn statedb.WriteTxn, route tables.Route) error {
 	privNet, _, found := m.networks.Get(txn, tables.PrivateNetworkByName(route.Network))
 	if !found {

@@ -110,7 +110,7 @@ func EndpointsFromEndpointSlice(logger *slog.Logger, clusterName string, slice *
 }
 
 const (
-	// indexDelimiter is the delimited used to concatenate strings for composite indexes.
+	// indexDelimiter is the delimiter used to concatenate strings for composite indexes.
 	indexDelimiter = "|"
 )
 
