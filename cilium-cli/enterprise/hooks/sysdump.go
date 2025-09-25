@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
 	enterpriseCli "github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli"
@@ -917,7 +918,64 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 					return fmt.Errorf("failed to collect Isovalent cluster-wide network policies: %w", err)
 				}
 				if err := collector.WriteYAML(fmt.Sprintf("cilium-enterprise-%s-<ts>.yaml", resource), v); err != nil {
-					return fmt.Errorf("failed to collect Isovaletn cluster-wide network policies: %w", err)
+					return fmt.Errorf("failed to collect Isovalent cluster-wide network policies: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting ClusterwidePrivateNetworks",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				resource := "clusterwideprivatenetworks"
+				v, err := collector.Client.ListUnstructured(ctx, schema.GroupVersionResource{
+					Group:    "isovalent.com",
+					Resource: resource,
+					Version:  "v1alpha1",
+				}, ptr.To(corev1.NamespaceAll), metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cluster-wide Private Networks: %w", err)
+				}
+				if err := collector.WriteYAML(fmt.Sprintf("cilium-enterprise-%s-<ts>.yaml", resource), v); err != nil {
+					return fmt.Errorf("failed to collect Cluster-wide Private Networks: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting PrivateNetworkEndpointSlices",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				resource := "privatenetworkendpointslices"
+				v, err := collector.Client.ListUnstructured(ctx, schema.GroupVersionResource{
+					Group:    "isovalent.com",
+					Resource: resource,
+					Version:  "v1alpha1",
+				}, ptr.To(corev1.NamespaceAll), metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Private Network Endpoint Slices: %w", err)
+				}
+				if err := collector.WriteYAML(fmt.Sprintf("cilium-enterprise-%s-<ts>.yaml", resource), v); err != nil {
+					return fmt.Errorf("failed to collect Private Network Endpoint Slices: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting PrivateNetworkExternalEndpoints",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				resource := "privatenetworkexternalendpoints"
+				v, err := collector.Client.ListUnstructured(ctx, schema.GroupVersionResource{
+					Group:    "isovalent.com",
+					Resource: resource,
+					Version:  "v1alpha1",
+				}, ptr.To(corev1.NamespaceAll), metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Private Network External Endpoints: %w", err)
+				}
+				if err := collector.WriteYAML(fmt.Sprintf("cilium-enterprise-%s-<ts>.yaml", resource), v); err != nil {
+					return fmt.Errorf("failed to collect Private Network External Endpoints: %w", err)
 				}
 				return nil
 			},
