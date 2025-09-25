@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
@@ -188,7 +187,6 @@ func (l *LocalWorkloads) upsertEndpoint(ep endpoints.Endpoint) {
 			Network: privNetAddr.network,
 		},
 		ActivatedAt: privNetAddr.activatedAt,
-		Status:      reconciler.StatusPending(),
 	}
 
 	_, _, err = l.tbl.Insert(wtx, lw)

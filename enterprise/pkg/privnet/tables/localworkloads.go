@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
-	"github.com/cilium/statedb/reconciler"
 
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/time"
@@ -38,10 +37,6 @@ type LocalWorkload struct {
 
 	// ActivatedAt is the instant in time in which this entry was marked as active.
 	ActivatedAt time.Time
-
-	// Status contains the status if this endpoint has been published in
-	// a PrivateNetworkEndpointSlice
-	Status reconciler.Status
 }
 
 var _ statedb.TableWritable = &LocalWorkload{}
@@ -50,7 +45,7 @@ func (lw *LocalWorkload) TableHeader() []string {
 	return []string{
 		"Endpoint", "ID",
 		"Network", "NetworkIPv4", "NetworkIPv6",
-		"PodIPv4", "PodIPv6", "ActivatedAt", "Status",
+		"PodIPv4", "PodIPv6", "ActivatedAt",
 	}
 }
 
@@ -69,7 +64,6 @@ func (lw *LocalWorkload) TableRow() []string {
 		cmp.Or(lw.Endpoint.Addressing.IPv4, "N/A"),
 		cmp.Or(lw.Endpoint.Addressing.IPv6, "N/A"),
 		activatedAt,
-		lw.Status.String(),
 	}
 }
 
