@@ -97,7 +97,7 @@ func TestManagerSingleFQDNGroup(t *testing.T) {
 
 	if err := retry(
 		func() error {
-			cidrGroup, err := clientset.CiliumV2alpha1().CiliumCIDRGroups().Get(
+			cidrGroup, err := clientset.CiliumV2().CiliumCIDRGroups().Get(
 				context.Background(),
 				"test-group",
 				metav1.GetOptions{},
@@ -215,7 +215,7 @@ func TestManagerSingleFQDNGroupSameCIDRs(t *testing.T) {
 
 	if err := retry(
 		func() error {
-			cidrGroup, err := clientset.CiliumV2alpha1().CiliumCIDRGroups().Get(
+			cidrGroup, err := clientset.CiliumV2().CiliumCIDRGroups().Get(
 				context.Background(),
 				"test-group",
 				metav1.GetOptions{},
@@ -532,7 +532,7 @@ func TestManagerPeriodicResolver(t *testing.T) {
 func testCIDRGroup(clientset k8sClient.Clientset, cidrGroup string, cidrs []api.CIDR) error {
 	return retry(
 		func() error {
-			cidrGroup, err := clientset.CiliumV2alpha1().CiliumCIDRGroups().Get(
+			cidrGroup, err := clientset.CiliumV2().CiliumCIDRGroups().Get(
 				context.Background(),
 				cidrGroup,
 				metav1.GetOptions{},

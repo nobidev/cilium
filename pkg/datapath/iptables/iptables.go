@@ -598,14 +598,14 @@ func (m *Manager) inboundProxyRedirectRule(cmd string) []string {
 	// excluding traffic for the loopback device.
 	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
-	matchProxyToWorld := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkProxyToWorld, linux_defaults.RouteMarkMask)
+	matchSkipTProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
 	return []string{
 		"-t", "mangle",
 		cmd, ciliumPreMangleChain,
 		"-m", "socket", "--transparent",
 		"!", "-o", "lo",
 		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
-		"-m", "mark", "!", "--mark", matchProxyToWorld,
+		"-m", "mark", "!", "--mark", matchSkipTProxy,
 		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
 		"-j", "MARK",
 		"--set-mark", toProxyMark}
@@ -1566,7 +1566,7 @@ func (m *Manager) installMasqueradeRules(
 	// This is required for:
 	//  - portmap/host if both source and destination are
 	//    on the same node
-	//  - kiam if source and server are on the same node
+	//  - some proxy if source and server are on the same node
 	if !m.sharedCfg.EnableEndpointRoutes {
 		if err := prog.runProg([]string{
 			"-t", "nat",

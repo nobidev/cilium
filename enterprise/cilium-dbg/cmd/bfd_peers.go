@@ -39,4 +39,5 @@ var bfdPeersCmd = &cobra.Command{
 func init() {
 	cmd.RootCmd.AddCommand(bfdCmd)
 	bfdCmd.AddCommand(bfdPeersCmd)
+	shell.AddShellSockOption(bfdPeersCmd)
 }

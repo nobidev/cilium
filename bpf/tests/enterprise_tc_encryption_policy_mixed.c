@@ -47,6 +47,9 @@
 
 #define TO_NETDEV 0
 
+ASSIGN_CONFIG(__u32, wg_ifindex, 42)
+ASSIGN_CONFIG(__u16, wg_port, 51871)
+
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
 	__uint(key_size, sizeof(__u32));
@@ -60,7 +63,8 @@ struct {
 
 int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
 {
-	if (ifindex != WG_IFINDEX)
+	int wg_ifindex = CONFIG(wg_ifindex);
+	if (ifindex != wg_ifindex)
 		return -1;
 	if (flags != 0)
 		return -2;

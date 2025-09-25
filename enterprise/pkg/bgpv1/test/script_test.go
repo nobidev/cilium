@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	osstest "github.com/cilium/cilium/pkg/bgpv1/test"
 	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
@@ -70,6 +71,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -150,6 +152,8 @@ func TestPrivilegedScript(t *testing.T) {
 			cell.Provide(
 				func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg }, // newLBMaps expects *TestConfig
 			),
+			cell.Config(cmtypes.DefaultClusterInfo),
+			cell.Config(svcrouteconfig.DefaultConfig),
 
 			// OSS BGP cell
 			bgpv1.Cell,

@@ -48,6 +48,7 @@ clustermesh-apiserver clustermesh [flags]
       --pprof-port uint16                            Port that pprof listens on (default 6063)
       --private-networks-enabled                     Enable support for private networks
       --prometheus-serve-addr string                 Address to serve Prometheus metrics
+      --shell-sock-path string                       Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
 ```
 
 ### SEE ALSO

@@ -27,9 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -44,7 +43,7 @@ type reconciler struct {
 	fqdnGroupUID types.UID
 	fqdns        []string
 
-	clientset cilium_client_v2alpha1.CiliumCIDRGroupInterface
+	clientset cilium_client_v2.CiliumCIDRGroupInterface
 	ctrMgr    *controller.Manager
 
 	store    notifier
@@ -58,7 +57,7 @@ func newReconciler(
 	fqdnGroup string,
 	fqdnGroupUID types.UID,
 	fqdns []string,
-	clientset cilium_client_v2alpha1.CiliumCIDRGroupInterface,
+	clientset cilium_client_v2.CiliumCIDRGroupInterface,
 	ctrMgr *controller.Manager,
 	store notifier,
 ) *reconciler {
@@ -157,7 +156,7 @@ func (r *reconciler) upsertCIDRGroup(ctx context.Context, cidrs []api.CIDR) erro
 
 	if _, err := r.clientset.Patch(ctx, r.fqdnGroup, types.JSONPatchType, cidrsPatch, metav1.PatchOptions{}); err != nil {
 		if k8sErrors.IsNotFound(err) {
-			cidrGroup := &v2alpha1.CiliumCIDRGroup{
+			cidrGroup := &v2.CiliumCIDRGroup{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: v2.SchemeGroupVersion.String(),
 					Kind:       v2.CCGKindDefinition,
@@ -176,7 +175,7 @@ func (r *reconciler) upsertCIDRGroup(ctx context.Context, cidrs []api.CIDR) erro
 						},
 					},
 				},
-				Spec: v2alpha1.CiliumCIDRGroupSpec{
+				Spec: v2.CiliumCIDRGroupSpec{
 					ExternalCIDRs: cidrs,
 				},
 			}
