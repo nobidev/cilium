@@ -179,6 +179,9 @@ func (r *lbVIPReconciler) desiredService(svcName k8stypes.NamespacedName, lbvip 
 		// Don't advertise this Service with BGP. The actual
 		// advertisement will be done with the T1 Services.
 		ceeannotation.ServiceNoAdvertisement: "true",
+
+		// don't expose the placeholder Service on any node
+		ossannotation.ServiceNodeSelectorExposure: "service.cilium.io/node=never",
 	}
 	if lbvip.Spec.IPv4Request != nil {
 		// In case of static allocation, we set the ips annotation

@@ -56,8 +56,9 @@ func TestLBVIPReconciler(t *testing.T) {
 				"loadbalancer.isovalent.com/vip-name": lbvipName,
 			},
 			svcAnnotations: map[string]string{
-				ossannotation.LBIPAMSharingKey:       lbvipName,
-				ceeannotation.ServiceNoAdvertisement: "true",
+				ossannotation.LBIPAMSharingKey:            lbvipName,
+				ceeannotation.ServiceNoAdvertisement:      "true",
+				ossannotation.ServiceNodeSelectorExposure: "service.cilium.io/node=never",
 			},
 		},
 		{
@@ -69,9 +70,10 @@ func TestLBVIPReconciler(t *testing.T) {
 				"loadbalancer.isovalent.com/vip-name": lbvipName,
 			},
 			svcAnnotations: map[string]string{
-				ossannotation.LBIPAMSharingKey:       lbvipName,
-				ossannotation.LBIPAMIPsKey:           ipv4VIP,
-				ceeannotation.ServiceNoAdvertisement: "true",
+				ossannotation.LBIPAMSharingKey:            lbvipName,
+				ossannotation.LBIPAMIPsKey:                ipv4VIP,
+				ceeannotation.ServiceNoAdvertisement:      "true",
+				ossannotation.ServiceNodeSelectorExposure: "service.cilium.io/node=never",
 			},
 		},
 	}
