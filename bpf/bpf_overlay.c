@@ -51,6 +51,8 @@
 
 #define overlay_ingress_policy_hook(ctx, ip4, identity, ext_err) CTX_ACT_OK
 
+#include "enterprise_bpf_overlay.h"
+
 #ifdef ENABLE_IPV6
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity,
@@ -555,6 +557,10 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		ret = CTX_ACT_OK;
 		goto out;
 	}
+
+	ret = enterprise_privnet_from_overlay(ctx, proto, &ext_err);
+	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+		goto out;
 
 	switch (proto) {
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)

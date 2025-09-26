@@ -1111,6 +1111,10 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 	__s8 __maybe_unused ext_err = 0;
 	int ret;
 
+	ret = enterprise_privnet_do_netdev(ctx, proto, identity, obs_point, from_host);
+	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+		return ret;
+
 	switch (proto) {
 # if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER || \
      defined ENABLE_L2_ANNOUNCEMENTS
