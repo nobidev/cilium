@@ -118,8 +118,10 @@ united-firefly   192.168.252.0/24   N/A
 name: direct-maggot
 id: 1
 inbs:
-    - ip: 172.128.0.6
-    - ip: 172.128.0.7
+    ips:
+        - 172.128.0.6
+        - 172.128.0.7
+    selectors: {}
 interface:
     name: ""
     index: 0

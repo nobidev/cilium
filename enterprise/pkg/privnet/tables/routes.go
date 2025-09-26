@@ -61,10 +61,10 @@ func (r Route) ToMapEntry(privNet PrivateNetwork, bridgeMode bool) *MapEntry {
 	nexthop := r.Gateway
 	if !bridgeMode {
 		// If not running in bridge mode, we use the first INB IP as the next hop
-		if len(privNet.INBs) == 0 {
+		if len(privNet.INBs.IPs) == 0 {
 			return nil
 		}
-		nexthop = privNet.INBs[0].IP
+		nexthop = privNet.INBs.IPs[0]
 	} else if routeType == MapEntryTypeDCNRoute {
 		// For DCNRoutes, use the unspecified IP as the nexthop
 		if r.Destination.Addr().Is6() {

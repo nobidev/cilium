@@ -371,11 +371,12 @@ func (m *MapEntries) deleteAllNetworkEntries(txn statedb.WriteTxn, privNetName t
 // reconciler point of view, and the event can be skipped.
 func (m *MapEntries) skipNetworkEvent(old, current tables.PrivateNetwork) bool {
 	// * The network name is the primary key, so it cannot change.
+	// * We do not care about the INBs selectors.
 	// * We only care about the interface ID, not its name or the reconciliation status.
 	// * Route and subnet changes are already processed via the dedicated table.
 	return old.ID == current.ID &&
 		old.Interface.Index == current.Interface.Index &&
-		slices.Equal(old.INBs, current.INBs)
+		slices.Equal(old.INBs.IPs, current.INBs.IPs)
 }
 
 // skipChangeEvent is called for endpoint and route change events to determine if

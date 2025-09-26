@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/statedb/index"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
@@ -51,8 +52,8 @@ type PrivateNetwork struct {
 	// ID is the local-scoped numeric identifier of the private network.
 	ID NetworkID
 
-	// The list of Isovalent Network Bridges (INBs) serving this private network.
-	INBs []PrivateNetworkINB
+	// The candidate Isovalent Network Bridges (INBs) serving this private network.
+	INBs PrivateNetworkINBs
 
 	// The network interface providing external connectivity to this private
 	// network. Applies to the Isovalent Network Bridge cluster only.
@@ -79,10 +80,22 @@ type PrivateNetworkInterface struct {
 	Error string
 }
 
-// PrivateNetworkINB contains the network bridge configuration of the private network
-type PrivateNetworkINB struct {
-	// IP is the IP address of the network bridge
-	IP netip.Addr
+// PrivateNetworkINBs contains the network bridge configuration of the private network
+type PrivateNetworkINBs struct {
+	// IPs is the IP address of the network bridge
+	IPs []netip.Addr
+
+	// Selectors selects the candidate INB nodes for this private network.
+	Selectors map[ClusterName]PrivateNetworkINBNodeSelector
+}
+
+// PrivateNetworkINBNodeSelector wraps a [labels.Selector] so that it can be
+// pretty-printed when outputting the statedb table in json/yaml format.
+type PrivateNetworkINBNodeSelector struct{ labels.Selector }
+
+// MarshalText implements the [TextMarshaler] interface.
+func (sel PrivateNetworkINBNodeSelector) MarshalText() ([]byte, error) {
+	return []byte(sel.Selector.String()), nil
 }
 
 // PrivateNetworkRoute is a route configured on the private network
@@ -111,8 +124,8 @@ func (pn PrivateNetwork) TableRow() []string {
 		string(pn.Name),
 		"0x" + strconv.FormatUint(uint64(pn.ID), 16),
 		cmp.Or(pn.Interface.Name, "N/A"),
-		cmp.Or(strings.Join(cslices.Map(pn.INBs,
-			func(i PrivateNetworkINB) string { return i.IP.String() },
+		cmp.Or(strings.Join(cslices.Map(pn.INBs.IPs,
+			func(i netip.Addr) string { return i.String() },
 		), ","), "N/A"),
 		strings.Join(cslices.Map(pn.Subnets,
 			func(s PrivateNetworkSubnet) string { return s.CIDR.String() },

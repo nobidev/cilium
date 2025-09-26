@@ -183,8 +183,8 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *IDPool, sync promise.Pro
 	return k8s.RegisterReflector(pn.jg, pn.db, cfg)
 }
 
-func (pn *PrivateNetworks) extractINBs(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) []tables.PrivateNetworkINB {
-	inbs := make([]tables.PrivateNetworkINB, 0, len(privnet.Spec.INBs))
+func (pn *PrivateNetworks) extractINBs(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) tables.PrivateNetworkINBs {
+	inbs := make([]netip.Addr, 0, len(privnet.Spec.INBs))
 	for _, inbAddr := range privnet.Spec.INBs {
 		inb, err := netip.ParseAddr(string(inbAddr.IP))
 		if err != nil {
@@ -195,11 +195,9 @@ func (pn *PrivateNetworks) extractINBs(privnet *iso_v1alpha1.ClusterwidePrivateN
 			)
 			continue
 		}
-		inbs = append(inbs, tables.PrivateNetworkINB{
-			IP: inb,
-		})
+		inbs = append(inbs, inb)
 	}
-	return inbs
+	return tables.PrivateNetworkINBs{IPs: inbs}
 }
 
 func (pn *PrivateNetworks) extractRoutes(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) []tables.PrivateNetworkRoute {
