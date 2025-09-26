@@ -11,6 +11,7 @@
 package ilb
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +19,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	isovalentv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
@@ -144,8 +146,13 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 		t.RegisterCleanup(markAllNodesAsSchedulable(k8sCli))
 		for _, t1Node := range t1NodeList.Items {
 
-			t.Log("Mark T1 node %s as unschedulable", t1Node.Name)
-			markNodeAsUnschedulable(t, k8sCli, t1Node.Name)
+			if nodeIsT1AndT2(&t1Node) {
+				t.Log("Mark T1 node %s for maintenance via BGP node config override with mode withdrawal", t1Node.Name)
+				createBGPNodeConfigOverrideWithMaintenance(t, ciliumCli, t1Node.Name, isovalentv1.BGPMaintenanceModeWithdrawal)
+			} else {
+				t.Log("Mark T1 node %s for maintenance by marking it as unschedulable", t1Node.Name)
+				markNodeAsUnschedulable(t, k8sCli, t1Node.Name)
+			}
 
 			t.Log("Waiting until routes for VIP via T1 node in maintenance (%s) is withdrawn...", t1Node.Name)
 			eventually(t, func() error {
@@ -159,8 +166,15 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 			t.Log("Wait 20s (longer than the next ping interval (5s) plus timeout (10s) of the test application)...")
 			time.Sleep(20 * time.Second)
 
-			t.Log("Mark T1 node %s as schedulable", t1Node.Name)
-			markNodeAsSchedulable(t, k8sCli, t1Node.Name)
+			if nodeIsT1AndT2(&t1Node) {
+				// This step is necessary for nodes that serve T1 & T2 functionality. If T1 & T2 are put into maintenance
+				// by marking the node as unschedulable it will break existing persistent connections.
+				t.Log("Delete BGPNodeConfigOverride for T1 node %s", t1Node.Name)
+				ciliumCli.IsovalentV1().IsovalentBGPNodeConfigOverrides().Delete(t.Context(), t1Node.Name, metav1.DeleteOptions{})
+			} else {
+				t.Log("Mark T1 node %s back as schedulable", t1Node.Name)
+				markNodeAsSchedulable(t, k8sCli, t1Node.Name)
+			}
 
 			t.Log("Checking that T1 node %s is used as route again", t1Node.Name)
 			eventually(t, func() error {
@@ -177,5 +191,29 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 
 		t.Log("Checking existing connection is still alive / pinged")
 		checkInitialConnectionAlive(t, client, sqlServerIP, sqlServerPort, t2NodeIP, t2NodeSourcePort)
+	})
+}
+
+func createBGPNodeConfigOverrideWithMaintenance(t T, ciliumCli *ciliumCli, nodeName string, maintenanceMode isovalentv1.BGPMaintenanceMode) {
+	_, err := ciliumCli.IsovalentV1().IsovalentBGPNodeConfigOverrides().Create(t.Context(), &isovalentv1.IsovalentBGPNodeConfigOverride{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: nodeName,
+		},
+		Spec: isovalentv1.IsovalentBGPNodeConfigOverrideSpec{
+			BGPInstances: []isovalentv1.IsovalentBGPNodeConfigInstanceOverride{{
+				Name: "t1",
+				Maintenance: &isovalentv1.IsovalentBGPMaintenance{
+					Mode: maintenanceMode,
+				},
+			}},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		t.Failedf("failed to create BGP node config override %s: %s", nodeName, err)
+	}
+
+	t.RegisterCleanup(func(ctx context.Context) error {
+		_ = ciliumCli.IsovalentV1().IsovalentBGPNodeConfigOverrides().Delete(t.Context(), nodeName, metav1.DeleteOptions{})
+		return nil // drop error
 	})
 }

@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	isovalentv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 	"github.com/cilium/cilium/pkg/time"
@@ -141,6 +142,14 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 		t.Log("Loading T2 node that is handling the long-living sql connection")
 		t2Node := getK8sNodeWithIP(t, k8sCli, t2NodeIP)
 
+		if nodeIsT1AndT2(t2Node) {
+			// This step is necessary for nodes that serve T1 & T2 functionality. If T1 & T2 are put into maintenance
+			// by marking the node as unschedulable it will break existing persistent connections.
+			t.Log("Disable T1 BGP node maintenance of node %s ", t2Node.Name)
+			createBGPNodeConfigOverrideWithMaintenance(t, ciliumCli, t2Node.Name, isovalentv1.BGPMaintenanceModeDisabled)
+			time.Sleep(5 * time.Second) // we don't get a CRD status of the BGP controlplane. Therefore give it 5s to disable BGP maintenance
+		}
+
 		t.Log("Marking T2 node %s that is handling the long-living sql connection as unschedulable", t2Node.Name)
 		markNodeAsUnschedulable(t, k8sCli, t2Node.Name)
 
@@ -158,6 +167,9 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 
 		t.Log("Marking T2 node %s as schedulable", t2Node.Name)
 		markNodeAsSchedulable(t, k8sCli, t2Node.Name)
+		if nodeIsT1AndT2(t2Node) {
+			ciliumCli.IsovalentV1().IsovalentBGPNodeConfigOverrides().Delete(t.Context(), t2Node.Name, metav1.DeleteOptions{})
+		}
 
 		t.Log("Checking that new connections eventually use T2 node %s again", t2Node.Name)
 		checkNewConnectionsUseT2(t, client, vipIP, 80, t2NodeIP)
@@ -418,4 +430,9 @@ func checkNewConnectionsUseT2(t T, client *frrContainer, ip string, port uint32,
 
 		return nil
 	}, shortTimeout, pollInterval)
+}
+
+func nodeIsT1AndT2(node *corev1.Node) bool {
+	v, ok := node.Labels["service.cilium.io/node"]
+	return ok && v == "t1-t2"
 }
