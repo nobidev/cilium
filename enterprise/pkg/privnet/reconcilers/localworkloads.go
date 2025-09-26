@@ -110,8 +110,6 @@ func (l *LocalWorkloads) registerReconciler() {
 	l.endpointActivationManager.Subscribe(l)
 
 	l.jg.Add(job.OneShot("privnet-ep-sync", func(ctx context.Context, health cell.Health) error {
-		defer health.Stopped("Done")
-
 		// Block until all endpoints have been restored (i.e. received by EndpointRestored callback),
 		// as otherwise downstream consumers might publish a partial snapshot.
 		health.OK("Waiting for restorer promise")
