@@ -92,6 +92,7 @@ jobs:
             nr-of-worker-nodes: 4
             t1-nodes: "kind-control-plane kind-worker"
             t2-nodes: "kind-worker2 kind-worker3 kind-worker4"
+            run-tests: ""
           - name: "1"
             mode: "single-node"
             kernel: "6.1-20240710.064909"
@@ -100,6 +101,7 @@ jobs:
             nr-of-worker-nodes: 4
             t1-nodes: "kind-control-plane kind-worker"
             t2-nodes: "kind-worker2 kind-worker3 kind-worker4"
+            run-tests: ""
           - name: "2"
             mode: "single-node"
             kernel: "6.1-20240710.064909"
@@ -108,6 +110,7 @@ jobs:
             nr-of-worker-nodes: 4
             t1-nodes: "kind-control-plane kind-worker"
             t2-nodes: "kind-worker2 kind-worker3 kind-worker4"
+            run-tests: ""
           - name: "3" # in-cluster where all nodes are T1 & T2
             mode: "multi-node"
             kernel: "6.1-20240710.064909"
@@ -115,7 +118,7 @@ jobs:
             xff-num-trusted-hops: 0
             nr-of-worker-nodes: 4
             t1t2-nodes: "kind-control-plane kind-worker kind-worker2 kind-worker3 kind-worker4"
-            run-tests: "!TestNodeMaintenance_T1_T1T2_TCPProxy;!TestNodeMaintenance_T2_T1T2_TCPProxy"
+            run-tests: ""
           - name: "4" # single k8s node deployment where the single node is T1 & T2
             mode: "multi-node"
             kernel: "6.1-20240710.064909"
@@ -123,6 +126,7 @@ jobs:
             xff-num-trusted-hops: 0
             nr-of-worker-nodes: 0
             t1t2-nodes: "kind-control-plane"
+            run-tests: ""
 
     timeout-minutes: 120
 
