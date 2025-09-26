@@ -155,6 +155,8 @@ jobs:
             --flow-validation=disabled \
             --include-unsafe-tests \
             --test='seq-egress-gateway-ha-ipam-bgp-advertisement' \
+            --test='seq-egress-gateway-ha-ipam-bgp-advertisement-with-l7-policy' \
+            --test='check-log-errors' \
             --collect-sysdump-on-failure
           "
 
@@ -312,6 +314,15 @@ jobs:
       - name: Wait for Cilium status to be ready
         run: |
           cilium status --wait --interactive=false
+
+      - name: Install Cilium DNS proxy
+        run: |
+          helm install -n kube-system cilium-dnsproxy ./enterprise/fqdn-proxy/installation \
+            --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-dnsproxy-ci \
+            --set image.tag=${{ steps.vars.outputs.sha }} \
+            --set metrics.enabled=true \
+            --set debug=true
+          kubectl rollout status -n kube-system ds/cilium-dnsproxy --watch
 
       - name: Setup Azure Route Server
         id: setup-azure-route-server
