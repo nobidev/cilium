@@ -504,7 +504,7 @@
 /enterprise/dashboards/ @isovalent/isovalent-loadbalancer
 /enterprise/hubble/ @isovalent/hubble
 /enterprise/hubble-relay/ @isovalent/hubble
-/enterprise/hubble-timescape/ @isovalent/hubble
+/enterprise/hubble-timescape/ @isovalent/timescape
 /enterprise/images/ @isovalent/infrastructure
 /enterprise/olm/ @isovalent/openshift
 /enterprise/operator/ @isovalent/cilium-agent
@@ -582,7 +582,7 @@
 /install/kubernetes/cilium/templates/_rbac_helpers.tpl @isovalent/sig-k8s @isovalent/helm @isovalent/hubble-rbac
 /install/kubernetes/cilium/templates/hubble-relay/rbac @isovalent/sig-k8s @isovalent/helm @isovalent/hubble-rbac
 /install/kubernetes/cilium/templates/*enterprise* @isovalent/sig-k8s @isovalent/helm
-/install/kubernetes/cilium/templates/hubble-timescape/ @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
+/install/kubernetes/cilium/templates/hubble-timescape/ @isovalent/sig-k8s @isovalent/helm @isovalent/timescape
 /pkg/bgp/**/enterprise_* @isovalent/traffic-engineering
 /pkg/clustermesh/**/enterprise_* @isovalent/clustermesh
 /pkg/datapath/**/enterprise*.go @isovalent/cilium-datapath
