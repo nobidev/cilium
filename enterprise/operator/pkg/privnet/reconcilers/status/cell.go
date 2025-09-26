@@ -8,15 +8,25 @@
 // or reproduction of this material is strictly forbidden unless prior written
 // permission is obtained from Isovalent Inc.
 
-package reconcilers
+package status
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/reconcilers/status"
+	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/tables"
 )
 
 var Cell = cell.Group(
-	PrivateNetworksCell,
-	status.Cell,
+	cell.ProvidePrivate(
+		tables.NewPrivateNetworksStatusTable,
+		statedb.RWTable[tables.PrivateNetworkStatus].ToTable,
+
+		newStatusReconciler,
+		newK8sReconciler,
+	),
+	cell.Invoke(
+		(*statusReconciler).register,
+		(*k8sReconciler).register,
+	),
 )

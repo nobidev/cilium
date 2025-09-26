@@ -16,6 +16,8 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/enterprise/pkg/vni"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 type (
@@ -27,16 +29,25 @@ type (
 type PrivateNetwork struct {
 	// Name is the name of the private network.
 	Name NetworkName
+
+	// VNI requested by this private network.
+	RequestedVNI vni.VNI
+
+	// Keeping the copy of the original resource for async UpdateStatus call.
+	OrigResource *v1alpha1.ClusterwidePrivateNetwork
 }
 
 var _ statedb.TableWritable = &PrivateNetwork{}
 
 func (pn PrivateNetwork) TableHeader() []string {
-	return []string{"Name"}
+	return []string{"Name", "RequestedVNI"}
 }
 
 func (pn PrivateNetwork) TableRow() []string {
-	return []string{string(pn.Name)}
+	return []string{
+		string(pn.Name),
+		pn.RequestedVNI.String(),
+	}
 }
 
 var (
@@ -49,6 +60,23 @@ var (
 		FromString: index.FromString,
 		Unique:     true,
 	}
+
+	// An index to keep track of the private networks that requesting
+	// specific VNI. Used for the VNI conflict detection.
+	privateNetworksRequestedVNIIndex = statedb.Index[PrivateNetwork, vni.VNI]{
+		Name: "requested-vni",
+		FromObject: func(obj PrivateNetwork) index.KeySet {
+			if obj.RequestedVNI.IsValid() {
+				return index.NewKeySet(vni.StateDBKey(obj.RequestedVNI))
+			}
+			return index.NewKeySet()
+		},
+		FromKey: vni.StateDBKey,
+		FromString: func(key string) (index.Key, error) {
+			got, err := vni.Parse(key)
+			return vni.StateDBKey(got), err
+		},
+	}
 )
 
 // PrivateNetworkByName queries the private networks table by name.
@@ -56,10 +84,16 @@ func PrivateNetworkByName(name tables.NetworkName) statedb.Query[PrivateNetwork]
 	return privateNetworksNameIndex.Query(string(name))
 }
 
+// PrivateNetworksByRequestedVNI queries the private networks table by requested VNI.
+func PrivateNetworksByRequestedVNI(vni vni.VNI) statedb.Query[PrivateNetwork] {
+	return privateNetworksRequestedVNIIndex.Query(vni)
+}
+
 func NewPrivateNetworksTable(config config.Config, db *statedb.DB) (statedb.RWTable[PrivateNetwork], error) {
 	return statedb.NewTable(
 		db,
 		"private-networks",
 		privateNetworksNameIndex,
+		privateNetworksRequestedVNIIndex,
 	)
 }

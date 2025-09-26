@@ -1,0 +1,324 @@
+#! --private-networks-enabled --enable-evpn
+
+# Start Hive
+hive start
+
+# Request VNI
+k8s/add test0-100.yaml
+
+# Check status update
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test0 -o test0-100.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test0-100.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test0-100.actual.yaml
+* cmp test0-100.expected.yaml test0-100.actual.yaml
+
+# Update VNI request
+k8s/update test0-200.yaml
+
+# Check status update
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test0 -o test0-200.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test0-200.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test0-200.actual.yaml
+* cmp test0-200.expected.yaml test0-200.actual.yaml
+
+# Create another privnet with different VNI
+k8s/add test1-100.yaml
+
+# Now both should have VNIs
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test0 -o test0-200.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test0-200.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test0-200.actual.yaml
+* cmp test0-200.expected.yaml test0-200.actual.yaml
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test1 -o test1-100.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test1-100.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test1-100.actual.yaml
+* cmp test1-100.expected.yaml test1-100.actual.yaml
+
+# Update test1 with conflicting VNI
+k8s/update test1-200.yaml
+
+# Now both should have empty VNI allocation and have conflict flag set.
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test0 -o test0-conflict.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test0-conflict.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test0-conflict.actual.yaml
+* cmp test0-conflict.expected.yaml test0-conflict.actual.yaml
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test1 -o test1-conflict.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test1-conflict.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test1-conflict.actual.yaml
+* cmp test1-conflict.expected.yaml test1-conflict.actual.yaml
+
+# Resolve conflict by deleting test0
+k8s/delete test0-200.yaml
+
+# Now test1 should get VNI 200
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test1 -o test1-200.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test1-200.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test1-200.actual.yaml
+* cmp test1-200.expected.yaml test1-200.actual.yaml
+
+# Put conflicting test0 again
+k8s/add test0-200.yaml
+
+# Now both should have empty VNI allocation and have conflict flag set.
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test0 -o test0-conflict.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test0-conflict.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test0-conflict.actual.yaml
+* cmp test0-conflict.expected.yaml test0-conflict.actual.yaml
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test1 -o test1-conflict.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test1-conflict.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test1-conflict.actual.yaml
+* cmp test1-conflict.expected.yaml test1-conflict.actual.yaml
+
+# Resolving conflict by updating test1
+k8s/update test1-100.yaml
+
+# Now both should get VNIs
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test0 -o test0-200.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test0-200.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test0-200.actual.yaml
+* cmp test0-200.expected.yaml test0-200.actual.yaml
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test1 -o test1-100.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test1-100.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test1-100.actual.yaml
+* cmp test1-100.expected.yaml test1-100.actual.yaml
+
+# Put conflicting test1 again
+k8s/update test1-200.yaml
+
+# Now both should have empty VNI allocation and have conflict flag set.
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test0 -o test0-conflict.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test0-conflict.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test0-conflict.actual.yaml
+* cmp test0-conflict.expected.yaml test0-conflict.actual.yaml
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test1 -o test1-conflict.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test1-conflict.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test1-conflict.actual.yaml
+* cmp test1-conflict.expected.yaml test1-conflict.actual.yaml
+
+# Resolving conflict by removing the request from test1
+k8s/update test1-no-request.yaml
+
+# Now test0 should get VNIs
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test0 -o test0-200.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test0-200.actual.yaml
+sed 'lastTransitionTime: ".*"' 'lastTransitionTime: "<time>"' test0-200.actual.yaml
+* cmp test0-200.expected.yaml test0-200.actual.yaml
+
+# Clear request from test0 as well
+k8s/update test0-no-request.yaml
+
+# Now none should have VNI
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test0 -o test0-no-request.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test0-no-request.actual.yaml
+* cmp test0-no-request.expected.yaml test0-no-request.actual.yaml
+k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test1 -o test1-no-request.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test1-no-request.actual.yaml
+* cmp test1-no-request.expected.yaml test1-no-request.actual.yaml
+
+-- test0-no-request.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test0
+spec:
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+-- test1-no-request.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test1
+spec:
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+-- test0-100.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test0
+spec:
+  vni: 100
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+-- test0-200.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test0
+spec:
+  vni: 200
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+-- test1-100.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test1
+spec:
+  vni: 100
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+-- test1-200.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test1
+spec:
+  vni: 200
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+-- test0-100.expected.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test0
+  resourceVersion: "<nr>"
+spec:
+  interface: {}
+  routes: null
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+  vni: 100
+status:
+  conditions:
+  - lastTransitionTime: "<time>"
+    message: Private Network has no VNI conflict
+    reason: PrivateNetworkHasNoVNIConflict
+    status: "False"
+    type: VNIConflict
+  vni: 100
+-- test0-200.expected.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test0
+  resourceVersion: "<nr>"
+spec:
+  interface: {}
+  routes: null
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+  vni: 200
+status:
+  conditions:
+  - lastTransitionTime: "<time>"
+    message: Private Network has no VNI conflict
+    reason: PrivateNetworkHasNoVNIConflict
+    status: "False"
+    type: VNIConflict
+  vni: 200
+-- test1-100.expected.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test1
+  resourceVersion: "<nr>"
+spec:
+  interface: {}
+  routes: null
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+  vni: 100
+status:
+  conditions:
+  - lastTransitionTime: "<time>"
+    message: Private Network has no VNI conflict
+    reason: PrivateNetworkHasNoVNIConflict
+    status: "False"
+    type: VNIConflict
+  vni: 100
+-- test1-200.expected.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test1
+  resourceVersion: "<nr>"
+spec:
+  interface: {}
+  routes: null
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+  vni: 200
+status:
+  conditions:
+  - lastTransitionTime: "<time>"
+    message: Private Network has no VNI conflict
+    reason: PrivateNetworkHasNoVNIConflict
+    status: "False"
+    type: VNIConflict
+  vni: 200
+-- test0-conflict.expected.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test0
+  resourceVersion: "<nr>"
+spec:
+  interface: {}
+  routes: null
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+  vni: 200
+status:
+  conditions:
+  - lastTransitionTime: "<time>"
+    message: Private Network has VNI conflict
+    reason: PrivateNetworkHasVNIConflict
+    status: "True"
+    type: VNIConflict
+-- test1-conflict.expected.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test1
+  resourceVersion: "<nr>"
+spec:
+  interface: {}
+  routes: null
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+  vni: 200
+status:
+  conditions:
+  - lastTransitionTime: "<time>"
+    message: Private Network has VNI conflict
+    reason: PrivateNetworkHasVNIConflict
+    status: "True"
+    type: VNIConflict
+-- test0-no-request.expected.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test0
+  resourceVersion: "<nr>"
+spec:
+  interface: {}
+  routes: null
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+-- test1-no-request.expected.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test1
+  resourceVersion: "<nr>"
+spec:
+  interface: {}
+  routes: null
+  subnets:
+  - cidr: 10.0.0.0/24
+    name: subnet0
+status: {}

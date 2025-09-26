@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/enterprise/operator/pkg/evpn"
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -58,6 +59,7 @@ func TestScript(t *testing.T) {
 				k8sClient.FakeClientCell(),
 
 				privnet.Cell,
+				evpn.Cell,
 			)
 
 			t.Cleanup(func() {

@@ -1,0 +1,89 @@
+#! --private-networks-enabled --enable-evpn
+
+# Pre-populate the k8s resources. This is the resource from the "previous run".
+k8s/add test0-100.yaml test1-100.yaml test2-200.yaml test3-200.yaml test4-300.yaml test5-stale.yaml
+
+# Start Hive
+hive start
+
+# Validate the restoration result
+db/cmp private-networks-status all.expected
+
+-- test0-100.yaml --
+# spec is conflicting with test1, but status is not. The VNI allocation should
+# be cleared and conflict should be reported after restoration.
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test0
+spec:
+  vni: 100
+  subnets:
+  - cidr: 10.0.0.0/24
+status:
+  vni: 100
+-- test1-100.yaml --
+# spec is conflicting with test0.
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test1
+spec:
+  vni: 100
+  subnets:
+  - cidr: 10.0.0.0/24
+-- test2-200.yaml --
+# Status is conflicting with test3
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test2
+spec:
+  vni: 200
+  subnets:
+  - cidr: 10.0.0.0/24
+status:
+  vni: 200
+-- test3-200.yaml --
+# Status is conflicting with test2
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test3
+spec:
+  vni: 200
+  subnets:
+  - cidr: 10.0.0.0/24
+status:
+  vni: 200
+-- test4-300.yaml --
+# No conflict
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test4
+spec:
+  vni: 300
+  subnets:
+  - cidr: 10.0.0.0/24
+status:
+  vni: 200
+-- test5-stale.yaml --
+# Stale allocation. Should be deleted.
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: test5
+spec:
+  subnets:
+  - cidr: 10.0.0.0/24
+status:
+  vni: 400
+-- all.expected --
+Name    AllocatedVNI   HasVNIConflict
+test0                  true
+test1                  true
+test2                  true
+test3                  true
+test4   300            false
+test5                  false

@@ -325,9 +325,17 @@ rules:
   resources:
     - clusterwideprivatenetworks
     - privatenetworknodeattachments
+    - clusterwideprivatenetworks/status
   verbs:
     - list
     - watch
     - get
+- apiGroups:
+    - isovalent.com
+  resources:
+    - clusterwideprivatenetworks/status
+  verbs:
+    - update
+    - patch
 {{- end }}
 {{- end }}

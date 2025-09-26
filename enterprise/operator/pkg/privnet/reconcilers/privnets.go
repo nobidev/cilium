@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/tables"
+	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/k8s"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -108,8 +109,20 @@ func (pn *PrivateNetworks) registerK8sReflector() error {
 			}
 
 			return tables.PrivateNetwork{
-				Name: tables.NetworkName(privnet.Name),
+				Name:         tables.NetworkName(privnet.Name),
+				RequestedVNI: pn.extractRequestedVNI(privnet),
+				OrigResource: privnet.DeepCopy(),
 			}, true
 		},
 	})
+}
+
+func (pn *PrivateNetworks) extractRequestedVNI(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) vni.VNI {
+	if privnet.Spec.VNI != nil {
+		vniVal, err := vni.FromUint32(*privnet.Spec.VNI)
+		if err == nil {
+			return vniVal
+		}
+	}
+	return vni.VNI{}
 }
