@@ -32,7 +32,7 @@ static int mock_skb_get_tunnel_key(__maybe_unused struct __sk_buff *skb,
 	return 0;
 }
 
-#include "bpf_overlay.c"
+#include "lib/bpf_overlay.h"
 
 #include "lib/egressgw.h"
 #include "lib/egressgw_ha.h"
@@ -56,19 +56,6 @@ mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_
 	return -1;
 }
 
-#define FROM_OVERLAY 0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_OVERLAY] = &cil_from_overlay,
-	},
-};
-
 /* Test that a packet matching an egress gateway policy on the from-overlay program
  * gets correctly redirected to the target netdev.
  */
@@ -87,10 +74,7 @@ int egressgw_ha_redirect_setup(struct __ctx_buff *ctx)
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
 				     { GATEWAY_NODE_IP }, EGRESS_IP, EGRESS_IFINDEX);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return overlay_receive_packet(ctx);
 }
 
 CHECK("tc", "tc_egressgw_ha_redirect_from_overlay_with_egress_interface")

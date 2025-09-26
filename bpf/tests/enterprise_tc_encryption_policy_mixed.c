@@ -40,26 +40,13 @@
 #define VXLAN_VNI_NEW 0xCAFEBE
 #define UDP_CHECK 0xDEAD
 
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 #include "lib/ipcache.h"
 #include "lib/enterprise_encryption_policy.h"
 
-#define TO_NETDEV 0
-
 ASSIGN_CONFIG(__u32, wg_ifindex, 42)
 ASSIGN_CONFIG(__u16, wg_port, 51871)
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
 
 int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
 {
@@ -91,10 +78,7 @@ int encryption_policy_native_v4_tcp_match_setup(struct __ctx_buff *ctx)
 	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
 				    POD2_L4_PORT, true);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "01_tc_encryption_policy_native_v4_tcp_match")
@@ -115,10 +99,7 @@ int encryption_policy_native_v4_tcp_reply_match_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_tc_encryption_policy_native_v4_tcp_reply_match")
 int encryption_policy_native_v4_tcp_reply_match_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "02_tc_encryption_policy_native_v4_tcp_reply_match")
@@ -143,10 +124,7 @@ int encryption_policy_native_v4_tcp_no_match_setup(struct __ctx_buff *ctx)
 	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
 				    POD2_L4_PORT, false);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "03_tc_encryption_policy_native_v4_tcp_no_match")
@@ -177,10 +155,7 @@ int encryption_policy_native_v6_tcp_match_setup(struct __ctx_buff *ctx)
 	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
 				    POD2_L4_PORT, true);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "04_tc_encryption_policy_native_v6_tcp_match")
@@ -201,10 +176,7 @@ int encryption_policy_native_v6_tcp_reply_match_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "05_tc_encryption_policy_native_v6_tcp_reply_match")
 int encryption_policy_native_v6_tcp_reply_match_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "05_tc_encryption_policy_native_v6_tcp_reply_match")
@@ -229,10 +201,7 @@ int encryption_policy_native_v6_tcp_no_match_setup(struct __ctx_buff *ctx)
 	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
 				    POD2_L4_PORT, false);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "06_tc_encryption_policy_native_v6_tcp_no_match")
@@ -257,10 +226,7 @@ int encryption_policy_vxlan_v4_tcp_match_setup(struct __ctx_buff *ctx)
 	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
 				    POD2_L4_PORT, true);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "07_tc_encryption_policy_vxlan_v4_tcp_match")
@@ -285,10 +251,7 @@ int encryption_policy_vxlan_v4_tcp_no_match_setup(struct __ctx_buff *ctx)
 	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
 				    POD2_L4_PORT, false);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "08_tc_encryption_policy_vxlan_v4_tcp_no_match")
@@ -313,10 +276,7 @@ int encryption_policy_vxlan_v6_tcp_match_setup(struct __ctx_buff *ctx)
 	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
 				    POD2_L4_PORT, true);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "09_tc_encryption_policy_vxlan_v6_tcp_match")
@@ -341,10 +301,7 @@ int encryption_policy_vxlan_v6_tcp_no_match_setup(struct __ctx_buff *ctx)
 	add_encryption_policy_entry(POD1_SEC_IDENTITY, POD2_SEC_IDENTITY, IPPROTO_TCP,
 				    POD2_L4_PORT, false);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "10_tc_encryption_policy_vxlan_v6_tcp_no_match")

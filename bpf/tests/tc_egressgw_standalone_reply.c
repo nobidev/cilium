@@ -35,7 +35,7 @@ mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 			__maybe_unused __u32 size,
 			__maybe_unused __u32 flags);
 
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 #include "lib/egressgw.h"
 #include "lib/egressgw_ha.h"
@@ -77,21 +77,6 @@ mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 	return 0;
 }
 
-#define TO_NETDEV 0
-#define FROM_NETDEV 1
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[TO_NETDEV] = &cil_to_netdev,
-		[FROM_NETDEV] = &cil_from_netdev,
-	},
-};
-
 /* Test that a packet matching an egress gateway policy on the to-netdev program
  * gets correctly SNATed with the egress IP of the policy.
  */
@@ -109,10 +94,7 @@ int egressgw_standalone_snat_setup(struct __ctx_buff *ctx)
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
 				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "tc_egressgw_standalone_snat")
@@ -149,10 +131,7 @@ int egressgw_standalone_snat_reply_setup(struct __ctx_buff *ctx)
 	/* install the SEGW entry for the CLIENT_IP: */
 	map_update_elem(&cilium_egress_gw_standalone_v4, &segw_key, &segw_entry, BPF_ANY);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "tc_egressgw_standalone_snat_reply")
