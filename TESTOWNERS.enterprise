@@ -394,7 +394,7 @@
 /.github/actions/get-wolfi-packages/* @isovalent/infrastructure
 /.github/actions/load-ubi-versions/action.yaml @isovalent/openshift
 /.github/actions/set-env-variables/enterprise-scalability-overrides.sh @isovalent/scalability-performance
-/.github/kind-config-enterprise-hubble-rbac.yaml @isovalent/hubble
+/.github/kind-config-enterprise-hubble-rbac.yaml @isovalent/hubble-rbac
 /.github/workflows/add-pr-to-hubble-project.yml @isovalent/hubble
 /.github/workflows/enterprise-build-cilium-cli-release-image.yaml @isovalent/cli
 /.github/workflows/enterprise-build-images-fips.yaml @isovalent/security
@@ -404,7 +404,7 @@
 /.github/workflows/enterprise-*egress-gateway*.yaml @isovalent/egress-gateway
 /.github/workflows/enterprise-*fqdn-ha*.yaml @isovalent/dns-proxy
 /.github/workflows/enterprise-kind.yaml @isovalent/dns-proxy
-/.github/workflows/enterprise-kind-hubble-rbac.yaml @isovalent/hubble
+/.github/workflows/enterprise-kind-hubble-rbac.yaml @isovalent/hubble-rbac
 /.github/workflows/enterprise-kind-integrated-timescape.yaml @isovalent/timescape
 /.github/workflows/enterprise-lb.yaml @isovalent/isovalent-loadbalancer
 /.github/workflows/enterprise-lb-dashboards.yaml @isovalent/isovalent-loadbalancer
@@ -565,7 +565,7 @@
 /enterprise/plugins/cilium-cni/pkg/privnet/ @isovalent/private-networking
 /enterprise/test/srv6/ @isovalent/traffic-engineering
 /enterprise/test/helpers/hubble.go @isovalent/hubble
-/enterprise/test/hubble-rbac/ @isovalent/hubble
+/enterprise/test/hubble-rbac/ @isovalent/hubble-rbac
 /enterprise/tools/gomod-override/ @isovalent/traffic-engineering
 /examples/enterprise-crds @isovalent/helm
 /hubble/Makefile.override @isovalent/hubble
@@ -579,8 +579,8 @@
 /install/kubernetes/cilium/templates/cilium-operator/*enterprise* @isovalent/sig-k8s @isovalent/helm
 /install/kubernetes/cilium/templates/cilium-preflight/*enterprise* @isovalent/sig-k8s @isovalent/helm
 /install/kubernetes/cilium/templates/clustermesh-apiserver/*enterprise* @isovalent/clustermesh @isovalent/sig-k8s @isovalent/helm
-/install/kubernetes/cilium/templates/_rbac_helpers.tpl @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
-/install/kubernetes/cilium/templates/hubble-relay/rbac @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
+/install/kubernetes/cilium/templates/_rbac_helpers.tpl @isovalent/sig-k8s @isovalent/helm @isovalent/hubble-rbac
+/install/kubernetes/cilium/templates/hubble-relay/rbac @isovalent/sig-k8s @isovalent/helm @isovalent/hubble-rbac
 /install/kubernetes/cilium/templates/*enterprise* @isovalent/sig-k8s @isovalent/helm
 /install/kubernetes/cilium/templates/hubble-timescape/ @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /pkg/bgp/**/enterprise_* @isovalent/traffic-engineering

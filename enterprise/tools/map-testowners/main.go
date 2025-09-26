@@ -103,6 +103,7 @@ var (
 		"@isovalent/encryption":                 {},
 		"@isovalent/helm":                       {},
 		"@isovalent/hubble":                     {},
+		"@isovalent/hubble-rbac":                {},
 		"@isovalent/hubble-api":                 {},
 		"@isovalent/ignore-k8s-crd":             {},
 		"@isovalent/infrastructure":             {},
