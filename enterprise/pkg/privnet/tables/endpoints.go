@@ -59,7 +59,7 @@ func (ep Endpoint) ToMapEntry(privnet PrivateNetwork) *MapEntry {
 		Routing: MapEntryRouting{
 			NextHop:       ep.IP,
 			EgressIfIndex: privnet.Interface.Index,
-			Cluster:       ep.Source.Cluster,
+			Cluster:       ClusterName(ep.Source.Cluster),
 		},
 
 		Status: reconciler.StatusPending(),
@@ -102,9 +102,9 @@ func (ep Endpoint) TableRow() []string {
 }
 
 // EndpointsFromEndpointSliceEntry returns an iterator of Endpoint objects generated from the specific EndpointSlice.
-func EndpointsFromEndpointSlice(logger *slog.Logger, clusterName string, slice *iso_v1alpha1.PrivateNetworkEndpointSlice) iter.Seq[Endpoint] {
+func EndpointsFromEndpointSlice(logger *slog.Logger, clusterName ClusterName, slice *iso_v1alpha1.PrivateNetworkEndpointSlice) iter.Seq[Endpoint] {
 	return slices.MapIter(
-		kvstore.EndpointsFromEndpointSlice(logger, clusterName, slice),
+		kvstore.EndpointsFromEndpointSlice(logger, string(clusterName), slice),
 		func(in *kvstore.Endpoint) Endpoint { return Endpoint{Endpoint: in} },
 	)
 }
@@ -185,8 +185,8 @@ var (
 )
 
 // EndpointsByCluster queries the endpoints table by source cluster name.
-func EndpointsByCluster(cluster string) statedb.Query[Endpoint] {
-	return endpointsPrimaryIndex.Query(newEndpointKeyFromCluster(cluster))
+func EndpointsByCluster(cluster ClusterName) statedb.Query[Endpoint] {
+	return endpointsPrimaryIndex.Query(newEndpointKeyFromCluster(string(cluster)))
 }
 
 // EndpointsBySource queries the endpoints table by source.

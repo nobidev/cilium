@@ -20,10 +20,14 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 
+	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
 type (
+	// ClusterName is the name of a cluster.
+	ClusterName = types.ClusterName
+
 	// NetworkID is a numeric identifier of a private network.
 	NetworkID uint16
 

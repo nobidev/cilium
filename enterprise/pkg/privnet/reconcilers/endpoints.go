@@ -68,7 +68,7 @@ type Endpoints struct {
 	jg  job.Group
 
 	cfg   config.Config
-	cinfo cmtypes.ClusterInfo
+	cname tables.ClusterName
 
 	db  *statedb.DB
 	tbl statedb.RWTable[tables.Endpoint]
@@ -94,7 +94,7 @@ func newEndpoints(in struct {
 		log:   in.Log,
 		jg:    in.JobGroup,
 		cfg:   in.Config,
-		cinfo: in.ClusterInfo,
+		cname: tables.ClusterName(in.ClusterInfo.Name),
 		db:    in.DB,
 		tbl:   in.Table,
 	}
@@ -125,7 +125,7 @@ func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync]) 
 
 		// Make sure we o not delete the entries discovered via Cluster Mesh.
 		QueryAll: func(txn statedb.ReadTxn, tbl statedb.Table[tables.Endpoint]) iter.Seq2[tables.Endpoint, statedb.Revision] {
-			return ep.tbl.Prefix(txn, tables.EndpointsByCluster(ep.cinfo.Name))
+			return ep.tbl.Prefix(txn, tables.EndpointsByCluster(ep.cname))
 		},
 
 		TransformMany: func(txn statedb.ReadTxn, deleted bool, obj any) (toInsert, toDelete iter.Seq[tables.Endpoint]) {
@@ -135,7 +135,7 @@ func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync]) 
 			}
 
 			source := tables.Source{
-				Cluster:   ep.cinfo.Name,
+				Cluster:   string(ep.cname),
 				Namespace: slice.GetNamespace(),
 				Name:      slice.GetName(),
 			}
@@ -146,7 +146,7 @@ func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync]) 
 			}
 
 			current := make(map[tables.EndpointKey]tables.Endpoint)
-			for endpoint := range tables.EndpointsFromEndpointSlice(ep.log, ep.cinfo.Name, slice) {
+			for endpoint := range tables.EndpointsFromEndpointSlice(ep.log, ep.cname, slice) {
 				current[endpoint.Key()] = endpoint
 			}
 

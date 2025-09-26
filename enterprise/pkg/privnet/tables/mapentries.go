@@ -148,7 +148,7 @@ type MapEntryRouting struct {
 
 	// Cluster is the name of the cluster adjacent to the target.
 	// Currently applicable only when [NATEntry.Type] == Endpoint.
-	Cluster string
+	Cluster ClusterName
 }
 
 // MapEntryKey is <network>|<type>|<network-cidr>.
