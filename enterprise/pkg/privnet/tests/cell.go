@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	dptables "github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
@@ -48,6 +49,10 @@ func NewTestHive(t testing.TB) *hive.Hive {
 				r, p := promise.New[synced.CRDSync]()
 				r.Resolve(synced.CRDSync{})
 				return p
+			},
+
+			func() tunnel.Config {
+				return tunnel.NewTestConfig(tunnel.VXLAN)
 			},
 		),
 

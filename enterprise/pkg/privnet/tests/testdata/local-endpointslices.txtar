@@ -15,6 +15,7 @@ privnet/epm-create ep-awesome-gnu.json      # in qux
 
 hive start
 clustermesh/endpoints/sync
+clustermesh/nodes/sync
 db/initialized
 
 # Ensure slice in foo is deleted

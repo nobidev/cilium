@@ -20,7 +20,13 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	dptypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	nomgr "github.com/cilium/cilium/pkg/node/manager"
+	nostore "github.com/cilium/cilium/pkg/node/store"
+	notypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var ClusterMeshObservers = cell.Group(
@@ -34,8 +40,34 @@ var ClusterMeshObservers = cell.Group(
 				}.cmds(),
 			)
 		},
+
+		// Strictly speaking the nodes observer, as currently implemented, is not
+		// limited to clustermesh nodes only. However, let's reuse the same testing
+		// machinery, given that scaffolding is already there, and it does not make
+		// any difference from the practical point of view.
+		func() nomgr.NodeManager { return mockNM{} },
+		func(obs *observers.Nodes) uhive.ScriptCmdsOut {
+			return uhive.NewScriptCmds(
+				cmObserver[*notypes.Node]{
+					name: "nodes",
+					kc:   nostore.KeyCreator,
+					obs:  &nodesAdapter{obs},
+				}.cmds(),
+			)
+		},
+	),
+
+	cell.Invoke(
+		// Explicitly depend on [nomgr.NodeManager] to make sure it is initialized.
+		func(nomgr.NodeManager) {},
 	),
 )
+
+type nodesAdapter struct{ *observers.Nodes }
+
+func (obs nodesAdapter) OnUpdate(key store.Key)      { obs.Nodes.NodeUpdated(*key.(*notypes.Node)) }
+func (obs nodesAdapter) OnDelete(key store.NamedKey) { obs.Nodes.NodeDeleted(*key.(*notypes.Node)) }
+func (obs nodesAdapter) OnSync()                     { obs.Nodes.NodeSync(); obs.Nodes.MeshNodeSync() }
 
 type cmObserver[T store.Key] struct {
 	name string
@@ -102,3 +134,20 @@ func (obs cmObserver[t]) sync() script.Cmd {
 		},
 	)
 }
+
+type mockNM struct{}
+
+var _ nomgr.NodeManager = mockNM{}
+
+func (mockNM) ClusterSizeDependantInterval(time.Duration) time.Duration { panic("unimplemented") }
+func (mockNM) GetNodeIdentities() []notypes.Identity                    { panic("unimplemented") }
+func (mockNM) GetNodes() map[notypes.Identity]notypes.Node              { panic("unimplemented") }
+func (mockNM) Subscribe(dptypes.NodeHandler)                            { panic("unimplemented") }
+func (mockNM) Unsubscribe(dptypes.NodeHandler)                          { panic("unimplemented") }
+
+func (mockNM) SetPrefixClusterMutatorFn(func(*notypes.Node) []cmtypes.PrefixClusterOpts) {}
+
+func (mockNM) NodeUpdated(notypes.Node) {}
+func (mockNM) NodeDeleted(notypes.Node) {}
+func (mockNM) NodeSync()                {}
+func (mockNM) MeshNodeSync()            {}

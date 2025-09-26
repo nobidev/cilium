@@ -10,6 +10,7 @@ db/cmp privnet-local-workloads local-workloads.v1.table
 # Start hive (this will also finish restoration)
 hive start
 clustermesh/endpoints/sync
+clustermesh/nodes/sync
 db/initialized
 
 # Create three endpoints - clever-fox is a regular endpoint without privnet
