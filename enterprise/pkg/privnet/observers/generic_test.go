@@ -8,7 +8,7 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package kvstore_test
+package observers_test
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/stream"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 )
 
@@ -26,45 +26,41 @@ func TestObserver(t *testing.T) {
 	const timeout = 3 * time.Second
 
 	var (
-		obs = kvstore.NewEndpointObserver()
+		obs = observers.NewGeneric[string, resource.EventKind]()
 
-		ep1 = kvstore.Endpoint{Name: "foo"}
-		ep2 = kvstore.Endpoint{Name: "bar"}
-		ep3 = kvstore.Endpoint{Name: "baz"}
-
-		VE = func(ep kvstore.Endpoint) *kvstore.ValidatingEndpoint {
-			return &kvstore.ValidatingEndpoint{Endpoint: ep}
-		}
+		obj1 = "foo"
+		obj2 = "bar"
+		obj3 = "baz"
 
 		ctx, cancel = context.WithCancel(t.Context())
 	)
 
 	// Push a few events before starting the observer.
-	obs.OnUpdate(VE(ep1))
-	obs.OnSync()
-	obs.OnUpdate(VE(ep2))
-	obs.OnDelete(VE(ep2))
+	obs.Queue(resource.Upsert, obj1)
+	obs.Queue(resource.Sync, "")
+	obs.Queue(resource.Upsert, obj2)
+	obs.Queue(resource.Delete, obj2)
 
 	out := stream.ToChannel(ctx, obs)
 	select {
 	case got := <-out:
-		require.Equal(t, kvstore.EndpointEvents{
-			{Endpoint: &ep1, EventKind: resource.Upsert},
+		require.Equal(t, observers.Events[string, resource.EventKind]{
+			{Object: obj1, EventKind: resource.Upsert},
 			{EventKind: resource.Sync},
-			{Endpoint: &ep2, EventKind: resource.Upsert},
-			{Endpoint: &ep2, EventKind: resource.Delete},
+			{Object: obj2, EventKind: resource.Upsert},
+			{Object: obj2, EventKind: resource.Delete},
 		}, got)
 	case <-time.After(timeout):
 		require.FailNow(t, "No events observed")
 	}
 
 	// Push some more updates
-	obs.OnUpdate(VE(ep1))
-	obs.OnUpdate(VE(ep2))
-	obs.OnDelete(VE(ep1))
+	obs.Queue(resource.Upsert, obj1)
+	obs.Queue(resource.Upsert, obj2)
+	obs.Queue(resource.Delete, obj1)
 
 	var (
-		got  kvstore.EndpointEvents
+		got  observers.Events[string, resource.EventKind]
 		tout = time.After(timeout)
 	)
 
@@ -76,10 +72,10 @@ outer:
 		case g := <-out:
 			got = append(got, g...)
 			if len(got) == 3 {
-				require.Equal(t, kvstore.EndpointEvents{
-					{Endpoint: &ep1, EventKind: resource.Upsert},
-					{Endpoint: &ep2, EventKind: resource.Upsert},
-					{Endpoint: &ep1, EventKind: resource.Delete},
+				require.Equal(t, observers.Events[string, resource.EventKind]{
+					{Object: obj1, EventKind: resource.Upsert},
+					{Object: obj2, EventKind: resource.Upsert},
+					{Object: obj1, EventKind: resource.Delete},
 				}, got)
 				break outer
 			}
@@ -100,7 +96,7 @@ outer:
 	}
 
 	// Events received after stopping the observer should not hang.
-	obs.OnUpdate(VE(ep1))
-	obs.OnDelete(VE(ep3))
-	obs.OnSync()
+	obs.Queue(resource.Upsert, obj1)
+	obs.Queue(resource.Delete, obj3)
+	obs.Queue(resource.Sync, obj1)
 }

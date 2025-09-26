@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -50,7 +50,7 @@ var EndpointsCell = cell.Group(
 		statedb.RWTable[tables.Endpoint].ToTable,
 
 		// Provides the object to observe endpoint events from clustermesh.
-		kvstore.NewEndpointObserver,
+		observers.NewPrivateNetworkEndpoints,
 	),
 
 	cell.Invoke(
@@ -162,7 +162,7 @@ func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync]) 
 	return k8s.RegisterReflector(ep.jg, ep.db, cfg)
 }
 
-func (ep *Endpoints) registerClusterMeshReflector(obs *kvstore.EndpointsObserver) {
+func (ep *Endpoints) registerClusterMeshReflector(obs *observers.PrivateNetworkEndpoints) {
 	if !ep.cfg.Enabled {
 		return
 	}
@@ -174,7 +174,7 @@ func (ep *Endpoints) registerClusterMeshReflector(obs *kvstore.EndpointsObserver
 	ep.jg.Add(
 		job.Observer(
 			"clustermesh-privnet-endpoints-to-table",
-			func(ctx context.Context, buf kvstore.EndpointEvents) error {
+			func(ctx context.Context, buf observers.EndpointEvents) error {
 				wtx := ep.db.WriteTxn(ep.tbl)
 
 				for _, ev := range buf {
@@ -184,16 +184,16 @@ func (ep *Endpoints) registerClusterMeshReflector(obs *kvstore.EndpointsObserver
 						// etcd, so it is possible that all other fields are updated without
 						// changing the key. However, this table uses a different primary
 						// key, so we need to explicitly delete the old version, if present.
-						for other := range ep.tbl.Prefix(wtx, tables.EndpointsByPIP(ev.Endpoint.IP)) {
-							if other.Source.Cluster == ev.Source.Cluster &&
-								other.Network.Name == ev.Network.Name {
+						for other := range ep.tbl.Prefix(wtx, tables.EndpointsByPIP(ev.Object.IP)) {
+							if other.Source.Cluster == ev.Object.Source.Cluster &&
+								other.Network.Name == ev.Object.Network.Name {
 								ep.tbl.Delete(wtx, other)
 							}
 						}
 
-						ep.tbl.Insert(wtx, tables.Endpoint{Endpoint: ev.Endpoint})
+						ep.tbl.Insert(wtx, tables.Endpoint{Endpoint: ev.Object})
 					case resource.Delete:
-						ep.tbl.Delete(wtx, tables.Endpoint{Endpoint: ev.Endpoint})
+						ep.tbl.Delete(wtx, tables.Endpoint{Endpoint: ev.Object})
 					case resource.Sync:
 						finish(wtx)
 					}

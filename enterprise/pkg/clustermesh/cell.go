@@ -17,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/manager"
 
 	cecmcfg "github.com/cilium/cilium/enterprise/pkg/clustermesh/config"
-	privnet "github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
+	privnet "github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 )
 
 var defaultConfig = cecmcfg.Config{
@@ -64,6 +64,6 @@ var Cell = cell.Module(
 		// place, as it requires some upstream adaptations first, but we need
 		// to propagate the synchronization signal, otherwise the corresponding
 		// statedb table is never marked as synchronized.
-		func(obs *privnet.EndpointsObserver) { obs.OnSync() },
+		func(obs *privnet.PrivateNetworkEndpoints) { obs.OnSync() },
 	),
 )

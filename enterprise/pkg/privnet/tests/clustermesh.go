@@ -19,12 +19,13 @@ import (
 	"github.com/cilium/hive/script"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 )
 
 var ClusterMeshObservers = cell.Group(
 	cell.Provide(
-		func(obs *kvstore.EndpointsObserver) uhive.ScriptCmdsOut {
+		func(obs *observers.PrivateNetworkEndpoints) uhive.ScriptCmdsOut {
 			return uhive.NewScriptCmds(
 				cmObserver[*kvstore.ValidatingEndpoint]{
 					name: "endpoints",
