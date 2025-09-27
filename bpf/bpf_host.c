@@ -1066,8 +1066,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 	__s8 __maybe_unused ext_err = 0;
 	int ret;
 
-	bpf_clear_meta(ctx);
-
 	switch (proto) {
 # if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER || \
      defined ENABLE_L2_ANNOUNCEMENTS
@@ -1187,13 +1185,16 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 __section_entry
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
+	__u32 flags __maybe_unused;
 	__u32 src_id = UNKNOWN_ID;
 	__be16 proto = 0;
+	int ret;
+
+	bpf_clear_meta(ctx);
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
-	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
+	flags = ctx_get_xfer(ctx, XFER_FLAGS);
 #endif
-	int ret;
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 * We will see the packet again in from-netdev@eth0.vlanXXX.
@@ -1266,6 +1267,8 @@ int cil_from_host(struct __ctx_buff *ctx)
 	int ret __maybe_unused;
 	__be16 proto = 0;
 	__u32 magic;
+
+	bpf_clear_meta(ctx);
 
 	/* Traffic from the host ns going through cilium_host device must
 	 * not be subject to EDT rate-limiting.
