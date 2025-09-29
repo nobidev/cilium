@@ -22,5 +22,9 @@ grafana:
         options:
           path: /var/lib/grafana/dashboards/default
 
+  grafana.ini:
+    dashboards:
+      default_home_dashboard_path: /var/lib/grafana/dashboards/default/lb.json
+
   dashboardsConfigMaps:
     default: "grafana-dashboards"
