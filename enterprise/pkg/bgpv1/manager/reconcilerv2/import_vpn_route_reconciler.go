@@ -17,7 +17,6 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
-	"slices"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -143,7 +142,7 @@ func (r *importVPNRouteReconciler) Reconcile(ctx context.Context, _p reconciler.
 
 	// Clear all RIB entries inserted by the deleted instance
 	if p.DeletedInstance != "" {
-		owner := r.ribOwnerName(p.DeletedInstance)
+		owner := ribOwnerName(p.DeletedInstance)
 		r.rib.DeleteRoutesByOwner(owner)
 		return nil
 	}
@@ -162,7 +161,7 @@ func (r *importVPNRouteReconciler) Reconcile(ctx context.Context, _p reconciler.
 		return fmt.Errorf("failed to get BGP routes: %w", err)
 	}
 
-	owner := r.ribOwnerName(p.DesiredConfig.Name)
+	owner := ribOwnerName(p.DesiredConfig.Name)
 
 	// Obtain the desired routes from BGP RIB
 	desiredRoutes, err := r.desiredRoutes(
@@ -179,76 +178,9 @@ func (r *importVPNRouteReconciler) Reconcile(ctx context.Context, _p reconciler.
 	currentRoutes := r.rib.ListRoutes(owner)
 
 	// Reconcile Cilium RIB
-	r.reconcileRIB(desiredRoutes, currentRoutes)
+	reconcileRIB(r.rib, desiredRoutes, currentRoutes)
 
 	return nil
-}
-
-func (r *importVPNRouteReconciler) ribOwnerName(instanceName string) string {
-	return "bgpv2-" + instanceName
-}
-
-func calculateRouteDiffs(desired, current map[uint32]*bitlpm.CIDRTrie[*rib.Route]) (
-	map[uint32]*bitlpm.CIDRTrie[*rib.Route],
-	map[uint32]*bitlpm.CIDRTrie[*rib.Route],
-) {
-	toUpsert := map[uint32]*bitlpm.CIDRTrie[*rib.Route]{}
-	toDelete := map[uint32]*bitlpm.CIDRTrie[*rib.Route]{}
-
-	for vrfID, desiredRoutes := range desired {
-		if currentRoutes, found := current[vrfID]; found {
-			trie := bitlpm.NewCIDRTrie[*rib.Route]()
-			desiredRoutes.ForEach(func(prefix netip.Prefix, desiredRoute *rib.Route) bool {
-				currentRoute, found := currentRoutes.ExactLookup(prefix)
-				if !found || !desiredRoute.Equal(currentRoute) {
-					trie.Upsert(prefix, desiredRoute)
-				}
-				return true
-			})
-			if trie.Len() > 0 {
-				toUpsert[vrfID] = trie
-			}
-		} else {
-			toUpsert[vrfID] = desiredRoutes
-		}
-	}
-
-	for vrfID, currentRoutes := range current {
-		if desiredRoutes, found := desired[vrfID]; found {
-			trie := bitlpm.NewCIDRTrie[*rib.Route]()
-			currentRoutes.ForEach(func(prefix netip.Prefix, route *rib.Route) bool {
-				if _, found := desiredRoutes.ExactLookup(prefix); !found {
-					trie.Upsert(prefix, route)
-				}
-				return true
-			})
-			if trie.Len() > 0 {
-				toDelete[vrfID] = trie
-			}
-		} else {
-			toDelete[vrfID] = currentRoutes
-		}
-	}
-
-	return toUpsert, toDelete
-}
-
-func (r *importVPNRouteReconciler) reconcileRIB(desired, current map[uint32]*bitlpm.CIDRTrie[*rib.Route]) {
-	toUpsert, toDelete := calculateRouteDiffs(desired, current)
-
-	for vrfID, routes := range toUpsert {
-		routes.ForEach(func(_ netip.Prefix, route *rib.Route) bool {
-			r.rib.UpsertRoute(vrfID, *route)
-			return true
-		})
-	}
-
-	for vrfID, routes := range toDelete {
-		routes.ForEach(func(_ netip.Prefix, route *rib.Route) bool {
-			r.rib.DeleteRoute(vrfID, *route)
-			return true
-		})
-	}
 }
 
 func (r *importVPNRouteReconciler) desiredRoutes(
@@ -312,17 +244,6 @@ type vpnPath struct {
 	sourceASN uint32
 }
 
-func rtMatches(pathRTs []string, vrfRTs []string) bool {
-	for _, pathRT := range pathRTs {
-		if slices.Contains(vrfRTs, pathRT) {
-			return true
-		}
-	}
-	return false
-}
-
-var errSelfOriginatedVPNRoute = errors.New("self-originated route")
-
 func (r *importVPNRouteReconciler) parseVPNRoutes(routes []*types.Route) ([]*vpnPath, error) {
 	paths := []*vpnPath{}
 
@@ -333,9 +254,9 @@ func (r *importVPNRouteReconciler) parseVPNRoutes(routes []*types.Route) ([]*vpn
 				continue
 			}
 
-			path, err := parseVPNPath(path)
+			path, err := r.parseVPNPath(path)
 			if err != nil {
-				if !errors.Is(err, errSelfOriginatedVPNRoute) {
+				if !errors.Is(err, errSelfOriginatedRoute) {
 					// Self-originated route is pretty
 					// common, so don't need to log it.
 					// Maybe it's worth logging others for
@@ -368,11 +289,10 @@ func (r *importVPNRouteReconciler) parseVPNRoutes(routes []*types.Route) ([]*vpn
 }
 
 var (
-	errUnexpectedNLRI   = errors.New("unexpected number of NLRI")
 	errMoreThanOneLabel = errors.New("more than one label in the NLRI")
 )
 
-func parseMPReachNLRI(p *bgp.PathAttributeMpReachNLRI) (netip.Prefix, uint32, error) {
+func (r *importVPNRouteReconciler) parseMPReachNLRI(p *bgp.PathAttributeMpReachNLRI) (netip.Prefix, uint32, error) {
 	// GoBGP creates one Path per NLRI when it stores routes to the RIB,
 	// even if the MP-Reach-NLRI attribute contains multiple NLRIs. So, we
 	// should have only one NLRI. Here we do sanity check and skip the path
@@ -380,7 +300,7 @@ func parseMPReachNLRI(p *bgp.PathAttributeMpReachNLRI) (netip.Prefix, uint32, er
 	//
 	// https://github.com/osrg/gobgp/blob/f733438a965b33813b23200ea10adfa1939f5a36/internal/pkg/table/table_manager.go#L93-L107
 	if len(p.Value) != 1 {
-		return netip.Prefix{}, 0, errUnexpectedNLRI
+		return netip.Prefix{}, 0, errUnexpectedNumberOfNLRI
 	}
 
 	// Skip if not VPNv4
@@ -398,7 +318,7 @@ func parseMPReachNLRI(p *bgp.PathAttributeMpReachNLRI) (netip.Prefix, uint32, er
 	// route. We should fix this by exposing route origin information of
 	// GoBGP Path to our agent Path struct.
 	if p.Nexthop.Equal(net.IPv4zero) || p.Nexthop.Equal(net.IPv6zero) {
-		return netip.Prefix{}, 0, errSelfOriginatedVPNRoute
+		return netip.Prefix{}, 0, errSelfOriginatedRoute
 	}
 
 	// It is safe to deref Value[0] here because we already checked the
@@ -432,7 +352,7 @@ func parseMPReachNLRI(p *bgp.PathAttributeMpReachNLRI) (netip.Prefix, uint32, er
 	return netip.PrefixFrom(addr, int(prefix.IPPrefixLen())), label, nil
 }
 
-func parsePrefixSID(p *bgp.PathAttributePrefixSID) ([]byte, uint8, uint8, error) {
+func (r *importVPNRouteReconciler) parsePrefixSID(p *bgp.PathAttributePrefixSID) ([]byte, uint8, uint8, error) {
 	var l3Srv *bgp.SRv6L3ServiceAttribute
 	for _, tlv := range p.TLVs {
 		v, ok := tlv.(*bgp.SRv6L3ServiceAttribute)
@@ -480,7 +400,7 @@ func parsePrefixSID(p *bgp.PathAttributePrefixSID) ([]byte, uint8, uint8, error)
 	return info.SID, sidStructure.TranspositionOffset, sidStructure.TranspositionLength, nil
 }
 
-func parseExtendedCommunity(p *bgp.PathAttributeExtendedCommunities) ([]string, error) {
+func (r *importVPNRouteReconciler) parseExtendedCommunity(p *bgp.PathAttributeExtendedCommunities) ([]string, error) {
 	rts := []string{}
 
 	for _, val := range p.Value {
@@ -503,7 +423,7 @@ func parseExtendedCommunity(p *bgp.PathAttributeExtendedCommunities) ([]string, 
 	return rts, nil
 }
 
-func parseVPNPath(path *types.Path) (*vpnPath, error) {
+func (r *importVPNRouteReconciler) parseVPNPath(path *types.Path) (*vpnPath, error) {
 	var (
 		mpReachNLRIAttr    *bgp.PathAttributeMpReachNLRI
 		prefixSIDAttr      *bgp.PathAttributePrefixSID
@@ -533,17 +453,17 @@ func parseVPNPath(path *types.Path) (*vpnPath, error) {
 		return nil, fmt.Errorf("missing Extended-Community attribute")
 	}
 
-	prefix, label, err := parseMPReachNLRI(mpReachNLRIAttr)
+	prefix, label, err := r.parseMPReachNLRI(mpReachNLRIAttr)
 	if err != nil {
 		return nil, err
 	}
 
-	transSID, transOfs, transLen, err := parsePrefixSID(prefixSIDAttr)
+	transSID, transOfs, transLen, err := r.parsePrefixSID(prefixSIDAttr)
 	if err != nil {
 		return nil, err
 	}
 
-	rts, err := parseExtendedCommunity(extCommunitiesAttr)
+	rts, err := r.parseExtendedCommunity(extCommunitiesAttr)
 	if err != nil {
 		return nil, err
 	}

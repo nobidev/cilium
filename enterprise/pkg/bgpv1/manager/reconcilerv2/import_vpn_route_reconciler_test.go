@@ -90,7 +90,7 @@ func TestParseMPReachNLRI(t *testing.T) {
 			),
 			expectedPrefix: netip.Prefix{},
 			expectedLabel:  0,
-			expectedError:  errUnexpectedNLRI,
+			expectedError:  errUnexpectedNumberOfNLRI,
 		},
 		{
 			name: "Non-IPv4 AFI",
@@ -130,7 +130,7 @@ func TestParseMPReachNLRI(t *testing.T) {
 			),
 			expectedPrefix: netip.Prefix{},
 			expectedLabel:  0,
-			expectedError:  errSelfOriginatedVPNRoute,
+			expectedError:  errSelfOriginatedRoute,
 		},
 		{
 			name: "Self-originated route v6",
@@ -146,7 +146,7 @@ func TestParseMPReachNLRI(t *testing.T) {
 			),
 			expectedPrefix: netip.Prefix{},
 			expectedLabel:  0,
-			expectedError:  errSelfOriginatedVPNRoute,
+			expectedError:  errSelfOriginatedRoute,
 		},
 		{
 			name: "More than one label",
@@ -168,7 +168,8 @@ func TestParseMPReachNLRI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prefix, label, err := parseMPReachNLRI(tt.attr)
+			r := importVPNRouteReconciler{}
+			prefix, label, err := r.parseMPReachNLRI(tt.attr)
 			require.Equal(t, tt.expectedPrefix, prefix)
 			require.Equal(t, tt.expectedLabel, label)
 			require.ErrorIs(t, tt.expectedError, err)
@@ -178,9 +179,8 @@ func TestParseMPReachNLRI(t *testing.T) {
 
 func TestSRv6RouteImport(t *testing.T) {
 	var (
-		RIB        *rib.RIB
-		router     types.Router
-		reconciler *importVPNRouteReconciler
+		RIB    *rib.RIB
+		router types.Router
 	)
 
 	hive := hive.New(cell.Module(
@@ -273,11 +273,9 @@ func TestSRv6RouteImport(t *testing.T) {
 			func(
 				r *rib.RIB,
 				rtr types.Router,
-				rec *importVPNRouteReconciler,
 			) {
 				RIB = r
 				router = rtr
-				reconciler = rec
 			},
 			func(cs *k8sfake.FakeClientset) {
 				_, err := cs.IsovalentV1alpha1().IsovalentVRFs().Create(
@@ -378,7 +376,7 @@ func TestSRv6RouteImport(t *testing.T) {
 				1: {
 					&rib.Route{
 						Prefix:   netip.MustParsePrefix("10.3.0.0/24"),
-						Owner:    reconciler.ribOwnerName("test"),
+						Owner:    ribOwnerName("test"),
 						Protocol: rib.ProtocolIBGP,
 						NextHop: &rib.HEncaps{
 							Segments: []srv6Types.SID{
@@ -392,7 +390,7 @@ func TestSRv6RouteImport(t *testing.T) {
 				2: {
 					&rib.Route{
 						Prefix:   netip.MustParsePrefix("10.3.0.0/24"),
-						Owner:    reconciler.ribOwnerName("test"),
+						Owner:    ribOwnerName("test"),
 						Protocol: rib.ProtocolIBGP,
 						NextHop: &rib.HEncaps{
 							Segments: []srv6Types.SID{
@@ -459,7 +457,7 @@ func TestSRv6RouteImport(t *testing.T) {
 			require.EventuallyWithT(t, func(ct *assert.CollectT) {
 				toUpsert, toDelete := calculateRouteDiffs(
 					expectedRoutes,
-					RIB.ListRoutes(reconciler.ribOwnerName("test")),
+					RIB.ListRoutes(ribOwnerName("test")),
 				)
 				if !assert.True(
 					ct,

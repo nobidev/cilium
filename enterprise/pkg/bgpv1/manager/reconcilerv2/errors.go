@@ -13,9 +13,11 @@ package reconcilerv2
 import "errors"
 
 var (
-	errUnexpectedAFI      = errors.New("unexpected AFI")
-	errUnexpectedSAFI     = errors.New("unexpected SAFI")
-	errMalformedPath      = errors.New("malformed path")
-	errMalformedNexthop   = errors.New("malformed nexthop")
-	errUnsupportedNexthop = errors.New("unsupported nexthop")
+	errUnexpectedAFI          = errors.New("unexpected AFI")
+	errUnexpectedSAFI         = errors.New("unexpected SAFI")
+	errMalformedPath          = errors.New("malformed path")
+	errMalformedNexthop       = errors.New("malformed nexthop")
+	errUnsupportedNexthop     = errors.New("unsupported nexthop")
+	errSelfOriginatedRoute    = errors.New("self-originated route")
+	errUnexpectedNumberOfNLRI = errors.New("unexpected number of NLRI")
 )
