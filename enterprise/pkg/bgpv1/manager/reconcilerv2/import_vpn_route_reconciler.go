@@ -366,8 +366,6 @@ func (r *importVPNRouteReconciler) parseVPNRoutes(routes []*types.Route) ([]*vpn
 
 var (
 	errUnexpectedNLRI   = errors.New("unexpected number of NLRI")
-	errUnexpectedAFI    = errors.New("unexpected AFI")
-	errUnexpectedSAFI   = errors.New("unexpected SAFI")
 	errMoreThanOneLabel = errors.New("more than one label in the NLRI")
 )
 
