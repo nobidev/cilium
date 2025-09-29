@@ -514,6 +514,24 @@ jobs:
           done
           set -e
 
+      - name: Disable OpenShift ingress router
+        timeout-minutes: 10
+        run: |
+          # The OpenShift HA ingress router uses TCP port 80 which might cause the following error for the ILB E2E tests:
+          # "Error adding/updating listener(s) <listener-name>: cannot bind '<node-ip>:80': Address already in use"
+          kubectl patch -n openshift-ingress-operator ingresscontroller default \
+                        --type merge \
+                        --patch '{"spec":{"replicas":0}}'
+          while true; do
+            count=$(kubectl -n openshift-ingress get po --no-headers --ignore-not-found=true | wc -l || true)
+            if [ $count -eq 0 ]
+            then
+              break
+            fi
+            echo "waiting for termination: ${count}"
+            sleep 10s
+          done
+
       - name: Cluster operators not ready
         if: ${{ steps.cluster.outcome != 'skipped' && steps.wait-for-co.outcome == 'failure' }}
         run: |
