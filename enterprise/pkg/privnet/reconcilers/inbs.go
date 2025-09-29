@@ -12,7 +12,9 @@ package reconcilers
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"slices"
 
 	"github.com/cilium/hive/cell"
@@ -27,6 +29,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nomgr "github.com/cilium/cilium/pkg/node/manager"
 )
 
@@ -37,6 +40,10 @@ var INBsCell = cell.Group(
 
 		// Provides the reconciler handling private network INBs.
 		newINBs,
+
+		// Provides the function selecting the active INB index given a set of
+		// candidates. Can be overridden to obtain stable selections for testing.
+		(*INBs).newDefaultActiveIndexFunc,
 	),
 
 	cell.Provide(
@@ -240,7 +247,7 @@ func (i *INBs) registerNodesObserver() {
 	)
 }
 
-func (i *INBs) registerHealthObserver() {
+func (i *INBs) registerHealthObserver(activeINBIndexFunc ActiveINBIndexFunc) {
 	// We currently assume that an INB node plays that role for all locally-known
 	// private networks. In other words, it cannot select other INBs for a specifc
 	// private network, which means that we can save some work by not reconciling
@@ -253,6 +260,7 @@ func (i *INBs) registerHealthObserver() {
 	initialized := i.tbl.RegisterInitializer(wtx, "health-checker")
 	wtx.Commit()
 
+	heinit := make(chan struct{})
 	i.jg.Add(
 		job.Observer(
 			"health-to-inbs",
@@ -264,7 +272,7 @@ func (i *INBs) registerHealthObserver() {
 					case health.EventKindUpsert:
 						i.updateINBState(wtx, ev.Object)
 					case health.EventKindSync:
-						initialized(wtx)
+						close(heinit)
 					}
 				}
 
@@ -290,6 +298,11 @@ func (i *INBs) registerHealthObserver() {
 				i.checker.Synced()
 				return nil
 			},
+		),
+
+		job.OneShot(
+			"active-reconciler",
+			i.activeINBsReconciliationFunc(activeINBIndexFunc, heinit, initialized),
 		),
 	)
 }
@@ -459,6 +472,101 @@ func (i *INBs) updateINBState(wtx statedb.WriteTxn, ev *health.Event) {
 	}
 
 	i.tbl.Insert(wtx, inb)
+}
+
+// ActiveINBIndexFunc returns the index of the candidate INB selected as active.
+type ActiveINBIndexFunc = func(candidates []tables.INB) int
+
+func (i *INBs) activeINBsReconciliationFunc(activeIndexFunc ActiveINBIndexFunc, wait <-chan struct{}, initialized func(statedb.WriteTxn)) job.OneShotFunc {
+	return func(ctx context.Context, health cell.Health) error {
+		health.OK("Waiting for initialization")
+		select {
+		case <-wait:
+		case <-ctx.Done():
+			return nil
+		}
+		health.OK("Initialized")
+
+		for {
+			var (
+				promotedCount int
+
+				wtx      = i.db.WriteTxn(i.tbl)
+				watchset = statedb.NewWatchSet()
+			)
+
+			privnets, watch := i.networks.AllWatch(wtx)
+			watchset.Add(watch)
+
+			for privnet := range privnets {
+				_, _, watch, found := i.tbl.GetWatch(wtx, tables.INBsByNetworkAndRole(privnet.Name, tables.INBRoleActive))
+
+				// There's already an active INB for this network, so nothing to do there.
+				// Add the watch channel to the set, so that we wake up when its state changed.
+				if found {
+					watchset.Add(watch)
+					continue
+				}
+
+				iter, watch := i.tbl.ListWatch(wtx, tables.INBsByNetworkAndRole(privnet.Name, tables.INBRoleStandby))
+				standby := statedb.Collect(iter)
+
+				// No standby candidate found. Add the watch channel to the set, so that we wake
+				// up again once one standby candidate appears.
+				if len(standby) == 0 {
+					watchset.Add(watch)
+					continue
+				}
+
+				// Pick one of the standby INBs, and promote it to active.
+				idx := activeIndexFunc(standby)
+
+				promoted := standby[idx]
+				if err := promoted.Activate(); err != nil {
+					i.log.Error("BUG: failed promoting standby INB to active",
+						logfields.Error, err,
+						logfields.Network, privnet.Name,
+						logfields.Node, promoted.Node,
+						logfields.State, promoted.Health,
+					)
+					continue
+				}
+				_, _, watch, _ = i.tbl.InsertWatch(wtx, promoted)
+
+				// We want to wake-up if the currently active INB is no longer so.
+				watchset.Add(watch)
+
+				i.checker.Activate(promoted.Node, promoted.Network)
+				promotedCount++
+			}
+
+			if initialized != nil {
+				initialized(wtx)
+				initialized = nil
+				wtx.Commit()
+			} else if promotedCount > 0 {
+				wtx.Commit()
+			} else {
+				// We didn't update anything, so no need to commit.
+				wtx.Abort()
+			}
+
+			if promotedCount > 0 {
+				health.OK(fmt.Sprintf("Reconciliation completed, promoted INB for %d networks", promotedCount))
+			}
+
+			_, err := watchset.Wait(ctx, SettleTime)
+			if err != nil {
+				return nil
+			}
+		}
+	}
+}
+
+func (i *INBs) newDefaultActiveIndexFunc() ActiveINBIndexFunc {
+	return func(candidates []tables.INB) int {
+		return rand.IntN(len(candidates))
+	}
 }
 
 // overrideNodeManager is to be used via [cell.DecorateAll] to override the [NodeManager].

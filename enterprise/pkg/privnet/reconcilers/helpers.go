@@ -15,6 +15,10 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+// SettleTime is the time reconcilers wait before proceeding with the actual
+// reconciliation, to batch work.
+const SettleTime = 50 * time.Millisecond
+
 // EndpointActivationManager allows reconcilers to mark privnet-enabled
 // endpoints as active or inactive and subscribe to changes to the
 // active or inactive status of an endpoint

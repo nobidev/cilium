@@ -60,6 +60,7 @@ func NewTestHive(t testing.TB) *hive.Hive {
 		withOverride(reconcilers.NewIDPool(1, tables.NetworkIDMax)),
 
 		ClusterMeshObservers,
+		Health,
 
 		privnet.Cell,
 	)
