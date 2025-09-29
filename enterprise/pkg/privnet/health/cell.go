@@ -8,23 +8,12 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package privnet
+package health
 
-import (
-	"github.com/cilium/hive/cell"
+import "github.com/cilium/hive/cell"
 
-	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/health"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
-)
-
-var Cell = cell.Module(
-	"private-networks",
-	"Support for Private Networks",
-
-	pncfg.Cell,
-	reconcilers.Cell,
-	endpoints.Cell,
-	health.Cell,
+var Cell = cell.Group(
+	cell.Provide(
+		NewDummy,
+	),
 )

@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/health"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
@@ -54,6 +55,9 @@ var INBsCell = cell.Group(
 		// nodes, we also observe the local ones, to support the possible
 		// use-case of a subset of nodes from the local cluster being INBs.
 		(*INBs).registerNodesObserver,
+
+		// Registers the health to INBs table reconciler.
+		(*INBs).registerHealthObserver,
 	),
 
 	cell.DecorateAll(
@@ -81,7 +85,13 @@ type INBs struct {
 	networks statedb.Table[tables.PrivateNetwork]
 	tbl      statedb.RWTable[tables.INB]
 
-	nodes *observers.Nodes
+	nodes   *observers.Nodes
+	checker health.Checker
+
+	// pninit and noinit respectively track the initialization of the table from
+	// private networks and nodes, so that we can break the health observer circular
+	// dependency on initializers (as it adds itself an initializer).
+	pninit, noinit chan struct{}
 
 	// byCluster caches the node selectors for each network by cluster name.
 	// This structure is not protected by a dedicated mutex as only accessed
@@ -101,7 +111,8 @@ func newINBs(in struct {
 	Networks statedb.Table[tables.PrivateNetwork]
 	Table    statedb.RWTable[tables.INB]
 
-	Nodes *observers.Nodes
+	Nodes   *observers.Nodes
+	Checker health.Checker
 }) *INBs {
 	return &INBs{
 		log: in.Log,
@@ -113,7 +124,11 @@ func newINBs(in struct {
 		networks: in.Networks,
 		tbl:      in.Table,
 
-		nodes: in.Nodes,
+		nodes:   in.Nodes,
+		checker: in.Checker,
+
+		pninit: make(chan struct{}),
+		noinit: make(chan struct{}),
 
 		byCluster: make(map[tables.ClusterName]map[tables.NetworkName]labels.Selector),
 	}
@@ -167,6 +182,7 @@ func (i *INBs) registerPrivateNetworksReconciler() {
 						default:
 							initDone = true
 							initialized(wtx)
+							close(i.pninit)
 						}
 					}
 
@@ -213,12 +229,67 @@ func (i *INBs) registerNodesObserver() {
 						i.deleteINBsForNode(wtx, ev.Object)
 					case resource.Sync:
 						initialized(wtx)
+						close(i.noinit)
 					}
 				}
 
 				wtx.Commit()
 				return nil
 			}, i.nodes,
+		),
+	)
+}
+
+func (i *INBs) registerHealthObserver() {
+	// We currently assume that an INB node plays that role for all locally-known
+	// private networks. In other words, it cannot select other INBs for a specifc
+	// private network, which means that we can save some work by not reconciling
+	// the INBs table on the INBs themselves.
+	if !i.cfg.Enabled || i.cfg.EnabledAsBridge() {
+		return
+	}
+
+	wtx := i.db.WriteTxn(i.tbl)
+	initialized := i.tbl.RegisterInitializer(wtx, "health-checker")
+	wtx.Commit()
+
+	i.jg.Add(
+		job.Observer(
+			"health-to-inbs",
+			func(ctx context.Context, buf health.Events) error {
+				wtx := i.db.WriteTxn(i.tbl)
+
+				for _, ev := range buf {
+					switch ev.EventKind {
+					case health.EventKindUpsert:
+						i.updateINBState(wtx, ev.Object)
+					case health.EventKindSync:
+						initialized(wtx)
+					}
+				}
+
+				wtx.Commit()
+				return nil
+			}, i.checker,
+		),
+
+		job.OneShot(
+			"health-initialized",
+			func(ctx context.Context, health cell.Health) error {
+				health.OK("Waiting for initialization")
+
+				for _, init := range []<-chan struct{}{i.pninit, i.noinit} {
+					select {
+					case <-init:
+					case <-ctx.Done():
+						return nil
+					}
+				}
+
+				health.OK("Initialized")
+				i.checker.Synced()
+				return nil
+			},
 		),
 	)
 }
@@ -267,6 +338,7 @@ func (i *INBs) upsertINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Private
 					},
 				}
 
+				i.checker.Register(inb.Node, inb.Network)
 				i.tbl.Modify(wtx, inb, func(old, new tables.INB) tables.INB {
 					// Preserve the previous state, in case the IP did not change.
 					// The other fields are either fixed (i.e., part of the primary
@@ -307,6 +379,7 @@ func (i *INBs) upsertINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Private
 		// The object revision is greater than the watermark if it has just been
 		// upserted as part of this function.
 		if maybeStale.Has(inb.Node.Cluster) && rev <= watermark {
+			i.checker.Unregister(inb.Node, inb.Network)
 			i.tbl.Delete(wtx, inb)
 		}
 	}
@@ -321,6 +394,7 @@ func (i *INBs) deleteINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Network
 	}
 
 	for inb := range i.tbl.Prefix(wtx, tables.INBsByNetwork(privnet)) {
+		i.checker.Unregister(inb.Node, inb.Network)
 		i.tbl.Delete(wtx, inb)
 	}
 }
@@ -341,6 +415,7 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 				},
 			}
 
+			i.checker.Register(inb.Node, inb.Network)
 			i.tbl.Modify(wtx, inb, func(old, new tables.INB) tables.INB {
 				// Preserve the previous state, in case the IP did not change.
 				// The other fields are either fixed (i.e., part of the primary
@@ -358,6 +433,7 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 		// The object revision is greater than the watermark if it has just been
 		// upserted as part of this function.
 		if rev <= watermark {
+			i.checker.Unregister(inb.Node, inb.Network)
 			i.tbl.Delete(wtx, inb)
 		}
 	}
@@ -365,8 +441,24 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 
 func (i *INBs) deleteINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 	for inb := range i.tbl.Prefix(wtx, tables.INBsByNode(node.Cluster, node.Name)) {
+		i.checker.Unregister(inb.Node, inb.Network)
 		i.tbl.Delete(wtx, inb)
 	}
+}
+
+func (i *INBs) updateINBState(wtx statedb.WriteTxn, ev *health.Event) {
+	inb, _, found := i.tbl.Get(wtx, tables.INBByNodeAndNetwork(ev.Node.Cluster, ev.Node.Name, ev.Network))
+	if !found || inb.Node.IP != ev.Node.IP {
+		// The event is stale, as the entry no longer exists, or the node IP changed.
+		return
+	}
+
+	if !inb.Update(ev.State) {
+		// The state did not change, no reason to perform an update.
+		return
+	}
+
+	i.tbl.Insert(wtx, inb)
 }
 
 // overrideNodeManager is to be used via [cell.DecorateAll] to override the [NodeManager].
