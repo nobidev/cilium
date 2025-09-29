@@ -11,8 +11,10 @@
 package rib
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"net/netip"
 	"slices"
 	"strings"
@@ -21,6 +23,7 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/enterprise/pkg/srv6/types"
+	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
@@ -463,6 +466,29 @@ func (n0 *EndDT4) Equal(_n1 NextHop) bool {
 
 func (s *EndDT4) String() string {
 	return fmt.Sprintf("End.DT4 vrf %d", s.VRFID)
+}
+
+type VXLANEncap struct {
+	VNI         vni.VNI
+	VTEPIP      netip.Addr
+	InnerDstMAC net.HardwareAddr
+}
+
+func (*VXLANEncap) isNextHop() {}
+
+func (n0 *VXLANEncap) Equal(_n1 NextHop) bool {
+	if n0 == nil || _n1 == nil {
+		return false
+	}
+	n1, ok := _n1.(*VXLANEncap)
+	if !ok {
+		return false
+	}
+	return n0.VNI == n1.VNI && n0.VTEPIP == n1.VTEPIP && bytes.Equal(n0.InnerDstMAC, n1.InnerDstMAC)
+}
+
+func (s *VXLANEncap) String() string {
+	return fmt.Sprintf("VXLANEncap vni %d vtep %s inner-dst-mac %s", s.VNI, s.VTEPIP, s.InnerDstMAC)
 }
 
 // This type is defined for making GC trigger channel injectable in Hive. This
