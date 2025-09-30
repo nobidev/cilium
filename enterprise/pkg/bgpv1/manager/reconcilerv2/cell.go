@@ -60,6 +60,7 @@ var ConfigReconcilers = cell.Group(
 	// state reconcilers
 	cell.Provide(
 		newImportVPNRouteStateReconciler,
+		newImportEVPNRouteReconciler,
 		NewStatusReconciler,
 		newImportRouteReconciler,
 	),

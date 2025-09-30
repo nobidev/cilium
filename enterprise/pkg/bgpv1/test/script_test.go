@@ -40,6 +40,9 @@ import (
 	enterprisebgpv1 "github.com/cilium/cilium/enterprise/pkg/bgpv1"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
+	"github.com/cilium/cilium/enterprise/pkg/evpn"
+	privnetConfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	privnetTables "github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
@@ -54,6 +57,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -150,13 +154,15 @@ func TestPrivilegedScript(t *testing.T) {
 			// OSS BGP cell
 			bgp.Cell,
 
-			// Enterprise BGP + SRv6 cells
+			// Enterprise cells
 			enterprisebgpv1.Cell,
 			sidmanager.SIDManagerCell,
 			srv6manager.Cell,
 			srv6map.Cell,
 			rib.Cell,
 			rib.NopDataPlaneCell,
+			evpn.Cell,
+			privnetConfig.Cell,
 
 			// Route Reconciler cell
 			routeReconciler.TableCell,
@@ -168,12 +174,14 @@ func TestPrivilegedScript(t *testing.T) {
 				tables.NewRouteTable,
 				tables.NewNodeAddressTable,
 				bfdtypes.NewBFDPeersTable,
+				privnetTables.NewPrivateNetworksTable,
 
 				statedb.RWTable[*tables.Route].ToTable,
 				statedb.RWTable[*tables.Device].ToTable,
 				statedb.RWTable[*tables.Neighbor].ToTable,
 				statedb.RWTable[tables.NodeAddress].ToTable,
 				statedb.RWTable[*bfdtypes.BFDPeerStatus].ToTable,
+				statedb.RWTable[privnetTables.PrivateNetwork].ToTable,
 			),
 			cell.Provide(func(sig *signaler.BGPCPSignaler) egressgatewayha.EgressIPsProvider {
 				egwMgrMock = newEGWManagerMock(sig)
@@ -218,6 +226,13 @@ func TestPrivilegedScript(t *testing.T) {
 				},
 			),
 
+			cell.Provide(
+				tunnel.NewTestConfig,
+				func() tunnel.EncapProtocol {
+					return tunnel.VXLAN
+				},
+			),
+
 			// Enterprise BFD config
 			cell.Config(bfdtypes.BFDConfig{
 				BFDEnabled: true,
@@ -255,6 +270,9 @@ func TestPrivilegedScript(t *testing.T) {
 		})
 		hive.AddConfigOverride(h, func(cfg *svcrouteconfig.RoutesConfig) {
 			cfg.EnableNoServiceEndpointsRoutable = *enableNoEndpointsRoutable
+		})
+		hive.AddConfigOverride(h, func(cfg *evpn.Config) {
+			cfg.Enabled = true
 		})
 
 		hiveLog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
