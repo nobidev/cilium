@@ -124,6 +124,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		// read output files
 		expectedServiceYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t1-service.yaml", translationDir, tc.name), &corev1.Service{})
 		expectedEndpointSliceYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t1-endpointslice.yaml", translationDir, tc.name), &discoveryv1.EndpointSlice{})
+		expectedEndpointSliceIPv6Yaml := readOutput(t, fmt.Sprintf("%s/%s/output-t1-endpointslice-ipv6.yaml", translationDir, tc.name), &discoveryv1.EndpointSlice{})
 		expectedCiliumEnvoyConfigYaml := readOutput(t, fmt.Sprintf("%s/%s/output-t2-ciliumenvoyconfig.yaml", translationDir, tc.name), &ciliumv2.CiliumEnvoyConfig{})
 
 		// ingestion
@@ -134,7 +135,6 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 
 		// Input Config
 		config := reconcilerConfig{}
-
 		readInput(t, fmt.Sprintf("%s/%s/input-config.yaml", translationDir, tc.name), &config)
 
 		// translation
@@ -158,7 +158,7 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 		assert.Equal(t, expectedServiceYaml, actualServiceYaml) //nolint:all (assert.YAMLEq output is not super readable)
 
 		// T1 EndpointSlice
-		endpointSlice := t1Translator.DesiredEndpointSlice(model)
+		endpointSlice := t1Translator.DesiredEndpointSlice(model, false)
 
 		actualEndpointSliceYaml := ""
 		if endpointSlice != nil {
@@ -166,6 +166,16 @@ func testTranslationSingle(tc testcase) func(t *testing.T) {
 			actualEndpointSliceYaml = toYaml(t, endpointSlice)
 		}
 		assert.Equal(t, expectedEndpointSliceYaml, actualEndpointSliceYaml) //nolint:all (assert.YAMLEq output is not super readable)
+
+		// T1 EndpointSlice IPv6
+		endpointSliceIPv6 := t1Translator.DesiredEndpointSlice(model, true)
+
+		actualEndpointSliceIPv6Yaml := ""
+		if endpointSliceIPv6 != nil {
+			endpointSliceIPv6.TypeMeta = metav1.TypeMeta{APIVersion: "discovery/v1", Kind: "EndpointSlice"} // fix missing typemeta
+			actualEndpointSliceIPv6Yaml = toYaml(t, endpointSliceIPv6)
+		}
+		assert.Equal(t, expectedEndpointSliceIPv6Yaml, actualEndpointSliceIPv6Yaml) //nolint:all (assert.YAMLEq output is not super readable)
 
 		// T2 CiliumEnvoyConfig
 		cec, err := t2Translator.DesiredCiliumEnvoyConfig(model)
@@ -190,6 +200,10 @@ func readInput(t *testing.T, file string, obj any) {
 
 func readOutput(t *testing.T, file string, obj any) string {
 	// unmarshal and marshal to prevent forrmatting diffs
+
+	if _, err := os.Stat(file); err != nil {
+		return ""
+	}
 
 	outputYaml, err := os.ReadFile(file)
 	require.NoError(t, err)

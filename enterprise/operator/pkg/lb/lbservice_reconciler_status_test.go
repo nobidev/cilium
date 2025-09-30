@@ -110,7 +110,7 @@ func TestLBServiceStatusAssignedIP(t *testing.T) {
 	}{
 		{
 			desc:                   "IP pending",
-			model:                  &lbService{vip: lbVIP{}},
+			model:                  &lbService{vip: lbVIP{ipFamily: ipFamilyV4}},
 			lbsvc:                  &isovalentv1alpha1.LBService{},
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionFalse,
@@ -118,8 +118,8 @@ func TestLBServiceStatusAssignedIP(t *testing.T) {
 			expectedMessage:        "VIP pending",
 		},
 		{
-			desc:                   "IP pending",
-			model:                  &lbService{vip: lbVIP{assignedIPv4: ptr.To("100.64.0.1")}},
+			desc:                   "IP assigned",
+			model:                  &lbService{vip: lbVIP{ipFamily: ipFamilyV4, assignedIPv4: ptr.To("100.64.0.1")}},
 			lbsvc:                  &isovalentv1alpha1.LBService{},
 			expectedNrOfConditions: 1,
 			expectedStatus:         metav1.ConditionTrue,
@@ -128,7 +128,7 @@ func TestLBServiceStatusAssignedIP(t *testing.T) {
 		},
 		{
 			desc: "Failed to bind ip",
-			model: &lbService{vip: lbVIP{bindStatus: lbVIPBindStatus{
+			model: &lbService{vip: lbVIP{ipFamily: ipFamilyV4, bindStatus: lbVIPBindStatus{
 				serviceExists:  true,
 				bindSuccessful: false,
 				bindIssue:      "not possible to bind",
@@ -141,7 +141,7 @@ func TestLBServiceStatusAssignedIP(t *testing.T) {
 		},
 		{
 			desc:  "Update existing condition",
-			model: &lbService{vip: lbVIP{assignedIPv4: ptr.To("100.64.0.1")}},
+			model: &lbService{vip: lbVIP{ipFamily: ipFamilyV4, assignedIPv4: ptr.To("100.64.0.1")}},
 			lbsvc: &isovalentv1alpha1.LBService{Status: isovalentv1alpha1.LBServiceStatus{Conditions: []metav1.Condition{
 				{Type: conditionType, Status: metav1.ConditionFalse, Reason: "reason", Message: "message"},
 			}}},
@@ -152,7 +152,7 @@ func TestLBServiceStatusAssignedIP(t *testing.T) {
 		},
 		{
 			desc:  "Doesn't delete other conditions",
-			model: &lbService{vip: lbVIP{assignedIPv4: ptr.To("100.64.0.1")}},
+			model: &lbService{vip: lbVIP{ipFamily: ipFamilyV4, assignedIPv4: ptr.To("100.64.0.1")}},
 			lbsvc: &isovalentv1alpha1.LBService{Status: isovalentv1alpha1.LBServiceStatus{Conditions: []metav1.Condition{
 				{Type: "other-type", Status: metav1.ConditionFalse, Reason: "other-reason", Message: "other-message"},
 				{Type: conditionType, Status: metav1.ConditionTrue, Reason: "reason", Message: "message"},

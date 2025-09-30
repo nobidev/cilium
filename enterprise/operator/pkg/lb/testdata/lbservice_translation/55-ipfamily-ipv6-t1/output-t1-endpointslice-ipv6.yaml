@@ -1,0 +1,18 @@
+addressType: IPv6
+apiVersion: discovery/v1
+endpoints:
+  - addresses:
+      - 2001:0DB8:130F::9C0:876A:130B
+    conditions: {}
+kind: EndpointSlice
+metadata:
+  creationTimestamp: null
+  labels:
+    endpointslice.kubernetes.io/managed-by: ilb
+    kubernetes.io/service-name: lbfe-lb-1
+  name: lbfe-ipv6-lb-1
+  namespace: default
+ports:
+  - name: tcp
+    port: 8080
+    protocol: TCP

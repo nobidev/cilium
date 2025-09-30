@@ -24,6 +24,9 @@ metadata:
   name: lbfe-lb-1
 spec:
   allocateLoadBalancerNodePorts: false
+  ipFamilies:
+    - IPv4
+  ipFamilyPolicy: SingleStack
   ports:
     - name: tcp
       port: 80

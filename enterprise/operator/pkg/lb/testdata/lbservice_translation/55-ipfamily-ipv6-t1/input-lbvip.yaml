@@ -1,0 +1,11 @@
+apiVersion: isovalent.com/v1alpha1
+kind: LBVIP
+metadata:
+  namespace: default
+  name: lb-1
+spec:
+  addressFamily: ipv6
+  ipv6Request: 2004::0
+status:
+  addresses:
+    ipv6: 2004::0

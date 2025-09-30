@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,19 +45,28 @@ type lbVIPReconciler struct {
 	logger *slog.Logger
 	client client.Client
 	scheme *runtime.Scheme
+	config lbVIPReconcilerConfig
 }
 
-type lbVIPReconcilerParams struct {
-	logger *slog.Logger
-	client client.Client
-	scheme *runtime.Scheme
+type lbVIPReconcilerConfig struct {
+	ipFamilies reconcilerIPFamilyConfig
 }
 
-func newLBVIPReconciler(params lbVIPReconcilerParams) *lbVIPReconciler {
+type reconcilerIPFamilyConfig struct {
+	EnableIPv4 bool
+	EnableIPv6 bool
+}
+
+func newLBVIPReconciler(logger *slog.Logger,
+	client client.Client,
+	scheme *runtime.Scheme,
+	config lbVIPReconcilerConfig,
+) *lbVIPReconciler {
 	return &lbVIPReconciler{
-		logger: params.logger,
-		client: params.client,
-		scheme: params.scheme,
+		logger: logger,
+		client: client,
+		scheme: scheme,
+		config: config,
 	}
 }
 
@@ -129,6 +140,13 @@ func (r *lbVIPReconciler) createOrUpdateResources(ctx context.Context, lbvip *is
 		return fmt.Errorf("failed to set ownerreference on placeholder Service: %w", err)
 	}
 
+	// delete service if ip family changed (to prevent that current clusterip doesn't match new ipfamily)
+	if currentSvc.Name != "" && !slices.Equal(currentSvc.Spec.IPFamilies, desiredService.Spec.IPFamilies) {
+		if err := r.client.Delete(ctx, currentSvc); err != nil {
+			return fmt.Errorf("failed to delete Service due to ipfamily changes: %w", err)
+		}
+	}
+
 	// Commit the placeholder Service
 	if err := r.createOrUpdateService(ctx, desiredService); err != nil {
 		return fmt.Errorf("failed to create or update Service: %w", err)
@@ -139,7 +157,7 @@ func (r *lbVIPReconciler) createOrUpdateResources(ctx context.Context, lbvip *is
 	//
 
 	// LBIPAM
-	v4VIP, err := r.extractVIPsFromService(currentSvc)
+	v4VIP, v6VIP, err := r.extractVIPsFromService(currentSvc)
 	if err != nil {
 		return fmt.Errorf("failed to extract VIP from service: %w", err)
 	}
@@ -153,11 +171,18 @@ func (r *lbVIPReconciler) createOrUpdateResources(ctx context.Context, lbvip *is
 		lbvip.Status.Addresses.IPv4 = nil
 	}
 
-	// Extract the conditions from the placeholder Service
-	v4Allocated := r.extractConditionsFromService(lbvip, currentSvc)
+	// IPv6 VIP is not yet assigned. Skip this reconciliation round.
+	if v6VIP.IsValid() {
+		// Update the LBVIP status with the assigned VIP
+		lbvip.Status.Addresses.IPv6 = ptr.To(v6VIP.String())
+	} else {
+		// Otherwise, clear the VIP (possible when users change the requested IP)
+		lbvip.Status.Addresses.IPv6 = nil
+	}
 
 	// Update the LBVIP status with the conditions
-	lbvip.UpsertStatusCondition(v4Allocated.Type, v4Allocated)
+	lbvip.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeIPAddressAllocated, r.extractConditionsFromService(lbvip, currentSvc))
+	lbvip.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeIPFamily, r.ipFamilyCondition(lbvip))
 
 	lbvip.UpdateResourceStatus()
 
@@ -167,6 +192,18 @@ func (r *lbVIPReconciler) createOrUpdateResources(ctx context.Context, lbvip *is
 	}
 
 	return nil
+}
+
+func buildLBIPAMIPString(ips ...*string) string {
+	resolvedStrings := []string{}
+
+	for _, ipRef := range ips {
+		if ipRef != nil {
+			resolvedStrings = append(resolvedStrings, *ipRef)
+		}
+	}
+
+	return strings.Join(resolvedStrings, ",")
 }
 
 func (r *lbVIPReconciler) desiredService(svcName k8stypes.NamespacedName, lbvip *isovalentv1alpha1.LBVIP) *corev1.Service {
@@ -183,10 +220,11 @@ func (r *lbVIPReconciler) desiredService(svcName k8stypes.NamespacedName, lbvip 
 		// don't expose the placeholder Service on any node
 		ossannotation.ServiceNodeSelectorExposure: "service.cilium.io/node=never",
 	}
-	if lbvip.Spec.IPv4Request != nil {
-		// In case of static allocation, we set the ips annotation
-		annotations[ossannotation.LBIPAMIPsKey] = *lbvip.Spec.IPv4Request
+
+	if lbvip.Spec.IPv4Request != nil || lbvip.Spec.IPv6Request != nil {
+		annotations[ossannotation.LBIPAMIPsKey] = buildLBIPAMIPString(lbvip.Spec.IPv4Request, lbvip.Spec.IPv6Request)
 	}
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: svcName.Namespace,
@@ -199,6 +237,8 @@ func (r *lbVIPReconciler) desiredService(svcName k8stypes.NamespacedName, lbvip 
 		Spec: corev1.ServiceSpec{
 			Type:                          corev1.ServiceTypeLoadBalancer,
 			AllocateLoadBalancerNodePorts: ptr.To(false),
+			IPFamilies:                    getServiceIPFamilies(getIPFamily(lbvip)),
+			IPFamilyPolicy:                getServiceIPFamilyPolicy(getIPFamily(lbvip)),
 			Ports: []corev1.ServicePort{
 				// Port number is a mandatory field. However,
 				// once we reserve the port for this
@@ -238,35 +278,33 @@ func (r *lbVIPReconciler) createOrUpdateService(ctx context.Context, desiredServ
 	return nil
 }
 
-func (r *lbVIPReconciler) extractVIPsFromService(svc *corev1.Service) (netip.Addr, error) {
-	// The VIP is not yet assigned. Skip the reconciliation.
-	if len(svc.Status.LoadBalancer.Ingress) == 0 {
-		return netip.Addr{}, nil
+func (r *lbVIPReconciler) extractVIPsFromService(svc *corev1.Service) (netip.Addr, netip.Addr, error) {
+	ipv4Addr := netip.Addr{}
+	ipv6Addr := netip.Addr{}
+
+	if len(svc.Status.LoadBalancer.Ingress) > 2 {
+		return netip.Addr{}, netip.Addr{}, fmt.Errorf("service has more than two VIPs assigned")
 	}
 
-	// The service got more than one VIPs. This is unexpected.
-	if len(svc.Status.LoadBalancer.Ingress) > 1 {
-		return netip.Addr{}, fmt.Errorf("service has more than one VIP assigned")
+	for _, ingress := range svc.Status.LoadBalancer.Ingress {
+		addr, err := netip.ParseAddr(ingress.IP)
+		if err != nil {
+			return netip.Addr{}, netip.Addr{}, fmt.Errorf("failed to parse VIP: %w", err)
+		}
+		if addr.Is4() {
+			ipv4Addr = addr
+		} else {
+			ipv6Addr = addr
+		}
 	}
 
-	// The VIP is assigned. Parse it.
-	v4Addr, err := netip.ParseAddr(svc.Status.LoadBalancer.Ingress[0].IP)
-	if err != nil {
-		return netip.Addr{}, fmt.Errorf("failed to parse VIP: %w", err)
-	}
-
-	// Currently, we only support IPv4 VIP. Check it.
-	if !v4Addr.Is4() {
-		return netip.Addr{}, fmt.Errorf("VIP is not an IPv4 address")
-	}
-
-	return v4Addr, nil
+	return ipv4Addr, ipv6Addr, nil
 }
 
 // Extract relevant conditions from the placeholder Service and convert them into LBVIP conditions
 func (r *lbVIPReconciler) extractConditionsFromService(lbvip *isovalentv1alpha1.LBVIP, svc *corev1.Service) metav1.Condition {
-	v4Allocated := metav1.Condition{
-		Type:               isovalentv1alpha1.ConditionTypeIPv4AddressAllocated,
+	allocatedCondition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeIPAddressAllocated,
 		Status:             metav1.ConditionUnknown,
 		ObservedGeneration: lbvip.Generation,
 		LastTransitionTime: metav1.Now(),
@@ -274,10 +312,18 @@ func (r *lbVIPReconciler) extractConditionsFromService(lbvip *isovalentv1alpha1.
 		Message:            "Unknown",
 	}
 
-	if lbvip.Status.Addresses.IPv4 == nil {
-		v4Allocated.Status = metav1.ConditionFalse
-		v4Allocated.Reason = isovalentv1alpha1.IPv4AddressAllocatedConditionReasonAddressNotAllocated
-		v4Allocated.Message = "IPv4 address hasn't been allocated yet"
+	configuredIPFamily := getIPFamily(lbvip)
+
+	if (configuredIPFamily == ipFamilyDual || configuredIPFamily == ipFamilyV4) && lbvip.Status.Addresses.IPv4 == nil {
+		allocatedCondition.Status = metav1.ConditionFalse
+		allocatedCondition.Reason = isovalentv1alpha1.IPAddressAllocatedConditionReasonIPv4AddressNotAllocated
+		allocatedCondition.Message = "IPv4 address hasn't been allocated yet"
+	}
+
+	if (configuredIPFamily == ipFamilyDual || configuredIPFamily == ipFamilyV6) && lbvip.Status.Addresses.IPv6 == nil {
+		allocatedCondition.Status = metav1.ConditionFalse
+		allocatedCondition.Reason = isovalentv1alpha1.IPAddressAllocatedConditionReasonIPv6AddressNotAllocated
+		allocatedCondition.Message = "IPv6 address hasn't been allocated yet"
 	}
 
 	for _, cond := range svc.Status.Conditions {
@@ -287,31 +333,64 @@ func (r *lbVIPReconciler) extractConditionsFromService(lbvip *isovalentv1alpha1.
 			case metav1.ConditionUnknown:
 				// Still unknown. Do nothing.
 			case metav1.ConditionTrue:
-				v4Allocated.Status = metav1.ConditionTrue
-				v4Allocated.Reason = "Allocated"
-				v4Allocated.Message = "IPv4 address has been allocated"
+				allocatedCondition.Status = metav1.ConditionTrue
+				allocatedCondition.Reason = "Allocated"
+				allocatedCondition.Message = "IP address has been allocated"
 			case metav1.ConditionFalse:
-				v4Allocated.Status = metav1.ConditionFalse
+				allocatedCondition.Status = metav1.ConditionFalse
 				switch cond.Reason {
 				case "no_pool":
-					v4Allocated.Reason = isovalentv1alpha1.IPv4AddressAllocatedConditionReasonAddressNoPool
-					v4Allocated.Message = "No IP pool matches this VIP"
+					allocatedCondition.Reason = isovalentv1alpha1.IPAddressAllocatedConditionReasonAddressNoPool
+					allocatedCondition.Message = "No IP pool matches this VIP"
 				case "out_of_ips":
-					v4Allocated.Reason = isovalentv1alpha1.IPv4AddressAllocatedConditionReasonAddressNoAvailableAddress
-					v4Allocated.Message = "No available IPv4 address"
+					allocatedCondition.Reason = isovalentv1alpha1.IPAddressAllocatedConditionReasonAddressNoAvailableAddress
+					allocatedCondition.Message = "No available address"
 				case "already_allocated", "already_allocated_incompatible_service":
-					v4Allocated.Reason = isovalentv1alpha1.IPv4AddressAllocatedConditionReasonAddressAlreadyInUse
-					v4Allocated.Message = "Requested IPv4 address is already in use"
+					allocatedCondition.Reason = isovalentv1alpha1.IPAddressAllocatedConditionReasonAddressAlreadyInUse
+					allocatedCondition.Message = "Requested address is already in use"
 				default:
 					// Pass through the reason and message.
 					// Assuming users will file an issue if
 					// they see this message.
-					v4Allocated.Reason = "unexpected:" + cond.Reason
-					v4Allocated.Message = "Unexpected condition: " + cond.Message
+					allocatedCondition.Reason = "unexpected:" + cond.Reason
+					allocatedCondition.Message = "Unexpected condition: " + cond.Message
 				}
 			}
 		}
 	}
 
-	return v4Allocated
+	return allocatedCondition
+}
+
+func (r *lbVIPReconciler) ipFamilyCondition(lbvip *isovalentv1alpha1.LBVIP) metav1.Condition {
+	condition := metav1.Condition{
+		Type:               isovalentv1alpha1.ConditionTypeIPFamily,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: lbvip.Generation,
+		LastTransitionTime: metav1.Now(),
+		Reason:             isovalentv1alpha1.IPFamilyValid,
+		Message:            "Valid IP Families",
+	}
+
+	configuredIPFamily := getIPFamily(lbvip)
+
+	if configuredIPFamily == ipFamilyDual && (!r.config.ipFamilies.EnableIPv4 || !r.config.ipFamilies.EnableIPv6) {
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = isovalentv1alpha1.IPFamilyInvalid
+		condition.Message = "IPFamily dual configured but either IPv4 or IPv6 is not enabled"
+	}
+
+	if configuredIPFamily == ipFamilyV4 && !r.config.ipFamilies.EnableIPv4 {
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = isovalentv1alpha1.IPFamilyInvalid
+		condition.Message = "IPFamily IPv4 configured but IPv4 is not enabled"
+	}
+
+	if configuredIPFamily == ipFamilyV6 && !r.config.ipFamilies.EnableIPv6 {
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = isovalentv1alpha1.IPFamilyInvalid
+		condition.Message = "IPFamily IPv6 configured but IPv6 is not enabled"
+	}
+
+	return condition
 }

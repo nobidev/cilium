@@ -53,7 +53,7 @@ func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbs
 		return nil, fmt.Errorf("failed to retrieve T1 & T2 node label selectors: %w", err)
 	}
 
-	t1NodeIPs, t2NodeIPs, err := r.loadT1AndT2NodeIPs(ctx, nodes, *t1LabelSelector, *t2LabelSelector)
+	t1NodeIPv4Addresses, t1NodeIPv6Addresses, t2NodeIPv4Addresses, t2NodeIPv6Addresses, err := r.loadT1AndT2NodeIPs(ctx, getIPFamily(vip), nodes, *t1LabelSelector, *t2LabelSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve T1 & T2 node ips: %w", err)
 	}
@@ -63,15 +63,19 @@ func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbs
 		name:      lbsvc.Name,
 		vip: lbVIP{
 			name:         lbsvc.Spec.VIPRef.Name,
-			assignedIPv4: getAssignedIP(vip),
+			ipFamily:     getIPFamily(vip),
+			assignedIPv4: getAssignedIPv4(vip),
+			assignedIPv6: getAssignedIPv6(vip),
 			bindStatus:   getVIPBindStatus(t1Service),
 		},
 		port:                lbsvc.Spec.Port,
 		proxyProtocolConfig: r.toServiceProxyProtocolConfig(lbsvc.Spec.ProxyProtocolConfig),
 		applications:        r.toApplications(lbsvc, referencedBackends, referencedSecrets),
 		referencedBackends:  referencedBackends,
-		t1NodeIPs:           t1NodeIPs,
-		t2NodeIPs:           t2NodeIPs,
+		t1NodeIPv4Addresses: t1NodeIPv4Addresses,
+		t1NodeIPv6Addresses: t1NodeIPv6Addresses,
+		t2NodeIPv4Addresses: t2NodeIPv4Addresses,
+		t2NodeIPv6Addresses: t2NodeIPv6Addresses,
 		t1LabelSelector:     *t1LabelSelector,
 		t2LabelSelector:     *t2LabelSelector,
 	}, nil
@@ -135,26 +139,26 @@ func (r *ingestor) getTierLabelSelector(defaultLS slim_metav1.LabelSelector, dep
 	return &combinedLabelSelector, nil
 }
 
-func (r *ingestor) loadT1AndT2NodeIPs(ctx context.Context, nodes []*slim_corev1.Node, t1LabelSelector labels.Selector, t2LabelSelector labels.Selector) ([]string, []string, error) {
-	t1NodeIPs, err := r.loadNodeAddressesByLabelSelector(ctx, nodes, t1LabelSelector)
+func (r *ingestor) loadT1AndT2NodeIPs(ctx context.Context, ipFamily ipFamily, nodes []*slim_corev1.Node, t1LabelSelector labels.Selector, t2LabelSelector labels.Selector) ([]string, []string, []string, []string, error) {
+	t1NodeIPv4Addresses, t1NodeIPv6Addresses, err := r.loadNodeAddressesByLabelSelector(ctx, ipFamily, nodes, t1LabelSelector)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to retrieve T1 node ips: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to retrieve T1 node ips: %w", err)
 	}
 
-	t2NodeIPs, err := r.loadNodeAddressesByLabelSelector(ctx, nodes, t2LabelSelector)
+	t2NodeIPv4Addresses, t2NodeIPv6Addresses, err := r.loadNodeAddressesByLabelSelector(ctx, ipFamily, nodes, t2LabelSelector)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to retrieve T2 node ips: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to retrieve T2 node ips: %w", err)
 	}
 
-	return t1NodeIPs, t2NodeIPs, nil
+	return t1NodeIPv4Addresses, t1NodeIPv6Addresses, t2NodeIPv4Addresses, t2NodeIPv6Addresses, nil
 }
 
-func (r *ingestor) loadNodeAddressesByLabelSelector(ctx context.Context, nodes []*slim_corev1.Node, selector labels.Selector) ([]string, error) {
-	nodeIPs := []string{}
+func (r *ingestor) loadNodeAddressesByLabelSelector(ctx context.Context, ipFamily ipFamily, nodes []*slim_corev1.Node, selector labels.Selector) ([]string, []string, error) {
+	nodeIPv4Addresses := []string{}
+	nodeIPv6Addresses := []string{}
 
 	for _, cn := range nodes {
 		if selector.Matches(labels.Set(cn.Labels)) {
-			var nodeIP string
 			for _, addr := range cn.Status.Addresses {
 				if addr.Type == slim_corev1.NodeInternalIP {
 					a, err := netip.ParseAddr(addr.Address)
@@ -166,30 +170,26 @@ func (r *ingestor) loadNodeAddressesByLabelSelector(ctx context.Context, nodes [
 						continue
 					}
 
-					if a.Is6() {
-						// skip ipv6 addresses for now
-						continue
+					if a.Is4() && (ipFamily == ipFamilyV4 || ipFamily == ipFamilyDual) {
+						nodeIPv4Addresses = append(nodeIPv4Addresses, addr.Address)
+					} else if a.Is6() && !a.Is4In6() && (ipFamily == ipFamilyV6 || ipFamily == ipFamilyDual) {
+						nodeIPv6Addresses = append(nodeIPv6Addresses, addr.Address)
 					}
-
-					// use first ipv4 address
-					// TODO: support multiple addresses? (at least to configure the Envoy source IP filter)
-					nodeIP = addr.Address
-					break
 				}
 			}
-			if nodeIP == "" {
+			if len(nodeIPv4Addresses)+len(nodeIPv6Addresses) == 0 {
 				r.logger.Warn("Could not find InternalIP for CiliumNode",
 					logfields.Resource, cn.Name,
 				)
 				continue
 			}
-
-			nodeIPs = append(nodeIPs, nodeIP)
 		}
 	}
 
-	slices.Sort(nodeIPs)
-	return nodeIPs, nil
+	slices.Sort(nodeIPv4Addresses)
+	slices.Sort(nodeIPv6Addresses)
+
+	return nodeIPv4Addresses, nodeIPv6Addresses, nil
 }
 
 func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBServiceHTTPConfig) *lbServiceHTTPConfig {
@@ -705,7 +705,7 @@ func (r *ingestor) getAddressesFromEndpointSlices(referencedEndpointSlices []dis
 	ipAddresses := []string{}
 
 	for _, es := range referencedEndpointSlices {
-		if es.GetLabels()[discoveryv1.LabelServiceName] == k8sServiceName && es.AddressType == discoveryv1.AddressTypeIPv4 {
+		if es.GetLabels()[discoveryv1.LabelServiceName] == k8sServiceName && (es.AddressType == discoveryv1.AddressTypeIPv4 || es.AddressType == discoveryv1.AddressTypeIPv6) {
 			for _, e := range es.Endpoints {
 				// TODO: check conditions (kubelet healthchecks) ?
 				ipAddresses = append(ipAddresses, e.Addresses...)
@@ -815,11 +815,17 @@ func (r *ingestor) toTLSProxyHostNames(match *isovalentv1alpha1.LBServiceTLSRout
 
 // getAssignedIP evaluates and returns the actually assigned loadbalancer IP from the LBVIP resource.
 // If there's no assigned loadbalancer IP assigned yet, nil is returned instead.
-func getAssignedIP(vip *isovalentv1alpha1.LBVIP) *string {
+func getAssignedIPv4(vip *isovalentv1alpha1.LBVIP) *string {
 	if vip != nil {
 		return vip.Status.Addresses.IPv4
 	}
+	return nil
+}
 
+func getAssignedIPv6(vip *isovalentv1alpha1.LBVIP) *string {
+	if vip != nil {
+		return vip.Status.Addresses.IPv6
+	}
 	return nil
 }
 
@@ -1405,6 +1411,21 @@ func (r *ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicati
 	}
 }
 
+func (r *ingestor) backendPortsAreTheSame(lbBackends []lbBackend) bool {
+	port := uint32(0)
+
+	for _, be := range lbBackends {
+		if port == 0 {
+			port = be.port
+		}
+		if port != be.port {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy, referencedBackends map[string]backend) tierModeType {
 	for _, v := range referencedBackends {
 		// Cilium Agent health checking doesn't support changing the host header of a HTTP health check request
@@ -1435,15 +1456,8 @@ func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 		}
 
 		// backends with different ports aren't supported by t1-only mode
-		port := uint32(0)
-		for _, be := range referencedBackends[ar.BackendRef.Name].lbBackends {
-			if port == 0 {
-				port = be.port
-			}
-
-			if port != be.port {
-				return tierModeT2
-			}
+		if !r.backendPortsAreTheSame(referencedBackends[ar.BackendRef.Name].lbBackends) {
+			return tierModeT2
 		}
 	}
 
@@ -1500,15 +1514,8 @@ func (r *ingestor) evaluateUDPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 		}
 
 		// backends with different ports aren't supported by t1-only mode
-		port := uint32(0)
-		for _, be := range referencedBackends[ar.BackendRef.Name].lbBackends {
-			if port == 0 {
-				port = be.port
-			}
-
-			if port != be.port {
-				return tierModeT2
-			}
+		if !r.backendPortsAreTheSame(referencedBackends[ar.BackendRef.Name].lbBackends) {
+			return tierModeT2
 		}
 	}
 

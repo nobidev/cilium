@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net"
 	"strconv"
 	"strings"
 
@@ -35,16 +36,16 @@ type lbServiceT1Translator struct {
 	config reconcilerConfig
 }
 
-func (r *lbServiceT1Translator) toServicePort(model *lbService) *corev1.ServicePort {
+func (r *lbServiceT1Translator) toServicePort(model *lbService) corev1.ServicePort {
 	if model.isUDPProxy() {
-		return &corev1.ServicePort{
+		return corev1.ServicePort{
 			Name:     strings.ToLower(string(corev1.ProtocolUDP)),
 			Protocol: corev1.ProtocolUDP,
 			Port:     model.port,
 		}
 	}
 
-	return &corev1.ServicePort{
+	return corev1.ServicePort{
 		Name:     strings.ToLower(string(corev1.ProtocolTCP)),
 		Protocol: corev1.ProtocolTCP,
 		Port:     model.port,
@@ -52,7 +53,7 @@ func (r *lbServiceT1Translator) toServicePort(model *lbService) *corev1.ServiceP
 }
 
 func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service {
-	if model.vip.assignedIPv4 == nil {
+	if !model.vip.IPv4Assigned() && !model.vip.IPv6Assigned() {
 		return nil
 	}
 
@@ -64,7 +65,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 	// This way we treat the Service of the LBVIP as the main leader from an
 	// LB IPAM perspective. This way, when switching the LBVIP, the IP gets changed
 	// correctly
-	annotations[ossannotation.LBIPAMIPsKey] = *model.vip.assignedIPv4
+	annotations[ossannotation.LBIPAMIPsKey] = buildLBIPAMIPString(model.vip.assignedIPv4, model.vip.assignedIPv6)
 
 	// Set the sharing key (LBVIP name)
 	annotations[ossannotation.LBIPAMSharingKey] = model.vip.name
@@ -104,7 +105,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 
 	// write T1 node ips as hash to annotation. This way a reconciliation of the K8s Service gets enforced if any of the Node labels change
 	h := sha256.New()
-	_, _ = h.Write([]byte(strings.Join(model.t1NodeIPs, "")))
+	_, _ = h.Write([]byte(strings.Join(append(model.t1NodeIPv4Addresses, model.t1NodeIPv6Addresses...), "")))
 	annotations["loadbalancer.isovalent.com/t1-nodes-hash"] = fmt.Sprintf("%x", h.Sum(nil))
 
 	return &corev1.Service{
@@ -119,7 +120,9 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 		Spec: corev1.ServiceSpec{
 			Type:                          corev1.ServiceTypeLoadBalancer,
 			AllocateLoadBalancerNodePorts: ptr.To(false),
-			Ports:                         []corev1.ServicePort{*r.toServicePort(model)},
+			IPFamilies:                    getServiceIPFamilies(model.vip.ipFamily),
+			IPFamilyPolicy:                getServiceIPFamilyPolicy(model.vip.ipFamily),
+			Ports:                         []corev1.ServicePort{r.toServicePort(model)},
 			LoadBalancerSourceRanges:      lbSourceRanges,
 			SessionAffinity:               r.getServiceSessionAffinity(model),
 		},
@@ -226,15 +229,20 @@ func (r *lbServiceT1Translator) getT1OnlyHealthCheckHTTPPath(model *lbService) s
 	return ""
 }
 
-func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
+func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService, ipv6 bool) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
 	prot := corev1.ProtocolTCP
 	if model.isUDPProxy() {
 		prot = corev1.ProtocolUDP
 	}
 
+	addresses := model.t2NodeIPv4Addresses
+	if ipv6 {
+		addresses = model.t2NodeIPv6Addresses
+	}
+
 	return []discoveryv1.Endpoint{
 			{
-				Addresses: model.t2NodeIPs,
+				Addresses: addresses,
 			},
 		},
 		[]discoveryv1.EndpointPort{
@@ -246,7 +254,7 @@ func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService) ([]
 		}
 }
 
-func (r *lbServiceT1Translator) tcpEndpointSubsetsFromBackends(model *lbService) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
+func (r *lbServiceT1Translator) tcpEndpointSubsetsFromBackends(model *lbService, ipv6 bool) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
 	epAddresses := []string{}
 	port := uint32(0)
 
@@ -265,9 +273,18 @@ func (r *lbServiceT1Translator) tcpEndpointSubsetsFromBackends(model *lbService)
 						logfields.Reason, "T1-only service does not support backends with different ports")
 					continue
 				}
-				epAddresses = append(epAddresses, b.addresses...)
+				for _, ba := range b.addresses {
+					isIPv4 := net.ParseIP(ba).To4() != nil
+					if isIPv4 != ipv6 {
+						epAddresses = append(epAddresses, ba)
+					}
+				}
 			}
 		}
+	}
+
+	if len(epAddresses) == 0 {
+		return nil, nil
 	}
 
 	return []discoveryv1.Endpoint{
@@ -284,7 +301,7 @@ func (r *lbServiceT1Translator) tcpEndpointSubsetsFromBackends(model *lbService)
 		}
 }
 
-func (r *lbServiceT1Translator) udpEndpointSubsetsFromBackends(model *lbService) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
+func (r *lbServiceT1Translator) udpEndpointSubsetsFromBackends(model *lbService, ipv6 bool) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
 	epAddresses := []string{}
 	port := uint32(0)
 
@@ -303,7 +320,12 @@ func (r *lbServiceT1Translator) udpEndpointSubsetsFromBackends(model *lbService)
 						logfields.Reason, "T1-only service does not support backends with different ports")
 					continue
 				}
-				epAddresses = append(epAddresses, b.addresses...)
+				for _, ba := range b.addresses {
+					isIPv4 := net.ParseIP(ba).To4() != nil
+					if isIPv4 != ipv6 {
+						epAddresses = append(epAddresses, ba)
+					}
+				}
 			}
 		}
 	}
@@ -322,35 +344,57 @@ func (r *lbServiceT1Translator) udpEndpointSubsetsFromBackends(model *lbService)
 		}
 }
 
-func (r *lbServiceT1Translator) DesiredEndpointSlice(model *lbService) *discoveryv1.EndpointSlice {
-	if model.vip.assignedIPv4 == nil {
+func (r *lbServiceT1Translator) DesiredEndpointSlice(model *lbService, ipv6 bool) *discoveryv1.EndpointSlice {
+	if (!ipv6 && !model.vip.IPv4Assigned()) || ipv6 && !model.vip.IPv6Assigned() {
 		return nil
 	}
 
-	endpoints, ports := r.getEndpointSliceInfo(model)
+	endpoints, ports := r.getEndpointSliceInfo(model, ipv6)
+	if !hasAddresses(endpoints) {
+		// Prevent failure during creation/update of EndpointSlice without addresses
+		// ... is invalid: endpoints[0].addresses: Required value: must contain at least 1 address
+		return nil
+	}
+
+	addressType := discoveryv1.AddressTypeIPv4
+	midfix := ""
+	if ipv6 {
+		addressType = discoveryv1.AddressTypeIPv6
+		midfix = endpointSliceIPv6Midfix
+	}
 
 	return &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: model.namespace,
-			Name:      model.getOwningResourceName(),
+			Name:      model.getOwningResourceNameWithMidfix(midfix),
 			Labels: map[string]string{
 				discoveryv1.LabelServiceName: model.getOwningResourceName(),
 				discoveryv1.LabelManagedBy:   "ilb",
 			},
 		},
-		AddressType: discoveryv1.AddressTypeIPv4,
+		AddressType: addressType,
 		Endpoints:   endpoints,
 		Ports:       ports,
 	}
 }
 
-func (r *lbServiceT1Translator) getEndpointSliceInfo(model *lbService) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
+func hasAddresses(endpoints []discoveryv1.Endpoint) bool {
+	for _, e := range endpoints {
+		if len(e.Addresses) > 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r *lbServiceT1Translator) getEndpointSliceInfo(model *lbService, ipv6 bool) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
 	if model.isTCPProxyT1OnlyMode() {
-		return r.tcpEndpointSubsetsFromBackends(model)
+		return r.tcpEndpointSubsetsFromBackends(model, ipv6)
 	} else if model.isUDPProxyT1OnlyMode() {
-		return r.udpEndpointSubsetsFromBackends(model)
+		return r.udpEndpointSubsetsFromBackends(model, ipv6)
 	} else {
-		return r.endpointSubsetsFromT2Nodes(model)
+		return r.endpointSubsetsFromT2Nodes(model, ipv6)
 	}
 }
 

@@ -24,6 +24,9 @@ spec:
     - jsonPath: .status.addresses.ipv4
       name: IPv4
       type: string
+    - jsonPath: .status.addresses.ipv6
+      name: IPv6
+      type: string
     - jsonPath: .status.status
       name: Status
       type: string
@@ -53,14 +56,45 @@ spec:
             type: object
           spec:
             properties:
+              addressFamily:
+                description: |-
+                  AddressFamily defines the IP address families that should be handled by this VIP.
+                  For address family 'dual' an IP pool with free IPs for IPv4 and IPv6 must be configured.
+
+                  If not defined, the default is ipv4.
+                enum:
+                - ipv4
+                - ipv6
+                - dual
+                type: string
               ipv4Request:
                 description: |-
-                  Desired IPv4 VIP. If the address is unspecified, it tries to
-                  allocate available VIP from the pool. If address is specified, it
-                  tries to allocate specified VIP from the pool.
+                  Desired IPv4 VIP. If the address is unspecified, and the address
+                  family is IPv4 or Dual, then it tries to allocate available VIP from
+                  the pool. If address is specified, it tries to allocate specified
+                  VIP from the pool.
                 format: ipv4
                 type: string
+              ipv6Request:
+                description: |-
+                  Desired IPv6 VIP. If the address is unspecified, and the address
+                  family is IPv6 or Dual, then it tries to allocate available VIP from
+                  the pool. If address is specified, it tries to allocate specified
+                  VIP from the pool.
+                format: ipv6
+                type: string
             type: object
+            x-kubernetes-validations:
+            - message: For addressFamily dual only no or all (IPv4 & IPv6) IPs can
+                be requested
+              rule: '!has(self.addressFamily) || self.addressFamily != ''dual'' ||
+                (has(self.ipv4Request) == has(self.ipv6Request))'
+            - message: IPv4 can only be requested for addressFamily ipv4 or dual
+              rule: '!has(self.ipv4Request) || (!has(self.addressFamily) || self.addressFamily
+                == ''dual'' || self.addressFamily == ''ipv4'')'
+            - message: IPv6 can only be requested for addressFamily ipv6 or dual
+              rule: '!has(self.ipv6Request) || (has(self.addressFamily) && (self.addressFamily
+                == ''dual'' || self.addressFamily == ''ipv6''))'
           status:
             properties:
               addresses:
@@ -68,6 +102,9 @@ spec:
                 properties:
                   ipv4:
                     description: The allocated IPv4 VIP.
+                    type: string
+                  ipv6:
+                    description: The allocated IPv6 VIP.
                     type: string
                 type: object
               conditions:

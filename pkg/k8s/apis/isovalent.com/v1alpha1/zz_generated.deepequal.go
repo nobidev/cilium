@@ -4977,6 +4977,14 @@ func (in *LBServiceVIPAddresses) DeepEqual(other *LBServiceVIPAddresses) bool {
 		}
 	}
 
+	if (in.IPv6 == nil) != (other.IPv6 == nil) {
+		return false
+	} else if in.IPv6 != nil {
+		if *in.IPv6 != *other.IPv6 {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -5072,6 +5080,14 @@ func (in *LBVIPAddresses) DeepEqual(other *LBVIPAddresses) bool {
 		}
 	}
 
+	if (in.IPv6 == nil) != (other.IPv6 == nil) {
+		return false
+	} else if in.IPv6 != nil {
+		if *in.IPv6 != *other.IPv6 {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -5082,10 +5098,26 @@ func (in *LBVIPSpec) DeepEqual(other *LBVIPSpec) bool {
 		return false
 	}
 
+	if (in.AddressFamily == nil) != (other.AddressFamily == nil) {
+		return false
+	} else if in.AddressFamily != nil {
+		if *in.AddressFamily != *other.AddressFamily {
+			return false
+		}
+	}
+
 	if (in.IPv4Request == nil) != (other.IPv4Request == nil) {
 		return false
 	} else if in.IPv4Request != nil {
 		if *in.IPv4Request != *other.IPv4Request {
+			return false
+		}
+	}
+
+	if (in.IPv6Request == nil) != (other.IPv6Request == nil) {
+		return false
+	} else if in.IPv6Request != nil {
+		if *in.IPv6Request != *other.IPv6Request {
 			return false
 		}
 	}

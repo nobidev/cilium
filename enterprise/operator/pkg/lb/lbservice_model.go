@@ -27,17 +27,29 @@ type lbService struct {
 	proxyProtocolConfig *lbServiceProxyProtocolConfig
 	applications        lbApplications
 	referencedBackends  map[string]backend
-	t1NodeIPs           []string
-	t2NodeIPs           []string
+	t1NodeIPv4Addresses []string
+	t1NodeIPv6Addresses []string
+	t2NodeIPv4Addresses []string
+	t2NodeIPv6Addresses []string
 	t1LabelSelector     labels.Selector
 	t2LabelSelector     labels.Selector
 }
 
 type lbVIP struct {
 	name         string
+	ipFamily     ipFamily
 	assignedIPv4 *string
+	assignedIPv6 *string
 	bindStatus   lbVIPBindStatus
 }
+
+type ipFamily string
+
+const (
+	ipFamilyV4   ipFamily = "ipv4"
+	ipFamilyV6   ipFamily = "ipv6"
+	ipFamilyDual ipFamily = "dual"
+)
 
 type lbServiceProxyProtocolConfig struct {
 	disallowedVersions []int
@@ -50,12 +62,39 @@ type lbVIPBindStatus struct {
 	bindIssue      string
 }
 
+func (r lbVIP) IPv4Assigned() bool {
+	return r.assignedIPv4 != nil
+}
+
+func (r lbVIP) IPv6Assigned() bool {
+	return r.assignedIPv6 != nil
+}
+
+func (r lbVIP) IPv4SupportedByIPFamily() bool {
+	return r.ipFamily == ipFamilyDual || r.ipFamily == ipFamilyV4
+}
+
+func (r lbVIP) IPv6SupportedByIPFamily() bool {
+	return r.ipFamily == ipFamilyDual || r.ipFamily == ipFamilyV6
+}
+
 func (r lbService) getOwningResourceName() string {
 	return getOwningResourceName(r.name)
 }
 
+func (r lbService) getOwningResourceNameWithMidfix(midfix string) string {
+	return getOwningResourceNameWithMidfix(r.name, midfix)
+}
+
 func getOwningResourceName(parentName string) string {
 	name := "lbfe-" + parentName
+
+	// shorten to be below the max name length of k8s resources even after prefixing
+	return shortener.ShortenK8sResourceName(name)
+}
+
+func getOwningResourceNameWithMidfix(parentName string, midfix string) string {
+	name := "lbfe-" + midfix + parentName
 
 	// shorten to be below the max name length of k8s resources even after prefixing
 	return shortener.ShortenK8sResourceName(name)

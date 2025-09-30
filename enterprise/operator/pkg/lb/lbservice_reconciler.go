@@ -47,8 +47,13 @@ const (
 
 const (
 	logfieldIPv4Assigned        = "ipv4Assigned"
+	logfieldIPv6Assigned        = "ipv6Assigned"
 	logfieldStatusConditionsMet = "statusConditionsMet"
 	logfieldResult              = "result"
+)
+
+const (
+	endpointSliceIPv6Midfix = "ipv6-"
 )
 
 type lbServiceReconciler struct {
@@ -332,15 +337,20 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 	// Otherwise, the BGP keeps advertise the stale VIP, DPlane keeps
 	// handling the traffic towards the stable VIP, etc. - or creating
 	// depending resources might fail due to incompatibilities.
-	if model.vip.assignedIPv4 == nil || !lbsvc.AllStatusConditionsMet() {
+
+	if (model.vip.IPv4SupportedByIPFamily() && !model.vip.IPv4Assigned()) || (model.vip.IPv6SupportedByIPFamily() && !model.vip.IPv6Assigned()) || !lbsvc.AllStatusConditionsMet() {
 		r.logger.Debug("Stopping reconciliation - no IP assigned or status conditions not met (yet)",
-			logfieldIPv4Assigned, model.vip.assignedIPv4 != nil,
+			logfieldIPv4Assigned, model.vip.IPv4Assigned(),
+			logfieldIPv6Assigned, model.vip.IPv6Assigned(),
 			logfieldStatusConditionsMet, lbsvc.AllStatusConditionsMet())
 		if err = r.ensureServiceDeleted(ctx, model); err != nil {
 			return fmt.Errorf("failed to ensure service is deleted: %w", err)
 		}
-		if err = r.ensureEndpointSliceDeleted(ctx, model); err != nil {
-			return fmt.Errorf("failed to ensure endpointslice is deleted: %w", err)
+		if err = r.ensureEndpointSliceDeleted(ctx, model, false); err != nil {
+			return fmt.Errorf("failed to ensure IPv4 endpointslice is deleted: %w", err)
+		}
+		if err = r.ensureEndpointSliceDeleted(ctx, model, true); err != nil {
+			return fmt.Errorf("failed to ensure IPv6 endpointslice is deleted: %w", err)
 		}
 		if err = r.ensureCECDeleted(ctx, model); err != nil {
 			return fmt.Errorf("failed to ensure CEC is deleted: %w", err)
@@ -354,24 +364,57 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 
 	// Build desired resources
 	desiredT1Service := r.t1Translator.DesiredService(model)
-	desiredT1EndpointSlice := r.t1Translator.DesiredEndpointSlice(model)
+	desiredT1EndpointSliceIPv4 := r.t1Translator.DesiredEndpointSlice(model, false)
+	desiredT1EndpointSliceIPv6 := r.t1Translator.DesiredEndpointSlice(model, true)
 
 	// Set controlling ownerreferences
 	if err := controllerutil.SetControllerReference(lbsvc, desiredT1Service, r.scheme); err != nil {
 		return fmt.Errorf("failed to set ownerreference on T1 Service: %w", err)
 	}
 
-	if err := controllerutil.SetControllerReference(lbsvc, desiredT1EndpointSlice, r.scheme); err != nil {
-		return fmt.Errorf("failed to set ownerreference on T1 EndpointSlice: %w", err)
+	if desiredT1EndpointSliceIPv4 != nil {
+		if err := controllerutil.SetControllerReference(lbsvc, desiredT1EndpointSliceIPv4, r.scheme); err != nil {
+			return fmt.Errorf("failed to set ownerreference on T1 EndpointSlice: %w", err)
+		}
+	}
+
+	if desiredT1EndpointSliceIPv6 != nil {
+		if err := controllerutil.SetControllerReference(lbsvc, desiredT1EndpointSliceIPv6, r.scheme); err != nil {
+			return fmt.Errorf("failed to set ownerreference on T1 EndpointSlice: %w", err)
+		}
 	}
 
 	// Create or update resources
+	//
+	// delete service if ip family changed (to prevent that current clusterip doesn't match new ipfamily)
+	if existingT1K8sService != nil && !slices.Equal(existingT1K8sService.Spec.IPFamilies, desiredT1Service.Spec.IPFamilies) {
+		if err := r.client.Delete(ctx, existingT1K8sService); err != nil {
+			return fmt.Errorf("failed to delete Service due to ipfamily changes: %w", err)
+		}
+	}
+
 	if err := r.createOrUpdateService(ctx, desiredT1Service); err != nil {
 		return err
 	}
 
-	if err := r.createOrUpdateEndpointSlice(ctx, desiredT1EndpointSlice); err != nil {
-		return err
+	if desiredT1EndpointSliceIPv4 != nil {
+		if err := r.createOrUpdateEndpointSlice(ctx, desiredT1EndpointSliceIPv4); err != nil {
+			return err
+		}
+	} else {
+		if err := r.ensureEndpointSliceDeleted(ctx, model, false); err != nil {
+			return err
+		}
+	}
+
+	if desiredT1EndpointSliceIPv6 != nil {
+		if err := r.createOrUpdateEndpointSlice(ctx, desiredT1EndpointSliceIPv6); err != nil {
+			return err
+		}
+	} else {
+		if err := r.ensureEndpointSliceDeleted(ctx, model, true); err != nil {
+			return err
+		}
 	}
 
 	//
@@ -649,16 +692,21 @@ func (r *lbServiceReconciler) createOrUpdateEndpointSlice(ctx context.Context, d
 	return nil
 }
 
-func (r *lbServiceReconciler) ensureEndpointSliceDeleted(ctx context.Context, model *lbService) error {
+func (r *lbServiceReconciler) ensureEndpointSliceDeleted(ctx context.Context, model *lbService, ipv6 bool) error {
+	midfix := ""
+	if ipv6 {
+		midfix = endpointSliceIPv6Midfix
+	}
+
 	ep := &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: model.namespace,
-			Name:      model.getOwningResourceName(),
+			Name:      model.getOwningResourceNameWithMidfix(midfix),
 		},
 	}
 	if err := r.client.Delete(ctx, ep); err != nil {
 		if !k8serrors.IsNotFound(err) {
-			return err
+			return fmt.Errorf("failed to ensure endpointslice is deleted: %w", err)
 		}
 		// EndpointSlice does not exist, which is fine
 	}
@@ -830,19 +878,30 @@ func (*lbServiceReconciler) updateAssignedIpInStatus(model *lbService, lbsvc *is
 	}
 
 	var assignedIPv4 *string
+	var assignedIPv6 *string
+
+	ipsAssigned := true
+	if model.vip.IPv4SupportedByIPFamily() && !model.vip.IPv4Assigned() {
+		ipsAssigned = false
+	}
+	if model.vip.IPv6SupportedByIPFamily() && !model.vip.IPv6Assigned() {
+		ipsAssigned = false
+	}
 
 	if model.vip.bindStatus.serviceExists && !model.vip.bindStatus.bindSuccessful {
 		ipAssignedCondition.Reason = isovalentv1alpha1.IPAssignedConditionReasonIPFailure
 		ipAssignedCondition.Message = "Failed to bind to VIP: " + model.vip.bindStatus.bindIssue
-	} else if model.vip.assignedIPv4 != nil {
+	} else if ipsAssigned {
 		ipAssignedCondition.Status = metav1.ConditionTrue
 		ipAssignedCondition.Reason = isovalentv1alpha1.IPAssignedConditionReasonIPAssigned
 		ipAssignedCondition.Message = "VIP assigned"
 
 		assignedIPv4 = model.vip.assignedIPv4
+		assignedIPv6 = model.vip.assignedIPv6
 	}
 
 	lbsvc.Status.Addresses.IPv4 = assignedIPv4
+	lbsvc.Status.Addresses.IPv6 = assignedIPv6
 
 	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
 }
@@ -910,19 +969,19 @@ func (*lbServiceReconciler) updateNodesAssignedInStatus(model *lbService, lbsvc 
 		LastTransitionTime: metav1.Now(),
 	}
 
-	if len(model.t1NodeIPs) == 0 {
+	if len(model.t1NodeIPv4Addresses)+len(model.t1NodeIPv6Addresses) == 0 {
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = isovalentv1alpha1.NodesAssignedConditionReasonNoNodesAssigned
 		condition.Message = "No T1 nodes are assigned"
 	}
 
-	if len(model.t2NodeIPs) == 0 {
+	if len(model.t2NodeIPv4Addresses)+len(model.t2NodeIPv6Addresses) == 0 {
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = isovalentv1alpha1.NodesAssignedConditionReasonNoNodesAssigned
 		condition.Message = "No T2 nodes are assigned"
 	}
 
-	if len(model.t1NodeIPs) == 0 && len(model.t2NodeIPs) == 0 {
+	if len(model.t1NodeIPv4Addresses)+len(model.t1NodeIPv6Addresses) == 0 && len(model.t2NodeIPv4Addresses)+len(model.t2NodeIPv6Addresses) == 0 {
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = isovalentv1alpha1.NodesAssignedConditionReasonNoNodesAssigned
 		condition.Message = "No T1 & T2 nodes are assigned"

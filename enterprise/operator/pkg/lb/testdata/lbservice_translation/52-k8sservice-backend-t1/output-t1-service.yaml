@@ -25,6 +25,9 @@ metadata:
   name: lbfe-lb-1
 spec:
   allocateLoadBalancerNodePorts: false
+  ipFamilies:
+    - IPv4
+  ipFamilyPolicy: SingleStack
   loadBalancerSourceRanges:
     - 100.64.0.100/32
   ports:

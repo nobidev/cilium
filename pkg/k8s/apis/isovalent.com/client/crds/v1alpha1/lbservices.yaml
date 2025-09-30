@@ -27,6 +27,9 @@ spec:
     - jsonPath: .status.addresses.ipv4
       name: VIP IPv4
       type: string
+    - jsonPath: .status.addresses.ipv6
+      name: VIP IPv6
+      type: string
     - jsonPath: .spec.port
       name: Port
       type: string
@@ -2429,6 +2432,9 @@ spec:
                 properties:
                   ipv4:
                     description: IPv4 VIP assigned to the LBService.
+                    type: string
+                  ipv6:
+                    description: IPv6 VIP assigned to the LBService.
                     type: string
                 type: object
               applications:

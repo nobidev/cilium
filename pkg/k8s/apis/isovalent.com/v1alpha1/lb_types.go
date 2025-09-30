@@ -16,6 +16,7 @@ import (
 // +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbservice",path="lbservices",scope="Namespaced",shortName={lbsvc}
 // +kubebuilder:printcolumn:JSONPath=".spec.vipRef.name",name="VIP Reference",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.addresses.ipv4",name="VIP IPv4",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.addresses.ipv6",name="VIP IPv6",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.port",name="Port",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.status",name="Status",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
@@ -1390,6 +1391,11 @@ type LBServiceVIPAddresses struct {
 	//
 	// +kubebuilder:validation:Optional
 	IPv4 *string `json:"ipv4,omitempty"`
+
+	// IPv6 VIP assigned to the LBService.
+	//
+	// +kubebuilder:validation:Optional
+	IPv6 *string `json:"ipv6,omitempty"`
 }
 
 type LBServiceStatus struct {
@@ -1545,14 +1551,21 @@ const (
 )
 
 const (
-	ConditionTypeIPv4AddressAllocated = "lb.cilium.io/IPv4AddressAllocated"
+	ConditionTypeIPAddressAllocated = "lb.cilium.io/AddressAllocated"
+	ConditionTypeIPFamily           = "lb.cilium.io/IPFamily"
 )
 
 const (
-	IPv4AddressAllocatedConditionReasonAddressNotAllocated       = "AddressNotAllocated"
-	IPv4AddressAllocatedConditionReasonAddressAlreadyInUse       = "AddressAlreadyInUse"
-	IPv4AddressAllocatedConditionReasonAddressNoAvailableAddress = "NoAvailableAddress"
-	IPv4AddressAllocatedConditionReasonAddressNoPool             = "NoPool"
+	IPAddressAllocatedConditionReasonIPv4AddressNotAllocated   = "IPv4AddressNotAllocated"
+	IPAddressAllocatedConditionReasonIPv6AddressNotAllocated   = "IPv6AddressNotAllocated"
+	IPAddressAllocatedConditionReasonAddressAlreadyInUse       = "AddressAlreadyInUse"
+	IPAddressAllocatedConditionReasonAddressNoAvailableAddress = "NoAvailableAddress"
+	IPAddressAllocatedConditionReasonAddressNoPool             = "NoPool"
+)
+
+const (
+	IPFamilyValid   = "IPFamilyValid"
+	IPFamilyInvalid = "IPFamilyInvalid"
 )
 
 const (
@@ -2348,6 +2361,7 @@ func (r *LBBackendPool) UpdateResourceStatus() {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbvip",path="lbvips",scope="Namespaced",shortName={lbvip}
 // +kubebuilder:printcolumn:JSONPath=".status.addresses.ipv4",name="IPv4",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.addresses.ipv6",name="IPv6",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.status",name="Status",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
@@ -2367,15 +2381,45 @@ type LBVIP struct {
 	Status LBVIPStatus `json:"status,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:message="For addressFamily dual only no or all (IPv4 & IPv6) IPs can be requested",rule="!has(self.addressFamily) || self.addressFamily != 'dual' || (has(self.ipv4Request) == has(self.ipv6Request))"
+// +kubebuilder:validation:XValidation:message="IPv4 can only be requested for addressFamily ipv4 or dual",rule="!has(self.ipv4Request) || (!has(self.addressFamily) || self.addressFamily == 'dual' || self.addressFamily == 'ipv4')"
+// +kubebuilder:validation:XValidation:message="IPv6 can only be requested for addressFamily ipv6 or dual",rule="!has(self.ipv6Request) || (has(self.addressFamily) && (self.addressFamily == 'dual' || self.addressFamily == 'ipv6'))"
 type LBVIPSpec struct {
-	// Desired IPv4 VIP. If the address is unspecified, it tries to
-	// allocate available VIP from the pool. If address is specified, it
-	// tries to allocate specified VIP from the pool.
+	// AddressFamily defines the IP address families that should be handled by this VIP.
+	// For address family 'dual' an IP pool with free IPs for IPv4 and IPv6 must be configured.
+	//
+	// If not defined, the default is ipv4.
+	//
+	// +kubebuilder:validation:Optional
+	AddressFamily *AddressFamily `json:"addressFamily,omitempty"`
+
+	// Desired IPv4 VIP. If the address is unspecified, and the address
+	// family is IPv4 or Dual, then it tries to allocate available VIP from
+	// the pool. If address is specified, it tries to allocate specified
+	// VIP from the pool.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Format=ipv4
 	IPv4Request *string `json:"ipv4Request,omitempty"`
+
+	// Desired IPv6 VIP. If the address is unspecified, and the address
+	// family is IPv6 or Dual, then it tries to allocate available VIP from
+	// the pool. If address is specified, it tries to allocate specified
+	// VIP from the pool.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Format=ipv6
+	IPv6Request *string `json:"ipv6Request,omitempty"`
 }
+
+// +kubebuilder:validation:Enum=ipv4;ipv6;dual
+type AddressFamily string
+
+const (
+	AddressFamilyIPv4 AddressFamily = "ipv4"
+	AddressFamilyIPv6 AddressFamily = "ipv6"
+	AddressFamilyDual AddressFamily = "dual"
+)
 
 type LBVIPStatus struct {
 	// The current conditions of the LBVIP.
@@ -2402,6 +2446,11 @@ type LBVIPAddresses struct {
 	//
 	// +kubebuilder:validation:Optional
 	IPv4 *string `json:"ipv4,omitempty"`
+
+	// The allocated IPv6 VIP.
+	//
+	// +kubebuilder:validation:Optional
+	IPv6 *string `json:"ipv6,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

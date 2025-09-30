@@ -25,6 +25,7 @@ import (
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var Cell = cell.Module(
@@ -125,10 +126,11 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 type reconcilerParams struct {
 	cell.In
 
-	Logger    *slog.Logger
-	Lifecycle cell.Lifecycle
-	JobGroup  job.Group
-	Config    Config
+	Logger      *slog.Logger
+	Lifecycle   cell.Lifecycle
+	JobGroup    job.Group
+	Config      Config
+	AgentConfig *option.DaemonConfig
 
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Scheme             *runtime.Scheme
@@ -163,11 +165,16 @@ func registerReconcilers(params reconcilerParams) error {
 	)
 
 	lbVIPReconciler := newLBVIPReconciler(
-		lbVIPReconcilerParams{
-			logger: params.Logger,
-			client: params.CtrlRuntimeManager.GetClient(),
-			scheme: params.Scheme,
-		})
+		params.Logger,
+		params.CtrlRuntimeManager.GetClient(),
+		params.Scheme,
+		lbVIPReconcilerConfig{
+			ipFamilies: reconcilerIPFamilyConfig{
+				EnableIPv4: params.AgentConfig.EnableIPv4,
+				EnableIPv6: params.AgentConfig.EnableIPv6,
+			},
+		},
+	)
 
 	lbBackendPoolReconciler := newLbBackendPoolReconciler(
 		params.Logger,

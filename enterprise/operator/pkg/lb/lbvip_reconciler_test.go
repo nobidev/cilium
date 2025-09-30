@@ -89,11 +89,17 @@ func TestLBVIPReconciler(t *testing.T) {
 
 			logger := slog.New(slog.DiscardHandler)
 
-			r := newLBVIPReconciler(lbVIPReconcilerParams{
-				logger: logger,
-				client: c,
-				scheme: scheme,
-			})
+			r := newLBVIPReconciler(
+				logger,
+				c,
+				scheme,
+				lbVIPReconcilerConfig{
+					ipFamilies: reconcilerIPFamilyConfig{
+						EnableIPv4: true,
+						EnableIPv6: false,
+					},
+				},
+			)
 
 			lbvip := &isovalentv1alpha1.LBVIP{
 				ObjectMeta: metav1.ObjectMeta{

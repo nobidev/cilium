@@ -84,7 +84,7 @@ type lbServiceT2Translator struct {
 }
 
 func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*ciliumv2.CiliumEnvoyConfig, error) {
-	if model.vip.assignedIPv4 == nil || !model.vip.bindStatus.serviceExists || !model.vip.bindStatus.bindSuccessful || model.isTCPProxyT1OnlyMode() || model.isUDPProxyT1OnlyMode() {
+	if (!model.vip.IPv4Assigned() && !model.vip.IPv6Assigned()) || !model.vip.bindStatus.serviceExists || !model.vip.bindStatus.bindSuccessful || model.isTCPProxyT1OnlyMode() || model.isUDPProxyT1OnlyMode() {
 		return nil, nil
 	}
 
@@ -240,35 +240,36 @@ func (r *lbServiceT2Translator) desiredAccessLoggerCluster(model *lbService) (*e
 func (r *lbServiceT2Translator) desiredEnvoyListeners(model *lbService) []*envoy_config_listener_v3.Listener {
 	listeners := []*envoy_config_listener_v3.Listener{}
 
-	listeners = append(listeners, r.desiredEnvoyTCPListener(model))
+	addresses := []string{}
+	if model.vip.IPv4Assigned() {
+		addresses = append(addresses, *model.vip.assignedIPv4)
+	}
+	if model.vip.IPv6Assigned() {
+		addresses = append(addresses, *model.vip.assignedIPv6)
+	}
+
+	listeners = append(listeners, r.desiredEnvoyTCPListener(model, addresses))
 
 	if model.isUDPProxy() {
-		listeners = append(listeners, r.desiredEnvoyUDPListener(model))
+		listeners = append(listeners, r.desiredEnvoyUDPListener(model, addresses))
 	}
 
 	return listeners
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyTCPListener(model *lbService) *envoy_config_listener_v3.Listener {
+func (r *lbServiceT2Translator) desiredEnvoyTCPListener(model *lbService, addresses []string) *envoy_config_listener_v3.Listener {
 	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
 
 	if r.config.AccessLog.EnableTCP {
 		accessLoggers = r.desiredEnvoyAccessLoggers(model, r.config.AccessLog.FormatTCP, r.config.AccessLog.JSONFormatTCP)
 	}
 
+	mainAddress, additionalAddresses := r.toAddresses(addresses, model.port, envoy_config_core_v3.SocketAddress_TCP)
+
 	return &envoy_config_listener_v3.Listener{
-		Name: "frontend_listener_tcp",
-		Address: &envoy_config_core_v3.Address{
-			Address: &envoy_config_core_v3.Address_SocketAddress{
-				SocketAddress: &envoy_config_core_v3.SocketAddress{
-					Protocol: envoy_config_core_v3.SocketAddress_TCP,
-					Address:  *model.vip.assignedIPv4,
-					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
-						PortValue: uint32(model.port),
-					},
-				},
-			},
-		},
+		Name:                          "frontend_listener_tcp",
+		Address:                       mainAddress,
+		AdditionalAddresses:           additionalAddresses,
 		ListenerFilters:               r.desiredEnvoyTCPListenerFilters(model),
 		FilterChains:                  r.desiredEnvoyListenerFilterChains(model),
 		AccessLog:                     accessLoggers,
@@ -278,20 +279,46 @@ func (r *lbServiceT2Translator) desiredEnvoyTCPListener(model *lbService) *envoy
 	}
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyUDPListener(model *lbService) *envoy_config_listener_v3.Listener {
-	return &envoy_config_listener_v3.Listener{
-		Name: "frontend_listener_udp",
-		Address: &envoy_config_core_v3.Address{
-			Address: &envoy_config_core_v3.Address_SocketAddress{
-				SocketAddress: &envoy_config_core_v3.SocketAddress{
-					Protocol: envoy_config_core_v3.SocketAddress_UDP,
-					Address:  *model.vip.assignedIPv4,
-					PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
-						PortValue: uint32(model.port),
-					},
+func (*lbServiceT2Translator) toAddresses(addresses []string, port int32, protocol envoy_config_core_v3.SocketAddress_Protocol) (*envoy_config_core_v3.Address, []*envoy_config_listener_v3.AdditionalAddress) {
+	mainAddress := &envoy_config_core_v3.Address{
+		Address: &envoy_config_core_v3.Address_SocketAddress{
+			SocketAddress: &envoy_config_core_v3.SocketAddress{
+				Protocol: protocol,
+				Address:  addresses[0],
+				PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
+					PortValue: uint32(port),
 				},
 			},
 		},
+	}
+	additionalAddresses := []*envoy_config_listener_v3.AdditionalAddress{}
+
+	for _, a := range addresses[1:] {
+		additionalAddresses = append(additionalAddresses, &envoy_config_listener_v3.AdditionalAddress{
+			Address: &envoy_config_core_v3.Address{
+				Address: &envoy_config_core_v3.Address_SocketAddress{
+					SocketAddress: &envoy_config_core_v3.SocketAddress{
+						Protocol: protocol,
+						Address:  a,
+						PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
+							PortValue: uint32(port),
+						},
+					},
+				},
+			},
+		})
+	}
+
+	return mainAddress, additionalAddresses
+}
+
+func (r *lbServiceT2Translator) desiredEnvoyUDPListener(model *lbService, addresses []string) *envoy_config_listener_v3.Listener {
+	mainAddress, additionalAddresses := r.toAddresses(addresses, model.port, envoy_config_core_v3.SocketAddress_UDP)
+
+	return &envoy_config_listener_v3.Listener{
+		Name:                          "frontend_listener_udp",
+		Address:                       mainAddress,
+		AdditionalAddresses:           additionalAddresses,
 		ListenerFilters:               r.desiredEnvoyUDPListenerFilters(model),
 		PerConnectionBufferLimitBytes: wrapperspb.UInt32(32768), // 32KiB
 		StatPrefix:                    fmt.Sprintf("%s_%s", model.namespace, model.name),
@@ -464,10 +491,16 @@ func (r *lbServiceT2Translator) desiredEnvoyListenerHealthCheckHttpFilterChain(m
 
 func (r *lbServiceT2Translator) t1NodeCIDRRanges(model *lbService) []*envoy_config_core_v3.CidrRange {
 	t1NodeCIDRs := []*envoy_config_core_v3.CidrRange{}
-	for _, t1NodeIP := range model.t1NodeIPs {
+	for _, t1NodeIP := range model.t1NodeIPv4Addresses {
 		t1NodeCIDRs = append(t1NodeCIDRs, &envoy_config_core_v3.CidrRange{
 			AddressPrefix: t1NodeIP,
 			PrefixLen:     wrapperspb.UInt32(32),
+		})
+	}
+	for _, t1NodeIP := range model.t1NodeIPv6Addresses {
+		t1NodeCIDRs = append(t1NodeCIDRs, &envoy_config_core_v3.CidrRange{
+			AddressPrefix: t1NodeIP,
+			PrefixLen:     wrapperspb.UInt32(128),
 		})
 	}
 
@@ -1545,7 +1578,7 @@ func (r *lbServiceT2Translator) desiredEnvoyClusters(model *lbService) []*envoy_
 	refBackendNamesSorted := slices.Sorted(maps.Keys(model.referencedBackends))
 
 	for _, bn := range refBackendNamesSorted {
-		clusters = append(clusters, r.desiredEnvoyCluster(r.getClusterName(bn), model.referencedBackends[bn]))
+		clusters = append(clusters, r.desiredEnvoyCluster(model, r.getClusterName(bn), model.referencedBackends[bn]))
 	}
 
 	clusters = append(clusters, r.desiredJWKSEnvoyClusters(model)...)
@@ -1558,7 +1591,7 @@ func (r *lbServiceT2Translator) desiredJWKSEnvoyClusters(model *lbService) []*en
 
 	if model.usesHTTPJWTAuth() {
 		for _, provider := range model.applications.httpProxy.auth.jwtAuth.providers {
-			if cluster := r.desiredJWKSEnvoyCluster(httpTypeHTTP, provider); cluster != nil {
+			if cluster := r.desiredJWKSEnvoyCluster(model, httpTypeHTTP, provider); cluster != nil {
 				clusters = append(clusters, cluster)
 			}
 		}
@@ -1566,7 +1599,7 @@ func (r *lbServiceT2Translator) desiredJWKSEnvoyClusters(model *lbService) []*en
 
 	if model.usesHTTPSJWTAuth() {
 		for _, provider := range model.applications.httpsProxy.auth.jwtAuth.providers {
-			if cluster := r.desiredJWKSEnvoyCluster(httpTypeHTTPS, provider); cluster != nil {
+			if cluster := r.desiredJWKSEnvoyCluster(model, httpTypeHTTPS, provider); cluster != nil {
 				clusters = append(clusters, cluster)
 			}
 		}
@@ -1575,7 +1608,7 @@ func (r *lbServiceT2Translator) desiredJWKSEnvoyClusters(model *lbService) []*en
 	return clusters
 }
 
-func (r *lbServiceT2Translator) desiredJWKSEnvoyCluster(httpType string, provider jwtProvider) *envoy_config_cluster_v3.Cluster {
+func (r *lbServiceT2Translator) desiredJWKSEnvoyCluster(model *lbService, httpType string, provider jwtProvider) *envoy_config_cluster_v3.Cluster {
 	if provider.remoteJWKS == nil {
 		return nil
 	}
@@ -1677,7 +1710,7 @@ func (r *lbServiceT2Translator) toHealthCheckTransportSocketMatchCriteria(backen
 	}
 }
 
-func (r *lbServiceT2Translator) desiredEnvoyCluster(name string, b backend) *envoy_config_cluster_v3.Cluster {
+func (r *lbServiceT2Translator) desiredEnvoyCluster(model *lbService, name string, b backend) *envoy_config_cluster_v3.Cluster {
 	cluster := &envoy_config_cluster_v3.Cluster{
 		Name: name,
 		CommonLbConfig: &envoy_config_cluster_v3.Cluster_CommonLbConfig{
