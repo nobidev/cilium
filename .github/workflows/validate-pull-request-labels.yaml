@@ -8,6 +8,8 @@ jobs:
   validate-pull-request-labels:
     name: Validate Pull Request Labels
     runs-on: ubuntu-24.04
+    permissions:
+      {}
     env:
       LABELS: "${{ toJson(github.event.pull_request.labels.*.name) }}"
     steps:
