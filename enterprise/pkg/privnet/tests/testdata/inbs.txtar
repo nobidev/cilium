@@ -1,0 +1,326 @@
+#! --private-networks-enabled
+
+# Populate the INBs checkpoint, to verify that associations are preserved.
+cp checkpoint.prev.json privnet-active-inbs.json
+
+hive start
+
+# Add two ClusterwidePrivateNetworks
+k8s/add icpn-blue.v1.yaml icpn-red.v1.yaml
+
+# Observe nodes from clustermesh (the etcd key is omitted as unused).
+clustermesh/nodes/upsert _ nodes-felidae-cougar.json
+clustermesh/nodes/upsert _ nodes-felidae-lion.json
+clustermesh/nodes/upsert _ nodes-felidae-tiger.json
+clustermesh/nodes/upsert _ nodes-camelidae-llama.json
+clustermesh/nodes/upsert _ nodes-elephantidae-elephant.json
+clustermesh/nodes/upsert _ nodes-elephantidae-mammoth.json
+
+# The INBs table should have been populated with the initial state.
+# No INB is still marked as active, as initialization did not complete yet.
+db/cmp privnet-inbs inbs.v1.table
+
+# The private privnet-inbs table should not be initialized, as
+# we haven't synchronized with clustermesh yet.
+db/initialized private-networks
+! db/initialized --timeout 0 privnet-inbs
+
+# The table should be marked as initialized at this point.
+clustermesh/nodes/sync
+db/initialized privnet-inbs
+
+# The active INBs should have been reconciled at this point.
+db/cmp privnet-inbs inbs.v2.table
+* cmp privnet-active-inbs.json checkpoint.v2.json
+
+
+# Observe a few more node updates and deletions, and assert that
+# the table is updated correctly.
+replace arm64 amd64 nodes-felidae-cougar.json   # Now matched by privnet blue
+replace amd64 s390x nodes-camelidae-llama.json  # No longer matched by privnet red
+replace 192.168.0.1 192.168.255.1 nodes-felidae-lion.json
+
+clustermesh/nodes/upsert _ nodes-camelidae-alpaca.json
+clustermesh/nodes/upsert _ nodes-camelidae-llama.json
+clustermesh/nodes/upsert _ nodes-felidae-cougar.json
+clustermesh/nodes/upsert _ nodes-felidae-lion.json
+clustermesh/nodes/delete _ nodes-felidae-tiger.json
+
+db/cmp privnet-inbs inbs.v3.table
+* cmp privnet-active-inbs.json checkpoint.v3.json
+
+
+# Update the privnet resources, and assert that the table is updated correctly.
+k8s/update icpn-blue.v2.yaml  # Change the selector of felidae, remove camelidae
+k8s/update icpn-red.v2.yaml   # Change the selector of felidae and camelidae, add elephantidae
+
+db/cmp privnet-inbs inbs.v4.table
+* cmp privnet-active-inbs.json checkpoint.v4.json
+
+
+# Delete one of the privnet resources, and assert that the table is updated correctly.
+k8s/delete icpn-red.v2.yaml
+db/cmp privnet-inbs inbs.v5.table
+* cmp privnet-active-inbs.json checkpoint.v5.json
+
+# Delete the other one as well, the table should be now empty.
+k8s/delete icpn-blue.v2.yaml
+* db/empty privnet-inbs
+* db/empty private-networks
+* cmp privnet-active-inbs.json checkpoint.v6.json
+
+# Add them back again, the table should converge again to the previous state.
+k8s/add icpn-blue.v2.yaml icpn-red.v2.yaml
+
+# Strictly speaking, there's no hard guarantee on which INB node gets picked
+# as active, as healthiness events may be observed in different batches.
+db/cmp privnet-inbs inbs.v6.table
+
+# Additionally, verify that both networks have an active INB. We check them
+# independently because their order is not guaranteed depending on which node
+# gets picked as active.
+db/get --index network-role --columns Network privnet-inbs blue|A
+* stdout blue
+db/get --index network-role --columns Network privnet-inbs red|A
+* stdout red
+
+# ---
+
+-- icpn-blue.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: blue
+spec:
+  networkBridges:
+    - cluster: felidae
+      nodeSelector:
+        matchLabels:
+          kubernetes.io/arch: amd64
+    - cluster: camelidae
+    - cluster: elephantidae
+  subnets:
+    - cidr: 192.168.250.0/24
+
+-- icpn-blue.v2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: blue
+spec:
+  networkBridges:
+    - cluster: felidae
+    - cluster: elephantidae
+  subnets:
+    - cidr: 192.168.250.0/24
+
+-- icpn-red.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: red
+spec:
+  networkBridges:
+    - cluster: felidae
+      nodeSelector:
+        matchExpressions:
+          - key: node-role.kubernetes.io/control-plane
+            operator: DoesNotExist
+    - cluster: camelidae
+      nodeSelector:
+        matchExpressions:
+          - key: kubernetes.io/arch
+            operator: In
+            values:
+              - amd64
+              - arm64
+  subnets:
+    - cidr: 192.168.251.0/24
+
+-- icpn-red.v2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: red
+spec:
+  networkBridges:
+    - cluster: felidae
+      nodeSelector:
+        matchExpressions:
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
+    - cluster: camelidae
+      nodeSelector:
+        matchExpressions:
+          - key: kubernetes.io/arch
+            operator: Exists
+        matchLabels:
+          kubernetes.io/hostname: llama
+    - cluster: elephantidae
+  subnets:
+    - cidr: 192.168.251.0/24
+
+-- nodes-felidae-lion.json --
+{
+    "Cluster": "felidae",
+    "Name": "lion",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "192.168.0.1"},
+        {"Type": "InternalIP", "IP": "fd00::1"},
+        {"Type": "ExternalIP", "IP": "1.2.3.4"}
+    ],
+    "Labels": {
+        "kubernetes.io/hostname": "lion",
+        "kubernetes.io/arch": "amd64",
+        "node-role.kubernetes.io/control-plane": ""
+    }
+}
+
+-- nodes-felidae-tiger.json --
+{
+    "Cluster": "felidae",
+    "Name": "tiger",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "192.168.0.2"}
+    ],
+    "Labels": {
+        "kubernetes.io/hostname": "tiger",
+        "kubernetes.io/arch": "amd64"
+    }
+}
+
+-- nodes-felidae-cougar.json --
+{
+    "Cluster": "felidae",
+    "Name": "cougar",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "192.168.0.3"}
+    ],
+    "Labels": {
+        "kubernetes.io/hostname": "cougar",
+        "kubernetes.io/arch": "arm64"
+    }
+}
+
+-- nodes-camelidae-alpaca.json --
+{
+    "Cluster": "camelidae",
+    "Name": "alpaca",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "192.168.0.4"}
+    ],
+    "Labels": {
+        "kubernetes.io/hostname": "alpaca",
+        "kubernetes.io/arch": "amd64"
+    }
+}
+
+-- nodes-camelidae-llama.json --
+{
+    "Cluster": "camelidae",
+    "Name": "llama",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "192.168.0.5"}
+    ],
+    "Labels": {
+        "kubernetes.io/hostname": "llama",
+        "kubernetes.io/arch": "amd64"
+    }
+}
+
+-- nodes-elephantidae-elephant.json --
+{
+    "Cluster": "elephantidae",
+    "Name": "elephant",
+    "IPAddresses": [
+      {"Type": "InternalIP", "IP": "192.168.0.6"}
+    ],
+    "Labels": {
+        "kubernetes.io/hostname": "elephant",
+        "kubernetes.io/arch": "amd64"
+    }
+}
+
+-- nodes-elephantidae-mammoth.json --
+{
+    "Cluster": "elephantidae",
+    "Name": "mammoth",
+    "IPAddresses": [],
+    "Labels": {
+        "kubernetes.io/hostname": "mammoth",
+        "kubernetes.io/arch": "amd64"
+    }
+}
+
+-- inbs.v1.table --
+Cluster        Node       IP              Network   Role
+camelidae      llama      192.168.0.5     blue      Standby
+camelidae      llama      192.168.0.5     red       Standby
+elephantidae   elephant   192.168.0.6     blue      Standby
+felidae        cougar     192.168.0.3     red       Standby
+felidae        lion       192.168.0.1     blue      Standby
+felidae        tiger      192.168.0.2     blue      Standby
+felidae        tiger      192.168.0.2     red       Standby
+
+-- inbs.v2.table --
+Cluster        Node       IP              Network   Role
+camelidae      llama      192.168.0.5     blue      Active
+camelidae      llama      192.168.0.5     red       Standby
+elephantidae   elephant   192.168.0.6     blue      Standby
+felidae        cougar     192.168.0.3     red       Standby
+felidae        lion       192.168.0.1     blue      Standby
+felidae        tiger      192.168.0.2     blue      Standby
+felidae        tiger      192.168.0.2     red       Active
+
+-- inbs.v3.table --
+Cluster        Node       IP              Network   Role
+camelidae      alpaca     192.168.0.4     blue      Standby
+camelidae      alpaca     192.168.0.4     red       Standby
+camelidae      llama      192.168.0.5     blue      Active
+elephantidae   elephant   192.168.0.6     blue      Standby
+felidae        cougar     192.168.0.3     blue      Standby
+felidae        cougar     192.168.0.3     red       Active
+felidae        lion       192.168.255.1   blue      Standby
+
+-- inbs.v4.table --
+Cluster        Node       IP              Network   Role
+camelidae      llama      192.168.0.5     red       Active
+elephantidae   elephant   192.168.0.6     blue      Standby
+elephantidae   elephant   192.168.0.6     red       Standby
+felidae        cougar     192.168.0.3     blue      Active
+felidae        lion       192.168.255.1   blue      Standby
+felidae        lion       192.168.255.1   red       Standby
+
+-- inbs.v5.table --
+Cluster        Node       IP              Network   Role
+elephantidae   elephant   192.168.0.6     blue      Standby
+felidae        cougar     192.168.0.3     blue      Active
+felidae        lion       192.168.255.1   blue      Standby
+
+-- inbs.v6.table --
+Cluster        Node       IP              Network   Health
+camelidae      llama      192.168.0.5     red       Healthy, Confirmed
+elephantidae   elephant   192.168.0.6     blue      Healthy, Confirmed
+elephantidae   elephant   192.168.0.6     red       Healthy, Confirmed
+felidae        cougar     192.168.0.3     blue      Healthy, Confirmed
+felidae        lion       192.168.255.1   blue      Healthy, Confirmed
+felidae        lion       192.168.255.1   red       Healthy, Confirmed
+-- inbs.v6.active.table --
+Network   State
+red       Active
+blue      Active
+
+
+-- checkpoint.prev.json --
+[{"network":"blue","cluster":"camelidae","node":"llama"},{"network":"red","cluster":"felidae","node":"cheetah"}]
+
+-- checkpoint.v2.json --
+[{"network":"blue","cluster":"camelidae","node":"llama"},{"network":"red","cluster":"felidae","node":"tiger"}]
+-- checkpoint.v3.json --
+[{"network":"blue","cluster":"camelidae","node":"llama"},{"network":"red","cluster":"felidae","node":"cougar"}]
+-- checkpoint.v4.json --
+[{"network":"blue","cluster":"felidae","node":"cougar"},{"network":"red","cluster":"camelidae","node":"llama"}]
+-- checkpoint.v5.json --
+[{"network":"blue","cluster":"felidae","node":"cougar"}]
+-- checkpoint.v6.json --
+[]
