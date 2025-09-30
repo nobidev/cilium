@@ -447,58 +447,16 @@ func (s *LoadbalancerClient) getT2Status(lbsvc isovalentv1alpha1.LBService, node
 
 	for nodeName, ecn := range nodeEnvoyConfigs {
 		for _, c := range ecn.Configs {
-			switch c.Type {
-			case "type.googleapis.com/envoy.admin.v3.ListenersConfigDump":
-				// default/lbfe-lb-1/frontend_listener
-				listenerFound := false
-
-				for _, l := range c.DynamicListeners {
-					if l.Name == fmt.Sprintf("%s/lbfe-%s/frontend_listener", lbsvc.Namespace, lbsvc.Name) &&
-						l.ActiveState.Listener.Address.SocketAddress.Address == *lbsvc.Status.Addresses.IPv4 &&
-						l.ActiveState.Listener.Address.SocketAddress.PortValue == int(lbsvc.Spec.Port) {
-						listenerFound = true
-						break
-					}
-				}
-				if !listenerFound {
-					continue
-				}
-
-			case "type.googleapis.com/envoy.admin.v3.RoutesConfigDump":
-				// default/lbfe-lb-1/frontend_routeconfig_https
-				routeFound := false
-				for _, r := range c.DynamicRouteConfigs {
-					if strings.HasPrefix(r.RouteConfig.Name, fmt.Sprintf("%s/lbfe-%s/", lbsvc.Namespace, lbsvc.Name)) {
-						routeFound = true
-						break
-					}
-				}
-				if !routeFound {
-					continue
-				}
-
-			case "type.googleapis.com/envoy.admin.v3.ClustersConfigDump":
-				// default/lbfe-lb-8/backend_cluster_https_0
-				clusterFound := false
-				for _, c := range c.DynamicActiveClusters {
-					if strings.HasPrefix(c.Cluster.Name, fmt.Sprintf("%s/lbfe-%s/", lbsvc.Namespace, lbsvc.Name)) {
-						clusterFound = true
-						break
-					}
-				}
-				if !clusterFound {
-					continue
-				}
-
-			case "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump":
-				// default/lbfe-lb-1/backend_cluster_https_0
-				for _, e := range c.DynamicEndpointConfigs {
-					if strings.HasPrefix(e.EndpointConfig.ClusterName, fmt.Sprintf("%s/lbfe-%s/", lbsvc.Namespace, lbsvc.Name)) {
-						for _, ep := range e.EndpointConfig.Endpoints {
-							for _, epc := range ep.LbEndpoints {
-								if epc.HealthStatus == "HEALTHY" {
-									usedNodes[nodeName] = struct{}{}
-								}
+			if c.Type != "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump" {
+				continue
+			}
+			// default/lbfe-lb-1/backend_cluster_https_0
+			for _, e := range c.DynamicEndpointConfigs {
+				if strings.HasPrefix(e.EndpointConfig.ClusterName, fmt.Sprintf("%s/lbfe-%s/", lbsvc.Namespace, lbsvc.Name)) {
+					for _, ep := range e.EndpointConfig.Endpoints {
+						for _, epc := range ep.LbEndpoints {
+							if epc.HealthStatus == "HEALTHY" {
+								usedNodes[nodeName] = struct{}{}
 							}
 						}
 					}
