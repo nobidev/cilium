@@ -445,6 +445,7 @@ func (s *LoadbalancerClient) getT2Status(lbsvc isovalentv1alpha1.LBService, node
 
 	usedNodes := map[string]struct{}{}
 
+	clusterNamePrefix := fmt.Sprintf("%s/lbfe-%s/", lbsvc.Namespace, lbsvc.Name)
 	for nodeName, ecn := range nodeEnvoyConfigs {
 		for _, c := range ecn.Configs {
 			if c.Type != "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump" {
@@ -452,7 +453,7 @@ func (s *LoadbalancerClient) getT2Status(lbsvc isovalentv1alpha1.LBService, node
 			}
 			// default/lbfe-lb-1/backend_cluster_https_0
 			for _, e := range c.DynamicEndpointConfigs {
-				if strings.HasPrefix(e.EndpointConfig.ClusterName, fmt.Sprintf("%s/lbfe-%s/", lbsvc.Namespace, lbsvc.Name)) {
+				if strings.HasPrefix(e.EndpointConfig.ClusterName, clusterNamePrefix) {
 					for _, ep := range e.EndpointConfig.Endpoints {
 						for _, epc := range ep.LbEndpoints {
 							if epc.HealthStatus == "HEALTHY" {
