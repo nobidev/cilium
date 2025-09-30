@@ -327,3 +327,57 @@ func (m *mockNodeStatusProvider) SetNodeStatus(status NodeStatus) {
 func (m *mockNodeStatusProvider) GetNodeStatus() NodeStatus {
 	return m.nodeStatus
 }
+
+type mockStatusReconciler struct {
+	lock.RWMutex
+
+	// How many times Reconcile was called per instance
+	countPerInstance map[string]int
+}
+
+type mockStatusReconcilerOut struct {
+	cell.Out
+
+	Reconciler reconcilerv2.StateReconciler `group:"bgp-state-reconciler-v2"`
+}
+
+func newMockStatusReconciler() (*mockStatusReconciler, mockStatusReconcilerOut) {
+	sr := &mockStatusReconciler{
+		countPerInstance: map[string]int{},
+	}
+	return sr, mockStatusReconcilerOut{
+		Reconciler: sr,
+	}
+}
+
+func (m *mockStatusReconciler) Name() string {
+	return "mock-status-reconciler"
+}
+
+func (m *mockStatusReconciler) Priority() int {
+	return 100
+}
+
+func (m *mockStatusReconciler) Reconcile(ctx context.Context, params reconcilerv2.StateReconcileParams) error {
+	m.Lock()
+	defer m.Unlock()
+
+	if params.ConfigMode.Get() != mode.BGPv2 {
+		panic("mockStatusReconciler only supports BGPv2")
+	}
+
+	if params.DeletedInstance != "" {
+		delete(m.countPerInstance, params.DeletedInstance)
+		return nil
+	}
+
+	if params.UpdatedInstance != nil {
+		if count, found := m.countPerInstance[params.UpdatedInstance.Name]; !found {
+			m.countPerInstance[params.UpdatedInstance.Name] = 1
+		} else {
+			m.countPerInstance[params.UpdatedInstance.Name] = count + 1
+		}
+	}
+
+	return nil
+}

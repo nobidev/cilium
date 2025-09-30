@@ -66,4 +66,8 @@ var ConfigReconcilers = cell.Group(
 
 	// config of the enterprise reconcilers
 	cell.Config(defaultConfig),
+
+	cell.Invoke(
+		registerPrivnetStatusNotifier,
+	),
 )
