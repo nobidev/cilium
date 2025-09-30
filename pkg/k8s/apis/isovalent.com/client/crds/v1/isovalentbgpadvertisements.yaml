@@ -65,6 +65,7 @@ spec:
                       - Interface
                       - EgressGateway
                       - SRv6LocatorPool
+                      - PrivateNetwork
                       type: string
                     attributes:
                       description: |-

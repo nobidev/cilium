@@ -15,7 +15,7 @@ import (
 // Note list of supported advertisements is not exhaustive and can be extended in the future.
 // Consumer of this API should be able to handle unknown values.
 //
-// +kubebuilder:validation:Enum=PodCIDR;CiliumPodIPPool;Service;Interface;EgressGateway;SRv6LocatorPool
+// +kubebuilder:validation:Enum=PodCIDR;CiliumPodIPPool;Service;Interface;EgressGateway;SRv6LocatorPool;PrivateNetwork
 type IsovalentBGPAdvertType string
 
 const (
@@ -36,6 +36,9 @@ const (
 
 	// BGPInterfaceAdvert when configured, Cilium will advertise IPs applied on the configured local interface.
 	BGPInterfaceAdvert IsovalentBGPAdvertType = "Interface"
+
+	// BGPPrivateNetworkAdvert when configured, Cilium will advertise private network related routes to BGP peers.
+	BGPPrivateNetworkAdvert IsovalentBGPAdvertType = "PrivateNetwork"
 )
 
 // +genclient
