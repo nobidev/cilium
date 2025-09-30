@@ -56,6 +56,10 @@ sed '172.128.0.6' '172.128.0.7' icpn-blue.v3.yaml
 k8s/update icpn-blue.v3.yaml
 db/cmp privnet-mapentries mapentries.v8.table
 
+# Remove all INBs in network blue, all remaining entries should be deleted.
+k8s/update icpn-blue.v4.yaml
+* db/empty privnet-mapentries
+
 # ---
 
 -- icpn-blue.v1.yaml --
@@ -80,6 +84,22 @@ metadata:
 spec:
   networkBridges:
   - ip: 172.128.0.6
+  routes:
+  - destination: 192.168.252.0/24
+    gateway: 192.168.250.2
+  - destination: 0.0.0.0/0
+    gateway: 192.168.250.1
+  subnets:
+  - cidr: 192.168.250.0/23
+  - cidr: fd10:0:250::0/64
+  - cidr: 192.168.250.24/32
+
+-- icpn-blue.v4.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: blue-segment
+spec:
   routes:
   - destination: 192.168.252.0/24
     gateway: 192.168.250.2

@@ -489,14 +489,22 @@ func (m *MapEntries) upsertRoute(txn statedb.WriteTxn, route tables.Route) error
 
 	// Synthesize map entry from route spec and upsert it
 	desired := route.ToMapEntry(privNet, m.cfg.EnabledAsBridge())
-	if desired == nil {
-		return nil
-	}
 
 	// Skip insert if entry already exists (this ensures downstream consumers are not woken up unnecessarily)
 	current, _, found := m.tbl.Get(txn,
-		tables.MapEntryByTypeNetworkCIDR(desired.Target.NetworkName, desired.Type, desired.Target.CIDR),
+		tables.MapEntryByTypeNetworkCIDR(route.Network, route.MapEntryType(), route.Destination),
 	)
+
+	if desired == nil {
+		if found {
+			// Delete the stale entry, most likely because there's no longer an
+			// active INB for this network.
+			_, _, err := m.tbl.Delete(txn, current)
+			return err
+		}
+		return nil
+	}
+
 	if found && current.Equal(desired) {
 		return nil
 	}
