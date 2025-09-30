@@ -73,6 +73,15 @@ spec:
                   - addressing
                   - name
                   type: object
+                flags:
+                  description: Additional flags to characterize the entry.
+                  properties:
+                    external:
+                      description: |-
+                        Set when the endpoint is external to the cluster, and the advertising
+                        node provides access to it in bridge mode.
+                      type: boolean
+                  type: object
                 interface:
                   description: The endpoint identifiers from the private network point
                     of view.
@@ -109,6 +118,7 @@ spec:
                   type: object
               required:
               - endpoint
+              - flags
               - interface
               type: object
             type: array
@@ -122,6 +132,13 @@ spec:
             type: string
           metadata:
             type: object
+          nodeName:
+            description: |-
+              The name of the node hosting this slice of endpoints. It is the name of
+              the Isovalent Network Bridge when operating in bridge mode.
+            type: string
+        required:
+        - nodeName
         type: object
     served: true
     storage: true

@@ -68,6 +68,8 @@ endpoints:
       ipv6: fd00:10:100::52
     mac: 00:50:56:ad:45:d8
     network: green-network
+  flags:
+    external: true
 - endpoint:
     addressing:
       ipv4: 10.244.5.109
@@ -79,6 +81,9 @@ endpoints:
       ipv6: fd00:10:100::52
     mac: 00:50:56:ad:11:99
     network: blue-network
+  flags:
+    external: true
+nodeName: cobra
 
 -- privnet-epslice-1-v2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -111,6 +116,9 @@ endpoints:
       ipv6: fd00:10:100::52
     mac: 00:50:56:ad:45:d8
     network: green-network
+  flags:
+    external: true
+nodeName: cobra
 
 -- privnet-epslice-2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -129,6 +137,9 @@ endpoints:
       ipv4: 10.0.100.43
     mac: 00:50:56:ad:45:ec
     network: blue-network
+  flags:
+    external: true
+nodeName: lioness
 
 -- privnet-epslice-3.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -147,11 +158,17 @@ endpoints:
       ipv4: 10.0.100.50
     mac: 00:50:56:ad:9b:c7
     network: yellow-network
+  flags:
+    external: false
+nodeName: weasel
 
 -- entries-1+2.expected --
 # cilium/state/privneteps/v1/cluster3/blue-network/10.244.5.108
 {
   "activatedAt": "2025-06-20T15:54:04.501Z",
+  "flags": {
+    "external": false
+  },
   "ip": "10.244.5.108",
   "name": "optimum-mouse",
   "network": {
@@ -159,6 +176,7 @@ endpoints:
     "ip": "10.0.100.40",
     "mac": "00:50:56:ad:45:ec"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -167,6 +185,9 @@ endpoints:
 }
 # cilium/state/privneteps/v1/cluster3/blue-network/10.244.5.109
 {
+  "flags": {
+    "external": true
+  },
   "ip": "10.244.5.109",
   "name": "regular-koi",
   "network": {
@@ -174,6 +195,7 @@ endpoints:
     "ip": "10.0.100.52",
     "mac": "00:50:56:ad:11:99"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -183,6 +205,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/blue-network/10.244.6.80
 {
   "activatedAt": "2025-06-20T16:13:01.667Z",
+  "flags": {
+    "external": true
+  },
   "ip": "10.244.6.80",
   "name": "on-viper",
   "network": {
@@ -190,6 +215,7 @@ endpoints:
     "ip": "10.0.100.43",
     "mac": "00:50:56:ad:45:ec"
   },
+  "nodeName": "lioness",
   "source": {
     "cluster": "cluster3",
     "namespace": "precise-caiman",
@@ -199,6 +225,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/blue-network/fd00:10:244:5::108
 {
   "activatedAt": "2025-06-20T15:54:04.501Z",
+  "flags": {
+    "external": false
+  },
   "ip": "fd00:10:244:5::108",
   "name": "optimum-mouse",
   "network": {
@@ -206,6 +235,7 @@ endpoints:
     "ip": "fd00:10:100::40",
     "mac": "00:50:56:ad:45:ec"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -214,6 +244,9 @@ endpoints:
 }
 # cilium/state/privneteps/v1/cluster3/blue-network/fd00:10:244:5::109
 {
+  "flags": {
+    "external": true
+  },
   "ip": "fd00:10:244:5::109",
   "name": "regular-koi",
   "network": {
@@ -221,6 +254,7 @@ endpoints:
     "ip": "fd00:10:100::52",
     "mac": "00:50:56:ad:11:99"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -230,6 +264,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/green-network/10.244.5.63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
+  "flags": {
+    "external": true
+  },
   "ip": "10.244.5.63",
   "name": "pumped-ocelot",
   "network": {
@@ -237,6 +274,7 @@ endpoints:
     "ip": "10.0.100.52",
     "mac": "00:50:56:ad:45:d8"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -246,6 +284,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/green-network/fd00:10:244:5::63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
+  "flags": {
+    "external": true
+  },
   "ip": "fd00:10:244:5::63",
   "name": "pumped-ocelot",
   "network": {
@@ -253,6 +294,7 @@ endpoints:
     "ip": "fd00:10:100::52",
     "mac": "00:50:56:ad:45:d8"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -263,6 +305,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/blue-network/10.244.6.80
 {
   "activatedAt": "2025-06-20T16:13:01.667Z",
+  "flags": {
+    "external": true
+  },
   "ip": "10.244.6.80",
   "name": "on-viper",
   "network": {
@@ -270,6 +315,7 @@ endpoints:
     "ip": "10.0.100.43",
     "mac": "00:50:56:ad:45:ec"
   },
+  "nodeName": "lioness",
   "source": {
     "cluster": "cluster3",
     "namespace": "precise-caiman",
@@ -279,6 +325,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/green-network/10.244.5.63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
+  "flags": {
+    "external": true
+  },
   "ip": "10.244.5.63",
   "name": "pumped-ocelot",
   "network": {
@@ -286,6 +335,7 @@ endpoints:
     "ip": "10.0.100.52",
     "mac": "00:50:56:ad:45:d8"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -295,6 +345,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/green-network/fd00:10:244:5::63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
+  "flags": {
+    "external": true
+  },
   "ip": "fd00:10:244:5::63",
   "name": "pumped-ocelot",
   "network": {
@@ -302,6 +355,7 @@ endpoints:
     "ip": "fd00:10:100::52",
     "mac": "00:50:56:ad:45:d8"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -311,6 +365,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/yellow-network/10.244.5.108
 {
   "activatedAt": "2025-06-20T15:59:04.501Z",
+  "flags": {
+    "external": false
+  },
   "ip": "10.244.5.108",
   "name": "optimum-mouse",
   "network": {
@@ -318,6 +375,7 @@ endpoints:
     "ip": "10.0.100.41",
     "mac": "00:50:56:ad:45:ec"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -327,6 +385,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/yellow-network/fd00:10:244:5::108
 {
   "activatedAt": "2025-06-20T15:59:04.501Z",
+  "flags": {
+    "external": false
+  },
   "ip": "fd00:10:244:5::108",
   "name": "optimum-mouse",
   "network": {
@@ -334,6 +395,7 @@ endpoints:
     "ip": "fd00:10:100::41",
     "mac": "00:50:56:ad:45:ec"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -344,6 +406,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/blue-network/10.244.6.80
 {
   "activatedAt": "2025-06-20T16:13:01.667Z",
+  "flags": {
+    "external": true
+  },
   "ip": "10.244.6.80",
   "name": "on-viper",
   "network": {
@@ -351,6 +416,7 @@ endpoints:
     "ip": "10.0.100.43",
     "mac": "00:50:56:ad:45:ec"
   },
+  "nodeName": "lioness",
   "source": {
     "cluster": "cluster3",
     "namespace": "precise-caiman",
@@ -360,6 +426,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/green-network/10.244.5.63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
+  "flags": {
+    "external": true
+  },
   "ip": "10.244.5.63",
   "name": "pumped-ocelot",
   "network": {
@@ -367,6 +436,7 @@ endpoints:
     "ip": "10.0.100.52",
     "mac": "00:50:56:ad:45:d8"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -376,6 +446,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/green-network/fd00:10:244:5::63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
+  "flags": {
+    "external": true
+  },
   "ip": "fd00:10:244:5::63",
   "name": "pumped-ocelot",
   "network": {
@@ -383,6 +456,7 @@ endpoints:
     "ip": "fd00:10:100::52",
     "mac": "00:50:56:ad:45:d8"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -392,6 +466,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/yellow-network/10.244.5.108
 {
   "activatedAt": "2025-06-20T15:59:04.501Z",
+  "flags": {
+    "external": false
+  },
   "ip": "10.244.5.108",
   "name": "optimum-mouse",
   "network": {
@@ -399,6 +476,7 @@ endpoints:
     "ip": "10.0.100.41",
     "mac": "00:50:56:ad:45:ec"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -408,6 +486,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/yellow-network/10.244.7.42
 {
   "activatedAt": "2025-06-20T16:24:09.627Z",
+  "flags": {
+    "external": false
+  },
   "ip": "10.244.7.42",
   "name": "enabling-lacewing",
   "network": {
@@ -415,6 +496,7 @@ endpoints:
     "ip": "10.0.100.50",
     "mac": "00:50:56:ad:9b:c7"
   },
+  "nodeName": "weasel",
   "source": {
     "cluster": "cluster3",
     "namespace": "precise-caiman",
@@ -424,6 +506,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/yellow-network/fd00:10:244:5::108
 {
   "activatedAt": "2025-06-20T15:59:04.501Z",
+  "flags": {
+    "external": false
+  },
   "ip": "fd00:10:244:5::108",
   "name": "optimum-mouse",
   "network": {
@@ -431,6 +516,7 @@ endpoints:
     "ip": "fd00:10:100::41",
     "mac": "00:50:56:ad:45:ec"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -441,6 +527,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/green-network/10.244.5.63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
+  "flags": {
+    "external": true
+  },
   "ip": "10.244.5.63",
   "name": "pumped-ocelot",
   "network": {
@@ -448,6 +537,7 @@ endpoints:
     "ip": "10.0.100.52",
     "mac": "00:50:56:ad:45:d8"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -457,6 +547,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/green-network/fd00:10:244:5::63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
+  "flags": {
+    "external": true
+  },
   "ip": "fd00:10:244:5::63",
   "name": "pumped-ocelot",
   "network": {
@@ -464,6 +557,7 @@ endpoints:
     "ip": "fd00:10:100::52",
     "mac": "00:50:56:ad:45:d8"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -473,6 +567,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/yellow-network/10.244.5.108
 {
   "activatedAt": "2025-06-20T15:59:04.501Z",
+  "flags": {
+    "external": false
+  },
   "ip": "10.244.5.108",
   "name": "optimum-mouse",
   "network": {
@@ -480,6 +577,7 @@ endpoints:
     "ip": "10.0.100.41",
     "mac": "00:50:56:ad:45:ec"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",
@@ -489,6 +587,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/yellow-network/10.244.7.42
 {
   "activatedAt": "2025-06-20T16:24:09.627Z",
+  "flags": {
+    "external": false
+  },
   "ip": "10.244.7.42",
   "name": "enabling-lacewing",
   "network": {
@@ -496,6 +597,7 @@ endpoints:
     "ip": "10.0.100.50",
     "mac": "00:50:56:ad:9b:c7"
   },
+  "nodeName": "weasel",
   "source": {
     "cluster": "cluster3",
     "namespace": "precise-caiman",
@@ -505,6 +607,9 @@ endpoints:
 # cilium/state/privneteps/v1/cluster3/yellow-network/fd00:10:244:5::108
 {
   "activatedAt": "2025-06-20T15:59:04.501Z",
+  "flags": {
+    "external": false
+  },
   "ip": "fd00:10:244:5::108",
   "name": "optimum-mouse",
   "network": {
@@ -512,6 +617,7 @@ endpoints:
     "ip": "fd00:10:100::41",
     "mac": "00:50:56:ad:45:ec"
   },
+  "nodeName": "cobra",
   "source": {
     "cluster": "cluster3",
     "namespace": "keen-calf",

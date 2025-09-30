@@ -85,6 +85,7 @@ endpoints:
       ipv6: fd00:10:100::52
     mac: 00:50:56:ad:11:99
     network: blue-network
+nodeName: cricket
 
 -- privnet-epslice-2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -104,6 +105,7 @@ endpoints:
       ipv6: fd00:10:100::40
     mac: 00:50:56:ad:45:ec
     network: blue-network
+nodeName: crab
 
 -- privnet-epslice-2.v2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -134,6 +136,7 @@ endpoints:
       ipv4: 10.0.100.50
     mac: 00:50:56:ad:9b:c7
     network: yellow-network
+nodeName: crab
 
 -- clustermesh-entry-1.json --
 {
@@ -144,6 +147,7 @@ endpoints:
     "ip": "10.0.100.40",
     "mac": "00:50:56:ad:45:ec"
   },
+  "nodeName": "hookworm",
   "source": {
     "cluster": "remote",
     "namespace": "keen-calf",
@@ -161,6 +165,7 @@ endpoints:
     "ip": "10.0.100.52",
     "mac": "00:50:56:ad:11:99"
   },
+  "nodeName": "hookworm",
   "source": {
     "cluster": "remote",
     "namespace": "keen-calf",

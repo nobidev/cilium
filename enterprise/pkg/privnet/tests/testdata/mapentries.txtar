@@ -183,6 +183,7 @@ endpoints:
       ipv6: fd00:10:100::31
     mac: 00:50:56:ad:45:f7
     network: green-network
+nodeName: crayfish
 
 -- privnet-eps.v2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -202,6 +203,7 @@ endpoints:
       ipv6: fd00:10:100::31
     mac: 00:50:56:ad:45:f7
     network: green-network
+nodeName: lion
 
 
 --  privnet-alt-eps.v1.yaml --
@@ -259,6 +261,7 @@ endpoints:
       ipv6: fd00:10:100::30
     mac: 00:50:56:ad:45:d8
     network: green-network
+nodeName: crayfish
 
 
 -- nodes-felidae-cougar.json --

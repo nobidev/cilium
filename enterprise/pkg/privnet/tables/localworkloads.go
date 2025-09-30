@@ -37,6 +37,9 @@ type LocalWorkload struct {
 
 	// ActivatedAt is the instant in time in which this entry was marked as active.
 	ActivatedAt time.Time
+
+	// Flags contains additional flags to characterize the endpoint.
+	Flags iso_v1alpha1.PrivateNetworkEndpointSliceFlags
 }
 
 var _ statedb.TableWritable = &LocalWorkload{}

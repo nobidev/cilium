@@ -40,7 +40,8 @@ func TestEndpointEqual(t *testing.T) {
 			IP:   netip.MustParseAddr("5.6.7.8"),
 			MAC:  m,
 		},
-		Source: kvstore.Source{Cluster: "foo", Namespace: "bar", Name: "baz"},
+		NodeName: "node",
+		Source:   kvstore.Source{Cluster: "foo", Namespace: "bar", Name: "baz"},
 	}
 
 	tests := []struct {
@@ -78,6 +79,15 @@ func TestEndpointEqual(t *testing.T) {
 			assert: assert.False,
 		},
 		{
+			name: "different Flags",
+			a:    &ep,
+			b: func(cpy kvstore.Endpoint) *kvstore.Endpoint {
+				cpy.Flags.External = true
+				return &cpy
+			}(ep),
+			assert: assert.False,
+		},
+		{
 			name: "different IP",
 			a:    &ep,
 			b: func(cpy kvstore.Endpoint) *kvstore.Endpoint {
@@ -93,6 +103,15 @@ func TestEndpointEqual(t *testing.T) {
 				m, err := mac.ParseMAC("00:11:22:33:44:66")
 				require.NoError(t, err, "mac.ParseMAC")
 				cpy.Network.MAC = m
+				return &cpy
+			}(ep),
+			assert: assert.False,
+		},
+		{
+			name: "different NodeName",
+			a:    &ep,
+			b: func(cpy kvstore.Endpoint) *kvstore.Endpoint {
+				cpy.NodeName = "other"
 				return &cpy
 			}(ep),
 			assert: assert.False,
@@ -121,6 +140,7 @@ func TestEndpointMarshalUnmarshal(t *testing.T) {
 
 	ep := kvstore.Endpoint{
 		ActivatedAt: time.Now().UTC(),
+		Flags:       kvstore.Flags{External: true},
 		IP:          netip.MustParseAddr("1.2.3.4"),
 		Name:        "name",
 		Network: kvstore.Network{
@@ -128,7 +148,8 @@ func TestEndpointMarshalUnmarshal(t *testing.T) {
 			IP:   netip.MustParseAddr("5.6.7.8"),
 			MAC:  m,
 		},
-		Source: kvstore.Source{Cluster: "foo", Namespace: "bar", Name: "baz"},
+		NodeName: "node",
+		Source:   kvstore.Source{Cluster: "foo", Namespace: "bar", Name: "baz"},
 	}
 
 	tests := []struct {
@@ -204,6 +225,17 @@ func TestEndpointMarshalUnmarshal(t *testing.T) {
 			errstr: "Key: 'Endpoint.Network.Name' Error:Field validation for 'Name' failed on the 'dns1123-subdomain' tag\nKey: 'Endpoint.Network.IP' Error:Field validation for 'IP' failed on the 'required' tag\nKey: 'Endpoint.Network.MAC' Error:Field validation for 'MAC' failed on the 'len' tag",
 		},
 		{
+			name: "invalid node name",
+			endpoint: func() kvstore.Endpoint {
+				cpy := ep
+				cpy.NodeName = "-_-"
+				return cpy
+			}(),
+			key:    "blue/1.2.3.4",
+			cname:  "foo",
+			errstr: "Key: 'Endpoint.NodeName' Error:Field validation for 'NodeName' failed on the 'dns1123-subdomain' tag",
+		},
+		{
 			name: "missing source information",
 			endpoint: func() kvstore.Endpoint {
 				cpy := ep
@@ -254,6 +286,7 @@ func TestEndpointsFromEndpointSlice(t *testing.T) {
 		Addr = iso_v1alpha1.PrivateNetworkEndpointAddressing
 		EP   = iso_v1alpha1.PrivateNetworkEndpointSliceEndpoint
 		IF   = iso_v1alpha1.PrivateNetworkEndpointSliceInterface
+		FL   = iso_v1alpha1.PrivateNetworkEndpointSliceFlags
 	)
 
 	var (
@@ -281,6 +314,7 @@ func TestEndpointsFromEndpointSlice(t *testing.T) {
 				{
 					Endpoint:  EP{Name: "ipv6-only", Addressing: Addr{IPv6: "fc00::1"}},
 					Interface: IF{Network: "net-2", Addressing: Addr{IPv6: "fd00::1"}, MAC: "00:11:22:33:44:66"},
+					Flags:     FL{External: true},
 				},
 				{
 					Endpoint:    EP{Name: "dual", Addressing: Addr{IPv4: "192.168.0.2", IPv6: "fc00::2"}},
@@ -296,13 +330,14 @@ func TestEndpointsFromEndpointSlice(t *testing.T) {
 					Interface: IF{Network: "net-5", Addressing: Addr{IPv6: "10.0.0.3"}, MAC: "00:11:22:33:44:88"},
 				},
 			},
+			NodeName: "__node__",
 		}
 
 		expected = []*kvstore.Endpoint{
-			{Source: source, Name: "ipv4-only", IP: MPA("192.168.0.1"), Network: kvstore.Network{Name: "net-1", IP: MPA("10.0.0.1"), MAC: MPM("00:11:22:33:44:55")}},
-			{Source: source, Name: "ipv6-only", IP: MPA("fc00::1"), Network: kvstore.Network{Name: "net-2", IP: MPA("fd00::1"), MAC: MPM("00:11:22:33:44:66")}},
-			{Source: source, Name: "dual", IP: MPA("192.168.0.2"), Network: kvstore.Network{Name: "net-3", IP: MPA("10.0.0.2"), MAC: MPM("00:11:22:33:44:77")}, ActivatedAt: now},
-			{Source: source, Name: "dual", IP: MPA("fc00::2"), Network: kvstore.Network{Name: "net-3", IP: MPA("fd00::2"), MAC: MPM("00:11:22:33:44:77")}, ActivatedAt: now},
+			{Source: source, Name: "ipv4-only", IP: MPA("192.168.0.1"), Network: kvstore.Network{Name: "net-1", IP: MPA("10.0.0.1"), MAC: MPM("00:11:22:33:44:55")}, NodeName: "__node__"},
+			{Source: source, Name: "ipv6-only", IP: MPA("fc00::1"), Network: kvstore.Network{Name: "net-2", IP: MPA("fd00::1"), MAC: MPM("00:11:22:33:44:66")}, NodeName: "__node__", Flags: kvstore.Flags{External: true}},
+			{Source: source, Name: "dual", IP: MPA("192.168.0.2"), Network: kvstore.Network{Name: "net-3", IP: MPA("10.0.0.2"), MAC: MPM("00:11:22:33:44:77")}, NodeName: "__node__", ActivatedAt: now},
+			{Source: source, Name: "dual", IP: MPA("fc00::2"), Network: kvstore.Network{Name: "net-3", IP: MPA("fd00::2"), MAC: MPM("00:11:22:33:44:77")}, NodeName: "__node__", ActivatedAt: now},
 		}
 
 		actual = slices.Collect(kvstore.EndpointsFromEndpointSlice(hivetest.Logger(t), source.Cluster, input))

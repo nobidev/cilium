@@ -124,6 +124,12 @@ type PrivateNetworkEndpointSlice struct {
 	//
 	// +kubebuilder:validation:Optional
 	Endpoints []PrivateNetworkEndpointSliceEntry `json:"endpoints"`
+
+	// The name of the node hosting this slice of endpoints. It is the name of
+	// the Isovalent Network Bridge when operating in bridge mode.
+	//
+	// +kubebuilder:validation:Required
+	NodeName string `json:"nodeName"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -157,6 +163,9 @@ type PrivateNetworkEndpointSliceEntry struct {
 	//
 	// +kubebuilder:validation:Required
 	Interface PrivateNetworkEndpointSliceInterface `json:"interface"`
+
+	// Additional flags to characterize the entry.
+	Flags PrivateNetworkEndpointSliceFlags `json:"flags"`
 }
 
 // DeepEqual is implemented manually for PrivateNetworkEndpointSliceEntry, because metav1.MicroTime has no DeepEqual
@@ -224,6 +233,12 @@ type PrivateNetworkEndpointAddressing struct {
 	//
 	// +kubebuilder:validation:Format=ipv6
 	IPv6 string `json:"ipv6,omitempty"`
+}
+
+type PrivateNetworkEndpointSliceFlags struct {
+	// Set when the endpoint is external to the cluster, and the advertising
+	// node provides access to it in bridge mode.
+	External bool `json:"external,omitempty"`
 }
 
 // +genclient

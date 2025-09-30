@@ -38,6 +38,9 @@ type Endpoint struct {
 	// ActivatedAt is the instant in time in which this entry was marked as active.
 	ActivatedAt time.Time `json:"activatedAt,omitzero"`
 
+	// Flags contains additional flags to characterize the entry.
+	Flags Flags `json:"flags"`
+
 	// IP is the endpoint IP from the pod network point of view.
 	IP netip.Addr `json:"ip" validate:"required"`
 
@@ -46,6 +49,10 @@ type Endpoint struct {
 
 	// Network contains the identifiers from the private network point of view.
 	Network Network `json:"network" validate:"required"`
+
+	// The name of the node hosting the target endpoint. It is the name of
+	// the Isovalent Network Bridge when operating in bridge mode.
+	NodeName string `json:"nodeName" validate:"required,dns1123-subdomain"`
 
 	// Source identifies the resource propagating the endpoint information.
 	Source Source `json:"source" validate:"required"`
@@ -79,6 +86,13 @@ type Source struct {
 
 func (s Source) String() string {
 	return s.Cluster + "/" + s.Namespace + "/" + s.Name
+}
+
+// Flags groups additional flags to characterize the endpoint entry.
+type Flags struct {
+	// External is set when the endpoint is external to the cluster, and the
+	// advertising node provides access to it in bridge mode.
+	External bool `json:"external"`
 }
 
 // GetKeyName returns the kvstore key to be used for the private network endpoint.
@@ -117,7 +131,8 @@ func (e *Endpoint) Equal(other *Endpoint) bool {
 
 	return e.ActivatedAt.Equal(other.ActivatedAt) &&
 		e.IP == other.IP && e.Name == other.Name &&
-		e.Network.Equal(other.Network) && e.Source == other.Source
+		e.Network.Equal(other.Network) && e.Source == other.Source &&
+		e.NodeName == other.NodeName && e.Flags == other.Flags
 }
 
 func (e *Endpoint) validate(key string) error {
@@ -156,6 +171,10 @@ func EndpointsFromEndpointSlice(logger *slog.Logger, clusterName string, slice *
 				return &Endpoint{
 					ActivatedAt: ep.ActivatedAt.Time.UTC(),
 
+					Flags: Flags{
+						External: ep.Flags.External,
+					},
+
 					IP:   epAddrParsed,
 					Name: ep.Endpoint.Name,
 
@@ -164,6 +183,8 @@ func EndpointsFromEndpointSlice(logger *slog.Logger, clusterName string, slice *
 						IP:   netAddrParsed,
 						MAC:  mac,
 					},
+
+					NodeName: slice.NodeName,
 
 					Source: Source{
 						Cluster:   clusterName,

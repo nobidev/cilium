@@ -297,7 +297,7 @@ func (r *endpointSlicesReconcilerOps) updateEndpointSlice(ctx context.Context, n
 	if err != nil {
 		return err
 	}
-	resourceName := ownerRef.Name
+	nodeName, resourceName := ownerRef.Name, ownerRef.Name
 
 	// Create a new read transaction to read the latest snapshot.
 	// This is intentional, in case the reconciler lags behind
@@ -310,6 +310,7 @@ func (r *endpointSlicesReconcilerOps) updateEndpointSlice(ctx context.Context, n
 		eps = append(eps, iso_v1alpha1.PrivateNetworkEndpointSliceEntry{
 			Endpoint:    lw.Endpoint,
 			Interface:   lw.Interface,
+			Flags:       lw.Flags,
 			ActivatedAt: metav1.NewMicroTime(lw.ActivatedAt),
 		})
 	}
@@ -352,12 +353,13 @@ func (r *endpointSlicesReconcilerOps) updateEndpointSlice(ctx context.Context, n
 					},
 				},
 				Endpoints: eps,
+				NodeName:  nodeName,
 			}, metav1.CreateOptions{})
 		return err
 	}
 
 	// If the slice exists, and we just need to update it, check first if changes are even needed
-	if slices.Equal(eps, es.Slice.Endpoints) {
+	if slices.Equal(eps, es.Slice.Endpoints) && nodeName == es.Slice.NodeName {
 		r.log.Debug("Skipping update of PrivateNetworkEndpointSlice", logfields.Name, es.Slice.Name)
 		return nil
 	}
@@ -365,6 +367,7 @@ func (r *endpointSlicesReconcilerOps) updateEndpointSlice(ctx context.Context, n
 	// Update the existing object. On failure, we rely on the reconciler to re-try.
 	slice := es.Slice.DeepCopy()
 	slice.Endpoints = eps
+	slice.NodeName = nodeName
 	_, err = r.client.PrivateNetworkEndpointSlices(namespace).Update(ctx, slice, metav1.UpdateOptions{})
 	return err
 }

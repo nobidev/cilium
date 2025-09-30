@@ -64,6 +64,7 @@ type Endpoint interface {
 
 	GetPropertyValue(key string) any
 	SetPropertyValue(key string, value any) any
+	IsProperty(key string) bool
 
 	LXCMac() mac.MAC
 	IPv4Address() netip.Addr

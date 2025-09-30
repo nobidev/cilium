@@ -143,6 +143,12 @@ func (f *fakeEP) SetPropertyValue(key string, value any) any {
 	return value
 }
 
+// IsProperty implements endpoints.Endpoint.
+func (f *fakeEP) IsProperty(key string) bool {
+	value, ok := f.GetPropertyValue(key).(bool)
+	return ok && value
+}
+
 // LXCMac implements endpoints.Endpoint.
 func (f *fakeEP) LXCMac() mac.MAC {
 	return f.MAC
