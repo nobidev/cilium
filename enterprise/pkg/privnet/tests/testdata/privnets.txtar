@@ -42,8 +42,11 @@ metadata:
 spec:
   interface: {}
   networkBridges:
-  - ip: 172.128.0.6
-  - ip: 172.128.0.7
+  - cluster: felidae
+    nodeSelector:
+      matchLabels:
+        kubernetes.io/arch: amd64
+  - cluster: elephantidae
   routes:
   - destination: 192.168.252.0/24
     gateway: 192.168.250.254
@@ -66,29 +69,29 @@ spec:
   interface:
     name: eth1
   networkBridges:
-  - ip: 172.128.0.9
+  - cluster: camelidae
   routes: []
   subnets:
   - cidr: 192.168.251.0/24
 
 -- privnet.table --
-Name             ID    Interface   INBs                      Subnets                             Routes
-direct-maggot    0x1   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::/64    4
-united-firefly   0x2   N/A         172.128.0.9               192.168.251.0/24                    0
+Name             ID    Interface   INBClusters              Subnets                             Routes
+direct-maggot    0x1   N/A         elephantidae,felidae     192.168.250.0/24,fd10:0:250::/64    4
+united-firefly   0x2   N/A         camelidae                192.168.251.0/24                    0
 
 -- privnet.table.v2 --
-Name             ID    Interface   INBs                      Subnets                             Routes
-direct-maggot    0x1   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::/64    4
-united-firefly   0x2   N/A         172.128.0.9               192.168.252.0/24                    0
+Name             ID    Interface   INBClusters              Subnets                             Routes
+direct-maggot    0x1   N/A         elephantidae,felidae     192.168.250.0/24,fd10:0:250::/64    4
+united-firefly   0x2   N/A         camelidae                192.168.252.0/24                    0
 
 -- privnet.table.v3 --
-Name             ID    Interface   INBs                      Subnets                             Routes
-united-firefly   0x2   N/A         172.128.0.9               192.168.252.0/24                    0
+Name             ID    Interface   INBClusters              Subnets                             Routes
+united-firefly   0x2   N/A         camelidae                192.168.252.0/24                    0
 
 -- privnet.table.v4 --
-Name             ID    Interface   INBs                      Subnets                             Routes
-direct-maggot    0x3   N/A         172.128.0.6,172.128.0.7   192.168.250.0/24,fd10:0:250::/64    4
-united-firefly   0x2   N/A         172.128.0.9               192.168.252.0/24                    0
+Name             ID    Interface   INBClusters              Subnets                             Routes
+direct-maggot    0x3   N/A         elephantidae,felidae     192.168.250.0/24,fd10:0:250::/64    4
+united-firefly   0x2   N/A         camelidae                192.168.252.0/24                    0
 
 -- routes.table --
 Network          Destination        Gateway
@@ -118,10 +121,9 @@ united-firefly   192.168.252.0/24   N/A
 name: direct-maggot
 id: 1
 inbs:
-    ips:
-        - 172.128.0.6
-        - 172.128.0.7
-    selectors: {}
+    selectors:
+        elephantidae: ""
+        felidae: kubernetes.io/arch=amd64
 interface:
     name: ""
     index: 0

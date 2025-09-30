@@ -12,8 +12,10 @@ package tables
 
 import (
 	"cmp"
+	"maps"
 	"math"
 	"net/netip"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -82,9 +84,6 @@ type PrivateNetworkInterface struct {
 
 // PrivateNetworkINBs contains the network bridge configuration of the private network
 type PrivateNetworkINBs struct {
-	// IPs is the IP address of the network bridge
-	IPs []netip.Addr
-
 	// Selectors selects the candidate INB nodes for this private network.
 	Selectors map[ClusterName]PrivateNetworkINBNodeSelector
 }
@@ -116,7 +115,7 @@ type PrivateNetworkSubnet struct {
 var _ statedb.TableWritable = PrivateNetwork{}
 
 func (pn PrivateNetwork) TableHeader() []string {
-	return []string{"Name", "ID", "Interface", "INBs", "Subnets", "Routes"}
+	return []string{"Name", "ID", "Interface", "INBClusters", "Subnets", "Routes"}
 }
 
 func (pn PrivateNetwork) TableRow() []string {
@@ -124,9 +123,10 @@ func (pn PrivateNetwork) TableRow() []string {
 		string(pn.Name),
 		"0x" + strconv.FormatUint(uint64(pn.ID), 16),
 		cmp.Or(pn.Interface.Name, "N/A"),
-		cmp.Or(strings.Join(cslices.Map(pn.INBs.IPs,
-			func(i netip.Addr) string { return i.String() },
-		), ","), "N/A"),
+		cmp.Or(strings.Join(slices.Sorted(
+			cslices.MapIter(maps.Keys(pn.INBs.Selectors),
+				func(cn ClusterName) string { return string(cn) },
+			)), ","), "N/A"),
 		strings.Join(cslices.Map(pn.Subnets,
 			func(s PrivateNetworkSubnet) string { return s.CIDR.String() },
 		), ","),
@@ -136,18 +136,11 @@ func (pn PrivateNetwork) TableRow() []string {
 
 // ToSlim returns a [SlimPrivateNetwork] object for this private network.
 func (pn PrivateNetwork) ToSlim(activeINB INBNode) SlimPrivateNetwork {
-	var inb netip.Addr
-	if len(pn.INBs.IPs) > 0 {
-		inb = pn.INBs.IPs[0]
-	}
-
 	return SlimPrivateNetwork{
 		Name:          pn.Name,
 		ID:            pn.ID,
 		EgressIfIndex: pn.Interface.Index,
-		// TODO: replace with the following when enabling INB autodetection.
-		// ActiveINB: activeINB,
-		ActiveINB: INBNode{IP: inb},
+		ActiveINB:     activeINB,
 	}
 }
 

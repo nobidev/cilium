@@ -86,15 +86,14 @@ spec:
   - cidr: 192.168.251.0/24
 
 -- privnet.table --
-Name             ID    Interface   INBs    Subnets
-direct-maggot    0x1   N/A         N/A     192.168.250.0/24
-united-firefly   0x2   eth2        N/A     192.168.251.0/24
+Name             ID    Interface   INBClusters    Subnets
+direct-maggot    0x1   N/A         N/A            192.168.250.0/24
+united-firefly   0x2   eth2        N/A            192.168.251.0/24
 
 -- privnet.expected.yaml --
 name: direct-maggot
 id: 1
 inbs:
-    ips: []
     selectors: {}
 interface:
     name: ""
@@ -107,7 +106,6 @@ subnets:
 name: united-firefly
 id: 2
 inbs:
-    ips: []
     selectors: {}
 interface:
     name: eth2
@@ -120,7 +118,6 @@ subnets:
 name: direct-maggot
 id: 1
 inbs:
-    ips: []
     selectors: {}
 interface:
     name: eth1
@@ -133,7 +130,6 @@ subnets:
 name: united-firefly
 id: 2
 inbs:
-    ips: []
     selectors: {}
 interface:
     name: eth2
@@ -146,7 +142,6 @@ subnets:
 name: direct-maggot
 id: 1
 inbs:
-    ips: []
     selectors: {}
 interface:
     name: eth1
@@ -159,7 +154,6 @@ subnets:
 name: united-firefly
 id: 2
 inbs:
-    ips: []
     selectors: {}
 interface:
     name: eth2
@@ -172,7 +166,6 @@ subnets:
 name: direct-maggot
 id: 1
 inbs:
-    ips: []
     selectors: {}
 interface:
     name: eth1
@@ -185,7 +178,6 @@ subnets:
 name: united-firefly
 id: 2
 inbs:
-    ips: []
     selectors: {}
 interface:
     name: eth2

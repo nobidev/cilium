@@ -6,6 +6,9 @@ hive start
 k8s/add icpn-blue.v1.yaml
 k8s/add privnet-eps.v1.yaml
 
+# Observe INB node information from clustermesh (the etcd key is omitted as unused).
+clustermesh/nodes/upsert _ nodes-felidae-cougar.json
+clustermesh/nodes/upsert _ nodes-camelidae-alpaca.json
 clustermesh/nodes/sync
 
 # Wait for initial table to be populated
@@ -54,7 +57,7 @@ db/cmp privnet-mapentries mapentries.v7.table
 
 # Change the target INB in network blue, and assert that mapentries are correctly updated.
 cp icpn-blue.v2.yaml icpn-blue.v3.yaml
-sed '172.128.0.6' '172.128.0.7' icpn-blue.v3.yaml
+sed 'felidae' 'camelidae' icpn-blue.v3.yaml
 k8s/update icpn-blue.v3.yaml
 db/cmp privnet-mapentries mapentries.v8.table
 
@@ -71,7 +74,7 @@ metadata:
   name: blue-network
 spec:
   networkBridges:
-  - ip: 172.128.0.6
+  - cluster: felidae
   routes: []
   subnets:
   - cidr: 192.168.250.0/24
@@ -85,7 +88,7 @@ metadata:
   name: blue-network
 spec:
   networkBridges:
-  - ip: 172.128.0.6
+  - cluster: felidae
   routes:
   - destination: 192.168.252.0/24
     gateway: 192.168.250.2
@@ -119,7 +122,7 @@ metadata:
   name: green-network
 spec:
   networkBridges:
-  - ip: 172.128.0.7
+  - cluster: camelidae
   routes: []
   subnets:
   - cidr: 10.0.100.0/24
@@ -256,6 +259,25 @@ endpoints:
       ipv6: fd00:10:100::30
     mac: 00:50:56:ad:45:d8
     network: green-network
+
+
+-- nodes-felidae-cougar.json --
+{
+    "Cluster": "felidae",
+    "Name": "cougar",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "172.128.0.6"}
+    ]
+}
+
+-- nodes-camelidae-alpaca.json --
+{
+    "Cluster": "camelidae",
+    "Name": "alpaca",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "172.128.0.7"}
+    ]
+}
 
 
 -- mapentries.v1.table --

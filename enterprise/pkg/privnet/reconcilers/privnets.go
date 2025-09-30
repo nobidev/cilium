@@ -28,6 +28,8 @@ import (
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	cs_iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -184,20 +186,27 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *IDPool, sync promise.Pro
 }
 
 func (pn *PrivateNetworks) extractINBs(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) tables.PrivateNetworkINBs {
-	inbs := make([]netip.Addr, 0, len(privnet.Spec.INBs))
-	for _, inbAddr := range privnet.Spec.INBs {
-		inb, err := netip.ParseAddr(string(inbAddr.IP))
+	selectors := make(map[tables.ClusterName]tables.PrivateNetworkINBNodeSelector, len(privnet.Spec.INBs))
+	for _, candidate := range privnet.Spec.INBs {
+		selector, err := slim_metav1.LabelSelectorAsSelector(&candidate.NodeSelector.LabelSelector)
 		if err != nil {
-			pn.log.Error("Encountered invalid INB address in private network spec",
-				logfields.IPAddr, inbAddr,
+			pn.log.Error("Encountered invalid INB node selector for cluster",
 				logfields.Error, err,
 				logfields.ClusterwidePrivateNetwork, privnet.Name,
+				logfields.ClusterName, candidate.Cluster,
 			)
 			continue
 		}
-		inbs = append(inbs, inb)
+
+		// Cannot happen by construction (the label selector is never nil), but
+		// better safe than sorry...
+		if selector == labels.Nothing() {
+			continue
+		}
+
+		selectors[tables.ClusterName(candidate.Cluster)] = tables.PrivateNetworkINBNodeSelector{Selector: selector}
 	}
-	return tables.PrivateNetworkINBs{IPs: inbs}
+	return tables.PrivateNetworkINBs{Selectors: selectors}
 }
 
 func (pn *PrivateNetworks) extractRoutes(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) []tables.PrivateNetworkRoute {

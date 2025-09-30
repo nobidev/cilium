@@ -5,6 +5,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // +genclient
@@ -42,11 +44,12 @@ type ClusterwidePrivateNetworkList struct {
 
 type PrivateNetworkSpec struct {
 	// The list of Isovalent Network Bridges (INBs) serving this private network.
-	// Currently, only a single INB per private network is supported, and
-	// subsequent ones are ignored. This stanza shall be specified in the
-	// main workload cluster(s) only, and not in the INB clusters.
+	// This stanza shall be specified in the main workload cluster(s) only, and
+	// not in the INB clusters.
 	//
 	// +kubebuilder:validation:Optional
+	// +listType=map
+	// +listMapKey=cluster
 	INBs []INBRef `json:"networkBridges,omitempty"`
 
 	// The network interface providing external connectivity to this private
@@ -75,8 +78,21 @@ type SubnetSpec struct {
 }
 
 type INBRef struct {
-	// The node IP of the Isovalent Network Bridge.
-	IP IP `json:"ip"`
+	// The name of the cluster hosting the INB nodes.
+	//
+	// +kubebuilder:validation:Required
+	Cluster string `json:"cluster"`
+
+	// A selector to optionally select a subset of nodes in the target
+	// cluster to be elected as INBs for this private network. Defaults to
+	// selecting all nodes if unspecified.
+	//
+	// +kubebuilder:validation:Optional
+	NodeSelector INBRefNodeSelector `json:"nodeSelector,omitzero"`
+}
+
+type INBRefNodeSelector struct {
+	slim_metav1.LabelSelector `json:",inline"`
 }
 
 type InterfaceSpec struct {
