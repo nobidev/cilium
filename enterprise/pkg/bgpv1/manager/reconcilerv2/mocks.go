@@ -338,7 +338,7 @@ type mockStatusReconciler struct {
 type mockStatusReconcilerOut struct {
 	cell.Out
 
-	Reconciler reconcilerv2.StateReconciler `group:"bgp-state-reconciler-v2"`
+	Reconciler reconciler.StateReconciler `group:"bgp-state-reconciler"`
 }
 
 func newMockStatusReconciler() (*mockStatusReconciler, mockStatusReconcilerOut) {
@@ -358,13 +358,9 @@ func (m *mockStatusReconciler) Priority() int {
 	return 100
 }
 
-func (m *mockStatusReconciler) Reconcile(ctx context.Context, params reconcilerv2.StateReconcileParams) error {
+func (m *mockStatusReconciler) Reconcile(ctx context.Context, params reconciler.StateReconcileParams) error {
 	m.Lock()
 	defer m.Unlock()
-
-	if params.ConfigMode.Get() != mode.BGPv2 {
-		panic("mockStatusReconciler only supports BGPv2")
-	}
 
 	if params.DeletedInstance != "" {
 		delete(m.countPerInstance, params.DeletedInstance)

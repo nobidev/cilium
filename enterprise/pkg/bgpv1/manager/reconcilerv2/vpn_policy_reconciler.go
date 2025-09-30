@@ -22,11 +22,13 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	"github.com/cilium/cilium/enterprise/pkg/evpn"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type VPNRoutePolicyReconcilerOut struct {
@@ -38,16 +40,19 @@ type VPNRoutePolicyReconcilerOut struct {
 type VPNRoutePolicyReconcilerIn struct {
 	cell.In
 
+	Config       config.Config
+	EVPNConfig   evpn.Config
+	DaemonConfig *option.DaemonConfig
+
 	Logger          *slog.Logger
-	Config          config.Config
 	Upgrader        paramUpgrader
 	PeerConfigStore resource.Resource[*v1.IsovalentBGPPeerConfig]
 	Group           job.Group
 }
 
-// VPNRoutePolicyReconciler is a reconciler that configures VPNv4 related route policies:
-//   - import route policy per peer allowing VPNv4 routes from adj-in to loc-rib.
-//   - export route policy per peer allowing VPNv4 routes from loc-rib to adj-out.
+// VPNRoutePolicyReconciler is a reconciler that configures VPNv4//EVPN related route policies:
+//   - import route policy per peer allowing VPNv4/EVPN routes from adj-in to loc-rib.
+//   - export route policy per peer allowing VPNv4/EVPN routes from loc-rib to adj-out.
 type VPNRoutePolicyReconciler struct {
 	initialized     atomic.Bool
 	logger          *slog.Logger
@@ -61,7 +66,7 @@ type VPNRoutePolicyMetadata struct {
 }
 
 func NewVPNRoutePolicyReconciler(in VPNRoutePolicyReconcilerIn) VPNRoutePolicyReconcilerOut {
-	if !in.Config.Enabled {
+	if !in.Config.Enabled || (!in.EVPNConfig.Enabled && !in.DaemonConfig.EnableSRv6) {
 		return VPNRoutePolicyReconcilerOut{}
 	}
 
@@ -180,31 +185,32 @@ func (r *VPNRoutePolicyReconciler) getDesiredRoutePolicies(desiredConfig *v1.Iso
 			continue
 		}
 
-		// allow importing routes from peers which have ipv4-l3vpn family configured
-		vpnPeer := false
+		// allow importing routes from peers which have ipv4-l3vpn or
+		// l2vpn/evpn family configured.
+		vpnFamilies := []types.Family{}
 		for _, fam := range peerConfig.Spec.Families {
 			agentFamily := types.ToAgentFamily(fam.CiliumBGPFamily)
-			if agentFamily.Afi == types.AfiIPv4 && agentFamily.Safi == types.SafiMplsVpn {
-				vpnPeer = true
-				break
+			if (agentFamily.Afi == types.AfiIPv4 && agentFamily.Safi == types.SafiMplsVpn) ||
+				(agentFamily.Afi == types.AfiL2VPN && agentFamily.Safi == types.SafiEvpn) {
+				vpnFamilies = append(vpnFamilies, agentFamily)
 			}
 		}
 
-		if vpnPeer {
-			// import route policy allowing VPNv4 routes from adj-in to loc-rib
+		if len(vpnFamilies) > 0 {
+			// import route policy allowing VPNv4/EVPN routes from adj-in to loc-rib
 			importPolicyName := fmt.Sprintf("%s-import-%s", r.Name(), peer.Name)
-			desiredPolicies[importPolicyName] = acceptRoutePolicy(types.RoutePolicyTypeImport, importPolicyName, peerAddr)
+			desiredPolicies[importPolicyName] = acceptRoutePolicy(types.RoutePolicyTypeImport, importPolicyName, peerAddr, vpnFamilies)
 
-			// export route policy allowing all VPNv4 routes from  loc-rib to adj-out
+			// export route policy allowing all VPNv4/EVPN routes from  loc-rib to adj-out
 			exportPolicyName := fmt.Sprintf("%s-export-%s", r.Name(), peer.Name)
-			desiredPolicies[exportPolicyName] = acceptRoutePolicy(types.RoutePolicyTypeExport, exportPolicyName, peerAddr)
+			desiredPolicies[exportPolicyName] = acceptRoutePolicy(types.RoutePolicyTypeExport, exportPolicyName, peerAddr, vpnFamilies)
 		}
 	}
 
 	return desiredPolicies, nil
 }
 
-func acceptRoutePolicy(policyType types.RoutePolicyType, name string, peerAddr netip.Addr) *types.RoutePolicy {
+func acceptRoutePolicy(policyType types.RoutePolicyType, name string, peerAddr netip.Addr, vpnFamilies []types.Family) *types.RoutePolicy {
 	return &types.RoutePolicy{
 		Name: name,
 		Type: policyType,
@@ -215,12 +221,7 @@ func acceptRoutePolicy(policyType types.RoutePolicyType, name string, peerAddr n
 						Type:      types.RoutePolicyMatchAny,
 						Neighbors: []netip.Addr{peerAddr},
 					},
-					MatchFamilies: []types.Family{
-						{
-							Afi:  types.AfiIPv4,
-							Safi: types.SafiMplsVpn,
-						},
-					},
+					MatchFamilies: vpnFamilies,
 				},
 				Actions: types.RoutePolicyActions{
 					RouteAction: types.RoutePolicyActionAccept,

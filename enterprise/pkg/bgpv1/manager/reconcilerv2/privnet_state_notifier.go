@@ -22,8 +22,8 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/evpn"
 	pnCfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
-	"github.com/cilium/cilium/pkg/bgpv1/agent"
-	"github.com/cilium/cilium/pkg/bgpv1/manager"
+	"github.com/cilium/cilium/pkg/bgp/agent"
+	"github.com/cilium/cilium/pkg/bgp/manager"
 )
 
 type privnetStatusNotifierIn struct {
@@ -71,15 +71,23 @@ func registerPrivnetStatusNotifier(in privnetStatusNotifierIn) {
 
 			// We don't care about the actual changes, we just need
 			// to be notified for any change.
-			_, watch := in.Table.AllWatch(rtxn)
+			all, watch := in.Table.AllWatch(rtxn)
 
-			rm.Lock()
-			for _, instance := range rm.BGPInstances {
-				instance.NotifyStateChange()
+			// We want to skip the reconciliation for empty table.
+			// Count the number of entries.
+			count := 0
+			for range all {
+				count++
 			}
-			rm.Unlock()
 
-			health.OK("Status change notified")
+			if count > 0 {
+				rm.Lock()
+				for _, instance := range rm.BGPInstances {
+					instance.NotifyStateChange()
+				}
+				rm.Unlock()
+				health.OK("Status change notified")
+			}
 
 			select {
 			case <-ctx.Done():

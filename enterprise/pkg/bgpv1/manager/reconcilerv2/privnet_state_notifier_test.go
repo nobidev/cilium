@@ -12,6 +12,7 @@ package reconcilerv2
 
 import (
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
@@ -25,14 +26,14 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/evpn"
 	pnCfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	privnetTables "github.com/cilium/cilium/enterprise/pkg/privnet/tables"
-	"github.com/cilium/cilium/pkg/bgpv1/agent"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
-	"github.com/cilium/cilium/pkg/bgpv1/manager"
-	bgpTables "github.com/cilium/cilium/pkg/bgpv1/manager/tables"
+	"github.com/cilium/cilium/pkg/bgp/agent"
+	"github.com/cilium/cilium/pkg/bgp/manager"
+	bgpTables "github.com/cilium/cilium/pkg/bgp/manager/tables"
+	"github.com/cilium/cilium/pkg/bgp/types"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 func TestPrivnetStateNotifier(t *testing.T) {
@@ -48,13 +49,20 @@ func TestPrivnetStateNotifier(t *testing.T) {
 		cell.Module(
 			"test",
 			"test module",
+			evpn.Cell,
+			pnCfg.Cell,
+			cell.Config(config.DefaultConfig),
 			cell.Provide(
+				tunnel.NewTestConfig,
+				func() tunnel.EncapProtocol {
+					return tunnel.VXLAN
+				},
 				newMockStatusReconciler,
 				privnetTables.NewPrivateNetworksTable,
 				statedb.RWTable[privnetTables.PrivateNetwork].ToTable,
 				manager.NewBGPRouterManager,
-				mode.NewConfigMode,
 				manager.NewBGPManagerMetrics,
+				types.NewFakeRouterProvider,
 				bgpTables.NewBGPReconcileErrorTable,
 				func() *option.DaemonConfig {
 					return &option.DaemonConfig{
@@ -62,19 +70,20 @@ func TestPrivnetStateNotifier(t *testing.T) {
 					}
 				},
 			),
-			cell.Invoke(func(
-				s *mockStatusReconciler,
-				m agent.BGPRouterManager,
-				d *statedb.DB,
-				t statedb.RWTable[privnetTables.PrivateNetwork],
-				mod *mode.ConfigMode,
-			) {
-				sr = s
-				mgr = m
-				db = d
-				privnetTable = t
-				mod.Set(mode.BGPv2)
-			}),
+			cell.Invoke(
+				registerPrivnetStatusNotifier,
+				func(
+					s *mockStatusReconciler,
+					m agent.BGPRouterManager,
+					d *statedb.DB,
+					t statedb.RWTable[privnetTables.PrivateNetwork],
+				) {
+					sr = s
+					mgr = m
+					db = d
+					privnetTable = t
+				},
+			),
 		),
 	)
 
@@ -136,12 +145,12 @@ func TestPrivnetStateNotifier(t *testing.T) {
 	// for all instances.
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		sr.Lock()
+		defer sr.Unlock()
 		if !assert.Equal(ct, 1, sr.countPerInstance["instance0"]) {
 			return
 		}
 		if !assert.Equal(ct, 1, sr.countPerInstance["instance1"]) {
 			return
 		}
-		sr.Unlock()
 	}, time.Second*3, time.Millisecond*100)
 }

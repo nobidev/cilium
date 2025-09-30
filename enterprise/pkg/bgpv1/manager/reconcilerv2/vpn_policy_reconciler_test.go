@@ -62,7 +62,45 @@ var (
 		},
 	}
 
-	expectedPeerRoutePolicy = func(policyType types.RoutePolicyType, name string, peerAddr netip.Addr) *types.RoutePolicy {
+	peerConfigEVPN = &v1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "peer-config-l2vpn-evpn",
+		},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "l2vpn",
+						Safi: "evpn",
+					},
+				},
+			},
+		},
+	}
+
+	peerConfigIPv4VPNAndEVPN = &v1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "peer-config-ipv4-mpls_vpn-and-l2vpn-evpn",
+		},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "l2vpn",
+						Safi: "evpn",
+					},
+				},
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "mpls_vpn",
+					},
+				},
+			},
+		},
+	}
+
+	expectedPeerRoutePolicy = func(policyType types.RoutePolicyType, name string, peerAddr netip.Addr, families []types.Family) *types.RoutePolicy {
 		return &types.RoutePolicy{
 			Name: name,
 			Type: policyType,
@@ -73,12 +111,7 @@ var (
 							Type:      types.RoutePolicyMatchAny,
 							Neighbors: []netip.Addr{peerAddr},
 						},
-						MatchFamilies: []types.Family{
-							{
-								Afi:  types.AfiIPv4,
-								Safi: types.SafiMplsVpn,
-							},
-						},
+						MatchFamilies: families,
 					},
 					Actions: types.RoutePolicyActions{
 						RouteAction: types.RoutePolicyActionAccept,
@@ -88,16 +121,52 @@ var (
 		}
 	}
 
-	importPeerPolicy = expectedPeerRoutePolicy(
+	importPeerPolicyVPNv4 = expectedPeerRoutePolicy(
 		types.RoutePolicyTypeImport,
 		"VPNRoutePolicy-import-red-peer-65001",
 		netip.MustParseAddr("192.168.0.10"),
+		[]types.Family{{Afi: types.AfiIPv4, Safi: types.SafiMplsVpn}},
 	)
 
-	exportPeerPolicy = expectedPeerRoutePolicy(
+	exportPeerPolicyVPNv4 = expectedPeerRoutePolicy(
 		types.RoutePolicyTypeExport,
 		"VPNRoutePolicy-export-red-peer-65001",
 		netip.MustParseAddr("192.168.0.10"),
+		[]types.Family{{Afi: types.AfiIPv4, Safi: types.SafiMplsVpn}},
+	)
+
+	importPeerPolicyEVPN = expectedPeerRoutePolicy(
+		types.RoutePolicyTypeImport,
+		"VPNRoutePolicy-import-red-peer-65001",
+		netip.MustParseAddr("192.168.0.10"),
+		[]types.Family{{Afi: types.AfiL2VPN, Safi: types.SafiEvpn}},
+	)
+
+	exportPeerPolicyEVPN = expectedPeerRoutePolicy(
+		types.RoutePolicyTypeExport,
+		"VPNRoutePolicy-export-red-peer-65001",
+		netip.MustParseAddr("192.168.0.10"),
+		[]types.Family{{Afi: types.AfiL2VPN, Safi: types.SafiEvpn}},
+	)
+
+	importPeerPolicyIPv4VPNAndEVPN = expectedPeerRoutePolicy(
+		types.RoutePolicyTypeImport,
+		"VPNRoutePolicy-import-red-peer-65001",
+		netip.MustParseAddr("192.168.0.10"),
+		[]types.Family{
+			{Afi: types.AfiL2VPN, Safi: types.SafiEvpn},
+			{Afi: types.AfiIPv4, Safi: types.SafiMplsVpn},
+		},
+	)
+
+	exportPeerPolicyIPv4VPNAndEVPN = expectedPeerRoutePolicy(
+		types.RoutePolicyTypeExport,
+		"VPNRoutePolicy-export-red-peer-65001",
+		netip.MustParseAddr("192.168.0.10"),
+		[]types.Family{
+			{Afi: types.AfiL2VPN, Safi: types.SafiEvpn},
+			{Afi: types.AfiIPv4, Safi: types.SafiMplsVpn},
+		},
 	)
 )
 
@@ -138,15 +207,15 @@ func TestVPNRoutePolicy(t *testing.T) {
 				},
 			},
 			expectedRPs: reconciler.RoutePolicyMap{
-				importPeerPolicy.Name: importPeerPolicy,
-				exportPeerPolicy.Name: exportPeerPolicy,
+				importPeerPolicyVPNv4.Name: importPeerPolicyVPNv4,
+				exportPeerPolicyVPNv4.Name: exportPeerPolicyVPNv4,
 			},
 		},
 		{
 			name: "ipv4-unicast peer, cleanup old policies",
 			preRPs: reconciler.RoutePolicyMap{
-				importPeerPolicy.Name: importPeerPolicy,
-				exportPeerPolicy.Name: exportPeerPolicy,
+				importPeerPolicyVPNv4.Name: importPeerPolicyVPNv4,
+				exportPeerPolicyVPNv4.Name: exportPeerPolicyVPNv4,
 			},
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{peerConfigIPv4Unicast},
 			peers: []v1.IsovalentBGPNodePeer{
@@ -163,8 +232,8 @@ func TestVPNRoutePolicy(t *testing.T) {
 		{
 			name: "no peer found, cleanup old policies",
 			preRPs: reconciler.RoutePolicyMap{
-				importPeerPolicy.Name: importPeerPolicy,
-				exportPeerPolicy.Name: exportPeerPolicy,
+				importPeerPolicyVPNv4.Name: importPeerPolicyVPNv4,
+				exportPeerPolicyVPNv4.Name: exportPeerPolicyVPNv4,
 			},
 			peerConfigs: []*v1.IsovalentBGPPeerConfig{peerConfigIPv4Unicast},
 			peers: []v1.IsovalentBGPNodePeer{
@@ -177,6 +246,42 @@ func TestVPNRoutePolicy(t *testing.T) {
 				},
 			},
 			expectedRPs: make(reconciler.RoutePolicyMap),
+		},
+		{
+			name:        "l2vpn-evpn peer, policies applied",
+			preRPs:      nil,
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{peerConfigEVPN},
+			peers: []v1.IsovalentBGPNodePeer{
+				{
+					Name:        "red-peer-65001",
+					PeerAddress: ptr.To[string]("192.168.0.10"),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "peer-config-l2vpn-evpn",
+					},
+				},
+			},
+			expectedRPs: reconciler.RoutePolicyMap{
+				importPeerPolicyEVPN.Name: importPeerPolicyEVPN,
+				exportPeerPolicyEVPN.Name: exportPeerPolicyEVPN,
+			},
+		},
+		{
+			name:        "ipv4-vpn and l2vpn-evpn peer, policies applied",
+			preRPs:      nil,
+			peerConfigs: []*v1.IsovalentBGPPeerConfig{peerConfigIPv4VPNAndEVPN},
+			peers: []v1.IsovalentBGPNodePeer{
+				{
+					Name:        "red-peer-65001",
+					PeerAddress: ptr.To[string]("192.168.0.10"),
+					PeerConfigRef: &v1.PeerConfigReference{
+						Name: "peer-config-ipv4-mpls_vpn-and-l2vpn-evpn",
+					},
+				},
+			},
+			expectedRPs: reconciler.RoutePolicyMap{
+				importPeerPolicyIPv4VPNAndEVPN.Name: importPeerPolicyIPv4VPNAndEVPN,
+				exportPeerPolicyIPv4VPNAndEVPN.Name: exportPeerPolicyIPv4VPNAndEVPN,
+			},
 		},
 	}
 
