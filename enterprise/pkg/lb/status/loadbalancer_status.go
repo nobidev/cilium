@@ -714,7 +714,7 @@ func (s *LoadbalancerClient) getOverallStatus(lbsvc isovalentv1alpha1.LBService,
 }
 
 func (s *LoadbalancerClient) statusText(ok, total int) string {
-	if ok == total {
+	if total > 0 && ok == total {
 		return "OK"
 	}
 
