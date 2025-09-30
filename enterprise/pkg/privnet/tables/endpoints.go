@@ -43,6 +43,14 @@ func (ep Endpoint) Key() EndpointKey {
 	return newEndpointKey(ep.Source, NetworkName(ep.Name), ep.IP)
 }
 
+// MapEntryType returns the MapEntry type of this endpoint.
+func (ep Endpoint) MapEntryType() MapEntryType {
+	if ep.Flags.External {
+		return MapEntryTypeExternalEndpoint
+	}
+	return MapEntryTypeEndpoint
+}
+
 // ToMapEntry returns the MapEntry object created from the Endpoint and
 // PrivateNetwork information.
 func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork, bridgeMode bool) *MapEntry {
@@ -54,7 +62,7 @@ func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork, bridgeMode bool) *MapE
 	}
 
 	return &MapEntry{
-		Type: MapEntryTypeEndpoint,
+		Type: ep.MapEntryType(),
 
 		Target: MapEntryTarget{
 			NetworkName: privnet.Name,
@@ -77,7 +85,7 @@ func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork, bridgeMode bool) *MapE
 // ToMapEntryKey returns the key uniquely identifying the corresponding entry in
 // the map entries table.
 func (ep Endpoint) ToMapEntryKey() MapEntryKey {
-	return newMapEntryKey(NetworkName(ep.Network.Name), MapEntryTypeEndpoint,
+	return newMapEntryKey(NetworkName(ep.Network.Name), ep.MapEntryType(),
 		netip.PrefixFrom(ep.Network.IP, ep.Network.IP.BitLen()))
 }
 

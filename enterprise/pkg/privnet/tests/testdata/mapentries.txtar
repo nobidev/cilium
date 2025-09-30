@@ -6,6 +6,11 @@ hive start
 k8s/add icpn-blue.v1.yaml
 k8s/add privnet-eps.v1.yaml
 
+# Ingest the endpoints from clustermesh.
+clustermesh/endpoints/upsert blue-network/10.245.8.21 endpoint-felidae-cougar-1.json
+clustermesh/endpoints/upsert blue-network/10.245.8.87 endpoint-felidae-cougar-2.json
+clustermesh/endpoints/upsert blue-network/10.245.9.41 endpoint-camelidae-alpaca-1.json
+
 # Observe INB node information from clustermesh (the etcd key is omitted as unused).
 clustermesh/nodes/upsert _ nodes-felidae-cougar.json
 clustermesh/nodes/upsert _ nodes-camelidae-alpaca.json
@@ -36,7 +41,11 @@ db/cmp privnet-mapentries mapentries.v3.table
 # - green:10.0.100.30 is removed (this bubbles up the newer endpoint from above)
 # - green:10.0.100.31 becomes inactive
 # - blue:192.168.250.{20,21} are removed (both endpoints were already shadowed)
+# - blue:192.168.250.251 is removed
+# - blue:192.168.250.252 is added
 k8s/add privnet-eps.v2.yaml
+clustermesh/endpoints/delete blue-network/10.245.8.87 endpoint-felidae-cougar-2.json
+clustermesh/endpoints/upsert blue-network/10.245.8.92 endpoint-felidae-cougar-3.json
 db/cmp privnet-mapentries mapentries.v4.table
 
 # Delete original slice. Since its only endpoint is inactive, there should be no changes
@@ -282,6 +291,90 @@ nodeName: crayfish
     ]
 }
 
+-- endpoint-felidae-cougar-1.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.435Z",
+  "flags": {
+    "external": true
+  },
+  "ip": "10.245.8.21",
+  "name": "valid-monkey",
+  "network": {
+    "name": "blue-network",
+    "ip": "192.168.250.200",
+    "mac": "19:60:b8:48:84:b9"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
+-- endpoint-felidae-cougar-2.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.435Z",
+  "flags": {
+    "external": true
+  },
+  "ip": "10.245.8.87",
+  "name": "resolved-monster",
+  "network": {
+    "name": "blue-network",
+    "ip": "192.168.250.201",
+    "mac": "ad:e7:f2:bf:0b:58"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
+-- endpoint-felidae-cougar-3.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.435Z",
+  "flags": {
+    "external": true
+  },
+  "ip": "10.245.8.92",
+  "name": "superb-kite",
+  "network": {
+    "name": "blue-network",
+    "ip": "192.168.250.202",
+    "mac": "cd:77:2b:8b:45:a1"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
+-- endpoint-camelidae-alpaca-1.json --
+{
+  "activatedAt": "2025-06-20T15:53:01.435Z",
+  "flags": {
+    "external": true
+  },
+  "ip": "10.245.9.41",
+  "name": "resolved-monster",
+  "network": {
+    "name": "blue-network",
+    "ip": "192.168.250.201",
+    "mac": "ad:e7:f2:bf:0b:58"
+  },
+  "nodeName": "alpaca",
+  "source": {
+    "cluster": "camelidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
 
 -- mapentries.v1.table --
 Type   Network        CIDR               Nexthop
@@ -292,6 +385,8 @@ E      blue-network   192.168.250.20/32  10.244.5.108
 E      blue-network   192.168.250.21/32  10.244.5.109
 E      blue-network   fd10:0:250::20/128 fd00:10:244:5::108
 E      blue-network   fd10:0:250::21/128 fd00:10:244:5::109
+X      blue-network   192.168.250.200/32 10.245.8.21
+X      blue-network   192.168.250.201/32 10.245.8.87
 
 -- mapentries.v2.table --
 Type   Network        CIDR                  Nexthop
@@ -302,6 +397,8 @@ E      blue-network   192.168.250.20/32     10.244.5.108
 E      blue-network   192.168.250.21/32     10.244.5.109
 E      blue-network   fd10:0:250::20/128    fd00:10:244:5::108
 E      blue-network   fd10:0:250::21/128    fd00:10:244:5::109
+X      blue-network   192.168.250.200/32    10.245.8.21
+X      blue-network   192.168.250.201/32    10.245.8.87
 D      green-network  10.0.100.0/24         172.128.0.7
 D      green-network  fd00:10:100::/64      172.128.0.7
 E      green-network  10.0.100.30/32        10.244.5.110
@@ -319,6 +416,8 @@ E      blue-network   192.168.250.24/32     10.244.5.107
 E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
 E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
 E      blue-network   fd10:0:250::24/128    fd00:10:244:5::107
+X      blue-network   192.168.250.200/32    10.245.8.21
+X      blue-network   192.168.250.201/32    10.245.8.87
 D      green-network  10.0.100.0/24         172.128.0.7
 D      green-network  fd00:10:100::/64      172.128.0.7
 E      green-network  10.0.100.30/32        10.244.5.110
@@ -336,6 +435,8 @@ E      blue-network   192.168.250.24/32     10.244.5.107
 E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
 E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
 E      blue-network   fd10:0:250::24/128    fd00:10:244:5::107
+X      blue-network   192.168.250.200/32    10.245.8.21
+X      blue-network   192.168.250.202/32    10.245.8.92
 D      green-network  10.0.100.0/24         172.128.0.7
 D      green-network  fd00:10:100::/64      172.128.0.7
 E      green-network  10.0.100.30/32        10.244.6.151
@@ -351,6 +452,8 @@ E      blue-network   192.168.250.24/32     10.244.5.107
 E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
 E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
 E      blue-network   fd10:0:250::24/128    fd00:10:244:5::107
+X      blue-network   192.168.250.200/32    10.245.8.21
+X      blue-network   192.168.250.202/32    10.245.8.92
 
 -- mapentries.v6.table --
 Type   Network        CIDR                 Nexthop
@@ -364,6 +467,8 @@ E      blue-network   fd10:0:250::23/128   fd00:10:244:5::109
 E      blue-network   fd10:0:250::24/128   fd00:10:244:5::107
 S      blue-network   0.0.0.0/0            172.128.0.6
 S      blue-network   192.168.252.0/24     172.128.0.6
+X      blue-network   192.168.250.200/32   10.245.8.21
+X      blue-network   192.168.250.202/32   10.245.8.92
 
 -- mapentries.v7.table --
 Type   Network        CIDR                 Nexthop
@@ -372,6 +477,8 @@ D      blue-network   192.168.250.24/32    172.128.0.6
 D      blue-network   fd10:0:250::/64      172.128.0.6
 S      blue-network   0.0.0.0/0            172.128.0.6
 S      blue-network   192.168.252.0/24     172.128.0.6
+X      blue-network   192.168.250.200/32   10.245.8.21
+X      blue-network   192.168.250.202/32   10.245.8.92
 
 -- mapentries.v8.table --
 Type   Network        CIDR                 Nexthop
@@ -380,3 +487,4 @@ D      blue-network   192.168.250.24/32    172.128.0.7
 D      blue-network   fd10:0:250::/64      172.128.0.7
 S      blue-network   0.0.0.0/0            172.128.0.7
 S      blue-network   192.168.252.0/24     172.128.0.7
+X      blue-network   192.168.250.201/32   10.245.9.41

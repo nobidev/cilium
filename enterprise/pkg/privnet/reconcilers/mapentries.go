@@ -297,8 +297,16 @@ func (m *MapEntries) handleEndpointChange(txn statedb.WriteTxn, ep tables.Endpoi
 		return nil
 	}
 
+	// We do not short-circuit the processing of external endpoints advertised by
+	// non-active INBs at this point, as it is technically possible to mutate the
+	// node name and/or the external flag of the endpoint, which would lead to
+	// incorrect entries in the mapentries table. Instead, let's go through the
+	// normal processing, short-circuiting below if the desired entry matches the
+	// one already currently present. This also avoids the need for a special
+	// logic to handle the change of the active INB.
+
 	// Try to find a new active endpoint for the given (net, netIP) pair
-	activeEp := m.determineActiveEndpointForNetworkIP(txn, tables.NetworkName(ep.Network.Name), ep.Network.IP)
+	activeEp := m.determineActiveEndpointForNetworkIP(txn, privNet, ep.Network.IP)
 
 	// Check if there already is an existing entry in the table for the endpoint to be upserted
 	current, _, found := m.tbl.Get(txn, tables.MapEntryByKey(ep.ToMapEntryKey()))
@@ -344,11 +352,16 @@ func (m *MapEntries) handleEndpointChange(txn statedb.WriteTxn, ep tables.Endpoi
 }
 
 // determineActiveEndpointForNetworkIP checks the endpoint table to find the active endpoint for the given
-// network IP. The active endpoint is the one with the most recent "activatedAt" timestamp.
-func (m *MapEntries) determineActiveEndpointForNetworkIP(txn statedb.ReadTxn, network tables.NetworkName, networkIP netip.Addr) (active *tables.Endpoint) {
-	for ep := range m.endpoints.List(txn, tables.EndpointsByNetworkIP(network, networkIP)) {
+// network IP. The active endpoint is the one with the most recent "activatedAt" timestamp, filtering out
+// the ones advertised by non-active INBs.
+func (m *MapEntries) determineActiveEndpointForNetworkIP(txn statedb.ReadTxn, network tables.SlimPrivateNetwork, networkIP netip.Addr) (active *tables.Endpoint) {
+	for ep := range m.endpoints.List(txn, tables.EndpointsByNetworkIP(network.Name, networkIP)) {
 		if ep.ActivatedAt.IsZero() {
 			continue // skip inactive endpoints
+		}
+
+		if m.shouldSkipExternalEndpoint(ep, network) {
+			continue // skip external endpoints advertised by non-active INBs.
 		}
 
 		if active == nil || ep.ActivatedAt.After(active.ActivatedAt) {
@@ -357,6 +370,16 @@ func (m *MapEntries) determineActiveEndpointForNetworkIP(txn statedb.ReadTxn, ne
 	}
 
 	return active
+}
+
+// shouldSkipExternalEndpointSkip returns whether a given external endpoint should
+// be skipped, that is if either this network has no active INB, or the endpoint
+// is not advertised by the currently active INB. This function always returns
+// false if the endpoint is not external.
+func (m *MapEntries) shouldSkipExternalEndpoint(ep tables.Endpoint, privnet tables.SlimPrivateNetwork) bool {
+	return ep.Flags.External && (!privnet.ActiveINB.IP.IsValid() ||
+		tables.ClusterName(ep.Source.Cluster) != privnet.ActiveINB.Cluster ||
+		tables.NodeName(ep.NodeName) != privnet.ActiveINB.Name)
 }
 
 // findConflictingNATEntriesForActiveEP checks the endpoint table to find all endpoints

@@ -87,6 +87,9 @@ type MapEntryType uint8
 const (
 	// MapEntryTypeEndpoint represents an endpoint.
 	MapEntryTypeEndpoint MapEntryType = iota
+	// MapEntryTypeExternalEndpoint represents an expoint external to the
+	// cluster(mesh), accessible via the INB.
+	MapEntryTypeExternalEndpoint
 	// MapEntryTypeDCNRoute represents an L2 route.
 	MapEntryTypeDCNRoute
 	// MapEntryTypeStaticRoute represents an L3 static route.
@@ -97,6 +100,8 @@ func (typ MapEntryType) String() string {
 	switch typ {
 	case MapEntryTypeEndpoint:
 		return "E"
+	case MapEntryTypeExternalEndpoint:
+		return "X"
 	case MapEntryTypeDCNRoute:
 		return "D"
 	case MapEntryTypeStaticRoute:
