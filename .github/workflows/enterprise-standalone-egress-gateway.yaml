@@ -191,6 +191,8 @@ jobs:
                 cilium-agent \
                 --enable-bpf-masquerade=true \
                 --enable-endpoint-health-checking=false \
+                --enable-health-checking=false \
+                --enable-health-server-without-active-checks=true \
                 --enable-health-check-nodeport=false \
                 --enable-ipv4=true \
                 --enable-ipv4-masquerade=true \
