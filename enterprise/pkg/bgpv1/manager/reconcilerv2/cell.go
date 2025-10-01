@@ -25,6 +25,7 @@ var ConfigReconcilers = cell.Group(
 		newReconcileParamsUpgrader,
 		newIsovalentAdvertisement,
 		newSRv6Paths,
+		newEVPNPaths,
 		newRADaemon,
 		newImportVPNRouteReconciler,
 		newLegacyImportVPNRouteReconciler,
