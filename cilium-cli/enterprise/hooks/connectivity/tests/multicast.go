@@ -257,8 +257,6 @@ func startMulticastListeners(ctx, killCtx context.Context, t *check.Test, subscr
 	// create ip route to join multicast groups
 	for _, pod := range subscriberPods {
 		for i, group := range groupAddrs {
-			pod := pod
-			group := group
 			groupUDPPort := testMulticastUDPPort + i
 			go func() {
 				testFile := fmt.Sprintf(testOutputFile, group)

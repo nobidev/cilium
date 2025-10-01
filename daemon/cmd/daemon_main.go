@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -794,17 +793,8 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableVTEP, defaults.EnableVTEP, "Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)")
 	option.BindEnv(vp, option.EnableVTEP)
 
-	flags.StringSlice(option.VtepEndpoint, []string{}, "List of VTEP IP addresses")
-	option.BindEnv(vp, option.VtepEndpoint)
-
-	flags.StringSlice(option.VtepCIDR, []string{}, "List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress")
-	option.BindEnv(vp, option.VtepCIDR)
-
 	flags.String(option.VtepMask, "255.255.255.0", "VTEP CIDR Mask for all VTEP CIDRs")
 	option.BindEnv(vp, option.VtepMask)
-
-	flags.StringSlice(option.VtepMAC, []string{}, "List of VTEP MAC addresses for forwarding traffic outside the cluster")
-	option.BindEnv(vp, option.VtepMAC)
 
 	flags.Int(option.TCFilterPriority, 1, "Priority of TC BPF filter")
 	flags.MarkHidden(option.TCFilterPriority)
@@ -895,7 +885,7 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 		// Changing files permissions to -rwx:r--:---, we are only
 		// adding executable permission to the owner and keeping the
 		// same permissions stored by go-bindata.
-		if err := os.Chmod(fileToChange, os.FileMode(0740)); err != nil {
+		if err := os.Chmod(fileToChange, os.FileMode(0o740)); err != nil {
 			return err
 		}
 	}
@@ -1335,7 +1325,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 				}
 			}()
 
-			d, restoredEndpoints, err := newDaemon(daemonCtx, cleaner, &params)
+			d, restoredEndpoints, err := newDaemon(daemonCtx, cleaner, params)
 			if err != nil {
 				cancelDaemonCtx()
 				cleaner.Clean()
@@ -1344,24 +1334,24 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 			daemon = d
 
 			if !option.Config.DryMode {
-				d.logger.Info("Initializing daemon")
+				params.Logger.Info("Initializing daemon")
 
 				// This validation needs to be done outside of the agent until
 				// datapath.NodeAddressing is used consistently across the code base.
-				d.logger.Info("Validating configured node address ranges")
+				params.Logger.Info("Validating configured node address ranges")
 				if err := node.ValidatePostInit(params.Logger); err != nil {
 					return fmt.Errorf("postinit failed: %w", err)
 				}
 
 				// Store config in file before resolving the DaemonConfig promise.
-				err = option.Config.StoreInFile(d.logger, option.Config.StateDir)
+				err = option.Config.StoreInFile(params.Logger, option.Config.StateDir)
 				if err != nil {
-					d.logger.Error("Unable to store Cilium's configuration", logfields.Error, err)
+					params.Logger.Error("Unable to store Cilium's configuration", logfields.Error, err)
 				}
 
-				err = option.StoreViperInFile(d.logger, option.Config.StateDir)
+				err = option.StoreViperInFile(params.Logger, option.Config.StateDir)
 				if err != nil {
-					d.logger.Error("Unable to store Viper's configuration", logfields.Error, err)
+					params.Logger.Error("Unable to store Viper's configuration", logfields.Error, err)
 				}
 			}
 
@@ -1376,7 +1366,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 				go func() {
 					defer wg.Done()
 					if err := startDaemon(daemon, restoredEndpoints, cleaner, params); err != nil {
-						d.logger.Error("Daemon start failed", logfields.Error, err)
+						params.Logger.Error("Daemon start failed", logfields.Error, err)
 						daemonResolver.Reject(err)
 					} else {
 						daemonResolver.Resolve(daemon)
@@ -1417,39 +1407,39 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	// After K8s caches have been synced, IPCache can start label injection.
 	// Ensure that the initial labels are injected before we regenerate endpoints
-	d.logger.Debug("Waiting for initial IPCache revision")
-	if err := d.ipcache.WaitForRevision(d.ctx, 1); err != nil {
-		d.logger.Error("Failed to wait for initial IPCache revision", logfields.Error, err)
+	params.Logger.Debug("Waiting for initial IPCache revision")
+	if err := params.IPCache.WaitForRevision(d.ctx, 1); err != nil {
+		params.Logger.Error("Failed to wait for initial IPCache revision", logfields.Error, err)
 	}
 
 	d.initRestore(restoredEndpoints, params.EndpointRegenerator)
 
 	bootstrapStats.enableConntrack.Start()
-	d.logger.Info("Starting connection tracking garbage collector")
+	params.Logger.Info("Starting connection tracking garbage collector")
 	params.CTNATMapGC.Enable()
 	params.CTNATMapGC.Observe4().Observe(d.ctx, ctmap.NatMapNext4, func(err error) {})
 	params.CTNATMapGC.Observe6().Observe(d.ctx, ctmap.NatMapNext6, func(err error) {})
 	bootstrapStats.enableConntrack.End(true)
 
-	if d.endpointManager.HostEndpointExists() {
-		d.endpointManager.InitHostEndpointLabels(d.ctx)
+	if params.EndpointManager.HostEndpointExists() {
+		params.EndpointManager.InitHostEndpointLabels(d.ctx)
 	} else {
-		d.logger.Info("Creating host endpoint")
-		if err := d.endpointCreator.AddHostEndpoint(d.ctx); err != nil {
+		params.Logger.Info("Creating host endpoint")
+		if err := params.EndpointCreator.AddHostEndpoint(d.ctx); err != nil {
 			return fmt.Errorf("unable to create host endpoint: %w", err)
 		}
 	}
 
 	if option.Config.EnableEnvoyConfig {
-		if !d.endpointManager.IngressEndpointExists() {
+		if !params.EndpointManager.IngressEndpointExists() {
 			// Creating Ingress Endpoint depends on the Ingress IPs having been
 			// allocated first. This happens earlier in the agent bootstrap.
 			if (option.Config.EnableIPv4 && len(node.GetIngressIPv4(params.Logger)) == 0) ||
 				(option.Config.EnableIPv6 && len(node.GetIngressIPv6(params.Logger)) == 0) {
-				d.logger.Warn("Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected.")
+				params.Logger.Warn("Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected.")
 			} else {
-				d.logger.Info("Creating ingress endpoint")
-				err := d.endpointCreator.AddIngressEndpoint(d.ctx)
+				params.Logger.Info("Creating ingress endpoint")
+				err := params.EndpointCreator.AddIngressEndpoint(d.ctx)
 				if err != nil {
 					return fmt.Errorf("unable to create ingress endpoint: %w", err)
 				}
@@ -1467,18 +1457,18 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		}
 
 		ms := maps.NewMapSweeper(
-			d.logger,
+			params.Logger,
 			&EndpointMapManager{
-				logger:          d.logger,
-				EndpointManager: d.endpointManager,
-			}, d.bwManager, d.lbConfig, d.kprCfg)
+				logger:          params.Logger,
+				EndpointManager: params.EndpointManager,
+			}, params.BandwidthManager, params.LBConfig, params.KPRConfig)
 		ms.CollectStaleMapGarbage()
 		ms.RemoveDisabledMaps()
 
 		// Sleep for the --identity-restore-grace-period (default: 30 seconds k8s, 10 minutes kvstore), allowing
 		// the normal allocation processes to finish, before releasing restored resources.
 		time.Sleep(option.Config.IdentityRestoreGracePeriod)
-		d.identityRestorer.ReleaseRestoredIdentities()
+		params.IdentityRestorer.ReleaseRestoredIdentities()
 	}()
 
 	// Migrating the ENI datapath must happen before the API is served to
@@ -1488,7 +1478,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	// logic runs before any endpoint creates.
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		migrated, failed := linuxrouting.NewMigrator(
-			d.logger,
+			params.Logger,
 			&eni.InterfaceDB{Clientset: params.Clientset},
 		).MigrateENIDatapath(option.Config.EgressMultiHomeIPRuleCompat)
 		switch {
@@ -1496,7 +1486,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			// No need to handle this case specifically because it is handled
 			// in the call already.
 		case migrated >= 0 && failed > 0:
-			d.logger.Error(fmt.Sprintf(
+			params.Logger.Error(fmt.Sprintf(
 				"Failed to migrate ENI datapath. "+
 					"%d endpoints were successfully migrated and %d failed to migrate completely. "+
 					"The original datapath is still in-place, however it is recommended to retry the migration.",
@@ -1504,7 +1494,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			)
 
 		case migrated >= 0 && failed == 0:
-			d.logger.Info(fmt.Sprintf(
+			params.Logger.Info(fmt.Sprintf(
 				"Migration of ENI datapath successful, %d endpoints were migrated and none failed.",
 				migrated),
 			)
@@ -1512,18 +1502,18 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	bootstrapStats.healthCheck.Start()
-	if d.healthConfig.IsHealthCheckingEnabled() {
-		if err := d.ciliumHealth.Init(d.ctx, d.healthEndpointRouting, cleaner.cleanupFuncs.Add); err != nil {
+	if params.HealthConfig.IsHealthCheckingEnabled() {
+		if err := params.CiliumHealth.Init(d.ctx, d.healthEndpointRouting, cleaner.cleanupFuncs.Add); err != nil {
 			return fmt.Errorf("failed to initialize cilium health: %w", err)
 		}
 	}
 	bootstrapStats.healthCheck.End(true)
 
-	if err := d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
-		d.logger.Warn("Failed to send agent start monitor message", logfields.Error, err)
+	if err := params.MonitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
+		params.Logger.Warn("Failed to send agent start monitor message", logfields.Error, err)
 	}
 
-	d.logger.Info(
+	params.Logger.Info(
 		"Daemon initialization completed",
 		logfields.BootstrapTime, time.Since(bootstrapTimestamp),
 	)
@@ -1531,25 +1521,22 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()
 
-	// Start controller to validate daemon config is unchanged
-	cfgGroup := controller.NewGroup("daemon-validate-config")
-	d.controllers.UpdateController(
-		cfgGroup.Name,
-		controller.ControllerParams{
-			Group:  cfgGroup,
-			Health: params.Health,
-			DoFunc: func(context.Context) error {
-				// Validate that Daemon config has not changed, ignoring 'Opts'
-				// that may be modified via config patch events.
-				return option.Config.ValidateUnchanged()
-			},
-			// avoid synhronized run with other
-			// controllers started at same time
-			RunInterval: 61 * time.Second,
-			Context:     d.ctx,
-		})
+	// Register job to validate that daemon config is unchanged
+	registerDaemonConfigValidationJob(params)
 
 	return nil
+}
+
+func registerDaemonConfigValidationJob(params daemonParams) {
+	params.JobGroup.Add(job.Timer(
+		"daemon-validate-config",
+		// Validate that Daemon config has not changed, ignoring 'Opts'
+		// that may be modified via config patch events.
+		func(ctx context.Context) error { return option.Config.ValidateUnchanged() },
+		// avoid synhronized run with other
+		// jobs started at same time
+		61*time.Second,
+	))
 }
 
 func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon], resolver promise.Resolver[endpointstate.Restorer]) {

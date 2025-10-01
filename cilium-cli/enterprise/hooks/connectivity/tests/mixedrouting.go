@@ -77,7 +77,6 @@ func (mr *mixedRouting) setup(ctx context.Context, ct *check.ConnectivityTest) e
 			continue
 		}
 
-		hp := hp
 		nodeID := check.NodeIdentity{Cluster: hp.K8sClient.ClusterName(), Name: hp.NodeName()}
 
 		iface, err := mr.getIface(ctx, ct, &hp)
