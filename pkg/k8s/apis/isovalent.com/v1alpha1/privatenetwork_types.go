@@ -158,7 +158,21 @@ type PrivateNetworkStatus struct {
 	//
 	// +kubebuilder:validation:Optional
 	VNI *uint32 `json:"vni,omitempty"`
+
+	// The current conditions of the PrivateNetwork
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
+
+const (
+	PrivateNetworkCondTypeVNIConflict        = "VNIConflict"
+	PrivateNetworkCondReasonHasVNIConflict   = "PrivateNetworkHasVNIConflict"
+	PrivateNetworkCondReasonHasNoVNIConflict = "PrivateNetworkHasNoVNIConflict"
+)
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
