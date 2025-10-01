@@ -44,7 +44,8 @@ func LbIPPoolV2Alpha1(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIP
 func LbIPPool(name, ipBlock string) *ciliumv2.CiliumLoadBalancerIPPool {
 	return &ciliumv2.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name:   name,
+			Labels: map[string]string{TestResourceLabelName: "true"},
 		},
 		Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
 			Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{

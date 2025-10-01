@@ -12,7 +12,9 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli/ilb"
 	ilbCli "github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli/ilb"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func newCmdLoadbalancerTestCleanup() *cobra.Command {
@@ -56,6 +58,20 @@ func newCmdLoadbalancerTestCleanup() *cobra.Command {
 
 			if err := ciliumCli.IsovalentV1alpha1().IsovalentBFDProfiles().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=true", ilbCli.TestResourceLabelName)}); err != nil {
 				return err
+			}
+
+			c.Println("Deleting K8s LB IPAM resources ...")
+			minVersion := ">=1.18.0"
+			currentVersion := ilb.GetCiliumVersionRaw(ctx, lbTestRun, k8sCli, ciliumNamespace(c))
+
+			if versioncheck.MustCompile(minVersion)(currentVersion) {
+				if err := ciliumCli.CiliumV2().CiliumLoadBalancerIPPools().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=true", ilbCli.TestResourceLabelName)}); err != nil {
+					return err
+				}
+			} else {
+				if err := ciliumCli.CiliumV2alpha1().CiliumLoadBalancerIPPools().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=true", ilbCli.TestResourceLabelName)}); err != nil {
+					return err
+				}
 			}
 
 			c.Println("Deleting Docker containers ...")
