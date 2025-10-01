@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"net/netip"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
@@ -188,6 +189,7 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB,
 		},
 		Constants:  endpointConfiguration(ep, lnc),
 		MapRenames: endpointMapRenames(ep),
+		ConfigPath: filepath.Join(ep.StateDir(), endpointConfig),
 	})
 	if err != nil {
 		return err

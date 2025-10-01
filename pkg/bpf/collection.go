@@ -5,10 +5,13 @@ package bpf
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/cilium/ebpf"
@@ -150,6 +153,9 @@ type CollectionOptions struct {
 
 	// Set of objects to keep during reachability pruning.
 	Keep *set.Set[string]
+
+	// Path to the file containing datapath runtime config for this collection.
+	ConfigPath string
 }
 
 func (co *CollectionOptions) populateMapReplacements() {
@@ -224,6 +230,10 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 	fixed := fixedResources(spec, opts.Keep)
 	if err := removeUnusedMaps(spec, fixed, reach, logger); err != nil {
 		return nil, nil, fmt.Errorf("pruning unused maps: %w", err)
+	}
+
+	if err := dumpConstants(spec, opts); err != nil {
+		return nil, nil, fmt.Errorf("writing constants: %w", err)
 	}
 
 	// Find and strip all CILIUM_PIN_REPLACE pinning flags before creating the
@@ -334,6 +344,101 @@ func printConstants(consts any) string {
 	default:
 		return fmt.Sprintf("%#v", consts)
 	}
+}
+
+// configDumpLayout defines the layout of the JSON file written by
+// dumpConstants.
+//
+// An example of the file format is:
+//
+//	{
+//	  "objects": [
+//	    {
+//	      "name": "config.BPFHost",
+//	      "values": {
+//	        "AllowICMPFragNeeded": true,
+//	        "DeviceMTU": 1500
+//	    }
+//	  ],
+//	  "variables": {
+//	    "__config_allow_icmp_frag_needed": "AQ==",
+//	    "__config_device_mtu": "3AU="
+//	  }
+//	}
+type configDumpLayout struct {
+	Objects   []objDumpLayout   `json:"objects"`
+	Variables map[string][]byte `json:"variables"`
+}
+
+type objDumpLayout struct {
+	Name   string `json:"name"`
+	Values any    `json:"values"`
+}
+
+// dumpConstants writes the values of BPF C runtime configurables defined using
+// the DECLARE_CONFIG macro to a JSON file at [CollectionOptions.ConfigPath].
+//
+// This file can be used by tooling to read back the config values for
+// troubleshooting purposes.
+func dumpConstants(spec *ebpf.CollectionSpec, opts *CollectionOptions) error {
+	if opts.ConfigPath == "" {
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(opts.ConfigPath), 0755); err != nil {
+		return fmt.Errorf("create directory: %w", err)
+	}
+
+	file, err := os.Create(opts.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("create config file: %w", err)
+	}
+	defer file.Close()
+
+	// Unwrap slice of objects to obtain their type names.
+	objs := make([]objDumpLayout, 0)
+	switch s := opts.Constants.(type) {
+	case []any:
+		for _, o := range s {
+			if o == nil {
+				continue
+			}
+			objs = append(objs, objDumpLayout{typeName(o), o})
+		}
+	default:
+		objs = []objDumpLayout{{typeName(opts.Constants), opts.Constants}}
+	}
+
+	// Write out marshaled variable values for replaying BPF loads later.
+	vars := make(map[string][]byte)
+	for name, v := range spec.Variables {
+		if v.SectionName != config.Section {
+			continue
+		}
+		vars[name] = v.Value
+	}
+
+	if err := json.NewEncoder(file).Encode(configDumpLayout{
+		Objects:   objs,
+		Variables: vars,
+	}); err != nil {
+		return fmt.Errorf("write constants: %w", err)
+	}
+
+	return nil
+}
+
+// typeName returns the name of the type of the given object. If the object is
+// a pointer, the name of the pointed-to type is returned.
+func typeName(i any) string {
+	if i == nil {
+		return ""
+	}
+	typ := reflect.TypeOf(i)
+	if typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	return typ.String()
 }
 
 // logFreedMaps checks that no maps were freed by the kernel after loading

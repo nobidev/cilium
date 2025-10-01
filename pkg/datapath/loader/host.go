@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
@@ -91,6 +92,7 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 		},
 		Constants:  ciliumHostConfiguration(ep, lnc),
 		MapRenames: ciliumHostMapRenames(ep),
+		ConfigPath: filepath.Join(bpfStateDeviceDir(ep.InterfaceName()), hostEndpointConfig),
 	})
 	if err != nil {
 		return err
@@ -156,6 +158,7 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 		},
 		Constants:  ciliumNetConfiguration(ep, lnc, net),
 		MapRenames: ciliumNetMapRenames(ep, net),
+		ConfigPath: filepath.Join(bpfStateDeviceDir(defaults.SecondHostDevice), hostEndpointConfig),
 	})
 	if err != nil {
 		return err
@@ -240,6 +243,7 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 			},
 			Constants:  netdevConfiguration(ep, lnc, iface, masq4, masq6),
 			MapRenames: netdevMapRenames(ep, iface),
+			ConfigPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), hostEndpointConfig),
 		})
 		if err != nil {
 			return err
