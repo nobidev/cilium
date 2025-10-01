@@ -54,7 +54,9 @@ enableIPv4Masquerade: true
 # set to Kind Pod CIDR range to prevent pod-to-pod traffic from being masqueraded
 ipv4NativeRoutingCIDR: 10.244.0.0/16
 ipv6:
-  enabled: false
+  enabled: true
+ipv6NativeRoutingCIDR: "fd00:10:244::/56"
+enableIPv6Masquerade: true
 extraConfig:
   loadbalancer-cp-requestid-generate: "true"
   loadbalancer-cp-requestid-response: "true"

@@ -35,7 +35,7 @@ endif
 
 .PHONY: kind-loadbalancer
 kind-loadbalancer: ## Create a kind cluster for LoadBalancer development.
-	$(QUIET)SED=$(SED) ./contrib/scripts/kind.sh --xdp "" 4 "" "" "none" "ipv4"
+	$(QUIET)SED=$(SED) ./contrib/scripts/kind.sh --xdp "" 4 "" "" "none" "dual"
 
 .PHONY: kind-image-fast-enterprise-agent
 kind-image-fast-enterprise-agent:
