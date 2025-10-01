@@ -66,6 +66,7 @@ type EnterpriseBGPInstance struct {
 	Name   string
 	Config *v1.IsovalentBGPNodeInstance
 	Router types.EnterpriseRouter
+	Global ossTypes.BGPGlobal
 }
 
 type paramUpgrader interface {
@@ -168,6 +169,7 @@ func (u *reconcileParamsUpgrader) upgrade(params reconciler.ReconcileParams) (En
 				// copying it here.
 				Config: nil,
 				Router: upgradeRouter(params.BGPInstance.Router),
+				Global: params.BGPInstance.Global,
 			},
 			DesiredConfig: desiredConfig,
 			CiliumNode:    params.CiliumNode,

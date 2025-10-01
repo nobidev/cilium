@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
@@ -159,6 +160,10 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		BGPInstance: &instance.BGPInstance{
 			Config: &ossNode.Spec.BGPInstances[0],
 			Router: fake.NewEnterpriseFakeRouter(),
+			Global: types.BGPGlobal{
+				ASN:      65001,
+				RouterID: "1.2.3.4",
+			},
 		},
 		DesiredConfig: &ossNode.Spec.BGPInstances[0],
 		CiliumNode: &v2.CiliumNode{
@@ -179,6 +184,11 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 	require.IsType(t,
 		&fake.EnterpriseFakeRouter{}, ceeParams.BGPInstance.Router,
 		"CEE router is not of type EnterpriseFakeRouter",
+	)
+
+	require.Equal(t,
+		ceeParams.BGPInstance.Global, ossParams.BGPInstance.Global,
+		"CEE global router config does not match OSS global router config",
 	)
 
 	require.Equal(t,
