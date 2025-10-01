@@ -52,6 +52,17 @@ func LbIPPool(name, ipBlock string) *ciliumv2.CiliumLoadBalancerIPPool {
 					Cidr: ciliumv2.IPv4orIPv6CIDR(ipBlock),
 				},
 			},
+			// Exclude services from test "TestMultipleIPPools" from using the default IP Pool,
+			// because it doesn't define a service label selector and would select all services.
+			ServiceSelector: &slim_metav1.LabelSelector{
+				MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+					{
+						Key:      "io.kubernetes.service.namespace",
+						Operator: slim_metav1.LabelSelectorOpNotIn,
+						Values:   []string{"ilb-test-multiple-ip-pools"},
+					},
+				},
+			},
 		},
 	}
 }

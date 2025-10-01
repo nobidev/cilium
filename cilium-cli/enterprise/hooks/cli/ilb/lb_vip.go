@@ -11,7 +11,14 @@
 package ilb
 
 import (
+	"context"
 	"fmt"
+	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func TestSharedVIP(t T) {
@@ -113,5 +120,132 @@ func TestRequestedVIP(t T) {
 	stdout, stderr, err := client.Exec(t.Context(), testCmd)
 	if err != nil {
 		t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+	}
+}
+
+func TestMultipleIPPools(t T) {
+	testName := "multiple-ip-pools"
+
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
+
+	minVersion := ">=1.18.0"
+	currentVersion := GetCiliumVersion(t, k8sCli)
+
+	if !versioncheck.MustCompile(minVersion)(currentVersion) {
+		fmt.Printf("skipping due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
+		return
+	}
+
+	// 0. Setup test scenario (backends, clients & LB resources)
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
+
+	t.Log("Creating backend apps...")
+	scenario.addBackendApplications(2, backendApplicationConfig{h2cEnabled: true})
+
+	t.Log("Creating clients and add BGP peering ...")
+	client := scenario.addFRRClients(1, frrClientConfig{})[0]
+
+	t.Log("Creating additional IP Pools ...")
+	// 1
+	additionalPoolName1 := LbIPPoolName + "-1"
+	lbIPPool1 := LbIPPool(additionalPoolName1, "100.64.1.0/24")
+	lbIPPool1.Spec.ServiceSelector = &slimmetav1.LabelSelector{
+		MatchLabels: map[string]slimmetav1.MatchLabelsValue{
+			"io.kubernetes.service.namespace":     scenario.k8sNamespace,
+			"loadbalancer.isovalent.com/vip-name": testName + "-1",
+		},
+	}
+	if err := ciliumCli.EnsureLBIPPool(t.Context(), lbIPPool1); err != nil {
+		t.Failedf("failed to ensure LBIPPool (%s): %w", additionalPoolName1, err)
+	}
+
+	t.RegisterCleanup(func(ctx context.Context) error {
+		return ciliumCli.DeleteLBIPPool(ctx, additionalPoolName1, metav1.DeleteOptions{})
+	})
+
+	// 2
+	additionalPoolName2 := LbIPPoolName + "-2"
+	lbIPPool2 := LbIPPool(additionalPoolName2, "100.64.2.0/24")
+	lbIPPool2.Spec.ServiceSelector = &slimmetav1.LabelSelector{
+		MatchLabels: map[string]slimmetav1.MatchLabelsValue{
+			"io.kubernetes.service.namespace":     scenario.k8sNamespace,
+			"loadbalancer.isovalent.com/vip-name": testName + "-2",
+		},
+	}
+	if err := ciliumCli.EnsureLBIPPool(t.Context(), lbIPPool2); err != nil {
+		t.Failedf("failed to ensure LBIPPool (%s): %w", additionalPoolName2, err)
+	}
+
+	t.RegisterCleanup(func(ctx context.Context) error {
+		return ciliumCli.DeleteLBIPPool(ctx, additionalPoolName2, metav1.DeleteOptions{})
+	})
+
+	// additional lbipam pool 1
+	{
+		name := testName + "-1"
+		t.Log("Creating LB VIP resources...")
+		vip := lbVIP(name)
+		scenario.createLBVIP(vip)
+
+		t.Log("Creating LB BackendPool resources...")
+		backends := []backendPoolOption{}
+		for _, b := range scenario.backendApps {
+			backends = append(backends, withIPBackend(b.ip, b.port))
+		}
+		backendPool := lbBackendPool(name, backends...)
+		scenario.createLBBackendPool(backendPool)
+
+		t.Log("Creating LB Service resources...")
+		service1 := lbService(name, withVIPRef(vip.Name), withHTTPProxyApplication(withHttpRoute(name)))
+		scenario.createLBService(service1)
+
+		t.Log("Waiting for full VIP connectivity...")
+		vipIP := scenario.waitForFullVIPConnectivity(vip.Name)
+		if !strings.HasPrefix(vipIP, "100.64.1.") {
+			t.Failedf("wrong ip pool")
+		}
+
+		// 1. Send HTTP request to requested VIP
+		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", vipIP))
+		t.Log("Testing %q...", testCmd)
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
+		if err != nil {
+			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
+	}
+
+	// additional lbipam pool 2
+	{
+		name := testName + "-2"
+		t.Log("Creating LB VIP resources...")
+		vip := lbVIP(name)
+		scenario.createLBVIP(vip)
+
+		t.Log("Creating LB BackendPool resources...")
+		backends := []backendPoolOption{}
+		for _, b := range scenario.backendApps {
+			backends = append(backends, withIPBackend(b.ip, b.port))
+		}
+		backendPool := lbBackendPool(name, backends...)
+		scenario.createLBBackendPool(backendPool)
+
+		t.Log("Creating LB Service resources...")
+		service1 := lbService(name, withVIPRef(vip.Name), withHTTPProxyApplication(withHttpRoute(name)))
+		scenario.createLBService(service1)
+
+		t.Log("Waiting for full VIP connectivity...")
+		vipIP := scenario.waitForFullVIPConnectivity(vip.Name)
+		if !strings.HasPrefix(vipIP, "100.64.2.") {
+			t.Failedf("wrong ip pool")
+		}
+
+		// 1. Send HTTP request to requested VIP
+		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", vipIP))
+		t.Log("Testing %q...", testCmd)
+		stdout, stderr, err := client.Exec(t.Context(), testCmd)
+		if err != nil {
+			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
 	}
 }

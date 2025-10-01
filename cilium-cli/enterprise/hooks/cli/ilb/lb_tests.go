@@ -12,6 +12,7 @@ package ilb
 
 var Tests = []func(t T){
 	TestRequestedVIP,
+	TestMultipleIPPools,
 	TestSharedVIP,
 	TestBGPHealthCheck,
 	TestBGPHealthCheckSubset,
