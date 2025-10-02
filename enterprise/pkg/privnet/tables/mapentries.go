@@ -61,8 +61,8 @@ func (me MapEntry) String() string {
 	return fmt.Sprintf("%s %s/%s -> %s",
 		me.Type,
 		me.Target.NetworkName,
-		me.Target.CIDR.String(),
-		me.Routing.NextHop.String(),
+		me.Target.CIDR,
+		me.Routing.NextHop,
 	)
 }
 
