@@ -125,7 +125,7 @@ int egressgw_standalone_redirect_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
-	segw_entry = map_lookup_elem(&EGRESS_GW_STANDALONE_MAP, &segw_key);
+	segw_entry = map_lookup_elem(&cilium_egress_gw_standalone_v4, &segw_key);
 	if (!segw_entry)
 		test_fatal("no SEGW entry found");
 

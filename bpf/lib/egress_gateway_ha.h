@@ -23,7 +23,7 @@ struct {
 	__type(value, struct egress_gw_ha_ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, EGRESS_GW_HA_CT_MAP_SIZE);
-} EGRESS_GW_HA_CT_MAP __section_maps_btf;
+} cilium_egress_gw_ha_ct_v4 __section_maps_btf;
 
 #ifdef ENABLE_EGRESS_GATEWAY_STANDALONE
 struct {
@@ -32,7 +32,7 @@ struct {
 	__type(value, struct egress_gw_standalone_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, EGRESS_GW_STANDALONE_MAP_SIZE);
-} EGRESS_GW_STANDALONE_MAP __section_maps_btf;
+} cilium_egress_gw_standalone_v4 __section_maps_btf;
 #endif /* ENABLE_EGRESS_GATEWAY_STANDALONE */
 
 static __always_inline
@@ -49,7 +49,7 @@ struct egress_gw_ha_policy_entry_v2 *lookup_ip4_egress_gw_ha_policy_v2(__be32 sa
 static __always_inline
 struct egress_gw_ha_ct_entry *lookup_ip4_egress_ct(struct ipv4_ct_tuple *ct_key)
 {
-	return map_lookup_elem(&EGRESS_GW_HA_CT_MAP, ct_key);
+	return map_lookup_elem(&cilium_egress_gw_ha_ct_v4, ct_key);
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY_STANDALONE
@@ -57,7 +57,7 @@ struct egress_gw_standalone_entry *lookup_ip4_segw(__be32 addr)
 {
 	struct egress_gw_standalone_key segw_key = { .endpoint_ip = addr };
 
-	return map_lookup_elem(&EGRESS_GW_STANDALONE_MAP, &segw_key);
+	return map_lookup_elem(&cilium_egress_gw_standalone_v4, &segw_key);
 }
 #endif /* ENABLE_EGRESS_GATEWAY_STANDALONE */
 
@@ -68,7 +68,7 @@ void update_egress_gw_ha_ct_entry(struct ipv4_ct_tuple *ct_key, __be32 gateway)
 		.gateway_ip = gateway
 	};
 
-	map_update_elem(&EGRESS_GW_HA_CT_MAP, ct_key, &egress_ct, 0);
+	map_update_elem(&cilium_egress_gw_ha_ct_v4, ct_key, &egress_ct, 0);
 }
 
 static __always_inline
@@ -236,7 +236,7 @@ int cee_egress_gw_standalone_map_update(struct __ctx_buff *ctx __maybe_unused,
 
 	segw_value.tunnel_endpoint = bpf_htonl(tunnel_key.remote_ipv4);
 	segw_value.sec_identity = src_sec_identity;
-	if (unlikely(map_update_elem(&EGRESS_GW_STANDALONE_MAP, &segw_key,
+	if (unlikely(map_update_elem(&cilium_egress_gw_standalone_v4, &segw_key,
 				     &segw_value, BPF_ANY) != 0))
 		return DROP_WRITE_ERROR;
 #endif /* ENABLE_EGRESS_GATEWAY_STANDALONE */

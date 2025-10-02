@@ -71,7 +71,6 @@ type segwMap struct {
 func segwMapDefines(cfg SEGWMapConfig) defines.NodeOut {
 	return defines.NodeOut{
 		NodeDefines: map[string]string{
-			"EGRESS_GW_STANDALONE_MAP":      SEGWMapName,
 			"EGRESS_GW_STANDALONE_MAP_SIZE": fmt.Sprint(cfg.StandaloneEgressGatewayMapMax),
 		},
 	}

@@ -147,7 +147,7 @@ int egressgw_standalone_snat_reply_setup(struct __ctx_buff *ctx)
 	};
 
 	/* install the SEGW entry for the CLIENT_IP: */
-	map_update_elem(&EGRESS_GW_STANDALONE_MAP, &segw_key, &segw_entry, BPF_ANY);
+	map_update_elem(&cilium_egress_gw_standalone_v4, &segw_key, &segw_entry, BPF_ANY);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);

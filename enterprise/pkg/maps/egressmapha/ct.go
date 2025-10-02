@@ -67,7 +67,6 @@ func createCtMapFromDaemonConfig(in struct {
 	defines.NodeOut
 }) {
 	out.NodeDefines = map[string]string{
-		"EGRESS_GW_HA_CT_MAP":      CtMapName,
 		"EGRESS_GW_HA_CT_MAP_SIZE": fmt.Sprint(MaxCtEntries),
 	}
 
