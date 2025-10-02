@@ -45,7 +45,7 @@ func (ep Endpoint) Key() EndpointKey {
 
 // ToMapEntry returns the MapEntry object created from the Endpoint and
 // PrivateNetwork information.
-func (ep Endpoint) ToMapEntry(privnet PrivateNetwork) *MapEntry {
+func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork) *MapEntry {
 	return &MapEntry{
 		Type: MapEntryTypeEndpoint,
 
@@ -58,7 +58,7 @@ func (ep Endpoint) ToMapEntry(privnet PrivateNetwork) *MapEntry {
 
 		Routing: MapEntryRouting{
 			NextHop:       ep.IP,
-			EgressIfIndex: privnet.Interface.Index,
+			EgressIfIndex: privnet.EgressIfIndex,
 			Cluster:       ClusterName(ep.Source.Cluster),
 		},
 

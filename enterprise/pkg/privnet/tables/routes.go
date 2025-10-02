@@ -55,16 +55,16 @@ func (r Route) MapEntryType() MapEntryType {
 	return MapEntryTypeDCNRoute
 }
 
-func (r Route) ToMapEntry(privNet PrivateNetwork, bridgeMode bool) *MapEntry {
+func (r Route) ToMapEntry(privNet SlimPrivateNetwork, bridgeMode bool) *MapEntry {
 	routeType := r.MapEntryType()
 
 	nexthop := r.Gateway
 	if !bridgeMode {
-		// If not running in bridge mode, we use the first INB IP as the next hop
-		if len(privNet.INBs.IPs) == 0 {
+		// If not running in bridge mode, we use active INB IP as next hop.
+		if !privNet.ActiveINB.IP.IsValid() {
 			return nil
 		}
-		nexthop = privNet.INBs.IPs[0]
+		nexthop = privNet.ActiveINB.IP
 	} else if routeType == MapEntryTypeDCNRoute {
 		// For DCNRoutes, use the unspecified IP as the nexthop
 		if r.Destination.Addr().Is6() {

@@ -15,7 +15,6 @@ import (
 	"iter"
 	"log/slog"
 	"net/netip"
-	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -60,6 +59,9 @@ type MapEntries struct {
 	endpoints statedb.Table[tables.Endpoint]
 	routes    statedb.Table[tables.Route]
 	tbl       statedb.RWTable[*tables.MapEntry]
+
+	// knownNetworks is not protected by a mutex as access is serialized by write transactions.
+	knownNetworks map[tables.NetworkName]tables.SlimPrivateNetwork
 }
 
 func newMapEntries(in struct {
@@ -87,6 +89,8 @@ func newMapEntries(in struct {
 		endpoints: in.Endpoints,
 		routes:    in.Routes,
 		tbl:       in.Table,
+
+		knownNetworks: make(map[tables.NetworkName]tables.SlimPrivateNetwork),
 	}
 
 	return reconciler, nil
@@ -105,8 +109,7 @@ func (m *MapEntries) registerReconciler() {
 	// and pushes endpoint and routes entries into the downstream map entries table
 	m.jg.Add(job.OneShot("populate-mapentries-table", func(ctx context.Context, _ cell.Health) error {
 		var (
-			initDone      bool
-			knownNetworks = make(map[tables.NetworkName]tables.PrivateNetwork)
+			initDone bool
 		)
 
 		txn := m.db.WriteTxn(m.networks, m.endpoints, m.routes)
@@ -138,7 +141,6 @@ func (m *MapEntries) registerReconciler() {
 						return err
 					}
 					removedNetworks.Insert(network)
-					delete(knownNetworks, network)
 				} else {
 					// We need to process all endpoints and routes both if this
 					// is the first time that we see this network, and if something
@@ -148,13 +150,13 @@ func (m *MapEntries) registerReconciler() {
 					// The deletion of possible stale entries is deferred to the
 					// processing of the corresponding endpoint/route deletion
 					// events, which are not filtered out below.
-					if !m.skipNetworkEvent(knownNetworks[network], netChange.Object) {
-						if err := m.upsertAllNetworkEntries(txn, network); err != nil {
+					slim := netChange.Object.ToSlim()
+					if !m.skipNetworkEvent(slim) {
+						if err := m.upsertAllNetworkEntries(txn, slim); err != nil {
 							txn.Abort()
 							return err
 						}
 						upsertedNetworks.Insert(network)
-						knownNetworks[network] = netChange.Object
 					}
 				}
 			}
@@ -247,7 +249,7 @@ func (m *MapEntries) registerReconciler() {
 // the corresponding entry is deleted. On the other hand, if there is a (new) active
 // endpoint, the new active endpoint is inserted.
 func (m *MapEntries) handleEndpointChange(txn statedb.WriteTxn, ep tables.Endpoint) error {
-	privNet, _, found := m.networks.Get(txn, tables.PrivateNetworkByName(tables.NetworkName(ep.Network.Name)))
+	privNet, found := m.knownNetworks[tables.NetworkName(ep.Network.Name)]
 	if !found {
 		// We don't know anything yet about this private network
 		return nil
@@ -338,15 +340,18 @@ func (m *MapEntries) findConflictingNATEntriesForActiveEP(txn statedb.ReadTxn, a
 
 // upsertAllNetworkEntries queries the upstream endpoints and routes tables and performs an
 // upsert operation for each endpoint and route which belongs to the given network.
-func (m *MapEntries) upsertAllNetworkEntries(txn statedb.WriteTxn, network tables.NetworkName) error {
-	for ep := range m.endpoints.Prefix(txn, tables.EndpointsByNetwork(network)) {
+func (m *MapEntries) upsertAllNetworkEntries(txn statedb.WriteTxn, network tables.SlimPrivateNetwork) error {
+	// Store the updated network information into the local cache.
+	m.knownNetworks[network.Name] = network
+
+	for ep := range m.endpoints.Prefix(txn, tables.EndpointsByNetwork(network.Name)) {
 		err := m.handleEndpointChange(txn, ep)
 		if err != nil {
 			return err
 		}
 	}
 
-	for rt := range m.routes.Prefix(txn, tables.RouteByNetwork(network)) {
+	for rt := range m.routes.Prefix(txn, tables.RouteByNetwork(network.Name)) {
 		err := m.upsertRoute(txn, rt)
 		if err != nil {
 			return err
@@ -358,6 +363,7 @@ func (m *MapEntries) upsertAllNetworkEntries(txn statedb.WriteTxn, network table
 
 // deleteAllNetworkEntries deletes all map entries associated with the given network
 func (m *MapEntries) deleteAllNetworkEntries(txn statedb.WriteTxn, privNetName tables.NetworkName) error {
+	delete(m.knownNetworks, privNetName)
 	for entry := range m.tbl.Prefix(txn, tables.MapEntriesByNetwork(privNetName)) {
 		_, _, err := m.tbl.Delete(txn, entry)
 		if err != nil {
@@ -369,14 +375,13 @@ func (m *MapEntries) deleteAllNetworkEntries(txn statedb.WriteTxn, privNetName t
 
 // skipNetworkUpdate determines if the two networks are identical from the MapEntries
 // reconciler point of view, and the event can be skipped.
-func (m *MapEntries) skipNetworkEvent(old, current tables.PrivateNetwork) bool {
+func (m *MapEntries) skipNetworkEvent(current tables.SlimPrivateNetwork) bool {
 	// * The network name is the primary key, so it cannot change.
 	// * We do not care about the INBs selectors.
 	// * We only care about the interface ID, not its name or the reconciliation status.
 	// * Route and subnet changes are already processed via the dedicated table.
-	return old.ID == current.ID &&
-		old.Interface.Index == current.Interface.Index &&
-		slices.Equal(old.INBs.IPs, current.INBs.IPs)
+	old, ok := m.knownNetworks[current.Name]
+	return ok && old == current
 }
 
 // skipChangeEvent is called for endpoint and route change events to determine if
@@ -437,7 +442,7 @@ func (m *MapEntries) insertEndpointEntry(txn statedb.WriteTxn, epEntry *tables.M
 // deleteEndpointEntry deletes the map table entry associated with an endpoint. It checks
 // if the deleted endpoint entry shadowed a route entry with the same /32 or /128 target,
 // and re-inserts that route entry if so.
-func (m *MapEntries) deleteEndpointEntry(txn statedb.WriteTxn, privNet tables.PrivateNetwork, epEntry *tables.MapEntry) error {
+func (m *MapEntries) deleteEndpointEntry(txn statedb.WriteTxn, privNet tables.SlimPrivateNetwork, epEntry *tables.MapEntry) error {
 	// Delete the endpoint entry
 	_, _, err := m.tbl.Delete(txn, epEntry)
 	if err != nil {
@@ -468,7 +473,7 @@ func (m *MapEntries) deleteEndpointEntry(txn statedb.WriteTxn, privNet tables.Pr
 // upsertRoute inserts a new route entry into the table. If an endpoint entry with the same target
 // already exists, we skip the insertion as the endpoint entry should take precedence.
 func (m *MapEntries) upsertRoute(txn statedb.WriteTxn, route tables.Route) error {
-	privNet, _, found := m.networks.Get(txn, tables.PrivateNetworkByName(route.Network))
+	privNet, found := m.knownNetworks[route.Network]
 	if !found {
 		// We don't know anything yet about this private network
 		return nil
