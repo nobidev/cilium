@@ -11,15 +11,24 @@
 package reconcilers
 
 import (
+	"bufio"
+	"cmp"
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
+	"iter"
 	"log/slog"
 	"math/rand/v2"
+	"os"
+	"path/filepath"
 	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/google/renameio/v2"
+	jsoniter "github.com/json-iterator/go"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
@@ -31,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nomgr "github.com/cilium/cilium/pkg/node/manager"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var INBsCell = cell.Group(
@@ -44,6 +54,9 @@ var INBsCell = cell.Group(
 		// Provides the function selecting the active INB index given a set of
 		// candidates. Can be overridden to obtain stable selections for testing.
 		(*INBs).newDefaultActiveIndexFunc,
+
+		// Provides the object interacting with the active INBs checkpoint file.
+		newINBsCheckpointer,
 	),
 
 	cell.Provide(
@@ -95,6 +108,8 @@ type INBs struct {
 	nodes   *observers.Nodes
 	checker health.Checker
 
+	checkpointer *INBsCheckpointer
+
 	// pninit and noinit respectively track the initialization of the table from
 	// private networks and nodes, so that we can break the health observer circular
 	// dependency on initializers (as it adds itself an initializer).
@@ -120,6 +135,8 @@ func newINBs(in struct {
 
 	Nodes   *observers.Nodes
 	Checker health.Checker
+
+	Checkpointer *INBsCheckpointer
 }) *INBs {
 	return &INBs{
 		log: in.Log,
@@ -133,6 +150,8 @@ func newINBs(in struct {
 
 		nodes:   in.Nodes,
 		checker: in.Checker,
+
+		checkpointer: in.Checkpointer,
 
 		pninit: make(chan struct{}),
 		noinit: make(chan struct{}),
@@ -479,6 +498,9 @@ type ActiveINBIndexFunc = func(candidates []tables.INB) int
 
 func (i *INBs) activeINBsReconciliationFunc(activeIndexFunc ActiveINBIndexFunc, wait <-chan struct{}, initialized func(statedb.WriteTxn)) job.OneShotFunc {
 	return func(ctx context.Context, health cell.Health) error {
+		health.OK("Restoring active INBs")
+		restored := i.checkpointer.Restore()
+
 		health.OK("Waiting for initialization")
 		select {
 		case <-wait:
@@ -489,6 +511,7 @@ func (i *INBs) activeINBsReconciliationFunc(activeIndexFunc ActiveINBIndexFunc, 
 
 		for {
 			var (
+				activeCount   int
 				promotedCount int
 
 				wtx      = i.db.WriteTxn(i.tbl)
@@ -505,6 +528,7 @@ func (i *INBs) activeINBsReconciliationFunc(activeIndexFunc ActiveINBIndexFunc, 
 				// Add the watch channel to the set, so that we wake up when its state changed.
 				if found {
 					watchset.Add(watch)
+					activeCount++
 					continue
 				}
 
@@ -514,12 +538,19 @@ func (i *INBs) activeINBsReconciliationFunc(activeIndexFunc ActiveINBIndexFunc, 
 				// No standby candidate found. Add the watch channel to the set, so that we wake
 				// up again once one standby candidate appears.
 				if len(standby) == 0 {
+					i.checkpointer.Remove(privnet.Name)
 					watchset.Add(watch)
 					continue
 				}
 
-				// Pick one of the standby INBs, and promote it to active.
-				idx := activeIndexFunc(standby)
+				// Try to preserve the previously active INB, if still healthy, to
+				// prevent unnecessary churn on restart.
+				idx := restored.Index(privnet.Name, standby)
+
+				// Otherwise, just pick one of the standby INBs, and promote it to active.
+				if idx < 0 {
+					idx = activeIndexFunc(standby)
+				}
 
 				promoted := standby[idx]
 				if err := promoted.Activate(); err != nil {
@@ -536,14 +567,25 @@ func (i *INBs) activeINBsReconciliationFunc(activeIndexFunc ActiveINBIndexFunc, 
 				// We want to wake-up if the currently active INB is no longer so.
 				watchset.Add(watch)
 
+				i.checkpointer.Add(promoted.Network, promoted.Node)
 				i.checker.Activate(promoted.Node, promoted.Network)
+				activeCount++
 				promotedCount++
 			}
+
+			// State tracking is optimized to avoid re-creating the checkpoint in the
+			// common case. However, we need to explicitly handle the case in which a
+			// private network got deleted, which goes through the following "slow path".
+			i.checkpointer.RemoveStaleIfNeeded(activeCount,
+				func() iter.Seq[tables.PrivateNetwork] { return statedb.ToSeq(i.networks.All(wtx)) })
 
 			if initialized != nil {
 				initialized(wtx)
 				initialized = nil
 				wtx.Commit()
+
+				// The restored checkpoint takes effect for the first reconciliation round only.
+				restored = nil
 			} else if promotedCount > 0 {
 				wtx.Commit()
 			} else {
@@ -551,7 +593,9 @@ func (i *INBs) activeINBsReconciliationFunc(activeIndexFunc ActiveINBIndexFunc, 
 				wtx.Abort()
 			}
 
-			if promotedCount > 0 {
+			if err := i.checkpointer.CheckpointIfNeeded(); err != nil {
+				health.Degraded("Failed to write checkpoint", err)
+			} else if promotedCount > 0 {
 				health.OK(fmt.Sprintf("Reconciliation completed, promoted INB for %d networks", promotedCount))
 			}
 
@@ -567,6 +611,195 @@ func (i *INBs) newDefaultActiveIndexFunc() ActiveINBIndexFunc {
 	return func(candidates []tables.INB) int {
 		return rand.IntN(len(candidates))
 	}
+}
+
+// INBCheckpointFile is the name of the file storing the active INBs for each
+// network, so that they can be preserved upon agent restart.
+const INBCheckpointFile = "privnet-active-inbs.json"
+
+// INBsCheckpointer is responsible for interacting with the active INB checkpoint file.
+// Its methods are not thread-safe.
+type INBsCheckpointer struct {
+	log *slog.Logger
+
+	stateDir string
+
+	// checkpoint is sorted by network name to ensure consistent ordering,
+	// especially for testing purposes.
+	checkpoint       []INBCheckpoint
+	checkpointNeeded bool
+
+	compare func(INBCheckpoint, tables.NetworkName) int
+}
+
+func newINBsCheckpointer(log *slog.Logger, cfg *option.DaemonConfig) *INBsCheckpointer {
+	return &INBsCheckpointer{
+		log:      log,
+		stateDir: cfg.StateDir,
+
+		// Initialize the slice, so that it gets written as [], opposed to nil.
+		checkpoint:       make([]INBCheckpoint, 0),
+		checkpointNeeded: true,
+
+		compare: func(ic INBCheckpoint, network tables.NetworkName) int {
+			return cmp.Compare(ic.Network, network)
+		},
+	}
+}
+
+// Add adds the new entry for the given network to the checkpoint.
+func (ic *INBsCheckpointer) Add(network tables.NetworkName, node tables.INBNode) {
+	ic.checkpointNeeded = true
+	var entry = INBCheckpoint{
+		Network: network,
+		Cluster: node.Cluster,
+		Node:    node.Name,
+	}
+
+	idx, found := slices.BinarySearchFunc(ic.checkpoint, network, ic.compare)
+	if found {
+		// The element is already present, update it.
+		ic.checkpoint[idx] = entry
+	} else {
+		// Otherwise, insert it in the correct position.
+		ic.checkpoint = slices.Insert(ic.checkpoint, idx, entry)
+	}
+}
+
+// Remove removes the entry (if existing) for the given network from the checkpoint.
+func (ic *INBsCheckpointer) Remove(network tables.NetworkName) {
+	idx, found := slices.BinarySearchFunc(ic.checkpoint, network, ic.compare)
+	if found {
+		ic.checkpoint = slices.Delete(ic.checkpoint, idx, idx+1)
+		ic.checkpointNeeded = true
+	}
+}
+
+// RemoveStaleIfNeeded removes all stale entries from the checkpoint, where the
+// list of active ones is given by the [all] function. No operation is performed
+// if [activeCount] matches the number of checkpoint entries, as it is assumed to
+// be up to date in that case.
+func (ic *INBsCheckpointer) RemoveStaleIfNeeded(activeCount int, all func() iter.Seq[tables.PrivateNetwork]) {
+	// The number of active entries matches, so nothing to do here.
+	if activeCount == len(ic.checkpoint) {
+		return
+	}
+
+	active := sets.New[tables.NetworkName]()
+	for privnet := range all() {
+		active.Insert(privnet.Name)
+	}
+
+	ic.checkpointNeeded = true
+	ic.checkpoint = slices.DeleteFunc(ic.checkpoint,
+		func(entry INBCheckpoint) bool { return !active.Has(entry.Network) })
+}
+
+// CheckpointIfNeeded writes a checkpoint to disk if its content changed since last update.
+func (ic *INBsCheckpointer) CheckpointIfNeeded() (err error) {
+	if !ic.checkpointNeeded {
+		return nil
+	}
+
+	path := filepath.Join(ic.stateDir, INBCheckpointFile)
+	defer func() {
+		if err != nil {
+			ic.log.Warn("Cannot write INBs checkpoint file. "+
+				"Active INB associations will not be preserved upon restart",
+				logfields.File, path,
+				logfields.Error, err,
+			)
+		}
+	}()
+
+	// Write new contents to a temporary file which will be atomically renamed to the
+	// real file at the end of this function to avoid data corruption if we crash.
+	file, err := renameio.TempFile(ic.stateDir, path)
+	if err != nil {
+		return fmt.Errorf("opening temporary file: %w", err)
+	}
+	defer file.Cleanup()
+
+	buffer := bufio.NewWriter(file)
+	writer := jsoniter.ConfigFastest.NewEncoder(buffer)
+
+	if err := writer.Encode(ic.checkpoint); err != nil {
+		return fmt.Errorf("encoding checkpoint information: %w", err)
+	}
+
+	if err := buffer.Flush(); err != nil {
+		return fmt.Errorf("flushing checkpoint information: %w", err)
+	}
+
+	if err := file.CloseAtomicallyReplace(); err != nil {
+		return fmt.Errorf("committing file changes: %w", err)
+	}
+
+	ic.checkpointNeeded = false
+	return nil
+}
+
+// Restore restores the checkpoint file content.
+func (ic *INBsCheckpointer) Restore() INBRestoredCheckpoint {
+	path := filepath.Join(ic.stateDir, INBCheckpointFile)
+
+	file, err := os.Open(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			ic.log.Info("No INBs checkpoint file found. "+
+				"Active INB associations (if any) will not be preserved",
+				logfields.File, path,
+			)
+		} else {
+			ic.log.Warn("Cannot read INBs checkpoint file."+
+				"Active INB associations (if any) will not be preserved",
+				logfields.File, path,
+				logfields.Error, err,
+			)
+		}
+
+		return nil
+	}
+
+	reader := jsoniter.ConfigFastest.NewDecoder(bufio.NewReader(file))
+	var checkpoint []INBCheckpoint
+	if err := reader.Decode(&checkpoint); err != nil {
+		ic.log.Warn("Cannot parse INBs checkpoint file."+
+			"Active INB associations (if any) will not be preserved",
+			logfields.File, path,
+			logfields.Error, err,
+		)
+		return nil
+	}
+
+	restored := make(INBRestoredCheckpoint, len(checkpoint))
+	for _, item := range checkpoint {
+		restored[item.Network] = item
+	}
+	return restored
+}
+
+// INBCheckpoint is the type of an active INB checkpoint entry.
+type INBCheckpoint struct {
+	Network tables.NetworkName `json:"network"`
+	Cluster tables.ClusterName `json:"cluster"`
+	Node    tables.NodeName    `json:"node"`
+}
+
+// INBRestoredCheckpoint represents a checkpoint restored from disk.
+type INBRestoredCheckpoint map[tables.NetworkName]INBCheckpoint
+
+// Index returns the index of the element in the standby slice matching the
+// previously active INB for the given network, if found, or -1 otherwise.
+func (irc INBRestoredCheckpoint) Index(network tables.NetworkName, standby []tables.INB) int {
+	prev, ok := irc[network]
+	if !ok {
+		return -1
+	}
+
+	return slices.IndexFunc(standby, func(item tables.INB) bool {
+		return item.Node.Cluster == prev.Cluster && item.Node.Name == prev.Node
+	})
 }
 
 // overrideNodeManager is to be used via [cell.DecorateAll] to override the [NodeManager].

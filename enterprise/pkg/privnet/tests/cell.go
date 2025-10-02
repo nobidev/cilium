@@ -11,6 +11,7 @@
 package tests
 
 import (
+	"path"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
@@ -53,6 +55,13 @@ func NewTestHive(t testing.TB) *hive.Hive {
 
 			func() tunnel.Config {
 				return tunnel.NewTestConfig(tunnel.VXLAN)
+			},
+
+			func() *option.DaemonConfig {
+				return &option.DaemonConfig{
+					// Set StateDir to match the script test directory.
+					StateDir: path.Join(path.Dir(t.TempDir()), "001"),
+				}
 			},
 		),
 
