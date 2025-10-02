@@ -55,7 +55,7 @@ endpoints:
       ipv4: 10.0.100.40
       ipv6: fd00:10:100::40
     mac: 00:50:56:ad:45:ec
-    network: blue-segment
+    network: blue-network
 - activatedAt: "2025-06-20T16:29:49.321000Z"
   endpoint:
     addressing:
@@ -67,7 +67,7 @@ endpoints:
       ipv4: 10.0.100.52
       ipv6: fd00:10:100::52
     mac: 00:50:56:ad:45:d8
-    network: green-segment
+    network: green-network
 - endpoint:
     addressing:
       ipv4: 10.244.5.109
@@ -78,7 +78,7 @@ endpoints:
       ipv4: 10.0.100.52
       ipv6: fd00:10:100::52
     mac: 00:50:56:ad:11:99
-    network: blue-segment
+    network: blue-network
 
 -- privnet-epslice-1-v2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -98,7 +98,7 @@ endpoints:
       ipv4: 10.0.100.41
       ipv6: fd00:10:100::41
     mac: 00:50:56:ad:45:ec
-    network: yellow-segment
+    network: yellow-network
 - activatedAt: "2025-06-20T16:29:49.321000Z"
   endpoint:
     addressing:
@@ -110,7 +110,7 @@ endpoints:
       ipv4: 10.0.100.52
       ipv6: fd00:10:100::52
     mac: 00:50:56:ad:45:d8
-    network: green-segment
+    network: green-network
 
 -- privnet-epslice-2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -128,7 +128,7 @@ endpoints:
     addressing:
       ipv4: 10.0.100.43
     mac: 00:50:56:ad:45:ec
-    network: blue-segment
+    network: blue-network
 
 -- privnet-epslice-3.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -146,16 +146,16 @@ endpoints:
     addressing:
       ipv4: 10.0.100.50
     mac: 00:50:56:ad:9b:c7
-    network: yellow-segment
+    network: yellow-network
 
 -- entries-1+2.expected --
-# cilium/state/privneteps/v1/cluster3/blue-segment/10.244.5.108
+# cilium/state/privneteps/v1/cluster3/blue-network/10.244.5.108
 {
   "activatedAt": "2025-06-20T15:54:04.501Z",
   "ip": "10.244.5.108",
   "name": "optimum-mouse",
   "network": {
-    "name": "blue-segment",
+    "name": "blue-network",
     "ip": "10.0.100.40",
     "mac": "00:50:56:ad:45:ec"
   },
@@ -165,12 +165,12 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/blue-segment/10.244.5.109
+# cilium/state/privneteps/v1/cluster3/blue-network/10.244.5.109
 {
   "ip": "10.244.5.109",
   "name": "regular-koi",
   "network": {
-    "name": "blue-segment",
+    "name": "blue-network",
     "ip": "10.0.100.52",
     "mac": "00:50:56:ad:11:99"
   },
@@ -180,13 +180,13 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/blue-segment/10.244.6.80
+# cilium/state/privneteps/v1/cluster3/blue-network/10.244.6.80
 {
   "activatedAt": "2025-06-20T16:13:01.667Z",
   "ip": "10.244.6.80",
   "name": "on-viper",
   "network": {
-    "name": "blue-segment",
+    "name": "blue-network",
     "ip": "10.0.100.43",
     "mac": "00:50:56:ad:45:ec"
   },
@@ -196,13 +196,13 @@ endpoints:
     "name": "privnet-epslice-2"
   }
 }
-# cilium/state/privneteps/v1/cluster3/blue-segment/fd00:10:244:5::108
+# cilium/state/privneteps/v1/cluster3/blue-network/fd00:10:244:5::108
 {
   "activatedAt": "2025-06-20T15:54:04.501Z",
   "ip": "fd00:10:244:5::108",
   "name": "optimum-mouse",
   "network": {
-    "name": "blue-segment",
+    "name": "blue-network",
     "ip": "fd00:10:100::40",
     "mac": "00:50:56:ad:45:ec"
   },
@@ -212,12 +212,12 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/blue-segment/fd00:10:244:5::109
+# cilium/state/privneteps/v1/cluster3/blue-network/fd00:10:244:5::109
 {
   "ip": "fd00:10:244:5::109",
   "name": "regular-koi",
   "network": {
-    "name": "blue-segment",
+    "name": "blue-network",
     "ip": "fd00:10:100::52",
     "mac": "00:50:56:ad:11:99"
   },
@@ -227,13 +227,13 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/green-segment/10.244.5.63
+# cilium/state/privneteps/v1/cluster3/green-network/10.244.5.63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
   "ip": "10.244.5.63",
   "name": "pumped-ocelot",
   "network": {
-    "name": "green-segment",
+    "name": "green-network",
     "ip": "10.0.100.52",
     "mac": "00:50:56:ad:45:d8"
   },
@@ -243,13 +243,13 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/green-segment/fd00:10:244:5::63
+# cilium/state/privneteps/v1/cluster3/green-network/fd00:10:244:5::63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
   "ip": "fd00:10:244:5::63",
   "name": "pumped-ocelot",
   "network": {
-    "name": "green-segment",
+    "name": "green-network",
     "ip": "fd00:10:100::52",
     "mac": "00:50:56:ad:45:d8"
   },
@@ -260,13 +260,13 @@ endpoints:
   }
 }
 -- entries-1+2-v2.expected --
-# cilium/state/privneteps/v1/cluster3/blue-segment/10.244.6.80
+# cilium/state/privneteps/v1/cluster3/blue-network/10.244.6.80
 {
   "activatedAt": "2025-06-20T16:13:01.667Z",
   "ip": "10.244.6.80",
   "name": "on-viper",
   "network": {
-    "name": "blue-segment",
+    "name": "blue-network",
     "ip": "10.0.100.43",
     "mac": "00:50:56:ad:45:ec"
   },
@@ -276,13 +276,13 @@ endpoints:
     "name": "privnet-epslice-2"
   }
 }
-# cilium/state/privneteps/v1/cluster3/green-segment/10.244.5.63
+# cilium/state/privneteps/v1/cluster3/green-network/10.244.5.63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
   "ip": "10.244.5.63",
   "name": "pumped-ocelot",
   "network": {
-    "name": "green-segment",
+    "name": "green-network",
     "ip": "10.0.100.52",
     "mac": "00:50:56:ad:45:d8"
   },
@@ -292,13 +292,13 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/green-segment/fd00:10:244:5::63
+# cilium/state/privneteps/v1/cluster3/green-network/fd00:10:244:5::63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
   "ip": "fd00:10:244:5::63",
   "name": "pumped-ocelot",
   "network": {
-    "name": "green-segment",
+    "name": "green-network",
     "ip": "fd00:10:100::52",
     "mac": "00:50:56:ad:45:d8"
   },
@@ -308,13 +308,13 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/yellow-segment/10.244.5.108
+# cilium/state/privneteps/v1/cluster3/yellow-network/10.244.5.108
 {
   "activatedAt": "2025-06-20T15:59:04.501Z",
   "ip": "10.244.5.108",
   "name": "optimum-mouse",
   "network": {
-    "name": "yellow-segment",
+    "name": "yellow-network",
     "ip": "10.0.100.41",
     "mac": "00:50:56:ad:45:ec"
   },
@@ -324,13 +324,13 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/yellow-segment/fd00:10:244:5::108
+# cilium/state/privneteps/v1/cluster3/yellow-network/fd00:10:244:5::108
 {
   "activatedAt": "2025-06-20T15:59:04.501Z",
   "ip": "fd00:10:244:5::108",
   "name": "optimum-mouse",
   "network": {
-    "name": "yellow-segment",
+    "name": "yellow-network",
     "ip": "fd00:10:100::41",
     "mac": "00:50:56:ad:45:ec"
   },
@@ -341,13 +341,13 @@ endpoints:
   }
 }
 -- entries-1+2+3.expected --
-# cilium/state/privneteps/v1/cluster3/blue-segment/10.244.6.80
+# cilium/state/privneteps/v1/cluster3/blue-network/10.244.6.80
 {
   "activatedAt": "2025-06-20T16:13:01.667Z",
   "ip": "10.244.6.80",
   "name": "on-viper",
   "network": {
-    "name": "blue-segment",
+    "name": "blue-network",
     "ip": "10.0.100.43",
     "mac": "00:50:56:ad:45:ec"
   },
@@ -357,13 +357,13 @@ endpoints:
     "name": "privnet-epslice-2"
   }
 }
-# cilium/state/privneteps/v1/cluster3/green-segment/10.244.5.63
+# cilium/state/privneteps/v1/cluster3/green-network/10.244.5.63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
   "ip": "10.244.5.63",
   "name": "pumped-ocelot",
   "network": {
-    "name": "green-segment",
+    "name": "green-network",
     "ip": "10.0.100.52",
     "mac": "00:50:56:ad:45:d8"
   },
@@ -373,13 +373,13 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/green-segment/fd00:10:244:5::63
+# cilium/state/privneteps/v1/cluster3/green-network/fd00:10:244:5::63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
   "ip": "fd00:10:244:5::63",
   "name": "pumped-ocelot",
   "network": {
-    "name": "green-segment",
+    "name": "green-network",
     "ip": "fd00:10:100::52",
     "mac": "00:50:56:ad:45:d8"
   },
@@ -389,13 +389,13 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/yellow-segment/10.244.5.108
+# cilium/state/privneteps/v1/cluster3/yellow-network/10.244.5.108
 {
   "activatedAt": "2025-06-20T15:59:04.501Z",
   "ip": "10.244.5.108",
   "name": "optimum-mouse",
   "network": {
-    "name": "yellow-segment",
+    "name": "yellow-network",
     "ip": "10.0.100.41",
     "mac": "00:50:56:ad:45:ec"
   },
@@ -405,13 +405,13 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/yellow-segment/10.244.7.42
+# cilium/state/privneteps/v1/cluster3/yellow-network/10.244.7.42
 {
   "activatedAt": "2025-06-20T16:24:09.627Z",
   "ip": "10.244.7.42",
   "name": "enabling-lacewing",
   "network": {
-    "name": "yellow-segment",
+    "name": "yellow-network",
     "ip": "10.0.100.50",
     "mac": "00:50:56:ad:9b:c7"
   },
@@ -421,13 +421,13 @@ endpoints:
     "name": "privnet-epslice-3"
   }
 }
-# cilium/state/privneteps/v1/cluster3/yellow-segment/fd00:10:244:5::108
+# cilium/state/privneteps/v1/cluster3/yellow-network/fd00:10:244:5::108
 {
   "activatedAt": "2025-06-20T15:59:04.501Z",
   "ip": "fd00:10:244:5::108",
   "name": "optimum-mouse",
   "network": {
-    "name": "yellow-segment",
+    "name": "yellow-network",
     "ip": "fd00:10:100::41",
     "mac": "00:50:56:ad:45:ec"
   },
@@ -438,13 +438,13 @@ endpoints:
   }
 }
 -- entries-1+3.expected --
-# cilium/state/privneteps/v1/cluster3/green-segment/10.244.5.63
+# cilium/state/privneteps/v1/cluster3/green-network/10.244.5.63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
   "ip": "10.244.5.63",
   "name": "pumped-ocelot",
   "network": {
-    "name": "green-segment",
+    "name": "green-network",
     "ip": "10.0.100.52",
     "mac": "00:50:56:ad:45:d8"
   },
@@ -454,13 +454,13 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/green-segment/fd00:10:244:5::63
+# cilium/state/privneteps/v1/cluster3/green-network/fd00:10:244:5::63
 {
   "activatedAt": "2025-06-20T16:29:49.321Z",
   "ip": "fd00:10:244:5::63",
   "name": "pumped-ocelot",
   "network": {
-    "name": "green-segment",
+    "name": "green-network",
     "ip": "fd00:10:100::52",
     "mac": "00:50:56:ad:45:d8"
   },
@@ -470,13 +470,13 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/yellow-segment/10.244.5.108
+# cilium/state/privneteps/v1/cluster3/yellow-network/10.244.5.108
 {
   "activatedAt": "2025-06-20T15:59:04.501Z",
   "ip": "10.244.5.108",
   "name": "optimum-mouse",
   "network": {
-    "name": "yellow-segment",
+    "name": "yellow-network",
     "ip": "10.0.100.41",
     "mac": "00:50:56:ad:45:ec"
   },
@@ -486,13 +486,13 @@ endpoints:
     "name": "privnet-epslice-1"
   }
 }
-# cilium/state/privneteps/v1/cluster3/yellow-segment/10.244.7.42
+# cilium/state/privneteps/v1/cluster3/yellow-network/10.244.7.42
 {
   "activatedAt": "2025-06-20T16:24:09.627Z",
   "ip": "10.244.7.42",
   "name": "enabling-lacewing",
   "network": {
-    "name": "yellow-segment",
+    "name": "yellow-network",
     "ip": "10.0.100.50",
     "mac": "00:50:56:ad:9b:c7"
   },
@@ -502,13 +502,13 @@ endpoints:
     "name": "privnet-epslice-3"
   }
 }
-# cilium/state/privneteps/v1/cluster3/yellow-segment/fd00:10:244:5::108
+# cilium/state/privneteps/v1/cluster3/yellow-network/fd00:10:244:5::108
 {
   "activatedAt": "2025-06-20T15:59:04.501Z",
   "ip": "fd00:10:244:5::108",
   "name": "optimum-mouse",
   "network": {
-    "name": "yellow-segment",
+    "name": "yellow-network",
     "ip": "fd00:10:100::41",
     "mac": "00:50:56:ad:45:ec"
   },

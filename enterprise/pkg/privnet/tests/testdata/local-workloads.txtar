@@ -29,18 +29,18 @@ db/cmp privnet-local-workloads local-workloads.v3.table
 
 -- local-workloads.v1.table --
 Endpoint             ID   Network         NetworkIPv4     NetworkIPv6           PodIPv4        PodIPv6              ActivatedAt
-foo/curious-koala    15   green-segment   10.20.0.10      fd00:10:20::10        10.244.5.115   fd00:10:244:5::115   2025-09-17T12:40:00Z
+foo/curious-koala    15   green-network   10.20.0.10      fd00:10:20::10        10.244.5.115   fd00:10:244:5::115   2025-09-17T12:40:00Z
 
 -- local-workloads.v2.table --
 Endpoint             ID   Network         NetworkIPv4     NetworkIPv6           PodIPv4        PodIPv6              ActivatedAt
-foo/curious-koala    15   green-segment   10.20.0.10      fd00:10:20::10        10.244.5.115   fd00:10:244:5::115   2025-09-17T12:40:00Z
-bar/speedy-cheetah   16   green-segment   10.20.0.11      fd00:10:20::11        10.244.5.116   fd00:10:244:5::116   2025-09-17T12:41:00Z
-qux/sleepy-sloth     17   blue-segment    192.168.30.10   fd00:192:168:30::10   10.244.5.117   fd00:10:244:5::117   2025-09-17T12:42:00Z
+foo/curious-koala    15   green-network   10.20.0.10      fd00:10:20::10        10.244.5.115   fd00:10:244:5::115   2025-09-17T12:40:00Z
+bar/speedy-cheetah   16   green-network   10.20.0.11      fd00:10:20::11        10.244.5.116   fd00:10:244:5::116   2025-09-17T12:41:00Z
+qux/sleepy-sloth     17   blue-network    192.168.30.10   fd00:192:168:30::10   10.244.5.117   fd00:10:244:5::117   2025-09-17T12:42:00Z
 
 -- local-workloads.v3.table --
 Endpoint             ID   Network         NetworkIPv4     NetworkIPv6           PodIPv4        PodIPv6              ActivatedAt
-bar/speedy-cheetah   16   green-segment   10.20.0.11      fd00:10:20::11        10.244.5.116   fd00:10:244:5::116   <inactive>
-qux/sleepy-sloth     17   blue-segment    192.168.30.10   fd00:192:168:30::10   10.244.5.117   fd00:10:244:5::117   2025-09-17T12:42:00Z
+bar/speedy-cheetah   16   green-network   10.20.0.11      fd00:10:20::11        10.244.5.116   fd00:10:244:5::116   <inactive>
+qux/sleepy-sloth     17   blue-network    192.168.30.10   fd00:192:168:30::10   10.244.5.117   fd00:10:244:5::117   2025-09-17T12:42:00Z
 
 -- ep-curious-koala.json --
 {
@@ -53,7 +53,7 @@ qux/sleepy-sloth     17   blue-segment    192.168.30.10   fd00:192:168:30::10   
   "k8s-namespace": "foo",
   "mac": "00:50:56:ad:11:01",
   "properties": {
-    "isovalent-privnet-network": "green-segment",
+    "isovalent-privnet-network": "green-network",
     "isovalent-privnet-activated-at": "2025-09-17T12:40:00.000000Z",
     "isovalent-privnet-ipv4-addr": "10.20.0.10",
     "isovalent-privnet-ipv6-addr": "fd00:10:20::10"
@@ -71,7 +71,7 @@ qux/sleepy-sloth     17   blue-segment    192.168.30.10   fd00:192:168:30::10   
   "k8s-namespace": "bar",
   "mac": "00:50:56:ad:11:02",
   "properties": {
-    "isovalent-privnet-network": "green-segment",
+    "isovalent-privnet-network": "green-network",
     "isovalent-privnet-activated-at": "2025-09-17T12:41:00.000000Z",
     "isovalent-privnet-ipv4-addr": "10.20.0.11",
     "isovalent-privnet-ipv6-addr": "fd00:10:20::11"
@@ -89,7 +89,7 @@ qux/sleepy-sloth     17   blue-segment    192.168.30.10   fd00:192:168:30::10   
   "k8s-namespace": "qux",
   "mac": "00:50:56:ad:11:03",
   "properties": {
-    "isovalent-privnet-network": "blue-segment",
+    "isovalent-privnet-network": "blue-network",
     "isovalent-privnet-activated-at": "2025-09-17T12:42:00.000000Z",
     "isovalent-privnet-ipv4-addr": "192.168.30.10",
     "isovalent-privnet-ipv6-addr": "fd00:192:168:30::10"
@@ -116,7 +116,7 @@ metadata:
   namespace: bar
   annotations:
     network.v1alpha1.isovalent.com/inactive: "true"
-    network.v1alpha1.isovalent.com/network-attachment: '{"network":"green-segment","ipv4":"10.20.0.11","ipv6":"fd00:10:244:5::116","mac":"00:50:56:ad:11:02"}'
+    network.v1alpha1.isovalent.com/network-attachment: '{"network":"green-network","ipv4":"10.20.0.11","ipv6":"fd00:10:244:5::116","mac":"00:50:56:ad:11:02"}'
 spec:
   containers:
   - name: sleep

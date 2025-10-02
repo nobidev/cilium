@@ -38,7 +38,7 @@ db/cmp privnet-mapentries mapentries.v4.table
 k8s/delete privnet-eps.v2.yaml
 db/cmp privnet-mapentries mapentries.v4.table
 
-# Delete green segment
+# Delete green network
 k8s/delete icpn-green.v1.yaml
 db/cmp privnet-mapentries mapentries.v5.table
 
@@ -66,7 +66,7 @@ k8s/update icpn-blue.v4.yaml
 apiVersion: isovalent.com/v1alpha1
 kind: ClusterwidePrivateNetwork
 metadata:
-  name: blue-segment
+  name: blue-network
 spec:
   networkBridges:
   - ip: 172.128.0.6
@@ -80,7 +80,7 @@ spec:
 apiVersion: isovalent.com/v1alpha1
 kind: ClusterwidePrivateNetwork
 metadata:
-  name: blue-segment
+  name: blue-network
 spec:
   networkBridges:
   - ip: 172.128.0.6
@@ -98,7 +98,7 @@ spec:
 apiVersion: isovalent.com/v1alpha1
 kind: ClusterwidePrivateNetwork
 metadata:
-  name: blue-segment
+  name: blue-network
 spec:
   routes:
   - destination: 192.168.252.0/24
@@ -114,7 +114,7 @@ spec:
 apiVersion: isovalent.com/v1alpha1
 kind: ClusterwidePrivateNetwork
 metadata:
-  name: green-segment
+  name: green-network
 spec:
   networkBridges:
   - ip: 172.128.0.7
@@ -141,7 +141,7 @@ endpoints:
       ipv4: 192.168.250.20
       ipv6: fd10:0:250::20
     mac: 00:50:56:ad:45:ec
-    network: blue-segment
+    network: blue-network
 - activatedAt: "2025-06-20T15:54:03.421000Z"
   endpoint:
     addressing:
@@ -153,7 +153,7 @@ endpoints:
       ipv4: 192.168.250.21
       ipv6: fd10:0:250::21
     mac: 00:50:56:ad:11:99
-    network: blue-segment
+    network: blue-network
 - activatedAt: "2025-06-20T16:30:00.000000Z"
   endpoint:
     addressing:
@@ -165,7 +165,7 @@ endpoints:
       ipv4: 10.0.100.30
       ipv6: fd00:10:100::30
     mac: 00:50:56:ad:45:d8
-    network: green-segment
+    network: green-network
 - activatedAt: "2025-06-20T16:29:50.200000Z"
   endpoint:
     addressing:
@@ -177,7 +177,7 @@ endpoints:
       ipv4: 10.0.100.31
       ipv6: fd00:10:100::31
     mac: 00:50:56:ad:45:f7
-    network: green-segment
+    network: green-network
 
 -- privnet-eps.v2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -196,7 +196,7 @@ endpoints:
       ipv4: 10.0.100.31
       ipv6: fd00:10:100::31
     mac: 00:50:56:ad:45:f7
-    network: green-segment
+    network: green-network
 
 
 --  privnet-alt-eps.v1.yaml --
@@ -217,7 +217,7 @@ endpoints:
       ipv4: 192.168.250.20
       ipv6: fd10:0:250::20
     mac: 00:50:56:ad:45:ef
-    network: blue-segment
+    network: blue-network
 - activatedAt: "2025-06-20T16:00:01.000000Z"
   endpoint:
     addressing:
@@ -229,7 +229,7 @@ endpoints:
       ipv4: 192.168.250.23
       ipv6: fd10:0:250::23
     mac: 00:50:56:ad:11:98
-    network: blue-segment
+    network: blue-network
 - activatedAt: "2025-06-20T16:00:01.000000Z"
   endpoint:
     addressing:
@@ -241,7 +241,7 @@ endpoints:
       ipv4: 192.168.250.24
       ipv6: fd10:0:250::24
     mac: 00:50:56:ad:11:97
-    network: blue-segment
+    network: blue-network
 - activatedAt: "2025-06-20T16:25:00.000000Z"
   endpoint:
     addressing:
@@ -253,103 +253,103 @@ endpoints:
       ipv4: 10.0.100.30
       ipv6: fd00:10:100::30
     mac: 00:50:56:ad:45:d8
-    network: green-segment
+    network: green-network
 
 
 -- mapentries.v1.table --
 Type   Network        CIDR               Nexthop
-D      blue-segment   192.168.250.0/24   172.128.0.6
-D      blue-segment   192.168.250.24/32  172.128.0.6
-D      blue-segment   fd10:0:250::/64    172.128.0.6
-E      blue-segment   192.168.250.20/32  10.244.5.108
-E      blue-segment   192.168.250.21/32  10.244.5.109
-E      blue-segment   fd10:0:250::20/128 fd00:10:244:5::108
-E      blue-segment   fd10:0:250::21/128 fd00:10:244:5::109
+D      blue-network   192.168.250.0/24   172.128.0.6
+D      blue-network   192.168.250.24/32  172.128.0.6
+D      blue-network   fd10:0:250::/64    172.128.0.6
+E      blue-network   192.168.250.20/32  10.244.5.108
+E      blue-network   192.168.250.21/32  10.244.5.109
+E      blue-network   fd10:0:250::20/128 fd00:10:244:5::108
+E      blue-network   fd10:0:250::21/128 fd00:10:244:5::109
 
 -- mapentries.v2.table --
 Type   Network        CIDR                  Nexthop
-D      blue-segment   192.168.250.0/24      172.128.0.6
-D      blue-segment   192.168.250.24/32     172.128.0.6
-D      blue-segment   fd10:0:250::/64       172.128.0.6
-E      blue-segment   192.168.250.20/32     10.244.5.108
-E      blue-segment   192.168.250.21/32     10.244.5.109
-E      blue-segment   fd10:0:250::20/128    fd00:10:244:5::108
-E      blue-segment   fd10:0:250::21/128    fd00:10:244:5::109
-D      green-segment  10.0.100.0/24         172.128.0.7
-D      green-segment  fd00:10:100::/64      172.128.0.7
-E      green-segment  10.0.100.30/32        10.244.5.110
-E      green-segment  10.0.100.31/32        10.244.5.111
-E      green-segment  fd00:10:100::30/128   fd00:10:244:5::110
-E      green-segment  fd00:10:100::31/128   fd00:10:244:5::111
+D      blue-network   192.168.250.0/24      172.128.0.6
+D      blue-network   192.168.250.24/32     172.128.0.6
+D      blue-network   fd10:0:250::/64       172.128.0.6
+E      blue-network   192.168.250.20/32     10.244.5.108
+E      blue-network   192.168.250.21/32     10.244.5.109
+E      blue-network   fd10:0:250::20/128    fd00:10:244:5::108
+E      blue-network   fd10:0:250::21/128    fd00:10:244:5::109
+D      green-network  10.0.100.0/24         172.128.0.7
+D      green-network  fd00:10:100::/64      172.128.0.7
+E      green-network  10.0.100.30/32        10.244.5.110
+E      green-network  10.0.100.31/32        10.244.5.111
+E      green-network  fd00:10:100::30/128   fd00:10:244:5::110
+E      green-network  fd00:10:100::31/128   fd00:10:244:5::111
 
 -- mapentries.v3.table --
 Type   Network        CIDR                  Nexthop
-D      blue-segment   192.168.250.0/24      172.128.0.6
-D      blue-segment   fd10:0:250::/64       172.128.0.6
-E      blue-segment   192.168.250.20/32     10.244.6.150
-E      blue-segment   192.168.250.23/32     10.244.5.109
-E      blue-segment   192.168.250.24/32     10.244.5.107
-E      blue-segment   fd10:0:250::20/128    fd00:10:244:6::150
-E      blue-segment   fd10:0:250::23/128    fd00:10:244:5::109
-E      blue-segment   fd10:0:250::24/128    fd00:10:244:5::107
-D      green-segment  10.0.100.0/24         172.128.0.7
-D      green-segment  fd00:10:100::/64      172.128.0.7
-E      green-segment  10.0.100.30/32        10.244.5.110
-E      green-segment  10.0.100.31/32        10.244.5.111
-E      green-segment  fd00:10:100::30/128   fd00:10:244:5::110
-E      green-segment  fd00:10:100::31/128   fd00:10:244:5::111
+D      blue-network   192.168.250.0/24      172.128.0.6
+D      blue-network   fd10:0:250::/64       172.128.0.6
+E      blue-network   192.168.250.20/32     10.244.6.150
+E      blue-network   192.168.250.23/32     10.244.5.109
+E      blue-network   192.168.250.24/32     10.244.5.107
+E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
+E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
+E      blue-network   fd10:0:250::24/128    fd00:10:244:5::107
+D      green-network  10.0.100.0/24         172.128.0.7
+D      green-network  fd00:10:100::/64      172.128.0.7
+E      green-network  10.0.100.30/32        10.244.5.110
+E      green-network  10.0.100.31/32        10.244.5.111
+E      green-network  fd00:10:100::30/128   fd00:10:244:5::110
+E      green-network  fd00:10:100::31/128   fd00:10:244:5::111
 
 -- mapentries.v4.table --
 Type   Network        CIDR                  Nexthop
-D      blue-segment   192.168.250.0/24      172.128.0.6
-D      blue-segment   fd10:0:250::/64       172.128.0.6
-E      blue-segment   192.168.250.20/32     10.244.6.150
-E      blue-segment   192.168.250.23/32     10.244.5.109
-E      blue-segment   192.168.250.24/32     10.244.5.107
-E      blue-segment   fd10:0:250::20/128    fd00:10:244:6::150
-E      blue-segment   fd10:0:250::23/128    fd00:10:244:5::109
-E      blue-segment   fd10:0:250::24/128    fd00:10:244:5::107
-D      green-segment  10.0.100.0/24         172.128.0.7
-D      green-segment  fd00:10:100::/64      172.128.0.7
-E      green-segment  10.0.100.30/32        10.244.6.151
-E      green-segment  fd00:10:100::30/128   fd00:10:244:6::151
+D      blue-network   192.168.250.0/24      172.128.0.6
+D      blue-network   fd10:0:250::/64       172.128.0.6
+E      blue-network   192.168.250.20/32     10.244.6.150
+E      blue-network   192.168.250.23/32     10.244.5.109
+E      blue-network   192.168.250.24/32     10.244.5.107
+E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
+E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
+E      blue-network   fd10:0:250::24/128    fd00:10:244:5::107
+D      green-network  10.0.100.0/24         172.128.0.7
+D      green-network  fd00:10:100::/64      172.128.0.7
+E      green-network  10.0.100.30/32        10.244.6.151
+E      green-network  fd00:10:100::30/128   fd00:10:244:6::151
 
 -- mapentries.v5.table --
 Type   Network        CIDR                  Nexthop
-D      blue-segment   192.168.250.0/24      172.128.0.6
-D      blue-segment   fd10:0:250::/64       172.128.0.6
-E      blue-segment   192.168.250.20/32     10.244.6.150
-E      blue-segment   192.168.250.23/32     10.244.5.109
-E      blue-segment   192.168.250.24/32     10.244.5.107
-E      blue-segment   fd10:0:250::20/128    fd00:10:244:6::150
-E      blue-segment   fd10:0:250::23/128    fd00:10:244:5::109
-E      blue-segment   fd10:0:250::24/128    fd00:10:244:5::107
+D      blue-network   192.168.250.0/24      172.128.0.6
+D      blue-network   fd10:0:250::/64       172.128.0.6
+E      blue-network   192.168.250.20/32     10.244.6.150
+E      blue-network   192.168.250.23/32     10.244.5.109
+E      blue-network   192.168.250.24/32     10.244.5.107
+E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
+E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
+E      blue-network   fd10:0:250::24/128    fd00:10:244:5::107
 
 -- mapentries.v6.table --
 Type   Network        CIDR                 Nexthop
-D      blue-segment   192.168.250.0/23     172.128.0.6
-D      blue-segment   fd10:0:250::/64      172.128.0.6
-E      blue-segment   192.168.250.20/32    10.244.6.150
-E      blue-segment   192.168.250.23/32    10.244.5.109
-E      blue-segment   192.168.250.24/32    10.244.5.107
-E      blue-segment   fd10:0:250::20/128   fd00:10:244:6::150
-E      blue-segment   fd10:0:250::23/128   fd00:10:244:5::109
-E      blue-segment   fd10:0:250::24/128   fd00:10:244:5::107
-S      blue-segment   0.0.0.0/0            172.128.0.6
-S      blue-segment   192.168.252.0/24     172.128.0.6
+D      blue-network   192.168.250.0/23     172.128.0.6
+D      blue-network   fd10:0:250::/64      172.128.0.6
+E      blue-network   192.168.250.20/32    10.244.6.150
+E      blue-network   192.168.250.23/32    10.244.5.109
+E      blue-network   192.168.250.24/32    10.244.5.107
+E      blue-network   fd10:0:250::20/128   fd00:10:244:6::150
+E      blue-network   fd10:0:250::23/128   fd00:10:244:5::109
+E      blue-network   fd10:0:250::24/128   fd00:10:244:5::107
+S      blue-network   0.0.0.0/0            172.128.0.6
+S      blue-network   192.168.252.0/24     172.128.0.6
 
 -- mapentries.v7.table --
 Type   Network        CIDR                 Nexthop
-D      blue-segment   192.168.250.0/23     172.128.0.6
-D      blue-segment   192.168.250.24/32    172.128.0.6
-D      blue-segment   fd10:0:250::/64      172.128.0.6
-S      blue-segment   0.0.0.0/0            172.128.0.6
-S      blue-segment   192.168.252.0/24     172.128.0.6
+D      blue-network   192.168.250.0/23     172.128.0.6
+D      blue-network   192.168.250.24/32    172.128.0.6
+D      blue-network   fd10:0:250::/64      172.128.0.6
+S      blue-network   0.0.0.0/0            172.128.0.6
+S      blue-network   192.168.252.0/24     172.128.0.6
 
 -- mapentries.v8.table --
 Type   Network        CIDR                 Nexthop
-D      blue-segment   192.168.250.0/23     172.128.0.7
-D      blue-segment   192.168.250.24/32    172.128.0.7
-D      blue-segment   fd10:0:250::/64      172.128.0.7
-S      blue-segment   0.0.0.0/0            172.128.0.7
-S      blue-segment   192.168.252.0/24     172.128.0.7
+D      blue-network   192.168.250.0/23     172.128.0.7
+D      blue-network   192.168.250.24/32    172.128.0.7
+D      blue-network   fd10:0:250::/64      172.128.0.7
+S      blue-network   0.0.0.0/0            172.128.0.7
+S      blue-network   192.168.252.0/24     172.128.0.7

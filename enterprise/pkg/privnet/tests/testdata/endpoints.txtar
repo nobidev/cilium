@@ -9,8 +9,8 @@ k8s/add privnet-epslice-1.yaml
 db/cmp privnet-endpoints endpoints.v1.table
 
 # Observe endpoints from clustermesh, and assert that the entries are propagated
-clustermesh/endpoints/upsert blue-segment/10.245.5.77 clustermesh-entry-1.json
-clustermesh/endpoints/upsert blue-segment/10.245.5.78 clustermesh-entry-2.json
+clustermesh/endpoints/upsert blue-network/10.245.5.77 clustermesh-entry-1.json
+clustermesh/endpoints/upsert blue-network/10.245.5.78 clustermesh-entry-2.json
 clustermesh/endpoints/sync
 
 db/cmp privnet-endpoints endpoints.v1+cm.table
@@ -36,8 +36,8 @@ k8s/delete privnet-epslice-1.yaml privnet-epslice-2.other-ns.yaml
 
 cp clustermesh-entry-1.json clustermesh-entry-1.v2.json
 replace 'optimum-mouse' 'ethical-marmot' clustermesh-entry-1.v2.json
-clustermesh/endpoints/upsert blue-segment/10.245.5.77 clustermesh-entry-1.v2.json
-clustermesh/endpoints/delete blue-segment/10.245.5.78 clustermesh-entry-2.json
+clustermesh/endpoints/upsert blue-network/10.245.5.77 clustermesh-entry-1.v2.json
+clustermesh/endpoints/delete blue-network/10.245.5.78 clustermesh-entry-2.json
 
 db/cmp privnet-endpoints endpoints.v4.table
 
@@ -61,7 +61,7 @@ endpoints:
       ipv4: 10.0.100.40
       ipv6: fd00:10:100::40
     mac: 00:50:56:ad:45:ec
-    network: blue-segment
+    network: blue-network
 - activatedAt: "2025-06-20T16:29:49.321000Z"
   endpoint:
     addressing:
@@ -73,7 +73,7 @@ endpoints:
       ipv4: 10.0.100.52
       ipv6: fd00:10:100::52
     mac: 00:50:56:ad:45:d8
-    network: green-segment
+    network: green-network
 - endpoint:
     addressing:
       ipv4: 10.244.5.109
@@ -84,7 +84,7 @@ endpoints:
       ipv4: 10.0.100.52
       ipv6: fd00:10:100::52
     mac: 00:50:56:ad:11:99
-    network: blue-segment
+    network: blue-network
 
 -- privnet-epslice-2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -103,7 +103,7 @@ endpoints:
       ipv4: 10.0.100.40
       ipv6: fd00:10:100::40
     mac: 00:50:56:ad:45:ec
-    network: blue-segment
+    network: blue-network
 
 -- privnet-epslice-2.v2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -123,7 +123,7 @@ endpoints:
       ipv4: 10.0.100.40
       ipv6: fd00:10:100::40
     mac: 00:50:56:ad:45:ec
-    network: blue-segment
+    network: blue-network
 - activatedAt: "2025-06-20T16:24:09.627000Z"
   endpoint:
     addressing:
@@ -133,14 +133,14 @@ endpoints:
     addressing:
       ipv4: 10.0.100.50
     mac: 00:50:56:ad:9b:c7
-    network: yellow-segment
+    network: yellow-network
 
 -- clustermesh-entry-1.json --
 {
   "ip": "10.245.5.77",
   "name": "optimum-mouse",
   "network": {
-    "name": "blue-segment",
+    "name": "blue-network",
     "ip": "10.0.100.40",
     "mac": "00:50:56:ad:45:ec"
   },
@@ -157,7 +157,7 @@ endpoints:
   "ip": "10.245.5.78",
   "name": "regular-koi",
   "network": {
-    "name": "blue-segment",
+    "name": "blue-network",
     "ip": "10.0.100.52",
     "mac": "00:50:56:ad:11:99"
   },
@@ -170,57 +170,57 @@ endpoints:
 
 -- endpoints.v1.table --
 Source                     Name            Network         NetworkIP         NetworkMAC          PodIP                ActivatedAt
-local/keen-calf/slice-1    optimum-mouse   blue-segment    10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         2025-06-20T15:54:04Z
-local/keen-calf/slice-1    optimum-mouse   blue-segment    fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   2025-06-20T15:54:04Z
-local/keen-calf/slice-1    pumped-ocelot   green-segment   10.0.100.52       00:50:56:ad:45:d8   10.244.5.63          2025-06-20T16:29:49Z
-local/keen-calf/slice-1    pumped-ocelot   green-segment   fd00:10:100::52   00:50:56:ad:45:d8   fd00:10:244:5::63    2025-06-20T16:29:49Z
-local/keen-calf/slice-1    regular-koi     blue-segment    10.0.100.52       00:50:56:ad:11:99   10.244.5.109         <inactive>
-local/keen-calf/slice-1    regular-koi     blue-segment    fd00:10:100::52   00:50:56:ad:11:99   fd00:10:244:5::109   <inactive>
+local/keen-calf/slice-1    optimum-mouse   blue-network    10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         2025-06-20T15:54:04Z
+local/keen-calf/slice-1    optimum-mouse   blue-network    fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   2025-06-20T15:54:04Z
+local/keen-calf/slice-1    pumped-ocelot   green-network   10.0.100.52       00:50:56:ad:45:d8   10.244.5.63          2025-06-20T16:29:49Z
+local/keen-calf/slice-1    pumped-ocelot   green-network   fd00:10:100::52   00:50:56:ad:45:d8   fd00:10:244:5::63    2025-06-20T16:29:49Z
+local/keen-calf/slice-1    regular-koi     blue-network    10.0.100.52       00:50:56:ad:11:99   10.244.5.109         <inactive>
+local/keen-calf/slice-1    regular-koi     blue-network    fd00:10:100::52   00:50:56:ad:11:99   fd00:10:244:5::109   <inactive>
 
 -- endpoints.v1+cm.table --
 Source                     Name            Network         NetworkIP         NetworkMAC          PodIP                ActivatedAt
-local/keen-calf/slice-1    optimum-mouse   blue-segment    10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         2025-06-20T15:54:04Z
-local/keen-calf/slice-1    optimum-mouse   blue-segment    fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   2025-06-20T15:54:04Z
-local/keen-calf/slice-1    pumped-ocelot   green-segment   10.0.100.52       00:50:56:ad:45:d8   10.244.5.63          2025-06-20T16:29:49Z
-local/keen-calf/slice-1    pumped-ocelot   green-segment   fd00:10:100::52   00:50:56:ad:45:d8   fd00:10:244:5::63    2025-06-20T16:29:49Z
-local/keen-calf/slice-1    regular-koi     blue-segment    10.0.100.52       00:50:56:ad:11:99   10.244.5.109         <inactive>
-local/keen-calf/slice-1    regular-koi     blue-segment    fd00:10:100::52   00:50:56:ad:11:99   fd00:10:244:5::109   <inactive>
-remote/keen-calf/slice-1   optimum-mouse   blue-segment    10.0.100.40       00:50:56:ad:45:ec   10.245.5.77          <inactive>
-remote/keen-calf/slice-1   regular-koi     blue-segment    10.0.100.52       00:50:56:ad:11:99   10.245.5.78          2025-06-20T15:52:01Z
+local/keen-calf/slice-1    optimum-mouse   blue-network    10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         2025-06-20T15:54:04Z
+local/keen-calf/slice-1    optimum-mouse   blue-network    fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   2025-06-20T15:54:04Z
+local/keen-calf/slice-1    pumped-ocelot   green-network   10.0.100.52       00:50:56:ad:45:d8   10.244.5.63          2025-06-20T16:29:49Z
+local/keen-calf/slice-1    pumped-ocelot   green-network   fd00:10:100::52   00:50:56:ad:45:d8   fd00:10:244:5::63    2025-06-20T16:29:49Z
+local/keen-calf/slice-1    regular-koi     blue-network    10.0.100.52       00:50:56:ad:11:99   10.244.5.109         <inactive>
+local/keen-calf/slice-1    regular-koi     blue-network    fd00:10:100::52   00:50:56:ad:11:99   fd00:10:244:5::109   <inactive>
+remote/keen-calf/slice-1   optimum-mouse   blue-network    10.0.100.40       00:50:56:ad:45:ec   10.245.5.77          <inactive>
+remote/keen-calf/slice-1   regular-koi     blue-network    10.0.100.52       00:50:56:ad:11:99   10.245.5.78          2025-06-20T15:52:01Z
 
 -- endpoints.v2.table --
 Source                        Name            Network         NetworkIP         NetworkMAC          PodIP                ActivatedAt
-local/keen-calf/slice-1       optimum-mouse   blue-segment    10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         2025-06-20T15:54:04Z
-local/keen-calf/slice-1       optimum-mouse   blue-segment    fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   2025-06-20T15:54:04Z
-local/keen-calf/slice-1       pumped-ocelot   green-segment   10.0.100.52       00:50:56:ad:45:d8   10.244.5.63          2025-06-20T16:29:49Z
-local/keen-calf/slice-1       pumped-ocelot   green-segment   fd00:10:100::52   00:50:56:ad:45:d8   fd00:10:244:5::63    2025-06-20T16:29:49Z
-local/keen-calf/slice-1       regular-koi     blue-segment    10.0.100.52       00:50:56:ad:11:99   10.244.5.109         <inactive>
-local/keen-calf/slice-1       regular-koi     blue-segment    fd00:10:100::52   00:50:56:ad:11:99   fd00:10:244:5::109   <inactive>
-local/keen-calf/slice-2       optimum-mouse   blue-segment    10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         <inactive>
-local/keen-calf/slice-2       optimum-mouse   blue-segment    fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   <inactive>
-local/selected-mako/slice-2   optimum-mouse   blue-segment    10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         <inactive>
-local/selected-mako/slice-2   optimum-mouse   blue-segment    fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   <inactive>
-remote/keen-calf/slice-1      optimum-mouse   blue-segment    10.0.100.40       00:50:56:ad:45:ec   10.245.5.77          <inactive>
-remote/keen-calf/slice-1      regular-koi     blue-segment    10.0.100.52       00:50:56:ad:11:99   10.245.5.78          2025-06-20T15:52:01Z
+local/keen-calf/slice-1       optimum-mouse   blue-network    10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         2025-06-20T15:54:04Z
+local/keen-calf/slice-1       optimum-mouse   blue-network    fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   2025-06-20T15:54:04Z
+local/keen-calf/slice-1       pumped-ocelot   green-network   10.0.100.52       00:50:56:ad:45:d8   10.244.5.63          2025-06-20T16:29:49Z
+local/keen-calf/slice-1       pumped-ocelot   green-network   fd00:10:100::52   00:50:56:ad:45:d8   fd00:10:244:5::63    2025-06-20T16:29:49Z
+local/keen-calf/slice-1       regular-koi     blue-network    10.0.100.52       00:50:56:ad:11:99   10.244.5.109         <inactive>
+local/keen-calf/slice-1       regular-koi     blue-network    fd00:10:100::52   00:50:56:ad:11:99   fd00:10:244:5::109   <inactive>
+local/keen-calf/slice-2       optimum-mouse   blue-network    10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         <inactive>
+local/keen-calf/slice-2       optimum-mouse   blue-network    fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   <inactive>
+local/selected-mako/slice-2   optimum-mouse   blue-network    10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         <inactive>
+local/selected-mako/slice-2   optimum-mouse   blue-network    fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   <inactive>
+remote/keen-calf/slice-1      optimum-mouse   blue-network    10.0.100.40       00:50:56:ad:45:ec   10.245.5.77          <inactive>
+remote/keen-calf/slice-1      regular-koi     blue-network    10.0.100.52       00:50:56:ad:11:99   10.245.5.78          2025-06-20T15:52:01Z
 
 -- endpoints.v3.table --
 Source                        Name                Network          NetworkIP         NetworkMAC          PodIP                ActivatedAt
-local/keen-calf/slice-1       optimum-mouse       blue-segment     10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         2025-06-20T15:54:04Z
-local/keen-calf/slice-1       optimum-mouse       blue-segment     fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   2025-06-20T15:54:04Z
-local/keen-calf/slice-1       pumped-ocelot       green-segment    10.0.100.52       00:50:56:ad:45:d8   10.244.5.63          2025-06-20T16:29:49Z
-local/keen-calf/slice-1       pumped-ocelot       green-segment    fd00:10:100::52   00:50:56:ad:45:d8   fd00:10:244:5::63    2025-06-20T16:29:49Z
-local/keen-calf/slice-1       regular-koi         blue-segment     10.0.100.52       00:50:56:ad:11:99   10.244.5.109         <inactive>
-local/keen-calf/slice-1       regular-koi         blue-segment     fd00:10:100::52   00:50:56:ad:11:99   fd00:10:244:5::109   <inactive>
-local/keen-calf/slice-2       enabling-lacewing   yellow-segment   10.0.100.50       00:50:56:ad:9b:c7   10.244.7.42          2025-06-20T16:24:09Z
-local/keen-calf/slice-2       optimum-mouse       blue-segment     10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         2025-06-20T15:54:04Z
-local/keen-calf/slice-2       optimum-mouse       blue-segment     fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   2025-06-20T15:54:04Z
-local/selected-mako/slice-2   optimum-mouse       blue-segment     10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         <inactive>
-local/selected-mako/slice-2   optimum-mouse       blue-segment     fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   <inactive>
-remote/keen-calf/slice-1      optimum-mouse       blue-segment     10.0.100.40       00:50:56:ad:45:ec   10.245.5.77          <inactive>
-remote/keen-calf/slice-1      regular-koi         blue-segment     10.0.100.52       00:50:56:ad:11:99   10.245.5.78          2025-06-20T15:52:01Z
+local/keen-calf/slice-1       optimum-mouse       blue-network     10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         2025-06-20T15:54:04Z
+local/keen-calf/slice-1       optimum-mouse       blue-network     fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   2025-06-20T15:54:04Z
+local/keen-calf/slice-1       pumped-ocelot       green-network    10.0.100.52       00:50:56:ad:45:d8   10.244.5.63          2025-06-20T16:29:49Z
+local/keen-calf/slice-1       pumped-ocelot       green-network    fd00:10:100::52   00:50:56:ad:45:d8   fd00:10:244:5::63    2025-06-20T16:29:49Z
+local/keen-calf/slice-1       regular-koi         blue-network     10.0.100.52       00:50:56:ad:11:99   10.244.5.109         <inactive>
+local/keen-calf/slice-1       regular-koi         blue-network     fd00:10:100::52   00:50:56:ad:11:99   fd00:10:244:5::109   <inactive>
+local/keen-calf/slice-2       enabling-lacewing   yellow-network   10.0.100.50       00:50:56:ad:9b:c7   10.244.7.42          2025-06-20T16:24:09Z
+local/keen-calf/slice-2       optimum-mouse       blue-network     10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         2025-06-20T15:54:04Z
+local/keen-calf/slice-2       optimum-mouse       blue-network     fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   2025-06-20T15:54:04Z
+local/selected-mako/slice-2   optimum-mouse       blue-network     10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         <inactive>
+local/selected-mako/slice-2   optimum-mouse       blue-network     fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   <inactive>
+remote/keen-calf/slice-1      optimum-mouse       blue-network     10.0.100.40       00:50:56:ad:45:ec   10.245.5.77          <inactive>
+remote/keen-calf/slice-1      regular-koi         blue-network     10.0.100.52       00:50:56:ad:11:99   10.245.5.78          2025-06-20T15:52:01Z
 
 -- endpoints.v4.table --
 Source                    Name            Network        NetworkIP         NetworkMAC          PodIP                ActivatedAt
-local/keen-calf/slice-2   optimum-mouse   blue-segment   10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         <inactive>
-local/keen-calf/slice-2   optimum-mouse   blue-segment   fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   <inactive>
-remote/keen-calf/slice-1  ethical-marmot  blue-segment   10.0.100.40       00:50:56:ad:45:ec   10.245.5.77          <inactive>
+local/keen-calf/slice-2   optimum-mouse   blue-network   10.0.100.40       00:50:56:ad:45:ec   10.244.5.108         <inactive>
+local/keen-calf/slice-2   optimum-mouse   blue-network   fd00:10:100::40   00:50:56:ad:45:ec   fd00:10:244:5::108   <inactive>
+remote/keen-calf/slice-1  ethical-marmot  blue-network   10.0.100.40       00:50:56:ad:45:ec   10.245.5.77          <inactive>
