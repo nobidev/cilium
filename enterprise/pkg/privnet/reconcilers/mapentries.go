@@ -58,10 +58,15 @@ type MapEntries struct {
 	networks  statedb.Table[tables.PrivateNetwork]
 	endpoints statedb.Table[tables.Endpoint]
 	routes    statedb.Table[tables.Route]
+	inbs      statedb.Table[tables.INB]
 	tbl       statedb.RWTable[*tables.MapEntry]
 
 	// knownNetworks is not protected by a mutex as access is serialized by write transactions.
 	knownNetworks map[tables.NetworkName]tables.SlimPrivateNetwork
+
+	// inbWatchesTracker tracks the associations between each watch channel and corresponding network
+	// names. It is not protected by a mutex as access is serialized by write transactions.
+	inbWatchesTracker watchesTracker
 }
 
 func newMapEntries(in struct {
@@ -76,6 +81,7 @@ func newMapEntries(in struct {
 	Networks  statedb.Table[tables.PrivateNetwork]
 	Endpoints statedb.Table[tables.Endpoint]
 	Routes    statedb.Table[tables.Route]
+	INBs      statedb.Table[tables.INB]
 	Table     statedb.RWTable[*tables.MapEntry]
 }) (*MapEntries, error) {
 	reconciler := &MapEntries{
@@ -88,9 +94,11 @@ func newMapEntries(in struct {
 		networks:  in.Networks,
 		endpoints: in.Endpoints,
 		routes:    in.Routes,
+		inbs:      in.INBs,
 		tbl:       in.Table,
 
-		knownNetworks: make(map[tables.NetworkName]tables.SlimPrivateNetwork),
+		knownNetworks:     make(map[tables.NetworkName]tables.SlimPrivateNetwork),
+		inbWatchesTracker: newWatchesTracker(),
 	}
 
 	return reconciler, nil
@@ -110,7 +118,19 @@ func (m *MapEntries) registerReconciler() {
 	m.jg.Add(job.OneShot("populate-mapentries-table", func(ctx context.Context, _ cell.Health) error {
 		var (
 			initDone bool
+			watchset = statedb.NewWatchSet()
+			closed   []<-chan struct{}
+			err      error
 		)
+
+		// getActiveINB returns the active INB for the given network (if any),
+		// and registers the corresponding watch channel into the trackers.
+		getActiveINB := func(txn statedb.ReadTxn, network tables.NetworkName) tables.INBNode {
+			inb, _, watch, _ := m.inbs.GetWatch(txn, tables.INBsByNetworkAndRole(network, tables.INBRoleActive))
+			m.inbWatchesTracker.Register(watch, network)
+			watchset.Add(watch)
+			return inb.Node
+		}
 
 		txn := m.db.WriteTxn(m.networks, m.endpoints, m.routes)
 		epsChangeIter, _ := m.endpoints.Changes(txn)
@@ -119,15 +139,16 @@ func (m *MapEntries) registerReconciler() {
 		txn.Commit()
 
 		for {
-			var initWatch <-chan struct{}
 			txn := m.db.WriteTxn(m.tbl)
 			netChanges, netWatch := netChangeIter.Next(txn)
 			epsChanges, epsWatch := epsChangeIter.Next(txn)
 			rtsChanges, rtsWatch := rtsChangeIter.Next(txn)
+			watchset.Add(netWatch, epsWatch, rtsWatch)
 
 			// Handle network change events
 			upsertedNetworks := make(sets.Set[tables.NetworkName])
 			removedNetworks := make(sets.Set[tables.NetworkName])
+
 			for netChange := range netChanges {
 				m.log.Debug("Processing table event",
 					logfields.Table, m.networks.Name(),
@@ -150,7 +171,7 @@ func (m *MapEntries) registerReconciler() {
 					// The deletion of possible stale entries is deferred to the
 					// processing of the corresponding endpoint/route deletion
 					// events, which are not filtered out below.
-					slim := netChange.Object.ToSlim()
+					slim := netChange.Object.ToSlim(getActiveINB(txn, network))
 					if !m.skipNetworkEvent(slim) {
 						if err := m.upsertAllNetworkEntries(txn, slim); err != nil {
 							txn.Abort()
@@ -158,6 +179,29 @@ func (m *MapEntries) registerReconciler() {
 						}
 						upsertedNetworks.Insert(network)
 					}
+				}
+			}
+
+			// Handle changes of the active INBs.
+			for network := range m.inbWatchesTracker.Iter(closed) {
+				if upsertedNetworks.Has(network) {
+					// We already processed this network.
+					continue
+				}
+
+				slim, found := m.knownNetworks[network]
+				if !found {
+					// The network no longer exists, so nothing to do here.
+					continue
+				}
+
+				slim.ActiveINB = getActiveINB(txn, network)
+				if !m.skipNetworkEvent(slim) {
+					if err := m.upsertAllNetworkEntries(txn, slim); err != nil {
+						txn.Abort()
+						return err
+					}
+					upsertedNetworks.Insert(network)
 				}
 			}
 
@@ -214,14 +258,17 @@ func (m *MapEntries) registerReconciler() {
 				netInit, nw := m.networks.Initialized(txn)
 				epsInit, ew := m.endpoints.Initialized(txn)
 				rtsInit, rw := m.routes.Initialized(txn)
+				inbInit, iw := m.inbs.Initialized(txn)
 
 				switch {
 				case !netInit:
-					initWatch = nw
+					watchset.Add(nw)
 				case !epsInit:
-					initWatch = ew
+					watchset.Add(ew)
 				case !rtsInit:
-					initWatch = rw
+					watchset.Add(rw)
+				case !inbInit:
+					watchset.Add(iw)
 				default:
 					initDone = true
 					initialized(txn)
@@ -230,14 +277,9 @@ func (m *MapEntries) registerReconciler() {
 
 			txn.Commit()
 
-			// Wait until there's new changes to consume
-			select {
-			case <-ctx.Done():
+			closed, err = watchset.Wait(ctx, SettleTime)
+			if err != nil {
 				return nil
-			case <-netWatch:
-			case <-epsWatch:
-			case <-rtsWatch:
-			case <-initWatch:
 			}
 		}
 	}))
@@ -531,4 +573,40 @@ func (m *MapEntries) deleteRoute(txn statedb.WriteTxn, route tables.Route) error
 
 	_, _, err := m.tbl.Delete(txn, entry)
 	return err
+}
+
+// watchesTracker tracks the associations between each watch channel and the
+// corresponding network names. The same channel may be associated with multiple
+// networks, e.g., in case no active INB is found.
+type watchesTracker map[<-chan struct{}][]tables.NetworkName
+
+func newWatchesTracker() watchesTracker {
+	return make(watchesTracker)
+}
+
+// Register registers an watch channel to network name association.
+func (tracker watchesTracker) Register(watch <-chan struct{}, network tables.NetworkName) {
+	tracker[watch] = append(tracker[watch], network)
+}
+
+// Iter returns an iterator over all networks matching one of the closed channels.
+func (tracker watchesTracker) Iter(closed []<-chan struct{}) iter.Seq[tables.NetworkName] {
+	return func(yield func(tables.NetworkName) bool) {
+		for _, watch := range closed {
+			networks, found := tracker[watch]
+
+			// The watch channel is not in our cache. This is expected if closed
+			// includes other channels as well, such as initialization ones.
+			if !found {
+				continue
+			}
+
+			delete(tracker, watch)
+			for _, network := range networks {
+				if !yield(network) {
+					return
+				}
+			}
+		}
+	}
 }

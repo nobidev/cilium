@@ -6,6 +6,8 @@ hive start
 k8s/add icpn-blue.v1.yaml
 k8s/add privnet-eps.v1.yaml
 
+clustermesh/nodes/sync
+
 # Wait for initial table to be populated
 db/cmp privnet-mapentries mapentries.v1.table
 

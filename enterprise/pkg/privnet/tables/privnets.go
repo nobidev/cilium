@@ -135,7 +135,7 @@ func (pn PrivateNetwork) TableRow() []string {
 }
 
 // ToSlim returns a [SlimPrivateNetwork] object for this private network.
-func (pn PrivateNetwork) ToSlim() SlimPrivateNetwork {
+func (pn PrivateNetwork) ToSlim(activeINB INBNode) SlimPrivateNetwork {
 	var inb netip.Addr
 	if len(pn.INBs.IPs) > 0 {
 		inb = pn.INBs.IPs[0]
@@ -145,7 +145,9 @@ func (pn PrivateNetwork) ToSlim() SlimPrivateNetwork {
 		Name:          pn.Name,
 		ID:            pn.ID,
 		EgressIfIndex: pn.Interface.Index,
-		ActiveINB:     INBNode{IP: inb},
+		// TODO: replace with the following when enabling INB autodetection.
+		// ActiveINB: activeINB,
+		ActiveINB: INBNode{IP: inb},
 	}
 }
 
