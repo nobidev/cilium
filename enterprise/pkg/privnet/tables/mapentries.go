@@ -118,7 +118,7 @@ type MapEntryTarget struct {
 	CIDR netip.Prefix
 
 	// MAC is the MAC address of the endpoint.
-	// Currently applicable only when [NATEntry.Type] == Endpoint.
+	// Currently applicable only for [MapEntryTypeEndpoint].
 	MAC mac.MAC
 }
 
@@ -133,11 +133,11 @@ func (met MapEntryTarget) Equal(other MapEntryTarget) bool {
 // MapEntryRouting represents the routing information to reach the target network CIDR.
 type MapEntryRouting struct {
 	// NextHop is the IP address of the next hop to reach the target network prefix.
-	// * If [NATEntry.Type] == Endpoint, NextHop is the PodIP of the endpoint.
-	// * If [NATEntry.Type] == DCNRoute, NextHop is:
+	// * For [MapEntryTypeEndpoint], NextHop is the PodIP of the endpoint.
+	// * For [MapEntryTypeDCNRoute], NextHop is:
 	//   - On the main cluster, the IP address of the INB node serving the network.
 	//   - On the INB cluster(s), the unspecified address (0.0.0.0/::).
-	// * If [NATEntry.Type] == StaticRoute, NextHop is:
+	// * For [MapEntryTypeStaticRoute], NextHop is:
 	//   - On the main cluster, the IP address of the INB node serving the network.
 	//   - On the INB cluster(s), the actual nexthop configured via the ClusterwidePrivateNetwork.
 	NextHop netip.Addr
