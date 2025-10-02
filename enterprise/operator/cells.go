@@ -19,6 +19,7 @@ import (
 	enterpriseOperatorK8s "github.com/cilium/cilium/enterprise/operator/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bfd"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2"
+	"github.com/cilium/cilium/enterprise/operator/pkg/evpn"
 	"github.com/cilium/cilium/enterprise/operator/pkg/lb"
 	lbmetrics "github.com/cilium/cilium/enterprise/operator/pkg/lb/metrics"
 	"github.com/cilium/cilium/enterprise/operator/pkg/multinetwork"
@@ -65,6 +66,7 @@ var (
 			multinetwork.Cell,
 			bgpv2.Cell,
 			bfd.Cell,
+			evpn.Cell,
 
 			lb.Cell,
 			lbmetrics.Cell,

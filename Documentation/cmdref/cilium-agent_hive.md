@@ -80,6 +80,7 @@ cilium-agent hive [flags]
       --enable-endpoint-health-checking                                  Enable connectivity health checking between virtual endpoints (default true)
       --enable-enterprise-bgp-control-plane                              Enable enterprise BGP in Cilium
       --enable-enterprise-bgp-control-plane-status-report                Enable enterprise BGP status report in Cilium (default true)
+      --enable-evpn                                                      Enable EVPN
       --enable-gateway-api                                               Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-gops                                                      Enable gops server (default true)
       --enable-health-check-loadbalancer-ip                              Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled

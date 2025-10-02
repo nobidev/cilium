@@ -14,6 +14,10 @@ enable-srv6:               {{ .Values.enterprise.srv6.enabled            | defau
 srv6-encap-mode:           {{ .Values.enterprise.srv6.encapMode          | default "reduced" | quote }}
 srv6-locator-pool-enabled: {{ .Values.enterprise.srv6.locatorPoolEnabled | default "false"   | quote }}
 
+{{- if .Values.enterprise.evpn.enabled }}
+enable-evpn: "true"
+{{- end }}
+
 {{- if .Values.enterprise.bgpControlPlane.enabled }}
 enable-enterprise-bgp-control-plane: "true"
 enable-bgp-control-plane: "true"

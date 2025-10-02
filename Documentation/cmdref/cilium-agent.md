@@ -146,6 +146,7 @@ cilium-agent [flags]
       --enable-enterprise-bgp-control-plane                              Enable enterprise BGP in Cilium
       --enable-enterprise-bgp-control-plane-status-report                Enable enterprise BGP status report in Cilium (default true)
       --enable-envoy-config                                              Enable Envoy Config CRDs
+      --enable-evpn                                                      Enable EVPN
       --enable-extended-ip-protocols                                     Enable traffic with extended IP protocols in datapath
       --enable-gateway-api                                               Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-gops                                                      Enable gops server (default true)

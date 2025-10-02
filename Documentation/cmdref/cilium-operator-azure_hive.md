@@ -38,6 +38,7 @@ cilium-operator-azure hive [flags]
       --enable-egress-gateway-ha-icmp-health-probe                     Enables egress-gateway ha ICMP health probing of egress gateway nodes (default true)
       --enable-enterprise-bgp-control-plane                            Enable enterprise BGP in Cilium
       --enable-enterprise-bgp-control-plane-status-report              Enable enterprise BGP status report in Cilium (default true)
+      --enable-evpn                                                    Enable EVPN
       --enable-gateway-api-alpn                                        Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API
       --enable-gateway-api-app-protocol                                Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol
       --enable-gateway-api-proxy-protocol                              Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.

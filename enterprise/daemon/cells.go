@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
 	segw "github.com/cilium/cilium/enterprise/pkg/egressgatewayha/standalone"
 	encryptionPolicy "github.com/cilium/cilium/enterprise/pkg/encryption/policy"
+	"github.com/cilium/cilium/enterprise/pkg/evpn"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha"
 	"github.com/cilium/cilium/enterprise/pkg/healthconfig"
 	"github.com/cilium/cilium/enterprise/pkg/hubble"
@@ -85,6 +86,7 @@ var (
 		cell.Invoke(func(*egressgatewayha.Manager) {}),
 
 		privnet.Cell,
+		evpn.Cell,
 
 		mixedrouting.Cell,
 		encryptionPolicy.Cell,

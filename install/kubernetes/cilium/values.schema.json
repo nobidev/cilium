@@ -2175,6 +2175,14 @@
           },
           "type": "object"
         },
+        "evpn": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "featureGate": {
           "properties": {
             "approved": {
