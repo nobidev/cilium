@@ -18,3 +18,9 @@ LXC_OPTIONS += \
 
 MAX_XDP_OPTIONS += \
 	-DLB_FLOW_LOGS_ENABLED
+
+BPF += enterprise_bpf_evpn.o
+
+enterprise_bpf_evpn.o:: enterprise_bpf_evpn.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
