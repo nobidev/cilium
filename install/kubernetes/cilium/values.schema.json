@@ -2171,6 +2171,12 @@
           "properties": {
             "enabled": {
               "type": "boolean"
+            },
+            "vxlanDevice": {
+              "type": "string"
+            },
+            "vxlanPort": {
+              "type": "integer"
             }
           },
           "type": "object"

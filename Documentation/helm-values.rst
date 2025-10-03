@@ -1536,6 +1536,14 @@
      - Enables support for EVPN
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.evpn.vxlanDevice`
+     - EVPN Vxlan device name
+     - string
+     - ``"cilium_evpn"``
+   * - :spelling:ignore:`enterprise.evpn.vxlanPort`
+     - EVPN Vxlan port number
+     - int
+     - ``4789``
    * - :spelling:ignore:`enterprise.featureGate.approved`
      - List of features that are approved.
      - list

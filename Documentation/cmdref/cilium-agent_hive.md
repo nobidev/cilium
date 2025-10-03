@@ -132,6 +132,8 @@ cilium-agent hive [flags]
       --envoy-log string                                                 Path to a separate Envoy log file, if any
       --envoy-policy-restore-timeout duration                            Maximum time to wait for endpoint policy restoration before starting serving resources to Envoy (default 3m0s)
       --envoy-secrets-namespace string                                   EnvoySecretsNamespace is the namespace having secrets used by CEC
+      --evpn-vxlan-device string                                         Vxlan device setup and used for EVPN (default "cilium_evpn")
+      --evpn-vxlan-port uint16                                           UDP port used for EVPN vxlan tunnel (default 4789)
       --export-aggregation strings                                       Perform aggregation pre-storage ('connection', 'identity')
       --export-aggregation-renew-ttl                                     Renew flow TTL when a new flow is observed (default true)
       --export-aggregation-state-filter strings                          The state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed') (default [new,error,closed])

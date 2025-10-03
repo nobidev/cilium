@@ -16,6 +16,8 @@ srv6-locator-pool-enabled: {{ .Values.enterprise.srv6.locatorPoolEnabled | defau
 
 {{- if .Values.enterprise.evpn.enabled }}
 enable-evpn: "true"
+evpn-vxlan-device: {{ .Values.enterprise.evpn.vxlanDevice | quote }}
+evpn-vxlan-port: {{ .Values.enterprise.evpn.vxlanPort | quote }}
 {{- end }}
 
 {{- if .Values.enterprise.bgpControlPlane.enabled }}

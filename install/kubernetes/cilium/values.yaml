@@ -4889,6 +4889,10 @@ enterprise:
   evpn:
     # -- Enables support for EVPN
     enabled: false
+    # -- EVPN Vxlan device name
+    vxlanDevice: "cilium_evpn"
+    # -- EVPN Vxlan port number
+    vxlanPort: 4789
   bgpControlPlane:
     # -- Enables enterprise BGP control plane
     enabled: false

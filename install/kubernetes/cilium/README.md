@@ -434,6 +434,8 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.encryption.policy.enabled | bool | `false` | Enables support for encryption policies |
 | enterprise.encryption.policy.fallbackBehavior | string | `nil` | Defines the behavior for traffic which is not selected by an encryption policy. Currently the only supported value is "plaintext", which also needs to be explicitly provided for forward-compatibility with future Cilium versions (as future versions might implement a different default fallback behavior). @schema type: [null, string] @schema |
 | enterprise.evpn.enabled | bool | `false` | Enables support for EVPN |
+| enterprise.evpn.vxlanDevice | string | `"cilium_evpn"` | EVPN Vxlan device name |
+| enterprise.evpn.vxlanPort | int | `4789` | EVPN Vxlan port number |
 | enterprise.featureGate.approved | list | `[]` | List of features that are approved. |
 | enterprise.featureGate.strict | bool | `true` | Enable strict feature gate validation. Will cause agent and/or operator to not start if non-approved features are enabled. In non-strict mode failure will be logged as a warning. |
 | enterprise.healthServerWithoutActiveChecks.enabled | bool | `false` | Enable health server without active health checks. |

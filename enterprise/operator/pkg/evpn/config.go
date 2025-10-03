@@ -10,7 +10,9 @@
 
 package evpn
 
-import "github.com/cilium/cilium/enterprise/pkg/evpn"
+import (
+	"github.com/cilium/cilium/enterprise/pkg/evpn"
+)
 
 // Config is the configuration specific to the agent
 type Config struct {
@@ -20,6 +22,6 @@ type Config struct {
 // defaultConfig is the default configuration of the operator
 var defaultConfig = Config{
 	CommonConfig: evpn.CommonConfig{
-		Enabled: false,
+		Enabled: evpn.DefaultEVPNEnabled,
 	},
 }

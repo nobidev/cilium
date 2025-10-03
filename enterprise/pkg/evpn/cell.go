@@ -17,4 +17,5 @@ var Cell = cell.Module(
 	"EVPN",
 
 	cell.Config(defaultConfig),
+	cell.Invoke(Config.validate),
 )
