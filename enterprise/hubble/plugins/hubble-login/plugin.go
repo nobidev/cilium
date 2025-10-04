@@ -720,7 +720,6 @@ func getCredentials(ctx context.Context, vp *viper.Viper) (credentials.PerRPCCre
 				// We have no idea what issuer they want, so we just grab the first
 				// login issuer's creds
 				for _, lv := range loginCreds {
-					lv := lv
 					l = &lv
 					break
 				}

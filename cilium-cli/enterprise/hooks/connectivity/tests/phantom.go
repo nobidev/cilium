@@ -43,8 +43,6 @@ func (s *podToPhantomService) Run(ctx context.Context, t *check.Test) {
 	)
 
 	for _, pod := range ct.ClientPods() {
-		pod := pod // copy to avoid memory aliasing when using reference
-
 		t.ForEachIPFamily(func(ipFam features.IPFamily) {
 			target := check.HTTPEndpoint(fmt.Sprintf("phantom-service-%s", ipFam),
 				fmt.Sprintf("http://%s:%d", deploy.PhantomServiceAddress(ipFam, idx), deploy.PhantomServicePort))

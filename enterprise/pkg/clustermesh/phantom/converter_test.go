@@ -79,6 +79,7 @@ func TestPhantomServiceConverter(t *testing.T) {
 				Backends:  map[string]store.PortConfiguration{},
 				Hostnames: map[string]string{},
 				Labels:    map[string]string{},
+				Zones:     map[string]store.BackendZone{},
 				Selector:  map[string]string{},
 			},
 		},

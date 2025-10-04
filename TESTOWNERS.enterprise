@@ -8,6 +8,7 @@
 /.github/workflows/*hubble*.yaml @isovalent/hubble
 /.github/workflows/*ipsec*.yaml @isovalent/encryption
 /.github/workflows/*ingress*.yaml @isovalent/service-mesh
+/.github/workflows/*kpr*.yaml @isovalent/cni
 /.github/actions/cl2-modules/ @isovalent/scalability-performance
 /.github/workflows/*scale*.yaml @isovalent/scalability-performance
 /.github/workflows/*perf*.yaml @isovalent/scalability-performance
