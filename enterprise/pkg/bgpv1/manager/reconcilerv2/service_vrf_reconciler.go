@@ -89,9 +89,6 @@ func NewServiceVRFReconciler(in ServiceVRFReconcilerIn) ServiceVRFReconcilerOut 
 	}
 }
 
-// VRFPaths is a map type that contains service paths for a VRF, key being the VRF name.
-type VRFPaths map[string]reconciler.ResourceAFPathsMap
-
 // VRFSIDInfo is a map type that contains SRv6 SID information for a VRF, key being the VRF name.
 type VRFSIDInfo map[string]*sidmanager.SIDInfo
 
@@ -279,52 +276,13 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 		}
 	}
 
-	return r.reconcileVRFs(ctx, p, desiredVRFPaths)
-}
-
-func (r *ServiceVRFReconciler) reconcileVRFs(ctx context.Context, p EnterpriseReconcileParams, desiredVRFPaths VRFPaths) error {
-	var err error
-	for vrf, desiredPaths := range desiredVRFPaths {
-		// desiredPaths can be nil, in which case we need to clean up the paths for this VRF. ReconcilePaths should handle
-		// nil desiredPaths.
-		updatedSvcPaths, rErr := r.reconcilePaths(ctx, p, vrf, r.getMetadata(p.BGPInstance).vrfPaths[vrf], desiredPaths)
-		if rErr == nil && len(updatedSvcPaths) == 0 {
-			delete(r.getMetadata(p.BGPInstance).vrfPaths, vrf)
-		} else {
-			r.getMetadata(p.BGPInstance).vrfPaths[vrf] = updatedSvcPaths
-		}
-		err = errors.Join(err, rErr)
-	}
-	return err
-}
-
-func (r *ServiceVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseReconcileParams, vrfName string, currentSvcPaths, desiredSvcPaths reconciler.ResourceAFPathsMap) (reconciler.ResourceAFPathsMap, error) {
-	if currentSvcPaths == nil {
-		currentSvcPaths = make(reconciler.ResourceAFPathsMap)
-	}
-	if desiredSvcPaths == nil {
-		desiredSvcPaths = make(reconciler.ResourceAFPathsMap)
-	}
-
-	if len(desiredSvcPaths) == 0 {
-		// cleanup all current services
-		for svcKey := range currentSvcPaths {
-			desiredSvcPaths[svcKey] = nil // mark svc for deletion
-		}
-	}
-
-	updatedSvcPaths, err := reconciler.ReconcileResourceAFPaths(reconciler.ReconcileResourceAFPathsParams{
-		Logger: r.logger.With(
-			types.InstanceLogField, p.DesiredConfig.Name,
-			entTypes.VRFLogField, vrfName,
-		),
-		Ctx:                    ctx,
-		Router:                 p.BGPInstance.Router,
-		DesiredResourceAFPaths: desiredSvcPaths,
-		CurrentResourceAFPaths: currentSvcPaths,
+	return ReconcileVRFPaths(ReconcileVRFPathsParams{
+		Logger:       r.logger,
+		Ctx:          ctx,
+		BGPInstance:  p.BGPInstance,
+		CurrentPaths: r.getMetadata(p.BGPInstance).vrfPaths,
+		DesiredPaths: desiredVRFPaths,
 	})
-
-	return updatedSvcPaths, err
 }
 
 func (r *ServiceVRFReconciler) fullReconciliationServiceList(p EnterpriseReconcileParams) (toReconcile []*loadbalancer.Service, rx statedb.ReadTxn, err error) {

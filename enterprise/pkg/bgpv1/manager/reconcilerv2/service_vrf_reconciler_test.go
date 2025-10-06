@@ -43,45 +43,9 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-type afSimplePathsMap map[bgptypes.Family][]string // list of nlris
-type resourceAFSimplePathsMap map[resource.Key]afSimplePathsMap
-type vrfSimplePathsMap map[string]resourceAFSimplePathsMap // vrf -> resource -> af -> simplePath
-
 type testService struct {
 	frontend *loadbalancer.Frontend
 	backends []*loadbalancer.Backend
-}
-
-func compareSimplePath(req *require.Assertions, vrfSimplePath vrfSimplePathsMap, vrfPaths VRFPaths) {
-	req.Len(vrfPaths, len(vrfSimplePath))
-
-	for vrf, svcAFSimplePaths := range vrfSimplePath {
-		svcAFPaths, exists := vrfPaths[vrf]
-		req.True(exists)
-		req.Len(svcAFPaths, len(svcAFSimplePaths))
-
-		for svc, simpleSvcPaths := range svcAFSimplePaths {
-			afPaths, exists := svcAFPaths[svc]
-			req.True(exists)
-			req.Len(afPaths, len(simpleSvcPaths))
-
-			for af, simplePaths := range simpleSvcPaths {
-				paths, exists := afPaths[af]
-				req.True(exists)
-				req.Len(paths, len(simplePaths))
-
-				for _, path := range paths {
-					found := false
-					for _, nlri := range simplePaths {
-						if nlri == path.NLRI.String() {
-							found = true
-						}
-					}
-					req.True(found)
-				}
-			}
-		}
-	}
 }
 
 var (
