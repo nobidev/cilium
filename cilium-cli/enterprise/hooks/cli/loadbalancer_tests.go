@@ -144,6 +144,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 
 	cmd.Flags().StringVar(&ilbCli.FlagMode, "mode", "multi-node", "Testing mode ('multi-node' or 'single-node'). 'multi-node' deploys client and LB app containers in separate network namespaces (to simulate multi-node LB environments). 'single-node' deploys the containers on a single node in the same host network namespace.")
 	cmd.Flags().StringVar(&ilbCli.FlagSingleNodeIPAddr, "single-node-ip", "", "The IP addr of the test runner node. The IP addr should be reachable by T1 and T2 nodes. Required when --mode=single-node.")
+	cmd.Flags().StringVar(&ilbCli.FlagSingleNodeIPv6Addr, "single-node-ip-v6", "", "The IPv6 addr of the test runner node. The IP addr should be reachable by T1 and T2 nodes. Required when --mode=single-node.")
 	cmd.Flags().StringVar(&ilbCli.FlagNetworkName, "network-name", ilb.DefaultContainerNetwork, "The network name where external test containers (client & backends) should be attached to")
 
 	// TODO (sayboras): Remove these flags once we have feature auto-detection

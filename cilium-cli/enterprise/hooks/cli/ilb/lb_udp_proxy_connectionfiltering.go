@@ -40,7 +40,7 @@ func testUDPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 		{
 			desc: "deny-by-sourceip",
 			appOpt: func(clients []*frrContainer) udpRouteOption {
-				return withUDPProxyConnectionFilteringDenyBySourceIP(clients[1].ip + "/32")
+				return withUDPProxyConnectionFilteringDenyBySourceIP(clients[1].ipv4 + "/32")
 			},
 			testCalls: []udpTestCall{
 				{
@@ -56,7 +56,7 @@ func testUDPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 		{
 			desc: "allow-by-sourceip",
 			appOpt: func(clients []*frrContainer) udpRouteOption {
-				return withUDPProxyConnectionFilteringAllowBySourceIP(clients[1].ip + "/32")
+				return withUDPProxyConnectionFilteringAllowBySourceIP(clients[1].ipv4 + "/32")
 			},
 			testCalls: []udpTestCall{
 				{
@@ -98,7 +98,7 @@ func testUDPProxyConnectionFiltering(t T, forceDeploymentMode isovalentv1alpha1.
 
 			t.Log("Creating LB BackendPool resources...")
 
-			backendPool := lbBackendPool(testName, withIPBackend(backends[0].ip, backends[0].port))
+			backendPool := lbBackendPool(testName, withIPBackend(backends[0].ipv4, backends[0].port))
 			scenario.createLBBackendPool(backendPool)
 
 			t.Log("Creating LB Service resources...")

@@ -44,7 +44,7 @@ func TestSharedVIP(t T) {
 	t.Log("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withIPBackend(b.ip, b.port))
+		backends = append(backends, withIPBackend(b.ipv4, b.port))
 	}
 	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
@@ -102,7 +102,7 @@ func TestRequestedVIP(t T) {
 	t.Log("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withIPBackend(b.ip, b.port))
+		backends = append(backends, withIPBackend(b.ipv4, b.port))
 	}
 	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
@@ -191,7 +191,7 @@ func TestMultipleIPPools(t T) {
 		t.Log("Creating LB BackendPool resources...")
 		backends := []backendPoolOption{}
 		for _, b := range scenario.backendApps {
-			backends = append(backends, withIPBackend(b.ip, b.port))
+			backends = append(backends, withIPBackend(b.ipv4, b.port))
 		}
 		backendPool := lbBackendPool(name, backends...)
 		scenario.createLBBackendPool(backendPool)
@@ -225,7 +225,7 @@ func TestMultipleIPPools(t T) {
 		t.Log("Creating LB BackendPool resources...")
 		backends := []backendPoolOption{}
 		for _, b := range scenario.backendApps {
-			backends = append(backends, withIPBackend(b.ip, b.port))
+			backends = append(backends, withIPBackend(b.ipv4, b.port))
 		}
 		backendPool := lbBackendPool(name, backends...)
 		scenario.createLBBackendPool(backendPool)

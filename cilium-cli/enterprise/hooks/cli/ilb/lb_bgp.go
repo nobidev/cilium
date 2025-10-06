@@ -37,7 +37,7 @@ func TestBGPHealthCheck(t T) {
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
-	backendPool := lbBackendPool(testName, withIPBackend(backend.ip, backend.port))
+	backendPool := lbBackendPool(testName, withIPBackend(backend.ipv4, backend.port))
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")
@@ -121,7 +121,7 @@ func TestBGPHealthCheckSubset(t T) {
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
-	backendPool := lbBackendPool(testName, withIPBackend(backend.ip, backend.port))
+	backendPool := lbBackendPool(testName, withIPBackend(backend.ipv4, backend.port))
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")

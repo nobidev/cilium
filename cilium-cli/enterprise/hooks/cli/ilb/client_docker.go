@@ -41,17 +41,17 @@ func NewDockerCli(f FailureReporter) *dockerCli {
 	return &dockerCli{cli}
 }
 
-func (c *dockerCli) GetContainerIP(ctx context.Context, containerName string) (string, error) {
+func (c *dockerCli) GetContainerIPs(ctx context.Context, containerName string) (ipv4 string, ipv6 string, err error) {
 	obj, err := c.ContainerInspect(ctx, containerName)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	for _, network := range obj.NetworkSettings.Networks {
-		return network.IPAddress, nil
+		return network.IPAddress, network.GlobalIPv6Address, nil
 	}
 
-	return "", fmt.Errorf("no network found")
+	return "", "", fmt.Errorf("no network found")
 }
 
 func (c *dockerCli) ContainerExec(ctx context.Context, name string, cmds []string) (string, string, error) {
@@ -154,7 +154,7 @@ func (c *dockerCli) EnsureImage(ctx context.Context, img string) error {
 	return nil
 }
 
-func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool, cmd []string, preStart func(*dockerCli, string) error) (string, string, error) {
+func (c *dockerCli) createContainer(ctx context.Context, name, img string, env []string, networkName string, privileged bool, cmd []string, preStart func(*dockerCli, string) error) (string, string, string, error) {
 	c.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
 
 	hostCfg := &container.HostConfig{
@@ -188,30 +188,34 @@ func (c *dockerCli) createContainer(ctx context.Context, name, img string, env [
 		name,
 	)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	if preStart != nil {
 		if err := preStart(c, resp.ID); err != nil {
-			return "", "", fmt.Errorf("preStart failed: %w", err)
+			return "", "", "", fmt.Errorf("preStart failed: %w", err)
 		}
 	}
 
 	if err := c.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// In the single node mode, the container runs in the host netns. Hence, it's IP
 	// addr is of the host.
-	containerIP := getSingleNodeIPAddr()
+	containerIPv4 := getSingleNodeIPAddr()
+	containerIPv6 := getSingleNodeIPv6Addr()
 	if !IsSingleNode() {
-		containerIP, err = c.GetContainerIP(ctx, resp.ID)
+		ipv4, ipv6, err := c.GetContainerIPs(ctx, resp.ID)
 		if err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
+
+		containerIPv4 = ipv4
+		containerIPv6 = ipv6
 	}
 
-	return resp.ID, containerIP, nil
+	return resp.ID, containerIPv4, containerIPv6, nil
 }
 
 func (c *dockerCli) deleteContainer(ctx context.Context, name string) error {

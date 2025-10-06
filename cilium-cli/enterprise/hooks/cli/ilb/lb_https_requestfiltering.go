@@ -132,7 +132,7 @@ func TestHTTPSRequestFiltering(t T) {
 		{
 			desc: "deny-by-sourceip",
 			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
-				return withHttpsRequestFilteringDenyBySourceIP(clients[1].ip + "/32")
+				return withHttpsRequestFilteringDenyBySourceIP(clients[1].ipv4 + "/32")
 			},
 			testCalls: []testCall{
 				{
@@ -152,7 +152,7 @@ func TestHTTPSRequestFiltering(t T) {
 		{
 			desc: "deny-by-sourceip-hostname-path",
 			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
-				return withHttpsRequestFilteringDenyBySourceIPExactHostnameExactPath(clients[1].ip+"/32", "secure2.acme.io", "/admin")
+				return withHttpsRequestFilteringDenyBySourceIPExactHostnameExactPath(clients[1].ipv4+"/32", "secure2.acme.io", "/admin")
 			},
 			testCalls: []testCall{
 				{
@@ -196,7 +196,7 @@ func TestHTTPSRequestFiltering(t T) {
 		{
 			desc: "allow-by-sourceip-hostname-path",
 			appOpt: func(clients []*frrContainer) httpsApplicationRouteOption {
-				return withHttpsRequestFilteringAllowBySourceIPExactHostnameExactPath(clients[1].ip+"/32", "secure2.acme.io", "/admin")
+				return withHttpsRequestFilteringAllowBySourceIPExactHostnameExactPath(clients[1].ipv4+"/32", "secure2.acme.io", "/admin")
 			},
 			testCalls: []testCall{
 				{
@@ -425,7 +425,7 @@ func TestHTTPSRequestFiltering(t T) {
 			t.Log("Creating LB BackendPool resources...")
 			backends := []backendPoolOption{}
 			for _, b := range scenario.backendApps {
-				backends = append(backends, withIPBackend(b.ip, b.port))
+				backends = append(backends, withIPBackend(b.ipv4, b.port))
 			}
 			backendPool := lbBackendPool(testName, backends...)
 			scenario.createLBBackendPool(backendPool)

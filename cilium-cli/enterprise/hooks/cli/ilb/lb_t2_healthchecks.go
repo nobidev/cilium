@@ -41,7 +41,7 @@ func TestT2HealthCheckHTTP(t T) {
 	t.Log("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withIPBackend(b.ip, b.port))
+		backends = append(backends, withIPBackend(b.ipv4, b.port))
 	}
 	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
@@ -139,7 +139,7 @@ func TestT2HealthCheckTCP(t T) {
 	backends := []backendPoolOption{}
 	backends = append(backends, withTCPHealthCheck(ptr.To("TEST"), ptr.To(":TEST")))
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withIPBackend(b.ip, b.port))
+		backends = append(backends, withIPBackend(b.ipv4, b.port))
 	}
 	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)

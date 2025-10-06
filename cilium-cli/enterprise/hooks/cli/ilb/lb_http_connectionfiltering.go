@@ -23,7 +23,7 @@ func TestHTTPConnectionFiltering(t T) {
 		{
 			desc: "deny-by-sourceip",
 			appOpt: func(clients []*frrContainer) httpApplicationOption {
-				return withHttpConnectionFilteringDenyBySourceIP(clients[1].ip + "/32")
+				return withHttpConnectionFilteringDenyBySourceIP(clients[1].ipv4 + "/32")
 			},
 			testCalls: []testCall{
 				{
@@ -43,7 +43,7 @@ func TestHTTPConnectionFiltering(t T) {
 		{
 			desc: "allow-by-sourceip",
 			appOpt: func(clients []*frrContainer) httpApplicationOption {
-				return withHttpConnectionFilteringAllowBySourceIP(clients[1].ip + "/32")
+				return withHttpConnectionFilteringAllowBySourceIP(clients[1].ipv4 + "/32")
 			},
 			testCalls: []testCall{
 				{
@@ -91,7 +91,7 @@ func TestHTTPConnectionFiltering(t T) {
 			t.Log("Creating LB BackendPool resources...")
 			backends := []backendPoolOption{}
 			for _, b := range scenario.backendApps {
-				backends = append(backends, withIPBackend(b.ip, b.port))
+				backends = append(backends, withIPBackend(b.ipv4, b.port))
 			}
 			backendPool := lbBackendPool(testName, backends...)
 			scenario.createLBBackendPool(backendPool)

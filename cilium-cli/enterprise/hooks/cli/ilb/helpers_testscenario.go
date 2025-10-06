@@ -205,7 +205,7 @@ func (r *lbTestScenario) addCoreDNS() *coreDNSContainer {
 	}
 
 	// Override the default port to avoid colliding with the rest of the system
-	id, ip, err := r.dockerCli.createContainer(r.t.Context(), name, FlagCoreDNSImage, nil, FlagNetworkName, false, []string{"-conf", "/tmp/Corefile", "-dns.port", "10053"}, preStart)
+	id, ipv4, ipv6, err := r.dockerCli.createContainer(r.t.Context(), name, FlagCoreDNSImage, nil, FlagNetworkName, false, []string{"-conf", "/tmp/Corefile", "-dns.port", "10053"}, preStart)
 	if err != nil {
 		r.t.Failedf("cannot create CoreDNS container: %s", err)
 	}
@@ -213,7 +213,8 @@ func (r *lbTestScenario) addCoreDNS() *coreDNSContainer {
 	container := &coreDNSContainer{
 		dockerContainer: dockerContainer{
 			id:        id,
-			ip:        ip,
+			ipv4:      ipv4,
+			ipv6:      ipv6,
 			port:      10053,
 			dockerCli: r.dockerCli,
 		},
@@ -235,7 +236,7 @@ func (r *lbTestScenario) addNginx() *nginxContainer {
 
 	name := fmt.Sprintf("%s-nginx", r.testName)
 
-	id, ip, err := r.dockerCli.createContainer(r.t.Context(), name, FlagNginxImage, nil, FlagNetworkName, false, nil, nil)
+	id, ipv4, ipv6, err := r.dockerCli.createContainer(r.t.Context(), name, FlagNginxImage, nil, FlagNetworkName, false, nil, nil)
 	if err != nil {
 		r.t.Failedf("cannot create Nginx container: %s", err)
 	}
@@ -243,7 +244,8 @@ func (r *lbTestScenario) addNginx() *nginxContainer {
 	container := &nginxContainer{
 		dockerContainer: dockerContainer{
 			id:        id,
-			ip:        ip,
+			ipv4:      ipv4,
+			ipv6:      ipv6,
 			port:      18080,
 			dockerCli: r.dockerCli,
 		},
@@ -276,7 +278,7 @@ func (r *lbTestScenario) addBackendApplications(numberOfBackends int, config bac
 		appName := fmt.Sprintf("%s-app-%d", r.testName, i)
 		envVars := r.getBackendApplicationEnvVars(appName, config)
 
-		id, ip, err := r.dockerCli.createContainer(r.t.Context(), appName, config.image, envVars, FlagNetworkName, false, nil, nil)
+		id, ipv4, ipv6, err := r.dockerCli.createContainer(r.t.Context(), appName, config.image, envVars, FlagNetworkName, false, nil, nil)
 		if err != nil {
 			r.t.Failedf("cannot create app container (%s): %s", appName, err)
 		}
@@ -284,7 +286,8 @@ func (r *lbTestScenario) addBackendApplications(numberOfBackends int, config bac
 		container := &hcAppContainer{
 			dockerContainer: dockerContainer{
 				id:        id,
-				ip:        ip,
+				ipv4:      ipv4,
+				ipv6:      ipv6,
 				port:      config.listenPort,
 				dockerCli: r.dockerCli,
 			},
@@ -537,7 +540,7 @@ func (r *lbTestScenario) addFRRClients(numberOfClients int, config frrClientConf
 			"NEIGHBORS=" + getBGPNeighborString(r.t, r.k8sCli),
 		}
 
-		id, ip, err := r.dockerCli.createContainer(r.t.Context(), clientName, FlagClientImage, env, FlagNetworkName, true, nil, nil)
+		id, ipv4, ipv6, err := r.dockerCli.createContainer(r.t.Context(), clientName, FlagClientImage, env, FlagNetworkName, true, nil, nil)
 		if err != nil {
 			r.t.Failedf("cannot create frr client container (%s): %s", clientName, err)
 		}
@@ -545,7 +548,8 @@ func (r *lbTestScenario) addFRRClients(numberOfClients int, config frrClientConf
 		container := &frrContainer{
 			dockerContainer: dockerContainer{
 				id:        id,
-				ip:        ip,
+				ipv4:      ipv4,
+				ipv6:      ipv6,
 				dockerCli: r.dockerCli,
 			},
 		}
@@ -581,10 +585,10 @@ func (r *lbTestScenario) addFRRClients(numberOfClients int, config frrClientConf
 		}
 
 		// Make BGP peering with T1 nodes
-		if err := r.doBGPPeeringForClient(r.t.Context(), clientName, ip); err != nil {
+		if err := r.doBGPPeeringForClient(r.t.Context(), clientName, ipv4); err != nil {
 			r.t.Failedf("failed to BGP peer (%s): %s", clientName, err)
 		}
-		r.t.RegisterCleanup(func(ctx context.Context) error { return r.undoBGPPeeringForClient(ctx, ip) })
+		r.t.RegisterCleanup(func(ctx context.Context) error { return r.undoBGPPeeringForClient(ctx, ipv4) })
 	}
 
 	return containers

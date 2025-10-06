@@ -55,7 +55,7 @@ func testBasicAuth(t T, proto string) {
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
-	scenario.createLBBackendPool(lbBackendPool(testName, withIPBackend(backend.ip, backend.port)))
+	scenario.createLBBackendPool(lbBackendPool(testName, withIPBackend(backend.ipv4, backend.port)))
 
 	t.Log("Creating basic auth secret...")
 	creds := []basicAuthCredential{

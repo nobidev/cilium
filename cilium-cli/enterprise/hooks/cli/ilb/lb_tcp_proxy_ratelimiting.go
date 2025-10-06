@@ -43,7 +43,7 @@ func TestTCPProxyRatelimiting(t T) {
 
 	t.Log("Creating LB BackendPool resources...")
 
-	backendPool := lbBackendPool(testName, withIPBackend(backends[0].ip, backends[0].port))
+	backendPool := lbBackendPool(testName, withIPBackend(backends[0].ipv4, backends[0].port))
 	scenario.createLBBackendPool(backendPool)
 
 	t.Log("Creating LB Service resources...")

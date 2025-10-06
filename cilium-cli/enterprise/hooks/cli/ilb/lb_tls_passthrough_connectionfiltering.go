@@ -23,7 +23,7 @@ func TestTLSPassthroughConnectionFiltering(t T) {
 		{
 			desc: "deny-by-sourceip",
 			appOpt: func(clients []*frrContainer) tlsPassthroughRouteOption {
-				return withTLSPassthroughConnectionFilteringDenyBySourceIP(clients[1].ip + "/32")
+				return withTLSPassthroughConnectionFilteringDenyBySourceIP(clients[1].ipv4 + "/32")
 			},
 			testCalls: []testCall{
 				{
@@ -43,7 +43,7 @@ func TestTLSPassthroughConnectionFiltering(t T) {
 		{
 			desc: "allow-by-sourceip",
 			appOpt: func(clients []*frrContainer) tlsPassthroughRouteOption {
-				return withTLSPassthroughConnectionFilteringAllowBySourceIP(clients[1].ip + "/32")
+				return withTLSPassthroughConnectionFilteringAllowBySourceIP(clients[1].ipv4 + "/32")
 			},
 			testCalls: []testCall{
 				{
@@ -91,7 +91,7 @@ func TestTLSPassthroughConnectionFiltering(t T) {
 			scenario.createLBVIP(vip)
 
 			t.Log("Creating LB BackendPool resources...")
-			backendPool1 := lbBackendPool(testName, withIPBackend(backend.ip, 8080), withHealthCheckTLS())
+			backendPool1 := lbBackendPool(testName, withIPBackend(backend.ipv4, 8080), withHealthCheckTLS())
 			scenario.createLBBackendPool(backendPool1)
 
 			t.Log("Creating LB Service resources...")

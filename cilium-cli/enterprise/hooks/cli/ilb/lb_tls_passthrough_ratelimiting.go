@@ -42,10 +42,10 @@ func TestTLSPassthroughRatelimiting(t T) {
 	scenario.createLBVIP(vip)
 
 	t.Log("Creating LB BackendPool resources...")
-	backendPool1 := lbBackendPool(testName+"-1", withIPBackend(backend1.ip, 8080), withHealthCheckTLS())
+	backendPool1 := lbBackendPool(testName+"-1", withIPBackend(backend1.ipv4, 8080), withHealthCheckTLS())
 	scenario.createLBBackendPool(backendPool1)
 
-	backendPool2 := lbBackendPool(testName+"-2", withIPBackend(backend2.ip, 8081), withHealthCheckTLS())
+	backendPool2 := lbBackendPool(testName+"-2", withIPBackend(backend2.ipv4, 8081), withHealthCheckTLS())
 	scenario.createLBBackendPool(backendPool2)
 
 	t.Log("Creating LB Service resources...")

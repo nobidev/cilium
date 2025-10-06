@@ -42,6 +42,10 @@ func getSingleNodeIPAddr() string {
 	return FlagSingleNodeIPAddr
 }
 
+func getSingleNodeIPv6Addr() string {
+	return FlagSingleNodeIPv6Addr
+}
+
 func skipIfOnSingleNode(msg string) bool {
 	if IsSingleNode() {
 		fmt.Printf("skipping due to single-mode: %s\n", msg)
@@ -87,7 +91,7 @@ func deriveSingleNodeIP(ctx context.Context, dockerCli *dockerCli, t1NodeIPAddr 
 	name := "single-node-ip"
 
 	// It will run in the single-node's host netns
-	_, _, err := dockerCli.createContainer(ctx, name, FlagUtilsImage, nil, "", false, []string{"sleep", "infinity"}, nil)
+	_, _, _, err := dockerCli.createContainer(ctx, name, FlagUtilsImage, nil, "", false, []string{"sleep", "infinity"}, nil)
 	if err != nil {
 		return fmt.Errorf("failed to start %s: %w", name, err)
 	}

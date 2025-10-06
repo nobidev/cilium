@@ -32,9 +32,10 @@ var (
 	// By default, we assume cilium-cli is in the PATH. In the CI, we may want to specify custom path.
 	FlagCiliumCLIPath string
 
-	FlagMode             string
-	FlagSingleNodeIPAddr string
-	FlagNetworkName      string
+	FlagMode               string
+	FlagSingleNodeIPAddr   string
+	FlagSingleNodeIPv6Addr string
+	FlagNetworkName        string
 
 	FlagRun []string
 

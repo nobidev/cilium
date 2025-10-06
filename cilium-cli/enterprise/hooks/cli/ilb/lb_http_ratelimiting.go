@@ -41,7 +41,7 @@ func TestHTTPRouteRatelimiting(t T) {
 	t.Log("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withIPBackend(b.ip, 8080))
+		backends = append(backends, withIPBackend(b.ipv4, 8080))
 	}
 	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
@@ -124,7 +124,7 @@ func TestHTTPApplicationRatelimiting(t T) {
 	t.Log("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withIPBackend(b.ip, 8080))
+		backends = append(backends, withIPBackend(b.ipv4, 8080))
 	}
 	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)

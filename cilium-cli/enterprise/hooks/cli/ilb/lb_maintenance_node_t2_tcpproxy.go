@@ -91,9 +91,9 @@ func TestNodeMaintenance_T2_T1T2_TCPProxy(t T) {
 		sqlServerPort := uint32(0)
 
 		for _, b := range scenario.backendApps {
-			sqlServerIP = b.ip
+			sqlServerIP = b.ipv4
 			sqlServerPort = b.port
-			backends = append(backends, withIPBackend(b.ip, b.port))
+			backends = append(backends, withIPBackend(b.ipv4, b.port))
 		}
 
 		backendPool := lbBackendPool(testName, backends...)

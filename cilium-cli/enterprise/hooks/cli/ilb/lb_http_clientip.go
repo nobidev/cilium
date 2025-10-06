@@ -32,7 +32,7 @@ func TestHTTPClientIP(t T) {
 		{
 			desc: "remote-deny-by-sourceip",
 			appOpt: func(clients []*frrContainer) httpApplicationOption {
-				return withHttpConnectionFilteringDenyBySourceIP(clients[0].ip + "/32")
+				return withHttpConnectionFilteringDenyBySourceIP(clients[0].ipv4 + "/32")
 			},
 			runIfs: map[string]runIfFunc{
 				"use-remote-address must be enabled":    useRemoteAddressEnabled,
@@ -45,7 +45,7 @@ func TestHTTPClientIP(t T) {
 		{
 			desc: "remote-allow-by-sourceip",
 			appOpt: func(clients []*frrContainer) httpApplicationOption {
-				return withHttpConnectionFilteringAllowBySourceIP(clients[0].ip + "/32")
+				return withHttpConnectionFilteringAllowBySourceIP(clients[0].ipv4 + "/32")
 			},
 			runIfs: map[string]runIfFunc{
 				"use-remote-address must be enabled":    useRemoteAddressEnabled,
@@ -62,7 +62,7 @@ func TestHTTPClientIP(t T) {
 			appOpt: func(clients []*frrContainer) httpApplicationOption {
 				// Due to https://github.com/envoyproxy/envoy/issues/33662,
 				// The remote ip is not correctly set in the XFF header when xff-num-trusted-hops > 0
-				return withHttpConnectionFilteringDenyBySourceIP(clients[0].ip + "/32")
+				return withHttpConnectionFilteringDenyBySourceIP(clients[0].ipv4 + "/32")
 			},
 			runIfs: map[string]runIfFunc{
 				"use-remote-address must be enabled":   useRemoteAddressEnabled,
@@ -77,7 +77,7 @@ func TestHTTPClientIP(t T) {
 			appOpt: func(clients []*frrContainer) httpApplicationOption {
 				// Due to https://github.com/envoyproxy/envoy/issues/33662,
 				// The remote ip is not correctly set in the XFF header when xff-num-trusted-hops > 0
-				return withHttpConnectionFilteringAllowBySourceIP(clients[0].ip + "/32")
+				return withHttpConnectionFilteringAllowBySourceIP(clients[0].ipv4 + "/32")
 			},
 			runIfs: map[string]runIfFunc{
 				"use-remote-address must be enabled":   useRemoteAddressEnabled,
@@ -94,7 +94,7 @@ func TestHTTPClientIP(t T) {
 			appOpt: func(clients []*frrContainer) httpApplicationOption {
 				// Due to https://github.com/envoyproxy/envoy/issues/33662,
 				// The remote ip is not correctly set in the XFF header when xff-num-trusted-hops > 0
-				return withHttpConnectionFilteringDenyBySourceIP(clients[0].ip + "/32")
+				return withHttpConnectionFilteringDenyBySourceIP(clients[0].ipv4 + "/32")
 			},
 			runIfs: map[string]runIfFunc{
 				"use-remote-address must be disabled":  useRemoteAddressDisabled,
@@ -109,7 +109,7 @@ func TestHTTPClientIP(t T) {
 			appOpt: func(clients []*frrContainer) httpApplicationOption {
 				// Due to https://github.com/envoyproxy/envoy/issues/33662,
 				// The remote ip is not correctly set in the XFF header when xff-num-trusted-hops > 0
-				return withHttpConnectionFilteringAllowBySourceIP(clients[0].ip + "/32")
+				return withHttpConnectionFilteringAllowBySourceIP(clients[0].ipv4 + "/32")
 			},
 			runIfs: map[string]runIfFunc{
 				"use-remote-address must be disabled":  useRemoteAddressDisabled,
@@ -149,7 +149,7 @@ func TestHTTPClientIP(t T) {
 		t.Log("Creating LB BackendPool resources...")
 		var backends []backendPoolOption
 		for _, b := range scenario.backendApps {
-			backends = append(backends, withIPBackend(b.ip, b.port))
+			backends = append(backends, withIPBackend(b.ipv4, b.port))
 		}
 		backendPool := lbBackendPool(testName, backends...)
 		scenario.createLBBackendPool(backendPool)
@@ -180,8 +180,8 @@ func TestHTTPClientIP(t T) {
 						}
 						resp := toTestAppResponse(t, stdout)
 						t.Log("Response: %v", resp)
-						if useRemoteAddressEnabled() && !strings.Contains(resp.XFF, clients[0].ip) {
-							return fmt.Errorf("expected %q not to contain %q", resp.XFF, clients[0].ip)
+						if useRemoteAddressEnabled() && !strings.Contains(resp.XFF, clients[0].ipv4) {
+							return fmt.Errorf("expected %q not to contain %q", resp.XFF, clients[0].ipv4)
 						}
 					}
 

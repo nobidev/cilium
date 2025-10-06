@@ -38,7 +38,7 @@ func TestHTTPPersistentBackendWithCookie(t T) {
 	backends := []backendPoolOption{}
 	backends = append(backends, withConsistentHashing())
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withIPBackend(b.ip, b.port))
+		backends = append(backends, withIPBackend(b.ipv4, b.port))
 	}
 	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)
@@ -91,7 +91,7 @@ func TestHTTPPersistentBackendWithSourceIP(t T) {
 	backends := []backendPoolOption{}
 	backends = append(backends, withConsistentHashing())
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withIPBackend(b.ip, b.port))
+		backends = append(backends, withIPBackend(b.ipv4, b.port))
 	}
 	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)

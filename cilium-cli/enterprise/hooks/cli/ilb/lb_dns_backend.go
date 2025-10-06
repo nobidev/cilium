@@ -125,7 +125,7 @@ func TestDNSBackend(t T) {
 			for _, be := range beContainers {
 				records = append(records, &coreDNSRecord{
 					Hostname: "backend",
-					IP:       be.ip,
+					IP:       be.ipv4,
 				})
 			}
 			if err := coredns.AddDNSRecords(t.Context(), records); err != nil {
@@ -144,13 +144,13 @@ func TestDNSBackend(t T) {
 			if tt.backendTLS {
 				backendPool = lbBackendPool(testName,
 					withHostnameBackend(backendHostName, 8080),
-					withDNSResolver(coredns.ip, coredns.port),
+					withDNSResolver(coredns.ipv4, coredns.port),
 					withHealthCheckTLS(),
 				)
 			} else {
 				backendPool = lbBackendPool(testName,
 					withHostnameBackend(backendHostName, 8080),
-					withDNSResolver(coredns.ip, coredns.port),
+					withDNSResolver(coredns.ipv4, coredns.port),
 				)
 			}
 			scenario.createLBBackendPool(backendPool)

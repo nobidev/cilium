@@ -65,7 +65,7 @@ func TestNodeMaintenance_T2_T1T2_HTTP(t T) {
 	t.Log("Creating LB BackendPool resources...")
 	backends := []backendPoolOption{}
 	for _, b := range scenario.backendApps {
-		backends = append(backends, withIPBackend(b.ip, b.port))
+		backends = append(backends, withIPBackend(b.ipv4, b.port))
 	}
 	backendPool := lbBackendPool(testName, backends...)
 	scenario.createLBBackendPool(backendPool)

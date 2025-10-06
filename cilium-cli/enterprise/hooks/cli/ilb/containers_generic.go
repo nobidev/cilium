@@ -17,7 +17,8 @@ import (
 
 type dockerContainer struct {
 	id        string
-	ip        string
+	ipv4      string
+	ipv6      string
 	port      uint32
 	dockerCli *dockerCli
 }
@@ -27,7 +28,7 @@ func (c *dockerContainer) ID() string {
 }
 
 func (c *dockerContainer) IP() string {
-	return c.ip
+	return c.ipv4
 }
 
 func (c *dockerContainer) Exec(ctx context.Context, cmd string) (string, string, error) {
