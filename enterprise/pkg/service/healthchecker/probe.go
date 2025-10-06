@@ -351,6 +351,10 @@ func sendL7Probe(p probeParams) probeResult {
 func getAddrStr(addr lb.L3n4Addr) string {
 	portStr := strconv.FormatUint(uint64(addr.Port()), 10)
 
+	if addr.IsIPv6() {
+		return fmt.Sprintf("[%s]:%s", addr.AddrCluster().String(), portStr)
+	}
+
 	return addr.AddrCluster().String() + ":" + portStr
 }
 

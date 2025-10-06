@@ -172,7 +172,10 @@ func (rq *probeQueue) Pop() any {
 
 func pickFrontend(hc *healthCheck) loadbalancer.L3n4Addr {
 	for _, fe := range hc.Frontends {
-		return fe
+		// match ip family
+		if hc.Backend.IsIPv6() == fe.IsIPv6() {
+			return fe
+		}
 	}
 	return loadbalancer.L3n4Addr{}
 }
