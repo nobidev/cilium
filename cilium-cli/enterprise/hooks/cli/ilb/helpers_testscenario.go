@@ -18,6 +18,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -537,7 +538,9 @@ func (r *lbTestScenario) addFRRClients(numberOfClients int, config frrClientConf
 		env := []string{
 			fmt.Sprintf("LOCAL_ASN=%d", frrASN),
 			fmt.Sprintf("REMOTE_ASN=%d", ciliumASN),
-			"NEIGHBORS=" + getBGPNeighborString(r.t, r.k8sCli),
+			"NEIGHBORS=" + r.getBGPNeighborString(),
+			"IPV4_ENABLED=" + strconv.FormatBool(r.t.IPv4Enabled()),
+			"IPV6_ENABLED=" + strconv.FormatBool(r.t.IPv6Enabled()),
 		}
 
 		id, ipv4, ipv6, err := r.dockerCli.createContainer(r.t.Context(), clientName, FlagClientImage, env, FlagNetworkName, true, nil, nil)
@@ -585,10 +588,15 @@ func (r *lbTestScenario) addFRRClients(numberOfClients int, config frrClientConf
 		}
 
 		// Make BGP peering with T1 nodes
-		if err := r.doBGPPeeringForClient(r.t.Context(), clientName, ipv4); err != nil {
+		frrClientPeeringIP := ipv4
+		if r.t.IPv6Enabled() {
+			// prefer ipv6 over ipv4 for BGP peering if available
+			frrClientPeeringIP = ipv6
+		}
+		if err := r.doBGPPeeringForClient(r.t.Context(), clientName, frrClientPeeringIP); err != nil {
 			r.t.Failedf("failed to BGP peer (%s): %s", clientName, err)
 		}
-		r.t.RegisterCleanup(func(ctx context.Context) error { return r.undoBGPPeeringForClient(ctx, ipv4) })
+		r.t.RegisterCleanup(func(ctx context.Context) error { return r.undoBGPPeeringForClient(ctx, frrClientPeeringIP) })
 	}
 
 	return containers
@@ -602,20 +610,7 @@ func (r *lbTestScenario) createBGPPeerConfig() {
 		},
 		Spec: isovalentv1.IsovalentBGPPeerConfigSpec{
 			CiliumBGPPeerConfigSpec: ciliumv2.CiliumBGPPeerConfigSpec{
-				Families: []ciliumv2.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "unicast",
-						},
-						// Assuming the advertisement will be created with the label with scenario name
-						Advertisements: &metaslimv1.LabelSelector{
-							MatchLabels: map[string]metaslimv1.MatchLabelsValue{
-								"scenario": r.testName,
-							},
-						},
-					},
-				},
+				Families: []ciliumv2.CiliumBGPFamilyWithAdverts{},
 				Timers: &ciliumv2.CiliumBGPTimers{
 					ConnectRetryTimeSeconds: ptr.To(int32(1)),
 				},
@@ -623,6 +618,37 @@ func (r *lbTestScenario) createBGPPeerConfig() {
 			BFDProfileRef: ptr.To(r.testName),
 		},
 	}
+
+	if r.t.IPv4Enabled() {
+		obj.Spec.CiliumBGPPeerConfigSpec.Families = append(obj.Spec.CiliumBGPPeerConfigSpec.Families, ciliumv2.CiliumBGPFamilyWithAdverts{
+			CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
+				Afi:  "ipv4",
+				Safi: "unicast",
+			},
+			// Assuming the advertisement will be created with the label with scenario name
+			Advertisements: &metaslimv1.LabelSelector{
+				MatchLabels: map[string]metaslimv1.MatchLabelsValue{
+					"scenario": r.testName,
+				},
+			},
+		})
+	}
+
+	if r.t.IPv6Enabled() {
+		obj.Spec.CiliumBGPPeerConfigSpec.Families = append(obj.Spec.CiliumBGPPeerConfigSpec.Families, ciliumv2.CiliumBGPFamilyWithAdverts{
+			CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
+				Afi:  "ipv6",
+				Safi: "unicast",
+			},
+			// Assuming the advertisement will be created with the label with scenario name
+			Advertisements: &metaslimv1.LabelSelector{
+				MatchLabels: map[string]metaslimv1.MatchLabelsValue{
+					"scenario": r.testName,
+				},
+			},
+		})
+	}
+
 	if _, err := r.ciliumCli.IsovalentV1().IsovalentBGPPeerConfigs().Create(r.t.Context(), obj, metav1.CreateOptions{}); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			r.t.Failedf("failed to create Peer config (%s): %s", obj.Name, err)

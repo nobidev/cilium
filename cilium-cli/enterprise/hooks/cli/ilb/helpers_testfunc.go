@@ -34,6 +34,8 @@ type T interface {
 	Context() context.Context
 	Log(msg string, a ...any)
 	CiliumNamespace() string
+	IPv4Enabled() bool
+	IPv6Enabled() bool
 }
 
 type LbTestFunc struct {
@@ -148,6 +150,14 @@ func (r *LbTestFunc) runCleanups() {
 	}
 
 	r.cleanupCb = []func(ctx context.Context) error{}
+}
+
+func (r *LbTestFunc) IPv4Enabled() bool {
+	return r.run.ipv4Enabled
+}
+
+func (r *LbTestFunc) IPv6Enabled() bool {
+	return r.run.ipv6Enabled
 }
 
 func testNameFromFunc(f func(t T)) string {

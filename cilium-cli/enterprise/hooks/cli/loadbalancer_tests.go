@@ -30,7 +30,7 @@ import (
 //  --cleanup
 //        Cleanup created resources after each test case run (default true)
 //  --client-image string
-//        client container image name (default "quay.io/isovalent-dev/lb-frr-client:v0.0.14")
+//        client container image name (default "quay.io/isovalent-dev/lb-frr-client:v0.0.16")
 //  --ensure-images bool
 //        Ensure images by checking and pre-pulling images (default true)
 //  --mode string
@@ -65,9 +65,16 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			if ilbCli.FlagMode != "single-node" && ilbCli.FlagMode != "multi-node" {
 				return fmt.Errorf("invalid --mode: %s", ilbCli.FlagMode)
 			}
+
 			lbTestRun := ilbCli.NewLBTestRun(c.Context(), ciliumNamespace(c))
 			ciliumCli, k8sCli := ilbCli.NewCiliumAndK8sCli(lbTestRun)
 			dockerCli := ilbCli.NewDockerCli(lbTestRun)
+			ipv4Enabled, ipv6Enabled, err := ilb.IPFamilyInfo(ctx, k8sCli, ciliumNamespace(c))
+			if err != nil {
+				return err
+			}
+
+			lbTestRun.SetIPInfo(ipv4Enabled, ipv6Enabled)
 
 			for _, img := range []string{ilbCli.FlagAppImage, ilbCli.FlagClientImage, ilbCli.FlagCoreDNSImage, ilbCli.FlagNginxImage, ilbCli.FlagMariaDBImage} {
 				if err := dockerCli.EnsureImage(c.Context(), img); err != nil {
@@ -87,7 +94,14 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			currentVersion := ilb.GetCiliumVersionRaw(ctx, lbTestRun, k8sCli, ciliumNamespace(c))
 
 			if versioncheck.MustCompile(minVersion)(currentVersion) {
-				lbIPPool := ilbCli.LbIPPool(ilbCli.LbIPPoolName, "100.64.0.0/24")
+				ipBlocks := []string{}
+				if ipv4Enabled {
+					ipBlocks = append(ipBlocks, "100.64.0.0/24")
+				}
+				if ipv6Enabled {
+					ipBlocks = append(ipBlocks, "2004::0/112")
+				}
+				lbIPPool := ilbCli.LbIPPool(ilbCli.LbIPPoolName, ipBlocks...)
 				if err := ciliumCli.EnsureLBIPPool(c.Context(), lbIPPool); err != nil {
 					return fmt.Errorf("failed to ensure LBIPPool (%s): %w", ilbCli.LbIPPoolName, err)
 				}
@@ -126,7 +140,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&ilbCli.FlagAppImage, "app-image", "quay.io/isovalent-dev/lb-healthcheck-app:v0.0.13", "app container image name")
-	cmd.Flags().StringVar(&ilbCli.FlagClientImage, "client-image", "quay.io/isovalent-dev/lb-frr-client:v0.0.14", "client container image name")
+	cmd.Flags().StringVar(&ilbCli.FlagClientImage, "client-image", "quay.io/isovalent-dev/lb-frr-client:v0.0.16", "client container image name")
 	cmd.Flags().StringVar(&ilbCli.FlagUtilsImage, "utils-image", "busybox:1.37.0-musl", "utils container image name")
 	cmd.Flags().StringVar(&ilbCli.FlagCoreDNSImage, "coredns-image", "coredns/coredns:1.11.1", "coredns container image name")
 	cmd.Flags().StringVar(&ilbCli.FlagNginxImage, "nginx-image", "library/nginx:1.27.2", "nginx container image name")

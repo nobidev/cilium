@@ -22,6 +22,8 @@ import (
 
 type lbTestRun struct {
 	ciliumNamespace string
+	ipv4Enabled     bool
+	ipv6Enabled     bool
 	cleanupCb       []func(ctx context.Context) error
 }
 
@@ -30,6 +32,11 @@ func NewLBTestRun(ctx context.Context, ciliumNamespace string) *lbTestRun {
 		ciliumNamespace: ciliumNamespace,
 		cleanupCb:       []func(ctx context.Context) error{},
 	}
+}
+
+func (r *lbTestRun) SetIPInfo(ipv4Enabled bool, ipv6Enabled bool) {
+	r.ipv4Enabled = ipv4Enabled
+	r.ipv6Enabled = ipv6Enabled
 }
 
 func (r *lbTestRun) ExecuteTestFuncs(ctx context.Context) error {

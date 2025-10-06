@@ -73,12 +73,12 @@ func SetupSingleNodeMode(ctx context.Context, dockerCli *dockerCli, k8sCli *k8s.
 		return fmt.Errorf("failed to ensure %s image: %w", FlagUtilsImage, err)
 	}
 
-	ips, err := getT1NodeIPs(ctx, k8sCli)
+	ipv4s, ipv6s, err := getT1NodeIPs(ctx, k8sCli)
 	if err != nil {
 		return fmt.Errorf("failed to derive T1 node IP addrs: %w", err)
 	}
 
-	if err := deriveSingleNodeIP(ctx, dockerCli, ips[0]); err != nil {
+	if err := deriveSingleNodeIP(ctx, dockerCli, ipv4s, ipv6s); err != nil {
 		return fmt.Errorf("failed to derive single-node IP addr (you can set -single-node-ip): %w", err)
 	}
 
@@ -87,7 +87,7 @@ func SetupSingleNodeMode(ctx context.Context, dockerCli *dockerCli, k8sCli *k8s.
 	return nil
 }
 
-func deriveSingleNodeIP(ctx context.Context, dockerCli *dockerCli, t1NodeIPAddr string) error {
+func deriveSingleNodeIP(ctx context.Context, dockerCli *dockerCli, t1NodeIPv4Addrs []string, t1NodeIPv6Addrs []string) error {
 	name := "single-node-ip"
 
 	// It will run in the single-node's host netns
@@ -96,17 +96,34 @@ func deriveSingleNodeIP(ctx context.Context, dockerCli *dockerCli, t1NodeIPAddr 
 		return fmt.Errorf("failed to start %s: %w", name, err)
 	}
 	defer dockerCli.deleteContainer(ctx, name)
-	ip, _, err := dockerCli.ContainerExec(ctx, name,
-		[]string{
-			"/bin/sh", "-c",
-			fmt.Sprintf("ip -4 route get %s | grep -o 'src [0-9\\.]*' | cut -d' ' -f2", t1NodeIPAddr),
-		})
-	ip = strings.TrimSpace(ip)
-	if err != nil {
-		return fmt.Errorf("failed to get route to %s: %w", t1NodeIPAddr, err)
+
+	if len(t1NodeIPv4Addrs) > 0 {
+		ipv4, _, err := dockerCli.ContainerExec(ctx, name,
+			[]string{
+				"/bin/sh", "-c",
+				fmt.Sprintf("ip -4 route get %s | grep -o 'src [0-9\\.]*' | cut -d' ' -f2", t1NodeIPv4Addrs[0]),
+			})
+		ipv4 = strings.TrimSpace(ipv4)
+		if err != nil {
+			return fmt.Errorf("failed to get route to %s: %w", t1NodeIPv4Addrs[0], err)
+		}
+
+		FlagSingleNodeIPAddr = ipv4
 	}
 
-	FlagSingleNodeIPAddr = ip
+	if len(t1NodeIPv6Addrs) > 0 {
+		ipv6, _, err := dockerCli.ContainerExec(ctx, name,
+			[]string{
+				"/bin/sh", "-c",
+				fmt.Sprintf("ip -6 route get %s | grep -o 'src [0-9\\.]*' | cut -d' ' -f2", t1NodeIPv6Addrs[0]),
+			})
+		ipv6 = strings.TrimSpace(ipv6)
+		if err != nil {
+			return fmt.Errorf("failed to get route to %s: %w", t1NodeIPv6Addrs[0], err)
+		}
+
+		FlagSingleNodeIPv6Addr = ipv6
+	}
 
 	return nil
 }

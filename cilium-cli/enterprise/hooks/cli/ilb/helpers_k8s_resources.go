@@ -41,18 +41,14 @@ func LbIPPoolV2Alpha1(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIP
 	}
 }
 
-func LbIPPool(name, ipBlock string) *ciliumv2.CiliumLoadBalancerIPPool {
-	return &ciliumv2.CiliumLoadBalancerIPPool{
+func LbIPPool(name string, ipBlocks ...string) *ciliumv2.CiliumLoadBalancerIPPool {
+	pool := &ciliumv2.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
 			Labels: map[string]string{TestResourceLabelName: "true"},
 		},
 		Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
-			Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{
-				{
-					Cidr: ciliumv2.IPv4orIPv6CIDR(ipBlock),
-				},
-			},
+			Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{},
 			// Exclude services from test "TestMultipleIPPools" from using the default IP Pool,
 			// because it doesn't define a service label selector and would select all services.
 			ServiceSelector: &slim_metav1.LabelSelector{
@@ -66,6 +62,15 @@ func LbIPPool(name, ipBlock string) *ciliumv2.CiliumLoadBalancerIPPool {
 			},
 		},
 	}
+
+	for _, ipb := range ipBlocks {
+		pool.Spec.Blocks = append(pool.Spec.Blocks, ciliumv2.CiliumLoadBalancerIPPoolIPBlock{
+			Cidr: ciliumv2.IPv4orIPv6CIDR(ipb),
+		},
+		)
+	}
+
+	return pool
 }
 
 type httpApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationHTTPProxy)

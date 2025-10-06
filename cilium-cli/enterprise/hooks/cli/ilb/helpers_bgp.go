@@ -13,6 +13,7 @@ package ilb
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -21,40 +22,41 @@ import (
 	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
-func getT1NodeIPs(ctx context.Context, k8sCli *k8s.Clientset) ([]string, error) {
-	var ips []string
+func getT1NodeIPs(ctx context.Context, k8sCli *k8s.Clientset) ([]string, []string, error) {
+	var ipv4 []string
+	var ipv6 []string
 
 	nodes, err := k8sCli.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: "service.cilium.io/node in ( t1, t1-t2 )"})
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve K8s nodes: %w", err)
+		return nil, nil, fmt.Errorf("failed to retrieve K8s nodes: %w", err)
 	}
 
 	for _, node := range nodes.Items {
-		ip := ""
-		for _, addrs := range node.Status.Addresses {
-			// prefer InternalIP
-			if ip == "" && addrs.Type == corev1.NodeExternalIP {
-				ip = addrs.Address
-			} else if addrs.Type == corev1.NodeInternalIP {
-				ip = addrs.Address
+		for _, addr := range node.Status.Addresses {
+			if addr.Type == corev1.NodeInternalIP {
+				ip := net.ParseIP(addr.Address)
+				if ip.To4() == nil {
+					ipv6 = append(ipv6, addr.Address)
+				} else {
+					ipv4 = append(ipv4, addr.Address)
+				}
 			}
 		}
-
-		if ip == "" {
-			return nil, fmt.Errorf("node %s does not have any IP addr", node.ObjectMeta.Name)
-		}
-
-		ips = append(ips, ip)
 	}
 
-	return ips, nil
+	return ipv4, ipv6, nil
 }
 
-func getBGPNeighborString(t T, k8sCli *k8s.Clientset) string {
-	t1NodeIPs, err := getT1NodeIPs(t.Context(), k8sCli)
+func (r *lbTestScenario) getBGPNeighborString() string {
+	t1NodeIPv4s, t1NodeIPv6s, err := getT1NodeIPs(r.t.Context(), r.k8sCli)
 	if err != nil {
-		t.Failedf("failed to get T1 node ips: %s", err)
+		r.t.Failedf("failed to get T1 node ips: %s", err)
 	}
 
-	return strings.Join(t1NodeIPs, ";")
+	// prefer BGP peering via ipv6 over ipv4 if available
+	if r.t.IPv6Enabled() {
+		return strings.Join(t1NodeIPv6s, ";")
+	}
+
+	return strings.Join(t1NodeIPv4s, ";")
 }

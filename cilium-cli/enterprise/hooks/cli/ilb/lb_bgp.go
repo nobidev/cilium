@@ -12,6 +12,7 @@ package ilb
 
 import (
 	"fmt"
+	"net"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -138,7 +139,7 @@ func TestBGPHealthCheckSubset(t T) {
 	t.Log("Waiting until routes for VIP via unselected nodes are withdrawn...")
 	eventually(t, func() error {
 		for _, n := range excludedNodes {
-			peerIP := getNodeIP(n)
+			peerIP := getNodeIP(n, t.IPv6Enabled())
 			if err := client.EnsureRouteVia(t.Context(), vipIP+"/32", peerIP); err == nil {
 				return fmt.Errorf("the route %s/32 via %s (%s) still exists", vipIP, peerIP, n.Name)
 			}
@@ -148,7 +149,7 @@ func TestBGPHealthCheckSubset(t T) {
 
 	t.Log("Checking that route for VIP via selected node does still exist...")
 	eventually(t, func() error {
-		peerIP := getNodeIP(selectedNode)
+		peerIP := getNodeIP(selectedNode, t.IPv6Enabled())
 		if err := client.EnsureRouteVia(t.Context(), vipIP+"/32", peerIP); err != nil {
 			return fmt.Errorf("the route %s/32 via %s (%s) doesn't exist", vipIP, peerIP, selectedNode.Name)
 		}
@@ -156,12 +157,25 @@ func TestBGPHealthCheckSubset(t T) {
 	}, longTimeout, pollInterval)
 }
 
-func getNodeIP(n corev1.Node) string {
+func getNodeIP(n corev1.Node, ipv6Enabled bool) string {
+	var ipv4 []string
+	var ipv6 []string
+
 	for _, na := range n.Status.Addresses {
 		if na.Type == corev1.NodeInternalIP {
-			return na.Address
+			ip := net.ParseIP(na.Address)
+			if ip.To4() == nil {
+				ipv6 = append(ipv6, na.Address)
+			} else {
+				ipv4 = append(ipv4, na.Address)
+			}
 		}
 	}
 
-	return "unknown"
+	if ipv6Enabled && len(ipv6) > 0 {
+		// BGP peering via ipv6 is preferred over ipv4 if available
+		return ipv6[0]
+	}
+
+	return ipv4[0]
 }

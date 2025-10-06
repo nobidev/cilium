@@ -133,7 +133,7 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 		for _, t1Node := range t1NodeList.Items {
 			t.Log("Checking that T1 node %s is used as route", t1Node.Name)
 			eventually(t, func() error {
-				peerIP := getNodeIP(t1Node)
+				peerIP := getNodeIP(t1Node, t.IPv6Enabled())
 				if err := client.EnsureRouteVia(t.Context(), vipIP+"/32", peerIP); err != nil {
 					return fmt.Errorf("the route %s/32 via %s (%s) doesn't exist", vipIP, peerIP, t1Node.Name)
 				}
@@ -156,7 +156,7 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 
 			t.Log("Waiting until routes for VIP via T1 node in maintenance (%s) is withdrawn...", t1Node.Name)
 			eventually(t, func() error {
-				peerIP := getNodeIP(t1Node)
+				peerIP := getNodeIP(t1Node, t.IPv6Enabled())
 				if err := client.EnsureRouteVia(t.Context(), vipIP+"/32", peerIP); err == nil {
 					return fmt.Errorf("the route %s/32 via %s (%s) still exists", vipIP, peerIP, t1Node.Name)
 				}
@@ -178,7 +178,7 @@ func TestNodeMaintenance_T1_T1T2_TCPProxy(t T) {
 
 			t.Log("Checking that T1 node %s is used as route again", t1Node.Name)
 			eventually(t, func() error {
-				peerIP := getNodeIP(t1Node)
+				peerIP := getNodeIP(t1Node, t.IPv6Enabled())
 				if err := client.EnsureRouteVia(t.Context(), vipIP+"/32", peerIP); err != nil {
 					return fmt.Errorf("the route %s/32 via %s (%s) doesn't exist", vipIP, peerIP, t1Node.Name)
 				}
