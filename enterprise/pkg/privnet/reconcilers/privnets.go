@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers/idpool"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/enterprise/pkg/vni"
 	dptables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/k8s"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -168,12 +169,14 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *idpool.IDPool, sync prom
 				iface = pn.newInterface(ifname, dev)
 			}
 
+			vni := pn.extractVNI(privnet)
 			inbs := pn.extractINBs(privnet)
 			routes := pn.extractRoutes(privnet)
 			subnets := pn.extractSubnets(privnet)
 
 			return tables.PrivateNetwork{
 				Name:      tables.NetworkName(privnet.Name),
+				VNI:       vni,
 				ID:        id,
 				INBs:      inbs,
 				Interface: iface,
@@ -258,6 +261,21 @@ func (pn *PrivateNetworks) extractSubnets(privnet *iso_v1alpha1.ClusterwidePriva
 		})
 	}
 	return subnets
+}
+
+func (pn *PrivateNetworks) extractVNI(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) vni.VNI {
+	if privnet.Status != nil && privnet.Status.VNI != nil {
+		res, err := vni.FromUint32(*privnet.Status.VNI)
+		if err != nil {
+			pn.log.Error("Encountered invalid VNI in private network status",
+				logfields.Error, err,
+				logfields.ClusterwidePrivateNetwork, privnet.Name,
+				vni.LogFieldVNI, *privnet.Status.VNI,
+			)
+		}
+		return res
+	}
+	return vni.VNI{}
 }
 
 func (pn *PrivateNetworks) registerDeviceChangesReconciler() {

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/statedb/index"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
+	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	cslices "github.com/cilium/cilium/pkg/slices"
 )
@@ -53,6 +54,9 @@ type PrivateNetwork struct {
 
 	// ID is the local-scoped numeric identifier of the private network.
 	ID NetworkID
+
+	// VNI is the allocated value of the VXLAN Network Identifier of the private network.
+	VNI vni.VNI
 
 	// The candidate Isovalent Network Bridges (INBs) serving this private network.
 	INBs PrivateNetworkINBs
@@ -127,13 +131,14 @@ type PrivateNetworkSubnet struct {
 var _ statedb.TableWritable = PrivateNetwork{}
 
 func (pn PrivateNetwork) TableHeader() []string {
-	return []string{"Name", "ID", "Interface", "INBClusters", "Subnets", "Routes"}
+	return []string{"Name", "ID", "VNI", "Interface", "INBClusters", "Subnets", "Routes"}
 }
 
 func (pn PrivateNetwork) TableRow() []string {
 	return []string{
 		string(pn.Name),
 		"0x" + strconv.FormatUint(uint64(pn.ID), 16),
+		cmp.Or(pn.VNI.String(), "N/A"),
 		pn.Interface.String(),
 		cmp.Or(strings.Join(slices.Sorted(
 			cslices.MapIter(maps.Keys(pn.INBs.Selectors),

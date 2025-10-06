@@ -103,6 +103,7 @@ united-firefly   0x2   eth2 !      N/A            192.168.251.0/24
 -- privnet.expected.yaml --
 name: direct-maggot
 id: 1
+vni: null
 inbs:
     selectors: {}
 interface:
@@ -115,6 +116,7 @@ subnets:
 ---
 name: united-firefly
 id: 2
+vni: null
 inbs:
     selectors: {}
 interface:
@@ -127,6 +129,7 @@ subnets:
 -- privnet.expected.v2.yaml --
 name: direct-maggot
 id: 1
+vni: null
 inbs:
     selectors: {}
 interface:
@@ -139,6 +142,7 @@ subnets:
 ---
 name: united-firefly
 id: 2
+vni: null
 inbs:
     selectors: {}
 interface:
@@ -151,6 +155,7 @@ subnets:
 -- privnet.expected.v3.yaml --
 name: direct-maggot
 id: 1
+vni: null
 inbs:
     selectors: {}
 interface:
@@ -163,6 +168,7 @@ subnets:
 ---
 name: united-firefly
 id: 2
+vni: null
 inbs:
     selectors: {}
 interface:
@@ -175,6 +181,7 @@ subnets:
 -- privnet.expected.v4.yaml --
 name: direct-maggot
 id: 1
+vni: null
 inbs:
     selectors: {}
 interface:
@@ -187,6 +194,7 @@ subnets:
 ---
 name: united-firefly
 id: 2
+vni: null
 inbs:
     selectors: {}
 interface:
@@ -199,6 +207,7 @@ subnets:
 -- privnet.expected.v5.yaml --
 name: direct-maggot
 id: 1
+vni: null
 inbs:
     selectors: {}
 interface:
@@ -211,6 +220,7 @@ subnets:
 ---
 name: united-firefly
 id: 2
+vni: null
 inbs:
     selectors: {}
 interface:
