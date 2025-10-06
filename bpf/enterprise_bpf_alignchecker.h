@@ -4,6 +4,7 @@
 #include "lib/egress_gateway_ha.h"
 #include "lib/enterprise_encrypt.h"
 #include "lib/enterprise_privnet.h"
+#include "lib/enterprise_vni.h"
 
 add_type(struct egress_gw_ha_ct_entry);
 add_type(struct egress_gw_ha_policy_key);
@@ -16,3 +17,5 @@ add_type(struct privnet_fib_key);
 add_type(struct privnet_fib_val);
 add_type(struct privnet_pip_key);
 add_type(struct privnet_pip_val);
+add_type(struct vni_key);
+add_type(struct vni_val);

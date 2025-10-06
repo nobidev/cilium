@@ -519,6 +519,7 @@
 /enterprise/pkg/maps/encryptionpolicymap/ @isovalent/encryption
 /enterprise/pkg/maps/extepspolicy/ @isovalent/private-networking
 /enterprise/pkg/maps/privnet/ @isovalent/private-networking
+/enterprise/pkg/maps/vni @isovalent/traffic-engineering
 /enterprise/pkg/multicast/ @isovalent/traffic-engineering
 /enterprise/pkg/multinetwork/ @isovalent/multi-network
 /enterprise/pkg/mixedrouting/ @isovalent/clustermesh

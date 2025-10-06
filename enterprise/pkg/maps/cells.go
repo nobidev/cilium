@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/maps/encryptionpolicymap"
 	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
 	"github.com/cilium/cilium/enterprise/pkg/maps/privnet"
+	"github.com/cilium/cilium/enterprise/pkg/maps/vni"
 )
 
 var Cell = cell.Module(
@@ -38,4 +39,7 @@ var Cell = cell.Module(
 
 	// Private networks maps.
 	privnet.Cell,
+
+	// VNI map
+	vni.Cell,
 )

@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/maps/encryptionpolicymap"
 	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
 	"github.com/cilium/cilium/enterprise/pkg/maps/privnet"
+	vniMap "github.com/cilium/cilium/enterprise/pkg/maps/vni"
 )
 
 func init() {
@@ -31,6 +32,8 @@ func init() {
 		"privnet_fib_val":              {privnet.FIBVal{}},
 		"privnet_pip_key":              {privnet.PIPKey{}},
 		"privnet_pip_val":              {privnet.PIPVal{}},
+		"vni_key":                      {vniMap.VNIKey{}},
+		"vni_val":                      {vniMap.VNIVal{}},
 	} {
 		toCheck[typ] = append(toCheck[typ], str...)
 	}
