@@ -182,7 +182,7 @@ func pickFrontend(hc *healthCheck) loadbalancer.L3n4Addr {
 
 func probeFunc(log *slog.Logger, db *statedb.DB, healthChecks statedb.RWTable[*healthCheck], ctx context.Context, item *probeItem) func() error {
 	return func() error {
-		hc := item.hc
+		hc := item.hc.clone()
 		result := probe(probeParams{
 			ctx:     ctx,
 			logger:  log,
@@ -212,7 +212,7 @@ func probeFunc(log *slog.Logger, db *statedb.DB, healthChecks statedb.RWTable[*h
 		wtxn := db.WriteTxn(healthChecks)
 		// Do a CAS to update the results. If [HealthCheck] has changed in the meanwhile
 		// we silently ignore the probe result and re-probe.
-		healthChecks.CompareAndSwap(wtxn, item.rev, item.hc)
+		healthChecks.CompareAndSwap(wtxn, item.rev, hc)
 		wtxn.Commit()
 
 		return nil
