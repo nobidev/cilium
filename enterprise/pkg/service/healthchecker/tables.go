@@ -106,8 +106,8 @@ func (h *healthCheck) TableRow() []string {
 		strconv.FormatInt(int64(h.HealthyProbeStreak), 10),
 		strconv.FormatInt(int64(h.UnhealthyProbeStreak), 10),
 		h.Message,
-		duration.HumanDuration(time.Since(h.ProbedAt)),
 		duration.HumanDuration(time.Since(h.UpdatedAt)),
+		duration.HumanDuration(time.Since(h.ProbedAt)),
 		duration.HumanDuration(time.Until(h.probeAt())),
 	}
 }
