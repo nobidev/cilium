@@ -830,9 +830,12 @@ Makefile* @cilium/build
 /.github/workflows/enterprise-encryption-policy.yaml @isovalent/encryption
 /bpf/Makefile.override @isovalent/cilium-datapath
 /bpf/enterprise_* @isovalent/cilium-datapath
+/bpf/enterprise_bpf_* @isovalent/cilium-datapath @isovalent/private-networking
+/bpf/include/bpf/config/enterprise_* @isovalent/cilium-datapath @isovalent/private-networking
 /bpf/lib/enterprise_* @isovalent/cilium-datapath
 /bpf/lib/enterprise_encrypt.h @isovalent/encryption
-/bpf/lib/enterprise_ext_eps_policy.h @isovalent/private-networking
+/bpf/lib/enterprise_ext_eps*.h @isovalent/private-networking
+/bpf/lib/enterprise_privnet.h @isovalent/private-networking
 /bpf/complexity-tests/**/**/*enterprise_*.txt @isovalent/cilium-datapath
 /bpf/lib/egress_gateway_ha.h @isovalent/egress-gateway
 /bpf/tests/*egressgw_ha_*.c @isovalent/egress-gateway
