@@ -11,9 +11,16 @@
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1732033893-de666b6@sha256:ee005bd47b20f78a727c06fdf2275861848be7acd242603c82f86ca8faaeda90
 ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:5a9c4852a21287686009bfe1cdc1fed6e7aabdea@sha256:188e398ee30456373530698d0d29de66dda0c4428068ea430027ceb7e9c15b7c
 ARG CILIUM_RUNTIME_BASE_IMAGE=quay.io/isovalent/cilium-runtime-base-wfi:69391e0ccf6137573f3bad4b5e7b79e576dc788f@sha256:79a2b41610f43acc70a47638160545469db07b0bb0a8ab2932df5be2c00f4528
+ARG CILIUM_IPTABLES_IMAGE=quay.io/cilium/iptables:1331e9b1b03f70c9d8b08626d9a7126963f86478@sha256:d761d967243aced2729adde1e332a9c9def6baeb61f5f6cde5758b04e9a79355
 
 FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} AS bpftool-dist
+FROM ${CILIUM_IPTABLES_IMAGE} AS iptables-dist
+
+RUN apt-get update
+RUN apt-get install netbase
+RUN dpkg -i *.deb
+
 FROM ${CILIUM_RUNTIME_BASE_IMAGE}
 
 WORKDIR /go/src/github.com/cilium/cilium/enterprise/images/wolfi/runtime
@@ -25,3 +32,5 @@ RUN ln -s /bin/loopback /cni/loopback
 
 COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
 COPY --from=bpftool-dist /usr/local /usr/local
+COPY --from=iptables-dist /usr/sbin/iptables /usr/local/iptables
+COPY --from=iptables-dist /usr/sbin/ip6tables /usr/local/ip6tables
