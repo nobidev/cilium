@@ -629,6 +629,82 @@ func TestLBServiceStatusBackendCompatibility(t *testing.T) {
 			expectedReason:         "IncompatibleBackends",
 			expectedMessage:        "Backend \"backend-1\" is not yet accepted (no accepted condition)",
 		},
+		{
+			desc: "Backend misses addresses for IP families",
+			lbsvc: &isovalentv1alpha1.LBService{
+				Spec: isovalentv1alpha1.LBServiceSpec{
+					ProxyProtocolConfig: &isovalentv1alpha1.LBServiceProxyProtocolConfig{},
+					Applications: isovalentv1alpha1.LBServiceApplications{
+						TCPProxy: &isovalentv1alpha1.LBServiceApplicationTCPProxy{
+							ForceDeploymentMode: ptr.To(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1),
+							Routes:              []isovalentv1alpha1.LBServiceTCPRoute{{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}}},
+						},
+					},
+				},
+				Status: isovalentv1alpha1.LBServiceStatus{
+					Addresses: isovalentv1alpha1.LBServiceVIPAddresses{
+						IPv4: ptr.To("100.64.0.1"),
+						IPv6: ptr.To("2004::"),
+					},
+				},
+			},
+			backends: []*isovalentv1alpha1.LBBackendPool{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-1"},
+					Spec: isovalentv1alpha1.LBBackendPoolSpec{
+						BackendType: isovalentv1alpha1.BackendTypeIP,
+						Backends:    []isovalentv1alpha1.Backend{},
+					},
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
+					},
+				},
+			},
+			expectedNrOfConditions: 1,
+			expectedStatus:         metav1.ConditionFalse,
+			expectedReason:         "IncompatibleBackends",
+			expectedMessage: `forceDeploymentMode t1-only requires all BackendPools to have at least one address per enabled IP address family configured - IPv4 is missing [backend-1]
+forceDeploymentMode t1-only requires all BackendPools to have at least one address per enabled IP address family configured - IPv6 is missing [backend-1]`,
+		},
+		{
+			desc: "Backend contains addresses for IP families",
+			lbsvc: &isovalentv1alpha1.LBService{
+				Spec: isovalentv1alpha1.LBServiceSpec{
+					ProxyProtocolConfig: &isovalentv1alpha1.LBServiceProxyProtocolConfig{},
+					Applications: isovalentv1alpha1.LBServiceApplications{
+						TCPProxy: &isovalentv1alpha1.LBServiceApplicationTCPProxy{
+							ForceDeploymentMode: ptr.To(isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1),
+							Routes:              []isovalentv1alpha1.LBServiceTCPRoute{{BackendRef: isovalentv1alpha1.LBServiceBackendRef{Name: "backend-1"}}},
+						},
+					},
+				},
+				Status: isovalentv1alpha1.LBServiceStatus{
+					Addresses: isovalentv1alpha1.LBServiceVIPAddresses{
+						IPv4: ptr.To("100.64.0.1"),
+						IPv6: ptr.To("2004::"),
+					},
+				},
+			},
+			backends: []*isovalentv1alpha1.LBBackendPool{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backend-1"},
+					Spec: isovalentv1alpha1.LBBackendPoolSpec{
+						BackendType: isovalentv1alpha1.BackendTypeIP,
+						Backends: []isovalentv1alpha1.Backend{
+							{IP: ptr.To("192.168.1.8")},
+							{IP: ptr.To("2005::1")},
+						},
+					},
+					Status: isovalentv1alpha1.LBBackendPoolStatus{
+						Conditions: []metav1.Condition{acceptedCondition()},
+					},
+				},
+			},
+			expectedNrOfConditions: 1,
+			expectedStatus:         metav1.ConditionTrue,
+			expectedReason:         "AllBackendsCompatible",
+			expectedMessage:        "All referenced backends are compatible",
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {

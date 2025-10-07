@@ -500,7 +500,7 @@ func (r *ingestor) toApplicationTCPProxy(lbsvc *isovalentv1alpha1.LBService, ref
 	}
 
 	return &lbApplicationTCPProxy{
-		tierMode: r.mapTCPProxyTierMode(app, referencedBackends),
+		tierMode: r.mapTCPProxyTierMode(lbsvc, app, referencedBackends),
 		routes:   routes,
 	}
 }
@@ -526,7 +526,7 @@ func (r *ingestor) toApplicationUDPProxy(lbsvc *isovalentv1alpha1.LBService, ref
 	}
 
 	return &lbApplicationUDPProxy{
-		tierMode: r.mapUDPProxyTierMode(app, referencedBackends),
+		tierMode: r.mapUDPProxyTierMode(lbsvc, app, referencedBackends),
 		routes:   routes,
 	}
 }
@@ -1392,7 +1392,7 @@ func (*ingestor) toTCPRateLimits(rateLimits *isovalentv1alpha1.LBServiceTCPRoute
 	}
 }
 
-func (r *ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy, referencedBackends map[string]backend) tierModeType {
+func (r *ingestor) mapTCPProxyTierMode(lbsvc *isovalentv1alpha1.LBService, app *isovalentv1alpha1.LBServiceApplicationTCPProxy, referencedBackends map[string]backend) tierModeType {
 	forceDeploymentMode := isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto
 
 	if app.ForceDeploymentMode != nil {
@@ -1401,13 +1401,13 @@ func (r *ingestor) mapTCPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicati
 
 	switch forceDeploymentMode {
 	case isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto:
-		return r.evaluateTCPProxyAutoTierMode(app, referencedBackends)
+		return r.evaluateTCPProxyAutoTierMode(lbsvc, app, referencedBackends)
 	case isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1:
 		return tierModeT1
 	case isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2:
 		return tierModeT2
 	default:
-		return r.evaluateTCPProxyAutoTierMode(app, referencedBackends)
+		return r.evaluateTCPProxyAutoTierMode(lbsvc, app, referencedBackends)
 	}
 }
 
@@ -1426,7 +1426,10 @@ func (r *ingestor) backendPortsAreTheSame(lbBackends []lbBackend) bool {
 	return true
 }
 
-func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy, referencedBackends map[string]backend) tierModeType {
+func (r *ingestor) evaluateTCPProxyAutoTierMode(lbsvc *isovalentv1alpha1.LBService, app *isovalentv1alpha1.LBServiceApplicationTCPProxy, referencedBackends map[string]backend) tierModeType {
+	ipv4Service := lbsvc.Status.Addresses.IPv4 != nil
+	ipv6Service := lbsvc.Status.Addresses.IPv6 != nil
+
 	for _, v := range referencedBackends {
 		// Cilium Agent health checking doesn't support changing the host header of a HTTP health check request
 		if v.healthCheckConfig.http != nil && v.healthCheckConfig.http.host != "lb" {
@@ -1447,6 +1450,26 @@ func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 		// Cilium Agent health checking doesn't support TLS
 		if v.healthCheckConfig.tlsConfig != nil {
 			return tierModeT2
+		}
+
+		// T1-only cant have different IP family on the frontend & backend side
+		if v.typ == lbBackendTypeIP {
+			atLeastOneIPv4 := false
+			atLeastOneIPv6 := false
+
+			for _, lb := range v.lbBackends {
+				for _, lba := range lb.addresses {
+					if net.ParseIP(lba).To4() == nil {
+						atLeastOneIPv6 = true
+					} else {
+						atLeastOneIPv4 = true
+					}
+				}
+			}
+
+			if (ipv4Service && !atLeastOneIPv4) || (ipv6Service && !atLeastOneIPv6) {
+				return tierModeT2
+			}
 		}
 	}
 
@@ -1464,7 +1487,7 @@ func (r *ingestor) evaluateTCPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 	return tierModeT1
 }
 
-func (r *ingestor) mapUDPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicationUDPProxy, referencedBackends map[string]backend) tierModeType {
+func (r *ingestor) mapUDPProxyTierMode(lbsvc *isovalentv1alpha1.LBService, app *isovalentv1alpha1.LBServiceApplicationUDPProxy, referencedBackends map[string]backend) tierModeType {
 	forceDeploymentMode := isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto
 
 	if app.ForceDeploymentMode != nil {
@@ -1473,17 +1496,20 @@ func (r *ingestor) mapUDPProxyTierMode(app *isovalentv1alpha1.LBServiceApplicati
 
 	switch forceDeploymentMode {
 	case isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto:
-		return r.evaluateUDPProxyAutoTierMode(app, referencedBackends)
+		return r.evaluateUDPProxyAutoTierMode(lbsvc, app, referencedBackends)
 	case isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1:
 		return tierModeT1
 	case isovalentv1alpha1.LBUDPProxyForceDeploymentModeT2:
 		return tierModeT2
 	default:
-		return r.evaluateUDPProxyAutoTierMode(app, referencedBackends)
+		return r.evaluateUDPProxyAutoTierMode(lbsvc, app, referencedBackends)
 	}
 }
 
-func (r *ingestor) evaluateUDPProxyAutoTierMode(app *isovalentv1alpha1.LBServiceApplicationUDPProxy, referencedBackends map[string]backend) tierModeType {
+func (r *ingestor) evaluateUDPProxyAutoTierMode(lbsvc *isovalentv1alpha1.LBService, app *isovalentv1alpha1.LBServiceApplicationUDPProxy, referencedBackends map[string]backend) tierModeType {
+	ipv4Service := lbsvc.Status.Addresses.IPv4 != nil
+	ipv6Service := lbsvc.Status.Addresses.IPv6 != nil
+
 	for _, v := range referencedBackends {
 		// Cilium Agent health checking doesn't support changing the host header of a HTTP health check request
 		if v.healthCheckConfig.http != nil && v.healthCheckConfig.http.host != "lb" {
@@ -1505,6 +1531,26 @@ func (r *ingestor) evaluateUDPProxyAutoTierMode(app *isovalentv1alpha1.LBService
 		// Cilium Agent health checking doesn't support TLS
 		if v.healthCheckConfig.tlsConfig != nil {
 			return tierModeT2
+		}
+
+		// T1-only cant have different IP family on the frontend & backend side
+		if v.typ == lbBackendTypeIP {
+			atLeastOneIPv4 := false
+			atLeastOneIPv6 := false
+
+			for _, lb := range v.lbBackends {
+				for _, lba := range lb.addresses {
+					if net.ParseIP(lba).To4() == nil {
+						atLeastOneIPv6 = true
+					} else {
+						atLeastOneIPv4 = true
+					}
+				}
+			}
+
+			if (ipv4Service && !atLeastOneIPv4) || (ipv6Service && !atLeastOneIPv6) {
+				return tierModeT2
+			}
 		}
 	}
 

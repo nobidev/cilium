@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"slices"
 	"strings"
 
@@ -1046,6 +1047,7 @@ func (r *lbServiceReconciler) updateBackendCompatibilityInStatus(lbsvc *isovalen
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatibleT1HostnameBackends(lbsvc, backends)...)
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatibleT1HTTPHealthCheckBackends(lbsvc, backends)...)
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatibleT1TLSHealthCheckBackends(lbsvc, backends)...)
+	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatibleT1BackendIPFamilies(lbsvc, backends)...)
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getInvalidBackends(backends)...)
 	incompatibleBackendMessages = append(incompatibleBackendMessages, r.getIncompatibleProxyProtocol(lbsvc, backends)...)
 
@@ -1288,6 +1290,71 @@ func (r *lbServiceReconciler) getIncompatibleT1TLSHealthCheckBackends(lbsvc *iso
 	}
 
 	return incompatibleBackendMessages
+}
+
+func (r *lbServiceReconciler) getIncompatibleT1BackendIPFamilies(lbsvc *isovalentv1alpha1.LBService, backends []*isovalentv1alpha1.LBBackendPool) []string {
+	backendMap := map[string]*isovalentv1alpha1.LBBackendPool{}
+	for _, b := range backends {
+		backendMap[b.Name] = b
+	}
+
+	ipv4Service := lbsvc.Status.Addresses.IPv4 != nil
+	ipv6Service := lbsvc.Status.Addresses.IPv6 != nil
+
+	backendsWithoutIPv4 := []string{}
+	backendsWithoutIPv6 := []string{}
+
+	if lbsvc.Spec.Applications.TCPProxy != nil && lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode != nil && *lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode == isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1 {
+		for _, t1r := range lbsvc.Spec.Applications.TCPProxy.Routes {
+			if bp, ok := backendMap[t1r.BackendRef.Name]; ok && bp.Spec.BackendType == isovalentv1alpha1.BackendTypeIP {
+				missesIPv4Backend, missesIPv6Backend := r.missesBackendsForIPFamily(bp, ipv4Service, ipv6Service)
+				if missesIPv4Backend {
+					backendsWithoutIPv4 = append(backendsWithoutIPv4, t1r.BackendRef.Name)
+				}
+				if missesIPv6Backend {
+					backendsWithoutIPv6 = append(backendsWithoutIPv6, t1r.BackendRef.Name)
+				}
+			}
+		}
+	} else if lbsvc.Spec.Applications.UDPProxy != nil && lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode != nil && *lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode == isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1 {
+		for _, t1r := range lbsvc.Spec.Applications.UDPProxy.Routes {
+			if bp, ok := backendMap[t1r.BackendRef.Name]; ok && bp.Spec.BackendType == isovalentv1alpha1.BackendTypeIP {
+				missesIPv4Backend, missesIPv6Backend := r.missesBackendsForIPFamily(bp, ipv4Service, ipv6Service)
+				if missesIPv4Backend {
+					backendsWithoutIPv4 = append(backendsWithoutIPv4, t1r.BackendRef.Name)
+				}
+				if missesIPv6Backend {
+					backendsWithoutIPv6 = append(backendsWithoutIPv6, t1r.BackendRef.Name)
+				}
+			}
+		}
+	}
+	incompatibleBackendMessages := []string{}
+
+	if len(backendsWithoutIPv4) > 0 {
+		incompatibleBackendMessages = append(incompatibleBackendMessages, fmt.Sprintf("forceDeploymentMode t1-only requires all BackendPools to have at least one address per enabled IP address family configured - IPv4 is missing %v", backendsWithoutIPv4))
+	}
+
+	if len(backendsWithoutIPv6) > 0 {
+		incompatibleBackendMessages = append(incompatibleBackendMessages, fmt.Sprintf("forceDeploymentMode t1-only requires all BackendPools to have at least one address per enabled IP address family configured - IPv6 is missing %v", backendsWithoutIPv6))
+	}
+
+	return incompatibleBackendMessages
+}
+
+func (r *lbServiceReconciler) missesBackendsForIPFamily(bp *isovalentv1alpha1.LBBackendPool, ipv4Service bool, ipv6Service bool) (bool, bool) {
+	hasAtLeastOneIPv4Backend := false
+	hasAtLeastOneIPv6Backend := false
+
+	for _, b := range bp.Spec.Backends {
+		if b.IP != nil && net.ParseIP(*b.IP).To4() == nil {
+			hasAtLeastOneIPv6Backend = true
+		} else {
+			hasAtLeastOneIPv4Backend = true
+		}
+	}
+
+	return ipv4Service && !hasAtLeastOneIPv4Backend, ipv6Service && !hasAtLeastOneIPv6Backend
 }
 
 func (*lbServiceReconciler) getInvalidBackends(backends []*isovalentv1alpha1.LBBackendPool) []string {
