@@ -414,16 +414,25 @@ func (s *LoadbalancerClient) getHCT1T2(lbsvc isovalentv1alpha1.LBService, nodeSe
 	}
 }
 
+// IsT1Only evaluates whether the given LBService uses T1-only TCP- or UDP proxy functionality.
+// It first uses the evaluated deployment mode from the  CRD status and falls back to assuming
+// T1-only if forceDeploymentMode isn't set or set to 'auto' or 't1-only'. Auto could potentially
+// still evaluate to t1-t2 if some features are used that aren't compatible with t1-only.
+//
+// Note: the fallback needs to check whether status is set at all to avoid overriding it.
 func (s *LoadbalancerClient) isT1Only(lbsvc isovalentv1alpha1.LBService) bool {
-	if lbsvc.Spec.Applications.TCPProxy != nil && (lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode == nil || slices.Contains([]isovalentv1alpha1.LBTCPProxyForceDeploymentModeType{isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1}, *lbsvc.Spec.Applications.TCPProxy.ForceDeploymentMode)) {
+	switch {
+	case lbsvc.Status.IsEvaluatedTCPT1Only():
 		return true
-	}
-
-	if lbsvc.Spec.Applications.UDPProxy != nil && (lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode == nil || slices.Contains([]isovalentv1alpha1.LBUDPProxyForceDeploymentModeType{isovalentv1alpha1.LBUDPProxyForceDeploymentModeAuto, isovalentv1alpha1.LBUDPProxyForceDeploymentModeT1}, *lbsvc.Spec.Applications.UDPProxy.ForceDeploymentMode)) {
+	case lbsvc.Status.Applications.TCPProxy == nil && lbsvc.Spec.ConfiguresTCPT1OnlyOrAuto():
 		return true
+	case lbsvc.Status.IsEvaluatedUDPT1Only():
+		return true
+	case lbsvc.Status.Applications.UDPProxy == nil && lbsvc.Spec.ConfiguresUDPT1OnlyOrAuto():
+		return true
+	default:
+		return false
 	}
-
-	return false
 }
 
 func (s *LoadbalancerClient) getT2Status(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) LoadbalancerStatusModelSimpleStatus {

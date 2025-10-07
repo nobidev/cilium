@@ -66,6 +66,18 @@ type LBServiceSpec struct {
 	Applications LBServiceApplications `json:"applications"`
 }
 
+func (r LBServiceSpec) ConfiguresTCPT1OnlyOrAuto() bool {
+	return r.Applications.TCPProxy != nil &&
+		(r.Applications.TCPProxy.ForceDeploymentMode == nil ||
+			slices.Contains([]LBTCPProxyForceDeploymentModeType{LBTCPProxyForceDeploymentModeAuto, LBTCPProxyForceDeploymentModeT1}, *r.Applications.TCPProxy.ForceDeploymentMode))
+}
+
+func (r LBServiceSpec) ConfiguresUDPT1OnlyOrAuto() bool {
+	return r.Applications.UDPProxy != nil &&
+		(r.Applications.UDPProxy.ForceDeploymentMode == nil ||
+			slices.Contains([]LBUDPProxyForceDeploymentModeType{LBUDPProxyForceDeploymentModeAuto, LBUDPProxyForceDeploymentModeT1}, *r.Applications.UDPProxy.ForceDeploymentMode))
+}
+
 type LBServiceProxyProtocolConfig struct {
 	// The list of versions of the PROXY protocol, which will be rejected.
 	// If not specified, all versions are allowed.
@@ -1414,6 +1426,18 @@ type LBServiceStatus struct {
 	//
 	// +kubebuilder:validation:Required
 	Status LBResourceStatus `json:"status"`
+}
+
+func (r LBServiceStatus) IsEvaluatedTCPT1Only() bool {
+	return r.Applications.TCPProxy != nil &&
+		r.Applications.TCPProxy.DeploymentMode != nil &&
+		*r.Applications.TCPProxy.DeploymentMode == LBTCPProxyDeploymentModeTypeT1Only
+}
+
+func (r LBServiceStatus) IsEvaluatedUDPT1Only() bool {
+	return r.Applications.UDPProxy != nil &&
+		r.Applications.UDPProxy.DeploymentMode != nil &&
+		*r.Applications.UDPProxy.DeploymentMode == LBUDPProxyDeploymentModeTypeT1Only
 }
 
 type LBServiceApplicationsStatus struct {
