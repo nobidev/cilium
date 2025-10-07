@@ -705,7 +705,7 @@ func (r *ingestor) getAddressesFromEndpointSlices(referencedEndpointSlices []dis
 	ipAddresses := []string{}
 
 	for _, es := range referencedEndpointSlices {
-		if es.GetLabels()[discoveryv1.LabelServiceName] == k8sServiceName && es.AddressType == discoveryv1.AddressTypeIPv4 {
+		if es.GetLabels()[discoveryv1.LabelServiceName] == k8sServiceName && (es.AddressType == discoveryv1.AddressTypeIPv4 || es.AddressType == discoveryv1.AddressTypeIPv6) {
 			for _, e := range es.Endpoints {
 				// TODO: check conditions (kubelet healthchecks) ?
 				ipAddresses = append(ipAddresses, e.Addresses...)
