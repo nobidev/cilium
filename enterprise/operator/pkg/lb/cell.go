@@ -264,6 +264,10 @@ func mapReconcilerConfig(params reconcilerParams) reconcilerConfig {
 		Policy: reconcilerPolicyConfig{
 			EnableCiliumPolicyFilters: params.Config.LoadBalancerCPPolicyEnableCiliumPolicyFilters,
 		},
+		IPFamilies: reconcilerIPFamilyConfig{
+			EnableIPv4: params.AgentConfig.EnableIPv4,
+			EnableIPv6: params.AgentConfig.EnableIPv6,
+		},
 	}
 }
 

@@ -75,6 +75,7 @@ type reconcilerConfig struct {
 	T1T2HealthCheck     reconcilerT1T2HealthCheckConfig
 	OriginalIPDetection reconcilerOriginalIPDetectionConfig
 	Policy              reconcilerPolicyConfig
+	IPFamilies          reconcilerIPFamilyConfig
 }
 
 type reconcilerAccesslogConfig struct {

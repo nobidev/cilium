@@ -13,3 +13,6 @@ T1T2HealthCheck:
   T2ProbeMinHealthyBackendPercentage: 20
 Policy:
   EnableCiliumPolicyFilters: true
+IPFamilies:
+  EnableIPv4: true
+  EnableIPv6: true

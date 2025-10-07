@@ -137,7 +137,7 @@ spec:
           dnsFailureRefreshRate:
             baseInterval: 10s
             maxInterval: 100s
-          dnsLookupFamily: V4_ONLY
+          dnsLookupFamily: AUTO
           dnsRefreshRate: 10s
           respectDnsTtl: true
           typedDnsResolverConfig:
@@ -153,8 +153,8 @@ spec:
         - healthyThreshold: 1
           httpHealthCheck:
             expectedStatuses:
-            - end: "201"
-              start: "200"
+              - end: "201"
+                start: "200"
             host: lb
             method: GET
             path: /healthz

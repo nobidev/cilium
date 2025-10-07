@@ -200,7 +200,7 @@ func (r *lbServiceT2Translator) desiredAccessLoggerCluster(model *lbService) (*e
 			// disabling panic mode (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/panic_threshold)
 			HealthyPanicThreshold: &envoy_type_v3.Percent{Value: 0.0},
 		},
-		DnsLookupFamily: envoy_config_cluster_v3.Cluster_V4_ONLY,
+		DnsLookupFamily: r.dnsLookupFamily(model),
 		LbPolicy:        envoy_config_cluster_v3.Cluster_ROUND_ROBIN,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": r.toClusterHTTPProtocolOptions(lbBackendHTTPConfig{
@@ -1659,8 +1659,7 @@ func (r *lbServiceT2Translator) desiredJWKSEnvoyCluster(model *lbService, httpTy
 		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
 			Type: envoy_config_cluster_v3.Cluster_STRICT_DNS,
 		},
-		// We only support IPv4 so far. To avoid unnecessary confusion, we disable IPv6 lookup for now.
-		DnsLookupFamily: envoy_config_cluster_v3.Cluster_V4_ONLY,
+		DnsLookupFamily: r.dnsLookupFamily(model),
 		TransportSocket: transportSocket,
 		LoadAssignment: &envoy_config_endpoint_v3.ClusterLoadAssignment{
 			ClusterName: r.jwksClusterName(httpType, provider.name),
@@ -1686,6 +1685,32 @@ func (r *lbServiceT2Translator) desiredJWKSEnvoyCluster(model *lbService, httpTy
 			},
 		},
 	}
+}
+
+func (r *lbServiceT2Translator) dnsLookupFamily(model *lbService) envoy_config_cluster_v3.Cluster_DnsLookupFamily {
+	switch {
+	case r.config.IPFamilies.EnableIPv4 && r.config.IPFamilies.EnableIPv6:
+		return envoy_config_cluster_v3.Cluster_AUTO
+	case r.config.IPFamilies.EnableIPv4:
+		return envoy_config_cluster_v3.Cluster_V4_ONLY
+	case r.config.IPFamilies.EnableIPv6:
+		return envoy_config_cluster_v3.Cluster_V6_ONLY
+	}
+
+	return envoy_config_cluster_v3.Cluster_V4_ONLY
+}
+
+func (r *lbServiceT2Translator) dnsLookupFamilyDNSExtension(model *lbService) envoy_extensions_clusters_common_dns_v3.DnsLookupFamily {
+	switch {
+	case r.config.IPFamilies.EnableIPv4 && r.config.IPFamilies.EnableIPv6:
+		return envoy_extensions_clusters_common_dns_v3.DnsLookupFamily_AUTO
+	case r.config.IPFamilies.EnableIPv4:
+		return envoy_extensions_clusters_common_dns_v3.DnsLookupFamily_V4_ONLY
+	case r.config.IPFamilies.EnableIPv6:
+		return envoy_extensions_clusters_common_dns_v3.DnsLookupFamily_V6_ONLY
+	}
+
+	return envoy_extensions_clusters_common_dns_v3.DnsLookupFamily_V4_ONLY
 }
 
 func (r *lbServiceT2Translator) toHealthCheckTransportSocketMatches(healthCheckConfig lbBackendHealthCheckConfig) []*envoy_config_cluster_v3.Cluster_TransportSocketMatch {
@@ -1759,8 +1784,7 @@ func (r *lbServiceT2Translator) desiredEnvoyCluster(model *lbService, name strin
 						Name:        "envoy.network.dns_resolver.cares",
 						TypedConfig: toAny(r.toDNSResolverConfig(b)),
 					},
-					// We only support IPv4 so far. To avoid unnecessary confusion, we disable IPv6 lookup for now.
-					DnsLookupFamily:              envoy_extensions_clusters_common_dns_v3.DnsLookupFamily_V4_ONLY,
+					DnsLookupFamily:              r.dnsLookupFamilyDNSExtension(model),
 					AllAddressesInSingleEndpoint: false, // strict dns
 				}),
 			},
