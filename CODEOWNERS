@@ -841,10 +841,14 @@ Makefile* @cilium/build
 /bpf/lib/egress_gateway_ha.h @isovalent/egress-gateway
 /bpf/tests/*egressgw_ha_*.c @isovalent/egress-gateway
 /bpf/tests/*egressgw_standalone_*.c @isovalent/egress-gateway
+/bpf/tests/enterprise_privnet_common.h @isovalent/private-networking
 /bpf/tests/enterprise_vxlan_helpers_tests.c @isovalent/cilium-datapath
 /bpf/tests/enterprise_tc_encryption_policy_mixed.c @isovalent/encryption
+/bpf/tests/enterprise_tc_privnet*.c @isovalent/private-networking
 /bpf/tests/lib/egressgw_ha.h @isovalent/egress-gateway
+/bpf/tests/lib/enterprise_privnet.h @isovalent/private-networking
 /bpf/tests/lib/enterprise_encryption_policy.h @isovalent/encryption
+/bpf/tests/scapy/enterprise_privnet_pkt_defs.py @isovalent/private-networking
 /bugtool/cmd/enterprise_* @isovalent/cli
 /cilium-cli/Makefile.override @isovalent/cli
 /cilium-cli/connectivity/check/enterprise.go @isovalent/cli
