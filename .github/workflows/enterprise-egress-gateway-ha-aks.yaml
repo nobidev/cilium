@@ -307,6 +307,66 @@ jobs:
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
             --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443
 
+      # This installs a dummy CNI on nodes labeled cilium.io/no-schedule=true
+      # to make kubelet report them as Ready.
+      # Without a CNI, such nodes stay NotReady and AKS auto-repair restarts them.
+      - name: Install dummy CNI on node without Cilium
+        run: |
+          JOB_NAME="inject-dummy-cni"
+
+          cat <<YAML | kubectl apply -f -
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: ${JOB_NAME}
+            namespace: kube-system
+          spec:
+            backoffLimit: 0
+            template:
+              metadata:
+                labels:
+                  app: inject-dummy-cni
+              spec:
+                hostNetwork: true
+                nodeSelector:
+                  cilium.io/no-schedule: "true"
+                tolerations:
+                - operator: Exists
+                restartPolicy: Never
+                containers:
+                - name: writer
+                  image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
+                  securityContext:
+                    privileged: true
+                    runAsUser: 0
+                  command: ["/bin/sh","-c"]
+                  args:
+                  - |
+                    set -eu
+                    mkdir -p /host/etc/cni/net.d
+                    cat > /host/etc/cni/net.d/05-dummy.conf <<'EOF'
+                    {
+                      "cniVersion": "0.3.1",
+                      "name": "dummy",
+                      "type": "dummy-cni",
+                      "log-file": "/var/run/dummy.log"
+                    }
+                    EOF
+                    exit 0
+                  volumeMounts:
+                  - name: etc-cni
+                    mountPath: /host/etc/cni/net.d
+                volumes:
+                - name: etc-cni
+                  hostPath:
+                    path: /etc/cni/net.d
+                    type: DirectoryOrCreate
+          YAML
+
+          kubectl -n kube-system wait --for=condition=complete --timeout=180s job/${JOB_NAME}
+          kubectl wait --for=condition=Ready --timeout=180s node -l cilium.io/no-schedule=true
+          kubectl get nodes -l cilium.io/no-schedule=true -o wide
+
       - name: Delete context ref
         run: |
           rm -rf untrusted/
