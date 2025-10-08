@@ -24,6 +24,7 @@ import (
 
 	privnetcfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/types"
@@ -54,6 +55,8 @@ const (
 	FIBFlagSubnetRoute
 	// FIBFlagStaticRoute is set if the address is a static route.
 	FIBFlagStaticRoute
+	// FIBFlagVxlanRoute is set if the route is a VXLAN route.
+	FIBFlagVxlanRoute
 )
 
 // FIBVal is the FIB map value.
@@ -64,6 +67,8 @@ type FIBVal struct {
 	Flags   FIBFlags `align:"flag_l2_announce"`
 	Family  uint8    `align:"family"`
 	IfIndex uint32   `align:"ifindex"`
+	VNI     uint32   `align:"vni"`
+	_       uint32   `align:"pad5"`
 }
 
 // FIB allows to interact with the private network FIB map.
@@ -143,7 +148,7 @@ func (*FIBKey) New() bpf.MapKey {
 }
 
 // NewFIBVal constructs a new FIB map value.
-func NewFIBVal(addr netip.Addr, mac types.MACAddr, flags FIBFlags, ifindex uint32) FIBVal {
+func NewFIBVal(addr netip.Addr, mac types.MACAddr, flags FIBFlags, ifindex uint32, vni vni.VNI) FIBVal {
 	family, address := fromAddr(addr)
 
 	return FIBVal{
@@ -152,15 +157,17 @@ func NewFIBVal(addr netip.Addr, mac types.MACAddr, flags FIBFlags, ifindex uint3
 		Address: address,
 		MAC:     mac,
 		IfIndex: ifindex,
+		VNI:     vni.AsUint32(),
 	}
 }
 
 func (v FIBVal) String() string {
-	return fmt.Sprintf("%s %#x %s %d",
+	return fmt.Sprintf("%s %#x %s %d %d",
 		v.ToAddr(),
 		v.Flags,
 		v.MAC,
 		v.IfIndex,
+		v.VNI,
 	)
 }
 

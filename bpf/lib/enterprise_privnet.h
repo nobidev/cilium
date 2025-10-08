@@ -179,9 +179,12 @@ struct privnet_fib_val {
 	__u8 flag_l2_announce:1,
 		flag_is_subnet_route:1,
 		flag_is_static_route:1,
-		pad:5;
+		flag_is_vxlan_route:1,
+		pad:4;
 	__u8 family;
 	__u32 ifindex;
+	__u32 vni;
+	__u32 pad5;
 };
 
 struct privnet_pip_key {
