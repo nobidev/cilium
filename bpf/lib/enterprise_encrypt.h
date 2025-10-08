@@ -197,7 +197,7 @@ host_wg_encrypt_hook(struct __ctx_buff *ctx, __be16 proto, __u32 src_sec_identit
 					    &icmp_type) < 0)
 				return DROP_INVALID;
 
-			if (icmp_type == ICMP6_NA_MSG_TYPE)
+			if (icmp_type == ICMPV6_NA_MSG)
 				goto out;
 		}
 #endif
