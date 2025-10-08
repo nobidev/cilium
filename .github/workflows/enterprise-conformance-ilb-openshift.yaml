@@ -649,10 +649,8 @@ jobs:
             # TODO: investigate and fix the skipped tests
             cilium lb test -n cilium \
                            --mode=single-node \
-                           --run '!^TestUDPProxyT1T2$' \
-                           --run '!^TestLabelBasedBackend_T1Only$' \
-                           --run '!^TestNodeMaintenance_T2_T1T2_TCPProxy$' \
-                           --run '!^TestNodeMaintenance_T2_T1T2_HTTP$' \
+                           --run '!^TestLabelBasedBackend_CNP_T1T2$' \
+                           --run '!^TestNodeMaintenance_T1_T1T2_TCPProxy$' \
                            --sysdump-on-failure \
                            --sysdump-output-filename ilb-sysdump \
                            --verbose

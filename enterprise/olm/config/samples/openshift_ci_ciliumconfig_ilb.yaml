@@ -14,7 +14,6 @@ spec:
   bpf:
     monitorAggregation: "none"
     masquerade: true
-    tproxy: true
     ctAccounting: true
     hostLegacyRouting: true
     lbAlgorithmAnnotation: true
