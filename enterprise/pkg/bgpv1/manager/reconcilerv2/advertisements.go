@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // PeerID identifies the peer within the instance.
@@ -43,7 +44,7 @@ type (
 	// This is the top level map that is returned to the consumer with requested advertisements.
 	PeerAdvertisements map[PeerID]FamilyAdvertisements
 
-	// VRFAdvertisements is a map of VRF name to its family advertisements
+	// VRFAdvertisements is a map of VRF name / private network name to its family advertisements
 	VRFAdvertisements map[string]FamilyAdvertisements
 
 	// FamilyAdvertisements is a map of address family to its advertisements
@@ -199,26 +200,34 @@ func (p *IsovalentAdvertisement) GetConfiguredVRFAdvertisements(conf *v1.Isovale
 	l := p.logger.With(types.InstanceLogField, conf.Name)
 
 	for _, vrf := range conf.VRFs {
-		if vrf.VRFRef == nil {
+		var (
+			key string
+			log *slog.Logger
+		)
+		if vrf.VRFRef != nil {
+			key = *vrf.VRFRef
+			log = l.With(entTypes.VRFLogField, key)
+		} else if vrf.PrivateNetworkRef != nil {
+			key = vrf.PrivateNetworkRef.Name
+			log = l.With(logfields.ClusterwidePrivateNetwork, key)
+		} else {
+			l.Debug("VRFRef nor PrivateNetworkRef set, skipping advertisement check")
 			continue
 		}
-		lv := l.With(entTypes.VRFLogField, *vrf.VRFRef)
 
 		if vrf.ConfigRef == nil {
-			lv.Debug("VRF config ref not set, skipping advertisement check")
+			log.Debug("VRF config key not set, skipping advertisement check")
 			continue
 		}
-
 		vrfConfig, exist, err := p.vrfs.GetByKey(resource.Key{Name: *vrf.ConfigRef})
 		if err != nil {
 			if errors.Is(err, store.ErrStoreUninitialized) {
-				lv.Debug("VRF config store is not initialized")
+				log.Debug("VRF config store is not initialized")
 			}
 			return nil, err
 		}
-
 		if !exist {
-			lv.Debug("VRF config not found, skipping advertisement check")
+			log.Debug("VRF config not found, skipping advertisement check")
 			continue
 		}
 
@@ -226,7 +235,7 @@ func (p *IsovalentAdvertisement) GetConfiguredVRFAdvertisements(conf *v1.Isovale
 		if err != nil {
 			return nil, err
 		}
-		result[*vrf.VRFRef] = vrfAdverts
+		result[key] = vrfAdverts
 	}
 	return result, nil
 }
