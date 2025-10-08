@@ -316,8 +316,8 @@ jobs:
           openshift_version="${{ steps.vars.outputs.ocp_version }}"
           masters_source_dest_check = false
           worker_instance_type="m5.xlarge"
-          workers_count=3
-          workers_source_dest_check = false
+          workers_count=4
+          workers_source_dest_check=false
           EOF
           cat terraform.tfvars
           cp ../../enterprise/olm/config/samples/openshift_ci_ciliumconfig_ilb.yaml clife-ciliumconfig.yaml
@@ -583,15 +583,17 @@ jobs:
           }
 
           nodes=$(kubectl get nodes -l node-role.kubernetes.io/worker --no-headers -o custom-columns=":metadata.name")
-          tier=1
+          i=1
           for node in $nodes
           do
-            echo "Labeling ${node} as tier: ${tier}"
-            retry 3 kubectl label node $node service.cilium.io/node=t$tier
-            if [[ $tier -eq 1 ]]
+            tier=1
+            if [[ $i -gt 2 ]]
             then
               tier=2
             fi
+            echo "Labeling ${node} as tier: ${tier}"
+            retry 3 kubectl label node $node service.cilium.io/node=t$tier
+            ((i++))
           done
 
       - name: Wait for Cilium status to be ready
