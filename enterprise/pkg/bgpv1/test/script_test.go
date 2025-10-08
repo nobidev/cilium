@@ -175,6 +175,7 @@ func TestPrivilegedScript(t *testing.T) {
 				tables.NewNodeAddressTable,
 				bfdtypes.NewBFDPeersTable,
 				privnetTables.NewPrivateNetworksTable,
+				privnetTables.NewLocalWorkloadsTable,
 
 				statedb.RWTable[*tables.Route].ToTable,
 				statedb.RWTable[*tables.Device].ToTable,
@@ -182,6 +183,7 @@ func TestPrivilegedScript(t *testing.T) {
 				statedb.RWTable[tables.NodeAddress].ToTable,
 				statedb.RWTable[*bfdtypes.BFDPeerStatus].ToTable,
 				statedb.RWTable[privnetTables.PrivateNetwork].ToTable,
+				statedb.RWTable[*privnetTables.LocalWorkload].ToTable,
 			),
 			cell.Provide(func(sig *signaler.BGPCPSignaler) egressgatewayha.EgressIPsProvider {
 				egwMgrMock = newEGWManagerMock(sig)
@@ -272,6 +274,9 @@ func TestPrivilegedScript(t *testing.T) {
 			cfg.EnableNoServiceEndpointsRoutable = *enableNoEndpointsRoutable
 		})
 		hive.AddConfigOverride(h, func(cfg *evpn.Config) {
+			cfg.Enabled = true
+		})
+		hive.AddConfigOverride(h, func(cfg *privnetConfig.Config) {
 			cfg.Enabled = true
 		})
 

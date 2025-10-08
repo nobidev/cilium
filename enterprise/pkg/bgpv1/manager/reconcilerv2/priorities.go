@@ -23,6 +23,7 @@ const (
 	ServiceVRFReconcilerName       = "ServiceVRF"
 	LocatorPoolReconcilerName      = "LocatorPool"
 	VPNRoutePolicyReconcilerName   = "VPNRoutePolicy"
+	PrivateNetworkReconcilerName   = "PrivateNetwork"
 )
 
 // Configuration Reconciler Priorities, lower number means higher priority. It is used to determine the
@@ -39,6 +40,7 @@ const (
 	ServiceReconcilerPriority          = ossreconcilerv2.ServiceReconcilerPriority - 1  // must be lower (higher priority) than the OSS reconciler we are overriding
 	PodCIDRReconcilerPriority          = ossreconcilerv2.PodCIDRReconcilerPriority - 1  // must be lower (higher priority) than the OSS reconciler we are overriding
 	LocatorPoolReconcilerPriority      = 45
+	PrivateNetworkReconcilerPriority   = 44
 	ServiceVRFReconcilerPriority       = 41
 	PodCIDRVRFReconcilerPriority       = 31
 )

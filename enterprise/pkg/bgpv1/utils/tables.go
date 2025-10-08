@@ -11,13 +11,50 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"net/netip"
 
 	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/rate"
 )
+
+// SignalBGPUponTableEvents signals BGP control plane using the provided signaler upon all statedb table changes
+func SignalBGPUponTableEvents[T any](ctx context.Context, db *statedb.DB, table statedb.Table[T], signaler *signaler.BGPCPSignaler, limiter *rate.Limiter) error {
+	// wait for table initialization
+	_, watch := table.Initialized(db.ReadTxn())
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-watch:
+	}
+
+	// emit initial signal
+	signaler.Event(struct{}{})
+
+	// watch for changes in the table
+	_, watch = table.AllWatch(db.ReadTxn())
+
+	for {
+		select {
+		case <-watch:
+			// table changed, re-start the watch and emit reconciliation event
+			_, watch = table.AllWatch(db.ReadTxn())
+			signaler.Event(struct{}{})
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		// if rate-limiting is applied, wait if necessary
+		if limiter != nil {
+			if err := limiter.Wait(ctx); err != nil {
+				return err
+			}
+		}
+	}
+}
 
 // GetIPv6LinkLocalNeighborAddress attempts to find single neighbor with a link-local IPv6 address on the given interface
 // in the provided device and neighbor tables. If found, returns its link-local address with zone.

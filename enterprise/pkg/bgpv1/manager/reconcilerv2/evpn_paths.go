@@ -37,6 +37,7 @@ const (
 )
 
 // EvpnVRFInfo holds VRF-specific information for EVPN paths.
+// +deepequal-gen=true
 type EvpnVRFInfo struct {
 	VNI        vni.VNI
 	RD         string
