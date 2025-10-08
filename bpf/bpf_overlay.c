@@ -7,7 +7,6 @@
 #include <bpf/config/node.h>
 #include <bpf/config/global.h>
 #include <netdev_config.h>
-#include "lib/mcast.h"
 
 #define IS_BPF_OVERLAY 1
 
@@ -18,7 +17,7 @@
 #define SECLABEL_IPV6 WORLD_IPV6_ID
 
 /* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the
- * bpf_lxc object file.
+ * object file.
  */
 #define SKIP_ICMPV6_NS_HANDLING
 
@@ -26,7 +25,6 @@
  */
 #define SKIP_SRV6_HANDLING
 
-#include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/edt.h"
 #include "lib/eps.h"
@@ -38,10 +36,12 @@
 #include "lib/local_delivery.h"
 #include "lib/drop.h"
 #include "lib/identity.h"
+#include "lib/mcast.h"
 #include "lib/nodeport.h"
 #include "lib/nodeport_egress.h"
 #include "lib/clustermesh.h"
 #include "lib/egress_gateway.h"
+#include "lib/tailcall.h"
 
 #ifdef ENABLE_VTEP
 #include "lib/vtep.h"

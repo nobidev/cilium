@@ -1148,13 +1148,12 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	ctx_skip_host_fw_set(ctx);
 # endif
 
-	ret = invoke_traced_tailcall_if(__or(__and(is_defined(ENABLE_HOST_FIREWALL),
-						   is_defined(IS_BPF_HOST)),
-					     __and(is_defined(ENABLE_IPV6_FRAGMENTS),
-						   is_defined(IS_BPF_XDP))),
-					CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS,
-					nodeport_rev_dnat_ingress_ipv6,
-					&trace, &ext_err);
+	if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
+	    (is_defined(ENABLE_IPV6_FRAGMENTS) && is_defined(IS_BPF_XDP)))
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS, &ext_err);
+	else
+		ret = nodeport_rev_dnat_ingress_ipv6(ctx, &trace, &ext_err);
+
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -1194,6 +1193,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		.reason = (enum trace_reason)CT_NEW,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
+	struct ipv6_nat_entry *state = NULL;
 	int ret, l4_off, oif = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1237,7 +1237,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	if (unlikely(ret != CTX_ACT_OK))
 		goto drop_err;
 
-	ret = __snat_v6_nat(ctx, &tuple, fraginfo, l4_off, true,
+	ret = __snat_v6_nat(ctx, &tuple, state, fraginfo, l4_off, true,
 			    &target, TCP_SPORT_OFF, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
@@ -2487,11 +2487,11 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * Also let nodeport_rev_dnat_ipv4() redirect EgressGW
 	 * reply traffic into tunnel (see there for details).
 	 */
-	ret = invoke_traced_tailcall_if(__and(is_defined(ENABLE_HOST_FIREWALL),
-					      is_defined(IS_BPF_HOST)),
-					CILIUM_CALL_IPV4_NODEPORT_REVNAT,
-					nodeport_rev_dnat_ipv4,
-					&trace, &ext_err);
+	if (is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST))
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT, &ext_err);
+	else
+		ret = nodeport_rev_dnat_ipv4(ctx, &trace, &ext_err);
+
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -2538,6 +2538,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		.reason = (enum trace_reason)CT_NEW,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
+	struct ipv4_nat_entry *state = NULL;
 	int ret, l4_off, oif = 0;
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -2591,7 +2592,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	if (unlikely(ret != CTX_ACT_OK))
 		goto drop_err;
 
-	ret = __snat_v4_nat(ctx, &tuple, fraginfo, l4_off, true,
+	ret = __snat_v4_nat(ctx, &tuple, state, fraginfo, l4_off, true,
 			    &target, TCP_SPORT_OFF, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;

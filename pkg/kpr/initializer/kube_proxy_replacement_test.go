@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package initializer
 
 import (
 	"regexp"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/spf13/afero"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -18,14 +17,12 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/hive"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
-
-type KPRSuite struct{}
 
 type kprConfig struct {
 	kubeProxyReplacement bool
@@ -94,9 +91,18 @@ func errorMatch(err error, regex string) assert.Comparison {
 	}
 }
 
-func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, tc tunnel.Config, wgCfg wgTypes.WireguardConfig, ipsecCfg types.IPsecConfig) {
+func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, tc tunnel.Config, wgCfg wgTypes.WireguardConfig, ipsecAgent datapath.IPsecAgent) {
 	logger := hivetest.Logger(t)
-	err := initKubeProxyReplacementOptions(logger, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"), tc, lbConfig, kprCfg, wgCfg)
+	kprManager := &kprInitializer{
+		logger:       logger,
+		sysctl:       sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+		tunnelConfig: tc,
+		lbConfig:     lbConfig,
+		kprCfg:       kprCfg,
+		wgCfg:        wgCfg,
+		ipsecAgent:   ipsecAgent,
+	}
+	err := kprManager.InitKubeProxyReplacementOptions()
 	if err != nil || cfg.expectedErrorRegex != "" {
 		t.Logf("err=%s, expected=%s, cfg=%+v", err, cfg.expectedErrorRegex, cfg)
 		require.Condition(t, errorMatch(err, cfg.expectedErrorRegex))
@@ -105,7 +111,7 @@ func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprCfg 
 		}
 	}
 	require.Equal(t, cfg.enableSocketLB, kprCfg.EnableSocketLB)
-	require.Equal(t, cfg.enableIPSec, ipsecCfg.Enabled())
+	require.Equal(t, cfg.enableIPSec, ipsecAgent.Enabled())
 	require.Equal(t, cfg.enableHostLegacyRouting, option.Config.EnableHostLegacyRouting)
 	require.Equal(t, cfg.installNoConntrackIptRules, option.Config.InstallNoConntrackIptRules)
 	require.Equal(t, cfg.enableBPFMasquerade, option.Config.EnableBPFMasquerade)
@@ -113,23 +119,7 @@ func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprCfg 
 	require.Equal(t, cfg.enableSocketLBTracing, option.Config.EnableSocketLBTracing)
 }
 
-func setupKPRSuite(tb testing.TB) *KPRSuite {
-	s := &KPRSuite{}
-
-	mockCmd := &cobra.Command{}
-	h := hive.New(Agent)
-	h.RegisterFlags(mockCmd.Flags())
-	logger := hivetest.Logger(tb)
-	InitGlobalFlags(logger, mockCmd, h.Viper())
-	option.Config.Populate(logger, h.Viper())
-	option.Config.DryMode = true
-
-	return s
-}
-
 func TestInitKubeProxyReplacementOptions(t *testing.T) {
-	setupKPRSuite(t)
-
 	cases := []struct {
 		name string
 		mod  func(*kprConfig)
@@ -356,7 +346,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 		cfg := def
 		testCase.mod(&cfg)
 		require.NoError(t, cfg.set())
-		testCase.out.verify(t, cfg.lbConfig, cfg.kprConfig, tunnel.NewTestConfig(cfg.tunnelProtocol), fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{EnableIPsec: cfg.enableIPSec})
+		testCase.out.verify(t, cfg.lbConfig, cfg.kprConfig, tunnel.NewTestConfig(cfg.tunnelProtocol), fakeTypes.WireguardConfig{}, &fakeTypes.IPsecAgent{EnableIPsec: cfg.enableIPSec})
 		def.set()
 	}
 }
