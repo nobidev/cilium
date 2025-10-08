@@ -14,9 +14,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +29,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
+	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli"
 	enterpriseCli "github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli"
 	enterpriseSysdump "github.com/cilium/cilium/cilium-cli/enterprise/hooks/sysdump"
 	enterpriseFeatures "github.com/cilium/cilium/cilium-cli/enterprise/hooks/utils/features"
@@ -978,6 +981,15 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 					return fmt.Errorf("failed to collect Private Network External Endpoints: %w", err)
 				}
 				return nil
+			},
+		},
+		{
+			Description: "Collecting diagnostics",
+			Task: func(ctx context.Context) error {
+				return collector.WithFileSink("diagnostics.txt", func(w io.Writer) error {
+					_, err := cli.CollectAndPrintDiagnostics(ctx, slices.Values(collector.CiliumPods), collector.Client, false, w)
+					return err
+				})
 			},
 		},
 	})

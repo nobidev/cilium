@@ -11,11 +11,13 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -24,37 +26,73 @@ import (
 	"github.com/isovalent/ipa/system_status/v1alpha"
 	ipa_sys "github.com/isovalent/ipa/system_status/v1alpha"
 	"github.com/mitchellh/go-wordwrap"
+	"github.com/sourcegraph/conc/pool"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/workerpool"
-
 	"github.com/cilium/cilium/cilium-cli/api"
-	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/status"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 )
 
 var CmdDiagnostics = &cobra.Command{
 	Use:    "diagnostics",
-	Short:  "Show diagnostics",
-	Long:   ``,
+	Short:  "Collect and display diagnostics",
 	RunE:   runDiagnostics,
-	Hidden: true,
+	Hidden: false,
 }
 
 func runDiagnostics(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
 	defer cancel()
 	k8sClient, _ := api.GetK8sClientContextValue(cmd.Context())
-
-	agentPods, err := k8sClient.ListPods(ctx, ciliumNamespace(cmd), metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+	ns := ciliumNamespace(cmd)
+	agentPods, err := k8sClient.ListPods(ctx, ns, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
 	if err != nil {
 		return fmt.Errorf("failed to list agent pods: %w", err)
 	}
+	podsIter := func(yield func(*v1.Pod) bool) {
+		for i := range agentPods.Items {
+			pod := &agentPods.Items[i]
+			if pod.Spec.NodeName == "" {
+				// Not scheduled yet?
+				continue
+			}
+			if !yield(pod) {
+				break
+			}
+		}
+	}
 
+	failingConditions, err := CollectAndPrintDiagnostics(ctx, podsIter, k8sClient, true, os.Stdout)
+	if err != nil {
+		return err
+	}
+	if failingConditions {
+		os.Exit(1)
+	}
+	return nil
+}
+
+type diagnosticsK8sClient interface {
+	ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error)
+}
+
+// ANSI codes we use below in addition to the [status.Red] etc.
+const (
+	ansiClearLine = "\r\033[0K"
+	ansiUnderline = "\033[4m"
+)
+
+func CollectAndPrintDiagnostics(
+	ctx context.Context,
+	agentPods iter.Seq[*v1.Pod],
+	k8sClient diagnosticsK8sClient,
+	interactive bool,
+	w io.Writer,
+) (hadFailingConditions bool, err error) {
 	type condPerNode struct {
 		updatedAt time.Time
 		total     int
@@ -70,35 +108,31 @@ func runDiagnostics(cmd *cobra.Command, _ []string) error {
 	metadata := map[string]*ipa_sys.ConditionMetadata{}
 	conditionsPerNode := map[string]condPerNode{}
 
-	pool := workerpool.New(sysdump.DefaultWorkerCount)
-	results := make(chan diagnosticsResult, 1)
-	for i := range agentPods.Items {
-		pod := &agentPods.Items[i]
+	resultsPool := pool.NewWithResults[diagnosticsResult]().
+		WithMaxGoroutines(sysdump.DefaultWorkerCount).
+		WithContext(ctx)
+
+	for pod := range agentPods {
 		if pod.Spec.NodeName == "" {
 			// Not scheduled yet?
 			continue
 		}
-		pool.Submit(fmt.Sprintf("%d", i), func(ctx context.Context) error {
-			results <- fetchDiagnosticsFromPod(ctx, k8sClient, pod)
-			return nil
+		resultsPool.Go(func(ctx context.Context) (diagnosticsResult, error) {
+			return fetchDiagnosticsFromPod(ctx, k8sClient, pod), nil
 		})
 	}
 
 	failedFetches := map[string]error{}
-	nodeCount := 0
-	for result := range results {
+	results, err := resultsPool.Wait()
+	if err != nil {
+		return false, err
+	}
+	for _, result := range results {
 		if result.err != nil {
 			failedFetches[result.nodeName] = result.err
 			continue
 		}
-		fmt.Printf("\033[0KFetching diagnostics (%d/%d)...\r",
-			result.nodeName, nodeCount+1, len(agentPods.Items))
 
-		nodeCount++
-		if nodeCount == len(agentPods.Items) {
-			close(results)
-			break
-		}
 		if result.metadata != nil {
 			for _, m := range result.metadata.Conditions {
 				metadata[m.ConditionId] = m
@@ -114,8 +148,9 @@ func runDiagnostics(cmd *cobra.Command, _ []string) error {
 			failing:   result.update.FailingConditions,
 		}
 	}
-	pool.Close()
-	fmt.Print("\r\033[0K")
+	if interactive {
+		fmt.Fprint(w, ansiClearLine)
+	}
 
 	type conditionOnNode struct {
 		node      string
@@ -137,45 +172,50 @@ func runDiagnostics(cmd *cobra.Command, _ []string) error {
 	}
 
 	if len(failingConditions) > 0 {
-		fmt.Printf("=== Alerts ===\n\n")
+		fmt.Fprintf(w, "=== Alerts ===\n\n")
 		for id := range failingConditions {
 			meta := metadata[id]
 			onNodes := failingConditionsByID[id]
-
+			color := ""
+			if interactive {
+				color = ansiUnderline
+			}
 			maxMessageLength := 0
 			var maxSeverity ipa_sys.Severity
 			for _, onNode := range onNodes {
 				maxMessageLength = max(maxMessageLength, len(onNode.condition.Message))
 				maxSeverity = max(maxSeverity, onNode.condition.Severity)
 			}
-
-			fmt.Printf(
-				"\033[4m%s%s [%s]\n",
+			fmt.Fprintf(
+				w,
+				"%s%s%s [%s]\n",
+				color,
 				id,
 				status.Reset,
 				showSeverity(maxSeverity),
 			)
-			fmt.Printf("  Subsystem: %s\n", meta.Subsystem)
+			fmt.Fprintf(w, "  Subsystem: %s\n", meta.Subsystem)
 
 			desc := wordwrap.WrapString(meta.Description, 72)
 			desc = strings.ReplaceAll(desc, "\n", "\n    ")
-			fmt.Printf("  Description:\n    %s\n", desc)
+			fmt.Fprintf(w, "  Description:\n    %s\n", desc)
 			if meta.Resolution != "" {
 				reso := wordwrap.WrapString(meta.Resolution, 72)
 				reso = strings.ReplaceAll(reso, "\n", "\n    ")
-				fmt.Printf("  Resolution:\n    %s\n", reso)
+				fmt.Fprintf(w, "  Resolution:\n    %s\n", reso)
 			}
-			fmt.Printf("  Affected nodes (%d/%d):\n",
+			fmt.Fprintf(w, "  Affected nodes (%d/%d):\n",
 				len(onNodes),
 				len(conditionsPerNode))
 
 			onNewLine := maxMessageLength > 50
-			tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+			tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 			for _, onNode := range onNodes {
 				if onNewLine {
 					message := wordwrap.WrapString(onNode.condition.Message, 72)
 					message = strings.ReplaceAll(message, "\n", "\n      ")
-					fmt.Printf(
+					fmt.Fprintf(
+						w,
 						"    %s (%s ago):\n      %s\n",
 						onNode.node,
 						time.Since(onNode.updatedAt).Truncate(time.Second),
@@ -196,37 +236,54 @@ func runDiagnostics(cmd *cobra.Command, _ []string) error {
 	}
 
 	if len(failedFetches) > 0 {
-		fmt.Printf("=== Fetch failures ===\n\n")
-		tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintf(w, "=== Fetch failures ===\n\n")
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 		for name, err := range failedFetches {
 			fmt.Fprintf(tw, "%s\t%s\n", name, err)
 		}
 		tw.Flush()
 	}
 
-	fmt.Printf("=== Summary ===\n\n")
-	var color = status.Green
-	if len(failingNodes) > 0 {
-		color = status.Red
+	fmt.Fprintf(w, "=== Summary ===\n\n")
+	color := ""
+	if interactive {
+		color = status.Green
+		if len(failingNodes) > 0 {
+			color = status.Red
+		}
 	}
-	fmt.Printf(
-		"Nodes healthy:          %s%d%%\t[%d/%d]%s\n",
+	var percentNodesHealthy int
+	if len(conditionsPerNode) > 0 {
+		percentNodesHealthy = 100 * (len(conditionsPerNode) - len(failingNodes)) / len(conditionsPerNode)
+	}
+	fmt.Fprintf(
+		w,
+		"Nodes healthy:          %s%d%%\t[%d/%d]\n",
 		color,
-		100*(len(conditionsPerNode)-len(failingNodes))/len(conditionsPerNode),
+		percentNodesHealthy,
 		len(conditionsPerNode)-len(failingNodes),
 		len(conditionsPerNode),
-		status.Reset,
 	)
-	fmt.Printf(
-		"Conditions passing:     %s%d%%\t[%d/%d]%s\n",
+	if interactive {
+		fmt.Fprint(w, status.Reset)
+	}
+	var percentSucceeding int
+	if totalSucceedingConditions > 0 {
+		percentSucceeding = 100 * (totalSucceedingConditions - totalFailingConditions) / totalSucceedingConditions
+	}
+	fmt.Fprintf(
+		w,
+		"Conditions passing:     %s%d%%\t[%d/%d]\n",
 		color,
-		100*(totalSucceedingConditions-totalFailingConditions)/totalSucceedingConditions,
+		percentSucceeding,
 		totalSucceedingConditions-totalFailingConditions,
 		totalSucceedingConditions,
-		status.Reset,
 	)
+	if interactive {
+		fmt.Fprint(w, status.Reset)
+	}
 
-	return nil
+	return len(failingConditions) > 0, nil
 }
 
 func showSeverity(severity ipa_sys.Severity) string {
@@ -260,7 +317,7 @@ type diagnosticsResult struct {
 	err       error
 }
 
-func fetchDiagnosticsFromPod(ctx context.Context, c *k8s.Client, pod *v1.Pod) (result diagnosticsResult) {
+func fetchDiagnosticsFromPod(ctx context.Context, c diagnosticsK8sClient, pod *v1.Pod) (result diagnosticsResult) {
 	result.nodeName = pod.Spec.NodeName
 	output, errOutput, err := c.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, "cilium-agent", diagnosticsCommand)
 	if err != nil {
