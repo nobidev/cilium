@@ -103,7 +103,7 @@ static __always_inline int
 egress_gw_ha_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 				    __be32 *gateway_ip __maybe_unused)
 {
-#if defined(ENABLE_EGRESS_GATEWAY_HA)
+#if defined(ENABLE_EGRESS_GATEWAY_HA) && !defined(ENABLE_EGRESS_GATEWAY_STANDALONE)
 	struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
 	struct egress_gw_ha_policy_entry *egress_gw_policy;
 	struct egress_gw_ha_ct_entry *egress_ct;
@@ -166,7 +166,7 @@ egress_gw_ha_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 	return CTX_ACT_REDIRECT;
 #else
 	return CTX_ACT_OK;
-#endif /* ENABLE_EGRESS_GATEWAY_HA */
+#endif /* ENABLE_EGRESS_GATEWAY_HA && !ENABLE_EGRESS_GATEWAY_STANDALONE*/
 }
 
 static __always_inline
