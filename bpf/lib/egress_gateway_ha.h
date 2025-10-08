@@ -5,9 +5,6 @@
 
 #include "lib/overloadable.h"
 
-#ifdef ENABLE_EGRESS_GATEWAY_COMMON
-
-#ifdef ENABLE_EGRESS_GATEWAY_HA
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct egress_gw_policy_key);
@@ -25,7 +22,6 @@ struct {
 	__uint(max_entries, EGRESS_GW_HA_CT_MAP_SIZE);
 } cilium_egress_gw_ha_ct_v4 __section_maps_btf;
 
-#ifdef ENABLE_EGRESS_GATEWAY_STANDALONE
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct egress_gw_standalone_key);
@@ -33,8 +29,10 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, EGRESS_GW_STANDALONE_MAP_SIZE);
 } cilium_egress_gw_standalone_v4 __section_maps_btf;
-#endif /* ENABLE_EGRESS_GATEWAY_STANDALONE */
 
+#ifdef ENABLE_EGRESS_GATEWAY_COMMON
+
+#ifdef ENABLE_EGRESS_GATEWAY_HA
 static __always_inline
 struct egress_gw_ha_policy_entry_v2 *lookup_ip4_egress_gw_ha_policy_v2(__be32 saddr, __be32 daddr)
 {
