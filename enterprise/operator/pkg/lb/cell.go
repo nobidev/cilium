@@ -34,9 +34,11 @@ var Cell = cell.Module(
 
 	//exhaustruct:ignore
 	cell.Config(Config{}),
-	cell.Invoke(registerReconcilers),
+	cell.Invoke(registerLBReconcilers),
 	cell.Provide(registerSecretSync),
 	cell.ProvidePrivate(newNodeSource),
+	cell.ProvidePrivate(newT1Translator),
+	cell.ProvidePrivate(newT2Translator),
 )
 
 type Config struct {
@@ -135,10 +137,41 @@ type reconcilerParams struct {
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Scheme             *runtime.Scheme
 
+	T1Translator *lbServiceT1Translator
+	T2Translator *lbServiceT2Translator
+
 	NodeSource *ciliumNodeSource
 }
 
-func registerReconcilers(params reconcilerParams) error {
+type translatorParams struct {
+	cell.In
+
+	Logger      *slog.Logger
+	Config      Config
+	AgentConfig *option.DaemonConfig
+}
+
+func newT1Translator(params translatorParams) *lbServiceT1Translator {
+	if !params.Config.LoadBalancerCPEnabled {
+		return nil
+	}
+
+	reconcilerConfig := mapReconcilerConfig(params.Config, params.AgentConfig)
+
+	return &lbServiceT1Translator{logger: params.Logger, config: reconcilerConfig}
+}
+
+func newT2Translator(params translatorParams) *lbServiceT2Translator {
+	if !params.Config.LoadBalancerCPEnabled {
+		return nil
+	}
+
+	reconcilerConfig := mapReconcilerConfig(params.Config, params.AgentConfig)
+
+	return &lbServiceT2Translator{logger: params.Logger, config: reconcilerConfig}
+}
+
+func registerLBReconcilers(params reconcilerParams) error {
 	if !params.Config.LoadBalancerCPEnabled {
 		return nil
 	}
@@ -146,8 +179,6 @@ func registerReconcilers(params reconcilerParams) error {
 	if err := isovalentv1alpha1.AddToScheme(params.Scheme); err != nil {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
-
-	reconcilerConfig := mapReconcilerConfig(params)
 
 	t1ls, t2ls, err := parseDefaultTierLabelSelectors(params.Config.LoadBalancerCPDefaultT1LabelSelector, params.Config.LoadBalancerCPDefaultT2LabelSelector)
 	if err != nil {
@@ -160,8 +191,8 @@ func registerReconcilers(params reconcilerParams) error {
 		params.Scheme,
 		params.NodeSource,
 		newIngestor(params.Logger, *t1ls, *t2ls),
-		&lbServiceT1Translator{logger: params.Logger, config: reconcilerConfig},
-		&lbServiceT2Translator{logger: params.Logger, config: reconcilerConfig},
+		params.T1Translator,
+		params.T2Translator,
 	)
 
 	lbVIPReconciler := newLBVIPReconciler(
@@ -212,61 +243,61 @@ func registerReconcilers(params reconcilerParams) error {
 	return nil
 }
 
-func mapReconcilerConfig(params reconcilerParams) reconcilerConfig {
+func mapReconcilerConfig(config Config, agentConfig *option.DaemonConfig) reconcilerConfig {
 	return reconcilerConfig{
-		SecretsNamespace: params.Config.LoadBalancerCPSecretsNamespace,
-		ServerName:       params.Config.LoadBalancerCPHTTPServerName,
+		SecretsNamespace: config.LoadBalancerCPSecretsNamespace,
+		ServerName:       config.LoadBalancerCPHTTPServerName,
 		AccessLog: reconcilerAccesslogConfig{
-			EnableStdOut:             params.Config.LoadBalancerCPAccessLogEnableStdOut,
-			EnableGRPC:               params.Config.LoadBalancerCPAccessLogEnableGRPC,
-			FilePath:                 params.Config.LoadBalancerCPAccessLogFilePath,
-			EnableHC:                 params.Config.LoadBalancerCPAccessLogEnableHC,
-			EnableTCP:                params.Config.LoadBalancerCPAccessLogEnableTCP,
-			EnableUDP:                params.Config.LoadBalancerCPAccessLogEnableUDP,
-			FormatHC:                 params.Config.LoadBalancerCPAccessLogFormatHC,
-			JSONFormatHC:             params.Config.LoadBalancerCPAccessLogJSONFormatHC,
-			FormatTCP:                params.Config.LoadBalancerCPAccessLogFormatTCP,
-			JSONFormatTCP:            params.Config.LoadBalancerCPAccessLogJSONFormatTCP,
-			FormatUDP:                params.Config.LoadBalancerCPAccessLogFormatUDP,
-			JSONFormatUDP:            params.Config.LoadBalancerCPAccessLogJSONFormatUDP,
-			FormatTLSPassthrough:     params.Config.LoadBalancerCPAccessLogFormatTLSPassthrough,
-			JSONFormatTLSPassthrough: params.Config.LoadBalancerCPAccessLogJSONFormatTLSPassthrough,
-			FormatTLS:                params.Config.LoadBalancerCPAccessLogFormatTLS,
-			JSONFormatTLS:            params.Config.LoadBalancerCPAccessLogJSONFormatTLS,
-			FormatHTTPS:              params.Config.LoadBalancerCPAccessLogFormatHTTPS,
-			JSONFormatHTTPS:          params.Config.LoadBalancerCPAccessLogJSONFormatHTTPS,
-			FormatHTTP:               params.Config.LoadBalancerCPAccessLogFormatHTTP,
-			JSONFormatHTTP:           params.Config.LoadBalancerCPAccessLogJSONFormatHTTP,
+			EnableStdOut:             config.LoadBalancerCPAccessLogEnableStdOut,
+			EnableGRPC:               config.LoadBalancerCPAccessLogEnableGRPC,
+			FilePath:                 config.LoadBalancerCPAccessLogFilePath,
+			EnableHC:                 config.LoadBalancerCPAccessLogEnableHC,
+			EnableTCP:                config.LoadBalancerCPAccessLogEnableTCP,
+			EnableUDP:                config.LoadBalancerCPAccessLogEnableUDP,
+			FormatHC:                 config.LoadBalancerCPAccessLogFormatHC,
+			JSONFormatHC:             config.LoadBalancerCPAccessLogJSONFormatHC,
+			FormatTCP:                config.LoadBalancerCPAccessLogFormatTCP,
+			JSONFormatTCP:            config.LoadBalancerCPAccessLogJSONFormatTCP,
+			FormatUDP:                config.LoadBalancerCPAccessLogFormatUDP,
+			JSONFormatUDP:            config.LoadBalancerCPAccessLogJSONFormatUDP,
+			FormatTLSPassthrough:     config.LoadBalancerCPAccessLogFormatTLSPassthrough,
+			JSONFormatTLSPassthrough: config.LoadBalancerCPAccessLogJSONFormatTLSPassthrough,
+			FormatTLS:                config.LoadBalancerCPAccessLogFormatTLS,
+			JSONFormatTLS:            config.LoadBalancerCPAccessLogJSONFormatTLS,
+			FormatHTTPS:              config.LoadBalancerCPAccessLogFormatHTTPS,
+			JSONFormatHTTPS:          config.LoadBalancerCPAccessLogJSONFormatHTTPS,
+			FormatHTTP:               config.LoadBalancerCPAccessLogFormatHTTP,
+			JSONFormatHTTP:           config.LoadBalancerCPAccessLogJSONFormatHTTP,
 		},
 		Metrics: reconcilerMetricsConfig{
-			ClusterTimeoutBudget:             params.Config.LoadBalancerCPMetricsClusterTimeoutBudget,
-			ClusterAdditionalRequestResponse: params.Config.LoadBalancerCPMetricsClusterAdditionalRequestResponse,
-			ClusterPerEndpoint:               params.Config.LoadBalancerCPMetricsClusterPerEndpoint,
+			ClusterTimeoutBudget:             config.LoadBalancerCPMetricsClusterTimeoutBudget,
+			ClusterAdditionalRequestResponse: config.LoadBalancerCPMetricsClusterAdditionalRequestResponse,
+			ClusterPerEndpoint:               config.LoadBalancerCPMetricsClusterPerEndpoint,
 		},
 		RequestID: reconcilerRequestIDConfig{
-			Generate: params.Config.LoadBalancerCPRequestIDGenerate,
-			Preserve: params.Config.LoadBalancerCPRequestIDPreserve,
-			Response: params.Config.LoadBalancerCPRequestIDResponse,
+			Generate: config.LoadBalancerCPRequestIDGenerate,
+			Preserve: config.LoadBalancerCPRequestIDPreserve,
+			Response: config.LoadBalancerCPRequestIDResponse,
 		},
 		T1T2HealthCheck: reconcilerT1T2HealthCheckConfig{
-			T1ProbeTimeoutSeconds:              params.Config.LoadBalancerCPT1HCProbeTimeoutSeconds,
+			T1ProbeTimeoutSeconds:              config.LoadBalancerCPT1HCProbeTimeoutSeconds,
 			T1ProbeHttpPath:                    "/health",
 			T1ProbeHttpMethod:                  "GET",
 			T1ProbeHttpUserAgentPrefix:         "cilium-probe/",
-			T2ProbeMinHealthyBackendPercentage: params.Config.LoadBalancerCPT2HCProbeMinHealthyBackends,
-			T2EnvoyHCEventLoggingEnabled:       params.Config.LoadbalancerCPT2HCEventLoggingEnabled,
-			T2EnvoyHCEventLoggingStateDir:      params.Config.LoadbalancerCPT2HCEventLoggingStateDir,
+			T2ProbeMinHealthyBackendPercentage: config.LoadBalancerCPT2HCProbeMinHealthyBackends,
+			T2EnvoyHCEventLoggingEnabled:       config.LoadbalancerCPT2HCEventLoggingEnabled,
+			T2EnvoyHCEventLoggingStateDir:      config.LoadbalancerCPT2HCEventLoggingStateDir,
 		},
 		OriginalIPDetection: reconcilerOriginalIPDetectionConfig{
-			UseRemoteAddress:  params.Config.LoadBalancerCPT2UseRemoteAddress,
-			XffNumTrustedHops: params.Config.LoadBalancerCPT2XffNumTrustedHops,
+			UseRemoteAddress:  config.LoadBalancerCPT2UseRemoteAddress,
+			XffNumTrustedHops: config.LoadBalancerCPT2XffNumTrustedHops,
 		},
 		Policy: reconcilerPolicyConfig{
-			EnableCiliumPolicyFilters: params.Config.LoadBalancerCPPolicyEnableCiliumPolicyFilters,
+			EnableCiliumPolicyFilters: config.LoadBalancerCPPolicyEnableCiliumPolicyFilters,
 		},
 		IPFamilies: reconcilerIPFamilyConfig{
-			EnableIPv4: params.AgentConfig.EnableIPv4,
-			EnableIPv6: params.AgentConfig.EnableIPv6,
+			EnableIPv4: agentConfig.EnableIPv4,
+			EnableIPv6: agentConfig.EnableIPv6,
 		},
 	}
 }
