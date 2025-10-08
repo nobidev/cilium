@@ -34,14 +34,32 @@ make kind-image-enterprise-fast
 
 ## Test LoadBalancer
 
-Compile `./cilium-cli` and run some tests:
+Compile `./cilium-cli`:
 
 ```sh
 cd ./cilium-cli && make
-./cilium lb test --run 'TestHTTP.*'
+./cilium version
+```
+
+Run some tests in:
+
+* `multi-node` mode (deploys client and LB app containers in separate network namespaces):
+
+```sh
+DOCKER_API_VERSION=1.45 ./cilium lb test --run 'TestHTTP.*'
+```
+
+* `single-node` mode (deploys client and LB app containers on a single node in the same host network namespace):
+
+```sh
+docker run -d --name outside --env DOCKER_TLS_CERTDIR="" --privileged=true --network kind-cilium  docker:27.3.1-dind
+ip=$(docker inspect '--format={{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' outside)
+DOCKER_API_VERSION=1.45 DOCKER_HOST="tcp://${ip}:2375" ./cilium lb test --run 'TestHTTP.*' --mode=single-node --single-node-ip=$ip
 ```
 
 To avoid removal of test containers and services after a tests run, use `--cleanup=false`.
+
+For the verbose/debug output, use: `--verbose`.
 
 ## Observability
 
