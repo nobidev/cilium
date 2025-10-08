@@ -293,12 +293,11 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) 
 		for _, rule := range r.Specs {
 			if err := rule.Sanitize(); err != nil {
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
-
 			}
-			if r.Spec.NodeSelector.LabelSelector != nil {
+			if rule.NodeSelector.LabelSelector != nil {
 				return nil, NewErrParse("Invalid IsovalentNetworkPolicy spec: rule cannot have NodeSelector")
 			}
-			if err := r.Spec.SanitizeINP(); err != nil {
+			if err := rule.SanitizeINP(); err != nil {
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
 			}
 			cr := rule.parseToIsovalentNetworkPolicyRule(logger, clusterName, namespace, name, uid)
