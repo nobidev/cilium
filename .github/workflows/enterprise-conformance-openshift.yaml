@@ -1,7 +1,7 @@
 name: Conformance OpenShift (ci-openshift)
 
 # Usage with Ariane (GitHub issue comment):
-# `/ci-openshift {"kubevirt":"true", "ocp_version":"4.17.14", "kpr":"true", "ossm":"true", "region":"us-east-1"}`
+# `/ci-openshift {"kubevirt":"true", "ocp_version":"4.17.14", "kpr":"true", "ossm":"true", "hcp":"true", "region":"us-east-1"}`
 # The json parameters are optional. By default no KubeVirt and no OpenShift Service Mesh conformance tests are launched.
 # Bare-metal nodes get provisioned for running KubeVirt conformance tests, which is expensive.
 # The default region is us-east-1.
@@ -12,6 +12,7 @@ name: Conformance OpenShift (ci-openshift)
 # TODO: Possibility to test with dual stack
 # TODO: Make multi-arch builds and provision arm64 nodes
 # TODO: Send notifications for scheduled runs (cf enterprise-cute.yaml)
+# TODO: Provision a node with labels and annotations so that it runs without Cilium. It activates additional tests, e.g. BGP.
 
 on:
   pull_request:
@@ -234,16 +235,20 @@ jobs:
           fi
           kubevirt=$(echo $extra_args | jq -r '.kubevirt')
           ossm=$(echo $extra_args | jq -r '.ossm')
+          hcp=$(echo $extra_args | jq -r '.hcp')
           ocp_version=$(echo $extra_args | jq -r '.ocp_version')
           if [ "${{ github.event_name }}" == 'schedule' ]; then
             echo kubevirt='true' >> $GITHUB_OUTPUT
             echo ossm='true' >> $GITHUB_OUTPUT
+            echo hcp='true' >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == 'pull_request_target' ]; then
             echo kubevirt='false' >> $GITHUB_OUTPUT
             echo ossm='false' >> $GITHUB_OUTPUT
+            echo hcp='false' >> $GITHUB_OUTPUT
           else
             echo kubevirt=${kubevirt} >> $GITHUB_OUTPUT
             echo ossm=${ossm} >> $GITHUB_OUTPUT
+            echo hcp=${hcp} >> $GITHUB_OUTPUT
           fi
           if [[ "${ocp_version}" == "null" || "${ocp_version}" == "" ]]; then
             ocp_version=$(echo ${{ env.ocp_version_multi }} | cut -f1 -d "-")
@@ -259,11 +264,6 @@ jobs:
           echo owner=${OWNER} | tee -a $GITHUB_OUTPUT
           echo kpr=${kpr} | tee -a $GITHUB_OUTPUT
           echo region=${region} | tee -a $GITHUB_OUTPUT
-
-          # Disabling log check as it also considers logs before the tests started and
-          # disruptions are expected during the installation process.
-          connectivity_test_flags="${{ steps.e2e_config.outputs.test_flags }} --test='!check-log-errors'"
-          echo connectivity_test_flags="${connectivity_test_flags}" >> $GITHUB_OUTPUT
 
       - name: Setup go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
@@ -318,7 +318,6 @@ jobs:
           tar zxvf openshift-install.tar.gz
           sudo install -o root -g root -m 0755 openshift-install /usr/local/bin/openshift-install
           rm openshift-install.tar.gz
-
 
       - name: Configuration for the OpenShift cluster installation
         id: openshift_ci_config
@@ -391,21 +390,8 @@ jobs:
       - name: Wait for Cluster operators to be ready
         if: ${{ !cancelled() && steps.provisioning.outcome == 'success' }}
         id: wait-for-co
-        timeout-minutes: 15
         run: |
-          set +e
-          while true; do
-            if ! co_status=$(kubectl get co -o jsonpath="{range .items[*]}{.status.conditions[?(@.type=='Available')].status}{'\n'}{end}"); then
-              sleep 30s
-              continue
-            fi
-            if echo "$co_status" | grep False; then
-              sleep 30s
-              continue
-            fi
-            break
-          done
-          set -e
+          oc adm wait-for-stable-cluster --timeout=15m0s --minimum-stable-period=1m
 
       - name: Cluster operators not ready
         if: ${{ !cancelled() && steps.provisioning.outcome != 'skipped' && steps.wait-for-co.outcome == 'failure' }}
@@ -459,12 +445,12 @@ jobs:
           mkdir -p test-results
           mkdir -p cilium-junits
           export CILIUM_TEST_RESULTS_DIR=${PWD}/test-results
-          # Disable history expension because of the exclamation mark in the flags
+          # Disable history expansion because of the exclamation mark in the flags
           set +H
-          export CILIUM_TEST_FLAGS="${{ steps.vars.outputs.connectivity_test_flags }}
-            --junit-file \"${PWD}/cilium-junits/openshift-1.xml\"
+          export CILIUM_TEST_FLAGS="${{ steps.e2e_config.outputs.test_flags }}
+            --test=\"!check-log-errors\"
+            --junit-file ${PWD}/cilium-junits/openshift-1.xml
             --junit-property github_job_step=\"Cilium connectivity tests\""
-          set -H
           ./scripts/cilium-cli-tests.sh
 
       - name: CNI conformance tests
@@ -505,6 +491,110 @@ jobs:
           cilium status -n cilium
           cilium sysdump -n cilium --output-filename ./test-results/cilium-sysdump.dmp
 
+      - name: Hosted control planes deployment
+        # Please create a comment with /ci-openshift {\"hcp\":\"true\"} if you want to run test on hosted clusters
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.hcp == 'true' }}
+        working-directory: ./openshift-ci/aws-ipi
+        run: |
+          ./hcp/scripts/management-provision.sh
+
+      - name: Install hcp CLI
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.hcp == 'true' }}
+        working-directory: ./openshift-ci/aws-ipi
+        run: |
+          ./hcp/scripts/cli-dowload.sh
+
+      - name: Get AWS credentials for hosted control planes
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.hcp == 'true' }}
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ vars.VAULT_URL }}
+          method: jwt
+          namespace: ${{ vars.VAULT_NAMESPACE }}
+          secrets: |
+            secret/data/devops/${{ github.repository_owner }} aws_pr_hcp_access_key_id | AWS_PR_HCP_ACCESS_KEY_ID;
+            secret/data/devops/${{ github.repository_owner }} aws_pr_hcp_secret_access_key | AWS_PR_HCP_SECRET_ACCESS_KEY;
+
+      - name: Hosted cluster creation
+        id: hcp-create
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.hcp == 'true' }}
+        timeout-minutes: 120
+        working-directory: "./openshift-ci/aws-ipi"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_PR_HCP_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_PR_HCP_SECRET_ACCESS_KEY }}
+          HCP_DEPLOYER_ROLE_ARN: ${{ vars.AWS_HCP_DEPLOYER_ROLE_ARN }}
+          MANIFESTS_DIR: ${{ github.workspace }}/enterprise/olm/dist/manifests
+          PULL_SECRET_PATH: ${{ github.workspace }}/openshift-ci/aws-ipi/.pullsecret.json
+        run: |
+          unset AWS_SESSION_TOKEN
+          aws sts get-session-token > credentials.json
+          export AWS_CREDENTIALS_FILE="${PWD}/credentials.json"
+          ./hcp/scripts/create-cluster.sh
+          source .workdir/current.properties
+          cluster_dir=${PWD}/.workdir/${CLUSTER_NAME}
+          source ${cluster_dir}/hosted-current.properties
+          echo hosted_kubeconfig="${cluster_dir}/${CLUSTER_NAME}/auth/kubeconfig" >> $GITHUB_OUTPUT
+
+      - name: Wait for cluster to be ready
+        timeout-minutes: 15
+        id: wait-for-hosted
+        env:
+          KUBECONFIG: ${{ steps.hcp-create.outputs.hosted_kubeconfig }}
+        run: |
+          i=0
+          until kubectl get daemonset cilium -n cilium || [[ "${i}" -gt 30 ]]; do echo "Waiting for cilium daemonset to be created"; sleep 20s; i=$((i + 1)); done
+          kubectl rollout status daemonset cilium -n cilium --timeout 600s
+          nodes=$(kubectl get nodes -o name)
+          for node in ${nodes}; do
+             kubectl wait --for=condition=Ready=true --timeout=5m ${node}
+          done
+          oc adm wait-for-stable-cluster --timeout=15m0s --minimum-stable-period=1m
+
+      - name: Hosted cluster not ready
+        if: ${{ !cancelled() && steps.hcp-create.outcome != 'skipped' && steps.wait-for-hosted.outcome == 'failure' }}
+        run: |
+          kubectl get co -o yaml
+          kubectl get events -n cilium
+          kubectl get pods -n cilium -o yaml
+          kubectl logs -n cilium deployment/clife-controller-manager
+          kubectl logs -n cilium daemonset/cilium --all-containers=true
+
+      - name: Cilium connectivity tests on hosted cluster
+        if: ${{ !cancelled() && steps.wait-for-hosted.outcome == 'success' && steps.vars.outputs.hcp == 'true' }}
+        timeout-minutes: 60
+        working-directory: ./openshift-ci/aws-ipi
+        env:
+          KUBECONFIG: ${{ steps.hcp-create.outputs.hosted_kubeconfig }}
+        run: |
+          cp ${{ github.workspace }}/CODEOWNERS .
+          cp ${{ github.workspace }}/TESTOWNERS.enterprise .
+          mkdir -p test-results
+          mkdir -p cilium-junits
+          export CILIUM_TEST_RESULTS_DIR=${PWD}/test-results
+          export CILIUM_TEST_RESULTS_FILE="cilium-cli-hosted-results.txt"
+          # Disable history expansion because of the exclamation mark in the flags
+          set +H
+          export CILIUM_TEST_FLAGS="${{ steps.e2e_config.outputs.test_flags }}
+            --test=\"!check-log-errors\"
+            --junit-file ${PWD}/cilium-junits/openshift-hosted-1.xml
+            --junit-property github_job_step=\"Cilium connectivity tests\""
+          ./scripts/cilium-cli-tests.sh
+
+      - name: CNI conformance tests on hosted cluster
+        if: ${{ !cancelled() && steps.wait-for-hosted.outcome == 'success' && steps.vars.outputs.hcp == 'true' }}
+        timeout-minutes: 60
+        working-directory: ./openshift-ci/aws-ipi
+        env:
+          KUBECONFIG: ${{ steps.hcp-create.outputs.hosted_kubeconfig }}
+          # Hosted clusters don't expose their OpenShift version through the oc command
+          OCP_VERSION: ${{ steps.vars.outputs.ocp_version }}
+        run: |
+          mkdir -p test-results
+          export CNI_TEST_RESULTS_DIR=${PWD}/test-results
+          export CNI_TEST_RESULTS_FILE="cni-hosted-results.txt"
+          ./scripts/cni-tests.sh
+
       # This is to work around the fact that relative paths in actions/upload-artifact@v3 are rooted
       # against the workspace, which causes an "Invalid pattern" if the repo dir is ".".
       - name: Prepare upload
@@ -531,6 +621,19 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+      # Happens independently of the success or the failure of the provisioning and tests
+      - name: Destroy the hosted cluster
+        if: ${{ always() && steps.vars.outputs.hcp == 'true' && steps.hcp-create.outcome != 'skipped' }}
+        timeout-minutes: 60
+        working-directory: "./openshift-ci/aws-ipi"
+        env:
+          KUBECONFIG: /home/runner/.kube/config
+          AWS_CREDENTIALS_FILE: ${{ github.workspace }}/openshift-ci/aws-ipi/credentials.json
+          HCP_DEPLOYER_ROLE_ARN: ${{ vars.AWS_HCP_DEPLOYER_ROLE_ARN }}
+        run: |
+          echo "destroying hosted cluster ..."
+          ./hcp/scripts/destroy-cluster.sh
+
       # refresh credentials
       - name: Set up AWS CLI credentials
         if: always() && steps.provisioning.outcome != 'skipped'
@@ -540,10 +643,12 @@ jobs:
           aws-region: ${{ steps.vars.outputs.region }}
 
       # Happens independently of the success or the failure of the provisioning and tests
-      - name: Clean up Cluster
+      - name: Destroy the cluster
         if: always() && steps.provisioning.outcome != 'skipped'
         timeout-minutes: 60
         working-directory: "./openshift-ci/aws-ipi"
+        env:
+          KUBECONFIG: /home/runner/.kube/config
         run: |
           echo "destroying cluster ..."
           scripts/destroy.sh
