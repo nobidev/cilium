@@ -5,7 +5,7 @@ on:
   pull_request: {}
   push:
     branches:
-      - main
+      - main-ce
       - ft/main/**
 
   # If the cache was cleaned we should re-build the cache with the latest commit
@@ -13,7 +13,7 @@ on:
     workflows:
      - "Image CI Cache Cleaner"
     branches:
-     - main
+     - main-ce
      - ft/main/**
     types:
      - completed
