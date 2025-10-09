@@ -1529,6 +1529,12 @@ func withRequestedIPv4(ipv4 string) vipOption {
 	}
 }
 
+func withAddressFamily(family isovalentv1alpha1.AddressFamily) vipOption {
+	return func(o *isovalentv1alpha1.LBVIP) {
+		o.Spec.AddressFamily = &family
+	}
+}
+
 func lbVIP(name string, opts ...vipOption) *isovalentv1alpha1.LBVIP {
 	obj := &isovalentv1alpha1.LBVIP{
 		ObjectMeta: metav1.ObjectMeta{
