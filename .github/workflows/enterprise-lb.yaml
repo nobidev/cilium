@@ -142,6 +142,18 @@ jobs:
             t1-nodes: "kind-control-plane kind-worker"
             t2-nodes: "kind-worker2 kind-worker3 kind-worker4"
             run-tests: ""
+          - name: "6"
+            mode: "multi-node"
+            kind-ip-family: "ipv6"
+            kernel: "6.1-20240710.064909"
+            use-remote-address: "true"
+            xff-num-trusted-hops: 0
+            nr-of-worker-nodes: 4
+            t1-nodes: "kind-control-plane kind-worker"
+            t2-nodes: "kind-worker2 kind-worker3 kind-worker4"
+            # Only execute ipv6 only tests (vip & backend).
+            # Most tests still use ipv4 addresses.
+            run-tests: ".*IPv6VIPIPv6Backend.*"
 
     timeout-minutes: 120
 
@@ -249,10 +261,20 @@ jobs:
             EXTRA+=" --helm-set-string=extraConfig.loadbalancer-cp-t2-xff-num-trusted-hops=${{ matrix.xff-num-trusted-hops }}"
           fi
 
-          if [ "${{ matrix.kind-ip-family }}" == "dual" ]; then
+          if [[ "${{ matrix.kind-ip-family }}" == "ipv6" || "${{ matrix.kind-ip-family }}" == "dual" ]]; then
             EXTRA+=" --helm-set=enableIPv6Masquerade=true"
             EXTRA+=" --helm-set=ipv6NativeRoutingCIDR=fd99::0/64"
             EXTRA+=" --helm-set=ipv6.enabled=true"
+          fi
+
+          if [[ "${{ matrix.kind-ip-family }}" == "ipv4" || "${{ matrix.kind-ip-family }}" == "dual" ]]; then
+            EXTRA+=" --helm-set=enableIPv4Masquerade=true"
+            EXTRA+=" --helm-set=ipv4NativeRoutingCIDR=10.244.0.0/16"
+            EXTRA+=" --helm-set=ipv4.enabled=true"
+          fi
+
+          if [[ "${{ matrix.kind-ip-family }}" == "ipv6" ]]; then
+            EXTRA+=" --helm-set=ipv4.enabled=false" # explicitly disable ipv4
           fi
 
           cilium install \
@@ -286,8 +308,6 @@ jobs:
              --helm-set=kubeProxyReplacement=true \
              --helm-set=routingMode=native \
              --helm-set=autoDirectNodeRoutes=true \
-             --helm-set=enableIPv4Masquerade=true \
-             --helm-set=ipv4NativeRoutingCIDR="10.244.0.0/16" \
              --helm-set=loadBalancer.acceleration=native \
              --helm-set=loadBalancer.dsrDispatch=ipip \
              --helm-set-string=extraConfig.loadbalancer-cp-accesslog-enable-hc=true \
