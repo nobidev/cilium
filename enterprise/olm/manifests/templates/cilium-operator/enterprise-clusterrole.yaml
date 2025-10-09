@@ -227,6 +227,15 @@ rules:
   - update
   - delete
 - apiGroups:
+  - "discovery.k8s.io"
+  resources:
+  - endpointslices
+  - endpointslices/restricted
+  verbs:
+  - create
+  - update
+  - delete
+- apiGroups:
   - ""
   resources:
   # Read all Secrets for Secret Sync into Envoy Secret Namespace
