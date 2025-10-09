@@ -54,6 +54,10 @@ const (
 	NetworkIDUnknown = NetworkID(math.MaxUint16)
 )
 
+func (nid NetworkID) Key() index.Key {
+	return index.Uint16(uint16(nid))
+}
+
 // PrivateNetwork represents a private network instance.
 type PrivateNetwork struct {
 	// Name is the name of the private network.
