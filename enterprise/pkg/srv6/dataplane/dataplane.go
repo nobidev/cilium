@@ -52,13 +52,17 @@ type sidMap interface {
 	IterateWithCallback(cb srv6map.SRv6SIDIterateCallback) error
 }
 
-func New(in in) rib.DataPlane {
+func New(in in) rib.DataPlaneOut {
 	if !in.DaemonConfig.EnableSRv6 {
-		return nil
+		return rib.DataPlaneOut{
+			DataPlane: nil,
+		}
 	}
-	return &DataPlane{
-		policyMap4: in.PolicyMap4,
-		sidMap:     in.SIDMap,
+	return rib.DataPlaneOut{
+		DataPlane: &DataPlane{
+			policyMap4: in.PolicyMap4,
+			sidMap:     in.SIDMap,
+		},
 	}
 }
 

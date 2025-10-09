@@ -77,7 +77,7 @@ func (m *testDataPlane) Clear() {
 
 func TestRIB_UpsertRoute(t *testing.T) {
 	t.Run("Same prefix with different VRF", func(t *testing.T) {
-		rib := New(in{DataPlane: &testDataPlane{}})
+		rib := New(in{DataPlanes: []DataPlane{&testDataPlane{}}})
 
 		route := &Route{
 			Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
@@ -100,7 +100,7 @@ func TestRIB_UpsertRoute(t *testing.T) {
 		require.True(t, found, "Route not found in VRF 2")
 	})
 	t.Run("Same VRF and prefix with same owner", func(t *testing.T) {
-		rib := New(in{DataPlane: &testDataPlane{}})
+		rib := New(in{DataPlanes: []DataPlane{&testDataPlane{}}})
 
 		route := &Route{
 			Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
@@ -117,7 +117,7 @@ func TestRIB_UpsertRoute(t *testing.T) {
 		require.Equal(t, uint(1), routes.Len())
 	})
 	t.Run("Same VRF and prefix with different owner", func(t *testing.T) {
-		rib := New(in{DataPlane: &testDataPlane{}})
+		rib := New(in{DataPlanes: []DataPlane{&testDataPlane{}}})
 
 		route0 := &Route{
 			Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
@@ -147,7 +147,7 @@ func TestRIB_UpsertRoute(t *testing.T) {
 
 func TestRIB_DeleteRoute(t *testing.T) {
 	t.Run("Delete existing route", func(t *testing.T) {
-		rib := New(in{DataPlane: &testDataPlane{}})
+		rib := New(in{DataPlanes: []DataPlane{&testDataPlane{}}})
 
 		route := &Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
@@ -162,7 +162,7 @@ func TestRIB_DeleteRoute(t *testing.T) {
 		require.Nil(t, rib.ListRoutes("owner0")[1])
 	})
 	t.Run("Delete existing route in different VRF", func(t *testing.T) {
-		rib := New(in{DataPlane: &testDataPlane{}})
+		rib := New(in{DataPlanes: []DataPlane{&testDataPlane{}}})
 
 		route := &Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
@@ -177,7 +177,7 @@ func TestRIB_DeleteRoute(t *testing.T) {
 		require.Equal(t, uint(1), rib.ListRoutes("owner0")[1].Len())
 	})
 	t.Run("Delete existing route in with different owner", func(t *testing.T) {
-		rib := New(in{DataPlane: &testDataPlane{}})
+		rib := New(in{DataPlanes: []DataPlane{&testDataPlane{}}})
 
 		route0 := &Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
@@ -202,7 +202,7 @@ func TestRIB_DeleteRoute(t *testing.T) {
 
 func TestRIB_ListRoutes(t *testing.T) {
 	t.Run("List routes with same owners", func(t *testing.T) {
-		rib := New(in{DataPlane: &testDataPlane{}})
+		rib := New(in{DataPlanes: []DataPlane{&testDataPlane{}}})
 
 		route0 := Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
@@ -227,7 +227,7 @@ func TestRIB_ListRoutes(t *testing.T) {
 		require.True(t, found1, "Route1 not found in VRF 1")
 	})
 	t.Run("List routes with different owners", func(t *testing.T) {
-		rib := New(in{DataPlane: &testDataPlane{}})
+		rib := New(in{DataPlanes: []DataPlane{&testDataPlane{}}})
 
 		route0 := Route{
 			Prefix:  netip.MustParsePrefix("192.168.1.0/24"),
@@ -337,7 +337,7 @@ func TestRIB_selectBestPath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			best, changed := New(in{DataPlane: &testDataPlane{}}).selectBestPath(tt.dest)
+			best, changed := New(in{DataPlanes: []DataPlane{&testDataPlane{}}}).selectBestPath(tt.dest)
 			require.Equal(t, tt.expectedBest, best, "Unexpected best route")
 			require.Equal(t, changed, best != tt.dest.best, "Unexpected change in best route")
 		})
@@ -346,7 +346,7 @@ func TestRIB_selectBestPath(t *testing.T) {
 
 func TestRIB_DataPlaneIntegration(t *testing.T) {
 	dataPlane := &testDataPlane{}
-	rib := New(in{DataPlane: dataPlane})
+	rib := New(in{DataPlanes: []DataPlane{dataPlane}})
 
 	route0 := &Route{
 		Prefix:   netip.MustParsePrefix("192.168.1.0/24"),
@@ -412,7 +412,7 @@ func TestRIB_DataPlaneIntegration(t *testing.T) {
 
 func TestRIB_DeleteRoutesByOwner(t *testing.T) {
 	dataPlane := &testDataPlane{}
-	rib := New(in{DataPlane: dataPlane})
+	rib := New(in{DataPlanes: []DataPlane{dataPlane}})
 
 	vrfID := uint32(1)
 	route0 := &Route{
@@ -491,9 +491,11 @@ func TestRIB_InitialGC(t *testing.T) {
 			"test module",
 			cell.Provide(
 				New,
-				func() DataPlane {
-					return &testDataPlane{
-						initialRoutes: initialRoutes,
+				func() DataPlaneOut {
+					return DataPlaneOut{
+						DataPlane: &testDataPlane{
+							initialRoutes: initialRoutes,
+						},
 					}
 				},
 				func() gcChFn {
@@ -580,4 +582,74 @@ func TestRIB_InitialGC(t *testing.T) {
 			return
 		}
 	}, time.Second*5, time.Millisecond*100, "Initial GC did not run")
+}
+
+func TestMultiDataPlaneUpsertDelete(t *testing.T) {
+	dp0 := &testDataPlane{}
+	dp1 := &testDataPlane{}
+
+	rib := New(in{DataPlanes: []DataPlane{dp0, dp1}})
+
+	route := Route{
+		Prefix:   netip.MustParsePrefix("10.0.0.0/24"),
+		Owner:    "owner0",
+		Protocol: ProtocolIBGP,
+		NextHop:  &testNextHop{},
+	}
+	rib.UpsertRoute(0, route)
+
+	// UpsertRoute above should have propagated to both data planes
+	require.True(t, dp0.receivedUpdates[0].NewBest.Equal(&route), "DataPlane 0 did not receive updates")
+	require.True(t, dp1.receivedUpdates[0].NewBest.Equal(&route), "DataPlane 1 did not receive updates")
+
+	rib.DeleteRoute(0, route)
+
+	// DeleteRoute above should have propagated to both data planes
+	require.True(t, dp0.receivedUpdates[1].OldBest.Equal(&route), "DataPlane 0 did not receive delete updates")
+	require.True(t, dp1.receivedUpdates[1].OldBest.Equal(&route), "DataPlane 1 did not receive delete updates")
+	require.Nil(t, dp0.receivedUpdates[1].NewBest, "DataPlane 0 did not receive delete updates")
+	require.Nil(t, dp1.receivedUpdates[1].NewBest, "DataPlane 1 did not receive delete updates")
+}
+
+func TestMultiDataPlaneRestoreRoutes(t *testing.T) {
+	vrfRoute0 := vrfRoute{
+		vrfID: 0,
+		route: Route{
+			Prefix:   netip.MustParsePrefix("10.0.0.0/24"),
+			Owner:    "owner0",
+			Protocol: ProtocolIBGP,
+			NextHop:  &testNextHop{},
+		},
+	}
+	vrfRoute1 := vrfRoute{
+		vrfID: 0,
+		route: Route{
+			Prefix:   netip.MustParsePrefix("10.0.1.0/24"),
+			Owner:    "owner0",
+			Protocol: ProtocolIBGP,
+			NextHop:  &testNextHop{},
+		},
+	}
+	dp0 := &testDataPlane{
+		initialRoutes: []*vrfRoute{&vrfRoute0},
+	}
+	dp1 := &testDataPlane{
+		initialRoutes: []*vrfRoute{&vrfRoute1},
+	}
+	rib := New(in{DataPlanes: []DataPlane{dp0, dp1}})
+
+	restoreRoutes(rib)
+
+	routes := rib.ListBestRoutes()
+
+	// Both data planes should be called in the above restoreRoutes. Now,
+	// RIB should have routes from both dataplanes.
+	vrf := routes[0]
+	require.NotNil(t, vrf, "VRF 0 should exist")
+	route0, found0 := vrf.ExactLookup(netip.MustParsePrefix("10.0.0.0/24"))
+	route1, found1 := vrf.ExactLookup(netip.MustParsePrefix("10.0.1.0/24"))
+	require.True(t, found0, "Route0 not found in VRF 0")
+	require.True(t, found1, "Route1 not found in VRF 0")
+	require.True(t, route0.Equal(&vrfRoute0.route), "Route0 does not match")
+	require.True(t, route1.Equal(&vrfRoute1.route), "Route1 does not match")
 }

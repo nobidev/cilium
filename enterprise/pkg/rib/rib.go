@@ -38,9 +38,9 @@ import (
 // selecting the "best" route out of the multiple routes. Therefore, only the
 // best route will be installed in the data plane.
 type RIB struct {
-	mutex     lock.RWMutex
-	vrfTries  map[uint32]*bitlpm.CIDRTrie[*Destination]
-	dataPlane DataPlane
+	mutex      lock.RWMutex
+	vrfTries   map[uint32]*bitlpm.CIDRTrie[*Destination]
+	dataPlanes []DataPlane
 }
 
 // DataPlane is the interface for the data plane. The data plane is responsible
@@ -56,6 +56,20 @@ type DataPlane interface {
 	// by RIB to initialize the RIB with the routes that are already
 	// installed in the data plane.
 	ForEach(cb func(uint32, *Route))
+}
+
+// DataPlaneIn is a shorthand for request DataPlanes
+type DataPlaneIn struct {
+	cell.In
+
+	DataPlanes []DataPlane `group:"rib-dataplane"`
+}
+
+// DataPlaneOut is a shorthand for providing DataPlanes
+type DataPlaneOut struct {
+	cell.Out
+
+	DataPlane DataPlane `group:"rib-dataplane"`
 }
 
 // nopDataPlane is a no-op implementation of the DataPlane interface. It is
@@ -80,18 +94,27 @@ type RIBUpdate struct {
 type in struct {
 	cell.In
 
-	DataPlane DataPlane
+	DataPlanes []DataPlane `group:"rib-dataplane"`
 }
 
 func New(in in) *RIB {
-	if in.DataPlane == nil {
+	activeDataPlanes := []DataPlane{}
+	if len(in.DataPlanes) == 0 {
 		// Provide a no-op data plane if none is provided. Otherwise,
 		// calling the data plane will panic.
-		in.DataPlane = &nopDataPlane{}
+		activeDataPlanes = append(activeDataPlanes, &nopDataPlane{})
+	} else {
+		// Filter out nil data planes
+		for _, dp := range in.DataPlanes {
+			if dp == nil {
+				continue
+			}
+			activeDataPlanes = append(activeDataPlanes, dp)
+		}
 	}
 	return &RIB{
-		vrfTries:  make(map[uint32]*bitlpm.CIDRTrie[*Destination]),
-		dataPlane: in.DataPlane,
+		vrfTries:   make(map[uint32]*bitlpm.CIDRTrie[*Destination]),
+		dataPlanes: activeDataPlanes,
 	}
 }
 
@@ -141,7 +164,9 @@ func (r *RIB) UpsertRoute(vrfID uint32, newRoute Route) {
 			NewBest: newBest,
 		}
 		dest.best = newBest
-		r.dataPlane.ProcessUpdate(update)
+		for _, dp := range r.dataPlanes {
+			dp.ProcessUpdate(update)
+		}
 	}
 }
 
@@ -191,7 +216,9 @@ func (r *RIB) deleteRoute(vrfID uint32, route Route) {
 			NewBest: newBest,
 		}
 		dest.best = newBest
-		r.dataPlane.ProcessUpdate(update)
+		for _, dp := range r.dataPlanes {
+			dp.ProcessUpdate(update)
+		}
 	}
 }
 
@@ -497,11 +524,11 @@ func (s *VXLANEncap) String() string {
 type gcChFn func() <-chan time.Time
 
 // This function is called from the Invoke hook before any other route owners
-// start to write to the RIB. It first fetches all routes from the data plane.
+// start to write to the RIB. It first fetches all routes from the data planes.
 // This will be done with the blocking call so that we can guarantee that the
 // RIB is filled before any route owner starts writing to it.
 //
-// The routes read from the data plane will have unknown owner and unknown
+// The routes read from data planes will have unknown owner and unknown
 // protocol (max AD), so it will always lose the best path selection. The route
 // owners will then write their routes to the RIB over the time, which will be
 // selected as the best paths.
@@ -522,23 +549,7 @@ type gcChFn func() <-chan time.Time
 // Inspired by the Zebra's graceful-restart feature (-K option).
 // https://docs.frrouting.org/en/latest/zebra.html#cmdoption-zebra-K
 func scheduleInitialGC(jg job.Group, r *RIB, fn gcChFn) {
-	// r.UpsertRoute may call dataplane.ProcessUpdate. Calling
-	// dataPlane.ProcessUpdate while iterating over the trie is not safe,
-	// so we need to collect all routes first and then call UpsertRoute for
-	// each of them.
-	routes := []RIBUpdate{}
-
-	r.dataPlane.ForEach(func(vrfID uint32, route *Route) {
-		route.Owner = OwnerUnknown
-		route.Protocol = ProtocolUnknown
-		routes = append(routes, RIBUpdate{
-			VRFID:   vrfID,
-			NewBest: route,
-		})
-	})
-	for _, update := range routes {
-		r.UpsertRoute(update.VRFID, *update.NewBest)
-	}
+	restoreRoutes(r)
 
 	ch := fn()
 	jg.Add(job.OneShot("initial-gc", func(ctx context.Context, health cell.Health) error {
@@ -550,4 +561,27 @@ func scheduleInitialGC(jg job.Group, r *RIB, fn gcChFn) {
 		r.DeleteRoutesByOwner(OwnerUnknown)
 		return nil
 	}))
+}
+
+func restoreRoutes(r *RIB) {
+	for _, dp := range r.dataPlanes {
+		// r.UpsertRoute may call dataplane.ProcessUpdate. Calling
+		// dataPlane.ProcessUpdate while iterating over the trie is not safe,
+		// so we need to collect all routes first and then call UpsertRoute for
+		// each of them.
+		routes := []RIBUpdate{}
+
+		dp.ForEach(func(vrfID uint32, route *Route) {
+			route.Owner = OwnerUnknown
+			route.Protocol = ProtocolUnknown
+			routes = append(routes, RIBUpdate{
+				VRFID:   vrfID,
+				NewBest: route,
+			})
+		})
+
+		for _, update := range routes {
+			r.UpsertRoute(update.VRFID, *update.NewBest)
+		}
+	}
 }
