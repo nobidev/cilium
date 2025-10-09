@@ -109,18 +109,25 @@ func newLBTestScenario(t T, testName string, ciliumCli *ciliumCli, k8sCli *k8s.C
 }
 
 func (r *lbTestScenario) waitForFullVIPConnectivity(vipName string) string {
-	ip, err := r.ciliumCli.WaitForLBVIP(r.t.Context(), r.k8sNamespace, vipName)
+	ipv4, ipv6, err := r.ciliumCli.WaitForLBVIP(r.t.Context(), r.k8sNamespace, vipName)
 	if err != nil {
 		r.t.Failedf("failed to wait for VIP (%s): %s", vipName, err)
 	}
 
 	for _, c := range r.frrClients {
-		eventually(r.t, func() error {
-			return c.EnsureRoute(r.t.Context(), ip+"/32")
-		}, longTimeout, pollInterval)
+		if ipv4 != "" {
+			eventually(r.t, func() error {
+				return c.EnsureRoute(r.t.Context(), ipv4+"/32")
+			}, longTimeout, pollInterval)
+		}
+		if ipv6 != "" {
+			eventually(r.t, func() error {
+				return c.EnsureRoute(r.t.Context(), ipv6+"/128")
+			}, longTimeout, pollInterval)
+		}
 	}
 
-	return ip
+	return ipv4
 }
 
 func (r *lbTestScenario) waitForAllT2EndpointsActive(testName string, vipIP string, vipPort uint16, t1NodeList *corev1.NodeList, t2NodeList *corev1.NodeList) {

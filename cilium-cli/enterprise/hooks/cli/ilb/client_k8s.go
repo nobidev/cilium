@@ -145,24 +145,39 @@ func (c *ciliumCli) DeleteLBIPPool(ctx context.Context, name string, opts metav1
 	return c.CiliumV2().CiliumLoadBalancerIPPools().Delete(ctx, name, opts)
 }
 
-func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (string, error) {
+func (c *ciliumCli) WaitForLBVIP(ctx context.Context, namespace, name string) (string, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, shortTimeout)
 	defer cancel()
 
 	for {
 		obj, err := c.GetLBVIP(ctx, namespace, name, metav1.GetOptions{})
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 
-		if ip := obj.Status.Addresses.IPv4; ip != nil {
-			return *ip, nil
+		ipv4 := obj.Status.Addresses.IPv4
+		ipv6 := obj.Status.Addresses.IPv6
+
+		family := "ipv4"
+		if obj.Spec.AddressFamily != nil && *obj.Spec.AddressFamily == isovalentv1alpha1.AddressFamilyDual {
+			family = "dual"
+		} else if obj.Spec.AddressFamily != nil && *obj.Spec.AddressFamily == isovalentv1alpha1.AddressFamilyIPv6 {
+			family = "ipv6"
+		}
+
+		switch {
+		case family == "dual" && ipv4 != nil && ipv6 != nil:
+			return *ipv4, *ipv6, nil
+		case family == "ipv4" && ipv4 != nil:
+			return *ipv4, "", nil
+		case family == "ipv6" && ipv6 != nil:
+			return "", *ipv6, nil
 		}
 
 		select {
 		case <-time.After(pollInterval):
 		case <-ctx.Done():
-			return "", fmt.Errorf("timeout reached waiting for LBVIP %s to get VIP assigned (status: %v)", name, obj.Status)
+			return "", "", fmt.Errorf("timeout reached waiting for LBVIP %s to get VIP assigned (status: %v)", name, obj.Status)
 		}
 	}
 }

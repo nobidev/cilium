@@ -99,8 +99,13 @@ type ipRouteShowOut []struct {
 	Dst string `json:"dst"`
 }
 
-func (c *frrContainer) ipRoutes(ctx context.Context) (sets.Set[netip.Prefix], error) {
-	stdout, stderr, err := c.Exec(ctx, "ip -4 -j route show")
+func (c *frrContainer) ipRoutes(ctx context.Context, ipv6 bool) (sets.Set[netip.Prefix], error) {
+	familyFlag := "-4"
+	if ipv6 {
+		familyFlag = "-6"
+	}
+
+	stdout, stderr, err := c.Exec(ctx, fmt.Sprintf("ip %s -j route show", familyFlag))
 	if err != nil {
 		return nil, fmt.Errorf("failed to show ip routes: stdout: %s stderr: %s err: %w", stdout, stderr, err)
 	}
@@ -113,9 +118,14 @@ func (c *frrContainer) ipRoutes(ctx context.Context) (sets.Set[netip.Prefix], er
 	prefixes := sets.New[netip.Prefix]()
 	for _, r := range out {
 		if r.Dst == "default" {
-			r.Dst = "0.0.0.0/0"
-		} else if !strings.Contains(r.Dst, "/") {
-			r.Dst += "/32"
+			continue
+		}
+		if !strings.Contains(r.Dst, "/") {
+			if !ipv6 {
+				r.Dst += "/32"
+			} else {
+				r.Dst += "/128"
+			}
 		}
 		p, err := netip.ParsePrefix(r.Dst)
 		if err != nil {
@@ -131,11 +141,12 @@ func (c *frrContainer) ipRoutes(ctx context.Context) (sets.Set[netip.Prefix], er
 // routes and installed in the FRR container.
 func (c *frrContainer) EnsureRoute(ctx context.Context, prefix string) error {
 	p := netip.MustParsePrefix(prefix)
+	family := "ipv4"
 	if !p.Addr().Is4() {
-		return fmt.Errorf("only IPv4 prefix is supported")
+		family = "ipv6"
 	}
 
-	ribPrefixes, err := c.bgpRoutes(ctx, "ipv4", "unicast")
+	ribPrefixes, err := c.bgpRoutes(ctx, family, "unicast")
 	if err != nil {
 		return err
 	}
@@ -144,7 +155,7 @@ func (c *frrContainer) EnsureRoute(ctx context.Context, prefix string) error {
 		return fmt.Errorf("prefix %s not found in BGP routes", p)
 	}
 
-	fibPrefixes, err := c.ipRoutes(ctx)
+	fibPrefixes, err := c.ipRoutes(ctx, !p.Addr().Is4())
 	if err != nil {
 		return err
 	}
@@ -160,16 +171,15 @@ func (c *frrContainer) EnsureRoute(ctx context.Context, prefix string) error {
 // routes and installed in the FRR container.
 func (c *frrContainer) EnsureRouteVia(ctx context.Context, prefix string, peerIP string) error {
 	p := netip.MustParsePrefix(prefix)
+
+	family := "ipv4"
 	if !p.Addr().Is4() {
-		return fmt.Errorf("only IPv4 prefix is supported")
+		family = "ipv6"
 	}
 
 	peerIPAddr := netip.MustParseAddr(peerIP)
-	if !p.Addr().Is4() {
-		return fmt.Errorf("only IPv4 peer IP is supported")
-	}
 
-	ribPrefixes, err := c.bgpRoutes(ctx, "ipv4", "unicast")
+	ribPrefixes, err := c.bgpRoutes(ctx, family, "unicast")
 	if err != nil {
 		return err
 	}
@@ -178,7 +188,7 @@ func (c *frrContainer) EnsureRouteVia(ctx context.Context, prefix string, peerIP
 		return fmt.Errorf("prefix %s via %s not found in BGP routes", p, peerIPAddr)
 	}
 
-	fibPrefixes, err := c.ipRoutes(ctx)
+	fibPrefixes, err := c.ipRoutes(ctx, !p.Addr().Is4())
 	if err != nil {
 		return err
 	}
