@@ -182,7 +182,14 @@ func (r *importEVPNRouteReconciler) desiredRoutes(
 		vrfID := uint32(pn.ID)
 		routes := bitlpm.NewCIDRTrie[*rib.Route]()
 		for _, path := range paths {
-			if !rtMatches(path.rts, bgpVRF.ImportRTs) {
+			importRTs := bgpVRF.ImportRTs
+			if len(importRTs) == 0 {
+				// Auto-derive RT.
+				// For iBGP, sourceASN == localASN and we do full match.
+				// For eBGP, we effectively only compare VNI (similarly to FRR), as we use sourceASN to match.
+				importRTs = []string{DeriveEVPNRouteTarget(path.sourceASN, pn.VNI)}
+			}
+			if !rtMatches(path.rts, importRTs) {
 				continue
 			}
 			proto := rib.ProtocolIBGP
