@@ -1,0 +1,72 @@
+hive start
+
+# Add two private networks with different VNIs
+db/insert private-networks privnet0-100.yaml
+db/insert private-networks privnet1-200.yaml
+
+# Ensure the VNI mappings are created as expected
+db/cmp vni-mappings baseline.expected
+
+# Update one of the private networks to use a different VNI
+db/insert private-networks privnet1-300.yaml
+
+# Ensure the VNI mappings are updated as expected
+db/cmp vni-mappings updated.expected
+
+# Delete one of the private networks
+db/delete private-networks privnet0-100.yaml
+
+# Ensure the VNI mapping for the deleted network is removed
+db/cmp vni-mappings deleted.expected
+
+# Clear VNI of the privnet1
+db/insert private-networks privnet1-cleared.yaml
+
+# Ensure the VNI mapping is removed
+db/cmp vni-mappings cleared.expected
+
+-- privnet0-100.yaml --
+name: privnet0
+id: 1
+vni: 100
+subnets:
+- name: net0
+  cidrv4: 10.0.0.0/24
+
+-- privnet1-200.yaml --
+name: privnet1
+id: 2
+vni: 200
+subnets:
+- name: net0
+  cidrv4: 10.0.0.0/24
+
+-- privnet1-300.yaml --
+name: privnet1
+id: 2
+vni: 300
+subnets:
+- name: net0
+  cidrv4: 10.0.0.0/24
+
+-- privnet1-cleared.yaml --
+name: privnet1
+id: 2
+vni:
+subnets:
+- name: net0
+  cidrv4: 10.0.0.0/24
+
+-- baseline.expected --
+VNI   NetworkID
+100   1
+200   2
+-- updated.expected --
+VNI   NetworkID
+100   1
+300   2
+-- deleted.expected --
+VNI   NetworkID
+300   2
+-- cleared.expected --
+VNI   NetworkID
