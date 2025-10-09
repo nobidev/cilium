@@ -1328,6 +1328,9 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 	if (!lb6_svc_is_routable(svc))
 		return DROP_IS_CLUSTER_IP;
 
+	if (lb_punt_etp_local() && lb6_svc_is_etp_local(svc))
+		return CTX_ACT_OK;
+
 #if defined(ENABLE_L7_LB)
 	if (lb6_svc_is_l7_loadbalancer(svc)) {
 # if !defined(IS_BPF_XDP)
@@ -1488,12 +1491,10 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		/* Check if the identified service is a wildcard entry. This
 		 * means we have no protocol-level service entry, meaning we
 		 * should drop the traffic to avoid it being punted back to
-		 * the network and re-delivered to is in a loop.
+		 * the network and re-delivered to us in a loop.
 		 */
-		if (lb6_key_is_wildcard(&key)) {
-			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+		if (lb6_key_is_wildcard(&key))
 			return DROP_NO_SERVICE;
-		}
 
 		return nodeport_svc_lb6(ctx, &tuple, svc, &key, ip6, l3_off,
 					fraginfo, l4_off, src_sec_identity,
@@ -2673,6 +2674,12 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 	if (!lb4_svc_is_routable(svc))
 		return DROP_IS_CLUSTER_IP;
 
+	/* Punt eTP=local service traffic from XDP to TC layer for post-GRO
+	 * performance boost:
+	 */
+	if (lb_punt_etp_local() && lb4_svc_is_etp_local(svc))
+		return CTX_ACT_OK;
+
 #if defined(ENABLE_L7_LB)
 	if (lb4_svc_is_l7_loadbalancer(svc)) {
 		/* We cannot redirect from the XDP layer to cilium_host.
@@ -2861,12 +2868,10 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		/* Check if the identified service is a wildcard entry. This
 		 * means we have no protocol-level service entry, meaning we
 		 * should drop the traffic to avoid it being punted back to
-		 * the network and re-delivered to is in a loop.
+		 * the network and re-delivered to us in a loop.
 		 */
-		if (lb4_key_is_wildcard(&key)) {
-			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+		if (lb4_key_is_wildcard(&key))
 			return DROP_NO_SERVICE;
-		}
 
 		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
 					fraginfo, l4_off, src_sec_identity,
