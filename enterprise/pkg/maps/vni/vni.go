@@ -11,6 +11,7 @@
 package vni
 
 import (
+	"encoding"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -49,6 +50,23 @@ func (v *VNIVal) String() string {
 
 func (v *VNIVal) New() bpf.MapValue {
 	return &VNIVal{}
+}
+
+var _ bpf.KeyValue = &VNIKeyVal{}
+
+type VNIKeyVal struct {
+	Key VNIKey
+	Val VNIVal
+}
+
+// BinaryKey implements bpf.KeyValue.
+func (n *VNIKeyVal) BinaryKey() encoding.BinaryMarshaler {
+	return bpf.StructBinaryMarshaler{Target: &n.Key}
+}
+
+// BinaryValue implements bpf.KeyValue.
+func (n *VNIKeyVal) BinaryValue() encoding.BinaryMarshaler {
+	return bpf.StructBinaryMarshaler{Target: &n.Val}
 }
 
 type VNI struct {

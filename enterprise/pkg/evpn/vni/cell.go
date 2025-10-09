@@ -12,6 +12,10 @@ package vni
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb/reconciler"
+
+	vniMaps "github.com/cilium/cilium/enterprise/pkg/maps/vni"
+	"github.com/cilium/cilium/pkg/bpf"
 )
 
 var Cell = cell.Group(
@@ -21,10 +25,18 @@ var Cell = cell.Group(
 
 		// Provides reconciler populating vni-mappings statedb table.
 		newVNIMappings,
+
+		// Providers map operations used by the bpf map reconciler.
+		func(vniMap vniMaps.VNI) reconciler.Operations[*vniMaps.VNIKeyVal] {
+			return bpf.NewMapOps[*vniMaps.VNIKeyVal](vniMap.Map)
+		},
 	),
 
 	cell.Invoke(
 		// Registers the private-networks to vni-mappings statedb table reconciler.
 		(*VNIMappings).registerReconciler,
+
+		// Registers the vni-mappings to bpf map reconciler.
+		registerMapReconciler,
 	),
 )

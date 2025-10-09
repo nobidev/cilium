@@ -27,6 +27,7 @@ import (
 	privnetConfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	privnetTables "github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/hive"
 )
 
@@ -39,6 +40,7 @@ func TestScript(t *testing.T) {
 			h := hive.New(
 				privnetConfig.Cell,
 				evpnConfig.Cell,
+				mockVNIMapCell,
 
 				cell.Provide(
 					privnetTables.NewPrivateNetworksTable,
@@ -50,6 +52,7 @@ func TestScript(t *testing.T) {
 					func() tunnel.Config {
 						return tunnel.NewTestConfig(tunnel.VXLAN)
 					},
+					regeneration.NewFence,
 				),
 				cell.Invoke(
 					(*VNIMappings).registerReconciler,
