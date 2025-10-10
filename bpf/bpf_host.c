@@ -409,13 +409,12 @@ skip_tunnel:
 }
 
 static __always_inline int
-tail_handle_ipv6_cont(struct __ctx_buff *ctx, bool from_host)
+tail_handle_ipv6_cont(struct __ctx_buff *ctx, __u32 src_sec_identity,
+		      bool from_host, __s8 *ext_err)
 {
-	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	int ret;
-	__s8 ext_err = 0;
 
-	ret = handle_ipv6_cont(ctx, src_sec_identity, from_host, &ext_err);
+	ret = handle_ipv6_cont(ctx, src_sec_identity, from_host, ext_err);
 	if (from_host && ret == CTX_ACT_OK) {
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination MAC address to the MAC of cilium_net.
@@ -423,9 +422,6 @@ tail_handle_ipv6_cont(struct __ctx_buff *ctx, bool from_host)
 		ret = rewrite_dmac_to_host(ctx);
 	}
 
-	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-						  METRIC_INGRESS);
 	return ret;
 }
 
@@ -433,14 +429,34 @@ __declare_tail(CILIUM_CALL_IPV6_CONT_FROM_HOST)
 static __always_inline
 int tail_handle_ipv6_cont_from_host(struct __ctx_buff *ctx)
 {
-	return tail_handle_ipv6_cont(ctx, true);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	__s8 ext_err = 0;
+	int ret;
+
+	ret = tail_handle_ipv6_cont(ctx, src_sec_identity, true, &ext_err);
+
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
+						  METRIC_INGRESS);
+
+	return ret;
 }
 
 __declare_tail(CILIUM_CALL_IPV6_CONT_FROM_NETDEV)
 static __always_inline
 int tail_handle_ipv6_cont_from_netdev(struct __ctx_buff *ctx)
 {
-	return tail_handle_ipv6_cont(ctx, false);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	__s8 ext_err = 0;
+	int ret;
+
+	ret = tail_handle_ipv6_cont(ctx, src_sec_identity, false, &ext_err);
+
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
+						  METRIC_INGRESS);
+
+	return ret;
 }
 
 static __always_inline int
@@ -456,22 +472,21 @@ tail_handle_ipv6(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 
 	/* TC_ACT_REDIRECT is not an error, but it means we should stop here. */
 	if (ret == CTX_ACT_OK) {
+		bool use_tailcall = is_defined(ENABLE_HOST_FIREWALL);
+
 		if (punt_to_stack)
 			return ret;
 
-		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
-		if (from_host) {
-			if (is_defined(ENABLE_HOST_FIREWALL))
-				ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CONT_FROM_HOST,
-							 &ext_err);
-			else
-				ret = tail_handle_ipv6_cont_from_host(ctx);
+		if (use_tailcall) {
+			ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+
+			ret = tail_call_internal(ctx,
+						 from_host ? CILIUM_CALL_IPV6_CONT_FROM_HOST :
+							     CILIUM_CALL_IPV6_CONT_FROM_NETDEV,
+						 &ext_err);
 		} else {
-			if (is_defined(ENABLE_HOST_FIREWALL))
-				ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CONT_FROM_NETDEV,
-							 &ext_err);
-			else
-				ret = tail_handle_ipv6_cont_from_netdev(ctx);
+			ret = tail_handle_ipv6_cont(ctx, src_sec_identity,
+						    from_host, &ext_err);
 		}
 	}
 
@@ -488,9 +503,9 @@ int tail_handle_ipv6_from_host(struct __ctx_buff *ctx)
 {
 	__u32 ipcache_srcid = 0;
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6)
+#if defined(ENABLE_HOST_FIREWALL)
 	ipcache_srcid = ctx_load_and_clear_meta(ctx, CB_IPCACHE_SRC_LABEL);
-#endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
+#endif /* defined(ENABLE_HOST_FIREWALL) */
 
 	return tail_handle_ipv6(ctx, ipcache_srcid, true);
 }
@@ -868,13 +883,12 @@ skip_tunnel:
 }
 
 static __always_inline int
-tail_handle_ipv4_cont(struct __ctx_buff *ctx, bool from_host)
+tail_handle_ipv4_cont(struct __ctx_buff *ctx, __u32 src_sec_identity,
+		      bool from_host, __s8 *ext_err)
 {
-	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	int ret;
-	__s8 ext_err = 0;
 
-	ret = handle_ipv4_cont(ctx, src_sec_identity, from_host, &ext_err);
+	ret = handle_ipv4_cont(ctx, src_sec_identity, from_host, ext_err);
 	if (from_host && ret == CTX_ACT_OK) {
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination MAC address to the MAC of cilium_net.
@@ -882,9 +896,6 @@ tail_handle_ipv4_cont(struct __ctx_buff *ctx, bool from_host)
 		ret = rewrite_dmac_to_host(ctx);
 	}
 
-	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-						  METRIC_INGRESS);
 	return ret;
 }
 
@@ -892,14 +903,34 @@ __declare_tail(CILIUM_CALL_IPV4_CONT_FROM_HOST)
 static __always_inline
 int tail_handle_ipv4_cont_from_host(struct __ctx_buff *ctx)
 {
-	return tail_handle_ipv4_cont(ctx, true);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	__s8 ext_err = 0;
+	int ret;
+
+	ret = tail_handle_ipv4_cont(ctx, src_sec_identity, true, &ext_err);
+
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
+						  METRIC_INGRESS);
+
+	return ret;
 }
 
 __declare_tail(CILIUM_CALL_IPV4_CONT_FROM_NETDEV)
 static __always_inline
 int tail_handle_ipv4_cont_from_netdev(struct __ctx_buff *ctx)
 {
-	return tail_handle_ipv4_cont(ctx, false);
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	__s8 ext_err = 0;
+	int ret;
+
+	ret = tail_handle_ipv4_cont(ctx, src_sec_identity, false, &ext_err);
+
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
+						  METRIC_INGRESS);
+
+	return ret;
 }
 
 static __always_inline int
@@ -915,22 +946,21 @@ tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 
 	/* TC_ACT_REDIRECT is not an error, but it means we should stop here. */
 	if (ret == CTX_ACT_OK) {
+		bool use_tailcall = is_defined(ENABLE_HOST_FIREWALL);
+
 		if (punt_to_stack)
 			return ret;
 
-		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
-		if (from_host) {
-			if (is_defined(ENABLE_HOST_FIREWALL))
-				ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CONT_FROM_HOST,
-							 &ext_err);
-			else
-				ret = tail_handle_ipv4_cont_from_host(ctx);
+		if (use_tailcall) {
+			ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+
+			ret = tail_call_internal(ctx,
+						 from_host ? CILIUM_CALL_IPV4_CONT_FROM_HOST :
+							     CILIUM_CALL_IPV4_CONT_FROM_NETDEV,
+						 &ext_err);
 		} else {
-			if (is_defined(ENABLE_HOST_FIREWALL))
-				ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CONT_FROM_NETDEV,
-							 &ext_err);
-			else
-				ret = tail_handle_ipv4_cont_from_netdev(ctx);
+			ret = tail_handle_ipv4_cont(ctx, src_sec_identity,
+						    from_host, &ext_err);
 		}
 	}
 
@@ -947,9 +977,9 @@ int tail_handle_ipv4_from_host(struct __ctx_buff *ctx)
 {
 	__u32 ipcache_srcid = 0;
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4)
+#if defined(ENABLE_HOST_FIREWALL)
 	ipcache_srcid = ctx_load_and_clear_meta(ctx, CB_IPCACHE_SRC_LABEL);
-#endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
+#endif /* defined(ENABLE_HOST_FIREWALL) */
 
 	return tail_handle_ipv4(ctx, ipcache_srcid, true);
 }
@@ -1123,15 +1153,10 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid, from_host);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
-# if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6)
-		if (from_host) {
-			/* If we don't rely on BPF-based masquerading, we need
-			 * to pass the srcid from ipcache to host firewall. See
-			 * comment in ipv6_host_policy_egress() for details.
-			 */
+# if defined(ENABLE_HOST_FIREWALL)
+		if (from_host)
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
-		}
-# endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
+# endif /* defined(ENABLE_HOST_FIREWALL) */
 
 # ifdef ENABLE_WIREGUARD
 		if (!from_host) {
@@ -1167,7 +1192,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 					      from_host);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
-# if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4)
+# if defined(ENABLE_HOST_FIREWALL)
 		if (from_host) {
 			/* If we don't rely on BPF-based masquerading, we need
 			 * to pass the srcid from ipcache to host firewall. See
@@ -1175,7 +1200,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			 */
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
 		}
-# endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
+# endif /* defined(ENABLE_HOST_FIREWALL) */
 
 #ifdef ENABLE_WIREGUARD
 		if (!from_host) {

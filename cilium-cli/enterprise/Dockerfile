@@ -9,7 +9,7 @@
 # permission is obtained from Isovalent Inc.
 
 ARG BASE_IMAGE=scratch
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:7eef40ab358578530900d11bdde1627738761451@sha256:b9af63dd993cb4ac3574e85b9a5ca75548090b236f5666ae7855ec1ebb338af2
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:b35129c33e6d9e45d66f6c00cbe0779358a951a5@sha256:cc901caa765a5f5d7a0d8476f58cb5c7aff729bba7fd0b3ec22eb2b9e6446d3f
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the platform where the build is happening, do not mix with
