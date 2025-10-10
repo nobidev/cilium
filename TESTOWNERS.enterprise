@@ -525,6 +525,8 @@
 /pkg/k8s/apis/isovalent.com/v1alpha1/privatenetwork_types.go @isovalent/private-networking
 /pkg/k8s/apis/isovalent.com/v1/bgp_*_types.go @isovalent/traffic-engineering
 /pkg/k8s/apis/isovalent.com/v1/iegp_types.go @isovalent/egress-gateway
+/pkg/k8s/apis/isovalent.com/v1/icnp_types.go @isovalent/policy-identity-networking
+/pkg/k8s/apis/isovalent.com/v1/inp_types.go @isovalent/policy-identity-networking
 /pkg/k8s/apis/isovalent.com/*/zz_generated.deepcopy.go @isovalent/ignore-k8s-crd
 /pkg/k8s/apis/isovalent.com/*/zz_generated.deepequal.go @isovalent/ignore-k8s-crd
 /pkg/k8s/synced/enterprise_* @isovalent/sig-k8s
