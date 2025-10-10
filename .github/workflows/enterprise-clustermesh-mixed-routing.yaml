@@ -536,11 +536,13 @@ jobs:
         shell: bash -ex {0}
         run: |
           CLIENT_CTX=${{ matrix.routing != 'mixed' && env.contextName2 || env.contextName1 }}
-          kubectl --context ${{ env.contextName1 }} get po -n cilium-test -o wide -l kind=test-conn-disrupt
-          kubectl --context $CLIENT_CTX get po -n cilium-test -o wide -l kind=test-conn-disrupt
-          kubectl --context ${{ env.contextName1 }} logs -n cilium-test -l kind=test-conn-disrupt --prefix --timestamps
-          kubectl --context $CLIENT_CTX logs -n cilium-test -l kind=test-conn-disrupt --prefix --timestamps
-          kubectl --context $CLIENT_CTX logs -n cilium-test -l kind=test-conn-disrupt --prefix --previous --ignore-errors --timestamps
+          NAMESPACE=$(kubectl get namespace --context ${{ env.contextName1 }} \
+            -l "app.kubernetes.io/name=cilium-cli" -o custom-columns=NAME:.metadata.name --no-headers | head -1)
+          kubectl --context ${{ env.contextName1 }} get po -n ${NAMESPACE} -o wide -l kind=test-conn-disrupt
+          kubectl --context $CLIENT_CTX get po -n ${NAMESPACE} -o wide -l kind=test-conn-disrupt
+          kubectl --context ${{ env.contextName1 }} logs -n ${NAMESPACE} -l kind=test-conn-disrupt --prefix --timestamps
+          kubectl --context $CLIENT_CTX logs -n ${NAMESPACE} -l kind=test-conn-disrupt --prefix --timestamps
+          kubectl --context $CLIENT_CTX logs -n ${NAMESPACE} -l kind=test-conn-disrupt --prefix --previous --ignore-errors --timestamps
 
       - name: Assert that long running connections were not disrupted (${{ join(matrix.*, ', ') }})
         run: |
