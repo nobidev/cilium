@@ -71,16 +71,6 @@ jobs:
             source-repo: isovalent/hubble-ui-enterprise
             source-path: hubble-ui-frontend
 
-          - component: CILIUM_ETCD_OPERATOR
-            image-name: cilium-etcd-operator-ubi-ci
-            docker-context: cilium-etcd-operator
-            dockerfile: enterprise/images/cilium-etcd-operator/Dockerfile
-            # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
-            build-from-source: true
-            source-repo: cilium/cilium-etcd-operator
-            source-path: cilium-etcd-operator
-
     uses: ./.github/workflows/enterprise-external-images.yaml
     secrets: inherit
     with:
