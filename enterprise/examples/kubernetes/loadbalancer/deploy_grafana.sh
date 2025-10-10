@@ -11,9 +11,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 kubectl create namespace monitoring || true
 
 kubectl -n monitoring create configmap grafana-dashboards \
-	--from-file=lb.json=enterprise/dashboards/loadbalancer/grafana/lb.json \
-	--from-file=t2.json=enterprise/dashboards/loadbalancer/grafana/t2.json \
-	--from-file=operator.json=enterprise/dashboards/loadbalancer/grafana/operator.json
+	--from-file=lb.json=enterprise/dashboards/loadbalancer/grafana/lb.json
 kubectl -n monitoring label configmap grafana-dashboards grafana_dashboard=1
 
 # deploy prometheus and grafana
