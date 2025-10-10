@@ -374,6 +374,12 @@ func (r0 *Route) Equal(r1 *Route) bool {
 	return r0.NextHop.Equal(r1.NextHop)
 }
 
+// VRFRoute is a pair of VRF ID and Route
+type VRFRoute struct {
+	VRFID uint32
+	Route Route
+}
+
 const (
 	// OwnerUnknown is a special owner value that indicates that the owner
 	// is unknown. This is mainly used for routes that are restored from
