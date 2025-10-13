@@ -17,10 +17,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // IDPool handles the allocation of IDs for private networks.
 type IDPool struct {
+	mu        lock.Mutex
 	next, max tables.NetworkID
 	used      sets.Set[tables.NetworkID]
 }
@@ -41,6 +43,9 @@ func newDefaultIDPool() *IDPool {
 }
 
 func (idp *IDPool) acquire() (tables.NetworkID, error) {
+	idp.mu.Lock()
+	defer idp.mu.Unlock()
+
 	if idp.used.Len() == int(idp.max)+1 {
 		return tables.NetworkIDReserved, errors.New("ID pool exhausted")
 	}
@@ -62,6 +67,8 @@ func (idp *IDPool) acquire() (tables.NetworkID, error) {
 func (idp *IDPool) release(id tables.NetworkID) {
 	// Cannot release the reserved network ID.
 	if id != tables.NetworkIDReserved {
+		idp.mu.Lock()
 		idp.used.Delete(id)
+		idp.mu.Unlock()
 	}
 }
