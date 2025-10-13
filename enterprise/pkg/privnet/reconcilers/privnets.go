@@ -14,7 +14,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"iter"
 	"log/slog"
 	"net/netip"
 
@@ -59,6 +58,9 @@ var PrivateNetworksCell = cell.Group(
 
 		// Register the reconciler reacting to device changes.
 		(*PrivateNetworks).registerDeviceChangesReconciler,
+
+		// Register the reconciler to release stale network IDs.
+		(*PrivateNetworks).registerIDsReleaser,
 	),
 )
 
@@ -123,12 +125,10 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *IDPool, sync promise.Pro
 		MetricScope:   "ClusterwidePrivateNetwork",
 		CRDSync:       sync,
 
-		// Use TransformMany, instead of Transform, to get the signal whether the
-		// entry is being upserted or deleted.
-		TransformMany: func(txn statedb.ReadTxn, deleted bool, obj any) (toInsert, toDelete iter.Seq[tables.PrivateNetwork]) {
+		Transform: func(txn statedb.ReadTxn, obj any) (tables.PrivateNetwork, bool) {
 			privnet, ok := obj.(*iso_v1alpha1.ClusterwidePrivateNetwork)
 			if !ok {
-				return nil, nil
+				return tables.PrivateNetwork{}, false
 			}
 
 			// Retrieve the current ID, if already assigned.
@@ -138,7 +138,7 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *IDPool, sync promise.Pro
 			}
 
 			// Attempt to acquire a new ID, if not already assigned.
-			if id == tables.NetworkIDReserved && !deleted {
+			if id == tables.NetworkIDReserved {
 				var err error
 				id, err = idpool.acquire()
 				if err != nil {
@@ -146,14 +146,7 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *IDPool, sync promise.Pro
 						logfields.Error, err,
 						logfields.ClusterwidePrivateNetwork, privnet.Name,
 					)
-					return nil, nil
-				}
-			}
-
-			if deleted {
-				idpool.release(id)
-				return nil, func(yield func(tables.PrivateNetwork) bool) {
-					yield(tables.PrivateNetwork{Name: tables.NetworkName(privnet.Name)})
+					return tables.PrivateNetwork{}, false
 				}
 			}
 
@@ -176,16 +169,14 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *IDPool, sync promise.Pro
 			routes := pn.extractRoutes(privnet)
 			subnets := pn.extractSubnets(privnet)
 
-			return func(yield func(tables.PrivateNetwork) bool) {
-				yield(tables.PrivateNetwork{
-					Name:      tables.NetworkName(privnet.Name),
-					ID:        id,
-					INBs:      inbs,
-					Interface: iface,
-					Routes:    routes,
-					Subnets:   subnets,
-				})
-			}, nil
+			return tables.PrivateNetwork{
+				Name:      tables.NetworkName(privnet.Name),
+				ID:        id,
+				INBs:      inbs,
+				Interface: iface,
+				Routes:    routes,
+				Subnets:   subnets,
+			}, true
 		},
 	}
 
@@ -309,6 +300,46 @@ func (pn *PrivateNetworks) reconcileDeviceChanges(ctx context.Context, health ce
 			return nil
 		}
 	}
+}
+
+func (pn *PrivateNetworks) registerIDsReleaser(idpool *IDPool) {
+	if !pn.cfg.Enabled {
+		return
+	}
+
+	pn.jg.Add(
+		job.OneShot(
+			"private-networks-release-ids",
+			func(ctx context.Context, health cell.Health) error {
+				wtx := pn.db.WriteTxn(pn.tbl)
+				changeIter, _ := pn.tbl.Changes(wtx)
+				wtx.Commit()
+
+				health.OK("Primed")
+				for {
+					var count uint
+					changes, watch := changeIter.Next(pn.db.ReadTxn())
+
+					for change := range changes {
+						if change.Deleted && change.Object.ID != tables.NetworkIDReserved {
+							idpool.release(change.Object.ID)
+							count++
+						}
+					}
+
+					if count > 0 {
+						health.OK(fmt.Sprintf("%d IDs released", count))
+					}
+
+					select {
+					case <-watch:
+					case <-ctx.Done():
+						return nil
+					}
+				}
+			},
+		),
+	)
 }
 
 func (pn *PrivateNetworks) newInterface(name string, dev *dptables.Device) tables.PrivateNetworkInterface {
