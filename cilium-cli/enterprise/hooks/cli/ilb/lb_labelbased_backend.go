@@ -19,14 +19,14 @@ import (
 )
 
 func TestLabelBasedBackend_T1T2(t T) {
-	testLabelBasedBackend(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeType(isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1T2))
+	testLabelBasedBackend(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeType(isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1T2), nil)
 }
 
 func TestLabelBasedBackend_T1Only(t T) {
-	testLabelBasedBackend(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeType(isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1Only))
+	testLabelBasedBackend(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeType(isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1Only), map[string]string{"service.cilium.io/node": "t1"})
 }
 
-func testLabelBasedBackend(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) {
+func testLabelBasedBackend(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType, nodeSelector map[string]string) {
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
@@ -44,7 +44,7 @@ func testLabelBasedBackend(t T, mode isovalentv1alpha1.LBTCPProxyForceDeployment
 	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
-	desiredBackends := scenario.AddAndWaitForK8sBackendApplications(testName, 2, "")
+	desiredBackends := scenario.AddAndWaitForK8sBackendApplications(testName, 2, "", nodeSelector)
 
 	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
@@ -128,7 +128,7 @@ func TestHTTPMultiNamespaceLabelBased(t T) {
 
 	t.Log("Creating backend apps in separate namespaces...")
 	for i, scenario := range scenarios {
-		scenario.AddAndWaitForK8sBackendApplications("backend-"+strconv.Itoa(i+1), 1, "")
+		scenario.AddAndWaitForK8sBackendApplications("backend-"+strconv.Itoa(i+1), 1, "", nil)
 	}
 
 	t.Log("Creating clients and add BGP peering ...")

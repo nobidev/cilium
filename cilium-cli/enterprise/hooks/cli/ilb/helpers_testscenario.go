@@ -443,7 +443,7 @@ func (r *lbTestScenario) desiredBackendK8sService(name string, port int32, targe
 	}
 }
 
-func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(name string, replicas int32, backendTLSCertHostname string) *corev1.PodList {
+func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(name string, replicas int32, backendTLSCertHostname string, nodeSelector map[string]string) *corev1.PodList {
 	var deployment *appsv1.Deployment
 
 	if len(backendTLSCertHostname) > 0 {
@@ -454,6 +454,15 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(name string, replic
 		deployment = r.desiredBackendK8sDeployment(r.t, name, replicas, backendApplicationConfig{
 			h2cEnabled: true,
 		})
+	}
+
+	if len(nodeSelector) > 0 {
+		if deployment.Spec.Template.Spec.NodeSelector == nil {
+			deployment.Spec.Template.Spec.NodeSelector = make(map[string]string, len(nodeSelector))
+		}
+		for k, v := range nodeSelector {
+			deployment.Spec.Template.Spec.NodeSelector[k] = v
+		}
 	}
 
 	if _, err := r.k8sCli.AppsV1().Deployments(r.k8sNamespace).Create(r.t.Context(), deployment, metav1.CreateOptions{}); err != nil {

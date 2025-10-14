@@ -208,7 +208,7 @@ func TestHTTPMultiNamespaceInClusterHostname(t T) {
 
 	t.Log("Creating backend apps in separate namespaces...")
 	for i, scenario := range scenarios {
-		scenario.AddAndWaitForK8sBackendApplications("backend-"+strconv.Itoa(i+1), 1, "")
+		scenario.AddAndWaitForK8sBackendApplications("backend-"+strconv.Itoa(i+1), 1, "", nil)
 	}
 
 	t.Log("Creating clients and add BGP peering ...")

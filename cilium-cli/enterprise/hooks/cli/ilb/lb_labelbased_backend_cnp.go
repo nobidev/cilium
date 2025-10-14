@@ -45,7 +45,7 @@ func testLabelBasedBackendCNP(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploym
 	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
-	_ = scenario.AddAndWaitForK8sBackendApplications(testName, 2, "")
+	_ = scenario.AddAndWaitForK8sBackendApplications(testName, 2, "", map[string]string{"service.cilium.io/node": "t2"})
 
 	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
