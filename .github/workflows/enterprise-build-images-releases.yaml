@@ -372,7 +372,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.1
+          go-version: 1.25.3
 
       - name: Getting image tag
         id: tag
@@ -435,7 +435,7 @@ jobs:
         working-directory: ./enterprise/olm
         env:
           # renovate: datasource=github-releases depName=mikefarah/yq
-          yq_version: 4.47.2
+          yq_version: 4.48.1
           # renovate: datasource=github-releases depName=operator-framework/operator-registry
           opm_version: 1.60.0
           VERSION: "${{ steps.tag.outputs.tag }}"

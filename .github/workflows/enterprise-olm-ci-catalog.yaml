@@ -102,7 +102,7 @@ jobs:
         working-directory: ./enterprise/olm
         env:
           # renovate: datasource=github-releases depName=mikefarah/yq
-          yq_version: 4.47.2
+          yq_version: 4.48.1
           # renovate: datasource=github-releases depName=operator-framework/operator-registry
           opm_version: 1.60.0
           # opm tooling cannot cope with anything that is not semver... and not with semver either... forced to use - when + would be correct
