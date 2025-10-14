@@ -521,7 +521,7 @@ func (n0 *VXLANEncap) Equal(_n1 NextHop) bool {
 }
 
 func (s *VXLANEncap) String() string {
-	return fmt.Sprintf("VXLANEncap vni %d vtep %s inner-dst-mac %s", s.VNI, s.VTEPIP, s.InnerDstMAC)
+	return fmt.Sprintf("VXLANEncap vni %s vtep %s inner-dst-mac %s", s.VNI, s.VTEPIP, s.InnerDstMAC)
 }
 
 // This type is defined for making GC trigger channel injectable in Hive. This
