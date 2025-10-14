@@ -529,7 +529,7 @@ func (s *VXLANEncap) String() string {
 // to remove this type and call time.After directly within scheduleInitialGC.
 type gcChFn func() <-chan time.Time
 
-// This function is called from the Invoke hook before any other route owners
+// restoreRoutes is called from the Start hook before any other route owners
 // start to write to the RIB. It first fetches all routes from the data planes.
 // This will be done with the blocking call so that we can guarantee that the
 // RIB is filled before any route owner starts writing to it.
@@ -554,10 +554,17 @@ type gcChFn func() <-chan time.Time
 //
 // Inspired by the Zebra's graceful-restart feature (-K option).
 // https://docs.frrouting.org/en/latest/zebra.html#cmdoption-zebra-K
-func scheduleInitialGC(jg job.Group, r *RIB, fn gcChFn) {
-	restoreRoutes(r)
+func scheduleInitialGC(lc cell.Lifecycle, jg job.Group, r *RIB, fn gcChFn) {
+	lc.Append(cell.Hook{
+		OnStart: func(_ cell.HookContext) error {
+			restoreRoutes(r)
+			return nil
+		},
+	})
 
+	// Make sure the count down starts here.
 	ch := fn()
+
 	jg.Add(job.OneShot("initial-gc", func(ctx context.Context, health cell.Health) error {
 		select {
 		case <-ch:
