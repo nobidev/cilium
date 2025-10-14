@@ -10,7 +10,7 @@ spec:
     name: default
   debug:
     enabled: true
-    verbose: "envoy"
+    verbose: "envoy datapath"
   bpf:
     monitorAggregation: "none"
     masquerade: true
@@ -36,9 +36,17 @@ spec:
   autoDirectNodeRoutes: true
   directRoutingSkipUnreachable: true
   ipv4NativeRoutingCIDR: ${POD_CIDR}
+  operator:
+    prometheus:
+      enabled: true
+      serviceMonitor:
+        enabled: true
   prometheus:
+    enabled: true
     serviceMonitor:
-      enabled: false
+      enabled: true
+    controllerGroupMetrics:
+      - all
   hubble:
     enabled: false
   sessionAffinity: true
@@ -82,6 +90,11 @@ spec:
     dsrDispatch: ipip
     mode: dsr
   envoy:
+    # disable probes to prevent k8s kubelet killing the Pods during maintenance / draining.
+    startupProbe:
+      enabled: false
+    livenessProbe:
+      enabled: false
     nodeSelector:
       service.cilium.io/node: "t2"
     dnsPolicy: ClusterFirstWithHostNet
