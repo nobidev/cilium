@@ -110,7 +110,7 @@ func (fp *enterpriseFeaturesParams) IsFQDNOfflineModeEnabled() bool {
 }
 
 func (fp *enterpriseFeaturesParams) IsMulticastEnabled() bool {
-	return fp.Multicast.IsEnabled()
+	return fp.Multicast.MulticastEnabled
 }
 
 func (fp *enterpriseFeaturesParams) IsMultiNetworkEnabled() bool {
