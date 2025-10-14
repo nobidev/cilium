@@ -648,10 +648,8 @@ jobs:
             fi
             cilium version
             cilium lb status -n cilium
-            # TODO: investigate and fix the skipped tests
             cilium lb test -n cilium \
                            --mode=single-node \
-                           --run '!^TestNodeMaintenance_T1_T1T2_TCPProxy$' \
                            --sysdump-on-failure \
                            --sysdump-output-filename ilb-sysdump \
                            --verbose

@@ -62,6 +62,11 @@ spec:
     bgpControlPlane:
       enabled: true
       enableServiceHealthChecking: true
+      nodeMaintenance:
+        # immediate withdraw -> as any other T1 node can take over (at least in T1&T2 deployment mode)
+        withdrawTime: 1ms
+        gracefulShutdownCommunity:
+          enabled: false # recommended if BGP router supports it
     egressGatewayHA:
       enabled: false
     featureGate:
