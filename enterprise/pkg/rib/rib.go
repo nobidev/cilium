@@ -282,7 +282,7 @@ func (r *RIB) selectBestPath(dest *Destination) (*Route, bool) {
 			best = rt
 		} else if rt.Protocol.AdminDistance() < best.Protocol.AdminDistance() {
 			best = rt
-		} else if strings.Compare(rt.Owner, best.Owner) < 0 {
+		} else if rt.Protocol.AdminDistance() == best.Protocol.AdminDistance() && strings.Compare(rt.Owner, best.Owner) < 0 {
 			best = rt
 		}
 	}

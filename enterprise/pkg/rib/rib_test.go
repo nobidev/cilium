@@ -261,13 +261,13 @@ func TestRIB_selectBestPath(t *testing.T) {
 	route0 := &Route{
 		Prefix:   prefix,
 		Protocol: ProtocolEBGP,
-		Owner:    "owner0",
+		Owner:    "owner1",
 		NextHop:  &testNextHop{},
 	}
 	route1 := &Route{
 		Prefix:   prefix,
 		Protocol: ProtocolIBGP,
-		Owner:    "owner1",
+		Owner:    "owner0",
 		NextHop:  &testNextHop{},
 	}
 	route2 := &Route{
