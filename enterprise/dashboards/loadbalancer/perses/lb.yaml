@@ -1,6 +1,6 @@
 kind: Dashboard
 metadata:
-    name: eezurxnh69logb
+    name: bf0ztvrls2mtcc
     createdAt: 0001-01-01T00:00:00Z
     updatedAt: 0001-01-01T00:00:00Z
     version: 0
@@ -102,6 +102,78 @@ spec:
             kind: Panel
             spec:
                 display:
+                    name: Connections per Second
+                    description: Client connections per second by connection disposition for the selected service. Calculated from a linear rate estimation based on a cumulative total of each connection disposition.
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: bottom
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: counts/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    sum(floor(rate(
+                                        envoy_http_downstream_cx_total{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
+                                    ))) > 0 or vector(0)
+                                seriesNameFormat: Total
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    sum(floor(rate(
+                                        envoy_http_downstream_cx_active{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
+                                    ))) > 0 or vector(0)
+                                seriesNameFormat: Active
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    sum(floor(rate(
+                                        envoy_http_downstream_cx_destroy{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
+                                    ))) > 0 or vector(0)
+                                seriesNameFormat: Closed
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    sum(floor(rate(
+                                        envoy_http_downstream_cx_destroy_remote{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
+                                    ))) > 0 or vector(0)
+                                seriesNameFormat: Client Closed
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    sum(floor(rate(
+                                        envoy_http_downstream_cx_destroy_local{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
+                                    ))) > 0 or vector(0)
+                                seriesNameFormat: ILB Closed
+        "0_1":
+            kind: Panel
+            spec:
+                display:
                     name: Requests per Second
                     description: Requests per second for the selected service by HTTP response code class. Calculated from a linear rate estimation based on a cumulative count of each response type.
                 plugin:
@@ -172,12 +244,12 @@ spec:
                             spec:
                                 query: "sum(floor(rate(\n    envoy_http_downstream_rq_xx{envoy_response_code_class=\"5\", envoy_http_conn_manager_prefix=~\"http_${namespace}_${service_name}\"}[$__rate_interval]\n))) > 0 or vector(0) "
                                 seriesNameFormat: 5xx
-        "0_1":
+        "0_2":
             kind: Panel
             spec:
                 display:
-                    name: Connections per Second
-                    description: Client connections per second by connection disposition for the selected service. Calculated from a linear rate estimation based on a cumulative total of each connection disposition.
+                    name: Bytes per Second
+                    description: Traffic rates for the selected service as observed for client connections. Calculated from a linear rate estimation based on a cumulative total of bytes for each traffic direction.
                 plugin:
                     kind: TimeSeriesChart
                     spec:
@@ -190,19 +262,13 @@ spec:
                             connectNulls: false
                             display: line
                             lineWidth: 1
-                        yAxis:
-                            format:
-                                unit: counts/sec
                 queries:
                     - kind: TimeSeriesQuery
                       spec:
                         plugin:
                             kind: PrometheusTimeSeriesQuery
                             spec:
-                                query: |-
-                                    sum(floor(rate(
-                                        envoy_http_downstream_cx_total{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
-                                    ))) > 0 or vector(0)
+                                query: "floor(\n    sum(rate(envoy_http_downstream_cx_tx_bytes_total{envoy_http_conn_manager_prefix=~\"http_${namespace}_${service_name}\"}[$__rate_interval]))\n    + \n    sum(rate(envoy_http_downstream_cx_rx_bytes_total{envoy_http_conn_manager_prefix=~\"http_${namespace}_${service_name}\"}[$__rate_interval]))\n) > 0 or vector(0)"
                                 seriesNameFormat: Total
                     - kind: TimeSeriesQuery
                       spec:
@@ -211,9 +277,9 @@ spec:
                             spec:
                                 query: |-
                                     sum(floor(rate(
-                                        envoy_http_downstream_cx_active{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
+                                        envoy_http_downstream_cx_rx_bytes_total{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
                                     ))) > 0 or vector(0)
-                                seriesNameFormat: Active
+                                seriesNameFormat: Receive
                     - kind: TimeSeriesQuery
                       spec:
                         plugin:
@@ -221,35 +287,15 @@ spec:
                             spec:
                                 query: |-
                                     sum(floor(rate(
-                                        envoy_http_downstream_cx_destroy{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
+                                        envoy_http_downstream_cx_tx_bytes_total{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
                                     ))) > 0 or vector(0)
-                                seriesNameFormat: Closed
-                    - kind: TimeSeriesQuery
-                      spec:
-                        plugin:
-                            kind: PrometheusTimeSeriesQuery
-                            spec:
-                                query: |-
-                                    sum(floor(rate(
-                                        envoy_http_downstream_cx_destroy_remote{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
-                                    ))) > 0 or vector(0)
-                                seriesNameFormat: Client Closed
-                    - kind: TimeSeriesQuery
-                      spec:
-                        plugin:
-                            kind: PrometheusTimeSeriesQuery
-                            spec:
-                                query: |-
-                                    sum(floor(rate(
-                                        envoy_http_downstream_cx_destroy_local{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
-                                    ))) > 0 or vector(0)
-                                seriesNameFormat: ILB Closed
-        "0_2":
+                                seriesNameFormat: Transmit
+        "0_3":
             kind: Panel
             spec:
                 display:
-                    name: Errors Per Second
-                    description: The rate of 4xx and 5xx errors per second for the selected service. Calculated from a linear rate estimation based on a cumulative total of each error type.
+                    name: Health Status
+                    description: The total number of healthy and unhealthy health checks for the service as observed at the Tier 2 layer. The total number will most often be the number of Tier 2 nodes multiplied by the number of Backend Pools. For example, a service with 10 backend pools running on a cluster with 3 Tier 2 nodes will have a total of 30 health checks that should be healthy at any given time.
                 plugin:
                     kind: TimeSeriesChart
                     spec:
@@ -262,31 +308,43 @@ spec:
                             connectNulls: false
                             display: line
                             lineWidth: 1
-                        yAxis:
-                            format:
-                                unit: counts/sec
                 queries:
                     - kind: TimeSeriesQuery
                       spec:
                         plugin:
                             kind: PrometheusTimeSeriesQuery
                             spec:
-                                query: |-
-                                    sum (floor(rate(
-                                        envoy_listener_http_downstream_rq_xx{envoy_response_code_class="4", envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
-                                    ))) > 0 or vector(0)
-                                seriesNameFormat: 4xx
+                                query: sum(envoy_cluster_membership_total{envoy_cluster_name=~"^${namespace}/lbfe-${service_name}/backend_cluster_.*"})
+                                seriesNameFormat: Total
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: sum(envoy_cluster_membership_healthy{envoy_cluster_name=~"^${namespace}/lbfe-${service_name}/backend_cluster_.*"})
+                                seriesNameFormat: Healthy
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: sum(envoy_cluster_membership_total{envoy_cluster_name=~"^${namespace}/lbfe-${service_name}/backend_cluster_.*"}) - sum(envoy_cluster_membership_healthy{envoy_cluster_name=~"^${namespace}/lbfe-${service_name}/backend_cluster_.*"})
+                                seriesNameFormat: Unhealthy
                     - kind: TimeSeriesQuery
                       spec:
                         plugin:
                             kind: PrometheusTimeSeriesQuery
                             spec:
                                 query: |-
-                                    sum (floor(rate(
-                                        envoy_listener_http_downstream_rq_xx{envoy_response_code_class="5", envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
-                                    ))) > 0 or vector(0)
-                                seriesNameFormat: 5xx
-        "0_3":
+                                    clamp_max(
+                                      absent(
+                                        sum(
+                                          envoy_cluster_membership_total{envoy_cluster_name=~"^${namespace}/lbfe-${service_name}/backend_cluster_.*"}
+                                        )
+                                      ),
+                                    0)
+                                seriesNameFormat: None
+        "0_4":
             kind: Panel
             spec:
                 display:
@@ -368,52 +426,6 @@ spec:
                             spec:
                                 query: vector($latency_threshold)
                                 seriesNameFormat: threshold
-        "0_4":
-            kind: Panel
-            spec:
-                display:
-                    name: Bytes per Second
-                    description: Traffic rates for the selected service as observed for client connections. Calculated from a linear rate estimation based on a cumulative total of bytes for each traffic direction.
-                plugin:
-                    kind: TimeSeriesChart
-                    spec:
-                        legend:
-                            mode: list
-                            position: bottom
-                            values: []
-                        visual:
-                            areaOpacity: 0
-                            connectNulls: false
-                            display: line
-                            lineWidth: 1
-                queries:
-                    - kind: TimeSeriesQuery
-                      spec:
-                        plugin:
-                            kind: PrometheusTimeSeriesQuery
-                            spec:
-                                query: "floor(\n    sum(rate(envoy_http_downstream_cx_tx_bytes_total{envoy_http_conn_manager_prefix=~\"http_${namespace}_${service_name}\"}[$__rate_interval]))\n    + \n    sum(rate(envoy_http_downstream_cx_rx_bytes_total{envoy_http_conn_manager_prefix=~\"http_${namespace}_${service_name}\"}[$__rate_interval]))\n) > 0 or vector(0)"
-                                seriesNameFormat: Total
-                    - kind: TimeSeriesQuery
-                      spec:
-                        plugin:
-                            kind: PrometheusTimeSeriesQuery
-                            spec:
-                                query: |-
-                                    sum(floor(rate(
-                                        envoy_http_downstream_cx_rx_bytes_total{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
-                                    ))) > 0 or vector(0)
-                                seriesNameFormat: Receive
-                    - kind: TimeSeriesQuery
-                      spec:
-                        plugin:
-                            kind: PrometheusTimeSeriesQuery
-                            spec:
-                                query: |-
-                                    sum(floor(rate(
-                                        envoy_http_downstream_cx_tx_bytes_total{envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
-                                    ))) > 0 or vector(0)
-                                seriesNameFormat: Transmit
         "0_5":
             kind: Panel
             spec:
@@ -476,6 +488,48 @@ spec:
                     spec:
                         text: '**Migration from Grafana not supported !**'
         "0_7":
+            kind: Panel
+            spec:
+                display:
+                    name: Errors Per Second
+                    description: The rate of 4xx and 5xx errors per second for the selected service. Calculated from a linear rate estimation based on a cumulative total of each error type.
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: bottom
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                        yAxis:
+                            format:
+                                unit: counts/sec
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    sum (floor(rate(
+                                        envoy_listener_http_downstream_rq_xx{envoy_response_code_class="4", envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
+                                    ))) > 0 or vector(0)
+                                seriesNameFormat: 4xx
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    sum (floor(rate(
+                                        envoy_listener_http_downstream_rq_xx{envoy_response_code_class="5", envoy_http_conn_manager_prefix=~"http_${namespace}_${service_name}"}[$__rate_interval]
+                                    ))) > 0 or vector(0)
+                                seriesNameFormat: 5xx
+        "0_8":
             kind: Panel
             spec:
                 display:
@@ -654,7 +708,7 @@ spec:
                                         )
                                     )), 0)
                                 seriesNameFormat: Offline
-        "0_8":
+        "0_9":
             kind: Panel
             spec:
                 display:
@@ -1071,6 +1125,60 @@ spec:
                                         )
                                     )),0)
                                 seriesNameFormat: Offline
+        "2_3":
+            kind: Panel
+            spec:
+                display:
+                    name: Health Status
+                    description: The total number of healthy and unhealthy health checks for the service as observed at the Tier 2 layer. The total number will most often be the number of Tier 2 nodes multiplied by the number of Backend Pools. For example, a service with 10 backend pools running on a cluster with 3 Tier 2 nodes will have a total of 30 health checks that should be healthy at any given time.
+                plugin:
+                    kind: TimeSeriesChart
+                    spec:
+                        legend:
+                            mode: list
+                            position: bottom
+                            values: []
+                        visual:
+                            areaOpacity: 0
+                            connectNulls: false
+                            display: line
+                            lineWidth: 1
+                queries:
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: sum(envoy_cluster_membership_total{envoy_cluster_name=~"^${namespace}/lbfe-${service_name}/backend_cluster_.*"})
+                                seriesNameFormat: Total
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: sum(envoy_cluster_membership_healthy{envoy_cluster_name=~"^${namespace}/lbfe-${service_name}/backend_cluster_.*"})
+                                seriesNameFormat: Healthy
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: sum(envoy_cluster_membership_total{envoy_cluster_name=~"^${namespace}/lbfe-${service_name}/backend_cluster_.*"}) - sum(envoy_cluster_membership_healthy{envoy_cluster_name=~"^${namespace}/lbfe-${service_name}/backend_cluster_.*"})
+                                seriesNameFormat: Unhealthy
+                    - kind: TimeSeriesQuery
+                      spec:
+                        plugin:
+                            kind: PrometheusTimeSeriesQuery
+                            spec:
+                                query: |-
+                                    clamp_max(
+                                      absent(
+                                        sum(
+                                          envoy_cluster_membership_total{envoy_cluster_name=~"^${namespace}/lbfe-${service_name}/backend_cluster_.*"}
+                                        )
+                                      ),
+                                    0)
+                                seriesNameFormat: None
         "3_0":
             kind: Panel
             spec:
@@ -1670,16 +1778,22 @@ spec:
                     $ref: '#/spec/panels/0_6'
                 - x: 0
                   "y": 28
-                  width: 12
+                  width: 8
                   height: 9
                   content:
                     $ref: '#/spec/panels/0_7'
-                - x: 12
+                - x: 8
                   "y": 28
-                  width: 12
+                  width: 8
                   height: 9
                   content:
                     $ref: '#/spec/panels/0_8'
+                - x: 16
+                  "y": 28
+                  width: 8
+                  height: 9
+                  content:
+                    $ref: '#/spec/panels/0_9'
         - kind: Grid
           spec:
             display:
@@ -1730,6 +1844,12 @@ spec:
                   height: 9
                   content:
                     $ref: '#/spec/panels/2_2'
+                - x: 0
+                  "y": 65
+                  width: 24
+                  height: 9
+                  content:
+                    $ref: '#/spec/panels/2_3'
         - kind: Grid
           spec:
             display:
@@ -1738,37 +1858,37 @@ spec:
                     open: true
             items:
                 - x: 0
-                  "y": 66
+                  "y": 75
                   width: 12
                   height: 9
                   content:
                     $ref: '#/spec/panels/3_0'
                 - x: 12
-                  "y": 66
+                  "y": 75
                   width: 12
                   height: 9
                   content:
                     $ref: '#/spec/panels/3_1'
                 - x: 0
-                  "y": 75
+                  "y": 84
                   width: 6
                   height: 9
                   content:
                     $ref: '#/spec/panels/3_2'
                 - x: 6
-                  "y": 75
+                  "y": 84
                   width: 6
                   height: 9
                   content:
                     $ref: '#/spec/panels/3_3'
                 - x: 12
-                  "y": 75
+                  "y": 84
                   width: 6
                   height: 9
                   content:
                     $ref: '#/spec/panels/3_4'
                 - x: 18
-                  "y": 75
+                  "y": 84
                   width: 6
                   height: 9
                   content:
@@ -1781,19 +1901,19 @@ spec:
                     open: true
             items:
                 - x: 0
-                  "y": 85
+                  "y": 94
                   width: 8
                   height: 9
                   content:
                     $ref: '#/spec/panels/4_0'
                 - x: 8
-                  "y": 85
+                  "y": 94
                   width: 8
                   height: 9
                   content:
                     $ref: '#/spec/panels/4_1'
                 - x: 16
-                  "y": 85
+                  "y": 94
                   width: 8
                   height: 9
                   content:
@@ -1806,43 +1926,43 @@ spec:
                     open: true
             items:
                 - x: 0
-                  "y": 95
+                  "y": 104
                   width: 24
                   height: 9
                   content:
                     $ref: '#/spec/panels/5_0'
                 - x: 0
-                  "y": 104
+                  "y": 113
                   width: 8
                   height: 9
                   content:
                     $ref: '#/spec/panels/5_1'
                 - x: 8
-                  "y": 104
+                  "y": 113
                   width: 8
                   height: 9
                   content:
                     $ref: '#/spec/panels/5_2'
                 - x: 16
-                  "y": 104
+                  "y": 113
                   width: 8
                   height: 9
                   content:
                     $ref: '#/spec/panels/5_3'
                 - x: 0
-                  "y": 113
+                  "y": 122
                   width: 8
                   height: 9
                   content:
                     $ref: '#/spec/panels/5_4'
                 - x: 8
-                  "y": 113
+                  "y": 122
                   width: 8
                   height: 9
                   content:
                     $ref: '#/spec/panels/5_5'
                 - x: 16
-                  "y": 113
+                  "y": 122
                   width: 8
                   height: 9
                   content:
