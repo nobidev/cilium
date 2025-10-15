@@ -1,7 +1,7 @@
 {{- if and
-  .Values.agent 
+  .Values.agent
   (eq (include "hubble.timescape.tls.enabled" .) "true")
-  (eq .Values.hubble.tls.auto.method "helm") 
+  (eq .Values.hubble.tls.auto.method "helm")
   (or
     (not .Values.hubble.timescape.clustermesh.primary.id)
     (eq (int64 .Values.hubble.timescape.clustermesh.primary.id) (int64 .Values.cluster.id))
@@ -13,9 +13,7 @@
 {{- $dns := list
   $cn
   (printf "hubble-timescape.%s.svc.cluster.local" .Release.Namespace)
-  (printf "hubble-timescape.%s.svc.cluster.local." .Release.Namespace)
   (printf "hubble-timescape.%s.svc" .Release.Namespace)
-  (printf "hubble-timescape.%s.svc." .Release.Namespace)
   "localhost"
 -}}
 {{- if .Values.hubble.timescape.tls.server.extraDnsNames }}

@@ -1,5 +1,5 @@
 {{- if and
-  .Values.agent 
+  .Values.agent
   (eq (include "hubble.timescape.tls.enabled" .) "true")
   (eq .Values.hubble.tls.auto.method "certmanager")
   (or
@@ -25,9 +25,7 @@ spec:
   dnsNames:
   - "hubble-timescape"
   - "hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local"
-  - "hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local."
   - "hubble-timescape.{{ .Release.Namespace }}.svc"
-  - "hubble-timescape.{{ .Release.Namespace }}.svc."
   - "localhost"
   {{- range $dns := .Values.hubble.timescape.tls.server.extraDnsNames }}
   - {{ $dns | quote }}
