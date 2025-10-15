@@ -58,8 +58,8 @@ func HubbleLogin(ctx context.Context, t *testing.T, username, password string) {
 		"--password-file", passwordFile.Name(),
 		"--scopes", "email",
 	}
-	_, err = HubbleCLI(ctx, loginArgs...)
-	require.NoError(t, err)
+	out, err := HubbleCLI(ctx, loginArgs...)
+	require.NoError(t, err, out)
 }
 
 func GetFlowsResponseFromReader(t *testing.T, out io.Reader) []*observerpb.GetFlowsResponse {

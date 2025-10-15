@@ -42,7 +42,7 @@ func TestHubbleObserve(t *testing.T) {
 
 		// unauthenticated requests should fail
 		out, err := helpers.HubbleCLI(ctx, "observe", "--namespace=kube-system")
-		require.Error(t, err)
+		require.Error(t, err, out)
 		assert.Contains(t, out, "Unauthenticated", "Should be unauthenticated")
 	})
 
@@ -55,14 +55,14 @@ func TestHubbleObserve(t *testing.T) {
 
 		t.Run("get all flows should succeed", func(t *testing.T) {
 			out, err := helpers.HubbleCLI(ctx, "observe", "-o", "json")
-			require.NoError(t, err)
+			require.NoError(t, err, out)
 
 			flows := helpers.GetFlowsResponseFromReader(t, strings.NewReader(out))
 			require.NotEmpty(t, flows, "expected flows to be returned")
 		})
 		t.Run("get flows in kube-system should succeed", func(t *testing.T) {
 			out, err := helpers.HubbleCLI(ctx, "observe", "-o", "json", "--namespace", "kube-system")
-			require.NoError(t, err)
+			require.NoError(t, err, out)
 
 			flows := helpers.GetFlowsResponseFromReader(t, strings.NewReader(out))
 			require.NotEmpty(t, flows, "expected flows to be returned")
@@ -78,17 +78,15 @@ func TestHubbleObserve(t *testing.T) {
 
 		t.Run("get all flows should fail", func(t *testing.T) {
 			out, err := helpers.HubbleCLI(ctx, "observe", "-o", "json")
-			require.Error(t, err)
+			require.Error(t, err, out)
 			assert.Contains(t, out, "PermissionDenied", "should get permission denied")
 		})
 		t.Run("get flows in kube-system should succeed", func(t *testing.T) {
 			out, err := helpers.HubbleCLI(ctx, "observe", "-o", "json", "--namespace", "kube-system")
-			require.NoError(t, err)
+			require.NoError(t, err, out)
 
 			flows := helpers.GetFlowsResponseFromReader(t, strings.NewReader(out))
 			require.NotEmpty(t, flows, "expected flows to be returned")
 		})
-
 	})
-
 }
