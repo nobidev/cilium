@@ -386,6 +386,7 @@
 /bpf/lib/egress_gateway_ha.h @isovalent/egress-gateway
 /bpf/tests/*egressgw_ha_*.c @isovalent/egress-gateway
 /bpf/tests/*egressgw_standalone_*.c @isovalent/egress-gateway
+/bpf/tests/enterprise_vxlan_helpers_tests.c @isovalent/cilium-datapath
 /bpf/tests/enterprise_tc_encryption_policy_mixed.c @isovalent/encryption
 /bpf/tests/lib/egressgw_ha.h @isovalent/egress-gateway
 /bpf/tests/lib/enterprise_encryption_policy.h @isovalent/encryption
@@ -409,16 +410,18 @@
 /cilium-cli/enterprise/hooks/sysdump/timescape*.go @isovalent/timescape
 /contrib/scripts/enterprise-cilium-mesh-smoke-test.sh @isovalent/cilium-mesh
 /contrib/scripts/enterprise-k8s-manifests-gen.sh @isovalent/sig-k8s
-/contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
-/contrib/testing/enterprise-kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer
+/contrib/scripts/enterprise-kind-cilium-mesh.sh @isovalent/cilium-mesh
 /contrib/testing/enterprise-cilium-install-cluster*.yaml @isovalent/cilium-mesh
+/contrib/testing/enterprise-kind.yaml @isovalent/infrastructure
+/contrib/testing/enterprise-kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer
+/contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
 /Makefile.fqdn-proxy @isovalent/dns-proxy
 /renovate.json5 @isovalent/infrastructure
 *podnetwork* @isovalent/multi-network
+/enterprise/Makefile @isovalent/cni @isovalent/hubble-api
 /enterprise/api/extensions @isovalent/hubble-api
+/enterprise/api/v1 @isovalent/cilium-agent @isovalent/cni
 /enterprise/bugtool @isovalent/cni
-/enterprise/plugins/cilium-cni/ @isovalent/cilium-agent
-/enterprise/plugins/cilium-cni/pkg/multinetwork/ @isovalent/multi-network
 /enterprise/cilium-dbg/ @isovalent/cli
 /enterprise/cilium-dbg/cmd/*bpf_*egress* @isovalent/egress-gateway
 /enterprise/cilium-dbg/cmd/*bfd_* @isovalent/traffic-engineering
@@ -427,6 +430,7 @@
 /enterprise/daemon/ @isovalent/cilium-agent
 /enterprise/datapath/tables/egressip.go @isovalent/egress-gateway
 /enterprise/examples/kubernetes/loadbalancer/ @isovalent/isovalent-loadbalancer
+/enterprise/examples/websocket @isovalent/service-mesh
 /enterprise/features/ @isovalent/cilium-agent
 /enterprise/fips/ @isovalent/cilium-agent
 /enterprise/fqdn-proxy/ @isovalent/dns-proxy
@@ -447,10 +451,12 @@
 /enterprise/operator/pkg/networkpolicy/ @isovalent/policy-identity-networking
 /enterprise/operator/pkg/srv6/ @isovalent/traffic-engineering
 /enterprise/pkg/annotation/ @isovalent/sig-k8s
+/enterprise/pkg/api/ @isovalent/cni
 /enterprise/pkg/bfd/ @isovalent/traffic-engineering
 /enterprise/pkg/bgpv1/ @isovalent/traffic-engineering
-/enterprise/pkg/rib/ @isovalent/traffic-engineering
+/enterprise/pkg/config/cell.go @isovalent/cilium-agent
 /enterprise/pkg/ciliummesh @isovalent/cilium-mesh
+/enterprise/pkg/client @isovalent/cilium-agent @isovalent/cni
 /enterprise/pkg/clustermesh/ @isovalent/clustermesh
 /enterprise/pkg/egressgatewayha/ @isovalent/egress-gateway
 /enterprise/pkg/datapath/sockets/ @isovalent/egress-gateway
@@ -476,9 +482,12 @@
 /enterprise/pkg/mixedrouting/ @isovalent/clustermesh
 /enterprise/pkg/policy/ @isovalent/policy-identity-networking
 /enterprise/pkg/privnet/ @isovalent/private-networking
+/enterprise/pkg/rib/ @isovalent/traffic-engineering
 /enterprise/pkg/service/healthchecker/ @isovalent/isovalent-loadbalancer
 /enterprise/pkg/srv6/ @isovalent/traffic-engineering
 /enterprise/pkg/nat/ @isovalent/egress-gateway
+/enterprise/plugins/cilium-cni/ @isovalent/cilium-agent
+/enterprise/plugins/cilium-cni/pkg/multinetwork/ @isovalent/multi-network
 /enterprise/test/srv6/ @isovalent/traffic-engineering
 /enterprise/test/helpers/hubble.go @isovalent/hubble
 /enterprise/test/hubble-rbac/ @isovalent/hubble
@@ -501,10 +510,16 @@
 /pkg/clustermesh/**/enterprise_* @isovalent/clustermesh
 /pkg/datapath/**/enterprise*.go @isovalent/cilium-datapath
 /pkg/datapath/ipcache/enterprise_listener.go @isovalent/clustermesh
+/pkg/endpoint/enterprise_endpoint.go @isovalent/cilium-agent
 /pkg/fqdn/**/*enterprise* @isovalent/dns-proxy
+/pkg/maps/srv6map/*enterprise* @isovalent/traffic-engineering
+/pkg/labels/*enterprise* @isovalent/policy-identity-networking
 /pkg/metrics/enterprise_* @isovalent/cni
 /pkg/metrics/features/*enterprise*.go @isovalent/metrics
 /pkg/metrics/features/**/*enterprise*.go @isovalent/metrics
+/pkg/monitor/**/*enterprise* @isovalent/cilium-datapath
+/pkg/node/manager/*enterprise* @isovalent/cni
+/pkg/k8s/**/*enterprise* @isovalent/sig-k8s
 /pkg/k8s/apis/isovalent.com @isovalent/sig-k8s
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentbfd*.yaml @isovalent/traffic-engineering
 /pkg/k8s/apis/isovalent.com/client/crds/v1alpha1/isovalentbgp*.yaml @isovalent/traffic-engineering
