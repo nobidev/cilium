@@ -688,6 +688,7 @@ Makefile* @cilium/build
 /vendor/ @cilium/vendor
 /VERSION @cilium/release-managers
 /.clang-format @cilium/contributing
+/**/fipsonly.go @cilium/build @cilium/security
 
 # Isovalent Teams
 # +++++++++++++++
@@ -991,4 +992,3 @@ Makefile* @cilium/build
 /pkg/maps/ipcache/*enterprise* @isovalent/dns-proxy
 /pkg/option/enterprise_* @isovalent/cilium-agent @isovalent/cli
 /TESTOWNERS.enterprise @isovalent/core-structure
-/**/fipsonly.go @cilium/build @cilium/security
