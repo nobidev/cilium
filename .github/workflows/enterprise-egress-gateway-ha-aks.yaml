@@ -242,6 +242,7 @@ jobs:
             --kube-proxy-config ./.github/enterprise-egw-ha/kube-proxy.json \
             --node-count 3 \
             --ip-families ipv4,ipv6 \
+            --tags svic_falco_supported=no \
             --vnet-subnet-id $EGW_SUBNET_ID \
             ${{ env.cost_reduction }} \
             --generate-ssh-keys
@@ -252,6 +253,7 @@ jobs:
             --name rrnodepool \
             --node-count 2 \
             --labels rr-role=route-reflector \
+            --tags svic_osquery_supported=no \
             --vnet-subnet-id $EGW_SUBNET_ID
 
           az aks nodepool add \
@@ -261,6 +263,7 @@ jobs:
             --node-count 1 \
             --labels cilium.io/no-schedule=true \
             --node-taints "cilium.io/no-schedule=true:NoSchedule" \
+            --tags svic_osquery_supported=no \
             --vnet-subnet-id $EXTERNAL_SUBNET_ID
 
       - name: Get cluster credentials
