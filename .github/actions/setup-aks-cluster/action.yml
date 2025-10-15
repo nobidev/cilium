@@ -57,6 +57,6 @@ runs:
           --ip-families ipv4,ipv6 \
           ${{ inputs.taints }} \
           --generate-ssh-keys \
-          --tag svic_falco_supported=no \
+          --tags svic_falco_supported=no \
           --nodepool-tags svic_osquery_supported=no \
           --nodepool-labels svic_osquery_supported=no
