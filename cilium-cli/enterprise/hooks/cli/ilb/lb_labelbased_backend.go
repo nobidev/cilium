@@ -44,7 +44,12 @@ func testLabelBasedBackend(t T, mode isovalentv1alpha1.LBTCPProxyForceDeployment
 	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
 	t.Log("Creating backend apps...")
-	desiredBackends := scenario.AddAndWaitForK8sBackendApplications(testName, 2, "", nodeSelector)
+	backendApp := backendApplication{
+		name:         testName,
+		replicas:     2,
+		nodeSelector: nodeSelector,
+	}
+	desiredBackends := scenario.AddAndWaitForK8sBackendApplications(backendApp)
 
 	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
@@ -128,7 +133,11 @@ func TestHTTPMultiNamespaceLabelBased(t T) {
 
 	t.Log("Creating backend apps in separate namespaces...")
 	for i, scenario := range scenarios {
-		scenario.AddAndWaitForK8sBackendApplications("backend-"+strconv.Itoa(i+1), 1, "", nil)
+		backendApp := backendApplication{
+			name:     "backend-" + strconv.Itoa(i+1),
+			replicas: 1,
+		}
+		scenario.AddAndWaitForK8sBackendApplications(backendApp)
 	}
 
 	t.Log("Creating clients and add BGP peering ...")

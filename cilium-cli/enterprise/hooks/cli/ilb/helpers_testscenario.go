@@ -341,11 +341,11 @@ func (r *lbTestScenario) addBackendApplications(numberOfBackends int, config bac
 	return containers
 }
 
-func (r *lbTestScenario) desiredBackendK8sDeployment(t T, name string, replicas int32, config backendApplicationConfig) *appsv1.Deployment {
+func (r *lbTestScenario) desiredBackendK8sDeployment(t T, app backendApplication) *appsv1.Deployment {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "SERVICE_NAME",
-			Value: name,
+			Value: app.name,
 		},
 		{
 			Name: "INSTANCE_NAME",
@@ -356,6 +356,7 @@ func (r *lbTestScenario) desiredBackendK8sDeployment(t T, name string, replicas 
 			},
 		},
 	}
+	config := app.Config()
 	if config.h2cEnabled {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "H2C_ENABLED",
@@ -390,25 +391,26 @@ func (r *lbTestScenario) desiredBackendK8sDeployment(t T, name string, replicas 
 	}
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: app.name,
 			Labels: map[string]string{
-				"app": name,
+				"app": app.name,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: ptr.To(replicas),
+			Replicas: ptr.To(app.replicas),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": name,
+					"app": app.name,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app": name,
+						"app": app.name,
 					},
 				},
 				Spec: corev1.PodSpec{
+					NodeSelector: app.nodeSelector,
 					Containers: []corev1.Container{
 						{
 							Name:  "healthcheck",
@@ -443,27 +445,22 @@ func (r *lbTestScenario) desiredBackendK8sService(name string, port int32, targe
 	}
 }
 
-func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(name string, replicas int32, backendTLSCertHostname string, nodeSelector map[string]string) *corev1.PodList {
-	var deployment *appsv1.Deployment
+type backendApplication struct {
+	name            string
+	replicas        int32
+	tlsCertHostname string
+	nodeSelector    map[string]string
+}
 
-	if len(backendTLSCertHostname) > 0 {
-		deployment = r.desiredBackendK8sDeployment(r.t, name, replicas, backendApplicationConfig{
-			tlsCertHostname: backendTLSCertHostname,
-		})
-	} else {
-		deployment = r.desiredBackendK8sDeployment(r.t, name, replicas, backendApplicationConfig{
-			h2cEnabled: true,
-		})
+func (b backendApplication) Config() backendApplicationConfig {
+	if len(b.tlsCertHostname) > 0 {
+		return backendApplicationConfig{tlsCertHostname: b.tlsCertHostname}
 	}
+	return backendApplicationConfig{h2cEnabled: true}
+}
 
-	if len(nodeSelector) > 0 {
-		if deployment.Spec.Template.Spec.NodeSelector == nil {
-			deployment.Spec.Template.Spec.NodeSelector = make(map[string]string, len(nodeSelector))
-		}
-		for k, v := range nodeSelector {
-			deployment.Spec.Template.Spec.NodeSelector[k] = v
-		}
-	}
+func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(app backendApplication) *corev1.PodList {
+	deployment := r.desiredBackendK8sDeployment(r.t, app)
 
 	if _, err := r.k8sCli.AppsV1().Deployments(r.k8sNamespace).Create(r.t.Context(), deployment, metav1.CreateOptions{}); err != nil {
 		r.t.Failedf("failed to create deployment (%s): %s", deployment.Name, err)
@@ -472,7 +469,7 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(name string, replic
 		return r.k8sCli.AppsV1().Deployments(r.k8sNamespace).Delete(ctx, deployment.Name, metav1.DeleteOptions{})
 	})
 
-	service := r.desiredBackendK8sService(name, 8080, 8080)
+	service := r.desiredBackendK8sService(app.name, 8080, 8080)
 	if _, err := r.k8sCli.CoreV1().Services(r.k8sNamespace).Create(r.t.Context(), service, metav1.CreateOptions{}); err != nil {
 		r.t.Failedf("failed to create service (%s): %s", service.Name, err)
 	}
@@ -481,10 +478,10 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(name string, replic
 	})
 
 	watch, err := r.k8sCli.AppsV1().Deployments(r.k8sNamespace).Watch(r.t.Context(), metav1.ListOptions{
-		LabelSelector: "app=" + name,
+		LabelSelector: "app=" + app.name,
 	})
 	if err != nil {
-		r.t.Failedf("failed to watch deployment (%s) in namespace (%s): %s", name, r.k8sNamespace, err)
+		r.t.Failedf("failed to watch deployment (%s) in namespace (%s): %s", app.name, r.k8sNamespace, err)
 	}
 	defer watch.Stop()
 
@@ -498,15 +495,15 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(name string, replic
 			if !ok {
 				r.t.Failedf("unexpected object type: %T", ev.Object)
 			}
-			if deploy.Name != name {
+			if deploy.Name != app.name {
 				continue
 			}
-			if deploy.Status.ReadyReplicas != replicas {
+			if deploy.Status.ReadyReplicas != app.replicas {
 				continue
 			}
 			completed = true
 		case <-timeout:
-			r.t.Failedf("timed out waiting for deployment (%s) in namespace (%s)", name, r.k8sNamespace)
+			r.t.Failedf("timed out waiting for deployment (%s) in namespace (%s)", app.name, r.k8sNamespace)
 		}
 		if completed {
 			break
@@ -514,10 +511,10 @@ func (r *lbTestScenario) AddAndWaitForK8sBackendApplications(name string, replic
 	}
 
 	pods, err := r.k8sCli.CoreV1().Pods(r.k8sNamespace).List(r.t.Context(), metav1.ListOptions{
-		LabelSelector: "app=" + name,
+		LabelSelector: "app=" + app.name,
 	})
 	if err != nil {
-		r.t.Failedf("failed to list pods (%s) in namespace (%s): %s", name, r.k8sNamespace, err)
+		r.t.Failedf("failed to list pods (%s) in namespace (%s): %s", app.name, r.k8sNamespace, err)
 	}
 
 	return pods
