@@ -59,3 +59,7 @@ jobs:
             echo "Run './contrib/scripts/enterprise-testowners.sh' and submit your changes"
             exit 1
           fi
+      - name: Check that all enterprise files are covered in CODEOWNERS
+        if: ${{ always() && steps.checkout.outcome == 'success' && steps.checkout-oss.outcome == 'success' }}
+        run: |
+          ./contrib/scripts/enterprise-codeowners.sh

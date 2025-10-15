@@ -861,6 +861,7 @@ Makefile* @cilium/build
 /cilium-cli/enterprise/hooks/manifests/ingress-policy/ @isovalent/service-mesh
 /cilium-cli/enterprise/hooks/sysdump/timescape*.go @isovalent/timescape
 /contrib/scripts/enterprise-cilium-mesh-smoke-test.sh @isovalent/cilium-mesh
+/contrib/scripts/enterprise-codeowners.sh @isovalent/core-structure
 /contrib/scripts/enterprise-k8s-manifests-gen.sh @isovalent/sig-k8s
 /contrib/scripts/enterprise-kind-cilium-mesh.sh @isovalent/cilium-mesh
 /contrib/scripts/enterprise-meditation.sh @isovalent/core-structure

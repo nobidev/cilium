@@ -380,6 +380,7 @@ tool (
 	github.com/cilium/ebpf/cmd/bpf2go
 	github.com/cilium/linters
 	github.com/gogo/protobuf/gogoproto
+	github.com/hmarr/codeowners/cmd/codeowners
 	golang.org/x/tools/cmd/goimports
 	golang.org/x/tools/go/analysis/analysistest
 	golang.org/x/tools/go/analysis/singlechecker
