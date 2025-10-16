@@ -1,0 +1,257 @@
+#! --private-networks-enabled --private-networks-mode=bridge
+
+hive start
+db/initialized private-networks
+
+# Insert the devices.
+db/insert devices device.eth1.yaml
+db/insert devices device.eth2.yaml
+
+# Add two ClusterwidePrivateNetworks
+k8s/add icpn-1.yaml icpn-2.yaml
+
+# Ensure that they are correctly propagated into the table
+db/cmp private-networks privnet.v1.table
+
+# Add local endpoints. No gratuitous ARP/ND packets should be sent for these.
+k8s/add privnet-eps-1.yaml
+
+# Ensure that no gratuitous ARP/ND packets were sent yet
+* db/empty test-privnet-gneigh-sent
+
+# Observe endpoints from clustermesh, and assert that the entries are propagated
+clustermesh/endpoints/upsert blue-network/10.245.5.77 clustermesh-entry-1.json
+clustermesh/endpoints/upsert blue-network/face:beed:4:5::77 clustermesh-entry-v6-1.json
+clustermesh/endpoints/upsert green-network/10.224.1.33 clustermesh-entry-green-1.json
+clustermesh/endpoints/sync
+
+# Wait for initial mapentries table to be populated
+db/cmp privnet-mapentries mapentries.v1.table
+
+# Ensure that gratuitous ARP/ND packets were sent
+db/cmp test-privnet-gneigh-sent gneigh.expected.v1.table
+
+# Observe additional endpoints from clustermesh, and assert that the entries are propagated
+clustermesh/endpoints/upsert blue-network/10.245.5.78 clustermesh-entry-2.json
+clustermesh/endpoints/upsert blue-network/face:beed:4:5::78 clustermesh-entry-v6-2.json
+clustermesh/endpoints/sync
+
+# Wait for mapentries table to be populated
+db/cmp privnet-mapentries mapentries.v2.table
+
+# Ensure that gratuitous ARP/ND packets were sent for the newly added endpoints
+db/cmp test-privnet-gneigh-sent gneigh.expected.v2.table
+
+# Delete the ClusterwidePrivateNetwork referencing eth1
+k8s/delete icpn-1.yaml
+
+# ...and validate that the changes are correctly reflected
+db/cmp private-networks privnet.v2.table
+db/cmp privnet-mapentries mapentries.v3.table
+
+# Prune sent entries from closed senders
+gneigh/prune
+
+# Ensure that senders were closed no sent entries from eth1 are present anymore
+db/cmp test-privnet-gneigh-sent gneigh.expected.v3.table
+
+# ---
+
+-- device.eth1.yaml --
+index: 10
+name: eth1
+hardwareaddr: [ 0x12, 0x42, 0xac, 0xab, 0x00, 0x01 ]
+type: veth
+selected: true
+
+-- device.eth2.yaml --
+index: 11
+name: eth2
+hardwareaddr: [ 0x12, 0x42, 0xac, 0xab, 0x00, 0x02 ]
+type: veth
+selected: true
+
+-- icpn-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: blue-network
+spec:
+  interface:
+    name: eth1
+  routes: []
+  subnets:
+  - cidr: 192.168.251.0/24
+  - cidr: fd00:10:244::0/64
+
+-- icpn-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: green-network
+spec:
+  interface:
+    name: eth2
+  routes: []
+  subnets:
+  - cidr: 192.168.99.0/24
+
+-- privnet.v1.table --
+Name          ID    Interface   INBClusters    Subnets
+blue-network  0x1   eth1        N/A            192.168.251.0/24,fd00:10:244::/64
+green-network 0x2   eth2        N/A            192.168.99.0/24
+
+-- privnet.v2.table --
+Name          ID    Interface   INBClusters    Subnets
+green-network 0x2   eth2        N/A            192.168.99.0/24
+
+--  privnet-eps-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkEndpointSlice
+metadata:
+  namespace: default
+  name: privnet-eps-1
+endpoints:
+- activatedAt: "2025-06-20T16:00:01.000000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.108
+      ipv6: fd10:0:250::23
+    name: gracious-gerbil
+  interface:
+    addressing:
+      ipv4: 192.168.250.4
+      ipv6: fc00:20:144:4::1
+    mac: 00:50:56:ad:11:97
+    network: blue-network
+-- clustermesh-entry-1.json --
+{
+  "activatedAt": "2025-09-26T14:52:01.435Z",
+  "ip": "10.245.5.77",
+  "name": "optimum-mouse",
+  "network": {
+    "name": "blue-network",
+    "ip": "192.168.251.24",
+    "mac": "00:50:56:ad:45:ec"
+  },
+  "source": {
+    "cluster": "remote",
+    "namespace": "keen-calf",
+    "name": "slice-1"
+  }
+}
+
+-- clustermesh-entry-2.json --
+{
+  "activatedAt": "2025-09-26T09:23:05.125Z",
+  "ip": "10.245.5.78",
+  "name": "regular-koi",
+  "network": {
+    "name": "blue-network",
+    "ip": "192.168.251.25",
+    "mac": "00:50:56:ad:11:99"
+  },
+  "source": {
+    "cluster": "remote",
+    "namespace": "keen-calf",
+    "name": "slice-1"
+  }
+}
+
+-- clustermesh-entry-v6-1.json --
+{
+  "activatedAt": "2025-09-26T14:52:01.435Z",
+  "ip": "face:beed:4:5::77",
+  "name": "optimum-mouse",
+  "network": {
+    "name": "blue-network",
+    "ip": "fd00:10:244:5::98",
+    "mac": "00:50:56:ad:45:ec"
+  },
+  "source": {
+    "cluster": "remote",
+    "namespace": "keen-calf",
+    "name": "slice-1"
+  }
+}
+
+-- clustermesh-entry-v6-2.json --
+{
+  "activatedAt": "2025-09-26T09:23:05.125Z",
+  "ip": "face:beed:4:5::78",
+  "name": "regular-koi",
+  "network": {
+    "name": "blue-network",
+    "ip": "fd00:10:244:5::99",
+    "mac": "00:50:56:ad:11:99"
+  },
+  "source": {
+    "cluster": "remote",
+    "namespace": "keen-calf",
+    "name": "slice-1"
+  }
+}
+
+-- clustermesh-entry-green-1.json --
+{
+  "activatedAt": "2025-09-26T14:53:23.333Z",
+  "ip": "10.224.1.33",
+  "name": "paced-turtle",
+  "network": {
+    "name": "green-network",
+    "ip": "192.168.99.49",
+    "mac": "00:80:ab:ad:ab:ec"
+  },
+  "source": {
+    "cluster": "remote",
+    "namespace": "keen-calf",
+    "name": "slice-1"
+  }
+}
+
+-- mapentries.v1.table --
+Type   Network        CIDR                   Nexthop
+D      blue-network   192.168.251.0/24       0.0.0.0
+D      blue-network   fd00:10:244::/64       ::
+E      blue-network   192.168.250.4/32       10.244.5.108
+E      blue-network   192.168.251.24/32      10.245.5.77
+E      blue-network   fc00:20:144:4::1/128   fd10:0:250::23
+E      blue-network   fd00:10:244:5::98/128  face:beed:4:5::77
+D      green-network  192.168.99.0/24        0.0.0.0
+E      green-network  192.168.99.49/32       10.224.1.33
+
+-- mapentries.v2.table --
+Type   Network        CIDR                   Nexthop
+D      blue-network   192.168.251.0/24       0.0.0.0
+D      blue-network   fd00:10:244::/64       ::
+E      blue-network   192.168.250.4/32       10.244.5.108
+E      blue-network   192.168.251.24/32      10.245.5.77
+E      blue-network   192.168.251.25/32      10.245.5.78
+E      blue-network   fc00:20:144:4::1/128   fd10:0:250::23
+E      blue-network   fd00:10:244:5::98/128  face:beed:4:5::77
+E      blue-network   fd00:10:244:5::99/128  face:beed:4:5::78
+D      green-network  192.168.99.0/24        0.0.0.0
+E      green-network  192.168.99.49/32       10.224.1.33
+
+-- mapentries.v3.table --
+Type   Network        CIDR                   Nexthop
+D      green-network  192.168.99.0/24        0.0.0.0
+E      green-network  192.168.99.49/32       10.224.1.33
+
+-- gneigh.expected.v1.table --
+Type   Interface   MAC               IP
+ARP    eth2        12:42:ac:ab:00:02 192.168.99.49
+ARP    eth1        12:42:ac:ab:00:01 192.168.251.24
+ND     eth1        12:42:ac:ab:00:01 fd00:10:244:5::98
+
+-- gneigh.expected.v2.table --
+Type   Interface   MAC               IP
+ARP    eth2        12:42:ac:ab:00:02 192.168.99.49
+ARP    eth1        12:42:ac:ab:00:01 192.168.251.24
+ARP    eth1        12:42:ac:ab:00:01 192.168.251.25
+ND     eth1        12:42:ac:ab:00:01 fd00:10:244:5::98
+ND     eth1        12:42:ac:ab:00:01 fd00:10:244:5::99
+
+-- gneigh.expected.v3.table --
+Type   Interface   MAC               IP
+ARP    eth2        12:42:ac:ab:00:02 192.168.99.49

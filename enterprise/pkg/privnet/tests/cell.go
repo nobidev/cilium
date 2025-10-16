@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	dptables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
@@ -43,6 +42,7 @@ func NewTestHive(t testing.TB) *hive.Hive {
 
 		mockEndpointCell(t),
 		mockLocalCiliumNodeCell(t),
+		mockGneigh(t),
 
 		cell.Provide(
 			dptables.NewDeviceTable,
@@ -63,11 +63,6 @@ func NewTestHive(t testing.TB) *hive.Hive {
 					// Set StateDir to match the script test directory.
 					StateDir: path.Join(path.Dir(t.TempDir()), "001"),
 				}
-			},
-
-			func() gneigh.Sender {
-				// TODO: Replace with a fake sender which records sent packets
-				return nil
 			},
 		),
 
