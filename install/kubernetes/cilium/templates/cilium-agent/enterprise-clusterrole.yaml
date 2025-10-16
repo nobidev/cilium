@@ -96,10 +96,20 @@ rules:
     - isovalent.com
   resources:
     - clusterwideprivatenetworks
+  verbs:
+    - list
+    - watch
+    - get
+- apiGroups:
+    - isovalent.com
+  resources:
     - privatenetworkendpointslices
   verbs:
     - list
     - watch
     - get
+    - create
+    - update
+    - delete
 {{- end }}
 {{- end }}
