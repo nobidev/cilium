@@ -57,14 +57,14 @@ data:
         - flow_logs
         type: http
         {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
-        uri: https://hubble-timescape.{{ $targetNamespace }}.svc.cluster.local.:4260/push?object_type=OBJECT_TYPE_FLOW
+        uri: https://hubble-timescape.{{ $targetNamespace }}.svc.cluster.local:4260/push?object_type=OBJECT_TYPE_FLOW
         tls:
           ca_file: "/var/lib/hubble/tls/ca.crt"
           crt_file: "/var/lib/hubble/tls/client.crt"
           key_file: "/var/lib/hubble/tls/client.key"
           server_name: "hubble-timescape.{{ $targetNamespace }}.svc.cluster.local"
         {{- else }}
-        uri: http://hubble-timescape.{{ $targetNamespace }}.svc.cluster.local.:4260/push?object_type=OBJECT_TYPE_FLOW
+        uri: http://hubble-timescape.{{ $targetNamespace }}.svc.cluster.local:4260/push?object_type=OBJECT_TYPE_FLOW
         {{- end }}
       {{- end }}
       {{- if not .Values.hubble.timescape.ingester.k8sImporter.enabled }}
@@ -80,14 +80,14 @@ data:
         - k8sevent_logs
         type: http
         {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
-        uri: https://hubble-timescape.{{ $targetNamespace }}.svc.cluster.local.:4260/push?object_type=OBJECT_TYPE_K8S_EVENT
+        uri: https://hubble-timescape.{{ $targetNamespace }}.svc.cluster.local:4260/push?object_type=OBJECT_TYPE_K8S_EVENT
         tls:
           ca_file: "/var/lib/hubble/tls/ca.crt"
           crt_file: "/var/lib/hubble/tls/client.crt"
           key_file: "/var/lib/hubble/tls/client.key"
           server_name: "hubble-timescape.{{ $targetNamespace }}.svc.cluster.local"
         {{- else }}
-        uri: http://hubble-timescape.{{ $targetNamespace }}.svc.cluster.local.:4260/push?object_type=OBJECT_TYPE_K8S_EVENT
+        uri: http://hubble-timescape.{{ $targetNamespace }}.svc.cluster.local:4260/push?object_type=OBJECT_TYPE_K8S_EVENT
         {{- end }}
       {{- end }}
       {{- if .Values.hubble.timescape.vector.metrics.enabled }}

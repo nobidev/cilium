@@ -2127,7 +2127,7 @@
    * - :spelling:ignore:`hubble.export.timescape.target`
      - The target server to connect to for exporting flows. @schema type: [null, string] @schema
      - string
-     - ``hubble-timescape-export.hubble-timescape.svc.cluster.local.:4261``
+     - ``hubble-timescape-export.hubble-timescape.svc.cluster.local:4261``
    * - :spelling:ignore:`hubble.export.timescape.tls.ca.configMap`
      - The configmap containing the CA to validate the server certificate.
      - object

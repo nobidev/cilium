@@ -581,7 +581,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.export.timescape.maxBufferSize | string | `4096` | The maximum number of flows to buffer before dropping them. @schema type: [null, integer] @schema |
 | hubble.export.timescape.nodeName | string | `nil` | - The name used to override the node_name field in exported events. Leave empty to not override the node_name field. @schema type: [null, string] @schema |
 | hubble.export.timescape.reportDroppedFlowsInterval | string | `1m` | The interval at which to report dropped flows in logs. Set to 0s to disable reporting. @schema type: [null, string] @schema |
-| hubble.export.timescape.target | string | `hubble-timescape-export.hubble-timescape.svc.cluster.local.:4261` | The target server to connect to for exporting flows. @schema type: [null, string] @schema |
+| hubble.export.timescape.target | string | `hubble-timescape-export.hubble-timescape.svc.cluster.local:4261` | The target server to connect to for exporting flows. @schema type: [null, string] @schema |
 | hubble.export.timescape.tls.ca.configMap | object | `{"key":null,"name":null}` | The configmap containing the CA to validate the server certificate. |
 | hubble.export.timescape.tls.ca.configMap.key | string | `ca.crt` | The key in the configmap containing the CA certificate. @schema type: [null, string] @schema |
 | hubble.export.timescape.tls.ca.configMap.name | string | `nil` | The name of the configmap containing the CA certificate. @schema type: [null, string] @schema |

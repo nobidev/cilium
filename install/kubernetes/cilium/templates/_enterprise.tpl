@@ -171,7 +171,7 @@ hubble-export-aggregation-ttl: {{ . | quote }}
 {{- $targetNamespace = .Values.hubble.timescape.clustermesh.primary.namespace }}
 {{- end }}
 {{- $defaultExportTimescapeEnabled = true }}
-{{- $defaultExportTimescapeTarget = printf "hubble-timescape.%s.svc.cluster.local.:4261" $targetNamespace }}
+{{- $defaultExportTimescapeTarget = printf "hubble-timescape.%s.svc.cluster.local:4261" $targetNamespace }}
 {{- $defaultExportTimescapeAggregation = list "connection" }}
 {{- $defaultExportTimescapeAggregationStateFilter = list "new" "error" }}
 {{- $defaultExportTimescapeAggregationRenewTTL = "false" }}
