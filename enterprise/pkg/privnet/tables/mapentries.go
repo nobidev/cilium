@@ -147,7 +147,7 @@ type MapEntryRouting struct {
 	EgressIfIndex int
 
 	// Cluster is the name of the cluster adjacent to the target.
-	// Currently applicable only when [NATEntry.Type] == Endpoint.
+	// Currently applicable only for [MapEntryTypeEndpoint].
 	Cluster ClusterName
 }
 
