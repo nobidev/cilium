@@ -1,0 +1,28 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    k8s-app: cilium-envoy
+  name: cilium-envoy
+  namespace: monitoring
+spec:
+  podMetricsEndpoints:
+    - interval: 60s
+      port: envoy-metrics
+      metricRelabelings:
+      # Remove the instance ID from the envoy_cilium metrics, to simplify aggregation.
+      - sourceLabels: [__name__]
+        targetLabel: __name__
+        regex: "(envoy_cilium_policymap)_([0-9]+_[0-9]+_[0-9]+_[0-9]+_[0-9])_(.+)"
+        replacement: envoy_cilium_policymap_$3
+      # Drop most other metrics, to significantly reduce cardinality.
+      - sourceLabels: [__name__]
+        regex: 'envoy_(cilium|server)_.*'
+        action: keep
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      k8s-app: cilium-envoy
+  namespaceSelector:
+    matchNames:
+    - kube-system

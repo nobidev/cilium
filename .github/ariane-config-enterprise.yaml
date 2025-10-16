@@ -66,6 +66,9 @@ triggers:
   /ci-panda-scale(\s+(?:nodes=[0-9]+)?(?:\s*version=[-+.0-9a-z]+)?(?:\s*sha=[a-f0-9]+)?)?:
     workflows:
     - enterprise-panda-scale.yaml
+  /ci-cidr-scale(\s+(?:nodes=[0-9]+)?(?:\s*version=[-+.0-9a-z]+)?(?:\s*sha=[a-f0-9]+)?)?:
+    workflows:
+    - enterprise-cidr-scale.yaml
   /ci-ingress-policy:
     workflows:
     - enterprise-ingress-policy.yaml
