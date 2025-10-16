@@ -20,6 +20,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
 	"github.com/cilium/cilium/enterprise/operator/pkg/lb/accesslog"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
@@ -80,6 +83,7 @@ type Config struct {
 	LoadBalancerCPDefaultT1LabelSelector                  string
 	LoadBalancerCPDefaultT2LabelSelector                  string
 	LoadBalancerCPPolicyEnableCiliumPolicyFilters         bool
+	LoadBalancerGatewayAPIEnabled                         bool
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
@@ -123,6 +127,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String("loadbalancer-cp-default-t1-label-selector", fmt.Sprintf("%s in ( %s, %s )", ossannotation.ServiceNodeExposure, lbNodeTypeT1, lbNodeTypeT1AndT2), "Default K8s node label selectors that is used to define the T1 nodes")
 	flags.String("loadbalancer-cp-default-t2-label-selector", fmt.Sprintf("%s in ( %s, %s )", ossannotation.ServiceNodeExposure, lbNodeTypeT2, lbNodeTypeT1AndT2), "Default K8s node label selectors that is used to define the T2 nodes")
 	flags.Bool("loadbalancer-cp-policy-enable-cilium-policy-filters", true, "Whether or not the LoadBalancer control plane should configure the Cilium Policy filters on the T2 Envoy listeners")
+	flags.Bool("loadbalancer-gateway-api-enabled", false, "Enable experimental Gateway API support for Isovalent Loadbalancer")
 }
 
 type reconcilerParams struct {
@@ -180,6 +185,14 @@ func registerLBReconcilers(params reconcilerParams) error {
 		return fmt.Errorf("failed to add scheme: %w", err)
 	}
 
+	if err := gatewayv1.AddToScheme(params.Scheme); err != nil {
+		return fmt.Errorf("failed to add scheme: %w", err)
+	}
+
+	if err := gatewayv1beta1.AddToScheme(params.Scheme); err != nil {
+		return fmt.Errorf("failed to add scheme: %w", err)
+	}
+
 	t1ls, t2ls, err := parseDefaultTierLabelSelectors(params.Config.LoadBalancerCPDefaultT1LabelSelector, params.Config.LoadBalancerCPDefaultT2LabelSelector)
 	if err != nil {
 		return err
@@ -217,6 +230,21 @@ func registerLBReconcilers(params reconcilerParams) error {
 		params.CtrlRuntimeManager.GetClient(),
 	)
 
+	gwClassReconciler := &gatewayClassReconciler{}
+	gwReconciler := &gatewayReconciler{}
+	// if Load balancer gateway api is enabled
+	if params.Config.LoadBalancerGatewayAPIEnabled {
+		gwClassReconciler = newGatewayClassReconciler(params.CtrlRuntimeManager, params.Logger)
+
+		gwReconciler = newGatewayReconciler(
+			params.CtrlRuntimeManager.GetClient(),
+			params.T1Translator,
+			params.T2Translator,
+			params.Logger,
+			newGWIngestor(params.Logger, *t1ls, *t2ls),
+			params.NodeSource,
+		)
+	}
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
 			// Register reconcilers to manager in lifecycle to ensure that CRDs are installed on the cluster
@@ -234,6 +262,14 @@ func registerLBReconcilers(params reconcilerParams) error {
 
 			if err := lbDeploymentReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
 				return fmt.Errorf("failed to setup LBDeployment reconciler: %w", err)
+			}
+			if params.Config.LoadBalancerGatewayAPIEnabled {
+				if err := gwClassReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+					return fmt.Errorf("failed to setup GatewayClass reconciler: %w", err)
+				}
+				if err := gwReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+					return fmt.Errorf("failed to setup GatewayAPI reconciler: %w", err)
+				}
 			}
 
 			return nil

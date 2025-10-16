@@ -102,3 +102,72 @@ Note that a newer version of this manifest may be available
 ```
 kubectl apply -f https://github.com/vmware/go-ipfix/releases/download/v0.12.0/ipfix-collector.yaml
 ```
+
+## Gateway API
+
+_Currently an alpha feature_.
+
+You can use Gateway API to program the ILB. The following steps below is the fastest way to use Gateway API with ILB. The following steps will deploy an environment on a local Kind cluster. This setup is assuming you have the necessary BGP and IPPool setup.
+
+1. Similar to above, create a Kind cluster 
+```sh
+make kind-loadbalancer && \
+kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml && \
+./enterprise/examples/kubernetes/loadbalancer/configure_ilb_nodes.sh
+```
+2. Update the `contrib/testing/enterprise-kind-loadbalancer.yaml` in 2 locations to have the following:
+```
+enterprise:
+  loadbalancer:
+    enabled: true
+    gatewayAPI: # this line 
+      enabled: true # this line
+...
+```
+
+3. Run the following
+```
+ADDITIONAL_KIND_VALUES_FILE=contrib/testing/enterprise-kind-loadbalancer.yaml make kind-install-cilium-fast
+```
+
+4. Install Gateway API CRDs
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.3.0/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.3.0/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.3.0/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.3.0/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.3.0/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.3.0/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+```
+
+5. Run the following
+```
+make kind-image-enterprise-fast 
+```
+
+6. Setup the Gateway Class by applying the following
+```
+kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: ilbgateway 
+spec:
+  controllerName: io.isovalent/gateway-controller
+  description: The default Isovalent LB GatewayClass
+EOF
+```
+
+And check that it is ACCEPTED
+```
+kubectl get gatewayclass
+// Should output the following
+NAME         CONTROLLER                        ACCEPTED   AGE
+ilbgateway   io.isovalent/gateway-controller   True       23m
+```
+
+7. You can now create other Gateway API resources to program your ILB. 
+Note that there are some caveats with this alpha feature. 
+- Only HTTPRoutes are supported for now
+- Uses the `LBVIP` resource to provision an IP Address
+- Resources reconciled by ILB CRDs and Gateway API CRDs clash if they have the same name. Avoid naming them the same to avoid this error.

@@ -259,6 +259,7 @@ envoy-health-check-event-server-enabled: "true"
 enable-active-lb-health-checking: "true"
 enable-ipip-termination: "true"
 bpf-lb-ipip-sock-mark: "true"
+loadbalancer-gateway-api-enabled: {{ .Values.enterprise.loadbalancer.gatewayAPI.enabled | quote }}
 {{- end }}
 
 {{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}

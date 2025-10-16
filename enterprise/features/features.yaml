@@ -16,7 +16,7 @@
 # Maturity levels in order. A minimum level will include all levels
 # above it, e.g. if featureGates.minimum is set to Beta then Limited
 # and Stable are included (according to the order below).
-# 
+#
 # The first maturity level (Stable) is always explicitly approved.
 maturity:
 - name: Stable
@@ -56,7 +56,7 @@ features:
     flags:
       enable-srv6: true
     skip-flag-check: true
-    helm: 
+    helm:
       enterprise.srv6.enabled: true
 
   MultiNetwork:
@@ -85,7 +85,7 @@ features:
     flags:
       enable-ipv4-egress-gateway-ha: true
     skip-flag-check: true
-    helm: 
+    helm:
       enterprise.egressGatewayHA.enabled: true
 
   EgressGatewayHASocketTermination:
@@ -95,7 +95,7 @@ features:
     flags:
       enable-egress-gateway-ha-socket-termination: true
     skip-flag-check: true
-    helm: 
+    helm:
       enterprise.egressGatewayHA.socketTermination.enabled: true
 
   EnterpriseBGPControlPlane:
@@ -105,7 +105,7 @@ features:
     flags:
       enable-enterprise-bgp-control-plane: true
     skip-flag-check: true
-    helm: 
+    helm:
       enterprise.bgpControlPlane.enabled: true
 
   BFD:
@@ -177,6 +177,15 @@ features:
     helm:
       enterprise.privateNetworks.enabled: true
 
+  ILBGatewayAPI:
+    maturity: Alpha
+    description: |
+      Allows use of Gateway API to set up ILB
+    skip-flag-check: true
+    flags:
+      loadbalancer-gateway-api-enabled: true
+    helm:
+      enterprise.loadbalancer.gatewayAPI.enabled: true
 
   ##########################################
   # OSS features
@@ -189,7 +198,7 @@ features:
     description: Enable host firewall functionality
     flags:
       enable-host-firewall: true
-    helm: 
+    helm:
       hostFirewall.enabled: true
 
   DatapathModeVETH:
@@ -197,7 +206,7 @@ features:
     description: Enable veth datapath mode
     flags:
       datapath-mode: "veth"
-    helm: 
+    helm:
       bpf.datapathMode: "veth"
 
   DatapathModeNetkit:
@@ -214,7 +223,7 @@ features:
       LB Only datapath mode, enabled by having datapath-mode set to lb-only.
     flags:
       datapath-mode: "lb-only"
-    helm: 
+    helm:
       bpf.datapathMode: "lb-only"
 
   DatapathIPModeDualStack:
@@ -224,7 +233,7 @@ features:
     flags:
       enable-ipv4: true
       enable-ipv6: true
-    helm: 
+    helm:
       ipv4.enabled: true
       ipv6.enabled: true
 
@@ -235,7 +244,7 @@ features:
     flags:
       enable-ipv4: true
       enable-ipv6: false
-    helm: 
+    helm:
       ipv4.enabled: true
       ipv6.enabled: false
 
@@ -256,7 +265,7 @@ features:
       Enable bandwidth manager functionality
     flags:
       enable-bandwidth-manager: true
-    helm: 
+    helm:
       bandwidthManager.enabled: true
 
   DatapathTunnelModeVXLAN:
@@ -268,7 +277,7 @@ features:
       tunnel-protocol: vxlan
     # NOTE: The tunnel-protocol gets set to "vxlan" indirectly in some cases (e.g. when aksbyocni.enabled)
     # This might thus not cover all the ground and thus might pass helm validation and fail in the agent start.
-    helm: 
+    helm:
       routingMode: tunnel
       tunnelProtocol: vxlan
 
@@ -279,7 +288,7 @@ features:
     flags:
       routing-mode: tunnel
       tunnel-protocol: geneve
-    helm: 
+    helm:
       routingMode: tunnel
       tunnelProtocol: geneve
 
@@ -305,13 +314,13 @@ features:
     helm:
       policyCIDRMatchMode: nodes
 
-  ### Egress gateway features 
+  ### Egress gateway features
 
   EgressGatewayIPv4:
     maturity: Limited
     description: |
       Egress Gateway running in IPv4 mode, enabled with egress-gateway-ipv4=true
-    flags: 
+    flags:
       enable-ipv4-egress-gateway: true
     helm:
       egressGateway.enabled: true
@@ -324,7 +333,7 @@ features:
       Transparent IPSec encryption for all traffic between Cilium endpoints
     flags:
       enable-ipsec: true
-    helm: 
+    helm:
       encryption.enabled: true
       encryption.type: ipsec
 
@@ -461,7 +470,7 @@ features:
     flags:
       enable-endpoint-routes: true
       ipam: multi-pool
-    helm: 
+    helm:
       endpointRoutes.enabled: true
       ipam.mode: multi-pool
 
@@ -472,7 +481,7 @@ features:
       Cluster Pool IPAM allows Cilium to allocate IP addresses from a pool of addresses
     flags:
       ipam: cluster-pool
-    helm: 
+    helm:
       ipam.mode: cluster-pool
 
   IPAMAzure:
@@ -481,7 +490,7 @@ features:
       Azure-based IPAM
     flags:
       ipam: azure
-    helm: 
+    helm:
       ipam.mode: azure
 
   IPAMENI:
@@ -490,7 +499,7 @@ features:
       AWS ENI based IPAM
     flags:
       ipam: eni
-    helm: 
+    helm:
       ipam.mode: eni
 
   ### Identity (allocation modes)
@@ -501,7 +510,7 @@ features:
       Identities are stored in kvstore.
     flags:
       kvstore: etcd
-    helm: 
+    helm:
       identityAllocationMode: kvstore
 
   IdentityCRD:
@@ -605,9 +614,8 @@ features:
   #######################################################
   # Example feature (this will be ignored by the parser)
   Example: # The unique id, referenced by enterprise.featureGate.approved
-
     # The maturity level, e.g. one of the ones listed under 'maturity:'.
-    maturity: Limited 
+    maturity: Limited
 
     description: |
       Optional long-form multi-line description of the feature.
@@ -618,7 +626,7 @@ features:
     # The mapping from helm to flags can be found from:
     # https://github.com/cilium/cilium/blob/main/install/kubernetes/cilium/templates/cilium-configmap.yaml
     # Note that the value must be a string and thus quoted.
-    flags: 
+    flags:
       enable-example: true
       foo-mode: "!bar" # !bar means anything but "bar"
 

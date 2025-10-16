@@ -425,6 +425,7 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.featureGate.strict | bool | `true` | Enable strict feature gate validation. Will cause agent and/or operator to not start if non-approved features are enabled. In non-strict mode failure will be logged as a warning. |
 | enterprise.healthServerWithoutActiveChecks.enabled | bool | `false` | Enable health server without active health checks. |
 | enterprise.loadbalancer.enabled | bool | `false` | Enables Loadbalancer mode (Control Plane) |
+| enterprise.loadbalancer.gatewayAPI.enabled | bool | `false` | Enable support for Gateway API in ILB |
 | enterprise.multiNetwork | object | `{"autoCreateDefaultPodNetwork":true,"autoDirectNodeRoutes":true,"enabled":false}` | Multi-network support (preview feature) |
 | enterprise.multiNetwork.autoCreateDefaultPodNetwork | bool | `true` | Automatically creates a "default" IsovalentPodNetwork on operator startup |
 | enterprise.multiNetwork.autoDirectNodeRoutes | bool | `true` | Enable multi-network aware automatic L2 routing between nodes |

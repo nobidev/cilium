@@ -1500,6 +1500,10 @@
      - Enables Loadbalancer mode (Control Plane)
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.loadbalancer.gatewayAPI.enabled`
+     - Enable support for Gateway API in ILB
+     - bool
+     - ``false``
    * - :spelling:ignore:`enterprise.multiNetwork`
      - Multi-network support (preview feature)
      - object

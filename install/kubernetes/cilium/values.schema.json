@@ -2149,6 +2149,14 @@
           "properties": {
             "enabled": {
               "type": "boolean"
+            },
+            "gatewayAPI": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
             }
           },
           "type": "object"

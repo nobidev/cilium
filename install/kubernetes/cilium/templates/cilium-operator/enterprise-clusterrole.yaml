@@ -54,6 +54,48 @@ rules:
   - privatenetworkendpointslices.isovalent.com
   - privatenetworkexternalendpoints.isovalent.com
 {{- end }}
+{{- if .Values.enterprise.loadbalancer.gatewayAPI.enabled }}
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses
+  - gateways
+  - httproutes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses
+  verbs:
+  - patch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses/status
+  - gateways/status
+  - httproutes/status
+  verbs:
+  - update
+  - patch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumgatewayclassconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumgatewayclassconfigs/status
+  verbs:
+  - update
+  - patch
+{{- end }}
 - apiGroups:
   - isovalent.com
   resources:

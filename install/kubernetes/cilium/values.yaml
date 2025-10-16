@@ -4973,6 +4973,9 @@ enterprise:
   loadbalancer:
     # -- Enables Loadbalancer mode (Control Plane)
     enabled: false
+    gatewayAPI:
+      # -- Enable support for Gateway API in ILB
+      enabled: false
   # -- Diagnostics
   diagnostics:
     # -- Path to the file to which diagnostics status updates are appended.
