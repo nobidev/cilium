@@ -45,7 +45,14 @@ func (ep Endpoint) Key() EndpointKey {
 
 // ToMapEntry returns the MapEntry object created from the Endpoint and
 // PrivateNetwork information.
-func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork) *MapEntry {
+func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork, bridgeMode bool) *MapEntry {
+	// gneigh status is only relevant on the INB where it will be set as done by the gneigh
+	// reconciler.
+	gneighStatus := reconciler.StatusDone()
+	if bridgeMode {
+		gneighStatus = reconciler.StatusPending()
+	}
+
 	return &MapEntry{
 		Type: MapEntryTypeEndpoint,
 
@@ -62,8 +69,8 @@ func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork) *MapEntry {
 			Cluster:       ClusterName(ep.Source.Cluster),
 		},
 
-		Status: reconciler.StatusPending(),
-		GARP:   reconciler.StatusPending(),
+		Status:       reconciler.StatusPending(),
+		GneighStatus: gneighStatus,
 	}
 }
 

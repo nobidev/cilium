@@ -87,8 +87,8 @@ func (r Route) ToMapEntry(privNet SlimPrivateNetwork, bridgeMode bool) *MapEntry
 
 		Status: reconciler.StatusPending(),
 
-		// No need to do GARP for routes.
-		GARP: reconciler.StatusDone(),
+		// No need to do gratuitous ARP/ND for routes.
+		GneighStatus: reconciler.StatusDone(),
 	}
 }
 

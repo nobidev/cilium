@@ -36,9 +36,9 @@ type MapEntry struct {
 	// Status is the status of the reconciliation of this entry into the BPF maps.
 	Status reconciler.Status
 
-	// GARP is the status of the periodic GARP propagation.
+	// GneighStatus is the status of the periodic gratuitous ARP/ND propagation.
 	// Applicable on the INB cluster only.
-	GARP reconciler.Status
+	GneighStatus reconciler.Status
 }
 
 // Equal returns whether two MapEntry objects are identical, excluding the reconcilers status.

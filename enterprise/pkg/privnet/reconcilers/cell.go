@@ -21,6 +21,7 @@ var Cell = cell.Group(
 	LocalWorkloadsCell,
 	LocalEndpointSlicesCell,
 	INBsCell,
+	GneighCell,
 
 	// Infrastructure shared between some of the reconcilers
 	cell.Provide(

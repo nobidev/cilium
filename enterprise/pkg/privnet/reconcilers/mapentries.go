@@ -314,7 +314,7 @@ func (m *MapEntries) handleEndpointChange(txn statedb.WriteTxn, ep tables.Endpoi
 	}
 
 	// Skip any further logic if the to-be-upserted entry is already present
-	desired := activeEp.ToMapEntry(privNet)
+	desired := activeEp.ToMapEntry(privNet, m.cfg.EnabledAsBridge())
 	if found && current.Equal(desired) {
 		return nil
 	}

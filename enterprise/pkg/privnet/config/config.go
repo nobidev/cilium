@@ -15,6 +15,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -23,6 +25,10 @@ const (
 
 	// FlagMode is the flag to configure the private networking mode.
 	FlagMode = "private-networks-mode"
+
+	// FlagBridgeGneighInterval is the flag to configure the interval at which workload cluster
+	// endpoints are announced via gratuitous ARP/ND in bridge mode.
+	FlagBridgeGneighInterval = "private-networks-bridge-gneigh-interval"
 
 	// ModeDefault configures private networks to operate in default mode.
 	ModeDefault = "default"
@@ -45,8 +51,9 @@ var (
 	}
 
 	defaultConfig = Config{
-		Common: DefaultCommon,
-		Mode:   ModeDefault,
+		Common:               DefaultCommon,
+		Mode:                 ModeDefault,
+		BridgeGneighInterval: 1 * time.Minute,
 	}
 )
 
@@ -65,13 +72,17 @@ func (def Common) Flags(flags *pflag.FlagSet) {
 type Config struct {
 	Common `mapstructure:",squash"`
 
-	Mode string `mapstructure:"private-networks-mode"`
+	Mode                 string        `mapstructure:"private-networks-mode"`
+	BridgeGneighInterval time.Duration `mapstructure:"private-networks-bridge-gneigh-interval"`
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	def.Common.Flags(flags)
 
 	flags.String(FlagMode, def.Mode, fmt.Sprintf("The private networks mode (%q or %q)", ModeDefault, ModeBridge))
+
+	flags.Duration(FlagBridgeGneighInterval, def.BridgeGneighInterval,
+		fmt.Sprintf("Interval at which workload cluster endpoints are announced using gratuitous ARP/ND in %s mode. Ignored in %s mode.", ModeBridge, ModeDefault))
 }
 
 // EnabledAsBridge returns whether private networking is enabled, and configured in bridge mode.
