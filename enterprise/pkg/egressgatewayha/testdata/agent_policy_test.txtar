@@ -9,7 +9,7 @@ k8s/add ciliumendpoint1.yaml
 
 # Wait and check for in memory state
 db/show policy-config --columns ID,Endpoints,Generation,IsGateway,EgressIP,Groups policy-config
-* db/cmp policy-config policyconfig.expected.1 
+db/cmp policy-config policyconfig.expected.1
 
 # Check that manager realizes expected bpf map state.
 egressha/policy-maps-dump policymap.actual
@@ -49,7 +49,7 @@ apiVersion: isovalent.com/v1
 kind: IsovalentEgressGatewayPolicy
 metadata:
   generation: 1
-  name: policy1 
+  name: policy1
   uid: 00000000-0000-0000-0000-000000000000
 spec:
   azAffinity: disabled
@@ -64,7 +64,7 @@ spec:
   selectors:
   - podSelector:
       matchLabels:
-        foo: bar 
+        foo: bar
 status:
   groupStatuses:
   - activeGatewayIPs:
