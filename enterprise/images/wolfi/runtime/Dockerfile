@@ -25,6 +25,9 @@ FROM ${CILIUM_RUNTIME_BASE_IMAGE}
 
 WORKDIR /go/src/github.com/cilium/cilium/enterprise/images/wolfi/runtime
 
+COPY --from=iptables-dist /sbin/xtables-legacy-multi /usr/sbin
+COPY --from=iptables-dist /sbin/xtables-nft-multi /usr/sbin
+
 RUN --mount=type=bind,readwrite,source=./images/runtime,target=. ./iptables-wrapper-installer.sh --no-sanity-check
 RUN ln -s /run /var/run #TODO: move to apk package
 RUN mkdir /cni
@@ -32,5 +35,3 @@ RUN ln -s /bin/loopback /cni/loopback
 
 COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
 COPY --from=bpftool-dist /usr/local /usr/local
-COPY --from=iptables-dist /usr/sbin/iptables /usr/local/iptables
-COPY --from=iptables-dist /usr/sbin/ip6tables /usr/local/ip6tables
