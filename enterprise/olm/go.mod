@@ -1,8 +1,6 @@
 module github.com/isovalent/cilium/enterprise/olm
 
-go 1.24.0
-
-toolchain go1.25.1
+go 1.25.0
 
 godebug default=go1.23
 
