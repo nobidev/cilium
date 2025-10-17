@@ -11,22 +11,26 @@
 package ilb
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func TestLabelBasedBackend_T1T2(t T) {
-	testLabelBasedBackend(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeType(isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1T2), nil)
+	testLabelBasedBackend(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeType(isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1T2))
 }
 
 func TestLabelBasedBackend_T1Only(t T) {
-	testLabelBasedBackend(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeType(isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1Only), map[string]string{"service.cilium.io/node": "t1"})
+	testLabelBasedBackend(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeType(isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1Only))
 }
 
-func testLabelBasedBackend(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType, nodeSelector map[string]string) {
+func testLabelBasedBackend(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) {
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
@@ -43,12 +47,17 @@ func testLabelBasedBackend(t T, mode isovalentv1alpha1.LBTCPProxyForceDeployment
 	// 0. Setup test scenario (backends, clients & LB resources)
 	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
-	t.Log("Creating backend apps...")
+	nodeSelector, err := appNodeSelector(t.Context(), k8sCli, mode)
+	if err != nil {
+		t.Failedf("failed to lookup node selector: %s", err)
+	}
+
 	backendApp := backendApplication{
 		name:         testName,
 		replicas:     2,
 		nodeSelector: nodeSelector,
 	}
+	t.Log("Creating backend apps with nodeSelector: %s ...", nodeSelector["service.cilium.io/node"])
 	desiredBackends := scenario.AddAndWaitForK8sBackendApplications(backendApp)
 
 	t.Log("Creating clients and add BGP peering ...")
@@ -200,4 +209,24 @@ func TestHTTPMultiNamespaceLabelBased(t T) {
 		}
 		t.Log("Backend %d responded with service name %s", i+1, resp.ServiceName)
 	}
+}
+
+// appNodeSelector function returns k8s node selector:
+// - `t1` selector if mode is `t1-only` and cluster has T1 nodes
+// - `t2` selector if mode is NOT `t1-only` and cluster has T2 nodes
+// - `t1-t2` selector in all other cases
+func appNodeSelector(ctx context.Context, k8sCli *k8s.Clientset, mode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) (map[string]string, error) {
+	tier := "t2"
+	if mode == isovalentv1alpha1.LBTCPProxyForceDeploymentModeType(isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1Only) {
+		tier = "t1"
+	}
+	nodeList, err := k8sCli.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: fmt.Sprintf("service.cilium.io/node in ( %s )", tier)})
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve %s k8s nodes: %w", tier, err)
+	}
+
+	if len(nodeList.Items) > 0 {
+		return map[string]string{"service.cilium.io/node": tier}, nil
+	}
+	return map[string]string{"service.cilium.io/node": "t1-t2"}, nil
 }

@@ -44,11 +44,16 @@ func testLabelBasedBackendCNP(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploym
 	// 0. Setup test scenario (backends, clients & LB resources)
 	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
-	t.Log("Creating backend apps...")
+	nodeSelector, err := appNodeSelector(t.Context(), k8sCli, mode)
+	if err != nil {
+		t.Failedf("failed to lookup node selector: %s", err)
+	}
+
+	t.Log("Creating backend apps with nodeSelector: %s ...", nodeSelector["service.cilium.io/node"])
 	backendApp := backendApplication{
 		name:         testName,
 		replicas:     2,
-		nodeSelector: map[string]string{"service.cilium.io/node": "t2"},
+		nodeSelector: nodeSelector,
 	}
 	_ = scenario.AddAndWaitForK8sBackendApplications(backendApp)
 
@@ -95,7 +100,7 @@ func testLabelBasedBackendCNP(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploym
 	t.Log("Applying Ingress CNP...")
 	cnp := podIngressL7CNP(scenario.k8sNamespace)
 
-	_, err := ciliumCli.CiliumV2().CiliumNetworkPolicies(scenario.k8sNamespace).Create(t.Context(), cnp, metav1.CreateOptions{})
+	_, err = ciliumCli.CiliumV2().CiliumNetworkPolicies(scenario.k8sNamespace).Create(t.Context(), cnp, metav1.CreateOptions{})
 	if err != nil {
 		t.Failedf("failed to create CNP")
 	}
