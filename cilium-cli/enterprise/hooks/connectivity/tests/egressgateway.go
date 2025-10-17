@@ -140,7 +140,7 @@ func waitForBpfPolicyEntriesWithEntryMatcher(ctx context.Context, t *check.Test,
 					}
 				}
 
-				return fmt.Errorf("could not find egress gateway policy entry matching %+v", targetEntry)
+				return fmt.Errorf("could not find egress gateway policy entry matching %+v on %s", targetEntry, ciliumPod.Name())
 			}
 
 		nextEntry:
@@ -155,7 +155,7 @@ func waitForBpfPolicyEntriesWithEntryMatcher(ctx context.Context, t *check.Test,
 					}
 				}
 
-				return fmt.Errorf("untracked entry %+v in the egress gateway policy map", entry)
+				return fmt.Errorf("untracked entry %+v in the egress gateway policy map on %s", entry, ciliumPod.Name())
 			}
 		}
 
