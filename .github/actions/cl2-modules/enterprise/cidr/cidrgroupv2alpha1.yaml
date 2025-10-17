@@ -1,0 +1,21 @@
+{{$INDEX := .Index}}
+{{$CIDRNO := .CIDRGroupSmallSize}}
+{{ if lt $INDEX (AddInt 0 .TotalCIDRGroupsLarge) }} # Hack to convert to int
+{{$CIDRNO = .CIDRGroupLargeSize}}
+{{ else if lt $INDEX (AddInt .TotalCIDRGroupsLarge .TotalCIDRGroupsMedium) }}
+{{$CIDRNO = .CIDRGroupMediumSize}}
+{{ end }}
+
+apiVersion: cilium.io/v2alpha1
+kind: CiliumCIDRGroup
+metadata:
+  labels:
+    allcidrs: all
+spec:
+  externalCIDRs:
+{{ if eq $INDEX 0 }} # For local testing in kind
+    - 172.19.0.1/32
+{{ end }}
+{{ range $index := Loop $CIDRNO }}
+    - {{RandIntRange 1 255}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}/32
+{{ end }}

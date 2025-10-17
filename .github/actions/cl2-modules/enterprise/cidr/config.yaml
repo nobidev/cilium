@@ -1,0 +1,148 @@
+# This test exercised following scale test:
+# - Creates 3 types (small, medium, large) of GWs
+# - Each GW has a single CNP allowing traffic from multiple CIDRGroups
+# - Each GW is in a separate namespace
+# There are 3 types of GWs:
+# - Large GW - selecting all CIDRGroups using label selector
+# - Medium GW - selecting 1k CIDRGroups
+# - Small GW - selecting 100 CIDRGroups
+# There are 10k CIDRGroups, also divided in 3 types (small, medium, large):
+# - Large CIDRGroups - 1k of /32 CIDRs
+# - Medium CIDRGroups - 100 of /32 CIDRs
+# - Small CIDRGroups - 10 of /32 CIDRs
+
+
+# Number of GWs by type
+{{$LARGE_GWS := 1}}
+{{$MEDIUM_GWS := 9}}
+{{$SMALL_GWS := 190}}
+
+# Number of CIDRs within each CIDR group by type
+{{$CIDRGROUPS_LARGE_SIZE := 1000}}
+{{$CIDRGROUPS_MEDIUM_SIZE := 100}}
+{{$CIDRGROUPS_SMALL_SIZE := 10}}
+
+# Number of CIDR groups with specific type of CIDRGroup
+{{$TOTAL_CIDRGROUPS_LARGE := 100}}
+{{$TOTAL_CIDRGROUPS_MEDIUM := 900}}
+{{$TOTAL_CIDRGROUPS_SMALL := 9000}}
+
+# Number of CIDRGroups by GW type
+{{$CIDRGROUPS_PER_SMALL_GW := 100}}
+{{$CIDRGROUPS_PER_MEDIUM_GW := 1000}}
+{{$CIDRGROUPS_PER_LARGE_GW := AddInt $TOTAL_CIDRGROUPS_LARGE $TOTAL_CIDRGROUPS_MEDIUM $TOTAL_CIDRGROUPS_SMALL}} # Target all
+
+# One namespace per GW
+{{$namespaces := AddInt $LARGE_GWS $MEDIUM_GWS $SMALL_GWS}}
+
+{{$namespacePrefix := "scale-test" }}
+{{$QPS := DefaultParam .CL2_QPS 20}}
+{{$TimeToLoadGWs := 60}}
+{{$TimeToLoad := 240}}
+
+name: load
+namespace:
+  number: {{$namespaces}}
+  prefix: {{$namespacePrefix}}
+  deleteAutomanagedNamespaces: true
+tuningSets:
+- name: default
+  globalQPSLoad:
+    qps: {{$QPS}}
+    burst: 1
+- name: RandomizedSaturationTimeLimited
+  RandomizedTimeLimitedLoad:
+    timeLimit: {{$TimeToLoad}}s
+- name: RandomizedGWSaturationTimeLimited
+  RandomizedTimeLimitedLoad:
+    timeLimit: {{$TimeToLoadGWs}}s
+
+steps:
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: start
+      nodeLocalIdentitiesThreshold: {{AddInt $CIDRGROUPS_PER_LARGE_GW 1000}}
+
+- module:
+    path: ../../cilium-agent-pprofs.yaml
+    params:
+      action: start
+
+- module:
+    path: /modules/reconcile-objects.yaml
+    params:
+      actionName: "create"
+      namespaces: {{$namespaces}}
+      namespacePrefix: {{$namespacePrefix}}
+      tuningSet: RandomizedSaturationTimeLimited
+      gwTuningSet: RandomizedGWSaturationTimeLimited
+      operationTimeout: 15m
+      largeGWs: {{$LARGE_GWS}}
+      mediumGWs: {{$MEDIUM_GWS}}
+      smallGWs: {{$SMALL_GWS}}
+      totalCidrGroupsLarge: {{$TOTAL_CIDRGROUPS_LARGE}}
+      totalCidrGroupsMedium: {{$TOTAL_CIDRGROUPS_MEDIUM}}
+      totalCidrGroupsSmall: {{$TOTAL_CIDRGROUPS_SMALL}}
+      cidrGroupSizeLarge: {{$CIDRGROUPS_LARGE_SIZE}}
+      cidrGroupSizeMedium: {{$CIDRGROUPS_MEDIUM_SIZE}}
+      cidrGroupSizeSmall: {{$CIDRGROUPS_SMALL_SIZE}}
+      cidrsPerLargeGW: {{$CIDRGROUPS_PER_LARGE_GW}}
+      cidrsPerMediumGW: {{$CIDRGROUPS_PER_MEDIUM_GW}}
+      cidrsPerSmallGW: {{$CIDRGROUPS_PER_SMALL_GW}}
+      replicasPerNamespace: 1
+
+- name: Sleep to allow scraping
+  measurements:
+  - Identifier: Sleep
+    Method: Sleep
+    Params:
+      duration: 30s
+
+- module:
+    path: ../../cilium-agent-pprofs.yaml
+    params:
+      action: gather
+
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: gather
+      nodeLocalIdentitiesThreshold: {{AddInt $CIDRGROUPS_PER_LARGE_GW 1000}}
+
+- name: Collect sysdump
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      timeout: 20m
+      command:
+      - cilium
+      - sysdump
+      - --output-filename
+      - cilium-sysdump-middle
+
+# We cleanup GWs as kops creates some firewall rules
+# and kops struggles to delete cluster in this case.
+- module:
+    path: /modules/reconcile-objects.yaml
+    params:
+      actionName: "delete"
+      namespaces: {{$namespaces}}
+      namespacePrefix: {{$namespacePrefix}}
+      tuningSet: RandomizedSaturationTimeLimited
+      gwTuningSet: RandomizedGWSaturationTimeLimited
+      operationTimeout: 15m
+      largeGWs: {{$LARGE_GWS}}
+      mediumGWs: {{$MEDIUM_GWS}}
+      smallGWs: {{$SMALL_GWS}}
+      totalCidrGroupsLarge: 0
+      totalCidrGroupsMedium: 0
+      totalCidrGroupsSmall: 0
+      cidrGroupSizeLarge: {{$CIDRGROUPS_LARGE_SIZE}}
+      cidrGroupSizeMedium: {{$CIDRGROUPS_MEDIUM_SIZE}}
+      cidrGroupSizeSmall: {{$CIDRGROUPS_SMALL_SIZE}}
+      cidrsPerLargeGW: {{$CIDRGROUPS_PER_LARGE_GW}}
+      cidrsPerMediumGW: {{$CIDRGROUPS_PER_MEDIUM_GW}}
+      cidrsPerSmallGW: {{$CIDRGROUPS_PER_SMALL_GW}}
+      replicasPerNamespace: 0

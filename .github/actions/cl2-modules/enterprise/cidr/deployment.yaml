@@ -1,0 +1,31 @@
+{{$CpuRequest := DefaultParam .CpuRequest "5m"}}
+{{$MemoryRequest := DefaultParam .MemoryRequest "20M"}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    group: load
+    app: details
+spec:
+  replicas: {{.Replicas}}
+  selector:
+    matchLabels:
+      app: details
+  template:
+    metadata:
+      labels:
+        group: load
+        app: details
+    spec:
+      containers:
+      - image: docker.io/istio/examples-bookinfo-details-v1:1.16.2
+        name: details
+        ports:
+        - containerPort: 9080
+        resources:
+          requests:
+            cpu: {{$CpuRequest}}
+            memory: {{$MemoryRequest}}
+      terminationGracePeriodSeconds: 1

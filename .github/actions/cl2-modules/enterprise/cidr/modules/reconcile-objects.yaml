@@ -1,0 +1,148 @@
+{{$actionName := printf "%s objects" .actionName}}
+{{$namespaces := .namespaces}}
+{{$tuningSet := .tuningSet}}
+{{$gwTuningSet := .gwTuningSet}}
+{{$operationTimeout := .operationTimeout}}
+
+# CIDRGroups configuration
+{{$TOTAL_CIDRGROUPS_LARGE := .totalCidrGroupsLarge}}
+{{$TOTAL_CIDRGROUPS_MEDIUM := .totalCidrGroupsMedium}}
+{{$TOTAL_CIDRGROUPS_SMALL := .totalCidrGroupsSmall}}
+{{$CIDRGROUPS_LARGE_SIZE := .cidrGroupSizeLarge}}
+{{$CIDRGROUPS_MEDIUM_SIZE := .cidrGroupSizeMedium}}
+{{$CIDRGROUPS_SMALL_SIZE := .cidrGroupSizeSmall}}
+
+# GW configurations
+{{$LARGE_GWS := .largeGWs}}
+{{$MEDIUM_GWS := .mediumGWs}}
+{{$SMALL_GWS := .smallGWs}}
+{{$CIDRGROUPS_PER_LARGE_GW := .cidrsPerLargeGW}}
+{{$CIDRGROUPS_PER_MEDIUM_GW := .cidrsPerMediumGW}}
+{{$CIDRGROUPS_PER_SMALL_GW := .cidrsPerSmallGW}}
+
+{{$REPLICAS_PER_NAMESPACE := .replicasPerNamespace}}
+{{$CIDRGROUP_VERSION_NEW := DefaultParam .CL2_CIDRGROUP_VERSION_NEW true}}
+
+
+{{$TOTAL_CIDRGROUPS := AddInt $TOTAL_CIDRGROUPS_LARGE $TOTAL_CIDRGROUPS_MEDIUM $TOTAL_CIDRGROUPS_SMALL}}
+{{$CIDR_GROUP_PREFIX := "ext-cidrs"}}
+
+steps:
+- name: Starting measurement for '{{$actionName}}'
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      checkIfPodsAreUpdated: true
+      labelSelector: group = load
+      operationTimeout: {{$operationTimeout}}
+
+- name: {{$actionName}} GWs
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$REPLICAS_PER_NAMESPACE}}
+    tuningSet: {{$gwTuningSet}}
+    objectBundle:
+    - basename: details-deploy
+      objectTemplatePath: deployment.yaml
+      templateFillMap:
+        Replicas: 1
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$REPLICAS_PER_NAMESPACE}}
+    tuningSet: {{$gwTuningSet}}
+    objectBundle:
+    - basename: gateway-local
+      objectTemplatePath: gw.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$REPLICAS_PER_NAMESPACE}}
+    tuningSet: {{$gwTuningSet}}
+    objectBundle:
+    - basename: route
+      objectTemplatePath: route.yaml
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$REPLICAS_PER_NAMESPACE}}
+    tuningSet: {{$gwTuningSet}}
+    objectBundle:
+    - basename: details
+      objectTemplatePath: sv.yaml
+
+- name: Waiting for '{{$actionName}}' to be completed
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+    Params:
+      action: gather
+
+- name: {{$actionName}} CIDRs and CNPs
+  phases:
+  - replicasPerNamespace: {{$TOTAL_CIDRGROUPS}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: {{$CIDR_GROUP_PREFIX}}
+# Can't really have a single file for both versions
+# As deletion doesn't work as template values are not
+# passed to deletion phase in CL2
+{{ if $CIDRGROUP_VERSION_NEW }}
+      objectTemplatePath: cidrgroupv2.yaml
+{{ else }}
+      objectTemplatePath: cidrgroupv2alpha1.yaml
+{{ end }}
+      templateFillMap:
+        TotalCIDRGroupsLarge: {{$TOTAL_CIDRGROUPS_LARGE}}
+        TotalCIDRGroupsMedium: {{$TOTAL_CIDRGROUPS_MEDIUM}}
+        TotalCIDRGroupsSmall: {{$TOTAL_CIDRGROUPS_SMALL}}
+        CIDRGroupLargeSize: {{$CIDRGROUPS_LARGE_SIZE}}
+        CIDRGroupMediumSize: {{$CIDRGROUPS_MEDIUM_SIZE}}
+        CIDRGroupSmallSize: {{$CIDRGROUPS_SMALL_SIZE}}
+
+# CNPs by GW type
+  - namespaceRange:
+      min: 1
+      max: {{$LARGE_GWS}}
+    replicasPerNamespace: {{$REPLICAS_PER_NAMESPACE}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: cnp
+      objectTemplatePath: cnp.yaml
+      templateFillMap:
+        TotalCIDRGroups: {{$TOTAL_CIDRGROUPS}}
+        CIDRGroupPrefix: {{$CIDR_GROUP_PREFIX}}
+        CIDRGroupsSelected: {{$CIDRGROUPS_PER_LARGE_GW}}
+  - namespaceRange:
+      min: {{AddInt $LARGE_GWS 1}}
+      max: {{AddInt $LARGE_GWS $MEDIUM_GWS}}
+    replicasPerNamespace: {{$REPLICAS_PER_NAMESPACE}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: cnp
+      objectTemplatePath: cnp.yaml
+      templateFillMap:
+        TotalCIDRGroups: {{$TOTAL_CIDRGROUPS}}
+        CIDRGroupPrefix: {{$CIDR_GROUP_PREFIX}}
+        CIDRGroupsSelected: {{$CIDRGROUPS_PER_MEDIUM_GW}}
+  - namespaceRange:
+      min: {{AddInt $LARGE_GWS $MEDIUM_GWS 1}}
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$REPLICAS_PER_NAMESPACE}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: cnp
+      objectTemplatePath: cnp.yaml
+      templateFillMap:
+        TotalCIDRGroups: {{$TOTAL_CIDRGROUPS}}
+        CIDRGroupPrefix: {{$CIDR_GROUP_PREFIX}}
+        CIDRGroupsSelected: {{$CIDRGROUPS_PER_SMALL_GW}}

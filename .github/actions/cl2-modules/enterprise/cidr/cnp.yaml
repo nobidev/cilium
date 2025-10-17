@@ -1,0 +1,24 @@
+{{$TOTAL_CIDRGROUPS := .TotalCIDRGroups}}
+{{$CIDR_GROUP_PREFIX := .CIDRGroupPrefix}}
+{{$SELECTED_CIDRS := .CIDRGroupsSelected}}
+
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  labels:
+    ns: {{.Namespace}}
+specs:
+  - description: "Allow traffic from external IPs via gateway and L3"
+    endpointSelector: {}
+    ingress:
+    - fromCIDRSet:
+{{if eq $SELECTED_CIDRS $TOTAL_CIDRGROUPS}}
+      - cidrGroupSelector:
+          matchLabels:
+            allcidrs: all
+{{else}}
+  {{range $index := Loop $SELECTED_CIDRS }}
+      - cidrGroupRef: {{$CIDR_GROUP_PREFIX}}-{{RandIntRange 0 (SubtractInt $TOTAL_CIDRGROUPS 1)}}
+  {{end}}
+{{end}}
+
