@@ -155,7 +155,7 @@ require (
 // Enterprise specific deps
 require (
 	github.com/YutaroHayakawa/go-ra v0.0.0-20241125075947-1274124821d6
-	github.com/isovalent/hubble-timescape/api v1.8.0
+	github.com/isovalent/hubble-timescape/api v1.8.3
 	github.com/jonboulle/clockwork v0.5.0
 )
 

@@ -457,8 +457,8 @@ github.com/ishidawataru/sctp v0.0.0-20230406120618-7ff4192f6ff2 h1:i2fYnDurfLlJH
 github.com/ishidawataru/sctp v0.0.0-20230406120618-7ff4192f6ff2/go.mod h1:co9pwDoBCm1kGxawmb4sPq0cSIOOWNPT4KnHotMP1Zg=
 github.com/isovalent/go-ra v0.0.0-20241125075947-1274124821d6 h1:OV+faAvpYGaoBrm2nEx1MCp5xRHIvlVRKBq3o9nmsrA=
 github.com/isovalent/go-ra v0.0.0-20241125075947-1274124821d6/go.mod h1:r5ppO5qsH+CLp5hcc5pHvytUlOgcI0vuAwpywt6y/Eg=
-github.com/isovalent/hubble-timescape/api v1.8.0 h1:7X+37t9r1Pwk9e5FM0zy3UKlzYu00/EpWxQ1ehRl7H4=
-github.com/isovalent/hubble-timescape/api v1.8.0/go.mod h1:zLmmN2MZMY4hsZWdD9w8FlYMUe+VfGI56w8wcGfZgXI=
+github.com/isovalent/hubble-timescape/api v1.8.3 h1:d79go63BGow9DmYuN54jQbsKzxrPc8fFsRQ3DMUQ4qw=
+github.com/isovalent/hubble-timescape/api v1.8.3/go.mod h1:J4nSUp5NUwOUWnF0v2OxB5gSL2sjhn/67XRJO/Tsp8E=
 github.com/isovalent/ipa v1.18.0-pre.2 h1:b0ercUl2nGpFLv3I/B6aUFVOF0s/fyAmGG0AtBig96I=
 github.com/isovalent/ipa v1.18.0-pre.2/go.mod h1:4VKsoi0OTUUyHdgTe4ZJ2EB3RlZV8WxPtX30DCZ1lW0=
 github.com/jeremywohl/flatten v1.0.1 h1:LrsxmB3hfwJuE+ptGOijix1PIfOoKLJ3Uee/mzbgtrs=

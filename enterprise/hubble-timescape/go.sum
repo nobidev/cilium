@@ -141,8 +141,8 @@ github.com/hashicorp/golang-lru/v2 v2.0.7 h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs
 github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
-github.com/isovalent/hubble-timescape/api v1.8.1 h1:VKrxm4vdiASrpEMeq3LX+r8ESsMaCc8A1AVIf3IXTaM=
-github.com/isovalent/hubble-timescape/api v1.8.1/go.mod h1:ghVD4LI/w8t6zQnzN0kwIYw0ewR3FlgNnOEDGwO4tGA=
+github.com/isovalent/hubble-timescape/api v1.8.3 h1:d79go63BGow9DmYuN54jQbsKzxrPc8fFsRQ3DMUQ4qw=
+github.com/isovalent/hubble-timescape/api v1.8.3/go.mod h1:J4nSUp5NUwOUWnF0v2OxB5gSL2sjhn/67XRJO/Tsp8E=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
