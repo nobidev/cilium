@@ -317,6 +317,8 @@ communicating via the proxy must reconnect to re-establish connections.
   This may change in future. See :gh-issue:`35823`
   and :gh-issue:`17177` for further discussion on this topic.
 * MCS-API CRDs need to be updated, see the MCS-API :ref:`clustermesh_mcsapi_prereqs` for updated CRD links.
+* Cilium will stop reporting its local cluster name and node name in metrics. Users relying on those
+  should configure their metrics collection system to add similar labels instead.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -366,6 +368,7 @@ Removed Metrics
 ~~~~~~~~~~~~~~~
 
 * ``k8s_internal_traffic_policy_enabled`` has been removed, because the corresponding feature is enabled by default.
+* ``endpoint_max_ifindex`` has been removed, because the corresponding datapath limitation no longer applies.
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
@@ -394,6 +397,20 @@ now report per cluster metric instead of a "global" count and were renamed to re
 * ``cilium_agent_clustermesh_remote_cluster_services``
 * ``cilium_operator_clustermesh_remote_cluster_services``
 * ``cilium_operator_clustermesh_remote_cluster_service_exports``
+
+The following metrics no longer reports a ``source_cluster`` and a ``source_node_name`` label:
+* ``node_health_connectivity_status``
+* ``node_health_connectivity_latency_seconds``
+* ``bootstrap_seconds``
+* ``*_remote_clusters``
+* ``*_remote_cluster_last_failure_ts``
+* ``*_remote_cluster_readiness_status``
+* ``*_remote_cluster_failures``
+* ``*_remote_cluster_nodes``
+* ``*_remote_cluster_services``
+* ``*_remote_cluster_endpoints``
+* ``cilium_operator_clustermesh_remote_cluster_service_exports``
+
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~

@@ -1153,7 +1153,7 @@
      - string
      - ``"5m"``
    * - :spelling:ignore:`debug.verbose`
-     - Configure verbosity levels for debug logging This option is used to enable debug messages for operations related to such sub-system such as (e.g. kvstore, envoy, datapath or policy), and flow is for enabling debug messages emitted per request, message and connection. Multiple values can be set via a space-separated string (e.g. "datapath envoy").  Applicable values: - flow - kvstore - envoy - datapath - policy
+     - Configure verbosity levels for debug logging This option is used to enable debug messages for operations related to such sub-system such as (e.g. kvstore, envoy, datapath, policy, or tagged), and flow is for enabling debug messages emitted per request, message and connection. Multiple values can be set via a space-separated string (e.g. "datapath envoy").  Applicable values: - flow - kvstore - envoy - datapath - policy - tagged
      - string
      - ``nil``
    * - :spelling:ignore:`defaultLBServiceIPAM`
@@ -1623,7 +1623,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:b018cc3f6ef1fc6e9a4c7bda3ed559253289c947c087b9a30f9ef935400b57f1","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1758113963-8cb437bde0dcb78485ecc8edf685267452919ce5","useDigest":true}``
+     - ``{"digest":"sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1759553787-f16dc8e69dee56f4e376afef9676c7b9d659ac37","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -3919,7 +3919,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:b018cc3f6ef1fc6e9a4c7bda3ed559253289c947c087b9a30f9ef935400b57f1","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1758113963-8cb437bde0dcb78485ecc8edf685267452919ce5","useDigest":true}``
+     - ``{"digest":"sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1759553787-f16dc8e69dee56f4e376afef9676c7b9d659ac37","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list

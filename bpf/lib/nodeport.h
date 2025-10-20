@@ -1148,13 +1148,12 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	ctx_skip_host_fw_set(ctx);
 # endif
 
-	ret = invoke_traced_tailcall_if(__or(__and(is_defined(ENABLE_HOST_FIREWALL),
-						   is_defined(IS_BPF_HOST)),
-					     __and(is_defined(ENABLE_IPV6_FRAGMENTS),
-						   is_defined(IS_BPF_XDP))),
-					CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS,
-					nodeport_rev_dnat_ingress_ipv6,
-					&trace, &ext_err);
+	if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
+	    (is_defined(ENABLE_IPV6_FRAGMENTS) && is_defined(IS_BPF_XDP)))
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS, &ext_err);
+	else
+		ret = nodeport_rev_dnat_ingress_ipv6(ctx, &trace, &ext_err);
+
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -1194,6 +1193,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		.reason = (enum trace_reason)CT_NEW,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
+	struct ipv6_nat_entry *state = NULL;
 	int ret, l4_off, oif = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1237,7 +1237,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	if (unlikely(ret != CTX_ACT_OK))
 		goto drop_err;
 
-	ret = __snat_v6_nat(ctx, &tuple, fraginfo, l4_off, true,
+	ret = __snat_v6_nat(ctx, &tuple, state, fraginfo, l4_off, true,
 			    &target, TCP_SPORT_OFF, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
@@ -1327,6 +1327,9 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 
 	if (!lb6_svc_is_routable(svc))
 		return DROP_IS_CLUSTER_IP;
+
+	if (lb_punt_etp_local() && lb6_svc_is_etp_local(svc))
+		return CTX_ACT_OK;
 
 #if defined(ENABLE_L7_LB)
 	if (lb6_svc_is_l7_loadbalancer(svc)) {
@@ -1488,12 +1491,10 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		/* Check if the identified service is a wildcard entry. This
 		 * means we have no protocol-level service entry, meaning we
 		 * should drop the traffic to avoid it being punted back to
-		 * the network and re-delivered to is in a loop.
+		 * the network and re-delivered to us in a loop.
 		 */
-		if (lb6_key_is_wildcard(&key)) {
-			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+		if (lb6_key_is_wildcard(&key))
 			return DROP_NO_SERVICE;
-		}
 
 		return nodeport_svc_lb6(ctx, &tuple, svc, &key, ip6, l3_off,
 					fraginfo, l4_off, src_sec_identity,
@@ -2487,11 +2488,11 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * Also let nodeport_rev_dnat_ipv4() redirect EgressGW
 	 * reply traffic into tunnel (see there for details).
 	 */
-	ret = invoke_traced_tailcall_if(__and(is_defined(ENABLE_HOST_FIREWALL),
-					      is_defined(IS_BPF_HOST)),
-					CILIUM_CALL_IPV4_NODEPORT_REVNAT,
-					nodeport_rev_dnat_ipv4,
-					&trace, &ext_err);
+	if (is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST))
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT, &ext_err);
+	else
+		ret = nodeport_rev_dnat_ipv4(ctx, &trace, &ext_err);
+
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -2538,6 +2539,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		.reason = (enum trace_reason)CT_NEW,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
+	struct ipv4_nat_entry *state = NULL;
 	int ret, l4_off, oif = 0;
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -2591,7 +2593,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	if (unlikely(ret != CTX_ACT_OK))
 		goto drop_err;
 
-	ret = __snat_v4_nat(ctx, &tuple, fraginfo, l4_off, true,
+	ret = __snat_v4_nat(ctx, &tuple, state, fraginfo, l4_off, true,
 			    &target, TCP_SPORT_OFF, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
@@ -2671,6 +2673,12 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 
 	if (!lb4_svc_is_routable(svc))
 		return DROP_IS_CLUSTER_IP;
+
+	/* Punt eTP=local service traffic from XDP to TC layer for post-GRO
+	 * performance boost:
+	 */
+	if (lb_punt_etp_local() && lb4_svc_is_etp_local(svc))
+		return CTX_ACT_OK;
 
 #if defined(ENABLE_L7_LB)
 	if (lb4_svc_is_l7_loadbalancer(svc)) {
@@ -2860,12 +2868,10 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		/* Check if the identified service is a wildcard entry. This
 		 * means we have no protocol-level service entry, meaning we
 		 * should drop the traffic to avoid it being punted back to
-		 * the network and re-delivered to is in a loop.
+		 * the network and re-delivered to us in a loop.
 		 */
-		if (lb4_key_is_wildcard(&key)) {
-			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+		if (lb4_key_is_wildcard(&key))
 			return DROP_NO_SERVICE;
-		}
 
 		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
 					fraginfo, l4_off, src_sec_identity,

@@ -467,19 +467,10 @@ Endpoint
 Name                                         Labels                                             Default    Description
 ============================================ ================================================== ========== ========================================================
 ``endpoint``                                                                                    Enabled    Number of endpoints managed by this agent
-``endpoint_max_ifindex``                                                                        Disabled   Maximum interface index observed for existing endpoints
 ``endpoint_regenerations_total``             ``outcome``                                        Enabled    Count of all endpoint regenerations that have completed
 ``endpoint_regeneration_time_stats_seconds`` ``scope``                                          Enabled    Endpoint regeneration time stats
 ``endpoint_state``                           ``state``                                          Enabled    Count of all endpoints
 ============================================ ================================================== ========== ========================================================
-
-The default enabled status of ``endpoint_max_ifindex`` is dynamic. On earlier
-kernels (typically with version lower than 5.10), Cilium must store the
-interface index for each endpoint in the conntrack map, which reserves 16 bits
-for this field. If Cilium is running on such a kernel, this metric will be
-enabled by default. It can be used to implement an alert if the ifindex is
-approaching the limit of 65535. This may be the case in instances of
-significant Endpoint churn.
 
 Services
 ~~~~~~~~
@@ -504,27 +495,27 @@ Name                                       Labels                               
 Node Connectivity
 ~~~~~~~~~~~~~~~~~
 
-============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
-Name                                          Labels                                                                                                                                                                 Default    Description
-============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
-``node_health_connectivity_status``           ``source_cluster``, ``source_node_name``, ``type``, ``status``                                                                                                         Enabled    Number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
-``node_health_connectivity_latency_seconds``  ``source_cluster``, ``source_node_name``, ``type``, ``address_type``, ``protocol``                                                                                     Enabled    Histogram of the last observed latency between the current Cilium agent and other Cilium nodes in seconds
-============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
+============================================= ======================================== ========== ==========================================================================================================================================
+Name                                          Labels                                    Default    Description
+============================================= ======================================== ========== ==========================================================================================================================================
+``node_health_connectivity_status``           ``type``, ``status``                     Enabled    Number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
+``node_health_connectivity_latency_seconds``  ``type``, ``address_type``, ``protocol`` Enabled    Histogram of the last observed latency between the current Cilium agent and other Cilium nodes in seconds
+============================================= ======================================== ========== ==========================================================================================================================================
 
 Clustermesh
 ~~~~~~~~~~~
 
-=============================================== ============================================================ ========== =================================================================
-Name                                            Labels                                                       Default    Description
-=============================================== ============================================================ ========== =================================================================
-``clustermesh_remote_cluster_services``         ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of services per remote cluster
-``clustermesh_remote_cluster_endpoints``        ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of endpoints per remote cluster
-``clustermesh_remote_cluster_nodes``            ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of nodes per remote cluster
-``clustermesh_remote_clusters``                 ``source_cluster``, ``source_node_name``                     Enabled    The total number of remote clusters meshed with the local cluster
-``clustermesh_remote_cluster_failures``         ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of failures related to the remote cluster
-``clustermesh_remote_cluster_last_failure_ts``  ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The timestamp of the last failure of the remote cluster
-``clustermesh_remote_cluster_readiness_status`` ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The readiness status of the remote cluster
-=============================================== ============================================================ ========== =================================================================
+=============================================== ================== ========== =================================================================
+Name                                            Labels             Default    Description
+=============================================== ================== ========== =================================================================
+``clustermesh_remote_cluster_services``         ``target_cluster`` Enabled    The total number of services per remote cluster
+``clustermesh_remote_cluster_endpoints``        ``target_cluster`` Enabled    The total number of endpoints per remote cluster
+``clustermesh_remote_cluster_nodes``            ``target_cluster`` Enabled    The total number of nodes per remote cluster
+``clustermesh_remote_clusters``                                    Enabled    The total number of remote clusters meshed with the local cluster
+``clustermesh_remote_cluster_failures``         ``target_cluster`` Enabled    The total number of failures related to the remote cluster
+``clustermesh_remote_cluster_last_failure_ts``  ``target_cluster`` Enabled    The timestamp of the last failure of the remote cluster
+``clustermesh_remote_cluster_readiness_status`` ``target_cluster`` Enabled    The readiness status of the remote cluster
+=============================================== ================== ========== =================================================================
 
 Datapath
 ~~~~~~~~
@@ -1006,25 +997,29 @@ Name                                                 Labels                     
 MCS-API
 ~~~~~~~
 
-==================================== ============================================================ ========== ===========================================================
-Name                                                 Labels                                                    Default     Description
-==================================== ============================================================ ========== ===========================================================
-``serviceexport_info``               ``serviceexport``, ``namespace``                             Enabled    Information about ServiceExport in the local cluster
-``serviceexport_status_condition``   ``serviceexport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceExport in the local cluster
-``serviceimport_info``               ``serviceimport``, ``namespace``                             Enabled    Information about ServiceImport in the local cluster
-``serviceimport_status_condition``   ``serviceimport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceImport in the local cluster
-``serviceimport_status_clusters``    ``serviceimport``, ``namespace``                             Enabled    The number of clusters currently backing a ServiceImport
-==================================== ============================================================ ========== ===========================================================
+========================================= ============================================================ ========== =========================================================
+Name                                      Labels                                                       Default    Description
+========================================= ============================================================ ========== =========================================================
+``mcsapi_serviceexport_info``             ``serviceexport``, ``namespace``                             Enabled    Information about ServiceExport in the local cluster
+``mcsapi_serviceexport_status_condition`` ``serviceexport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceExport in the local cluster
+``mcsapi_serviceimport_info``             ``serviceimport``, ``namespace``                             Enabled    Information about ServiceImport in the local cluster
+``mcsapi_serviceimport_status_condition`` ``serviceimport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceImport in the local cluster
+``mcsapi_serviceimport_status_clusters``  ``serviceimport``, ``namespace``                             Enabled    The number of clusters currently backing a ServiceImport
+========================================= ============================================================ ========== =========================================================
 
 Clustermesh
 ~~~~~~~~~~~
 
-============================================== ======================================= ========== ==================================================================
-Name                                           Labels                                  Default    Description
-============================================== ======================================= ========== ==================================================================
-``clustermesh_remote_cluster_services``        ``source_cluster``, ``target_cluster``  Enabled    The total number of services per remote cluster
-``clustermesh_remote_cluster_service_exports`` ``source_cluster``, ``target_cluster``  Enabled    The total number of MCS-API service exports per remote cluster
-============================================== ======================================= ========== ==================================================================
+=============================================== ================== ========== ==================================================================
+Name                                            Labels             Default    Description
+=============================================== ================== ========== ==================================================================
+``clustermesh_remote_clusters``                                    Enabled    The total number of remote clusters meshed with the local cluster
+``clustermesh_remote_cluster_failures``         ``target_cluster`` Enabled    The total number of failures related to the remote cluster
+``clustermesh_remote_cluster_last_failure_ts``  ``target_cluster`` Enabled    The timestamp of the last failure of the remote cluster
+``clustermesh_remote_cluster_readiness_status`` ``target_cluster`` Enabled    The readiness status of the remote cluster
+``clustermesh_remote_cluster_services``         ``target_cluster`` Enabled    The total number of services per remote cluster
+``clustermesh_remote_cluster_service_exports``  ``target_cluster`` Enabled    The total number of MCS-API service exports per remote cluster
+=============================================== ================== ========== ==================================================================
 
 
 Hubble
@@ -1474,11 +1469,11 @@ Prometheus namespace.
 Bootstrap
 ~~~~~~~~~
 
-======================================== ============================================ ========================================================
-Name                                     Labels                                       Description
-======================================== ============================================ ========================================================
-``bootstrap_seconds``                    ``source_cluster``                           Duration in seconds to complete bootstrap
-======================================== ============================================ ========================================================
+======================================== ========================================================
+Name                                     Description
+======================================== ========================================================
+``bootstrap_seconds``                    Duration in seconds to complete bootstrap
+======================================== ========================================================
 
 KVstore
 ~~~~~~~
@@ -1546,23 +1541,34 @@ All metrics are exported under the ``cilium_kvstoremesh_`` Prometheus namespace.
 Bootstrap
 ~~~~~~~~~
 
-======================================== ============================================ ========================================================
-Name                                     Labels                                       Description
-======================================== ============================================ ========================================================
-``bootstrap_seconds``                    ``source_cluster``                           Duration in seconds to complete bootstrap
-======================================== ============================================ ========================================================
+======================================== ========================================================
+Name                                     Description
+======================================== ========================================================
+``bootstrap_seconds``                    Duration in seconds to complete bootstrap
+======================================== ========================================================
 
-Remote clusters
-~~~~~~~~~~~~~~~
+KVStoremesh
+~~~~~~~~~~~
 
-==================================== ======================================= =================================================================
-Name                                 Labels                                                       Description
-==================================== ======================================= =================================================================
-``remote_clusters``                  ``source_cluster``                      The total number of remote clusters meshed with the local cluster
-``remote_cluster_failures``          ``source_cluster``, ``target_cluster``  The total number of failures related to the remote cluster
-``remote_cluster_last_failure_ts``   ``source_cluster``, ``target_cluster``  The timestamp of the last failure of the remote cluster
-``remote_cluster_readiness_status``  ``source_cluster``, ``target_cluster``  The readiness status of the remote cluster
-==================================== ======================================= =================================================================
+================================= ======== ==========================
+Name                              Labels   Description
+================================= ======== ==========================
+``leader_election_master_status`` ``name`` The leader election status
+================================= ======== ==========================
+
+Clustermesh
+~~~~~~~~~~~
+
+Note that these metrics are not prefixed by ``clustermesh_``.
+
+=============================================== ================== ==================================================================
+Name                                            Labels             Description
+=============================================== ================== ==================================================================
+``remote_clusters``                                                The total number of remote clusters meshed with the local cluster
+``remote_cluster_failures``                     ``target_cluster`` The total number of failures related to the remote cluster
+``remote_cluster_last_failure_ts``              ``target_cluster`` The timestamp of the last failure of the remote cluster
+``remote_cluster_readiness_status``             ``target_cluster`` The readiness status of the remote cluster
+=============================================== ================== ==================================================================
 
 KVstore
 ~~~~~~~

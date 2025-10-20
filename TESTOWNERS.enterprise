@@ -109,9 +109,7 @@
 /daemon/ @isovalent/cni
 /daemon/cmd/datapath.go @isovalent/cni
 /daemon/cmd/endpoint* @isovalent/policy-identity-networking
-/daemon/cmd/kube_proxy* @isovalent/cni
 /daemon/cmd/policy* @isovalent/policy-identity-networking
-/daemon/cmd/state.go @isovalent/policy-identity-networking
 /daemon/cmd/cells*.go @isovalent/ci-structure
 /Documentation/api.rst @isovalent/cni
 /Documentation/reference-guides/bpf/ @isovalent/cni
@@ -330,13 +328,16 @@
 /pkg/util/ @isovalent/cni
 /pkg/version/ @isovalent/cni
 /pkg/versioncheck/ @isovalent/cni
+/pkg/wal/ @isovalent/ci-structure
 /pkg/wireguard @isovalent/encryption
 /pkg/xds/ @isovalent/service-mesh
 /plugins/cilium-cni/ @isovalent/sig-k8s
 /standalone-dns-proxy/ @isovalent/dns-proxy
 /test/k8s/services.go @isovalent/isovalent-loadbalancer
+/test/k8s/lrp.go @isovalent/isovalent-loadbalancer
 /test/k8s/bandwidth.go @isovalent/cni
 /test/k8s/datapath_configuration.go @isovalent/cni
+/test/k8s/chaos.go @isovalent/policy-identity-networking
 /test/k8s/net_policies.go @isovalent/policy-identity-networking
 /test/runtime/net_policies.go @isovalent/policy-identity-networking
 /test/k8s/hubble.go @isovalent/hubble
@@ -345,6 +346,8 @@
 /test/k8s/kafka_policies.go @isovalent/service-mesh
 /test/runtime/fqdn.go @isovalent/dns-proxy
 /test/bigtcp @isovalent/cni
+/test/k8s/config.go @isovalent/sig-k8s
+/test/k8s/pod_mac_address.go @isovalent/sig-k8s
 /tools/dpgen @isovalent/networking-framework
 /.github/**/*enterprise* @isovalent/infrastructure
 /.github/ISSUE_TEMPLATE/enterprise_hubble_cli_release_template.md @isovalent/hubble
