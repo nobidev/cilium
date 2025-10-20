@@ -219,27 +219,35 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 	if reqFullReconcile {
 		r.logger.Debug("performing all services reconciliation")
 
+		// BGP configuration for service advertisement changed, we should reconcile all services.
+		toReconcile, rx, err := r.fullReconciliationServiceList(p) // note: can be called only once per reconcile
+		if err != nil {
+			return err
+		}
 		for _, vrf := range p.DesiredConfig.VRFs {
-			// BGP configuration for service advertisement changed, we should reconcile all services.
-			desiredSvcPaths, err := r.getAllPaths(p, vrf, desiredVRFAdverts)
+			desiredSvcPaths, err := r.getDesiredPaths(p, toReconcile, vrf, desiredVRFAdverts, rx)
 			if err != nil {
 				return err
+			}
+			// check for services which are no longer present
+			for serviceKey := range metadata.vrfPaths[vrf.VRFRef] {
+				// if the service no longer exists, withdraw it
+				if _, exists := desiredSvcPaths[serviceKey]; !exists {
+					desiredSvcPaths[serviceKey] = nil
+				}
 			}
 			desiredVRFPaths[vrf.VRFRef] = desiredSvcPaths
 		}
 	} else {
 		r.logger.Debug("performing modified services reconciliation")
 
-		// get services to reconcile and to withdraw.
-		// Note : we should only call svc diff only once in a reconcile loop.
-		toReconcile, rx, err := r.diffReconciliationServiceList(p.BGPInstance)
+		// BGP configuration is unchanged, only reconcile modified services.
+		toReconcile, rx, err := r.diffReconciliationServiceList(p.BGPInstance) // note: can be called only once per reconcile
 		if err != nil {
 			return err
 		}
-
 		for _, vrf := range p.DesiredConfig.VRFs {
-			// BGP configuration is unchanged, only reconcile modified services.
-			updatedSvcPaths, err := r.getDiffPaths(p, toReconcile, vrf, desiredVRFAdverts, rx)
+			updatedSvcPaths, err := r.getDesiredPaths(p, toReconcile, vrf, desiredVRFAdverts, rx)
 			if err != nil {
 				return err
 			}
@@ -315,9 +323,7 @@ func (r *ServiceVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseR
 	return updatedSvcPaths, err
 }
 
-func (r *ServiceVRFReconciler) getAllPaths(p EnterpriseReconcileParams, bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements) (reconcilerv2.ResourceAFPathsMap, error) {
-	var err error
-	desiredServiceAFPaths := make(reconcilerv2.ResourceAFPathsMap)
+func (r *ServiceVRFReconciler) fullReconciliationServiceList(p EnterpriseReconcileParams) (toReconcile []*loadbalancer.Service, rx statedb.ReadTxn, err error) {
 	metadata := r.getMetadata(p.BGPInstance)
 
 	// re-init changes interator, so that it contains changes since the last full reconciliation
@@ -325,9 +331,9 @@ func (r *ServiceVRFReconciler) getAllPaths(p EnterpriseReconcileParams, bgpVRF v
 	metadata.frontendChanges, err = r.frontends.Changes(tx)
 	if err != nil {
 		tx.Abort()
-		return nil, fmt.Errorf("error subscribing to frontends changes: %w", err)
+		return nil, nil, fmt.Errorf("error subscribing to frontends changes: %w", err)
 	}
-	rx := tx.Commit()
+	rx = tx.Commit()
 	metadata.frontendChangesInitialized = true
 	r.setMetadata(p.BGPInstance, metadata)
 
@@ -340,29 +346,8 @@ func (r *ServiceVRFReconciler) getAllPaths(p EnterpriseReconcileParams, bgpVRF v
 		svcMap[frontend.Service.Name] = frontend.Service
 	}
 
-	// check for services which are no longer present
-	if serviceAFPaths, vrfExists := r.getMetadata(p.BGPInstance).vrfPaths[bgpVRF.VRFRef]; vrfExists {
-		for svcKey := range serviceAFPaths {
-			svcName := loadbalancer.NewServiceName(svcKey.Namespace, svcKey.Name)
-			// if the service no longer exists, withdraw it
-			if _, exists := svcMap[svcName]; !exists {
-				desiredServiceAFPaths[svcKey] = nil
-			}
-		}
-	}
-
-	// check all services for advertisement
-	for _, svc := range slices.Collect(maps.Values(svcMap)) {
-		svcKey := resource.Key{Name: svc.Name.Name(), Namespace: svc.Name.Namespace()}
-
-		afPaths, err := r.getServiceAFPaths(p, svc, bgpVRF, desiredVRFAdverts, rx)
-		if err != nil {
-			return nil, err
-		}
-		desiredServiceAFPaths[svcKey] = afPaths
-	}
-
-	return desiredServiceAFPaths, nil
+	toReconcile = slices.Collect(maps.Values(svcMap))
+	return
 }
 
 func (r *ServiceVRFReconciler) diffReconciliationServiceList(i *EnterpriseBGPInstance) (toReconcile []*loadbalancer.Service, rx statedb.ReadTxn, err error) {
@@ -386,7 +371,7 @@ func (r *ServiceVRFReconciler) diffReconciliationServiceList(i *EnterpriseBGPIns
 	return
 }
 
-func (r *ServiceVRFReconciler) getDiffPaths(p EnterpriseReconcileParams, toReconcile []*loadbalancer.Service, bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements, rx statedb.ReadTxn) (reconcilerv2.ResourceAFPathsMap, error) {
+func (r *ServiceVRFReconciler) getDesiredPaths(p EnterpriseReconcileParams, toReconcile []*loadbalancer.Service, bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements, rx statedb.ReadTxn) (reconcilerv2.ResourceAFPathsMap, error) {
 	desiredServiceAFPaths := make(reconcilerv2.ResourceAFPathsMap)
 	for _, svc := range toReconcile {
 		svcKey := resource.Key{Name: svc.Name.Name(), Namespace: svc.Name.Namespace()}
