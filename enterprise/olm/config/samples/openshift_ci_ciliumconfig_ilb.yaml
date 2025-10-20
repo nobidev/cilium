@@ -15,7 +15,6 @@ spec:
     monitorAggregation: "none"
     masquerade: true
     ctAccounting: true
-    hostLegacyRouting: true
     lbAlgorithmAnnotation: true
     lbModeAnnotation: true
   enableIPv4Masquerade: true
