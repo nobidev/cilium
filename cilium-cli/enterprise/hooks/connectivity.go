@@ -325,6 +325,7 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 		newIPAMTest(ct, "seq-egress-gateway-ha-ipam-bgp-advertisement").
 			WithFeatureRequirements(
 				features.RequireEnabled(enterpriseFeatures.EnterpriseBGPControlPlane),
+				features.RequireMode(features.CiliumIPAMMode, "cluster-pool"),
 			).
 			WithCondition(func() bool { return len(enterpriseTests.Params.EgressGateway.PeerAddresses) != 0 }).
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
@@ -344,6 +345,48 @@ func (ec *EnterpriseConnectivity) addEgressGatewayHATests(ct *check.Connectivity
 				features.RequireEnabled(enterpriseFeatures.EnterpriseBGPControlPlane),
 				features.RequireEnabled(enterpriseFeatures.CiliumDNSProxyHA),
 				features.RequireEnabled(features.L7Proxy),
+				features.RequireMode(features.CiliumIPAMMode, "cluster-pool"),
+			).
+			WithCondition(func() bool { return len(enterpriseTests.Params.EgressGateway.PeerAddresses) != 0 }).
+			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
+				Name:            "iegp-sample-client",
+				Labels:          map[string]string{"egw": "bgp-advertise"},
+				PodSelectorKind: "client",
+				EgressGroup:     enterpriseCheck.AllCiliumNodes,
+			}).
+			WithCiliumPolicy(clientEgressICMPYAML).
+			WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
+			WithCiliumPolicy(clientEgressL7HTTPAnywhereYAML).             // L7 allow policy with HTTP introspection
+			WithScenarios(enterpriseTests.EgressGatewayHABGPAdvertisement(bfdEnabled))
+	}
+
+	if versioncheck.MustCompile(">=1.18.1")(ct.CiliumVersion) {
+		bfdEnabled, _ := ct.Features.MatchRequirements(features.RequireEnabled(enterpriseFeatures.BFD))
+		// prefix the test name with `seq-` to run it sequentially
+		newIPAMTest(ct, "seq-egress-gateway-ha-ipam-bgp-advertisement-multi-pool").
+			WithFeatureRequirements(
+				features.RequireEnabled(enterpriseFeatures.EnterpriseBGPControlPlane),
+				features.RequireMode(features.CiliumIPAMMode, "multi-pool"),
+			).
+			WithCondition(func() bool { return len(enterpriseTests.Params.EgressGateway.PeerAddresses) != 0 }).
+			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
+				Name:            "iegp-sample-client",
+				Labels:          map[string]string{"egw": "bgp-advertise"},
+				PodSelectorKind: "client",
+				EgressGroup:     enterpriseCheck.AllCiliumNodes,
+			}).
+			WithScenarios(enterpriseTests.EgressGatewayHABGPAdvertisement(bfdEnabled))
+	}
+
+	if versioncheck.MustCompile(">=1.18.1")(ct.CiliumVersion) {
+		bfdEnabled, _ := ct.Features.MatchRequirements(features.RequireEnabled(enterpriseFeatures.BFD))
+		// prefix the test name with `seq-` to run it sequentially
+		newIPAMTest(ct, "seq-egress-gateway-ha-ipam-bgp-advertisement-with-l7-policy-multi-pool").
+			WithFeatureRequirements(
+				features.RequireEnabled(enterpriseFeatures.EnterpriseBGPControlPlane),
+				features.RequireEnabled(enterpriseFeatures.CiliumDNSProxyHA),
+				features.RequireEnabled(features.L7Proxy),
+				features.RequireMode(features.CiliumIPAMMode, "multi-pool"),
 			).
 			WithCondition(func() bool { return len(enterpriseTests.Params.EgressGateway.PeerAddresses) != 0 }).
 			WithIsovalentEgressGatewayPolicy(enterpriseCheck.IsovalentEgressGatewayPolicyParams{
