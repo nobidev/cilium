@@ -104,6 +104,19 @@ jobs:
     name: Setup and Test
     needs: wait-for-images
     timeout-minutes: 120
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: 0
+            name: 'multi pool IPAM'
+            ipam: 'multi-pool'
+
+          - id: 1
+            name: 'cluster pool IPAM'
+            ipam: 'cluster-pool'
+
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -123,7 +136,8 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
-          NAME="${{ env.test_name }}-${{ github.run_id }}-${{ github.run_attempt }}"
+          MATRIX_ID=${{ matrix.id }}
+          NAME="${{ env.test_name }}-${{ github.run_id }}-${{ github.run_attempt }}-${MATRIX_ID}"
 
           CILIUM_INSTALL_DEFAULTS=" \
             --chart-directory=untrusted/install/kubernetes/cilium \
