@@ -22,5 +22,5 @@ runs:
     - shell: bash
       name: Override enterprise runtime variable from file
       run: |
-        ENTEPRISE_RUNTIME_IMAGE=$(cat ${{ github.action_path }}/enterprise-runtime-image.txt | tr '\n' ' ' | sed 's/"/\\"/g')
+        ENTEPRISE_RUNTIME_IMAGE=$(cat ${{ github.action_path }}/runtime-image-enterprise.txt | tr '\n' ' ' | sed 's/"/\\"/g')
         echo "CILIUM_RUNTIME_IMAGE=$ENTEPRISE_RUNTIME_IMAGE" >> "$GITHUB_ENV"
