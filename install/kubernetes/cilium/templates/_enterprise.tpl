@@ -82,10 +82,6 @@ auto-create-default-pod-network: {{ .Values.enterprise.multiNetwork.autoCreateDe
 {{- end }}
 {{- end }}
 
-
-# If user did not provide any extraConfig or didn't provide export-file-path,
-# use the default value for export and aggregation.
-
 {{- $defaultExportFilePath := "" }}
 {{- $defaultExportAggregation := "" }}
 {{- $defaultExportAggregationStateFilter := "" }}
@@ -114,18 +110,13 @@ auto-create-default-pod-network: {{ .Values.enterprise.multiNetwork.autoCreateDe
 {{- $defaultExportAggregationRenewTTL = "false" }}
 {{- end }}
 
-{{- if or (not .Values.extraConfig) (empty (get .Values.extraConfig "export-file-path")) }}
+# Keep minimal set of deprecated legacy config for Integrated Timescape
 export-file-path: {{ $defaultExportFilePath | quote }}
-{{- end }}
-{{- if or (not .Values.extraConfig) (empty (get .Values.extraConfig "export-aggregation")) }}
 export-aggregation: {{ $defaultExportAggregation | quote }}
+{{- with $defaultExportAggregationStateFilter }}
+export-aggregation-state-filter: {{ . | quote }}
 {{- end }}
-{{- if or (not .Values.extraConfig) (empty (get .Values.extraConfig "export-aggregation-state-filter")) }}
-export-aggregation-state-filter: {{ $defaultExportAggregationStateFilter | quote }}
-{{- end }}
-{{- if or (not .Values.extraConfig) (empty (get .Values.extraConfig "export-aggregation-renew-ttl")) }}
 export-aggregation-renew-ttl: {{ $defaultExportAggregationRenewTTL | quote }}
-{{- end }}
 
 {{- if .Values.hubble.export }}
 {{- if .Values.hubble.export.static.enabled }}

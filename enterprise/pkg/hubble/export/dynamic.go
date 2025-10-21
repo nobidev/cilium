@@ -232,7 +232,7 @@ func newAggregatorFromDynamicConfig(config *FlowLogConfig, logger *slog.Logger) 
 		config.Aggregations,
 		config.AggregationStateChangeFilter,
 		config.AggregationIgnoreSourcePort,
-		config.AggregationTtl,
+		config.AggregationTTL,
 		config.AggregationRenewTTL,
 	)
 	if err != nil {
@@ -328,7 +328,7 @@ func (c *dynamicConfigFile) ToFlowLogConfigs() []*FlowLogConfig {
 			config.AggregationStateChangeFilter = fl.AggregationStateChangeFilter
 		}
 		if fl.AggregationTTL != nil {
-			config.AggregationTtl = time.Duration(*fl.AggregationTTL)
+			config.AggregationTTL = time.Duration(*fl.AggregationTTL)
 		}
 
 		configs = append(configs, config)
@@ -381,7 +381,7 @@ func (f *FlowLogConfig) equals(other *FlowLogConfig) bool {
 	if f.AggregationRenewTTL != other.AggregationRenewTTL {
 		return false
 	}
-	if f.AggregationTtl != other.AggregationTtl {
+	if f.AggregationTTL != other.AggregationTTL {
 		return false
 	}
 

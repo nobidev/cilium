@@ -54,11 +54,10 @@ func newMetricsHandler() *metricsHandler {
 	return metricsHandler
 }
 
-// config represent the EE static exporter configuration used by Cilium >=1.18.0.
+// config represents the EE static exporter configuration.
 //
-// These are colocated with the OSS static exporter options in the helm chart under the
-// `hubble.export.static` field. They also take precedence over the configuration from
-// legacyConfig.
+// These are colocated with the OSS static exporter options in the helm chart
+// under the `hubble.export.static` field.
 type config struct {
 	FileRotationInterval         time.Duration `mapstructure:"hubble-export-file-rotation-interval"`
 	FormatVersion                string        `mapstructure:"hubble-export-format-version"`
@@ -68,7 +67,7 @@ type config struct {
 	AggregationIgnoreSourcePort  bool          `mapstructure:"hubble-export-aggregation-ignore-source-port"`
 	AggregationRenewTTL          bool          `mapstructure:"hubble-export-aggregation-renew-ttl"`
 	AggregationStateChangeFilter []string      `mapstructure:"hubble-export-aggregation-state-filter"`
-	AggregationTtl               time.Duration `mapstructure:"hubble-export-aggregation-ttl"`
+	AggregationTTL               time.Duration `mapstructure:"hubble-export-aggregation-ttl"`
 }
 
 var defaultConfig = config{
@@ -80,7 +79,7 @@ var defaultConfig = config{
 	AggregationIgnoreSourcePort:  true,
 	AggregationRenewTTL:          true,
 	AggregationStateChangeFilter: []string{"new", "error", "closed"},
-	AggregationTtl:               30 * time.Second,
+	AggregationTTL:               30 * time.Second,
 }
 
 func (def config) Flags(flags *pflag.FlagSet) {
@@ -92,7 +91,7 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("hubble-export-aggregation-ignore-source-port", def.AggregationIgnoreSourcePort, "Ignore source port during aggregation")
 	flags.Bool("hubble-export-aggregation-renew-ttl", def.AggregationRenewTTL, "Renew flow TTL when a new flow is observed")
 	flags.StringSlice("hubble-export-aggregation-state-filter", def.AggregationStateChangeFilter, "The state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed')")
-	flags.Duration("hubble-export-aggregation-ttl", def.AggregationTtl, "TTL for flow aggregation")
+	flags.Duration("hubble-export-aggregation-ttl", def.AggregationTTL, "TTL for flow aggregation")
 }
 
 // legacyConfig represents the `deprecated` EE static exporter configuration used by Cilium <1.18.0.
@@ -100,70 +99,31 @@ func (def config) Flags(flags *pflag.FlagSet) {
 // These are sourced in the helm chart from the `extraConfig` free-form field and are
 // superseded by native configuration merged with the OSS exporter values under:
 // `hubble.export.static`.
+//
+// Starting with v1.19, we trimmed down the legacy config to only include
+// fields required to set default values when Integrated Timescape is enabled.
 type legacyConfig struct {
-	FilePath                     string        `mapstructure:"export-file-path"`
-	FileMaxSize                  int           `mapstructure:"export-file-max-size"`
-	FileRotationInterval         time.Duration `mapstructure:"export-file-rotation-interval"`
-	FileMaxBackups               int           `mapstructure:"export-file-max-backups"`
-	FileCompress                 bool          `mapstructure:"export-file-compress"`
-	FlowWhitelist                string        `mapstructure:"export-flow-whitelist"`
-	FlowBlacklist                string        `mapstructure:"export-flow-blacklist"`
-	FlowAllowlist                string        `mapstructure:"export-flow-allowlist"`
-	FlowDenylist                 string        `mapstructure:"export-flow-denylist"`
-	FormatVersion                string        `mapstructure:"export-format-version"`
-	RateLimit                    int           `mapstructure:"export-rate-limit"`
-	NodeName                     string        `mapstructure:"export-node-name"`
-	Aggregations                 []string      `mapstructure:"export-aggregation"`
-	AggregationIgnoreSourcePort  bool          `mapstructure:"export-aggregation-ignore-source-port"`
-	AggregationRenewTTL          bool          `mapstructure:"export-aggregation-renew-ttl"`
-	AggregationStateChangeFilter []string      `mapstructure:"export-aggregation-state-filter"`
-	AggregationTtl               time.Duration `mapstructure:"export-aggregation-ttl"`
+	FilePath                     string   `mapstructure:"export-file-path"`
+	Aggregations                 []string `mapstructure:"export-aggregation"`
+	AggregationRenewTTL          bool     `mapstructure:"export-aggregation-renew-ttl"`
+	AggregationStateChangeFilter []string `mapstructure:"export-aggregation-state-filter"`
 }
 
 var defaultLegacyConfig = legacyConfig{
 	FilePath:                     "",
-	FileMaxSize:                  100,
-	FileRotationInterval:         0,
-	FileMaxBackups:               3,
-	FileCompress:                 true,
-	FlowWhitelist:                "",
-	FlowBlacklist:                "",
-	FlowAllowlist:                "",
-	FlowDenylist:                 "",
-	FormatVersion:                formatVersionV1,
-	RateLimit:                    -1,
-	NodeName:                     "",
 	Aggregations:                 []string{},
-	AggregationIgnoreSourcePort:  true,
 	AggregationRenewTTL:          true,
 	AggregationStateChangeFilter: []string{"new", "error", "closed"},
-	AggregationTtl:               30 * time.Second,
 }
 
 func (def legacyConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("export-file-path", def.FilePath, "Absolute path of the export file location. An empty string disables the flow export")
-	flags.Int("export-file-max-size", def.FileMaxSize, "Maximum size of the file in megabytes")
-	flags.Duration("export-file-rotation-interval", def.FileRotationInterval, "Interval at which to rotate JSON export files in addition to rotating them by size")
-	flags.Int("export-file-max-backups", def.FileMaxBackups, "Number of rotated files to keep")
-	flags.Bool("export-file-compress", def.FileCompress, "Compress rotated files")
-	flags.String("export-flow-whitelist", "", "Whitelist filters for flows")
-	flags.String("export-flow-blacklist", "", "Blacklist filters for flows")
-	flags.MarkHidden("export-flow-whitelist")
-	flags.MarkHidden("export-flow-blacklist")
-	flags.String("export-flow-allowlist", "", "Allowlist filters for flows")
-	flags.String("export-flow-denylist", "", "Denylist filters for flows")
-	flags.String("export-format-version", formatVersionV1, "Default to v1 format. Set to '' to use the legacy format")
-	flags.Int("export-rate-limit", def.RateLimit, "Rate limit (per minute) for flow exports. Set to -1 to disable")
-	flags.String("export-node-name", def.NodeName, "Override the node_name field in exported flows")
 	flags.StringSlice("export-aggregation", def.Aggregations, "Perform aggregation pre-storage ('connection', 'identity')")
-	flags.Bool("export-aggregation-ignore-source-port", def.AggregationIgnoreSourcePort, "Ignore source port during aggregation")
 	flags.Bool("export-aggregation-renew-ttl", def.AggregationRenewTTL, "Renew flow TTL when a new flow is observed")
 	flags.StringSlice("export-aggregation-state-filter", def.AggregationStateChangeFilter, "The state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed')")
-	flags.Duration("export-aggregation-ttl", def.AggregationTtl, "TTL for flow aggregation")
 }
 
-// mergedConfig depends on all configurations and merges them together
-// in-order: OSS -> EE legacy and EE -> EE legacy.
+// mergedConfig depends on OSS and EE configs and merges them together.
 type mergedConfig struct {
 	oss exportercell.ValidatedConfig
 	ee  config
@@ -175,55 +135,16 @@ func newMergedConfig(oss exportercell.ValidatedConfig, eeLegacy legacyConfig, ee
 	if oss.ExportFilePath == ossDefault.ExportFilePath {
 		oss.ExportFilePath = eeLegacy.FilePath
 	}
-	if oss.ExportFileMaxSizeMB == ossDefault.ExportFileMaxSizeMB {
-		oss.ExportFileMaxSizeMB = eeLegacy.FileMaxSize
-	}
-	if oss.ExportFileMaxBackups == ossDefault.ExportFileMaxBackups {
-		oss.ExportFileMaxBackups = eeLegacy.FileMaxBackups
-	}
-	if oss.ExportFileCompress == ossDefault.ExportFileCompress {
-		oss.ExportFileCompress = eeLegacy.FileCompress
-	}
-	if oss.ExportAllowlist == ossDefault.ExportAllowlist {
-		oss.ExportAllowlist = eeLegacy.FlowAllowlist
-		if oss.ExportAllowlist == defaultLegacyConfig.FlowAllowlist {
-			oss.ExportAllowlist = eeLegacy.FlowWhitelist
-		}
-	}
-	if oss.ExportDenylist == ossDefault.ExportDenylist {
-		oss.ExportDenylist = eeLegacy.FlowDenylist
-		if oss.ExportDenylist == defaultLegacyConfig.FlowDenylist {
-			oss.ExportDenylist = eeLegacy.FlowBlacklist
-		}
-	}
 
 	// merge ee with eeLegacy (EE takes precedence)
-	if ee.FileRotationInterval == defaultConfig.FileRotationInterval {
-		ee.FileRotationInterval = eeLegacy.FileRotationInterval
-	}
-	if ee.FormatVersion == defaultConfig.FormatVersion {
-		ee.FormatVersion = eeLegacy.FormatVersion
-	}
-	if ee.RateLimit == defaultConfig.RateLimit {
-		ee.RateLimit = eeLegacy.RateLimit
-	}
-	if ee.NodeName == defaultConfig.NodeName {
-		ee.NodeName = eeLegacy.NodeName
-	}
 	if slices.Equal(ee.Aggregations, defaultConfig.Aggregations) {
 		ee.Aggregations = eeLegacy.Aggregations
-	}
-	if ee.AggregationIgnoreSourcePort == defaultConfig.AggregationIgnoreSourcePort {
-		ee.AggregationIgnoreSourcePort = eeLegacy.AggregationIgnoreSourcePort
 	}
 	if ee.AggregationRenewTTL == defaultConfig.AggregationRenewTTL {
 		ee.AggregationRenewTTL = eeLegacy.AggregationRenewTTL
 	}
 	if slices.Equal(ee.AggregationStateChangeFilter, defaultConfig.AggregationStateChangeFilter) {
 		ee.AggregationStateChangeFilter = eeLegacy.AggregationStateChangeFilter
-	}
-	if ee.AggregationTtl == defaultConfig.AggregationTtl {
-		ee.AggregationTtl = eeLegacy.AggregationTtl
 	}
 
 	return mergedConfig{oss: oss, ee: ee}
@@ -431,7 +352,7 @@ func newAggregatorFromStaticConfig(config config, logger *slog.Logger) (*aggrega
 		config.Aggregations,
 		config.AggregationStateChangeFilter,
 		config.AggregationIgnoreSourcePort,
-		config.AggregationTtl,
+		config.AggregationTTL,
 		config.AggregationRenewTTL,
 	)
 	if err != nil {
