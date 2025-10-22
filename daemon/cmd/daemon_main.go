@@ -530,10 +530,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableMasqueradeRouteSource, false, "Masquerade packets to the source IP provided from the routing layer rather than interface address")
 	option.BindEnv(vp, option.EnableMasqueradeRouteSource)
 
-	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
-	flags.MarkDeprecated(option.EnableIPv4EgressGateway, "Use --enable-egress-gateway instead")
-	option.BindEnv(vp, option.EnableIPv4EgressGateway)
-
 	flags.Bool(option.EnableEgressGateway, false, "Enable egress gateway")
 	option.BindEnv(vp, option.EnableEgressGateway)
 
@@ -762,10 +758,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 		"Prevents the container from using these ports as ephemeral source ports (see Linux ip_local_reserved_ports). Use this flag if you observe port conflicts between transparent DNS proxy requests and host network namespace services. "+
 		"Value \"auto\" reserves the WireGuard and VXLAN ports used by Cilium")
 	option.BindEnv(vp, option.ContainerIPLocalReservedPorts)
-
-	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
-	option.BindEnv(vp, option.EnableCustomCallsName)
-	flags.MarkDeprecated(option.EnableCustomCallsName, "The feature has been deprecated and it will be removed in v1.19")
 
 	// flags.IntSlice cannot be used due to missing support for appropriate conversion in Viper.
 	// See https://github.com/cilium/cilium/pull/20282 for more information.

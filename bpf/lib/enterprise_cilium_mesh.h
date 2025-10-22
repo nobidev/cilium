@@ -95,6 +95,7 @@ cilium_mesh_policy_egress(struct __ctx_buff *ctx __maybe_unused,
 	int verdict = CTX_ACT_OK;
 	__u16 proxy_port = 0;
 	__u8 audited = 0;
+	__u32 cookie = 0;
 
 	struct ct_state ct_state_new = {};
 	struct ipv4_ct_tuple tuple;
@@ -114,7 +115,7 @@ cilium_mesh_policy_egress(struct __ctx_buff *ctx __maybe_unused,
 	verdict = ext_eps_policy_can_egress4(ctx, ip4->saddr, dst_sec_identity,
 					     orig_tuple->dport, ip4->protocol, l4_off,
 					     &policy_match_type, &audited, ext_err,
-					     &proxy_port);
+					     &proxy_port, &cookie);
 
 	if (verdict == DROP_EP_NOT_READY) {
 		/* XXX ? actually, isn't this a fatal error? need to report somehow */
@@ -138,7 +139,7 @@ cilium_mesh_policy_egress(struct __ctx_buff *ctx __maybe_unused,
 	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, dst_sec_identity, orig_tuple->dport, ip4->protocol,
 					   POLICY_EGRESS, 0, verdict, proxy_port, policy_match_type,
-					   audited, 0 /* auth_type */ );
+					   audited, 0 /* auth_type */, cookie);
 
 	return verdict;
 }
@@ -152,6 +153,7 @@ cilium_mesh_policy_ingress(struct __ctx_buff *ctx,
 	int verdict = CTX_ACT_OK;
 	__u16 proxy_port = 0;
 	__u8 audited = 0;
+	__u32 cookie = 0;
 
 	struct ct_state ct_state_new = {};
 	struct ipv4_ct_tuple tuple = {};
@@ -194,7 +196,7 @@ cilium_mesh_policy_ingress(struct __ctx_buff *ctx,
 
 	verdict = ext_eps_policy_can_ingress4(ctx, ip4->daddr, src_sec_identity, tuple.dport,
 					      ip4->protocol, l4_off, is_untracked_fragment,
-					      &policy_match_type, &audited, ext_err, &proxy_port);
+					      &policy_match_type, &audited, ext_err, &proxy_port, &cookie);
 
 	if (verdict == DROP_EP_NOT_READY) {
 		/* XXX ? actually, isn't this a fatal error? need to report somehow */
@@ -223,7 +225,7 @@ cilium_mesh_policy_ingress(struct __ctx_buff *ctx,
 	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, src_sec_identity, tuple.dport, ip4->protocol,
 					   POLICY_INGRESS, 0, verdict, proxy_port,
-					   policy_match_type, audited, 0 /* auth_type */);
+					   policy_match_type, audited, 0 /* auth_type */, cookie);
 
 out:
 	return verdict;

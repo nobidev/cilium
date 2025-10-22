@@ -1111,8 +1111,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 	__s8 __maybe_unused ext_err = 0;
 	int ret;
 
-	bpf_clear_meta(ctx);
-
 	switch (proto) {
 # if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER || \
      defined ENABLE_L2_ANNOUNCEMENTS
@@ -1163,8 +1161,10 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			next_proto = ip6->nexthdr;
 			hdrlen = ipv6_hdrlen(ctx, &next_proto);
 			if (likely(hdrlen > 0) &&
-			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
+			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid)) {
 				trace.reason = TRACE_REASON_ENCRYPTED;
+				set_decrypt_mark(ctx, 0);
+			}
 		}
 # endif /* ENABLE_WIREGUARD */
 
@@ -1193,21 +1193,18 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 # if defined(ENABLE_HOST_FIREWALL)
-		if (from_host) {
-			/* If we don't rely on BPF-based masquerading, we need
-			 * to pass the srcid from ipcache to host firewall. See
-			 * comment in ipv4_host_policy_egress() for details.
-			 */
+		if (from_host)
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
-		}
 # endif /* defined(ENABLE_HOST_FIREWALL) */
 
 #ifdef ENABLE_WIREGUARD
 		if (!from_host) {
 			next_proto = ip4->protocol;
 			hdrlen = ipv4_hdrlen(ip4);
-			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
+			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid)) {
 				trace.reason = TRACE_REASON_ENCRYPTED;
+				set_decrypt_mark(ctx, 0);
+			}
 		}
 #endif /* ENABLE_WIREGUARD */
 
@@ -1253,6 +1250,8 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 {
 	__u32 src_id = UNKNOWN_ID;
 	__be16 proto = 0;
+
+	bpf_clear_meta(ctx);
 
 	check_and_store_ip_trace_id(ctx);
 
@@ -1335,6 +1334,8 @@ int cil_from_host(struct __ctx_buff *ctx)
 	__be16 proto = 0;
 	__u32 magic;
 
+	bpf_clear_meta(ctx);
+
 	check_and_store_ip_trace_id(ctx);
 
 	/* Traffic from the host ns going through cilium_host device must
@@ -1400,6 +1401,8 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 
 	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_mark_is_encrypted(ctx))
 		src_sec_identity = HOST_ID;
+	else if (magic == MARK_MAGIC_PROXY_EGRESS)
+		src_sec_identity = get_identity(ctx);
 #ifdef ENABLE_IDENTITY_MARK
 	else if (magic == MARK_MAGIC_IDENTITY)
 		src_sec_identity = get_identity(ctx);

@@ -1112,14 +1112,6 @@
      - Configure timeout in which Cilium will exit if CRDs are not available
      - string
      - ``"5m"``
-   * - :spelling:ignore:`customCalls`
-     - Tail call hooks for custom eBPF programs.
-     - object
-     - ``{"enabled":false}``
-   * - :spelling:ignore:`customCalls.enabled`
-     - Enable tail call hooks for custom eBPF programs.
-     - bool
-     - ``false``
    * - :spelling:ignore:`daemon.allowedConfigOverrides`
      - allowedConfigOverrides is a list of config-map keys that can be overridden. That is to say, if this value is set, config sources (excepting the first one) can only override keys in this list.  This takes precedence over blockedConfigOverrides.  By default, all keys may be overridden. To disable overrides, set this to "none" or change the configSources variable.
      - string
@@ -1624,6 +1616,10 @@
      - Envoy container image.
      - object
      - ``{"digest":"sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1759553787-f16dc8e69dee56f4e376afef9676c7b9d659ac37","useDigest":true}``
+   * - :spelling:ignore:`envoy.initContainers`
+     - Init containers added to the cilium Envoy DaemonSet.
+     - list
+     - ``[]``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int

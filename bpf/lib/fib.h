@@ -72,16 +72,15 @@ static __always_inline bool fib_ok(int ret)
   *
   * The redirect can occur with or without a preceding FIB lookup.
   *
+  * If redirect_neigh() is available, it is always preferred. Passing
+  * through the nh information from @fib_params if available.
+  *
+  * Otherwise:
   * If a previous FIB lookup was performed with result BPF_FIB_LKUP_RET_SUCCESS,
   * then the L2 addresses are updated from the provided @fib_params along with a
   * plain ctx_redirect().
   *
-  * If no FIB lookup was performed (BPF_FIB_LKUP_NO_NEIGH with no @fib_params) or
-  * the FIB lookup returned BPF_FIB_LKUP_NO_NEIGH, then redirect_neigh() is used
-  * for the redirect. Passing through the nh information from @fib_params if available.
-  *
-  * If redirect_neigh() is not available (== XDP context), a plain ctx_redirect()
-  * is used. The `dmac` is resolved from the neighbour map.
+  * Without a successful FIB lookup, the `dmac` is resolved from the neighbour map.
   */
 static __always_inline int
 fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
@@ -167,11 +166,9 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	     bool use_neigh_map, __s8 *ext_err __maybe_unused, int *oif)
 {
 	if (is_defined(ENABLE_SKIP_FIB) && neigh_resolver_without_nh_available()) {
-#ifdef ENABLE_SKIP_FIB
 		*oif = CONFIG(direct_routing_dev_ifindex);
-#endif
 
-		return fib_do_redirect(ctx, needs_l2_check, NULL, use_neigh_map,
+		return fib_do_redirect(ctx, needs_l2_check, NULL, false,
 				       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err);
 	} else {
 		int ret;
@@ -231,11 +228,9 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 
-#ifdef ENABLE_SKIP_FIB
 		*oif = CONFIG(direct_routing_dev_ifindex);
-#endif
 
-		return fib_do_redirect(ctx, needs_l2_check, NULL, allow_neigh_map,
+		return fib_do_redirect(ctx, needs_l2_check, NULL, false,
 				       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err);
 	} else {
 		struct bpf_fib_lookup_padded fib_params = {0};
@@ -295,11 +290,9 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 
-#ifdef ENABLE_SKIP_FIB
 		*oif = CONFIG(direct_routing_dev_ifindex);
-#endif
 
-		return fib_do_redirect(ctx, needs_l2_check, NULL, allow_neigh_map,
+		return fib_do_redirect(ctx, needs_l2_check, NULL, false,
 				       BPF_FIB_LKUP_RET_NO_NEIGH, *oif, ext_err);
 	} else {
 		struct bpf_fib_lookup_padded fib_params = {0};

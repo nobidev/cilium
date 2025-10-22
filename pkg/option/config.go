@@ -301,9 +301,6 @@ const (
 	// EnableIPMasqAgent enables BPF ip-masq-agent
 	EnableIPMasqAgent = "enable-ip-masq-agent"
 
-	// EnableIPv4EgressGateway enables the IPv4 egress gateway
-	EnableIPv4EgressGateway = "enable-ipv4-egress-gateway"
-
 	// EnableEgressGateway enables the egress gateway
 	EnableEgressGateway = "enable-egress-gateway"
 
@@ -897,10 +894,6 @@ const (
 	// Install ingress/egress routes through uplink on host for Pods when working with
 	// delegated IPAM plugin.
 	InstallUplinkRoutesForDelegatedIPAM = "install-uplink-routes-for-delegated-ipam"
-
-	// EnableCustomCallsName is the name of the option to enable tail calls
-	// for user-defined custom eBPF programs.
-	EnableCustomCallsName = "enable-custom-calls"
 
 	// BGPSecretsNamespace is the Kubernetes namespace to get BGP control plane secrets from.
 	BGPSecretsNamespace = "bgp-secrets-namespace"
@@ -1755,11 +1748,6 @@ type DaemonConfig struct {
 	// the provided comma-separated list of ports in the container network namespace
 	ContainerIPLocalReservedPorts string
 
-	// EnableCustomCalls enables tail call hooks for user-defined custom
-	// eBPF programs, typically used to collect custom per-endpoint
-	// metrics.
-	EnableCustomCalls bool
-
 	// BGPSecretsNamespace is the Kubernetes namespace to get BGP control plane secrets from.
 	BGPSecretsNamespace string
 
@@ -2532,7 +2520,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.LocalRouterIPv6 = vp.GetString(LocalRouterIPv6)
 	c.EnableBPFClockProbe = vp.GetBool(EnableBPFClockProbe)
 	c.EnableIPMasqAgent = vp.GetBool(EnableIPMasqAgent)
-	c.EnableEgressGateway = vp.GetBool(EnableEgressGateway) || vp.GetBool(EnableIPv4EgressGateway)
+	c.EnableEgressGateway = vp.GetBool(EnableEgressGateway)
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
 	c.AgentHealthRequireK8sConnectivity = vp.GetBool(AgentHealthRequireK8sConnectivity)
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
@@ -2567,7 +2555,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.LoadBalancerIPIPSockMark = vp.GetBool(LoadBalancerIPIPSockMark)
 	c.InstallNoConntrackIptRules = vp.GetBool(InstallNoConntrackIptRules)
 	c.ContainerIPLocalReservedPorts = vp.GetString(ContainerIPLocalReservedPorts)
-	c.EnableCustomCalls = vp.GetBool(EnableCustomCallsName)
 	c.BGPSecretsNamespace = vp.GetString(BGPSecretsNamespace)
 	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
 	c.EnableRemoteNodeMasquerade = vp.GetBool(EnableRemoteNodeMasquerade)
