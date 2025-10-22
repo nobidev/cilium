@@ -1,0 +1,275 @@
+#! --test-peering-ips=10.99.103.1,10.99.103.2,10.99.103.3,fc00:10:99:103::1,fc00:10:99:103::2
+
+# Tests EVPN advertisement of Private Network IPs.
+# There are 2 IPv4 GoBGP peers (from which only one is enabled for EVPN advertisements in the peer config) and one IPv6 GoBGP peer.
+
+# Start the hive
+hive start
+
+# Configure gobgp servers
+gobgp/add-server evpn-v4  65010 10.99.103.2       1790
+gobgp/add-server non-evpn 65010 10.99.103.3       1790
+gobgp/add-server evpn-v6  65010 fc00:10:99:103::2 1790 --router-id 1.0.0.2
+
+# Configure peers on GoBGP
+gobgp/add-peer -s evpn-v4   10.99.103.1       65001 --families=l2vpn/evpn
+gobgp/add-peer -s non-evpn  10.99.103.1       65001 --families=l2vpn/evpn
+gobgp/add-peer -s evpn-v6   fc00:10:99:103::1 65001 --families=l2vpn/evpn
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config-evpn.yaml bgp-peer-config-non-evpn.yaml bgp-vrf-config.yaml bgp-advertisement.yaml
+bgptest/sync-oss-resources
+
+# Wait for peerings to be established
+gobgp/wait-state -s evpn-v4  10.99.103.1       ESTABLISHED
+gobgp/wait-state -s non-evpn 10.99.103.1       ESTABLISHED
+gobgp/wait-state -s evpn-v6  fc00:10:99:103::1 ESTABLISHED
+
+# Add vxlan device to statedb
+db/insert devices vxlan-device.yaml
+
+# Add private networks
+db/insert private-networks private-networks.yaml
+
+# Validate that no EVPN routes are advertised yet
+gobgp/routes -s evpn-v4 -o routes.actual l2vpn evpn
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Add privnet workload in network-a
+db/insert privnet-local-workloads privnet-workload-a.yaml
+
+# Validate that network-a privnet IPs are being advertised as EVPN routes
+gobgp/routes -s evpn-v4 -o routes.actual l2vpn evpn
+* cmp gobgp-routes-a-ipv4.expected routes.actual
+
+# Validate that no EVPN routes are advertised to the peer without l2vpn/evpn AFI/SAFI configured in the peer config
+gobgp/routes -s non-evpn -o routes.actual l2vpn evpn
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Add privnet workload in network-b
+db/insert privnet-local-workloads privnet-workload-b.yaml
+
+# Validate that all privnet IPs are being advertised as EVPN routes to the IPv4 peer
+gobgp/routes -s evpn-v4 -o routes.actual l2vpn evpn
+* cmp gobgp-routes-all-ipv4.expected routes.actual
+
+# Validate that all privnet IPs are being advertised as EVPN routes to the IPv6 peer
+gobgp/routes -s evpn-v6 -o routes.actual l2vpn evpn
+* cmp gobgp-routes-all-ipv6.expected routes.actual
+
+# Delete privnet workload in network-a
+db/delete privnet-local-workloads privnet-workload-a.yaml
+
+# Validate that only network-b privnet IPs are being advertised as EVPN routes
+gobgp/routes -s evpn-v4 -o routes.actual l2vpn evpn
+* cmp gobgp-routes-b-ipv4.expected routes.actual
+
+# Modify vxlan device MAC
+db/insert devices vxlan-device-modified.yaml
+
+# Validate that network-b privnet IPs are being advertised as EVPN routes with modified router's MAC
+gobgp/routes -s evpn-v4 -o routes.actual l2vpn evpn
+* cmp gobgp-routes-b-modified-mac.expected routes.actual
+
+# Modify VNI for the network-b
+db/insert private-networks private-network-b-modified.yaml
+
+# Validate that network-b privnet IPs are being advertised as EVPN routes with modified VNI
+gobgp/routes -s evpn-v4 -o routes.actual l2vpn evpn
+* cmp gobgp-routes-b-modified-vni.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.103.1
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+    - fd00:10:244:1::/64
+
+-- bgp-node-config.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor-65001
+    peers:
+    - name: evpn-peer-v4
+      peerASN: 65010
+      peerAddress: 10.99.103.2
+      localAddress: 10.99.103.1
+      peerConfigRef:
+        name: evpn-peer-config
+    - name: non-evpn-peer
+      peerASN: 65010
+      peerAddress: 10.99.103.3
+      localAddress: 10.99.103.1
+      peerConfigRef:
+        name: non-evpn-peer-config
+    - name: evpn-peer-v6
+      peerASN: 65010
+      peerAddress: fc00:10:99:103::2
+      localAddress: fc00:10:99:103::1
+      peerConfigRef:
+        name: evpn-peer-config
+    vrfs:
+    - privateNetworkRef:
+        name: network-a
+      configRef: evpn-config
+    - privateNetworkRef:
+        name: network-b
+      configRef: evpn-config
+
+-- bgp-peer-config-evpn.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPeerConfig
+metadata:
+  name: evpn-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: l2vpn
+    safi: evpn
+
+-- bgp-peer-config-non-evpn.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPeerConfig
+metadata:
+  name: non-evpn-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+
+-- bgp-vrf-config.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentBGPVRFConfig
+metadata:
+  name: evpn-config
+spec:
+  families:
+    - afi: ipv6
+      safi: unicast
+      advertisements:
+        matchLabels:
+          advertise-to-evpn: "true"
+    - afi: ipv4
+      safi: unicast
+      advertisements:
+        matchLabels:
+          advertise-to-evpn: "true"
+
+-- bgp-advertisement.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPAdvertisement
+metadata:
+  name: private-networks
+  labels:
+    advertise-to-evpn: "true"
+spec:
+  advertisements:
+    - advertisementType: PrivateNetwork
+
+-- vxlan-device.yaml --
+index: 1
+name: cilium_evpn
+hardwareaddr: [0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff]
+type: vxlan
+selected: true
+
+-- vxlan-device-modified.yaml --
+index: 1
+name: cilium_evpn
+hardwareaddr: [0x11, 0x22, 0x33, 0x44, 0x55, 0x66]
+type: vxlan
+selected: true
+
+-- private-networks.yaml --
+name: network-a
+id: 1
+vni: 101
+---
+name: network-b
+id: 2
+vni: 102
+
+-- private-network-b-modified.yaml --
+name: network-b
+id: 2
+vni: 202
+
+-- privnet-workload-a.yaml --
+endpointid: 1
+namespace: default
+endpoint:
+  name: network-a-pod
+  addressing:
+    ipv4: 10.244.1.194
+    ipv6: fd00:0:0:1::f547
+interface:
+  network: network-a
+  addressing:
+    ipv4: 192.168.100.33
+    ipv6: fd10:0:100::33
+
+-- privnet-workload-b.yaml --
+endpointid: 2
+namespace: default
+endpoint:
+  name: network-b-pod
+  addressing:
+    ipv4: 10.244.1.201
+    ipv6: fd00:0:0:1::9477
+interface:
+  network: network-b
+  addressing:
+    ipv4: 192.168.200.33
+    ipv6: fd10:0:200::33
+
+-- gobgp-routes-empty.expected --
+Prefix   NextHop   Attrs
+-- gobgp-routes-a-ipv4.expected --
+Prefix                                                               NextHop       Attrs
+[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]    10.99.103.1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:101], [router's mac: aa:bb:cc:dd:ee:ff]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]   10.99.103.1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:101], [router's mac: aa:bb:cc:dd:ee:ff]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]]}}]
+-- gobgp-routes-all-ipv4.expected --
+Prefix                                                               NextHop       Attrs
+[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]    10.99.103.1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:101], [router's mac: aa:bb:cc:dd:ee:ff]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]   10.99.103.1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:101], [router's mac: aa:bb:cc:dd:ee:ff]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    10.99.103.1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:102], [router's mac: aa:bb:cc:dd:ee:ff]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   10.99.103.1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:102], [router's mac: aa:bb:cc:dd:ee:ff]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
+-- gobgp-routes-all-ipv6.expected --
+Prefix                                                               NextHop             Attrs
+[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]    fc00:10:99:103::1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:101], [router's mac: aa:bb:cc:dd:ee:ff]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]   fc00:10:99:103::1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:101], [router's mac: aa:bb:cc:dd:ee:ff]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    fc00:10:99:103::1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:102], [router's mac: aa:bb:cc:dd:ee:ff]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   fc00:10:99:103::1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:102], [router's mac: aa:bb:cc:dd:ee:ff]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
+-- gobgp-routes-b-ipv4.expected --
+Prefix                                                               NextHop       Attrs
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    10.99.103.1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:102], [router's mac: aa:bb:cc:dd:ee:ff]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   10.99.103.1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:102], [router's mac: aa:bb:cc:dd:ee:ff]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
+-- gobgp-routes-b-modified-mac.expected --
+Prefix                                                               NextHop       Attrs
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    10.99.103.1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:102], [router's mac: 11:22:33:44:55:66]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   10.99.103.1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:102], [router's mac: 11:22:33:44:55:66]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
+-- gobgp-routes-b-modified-vni.expected --
+Prefix                                                               NextHop       Attrs
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    10.99.103.1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:202], [router's mac: 11:22:33:44:55:66]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   10.99.103.1   [{Origin: ?} {AsPath: 65001} {Extcomms: [VXLAN], [65001:202], [router's mac: 11:22:33:44:55:66]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
