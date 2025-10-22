@@ -30,19 +30,20 @@ func NewDummy() Checker {
 }
 
 // Register implements Checker.
-func (d *dummy) Register(inb tables.INBNode, network tables.NetworkName) {
+func (d *dummy) Register(inb tables.INBNode, network tables.NetworkName) error {
 	d.Queue(EventKindUpsert, &Event{Node: inb, Network: network, State: tables.INBHealthState{
 		Node: tables.INBNodeStateHealthy, Network: tables.INBNetworkStateConfirmed}})
+	return nil
 }
 
 // Deregister implements Checker.
-func (d *dummy) Deregister(inb tables.INBNode, network tables.NetworkName) {}
+func (d *dummy) Deregister(inb tables.INBNode, network tables.NetworkName) error { return nil }
 
 // Activate implements Checker.
-func (d *dummy) Activate(node tables.INBNode, network tables.NetworkName) {}
+func (d *dummy) Activate(node tables.INBNode, network tables.NetworkName) error { return nil }
 
 // Deactivate implements Checker.
-func (d *dummy) Deactivate(node tables.INBNode, network tables.NetworkName) {}
+func (d *dummy) Deactivate(node tables.INBNode, network tables.NetworkName) error { return nil }
 
 // Synced implements Checker.
 func (d *dummy) Synced() {

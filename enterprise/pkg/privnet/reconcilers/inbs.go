@@ -370,7 +370,14 @@ func (i *INBs) upsertINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Private
 					},
 				}
 
-				i.checker.Register(inb.Node, inb.Network)
+				if err := i.checker.Register(inb.Node, inb.Network); err != nil {
+					i.log.Error("Failed registering INB for health checking",
+						logfields.Error, err,
+						logfields.Node, inb.Node,
+						logfields.Network, inb.Network,
+					)
+				}
+
 				i.tbl.Modify(wtx, inb, func(old, new tables.INB) tables.INB {
 					// Preserve the previous state, in case the IP did not change.
 					// The other fields are either fixed (i.e., part of the primary
@@ -411,7 +418,13 @@ func (i *INBs) upsertINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Private
 		// The object revision is greater than the watermark if it has just been
 		// upserted as part of this function.
 		if maybeStale.Has(inb.Node.Cluster) && rev <= watermark {
-			i.checker.Deregister(inb.Node, inb.Network)
+			if err := i.checker.Deregister(inb.Node, inb.Network); err != nil {
+				i.log.Error("Failed deregistering INB from health checking",
+					logfields.Error, err,
+					logfields.Node, inb.Node,
+					logfields.Network, inb.Network,
+				)
+			}
 			i.tbl.Delete(wtx, inb)
 		}
 	}
@@ -426,7 +439,13 @@ func (i *INBs) deleteINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Network
 	}
 
 	for inb := range i.tbl.Prefix(wtx, tables.INBsByNetwork(privnet)) {
-		i.checker.Deregister(inb.Node, inb.Network)
+		if err := i.checker.Deregister(inb.Node, inb.Network); err != nil {
+			i.log.Error("Failed deregistering INB from health checking",
+				logfields.Error, err,
+				logfields.Node, inb.Node,
+				logfields.Network, inb.Network,
+			)
+		}
 		i.tbl.Delete(wtx, inb)
 	}
 }
@@ -447,7 +466,14 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 				},
 			}
 
-			i.checker.Register(inb.Node, inb.Network)
+			if err := i.checker.Register(inb.Node, inb.Network); err != nil {
+				i.log.Error("Failed registering INB for health checking",
+					logfields.Error, err,
+					logfields.Node, inb.Node,
+					logfields.Network, inb.Network,
+				)
+			}
+
 			i.tbl.Modify(wtx, inb, func(old, new tables.INB) tables.INB {
 				// Preserve the previous state, in case the IP did not change.
 				// The other fields are either fixed (i.e., part of the primary
@@ -465,7 +491,13 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 		// The object revision is greater than the watermark if it has just been
 		// upserted as part of this function.
 		if rev <= watermark {
-			i.checker.Deregister(inb.Node, inb.Network)
+			if err := i.checker.Deregister(inb.Node, inb.Network); err != nil {
+				i.log.Error("Failed deregistering INB from health checking",
+					logfields.Error, err,
+					logfields.Node, inb.Node,
+					logfields.Network, inb.Network,
+				)
+			}
 			i.tbl.Delete(wtx, inb)
 		}
 	}
@@ -473,7 +505,13 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 
 func (i *INBs) deleteINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 	for inb := range i.tbl.Prefix(wtx, tables.INBsByNode(node.Cluster, node.Name)) {
-		i.checker.Deregister(inb.Node, inb.Network)
+		if err := i.checker.Deregister(inb.Node, inb.Network); err != nil {
+			i.log.Error("Failed deregistering INB from health checking",
+				logfields.Error, err,
+				logfields.Node, inb.Node,
+				logfields.Network, inb.Network,
+			)
+		}
 		i.tbl.Delete(wtx, inb)
 	}
 }
@@ -568,7 +606,19 @@ func (i *INBs) activeINBsReconciliationFunc(activeIndexFunc ActiveINBIndexFunc, 
 				watchset.Add(watch)
 
 				i.checkpointer.Add(promoted.Network, promoted.Node)
-				i.checker.Activate(promoted.Node, promoted.Network)
+				if err := i.checker.Activate(promoted.Node, promoted.Network); err != nil {
+					// Errors here are expected to be extremely unlikely, basically
+					// caused only by race conditions if the INB stopped serving
+					// this network, but we haven't processed the event yet. For
+					// simplicity we don't attempt to fix them immediately, and
+					// just let the next reconciliation round to take care of them.
+					i.log.Warn("Failed promoting standby INB to active",
+						logfields.Error, err,
+						logfields.Network, privnet.Name,
+						logfields.Node, promoted.Node,
+					)
+				}
+
 				activeCount++
 				promotedCount++
 			}

@@ -51,22 +51,22 @@ type Checker interface {
 	// The underlying implementation may, or may not, take into account the
 	// private network (e.g., implement global, per-INB, checks). It is a no-op
 	// if the same pair is already registered, and the node IP matches.
-	Register(node tables.INBNode, network tables.NetworkName)
+	Register(node tables.INBNode, network tables.NetworkName) error
 
 	// Deregister deregisters an (INB, private network) pair for health checking.
 	// It is a no-op if the same pair had not been registered before.
-	Deregister(node tables.INBNode, network tables.NetworkName)
+	Deregister(node tables.INBNode, network tables.NetworkName) error
 
 	// Activate is called when an INB is to be promoted as the active one for a
 	// given network. Implementations may relay this information to the remote
 	// INB to allow for proper setup.
-	Activate(node tables.INBNode, network tables.NetworkName)
+	Activate(node tables.INBNode, network tables.NetworkName) error
 
 	// Deactivate is called when an INB is demoted from the active one for a
 	// given network. Implementations may relay this information to the remote
 	// INB to allow for proper setup. Deactivation is implicit if the INB is
 	// no longer healthy or able to serve the given network.
-	Deactivate(node tables.INBNode, network tables.NetworkName)
+	Deactivate(node tables.INBNode, network tables.NetworkName) error
 
 	// Synced conveys that the initial list of (INB, private network) pairs has
 	// been registered, so that the checker can propagate back a synced event
