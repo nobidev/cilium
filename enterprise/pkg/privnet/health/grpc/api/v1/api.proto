@@ -1,0 +1,133 @@
+//  Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+//  NOTICE: All information contained herein is, and remains the property of
+//  Isovalent Inc and its suppliers, if any. The intellectual and technical
+//  concepts contained herein are proprietary to Isovalent Inc and its suppliers
+//  and may be covered by U.S. and Foreign Patents, patents in process, and are
+//  protected by trade secret or copyright law.  Dissemination of this information
+//  or reproduction of this material is strictly forbidden unless prior written
+//  permission is obtained from Isovalent Inc.
+//
+
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+
+package api;
+
+option go_package = "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1";
+
+
+// The Health service allows workload nodes to probe the health status of INBs
+// (and vice versa, indirectly). It is leveraged to implement INB high
+// availability, allowing to filter the set of candidate INBs based on their
+// health status, as well as to determine when to trigger a failover due to the
+// currently active INB (for a given subset of networks) being no longer healthy.
+service Health {
+  // Probe opens the channel used to probe the INB for healthiness. Makes use of
+  // a bi-directional stream, instead of plain unary interactions, to allow the
+  // INB to possibly send unsolicited responses in case of status changes (e.g.,
+  // before shutting down).
+  rpc Probe(stream ProbeRequest) returns (stream ProbeResponse){}
+}
+
+message ProbeRequest {
+  // Self identifies the client workload node.
+  Node self = 1;
+
+  // Timeout is the amount of time without receiving a new probe before the INB
+  // is expected to consider this workload node as unhealthy.
+  google.protobuf.Duration timeout = 2;
+}
+
+message ProbeResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+  }
+
+  // Status is the serving status advertised by the INB.
+  ServingStatus status = 1;
+}
+
+
+// The Networks service enables workload nodes to query INBs for the list of
+// served networks, as well as to request the activation or deactivation of
+// a given network. It is leveraged to implement INB high availability.
+service Networks {
+  // Watch subscribes to the stream of events about the networks that the INB
+  // is able to serve. The first message includes the full snapshot, and
+  // subsequent ones are incremental updates.
+  rpc Watch(WatchRequest) returns (stream NetworkEvents){};
+
+  // Activate requests the INB to transition to active for the given workload
+  // node and private network. It returns an error with FAILED_PRECONDITION
+  // status code if the network cannot be activated (e.g., it is not served).
+  rpc Activate(ActivationRequest) returns (ActivationResponse){};
+
+  // Deactivate requests the INB to transition to standby for the given workload
+  // node and private network.
+  rpc Deactivate(DeactivationRequest) returns (DeactivationResponse){};
+}
+
+message WatchRequest {
+  // Self identifies the client workload node.
+  Node self = 1;
+}
+
+message NetworkEvents {
+  message Event {
+    enum ServingStatus {
+      UNKNOWN = 0;
+      NOT_SERVING = 1;
+      STANDBY = 2;
+      ACTIVE = 3;
+    }
+
+    // Network is the network this event refers to.
+    Network network = 1;
+
+    // Status is the status of this network, from the INB point of view.
+    ServingStatus status = 2;
+  }
+
+  // Events is a collection of events.
+  repeated Event events = 1;
+}
+
+message ActivationRequest {
+  // Self identifies the client workload node.
+  Node self = 1;
+
+  // Network is the target private network.
+  Network network = 2;
+}
+
+message ActivationResponse {}
+
+
+message DeactivationRequest {
+  // Self identifies the client workload node.
+  Node self = 1;
+
+  // Network is the target private network.
+  Network network = 2;
+}
+
+message DeactivationResponse {}
+
+
+// Node identifies a Kubernetes node.
+message Node {
+  // Cluster is the name of the cluster hosting the node.
+  string cluster = 1;
+  // Name is the name of the node.
+  string name = 2;
+}
+
+
+// Network identifies a private network.
+message Network {
+  // Name is the name of the private network.
+  string name = 1;
+}
