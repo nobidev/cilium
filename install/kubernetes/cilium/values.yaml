@@ -5070,6 +5070,17 @@ enterprise:
     # enum: ["default", "bridge"]
     # @schema
     mode: default
+    # Configure health checks between workload nodes and INBs.
+    healthcheck:
+      # -- The TCP port used for health checks.
+      port: 4239
+      # -- The interval for performing health checks against candidate INBs.
+      # Ignored in "bridge" mode.
+      interval: 2s
+      # -- The timeout after which a candidate INB is considered unhealthy if
+      # no health check response is received. Must be at least 50% higher than
+      # the configured interval. Ignored in "bridge" mode.
+      timeout: 5s
   healthServerWithoutActiveChecks:
     # -- Enable health server without active health checks.
     enabled: false

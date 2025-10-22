@@ -269,6 +269,9 @@ diagnostics-constants: {{ .Values.enterprise.diagnostics.constants | join "," | 
 # Private networks
 private-networks-enabled: {{ .Values.enterprise.privateNetworks.enabled | quote }}
 private-networks-mode: {{ .Values.enterprise.privateNetworks.mode | quote }}
+private-networks-health-check-port: {{ .Values.enterprise.privateNetworks.healthcheck.port | quote }}
+private-networks-health-check-interval: {{ .Values.enterprise.privateNetworks.healthcheck.interval | quote }}
+private-networks-health-check-timeout: {{ .Values.enterprise.privateNetworks.healthcheck.timeout | quote }}
 
 enable-health-server-without-active-checks: {{ .Values.enterprise.healthServerWithoutActiveChecks.enabled | quote }}
 
