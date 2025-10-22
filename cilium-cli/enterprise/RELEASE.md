@@ -53,7 +53,7 @@ a public repository that's used to host cilium-cli binary releases without any s
 
 Go to https://github.com/isovalent/cilium-cli-releases/releases and you'll see a newly created
 draft. Click on "Edit draft" button, review the draft, and then click on "Publish release" if
-everything looks ok.
+everything looks ok. This requires a member of the `cilium-cli-releases` team.
 
 ## Update Cilium Enterprise Docs
 
