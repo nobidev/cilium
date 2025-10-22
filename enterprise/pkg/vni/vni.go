@@ -13,6 +13,8 @@ package vni
 import (
 	"errors"
 	"strconv"
+
+	"go.yaml.in/yaml/v3"
 )
 
 // VNI represents a VXLAN Network Identifier. This object is directly
@@ -84,4 +86,44 @@ func (v VNI) String() string {
 		return ""
 	}
 	return strconv.FormatUint(uint64(v.val&rangeMask), 10)
+}
+
+func (v VNI) MarshalYAML() (any, error) {
+	if !v.IsValid() {
+		return nil, nil
+	}
+	return v.AsUint32(), nil
+}
+
+func (v *VNI) UnmarshalYAML(value *yaml.Node) error {
+	if value.Value == "" {
+		*v = VNI{}
+		return nil
+	}
+	vni, err := Parse(value.Value)
+	if err != nil {
+		return err
+	}
+	*v = vni
+	return nil
+}
+
+func (v VNI) MarshalJSON() ([]byte, error) {
+	if !v.IsValid() {
+		return []byte("null"), nil
+	}
+	return []byte(v.String()), nil
+}
+
+func (v *VNI) UnmarshalJSON(bs []byte) error {
+	if string(bs) == "null" {
+		*v = VNI{}
+		return nil
+	}
+	vni, err := Parse(string(bs))
+	if err != nil {
+		return err
+	}
+	*v = vni
+	return nil
 }
