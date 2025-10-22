@@ -91,7 +91,6 @@ var (
 		"@isovalent/backporters":                {},
 		"@isovalent/cilium-agent":               {},
 		"@isovalent/cilium-datapath":            {},
-		"@isovalent/cilium-mesh":                {},
 		"@isovalent/ci-structure":               {},
 		"@isovalent/cli":                        {},
 		"@isovalent/clustermesh":                {},

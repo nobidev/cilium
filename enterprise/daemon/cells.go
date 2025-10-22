@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/api"
 	"github.com/cilium/cilium/enterprise/pkg/bfd"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1"
-	"github.com/cilium/cilium/enterprise/pkg/ciliummesh"
 	cecm "github.com/cilium/cilium/enterprise/pkg/clustermesh"
 	"github.com/cilium/cilium/enterprise/pkg/config"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
@@ -85,7 +84,6 @@ var (
 		segw.Cell,
 		cell.Invoke(func(*egressgatewayha.Manager) {}),
 
-		ciliummesh.CiliumMeshCell,
 		privnet.Cell,
 
 		mixedrouting.Cell,

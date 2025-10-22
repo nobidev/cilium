@@ -49,7 +49,6 @@ cilium-operator-aws [flags]
       --egress-gateway-ha-reconciliation-trigger-interval duration     Time between triggers of egress gateway state reconciliations (default 2s)
       --enable-bfd                                                     Enables BFD subsystem
       --enable-cilium-endpoint-slice                                   If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.
-      --enable-cilium-mesh                                             Enable Cilium Mesh feature
       --enable-cilium-operator-server-access strings                   List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-egress-gateway-ha-icmp-health-probe                     Enables egress-gateway ha ICMP health probing of egress gateway nodes (default true)
       --enable-enterprise-bgp-control-plane                            Enable enterprise BGP in Cilium

@@ -19,7 +19,6 @@ import (
 	enterpriseOperatorK8s "github.com/cilium/cilium/enterprise/operator/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bfd"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2"
-	"github.com/cilium/cilium/enterprise/operator/pkg/ciliummesh"
 	"github.com/cilium/cilium/enterprise/operator/pkg/lb"
 	lbmetrics "github.com/cilium/cilium/enterprise/operator/pkg/lb/metrics"
 	"github.com/cilium/cilium/enterprise/operator/pkg/multinetwork"
@@ -61,7 +60,6 @@ var (
 			egressgatewayha.OperatorCell,
 			egressgatewayha.PolicyCell,
 			healthcheck.Cell,
-			ciliummesh.Cell,
 			cell.Invoke(func(*egressgatewayha.OperatorManager) {}),
 
 			multinetwork.Cell,

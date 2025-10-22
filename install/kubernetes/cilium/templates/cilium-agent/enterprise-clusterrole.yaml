@@ -21,7 +21,6 @@ rules:
   - isovalentsrv6egresspolicies
   - isovalentvrfs
   - isovalentmulticastgroups
-  - isovalentmeshendpoints
   - isovalentbfdprofiles
   - isovalentnetworkpolicies
   - isovalentclusterwidenetworkpolicies

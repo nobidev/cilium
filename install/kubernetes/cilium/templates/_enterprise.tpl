@@ -37,9 +37,6 @@ enable-bfd: {{ .Values.enterprise.bfd.enabled | default "false" | quote }}
 # Configuration options to enable multicast support
 multicast-enabled: {{ .Values.enterprise.multicast.enabled | default "false" | quote }}
 
-{{- if .Values.enterprise.ciliummesh.enabled }}
-enable-cilium-mesh: "true"
-{{- end }}
 {{- if .Values.enterprise.egressGatewayHA.enabled }}
 enable-ipv4-egress-gateway-ha: "true"
 {{- end }}

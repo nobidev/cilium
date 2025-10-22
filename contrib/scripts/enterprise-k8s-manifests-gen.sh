@@ -33,7 +33,6 @@ CRDS_ISOVALENT_V1ALPHA1="isovalentfqdngroups \
                          isovalentpodnetworks \
                          isovalentmulticastgroups \
                          isovalentmulticastnodes \
-                         isovalentmeshendpoints \
                          isovalentbfdprofiles \
                          isovalentbfdnodeconfigs \
                          isovalentbfdnodeconfigoverrides \

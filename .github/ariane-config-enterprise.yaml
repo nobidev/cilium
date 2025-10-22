@@ -10,7 +10,6 @@ triggers:
     - enterprise-multi-network.yaml
     - enterprise-srv6-datapath.yaml
     - enterprise-multicast.yaml
-    - enterprise-conformance-cilium-mesh.yaml
     - enterprise-lb.yaml
     - enterprise-encryption-policy.yaml
     - enterprise-ingress-policy.yaml
@@ -36,9 +35,6 @@ triggers:
   /ci-srv6-datapath:
     workflows:
     - enterprise-srv6-datapath.yaml
-  /ci-cilium-mesh:
-    workflows:
-    - enterprise-conformance-cilium-mesh.yaml
   /ci-multicast:
     workflows:
     - enterprise-multicast.yaml
@@ -100,8 +96,6 @@ workflows:
   enterprise-multi-network.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   enterprise-srv6-datapath.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
-  enterprise-conformance-cilium-mesh.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   enterprise-multicast.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)

@@ -91,7 +91,5 @@ sync-grafana-to-perses: ## Migrate Perses dashboards from Grafana
 	@echo "  SYNC Perses dashboards from Grafana"
 	./enterprise/dashboards/sync_grafana_to_perses.sh
 
-# Cilium Mesh specific targets
--include Makefile.ciliummesh
 # Cilium FQDN HA proxy specific targets
 -include Makefile.fqdn-proxy

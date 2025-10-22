@@ -54,9 +54,6 @@ const (
 	// MulticastNodeCRDName is the full name of the MulticastNode CRD.
 	MulticastNodeCRDName = k8sconstv1alpha1.MulticastNodeKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 
-	// IsovalentMeshEndpointCRDName is the full name of the IsovalentMeshEndpoint CRD.
-	IsovalentMeshEndpointCRDName = k8sconstv1alpha1.IsovalentMeshEndpointKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
-
 	// IsovalentBFDProfileCRDName is the full name of the IsovalentBFDProfile CRD.
 	IsovalentBFDProfileCRDName = k8sconstv1alpha1.IsovalentBFDProfileKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 
@@ -158,10 +155,6 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 		synced.CRDResourceName(k8sconstv1alpha1.MulticastNodeName): {
 			Name:     MulticastNodeCRDName,
 			FullName: k8sconstv1alpha1.MulticastNodeName,
-		},
-		synced.CRDResourceName(k8sconstv1alpha1.IsovalentMeshEndpointName): {
-			Name:     IsovalentMeshEndpointCRDName,
-			FullName: k8sconstv1alpha1.IsovalentMeshEndpointName,
 		},
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBFDProfileName): {
 			Name:     IsovalentBFDProfileCRDName,
@@ -289,9 +282,6 @@ var (
 	//go:embed crds/v1alpha1/isovalentmulticastnodes.yaml
 	crdsv1Alpha1IsovalentMulticastNodes []byte
 
-	//go:embed crds/v1alpha1/isovalentmeshendpoints.yaml
-	crdsv2Alpha1Isovalentmeshendpoints []byte
-
 	//go:embed crds/v1alpha1/isovalentbfdprofiles.yaml
 	crdsv1Alpha1IsovalentBFDProfile []byte
 
@@ -381,8 +371,6 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes = crdsv1Alpha1IsovalentMulticastGroups
 	case MulticastNodeCRDName:
 		crdBytes = crdsv1Alpha1IsovalentMulticastNodes
-	case IsovalentMeshEndpointCRDName:
-		crdBytes = crdsv2Alpha1Isovalentmeshendpoints
 	case IsovalentBFDProfileCRDName:
 		crdBytes = crdsv1Alpha1IsovalentBFDProfile
 	case IsovalentBFDNodeConfigCRDName:

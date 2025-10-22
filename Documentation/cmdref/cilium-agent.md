@@ -130,7 +130,6 @@ cilium-agent [flags]
       --enable-cilium-endpoint-slice                                     Enable the CiliumEndpointSlice watcher in place of the CiliumEndpoint watcher (beta)
       --enable-cilium-enterprise-api-server-access strings               List of cilium enterprise API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cilium-health-api-server-access strings                   List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
-      --enable-cilium-mesh                                               Enables Cilium Mesh feature
       --enable-cluster-aware-addressing                                  Enable cluster-aware addressing, to support overlapping PodCIDRs
       --enable-drift-checker                                             Enables support for config drift checker (default true)
       --enable-dynamic-config                                            Enables support for dynamic agent config (default true)

@@ -58,12 +58,6 @@ const (
 	MulticastNodeKindDefinition = "IsovalentMulticastNode"
 	MulticastNodeName           = MulticastNodePluralName + "." + CustomResourceDefinitionGroup
 
-	// IsovalentMeshEndpoint (CiliumMesh)
-	IsovalentMeshEndpointSingularName   = "isovalentmeshendpoint"
-	IsovalentMeshEndpointPluralName     = "isovalentmeshendpoints"
-	IsovalentMeshEndpointKindDefinition = "IsovalentMeshEndpoint"
-	IsovalentMeshEndpointName           = IsovalentMeshEndpointPluralName + "." + CustomResourceDefinitionGroup
-
 	// IsovalentBFDProfile
 	IsovalentBFDProfilePluralName     = "isovalentbfdprofiles"
 	IsovalentBFDProfileKindDefinition = "IsovalentBFDProfile"
@@ -190,8 +184,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&IsovalentMulticastGroupList{},
 		&IsovalentMulticastNode{},
 		&IsovalentMulticastNodeList{},
-		&IsovalentMeshEndpoint{},
-		&IsovalentMeshEndpointList{},
 		&IsovalentBFDProfile{},
 		&IsovalentBFDProfileList{},
 		&IsovalentBFDNodeConfig{},

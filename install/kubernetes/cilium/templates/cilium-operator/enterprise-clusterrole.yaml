@@ -40,9 +40,6 @@ rules:
   - isovalentbgpvrfconfigs.isovalent.com
   - isovalentvrfs.isovalent.com
 {{- end }}
-{{- if .Values.enterprise.ciliummesh.enabled }}
-  - isovalentmeshendpoints.isovalent.com
-{{- end }}
 {{- if .Values.enterprise.loadbalancer.enabled }}
   - lbservices.isovalent.com
   - lbbackendpools.isovalent.com
@@ -238,29 +235,6 @@ rules:
     - isovalentpodnetworks
   verbs:
     - create
-{{- end }}
-{{- if .Values.enterprise.ciliummesh.enabled }}
-- apiGroups:
-  - isovalent.com
-  resources:
-  - isovalentmeshendpoints
-  verbs:
-  # To perform garbage collection of such resources
-  - delete
-  - list
-  - watch
-- apiGroups:
-  - discovery.k8s.io
-  resources:
-  - endpointslices
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - delete
-  - patch
 {{- end }}
 # TODO: Wrap within Helm value for L7LB CRD and LBFrontend
 {{- if .Values.enterprise.loadbalancer.enabled }}

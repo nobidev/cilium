@@ -1420,10 +1420,6 @@
      - Enable/Disable enterprise BGPv2 status reporting. It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false.
      - bool
      - ``true``
-   * - :spelling:ignore:`enterprise.ciliummesh.enabled`
-     - Enables Cilium Mesh
-     - bool
-     - ``false``
    * - :spelling:ignore:`enterprise.clustermesh.enableOverlappingPodCIDRSupport`
      - Enable overlapping PodCIDR support
      - bool

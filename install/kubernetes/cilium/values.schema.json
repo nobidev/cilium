@@ -2029,14 +2029,6 @@
           },
           "type": "object"
         },
-        "ciliummesh": {
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            }
-          },
-          "type": "object"
-        },
         "clustermesh": {
           "properties": {
             "enableOverlappingPodCIDRSupport": {

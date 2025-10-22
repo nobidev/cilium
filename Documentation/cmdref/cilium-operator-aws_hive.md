@@ -32,7 +32,6 @@ cilium-operator-aws hive [flags]
       --egress-gateway-ha-icmp-health-probe-interval duration          The interval at which ICMP echo requests are sent to gateway nodes for health verification (default 100ms)
       --egress-gateway-ha-reconciliation-trigger-interval duration     Time between triggers of egress gateway state reconciliations (default 2s)
       --enable-bfd                                                     Enables BFD subsystem
-      --enable-cilium-mesh                                             Enable Cilium Mesh feature
       --enable-cilium-operator-server-access strings                   List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-egress-gateway-ha-icmp-health-probe                     Enables egress-gateway ha ICMP health probing of egress gateway nodes (default true)
       --enable-enterprise-bgp-control-plane                            Enable enterprise BGP in Cilium

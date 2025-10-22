@@ -16,7 +16,6 @@ rules:
   - isovalent.com
   resources:
   - isovalentegressgatewaypolicies
-  - isovalentmeshendpoints
   - isovalentsrv6sidmanagers
   - isovalentsrv6locatorpools
   - isovalentsrv6egresspolicies

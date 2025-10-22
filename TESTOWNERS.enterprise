@@ -374,14 +374,12 @@
 /.github/workflows/enterprise-panda-scale.yaml @isovalent/scalability-performance
 /.github/workflows/enterprise-release-cilium-cli.yaml @isovalent/cli
 /.github/workflows/enterprise-*srv6*.yaml @isovalent/traffic-engineering
-/.github/workflows/enterprise-*cilium-mesh*.yaml @isovalent/cilium-mesh
 /.github/workflows/enterprise-fqdn-ha-perf.yaml @isovalent/dns-proxy @isovalent/scalability-performance
 /.github/workflows/enterprise-scale-encryption-policy.yaml @isovalent/encryption
 /.github/workflows/release-hubble-cli.yaml @isovalent/hubble
 /.github/workflows/enterprise-encryption-policy.yaml @isovalent/encryption
 /bpf/enterprise_* @isovalent/cilium-datapath
 /bpf/lib/enterprise_* @isovalent/cilium-datapath
-/bpf/lib/enterprise_cilium_mesh.h @isovalent/cilium-mesh
 /bpf/lib/enterprise_encrypt.h @isovalent/encryption
 /bpf/lib/enterprise_ext_eps_policy.h @isovalent/private-networking
 /bpf/complexity-tests/**/**/*enterprise_*.txt @isovalent/cilium-datapath
@@ -410,10 +408,7 @@
 /cilium-cli/enterprise/hooks/connectivity_ingress.go @isovalent/service-mesh
 /cilium-cli/enterprise/hooks/manifests/ingress-policy/ @isovalent/service-mesh
 /cilium-cli/enterprise/hooks/sysdump/timescape*.go @isovalent/timescape
-/contrib/scripts/enterprise-cilium-mesh-smoke-test.sh @isovalent/cilium-mesh
 /contrib/scripts/enterprise-k8s-manifests-gen.sh @isovalent/sig-k8s
-/contrib/scripts/enterprise-kind-cilium-mesh.sh @isovalent/cilium-mesh
-/contrib/testing/enterprise-cilium-install-cluster*.yaml @isovalent/cilium-mesh
 /contrib/testing/enterprise-kind.yaml @isovalent/infrastructure
 /contrib/testing/enterprise-kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer
 /contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
@@ -447,7 +442,6 @@
 /enterprise/operator/k8s/ @isovalent/sig-k8s
 /enterprise/operator/pkg/bfd/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/bgpv2/ @isovalent/traffic-engineering
-/enterprise/operator/pkg/ciliummesh @isovalent/cilium-mesh
 /enterprise/operator/pkg/lb/ @isovalent/isovalent-loadbalancer
 /enterprise/operator/pkg/multinetwork/ @isovalent/multi-network
 /enterprise/operator/pkg/networkpolicy/ @isovalent/policy-identity-networking
@@ -457,7 +451,6 @@
 /enterprise/pkg/bfd/ @isovalent/traffic-engineering
 /enterprise/pkg/bgpv1/ @isovalent/traffic-engineering
 /enterprise/pkg/config/cell.go @isovalent/cilium-agent
-/enterprise/pkg/ciliummesh @isovalent/cilium-mesh
 /enterprise/pkg/client @isovalent/cilium-agent @isovalent/cni
 /enterprise/pkg/clustermesh/ @isovalent/clustermesh
 /enterprise/pkg/egressgatewayha/ @isovalent/egress-gateway
@@ -513,10 +506,8 @@
 /pkg/clustermesh/**/enterprise_* @isovalent/clustermesh
 /pkg/datapath/**/enterprise*.go @isovalent/cilium-datapath
 /pkg/datapath/ipcache/enterprise_listener.go @isovalent/clustermesh
-/pkg/endpoint/enterprise_endpoint.go @isovalent/cilium-agent
 /pkg/fqdn/**/*enterprise* @isovalent/dns-proxy
 /pkg/maps/srv6map/*enterprise* @isovalent/traffic-engineering
-/pkg/labels/*enterprise* @isovalent/policy-identity-networking
 /pkg/metrics/enterprise_* @isovalent/cni
 /pkg/metrics/features/*enterprise*.go @isovalent/metrics
 /pkg/metrics/features/**/*enterprise*.go @isovalent/metrics

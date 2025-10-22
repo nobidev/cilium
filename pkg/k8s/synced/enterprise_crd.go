@@ -65,10 +65,6 @@ func AllIsovalentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v1alpha1.LBDeploymentName))
 	}
 
-	if option.Config.EnableCiliumMesh {
-		result = append(result, CRDResourceName(v1alpha1.IsovalentMeshEndpointName))
-	}
-
 	if option.Config.EnablePrivateNetworks {
 		result = append(result, CRDResourceName(v1alpha1.ClusterwidePrivateNetworkName))
 		result = append(result, CRDResourceName(v1alpha1.PrivateNetworkEndpointSliceName))

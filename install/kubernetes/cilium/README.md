@@ -405,7 +405,6 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.bgpControlPlane.secretsNamespace.create | bool | `false` | Create secrets namespace for BGP secrets. |
 | enterprise.bgpControlPlane.secretsNamespace.name | string | `"kube-system"` | The name of the secret namespace to which Cilium agents are given read access |
 | enterprise.bgpControlPlane.statusReport.enabled | bool | `true` | Enable/Disable enterprise BGPv2 status reporting. It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false. |
-| enterprise.ciliummesh.enabled | bool | `false` | Enables Cilium Mesh |
 | enterprise.clustermesh.enableOverlappingPodCIDRSupport | bool | `false` | Enable overlapping PodCIDR support |
 | enterprise.clustermesh.mixedRoutingMode.enabled | bool | `false` | Enable meshing clusters configured with a different primary routing mode. Inter-cluster traffic is forwarded according to the locally configured mode when matching that of the target cluster, native routing if both clusters use native routing, tunnel if both clusters use tunnel, and defaults to tunnel in the case of a mismatch. The tunnel protocol must be configured to the same value in all clusters. Limited to Cluster Scope or Kubernetes Host Scope IPAM modes. Incompatible with the Direct Server Return (DSR) LB mode. |
 | enterprise.clustermesh.phantomServices.enabled | bool | `false` | Enable Phantom Services support |

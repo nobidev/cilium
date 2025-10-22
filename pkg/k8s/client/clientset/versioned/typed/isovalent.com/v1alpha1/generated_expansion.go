@@ -31,8 +31,6 @@ type IsovalentClusterwideNetworkPolicyExpansion interface{}
 
 type IsovalentFQDNGroupExpansion interface{}
 
-type IsovalentMeshEndpointExpansion interface{}
-
 type IsovalentMulticastGroupExpansion interface{}
 
 type IsovalentMulticastNodeExpansion interface{}

@@ -28,7 +28,6 @@ type IsovalentV1alpha1Interface interface {
 	IsovalentClusterwideEncryptionPoliciesGetter
 	IsovalentClusterwideNetworkPoliciesGetter
 	IsovalentFQDNGroupsGetter
-	IsovalentMeshEndpointsGetter
 	IsovalentMulticastGroupsGetter
 	IsovalentMulticastNodesGetter
 	IsovalentNetworkPoliciesGetter
@@ -100,10 +99,6 @@ func (c *IsovalentV1alpha1Client) IsovalentClusterwideNetworkPolicies() Isovalen
 
 func (c *IsovalentV1alpha1Client) IsovalentFQDNGroups() IsovalentFQDNGroupInterface {
 	return newIsovalentFQDNGroups(c)
-}
-
-func (c *IsovalentV1alpha1Client) IsovalentMeshEndpoints(namespace string) IsovalentMeshEndpointInterface {
-	return newIsovalentMeshEndpoints(c, namespace)
 }
 
 func (c *IsovalentV1alpha1Client) IsovalentMulticastGroups() IsovalentMulticastGroupInterface {
