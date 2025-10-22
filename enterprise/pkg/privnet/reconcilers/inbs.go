@@ -378,7 +378,7 @@ func (i *INBs) upsertINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Private
 					)
 				}
 
-				i.tbl.Modify(wtx, inb, func(old, new tables.INB) tables.INB {
+				old, hadOld, _ := i.tbl.Modify(wtx, inb, func(old, new tables.INB) tables.INB {
 					// Preserve the previous state, in case the IP did not change.
 					// The other fields are either fixed (i.e., part of the primary
 					// key), or status related.
@@ -387,6 +387,16 @@ func (i *INBs) upsertINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Private
 					}
 					return new
 				})
+
+				if hadOld && old.Node != inb.Node {
+					if err := i.checker.Deregister(old.Node, old.Network); err != nil {
+						i.log.Error("Failed deregistering INB from health checking",
+							logfields.Error, err,
+							logfields.Node, inb.Node,
+							logfields.Network, inb.Network,
+						)
+					}
+				}
 			}
 		}
 	}
@@ -474,7 +484,7 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 				)
 			}
 
-			i.tbl.Modify(wtx, inb, func(old, new tables.INB) tables.INB {
+			old, hadOld, _ := i.tbl.Modify(wtx, inb, func(old, new tables.INB) tables.INB {
 				// Preserve the previous state, in case the IP did not change.
 				// The other fields are either fixed (i.e., part of the primary
 				// key), or status related.
@@ -483,6 +493,16 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 				}
 				return new
 			})
+
+			if hadOld && old.Node != inb.Node {
+				if err := i.checker.Deregister(old.Node, old.Network); err != nil {
+					i.log.Error("Failed deregistering INB from health checking",
+						logfields.Error, err,
+						logfields.Node, inb.Node,
+						logfields.Network, inb.Network,
+					)
+				}
+			}
 		}
 	}
 
