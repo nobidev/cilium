@@ -385,6 +385,11 @@ spec:
                     and healthy gateway IPs for a given EgressGroup.
                   properties:
                     activeGatewayIPs:
+                      description: |-
+                        ActiveGatewayIPs is a slice of node IPs, for all nodes in the cluster which are
+                        selected by this policy group's nodeSelector, which pass health-checking by
+                        the cilium-operator, and which have been selected to serve newly established
+                        connections for this policy.
                       items:
                         type: string
                       type: array
@@ -393,12 +398,25 @@ spec:
                         items:
                           type: string
                         type: array
+                      description: |-
+                        ActiveGatewayIPsByAZ contains a slice of node IPs, for each known
+                        Availability Zone (AZ) in the cluster.
+                        Each AZ-specific list has the same semantics as the ActiveGatewayIPs.
+                        It is only used for policies which specify an AZAffinity mode.
                       type: object
                     egressIPByGatewayIP:
                       additionalProperties:
                         type: string
+                      description: |-
+                        EgressIPByGatewayIP describes the allocation of Egress IPs to gateway nodes.
+                        It is only used for policies which specify an EgressCIDR.
                       type: object
                     healthyGatewayIPs:
+                      description: |-
+                        HealthyGatewayIPs contains the IPs of all nodes in the cluster which are
+                        selected by this policy group's nodeSelector, and which also pass health-checking
+                        by the cilium-operator. Established connections via these gateways stay up, even
+                        if the gateway node is no longer part of an ActiveGatewayIPs selection.
                       items:
                         type: string
                       type: array

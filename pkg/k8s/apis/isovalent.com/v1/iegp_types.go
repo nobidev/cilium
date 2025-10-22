@@ -161,9 +161,23 @@ type IsovalentEgressGatewayPolicyStatus struct {
 // policy group. It consists of a pair of slices that describe the set of active
 // and healthy gateway IPs for a given EgressGroup.
 type IsovalentEgressGatewayPolicyGroupStatus struct {
+	// ActiveGatewayIPs is a slice of node IPs, for all nodes in the cluster which are
+	// selected by this policy group's nodeSelector, which pass health-checking by
+	// the cilium-operator, and which have been selected to serve newly established
+	// connections for this policy.
 	ActiveGatewayIPs []string `json:"activeGatewayIPs,omitempty"`
 	// +deepequal-gen=false
+	// ActiveGatewayIPsByAZ contains a slice of node IPs, for each known
+	// Availability Zone (AZ) in the cluster.
+	// Each AZ-specific list has the same semantics as the ActiveGatewayIPs.
+	// It is only used for policies which specify an AZAffinity mode.
 	ActiveGatewayIPsByAZ map[string][]string `json:"activeGatewayIPsByAZ,omitempty"`
-	HealthyGatewayIPs    []string            `json:"healthyGatewayIPs,omitempty"`
-	EgressIPByGatewayIP  map[string]string   `json:"egressIPByGatewayIP,omitempty"`
+	// HealthyGatewayIPs contains the IPs of all nodes in the cluster which are
+	// selected by this policy group's nodeSelector, and which also pass health-checking
+	// by the cilium-operator. Established connections via these gateways stay up, even
+	// if the gateway node is no longer part of an ActiveGatewayIPs selection.
+	HealthyGatewayIPs []string `json:"healthyGatewayIPs,omitempty"`
+	// EgressIPByGatewayIP describes the allocation of Egress IPs to gateway nodes.
+	// It is only used for policies which specify an EgressCIDR.
+	EgressIPByGatewayIP map[string]string `json:"egressIPByGatewayIP,omitempty"`
 }
