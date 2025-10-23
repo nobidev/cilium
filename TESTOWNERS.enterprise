@@ -1,5 +1,6 @@
 /.github/actions/bpftrace/ @isovalent/encryption
 /.github/actions/e2e/*ipsec* @isovalent/encryption
+/.github/actions/e2e/*wireguard* @isovalent/encryption
 /.github/actions/kvstore/ @isovalent/clustermesh
 /.github/workflows/*cilium-cli*.yaml @isovalent/ci-structure
 /.github/workflows/*clustermesh*.yaml @isovalent/clustermesh
@@ -26,7 +27,6 @@
 /api/v1/relay/ @isovalent/hubble-api
 /bpf/ @isovalent/cni
 /bpf/bpf_wireguard.c @isovalent/encryption @isovalent/cni
-/bpf/custom/Makefile* @isovalent/networking-framework
 /bpf/include/bpf/tailcall.h @isovalent/networking-framework
 /bpf/include/bpf/config @isovalent/networking-framework
 /bpf/lib/auth.h @isovalent/cni @isovalent/service-mesh
@@ -47,7 +47,6 @@
 /cilium-cli/cmd/ @isovalent/ci-structure
 /cilium-cli/clustermesh/ @isovalent/clustermesh
 /cilium-cli/connectivity/check/frr.go @isovalent/traffic-engineering
-/cilium-cli/connectivity/check/ipcache.go @isovalent/policy-identity-networking
 /cilium-cli/connectivity/check/manifests/egress-gateway-policy.yaml @isovalent/egress-gateway
 /cilium-cli/connectivity/check/policy.go @isovalent/policy-identity-networking
 /cilium-cli/connectivity/builder/all_ingress_deny_from_outside.go @isovalent/encryption

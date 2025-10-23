@@ -53,6 +53,7 @@ struct ct_buffer6 {
 	__u32 monitor;
 	int ret;
 	int l4_off;
+	fraginfo_t fraginfo;
 };
 
 static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags)
@@ -539,8 +540,11 @@ ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fragin
 		tuple->dport = 0;
 
 		switch (type) {
-		case ICMPV6_DEST_UNREACH:
 		case ICMPV6_PKT_TOOBIG:
+			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(dir),
+				       REASON_MTU_ERROR_MSG);
+			fallthrough;
+		case ICMPV6_DEST_UNREACH:
 		case ICMPV6_TIME_EXCEED:
 		case ICMPV6_PARAMPROB:
 			tuple->flags |= TUPLE_F_RELATED;
@@ -661,16 +665,12 @@ ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff 
 static __always_inline int ct_lookup6(const void *map,
 				      struct ipv6_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-				      int l4_off, enum ct_dir dir, enum ct_scope scope,
+				      fraginfo_t fraginfo, int l4_off,
+				      enum ct_dir dir, enum ct_scope scope,
 				      struct ct_state *ct_state,
 				      __u32 *monitor)
 {
-	fraginfo_t fraginfo;
 	int ret;
-
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
 
 	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
 
@@ -799,12 +799,15 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		tuple->dport = 0;
 
 		switch (type) {
+		case ICMP_FRAG_NEEDED:
+			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(dir),
+				       REASON_MTU_ERROR_MSG);
+			break;
 		case ICMP_DEST_UNREACH:
 		case ICMP_TIME_EXCEEDED:
 		case ICMP_PARAMETERPROB:
 			tuple->flags |= TUPLE_F_RELATED;
 			break;
-
 		case ICMP_ECHOREPLY:
 			tuple->sport = identifier;
 			break;

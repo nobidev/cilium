@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	policyutils "github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -160,7 +161,7 @@ func (p *policyWatcher) upsertIsovalentNetworkPolicy(inp *types.SlimINP, initial
 		}
 	}
 	p.policyImporter.UpdatePolicy(&policytypes.PolicyUpdate{
-		Rules:               rules,
+		Rules:               policyutils.RulesToPolicyEntries(rules),
 		Source:              source.CustomResource,
 		ProcessingStartTime: initialRecvTime,
 		Resource:            resourceID,

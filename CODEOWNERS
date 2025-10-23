@@ -244,6 +244,7 @@
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
 /.github/actions/bpftrace/ @cilium/sig-encryption @cilium/github-sec @cilium/ci-structure
 /.github/actions/e2e/*ipsec* @cilium/ipsec @cilium/github-sec @cilium/ci-structure
+/.github/actions/e2e/*wireguard* @cilium/wireguard @cilium/github-sec @cilium/ci-structure
 /.github/actions/kvstore/ @cilium/sig-clustermesh @cilium/kvstore @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /.github/workflows/auto-approve.yaml @cilium/cilium-maintainers
@@ -280,7 +281,6 @@
 Makefile* @cilium/build
 /bpf/ @cilium/sig-datapath
 /bpf/bpf_wireguard.c @cilium/wireguard @cilium/sig-datapath
-/bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/include/bpf/tailcall.h @cilium/loader
 /bpf/include/bpf/config @cilium/loader
 /bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
@@ -302,7 +302,6 @@ Makefile* @cilium/build
 /cilium-cli/clustermesh/ @cilium/sig-clustermesh
 /cilium-cli/connectivity/ @cilium/ci-structure
 /cilium-cli/connectivity/check/frr.go @cilium/sig-bgp
-/cilium-cli/connectivity/check/ipcache.go @cilium/ipcache
 /cilium-cli/connectivity/check/manifests/egress-gateway-policy.yaml @cilium/egress-gateway
 /cilium-cli/connectivity/check/metrics*.go @cilium/metrics
 /cilium-cli/connectivity/check/policy.go @cilium/sig-policy

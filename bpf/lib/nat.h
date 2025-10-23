@@ -1785,7 +1785,6 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmp6hdr));
 	struct ipv6_ct_tuple tuple = {};
 	struct ipv6hdr ip6;
-	fraginfo_t fraginfo;
 	__u16 port_off;
 	__u32 icmpoff;
 	int hdrlen;
@@ -1807,7 +1806,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6.saddr);
 	tuple.flags = NAT_DIR_EGRESS;
 
-	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, &fraginfo);
+	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, NULL);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -1997,7 +1996,6 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 {
 	struct ipv6_ct_tuple tuple = {};
 	struct ipv6hdr iphdr;
-	fraginfo_t fraginfo;
 	__u16 port_off;
 	__u32 icmpoff;
 	__u8 type;
@@ -2028,7 +2026,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 	 */
 	asm volatile ("" ::"r"(&tuple));
 
-	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, &fraginfo);
+	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, NULL);
 	if (hdrlen < 0)
 		return hdrlen;
 

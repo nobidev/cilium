@@ -43,7 +43,8 @@ func registerGneighReconciler(in struct {
 
 	Ops *GneighOps
 
-	Config config.Config
+	Lifecycle cell.Lifecycle
+	Config    config.Config
 
 	MapEntries       statedb.RWTable[*tables.MapEntry]
 	ReconcilerParams reconciler.Params
@@ -53,7 +54,7 @@ func registerGneighReconciler(in struct {
 		return nil, nil
 	}
 
-	in.ReconcilerParams.Lifecycle.Append(
+	in.Lifecycle.Append(
 		cell.Hook{
 			OnStop: func(hc cell.HookContext) error {
 				for _, sender := range in.Ops.arpSenders {

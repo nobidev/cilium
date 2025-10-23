@@ -64,6 +64,8 @@ v6_svc_one    = "fd10::1"
 # External IPv6 addrs
 v6_ext_node_one = "2001::1"
 
+v6_all = "::"
+
 # Source port to be used by a client
 tcp_src_one   = 22330
 tcp_src_two   = 33440
@@ -194,4 +196,44 @@ l2_announce6_na = (
     IPv6(src=v6_svc_one, dst=v6_ext_node_one, hlim=255) /
     ICMPv6ND_NA(R=0, S=1, O=1, tgt=v6_svc_one) /
     ICMPv6NDOptDstLLAddr(lladdr=mac_two)
+)
+
+## Wireguard
+
+wireguard_port = 51871
+
+v4_wireguard = (
+    Ether(dst=mac_two, src=mac_one) /
+    IP(src=v4_node_one, dst=v4_node_two) /
+    UDP(sport=wireguard_port, dport=wireguard_port)
+)
+
+v4_wireguard_sport_mismatch = (
+    Ether(dst=mac_two, src=mac_one) /
+    IP(src=v4_node_one, dst=v4_node_two) /
+    UDP(sport=wireguard_port+1, dport=wireguard_port)
+)
+
+v4_wireguard_proto_mismatch = (
+    Ether(dst=mac_two, src=mac_one) /
+    IP(src=v4_node_one, dst=v4_node_two) /
+    TCP(sport=wireguard_port, dport=wireguard_port)
+)
+
+v6_wireguard = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(src=v6_node_one, dst=v6_node_two) /
+    UDP(sport=wireguard_port, dport=wireguard_port)
+)
+
+v6_wireguard_sport_mismatch = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(src=v6_node_one, dst=v6_node_two) /
+    UDP(sport=wireguard_port+1, dport=wireguard_port)
+)
+
+v6_wireguard_proto_mismatch = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(src=v6_node_one, dst=v6_node_two) /
+    TCP(sport=wireguard_port, dport=wireguard_port)
 )
