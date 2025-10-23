@@ -133,7 +133,7 @@ jobs:
             --set=azure.resourceGroup=${NAME} \
             --datapath-mode=aks-byocni \
             --set=enterprise.egressGatewayHA.enabled=true \
-            --set=enterprise.featureGate.approved='{EgressGatewayIPv4,EgressGatewayHA,DNSProxyHA,DatapathIPModeDualStack}' \
+            --set=enterprise.featureGate.approved='{EgressGatewayHA,DNSProxyHA,DatapathIPModeDualStack}' \
             --set=enterprise.bgpControlPlane.enabled=true \
             --set-string=extraConfig.external-dns-proxy=true \
             --set=enableIPv4Masquerade=true \

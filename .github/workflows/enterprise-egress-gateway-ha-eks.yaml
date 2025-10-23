@@ -133,7 +133,7 @@ jobs:
             --set=debug.enabled=true \
             --set=cluster.name=${{ env.cluster_name }} \
             --set=enterprise.egressGatewayHA.enabled=true \
-            --set=enterprise.featureGate.approved='{EgressGatewayIPv4,EgressGatewayHA,BFD,DNSProxyHA}' \
+            --set=enterprise.featureGate.approved='{EgressGatewayHA,BFD,DNSProxyHA}' \
             --set=enterprise.bgpControlPlane.enabled=true \
             --set=enterprise.bfd.enabled=true \
             --set-string=extraConfig.external-dns-proxy=true \
