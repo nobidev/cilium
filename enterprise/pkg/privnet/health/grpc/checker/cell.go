@@ -8,19 +8,23 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package grpc
+package checker
 
-import (
-	"github.com/cilium/hive/cell"
+import "github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/checker"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
-)
+var Cell = cell.Group(
+	cell.ProvidePrivate(
+		// Provide the connection factory via hive, so that it can be
+		// overridden for testing purposes.
+		newDefaultConnFactory,
 
-var Cell = cell.Module(
-	"private-networks-health",
-	"Private Networks Health Checking of INBs",
+		// Provide the identifiers of the local node via hive, so that it
+		// can be overridden for testing purposes.
+		newDefaultLocalNode,
+	),
 
-	config.Cell,
-	checker.Cell,
+	cell.Provide(
+		// Provide the health checker implementation.
+		New,
+	),
 )
