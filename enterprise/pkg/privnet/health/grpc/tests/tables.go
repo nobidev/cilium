@@ -43,6 +43,10 @@ func NewInstance(in string) (Instance, error) {
 	}, nil
 }
 
+func NewInstanceFromINBNode(no tables.INBNode) Instance {
+	return Instance{Cluster: no.Cluster, Name: no.Name}
+}
+
 func (i Instance) String() string {
 	return string(i.Cluster) + "/" + string(i.Name)
 }
@@ -51,17 +55,22 @@ func (i Instance) SocketName() string {
 	return fmt.Sprintf("test-health-%s-%s.sock", i.Cluster, i.Name)
 }
 
+func (i Instance) ToINBNode() tables.INBNode {
+	return tables.INBNode{Cluster: i.Cluster, Name: i.Name}
+}
+
 type InstanceNetwork struct {
 	Instance Instance
 	Network  tables.NetworkName
+	Health   tables.INBHealthState
 }
 
 func (in InstanceNetwork) TableHeader() []string {
-	return []string{"Instance", "Network"}
+	return []string{"Instance", "Network", "Health"}
 }
 
 func (in InstanceNetwork) TableRow() []string {
-	return []string{in.Instance.String(), string(in.Network)}
+	return []string{in.Instance.String(), string(in.Network), in.Health.String()}
 }
 
 type instanceNetworkKey string
