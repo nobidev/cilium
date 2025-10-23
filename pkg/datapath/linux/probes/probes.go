@@ -190,7 +190,7 @@ var HaveBPFJIT = sync.OnceValue(func() error {
 	if err != nil {
 		return fmt.Errorf("get prog info: %w", err)
 	}
-	if _, err := info.JitedSize(); err != nil {
+	if _, err := info.JitedSize(); err != nil && !errors.Is(err, ebpf.ErrRestrictedKernel) {
 		return fmt.Errorf("get JITed prog size: %w", err)
 	}
 
@@ -410,7 +410,9 @@ func HaveDeadCodeElim() error {
 		return fmt.Errorf("get prog info: %w", err)
 	}
 	infoInst, err := info.Instructions()
-	if err != nil {
+	if errors.Is(err, ebpf.ErrRestrictedKernel) {
+		return nil
+	} else if err != nil {
 		return fmt.Errorf("get instructions: %w", err)
 	}
 
