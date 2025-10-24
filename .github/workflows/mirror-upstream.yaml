@@ -48,7 +48,7 @@ jobs:
 
       - name: Update mirrored branches from upstream
         env:
-          BRANCHES: "main v1.15 v1.16 v1.17 v1.18"
+          BRANCHES: "main v1.16 v1.17 v1.18"
           UPSTREAM: "https://github.com/cilium/cilium"
         run: |
           git remote add upstream "$UPSTREAM"

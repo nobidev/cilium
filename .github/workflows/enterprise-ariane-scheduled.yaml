@@ -21,8 +21,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - branch: 'v1.15-ce'
-            nightlyHour: 3
           - branch: 'v1.16-ce'
             nightlyHour: 4
           - branch: 'v1.17-ce'
