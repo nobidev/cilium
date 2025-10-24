@@ -1,0 +1,62 @@
+#! --private-networks-health-check-interval=50ms --private-networks-health-check-timeout=2s
+
+serverpool/new camelidae/alpaca
+checkerpool/new sloth local/sloth
+
+hive start
+
+# Setup the environment.
+serverpool/serve camelidae/alpaca blue green purple yellow
+serverpool/start camelidae/alpaca
+
+checkerpool/register sloth camelidae/alpaca blue
+checkerpool/register sloth camelidae/alpaca green
+checkerpool/register sloth camelidae/alpaca purple
+checkerpool/register sloth camelidae/alpaca yellow
+
+checkerpool/synced sloth
+
+# Check that the events have been received correctly.
+db/initialized test-observed-state-sloth
+db/cmp test-observed-state-sloth expected.v1.table
+
+# Activate a few network networks.
+checkerpool/activate sloth camelidae/alpaca blue
+checkerpool/activate sloth camelidae/alpaca green
+checkerpool/activate sloth camelidae/alpaca yellow
+db/cmp test-active-networks active.v1.table
+
+# Perform a few more changes.
+checkerpool/activate   sloth camelidae/alpaca purple
+checkerpool/deactivate sloth camelidae/alpaca green
+db/cmp test-active-networks active.v2.table
+
+# Stop the server, and check that the activations are eventually replayed.
+# We need a reasonably long health check timeout for this assertion, to
+# prevent the client from considering the server as unhealthy in the meanwhile.
+serverpool/stop camelidae/alpaca
+db/empty test-active-networks
+
+serverpool/start camelidae/alpaca
+db/cmp test-active-networks active.v2.table
+
+# ---
+
+-- expected.v1.table --
+Instance           Network   Health
+camelidae/alpaca   blue      Healthy, Confirmed
+camelidae/alpaca   green     Healthy, Confirmed
+camelidae/alpaca   purple    Healthy, Confirmed
+camelidae/alpaca   yellow    Healthy, Confirmed
+
+-- active.v1.table --
+Instance           Network
+camelidae/alpaca   blue
+camelidae/alpaca   green
+camelidae/alpaca   yellow
+
+-- active.v2.table --
+Instance           Network
+camelidae/alpaca   blue
+camelidae/alpaca   purple
+camelidae/alpaca   yellow

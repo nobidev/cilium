@@ -1,0 +1,216 @@
+#! --private-networks-health-check-interval=25ms --private-networks-health-check-timeout=250ms
+
+# Create the servers.
+serverpool/new camelidae/alpaca
+serverpool/new camelidae/camel
+serverpool/new camelidae/llama
+serverpool/new felidae/cheetah
+serverpool/new felidae/tiger
+
+# Create the checker.
+checkerpool/new sloth local/sloth
+
+hive start
+
+# Configure the networks served by each server.
+serverpool/serve camelidae/alpaca blue green yellow
+serverpool/serve camelidae/camel  blue yellow purple
+serverpool/serve camelidae/llama  blue green
+
+# Start the servers.
+serverpool/start camelidae/alpaca
+serverpool/start camelidae/camel
+serverpool/start camelidae/llama
+
+# The cheetah server is not started, while the tiger one is blocked.
+serverpool/start felidae/tiger
+serverpool/block felidae/tiger
+
+# Register a few network pairs.
+checkerpool/register sloth camelidae/alpaca blue
+checkerpool/register sloth camelidae/alpaca yellow
+checkerpool/register sloth camelidae/camel  yellow
+checkerpool/register sloth camelidae/llama  blue
+checkerpool/register sloth camelidae/llama  yellow
+
+# The servers are either down or not responsive.
+checkerpool/register sloth felidae/cheetah purple
+checkerpool/register sloth felidae/tiger   purple
+
+# Check that the events have been received correctly.
+db/cmp test-observed-state-sloth expected.v1.table
+
+# The initialization signal should not have been received yet at this point.
+! db/initialized --timeout 0 test-observed-state-sloth
+
+# Propagate the client synchronization signal, should be now synchronized.
+checkerpool/synced sloth
+
+db/initialized test-observed-state-sloth
+db/cmp test-observed-state-sloth expected.v1.table
+
+# Perform a few changes, and assert that they propagate correctly.
+checkerpool/register   sloth camelidae/alpaca blue   # No-op
+checkerpool/register   sloth camelidae/alpaca green  # Served
+checkerpool/register   sloth camelidae/alpaca red    # Not served
+checkerpool/deregister sloth camelidae/alpaca yellow
+checkerpool/deregister sloth camelidae/alpaca purple # No-op
+checkerpool/register   sloth felidae/tiger blue      # Unhealthy
+
+serverpool/serve    camelidae/llama yellow
+serverpool/withdraw camelidae/camel yellow
+serverpool/start    felidae/cheetah
+
+db/cmp test-observed-state-sloth expected.v2.table
+
+# Only two streams (i.e., Probe and Watch) should be open against every server,
+# regardless of the number of registered networks.
+serverpool/streams camelidae/alpaca 2
+serverpool/streams camelidae/camel  2
+serverpool/streams camelidae/llama  2
+
+# Make one of the servers unresponsive, its state should correctly change.
+serverpool/block felidae/cheetah
+db/cmp test-observed-state-sloth expected.v3.table
+serverpool/stop felidae/cheetah
+
+# Restart it, the state should be back to the previous one.
+serverpool/start felidae/cheetah
+db/cmp test-observed-state-sloth expected.v2.table
+
+# Activate a few networks, and check that the activation is correctly propagated.
+checkerpool/activate sloth camelidae/alpaca blue
+checkerpool/activate sloth camelidae/llama  blue
+checkerpool/activate sloth camelidae/llama  yellow
+db/cmp test-active-networks active.v1.table
+
+# Perform a couple more changes, and check that they are correctly propagated.
+checkerpool/activate   sloth camelidae/alpaca blue  # No-op
+checkerpool/activate   sloth camelidae/alpaca green
+checkerpool/deactivate sloth camelidae/llama  blue
+checkerpool/deregister sloth camelidae/llama  yellow
+db/cmp test-active-networks active.v2.table
+
+# Pretend that the INB got out of sync, and assert that it eventually reconverges.
+db/insert test-active-networks entry-llama-blue.yaml
+db/delete test-active-networks entry-alpaca-green.yaml
+db/cmp test-active-networks active.v2.table
+
+# Deregistering from a blocked server should not be blocking
+checkerpool/deregister sloth felidae/tiger purple
+checkerpool/deregister sloth felidae/tiger blue
+
+# Stop the alpaca server, so that it turns unhealthy.
+serverpool/stop camelidae/alpaca
+db/empty test-active-networks
+db/cmp test-observed-state-sloth expected.v4.table
+
+# Restart it, after having changed the list of served networks
+serverpool/serve    camelidae/alpaca red
+serverpool/withdraw camelidae/alpaca green
+serverpool/start    camelidae/alpaca
+db/cmp test-observed-state-sloth expected.v5.table
+serverpool/streams camelidae/alpaca 2
+
+# Activate one network again, and assert that it propagates correctly.
+# Previously active networks should not be replayed.
+checkerpool/activate sloth camelidae/alpaca red
+db/cmp test-active-networks active.v3.table
+
+# Check for expected errors
+! checkerpool/activate   sloth felidae/cougar   purple # Node not registered
+! checkerpool/activate   sloth camelidae/alpaca purple # Network not registered
+! checkerpool/activate   sloth camelidae/alpaca green  # Network not served
+! checkerpool/deactivate sloth felidae/cougar   purple # Node not registered
+! checkerpool/deactivate sloth camelidae/alpaca purple # Network not registered
+
+# Deregister all networks from a server.
+checkerpool/deregister sloth camelidae/alpaca green
+checkerpool/deregister sloth camelidae/alpaca blue
+serverpool/streams camelidae/alpaca 2
+checkerpool/deregister sloth camelidae/alpaca red
+
+# All streams should be eventually tore down.
+* serverpool/streams camelidae/alpaca 0
+
+# ---
+
+-- expected.v1.table --
+Instance           Network   Health
+camelidae/alpaca   blue      Healthy, Confirmed
+camelidae/alpaca   yellow    Healthy, Confirmed
+camelidae/camel    yellow    Healthy, Confirmed
+camelidae/llama    blue      Healthy, Confirmed
+camelidae/llama    yellow    Healthy, Denied
+felidae/cheetah    purple    Unhealthy, Unknown
+felidae/tiger      purple    Unhealthy, Unknown
+
+-- expected.v2.table --
+Instance           Network   Health
+camelidae/alpaca   blue      Healthy, Confirmed
+camelidae/alpaca   green     Healthy, Confirmed
+camelidae/alpaca   red       Healthy, Denied
+camelidae/camel    yellow    Healthy, Denied
+camelidae/llama    blue      Healthy, Confirmed
+camelidae/llama    yellow    Healthy, Confirmed
+felidae/cheetah    purple    Healthy, Denied
+felidae/tiger      blue      Unhealthy, Unknown
+felidae/tiger      purple    Unhealthy, Unknown
+
+-- expected.v3.table --
+Instance           Network   Health
+camelidae/alpaca   blue      Healthy, Confirmed
+camelidae/alpaca   green     Healthy, Confirmed
+camelidae/alpaca   red       Healthy, Denied
+camelidae/camel    yellow    Healthy, Denied
+camelidae/llama    blue      Healthy, Confirmed
+camelidae/llama    yellow    Healthy, Confirmed
+felidae/cheetah    purple    Unhealthy, Unknown
+felidae/tiger      blue      Unhealthy, Unknown
+felidae/tiger      purple    Unhealthy, Unknown
+
+-- expected.v4.table --
+Instance           Network   Health
+camelidae/alpaca   blue      Unhealthy, Unknown
+camelidae/alpaca   green     Unhealthy, Unknown
+camelidae/alpaca   red       Unhealthy, Unknown
+camelidae/camel    yellow    Healthy, Denied
+camelidae/llama    blue      Healthy, Confirmed
+felidae/cheetah    purple    Healthy, Denied
+
+-- expected.v5.table --
+Instance           Network   Health
+camelidae/alpaca   blue      Healthy, Confirmed
+camelidae/alpaca   green     Healthy, Denied
+camelidae/alpaca   red       Healthy, Confirmed
+camelidae/camel    yellow    Healthy, Denied
+camelidae/llama    blue      Healthy, Confirmed
+felidae/cheetah    purple    Healthy, Denied
+
+
+-- active.v1.table --
+Instance           Network
+camelidae/alpaca   blue
+camelidae/llama    blue
+camelidae/llama    yellow
+
+-- active.v2.table --
+Instance           Network
+camelidae/alpaca   blue
+camelidae/alpaca   green
+
+-- active.v3.table --
+Instance           Network
+camelidae/alpaca   red
+
+-- entry-alpaca-green.yaml --
+instance:
+    cluster: camelidae
+    name: alpaca
+network: green
+
+-- entry-llama-blue.yaml --
+instance:
+    cluster: camelidae
+    name: llama
+network: blue
