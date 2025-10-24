@@ -20,16 +20,49 @@ jobs:
         config:
           - runner: ubuntu-24.04
             language: 'actions'
+          - runner: ubuntu-24.04
+            language: 'go'
+            build-mode: manual
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Initialize CodeQL=======
+        if: matrix.config.language == 'go'
+        uses: github/codeql-action/init@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v4
+        with:
+          languages: ${{ matrix.config.language }}
+          build-mode: manual
+
       - name: Initialize CodeQL
+        if: matrix.config.language != 'go'
         uses: github/codeql-action/init@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v4
         with:
           languages: ${{ matrix.config.language }}
 
+      - name: Build agent
+        if: matrix.config.language == 'go'
+        working-directory: ./daemon
+        run: make
+
+      - name: Build operator
+        if: matrix.config.language == 'go'
+        working-directory: ./operator
+        run: make
+
+      - name: Build hubble-relay
+        if: matrix.config.language == 'go'
+        working-directory: ./hubble-relay
+        run: make
+
+      - name: Build clustermesh-apiserver
+        if: matrix.config.language == 'go'
+        working-directory: ./clustermesh-apiserver
+        run: make
+
       - name: Autobuild
-        if: matrix.config.language != 'cpp'
+        if: matrix.config.language != 'go'
         uses: github/codeql-action/autobuild@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v4
 
       - name: Perform CodeQL Analysis
