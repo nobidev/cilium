@@ -150,7 +150,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 	cmd.Flags().BoolVar(&ilbCli.FlagCleanup, "cleanup", true, "Cleanup created resources after each test case run")
 	// maybeSysdump is only effective when this option is specified.
 	cmd.Flags().BoolVar(&ilbCli.FlagSysdumpOnFailure, "sysdump-on-failure", false, "Collect sysdump on test failure")
-	cmd.Flags().StringVar(&ilbCli.FlagSysdumpOutputFilename, "sysdump-output-filename", "cilium-sysdump.zip", "Name of the outputfile for the sysdump sysdump")
+	cmd.Flags().StringVar(&ilbCli.FlagSysdumpOutputFilename, "sysdump-output-filename", "ilb-sysdump", "Name of the outputfile for the sysdump sysdump")
 	cmd.Flags().BoolVar(&ilbCli.FlagVerbose, "verbose", false, "Verbose logging")
 
 	// By default, we assume cilium-cli is in the PATH. In the CI, we may want to specify custom path.
