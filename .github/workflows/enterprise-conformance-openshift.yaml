@@ -429,6 +429,11 @@ jobs:
             exit 1
           fi
 
+      - name: Provision a node without Cilium
+        working-directory: ./openshift-ci/aws-ipi
+        run: |
+          ./scripts/no-cilium-nodes.sh
+
       - name: Features tested
         uses: ./.github/actions/feature-status
         with:
