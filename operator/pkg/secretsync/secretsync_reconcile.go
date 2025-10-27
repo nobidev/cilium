@@ -96,6 +96,7 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		return ctrl.Result{RequeueAfter: resync}, nil
 	}
 
+	// If the object wasn't deleted, setup a resync.
 	scopedLog.DebugContext(ctx, "Successfully reconciled Secret",
 		logfields.Action, action(changed))
 	return ctrl.Result{}, nil
