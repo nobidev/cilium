@@ -38,7 +38,7 @@ jobs:
           path: vex
       - name: Download Grype
         id: grype
-        uses: anchore/scan-action/download-grype@a5605eb0943e46279cb4fbd9d44297355d3520ab # v7.0.2
+        uses: anchore/scan-action/download-grype@568b89d27fc18c60e56937bff480c91c772cd993 # v7.1.0
       - name: Scan image
         id: scan
         run: |
@@ -76,7 +76,7 @@ jobs:
           exit 1
       - name: Upload result summary
         if: ${{ failure() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ matrix.image }}-${{ matrix.branch }}.json
           path: ${{ matrix.image }}-${{ matrix.branch }}.json
@@ -105,7 +105,7 @@ jobs:
     needs: container-scan
     steps:
       - name: Download all scan results
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           path: scan-results
       - name: Combine JSON results
@@ -130,7 +130,7 @@ jobs:
         run: |
           cat summary.json
       - name: Upload summary
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: summary.json
           path: summary.json

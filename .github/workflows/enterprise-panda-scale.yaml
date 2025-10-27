@@ -68,7 +68,7 @@ env:
   # 'server supports reverse-lookup on wildcard DNS SAN').
   domain: c.${{ secrets.GCP_PERF_PROJECT_ID }}.internal
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 543.0.0
+  gcloud_version: 544.0.0
 
   # renovate: datasource=github-releases depName=cert-manager/cert-manager
   cert_manager_version: v1.19.1
@@ -267,7 +267,7 @@ jobs:
           go-version: ${{ env.go_version }}
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/install-kops@28366d1190baf620c6f4daa7494e528ea6c41482 # main
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
@@ -310,7 +310,7 @@ jobs:
           go build ./cmd/clusterloader.go
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@024e340cca1465e2a6336521f12370c7ca58c59a # v0.18.7
+        uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -329,7 +329,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/create-cluster@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         timeout-minutes: 10
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -346,7 +346,7 @@ jobs:
           max_in_flight: 200
 
       - name: Create instance group for etcd
-        uses: cilium/scale-tests-action/create-instance-group@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/create-instance-group@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         timeout-minutes: 5
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -358,7 +358,7 @@ jobs:
           node_volume_size: ${{ steps.vars.outputs.WORKLOAD_NODES <= 1000 && 250 || 500 }}
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/setup-firewall@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           create_native_routing_firewall: 'false'
@@ -518,7 +518,7 @@ jobs:
           kubectl rollout status -n kube-system ds/cilium-dnsproxy --watch
 
       - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/validate-cluster@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         timeout-minutes: 10
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -614,7 +614,7 @@ jobs:
           kubectl taint node -l app=monitoring monitoring:NoSchedule
 
       - name: Create Instance Group for workload deployments (1)
-        uses: cilium/scale-tests-action/create-instance-group@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/create-instance-group@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         timeout-minutes: 5
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -624,7 +624,7 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Create Instance Group for workload deployments (2)
-        uses: cilium/scale-tests-action/create-instance-group@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/create-instance-group@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         timeout-minutes: 5
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -634,7 +634,7 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Create Instance Group for workload deployments (3)
-        uses: cilium/scale-tests-action/create-instance-group@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/create-instance-group@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         timeout-minutes: 5
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -644,7 +644,7 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Create Instance Group for workload deployments (4)
-        uses: cilium/scale-tests-action/create-instance-group@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/create-instance-group@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         timeout-minutes: 5
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -654,7 +654,7 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Create Instance Group for workload deployments (5)
-        uses: cilium/scale-tests-action/create-instance-group@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/create-instance-group@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         timeout-minutes: 5
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -686,7 +686,7 @@ jobs:
       # Need to rerun this action, as the firewall rule is reset after
       # an instance group is created.
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/setup-firewall@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           create_native_routing_firewall: 'false'
@@ -758,7 +758,7 @@ jobs:
 
       - name: Upload sysdump
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: cilium-sysdump
           path: cilium-sysdump-final.zip
@@ -766,14 +766,14 @@ jobs:
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: cilium/scale-tests-action/cleanup-cluster@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/cleanup-cluster@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/export-results@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         with:
           test_name: ${{ env.test_name }}
           tested_version: ${{ steps.vars.outputs.version }}
