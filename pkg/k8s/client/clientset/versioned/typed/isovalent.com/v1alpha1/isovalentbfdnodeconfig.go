@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,18 +35,21 @@ type IsovalentBFDNodeConfigInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentBFDNodeConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentBFDNodeConfig, err error)
+	Apply(ctx context.Context, isovalentBFDNodeConfig *applyconfigurationisovalentcomv1alpha1.IsovalentBFDNodeConfigApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentBFDNodeConfig, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, isovalentBFDNodeConfig *applyconfigurationisovalentcomv1alpha1.IsovalentBFDNodeConfigApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentBFDNodeConfig, err error)
 	IsovalentBFDNodeConfigExpansion
 }
 
 // isovalentBFDNodeConfigs implements IsovalentBFDNodeConfigInterface
 type isovalentBFDNodeConfigs struct {
-	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentBFDNodeConfig, *isovalentcomv1alpha1.IsovalentBFDNodeConfigList]
+	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.IsovalentBFDNodeConfig, *isovalentcomv1alpha1.IsovalentBFDNodeConfigList, *applyconfigurationisovalentcomv1alpha1.IsovalentBFDNodeConfigApplyConfiguration]
 }
 
 // newIsovalentBFDNodeConfigs returns a IsovalentBFDNodeConfigs
 func newIsovalentBFDNodeConfigs(c *IsovalentV1alpha1Client) *isovalentBFDNodeConfigs {
 	return &isovalentBFDNodeConfigs{
-		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentBFDNodeConfig, *isovalentcomv1alpha1.IsovalentBFDNodeConfigList](
+		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.IsovalentBFDNodeConfig, *isovalentcomv1alpha1.IsovalentBFDNodeConfigList, *applyconfigurationisovalentcomv1alpha1.IsovalentBFDNodeConfigApplyConfiguration](
 			"isovalentbfdnodeconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,

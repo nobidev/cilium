@@ -7,19 +7,20 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
+	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakePrivateNetworkExternalEndpoints implements PrivateNetworkExternalEndpointInterface
 type fakePrivateNetworkExternalEndpoints struct {
-	*gentype.FakeClientWithList[*v1alpha1.PrivateNetworkExternalEndpoint, *v1alpha1.PrivateNetworkExternalEndpointList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.PrivateNetworkExternalEndpoint, *v1alpha1.PrivateNetworkExternalEndpointList, *isovalentcomv1alpha1.PrivateNetworkExternalEndpointApplyConfiguration]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakePrivateNetworkExternalEndpoints(fake *FakeIsovalentV1alpha1, namespace string) isovalentcomv1alpha1.PrivateNetworkExternalEndpointInterface {
+func newFakePrivateNetworkExternalEndpoints(fake *FakeIsovalentV1alpha1, namespace string) typedisovalentcomv1alpha1.PrivateNetworkExternalEndpointInterface {
 	return &fakePrivateNetworkExternalEndpoints{
-		gentype.NewFakeClientWithList[*v1alpha1.PrivateNetworkExternalEndpoint, *v1alpha1.PrivateNetworkExternalEndpointList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.PrivateNetworkExternalEndpoint, *v1alpha1.PrivateNetworkExternalEndpointList, *isovalentcomv1alpha1.PrivateNetworkExternalEndpointApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1alpha1.SchemeGroupVersion.WithResource("privatenetworkexternalendpoints"),

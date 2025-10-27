@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
 	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
@@ -120,10 +119,6 @@ func (r *importVPNRouteReconciler) Priority() int {
 }
 
 func (r *importVPNRouteReconciler) Reconcile(ctx context.Context, _p reconcilerv2.StateReconcileParams) error {
-	if _p.ConfigMode.Get() != mode.BGPv2 {
-		return nil
-	}
-
 	if !r.initialized.Load() {
 		return fmt.Errorf("init job is not yet done")
 	}

@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	applyconfigurationisovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,18 +35,21 @@ type IsovalentClusterwideNetworkPolicyInterface interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*isovalentcomv1.IsovalentClusterwideNetworkPolicyList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *isovalentcomv1.IsovalentClusterwideNetworkPolicy, err error)
+	Apply(ctx context.Context, isovalentClusterwideNetworkPolicy *applyconfigurationisovalentcomv1.IsovalentClusterwideNetworkPolicyApplyConfiguration, opts metav1.ApplyOptions) (result *isovalentcomv1.IsovalentClusterwideNetworkPolicy, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, isovalentClusterwideNetworkPolicy *applyconfigurationisovalentcomv1.IsovalentClusterwideNetworkPolicyApplyConfiguration, opts metav1.ApplyOptions) (result *isovalentcomv1.IsovalentClusterwideNetworkPolicy, err error)
 	IsovalentClusterwideNetworkPolicyExpansion
 }
 
 // isovalentClusterwideNetworkPolicies implements IsovalentClusterwideNetworkPolicyInterface
 type isovalentClusterwideNetworkPolicies struct {
-	*gentype.ClientWithList[*isovalentcomv1.IsovalentClusterwideNetworkPolicy, *isovalentcomv1.IsovalentClusterwideNetworkPolicyList]
+	*gentype.ClientWithListAndApply[*isovalentcomv1.IsovalentClusterwideNetworkPolicy, *isovalentcomv1.IsovalentClusterwideNetworkPolicyList, *applyconfigurationisovalentcomv1.IsovalentClusterwideNetworkPolicyApplyConfiguration]
 }
 
 // newIsovalentClusterwideNetworkPolicies returns a IsovalentClusterwideNetworkPolicies
 func newIsovalentClusterwideNetworkPolicies(c *IsovalentV1Client) *isovalentClusterwideNetworkPolicies {
 	return &isovalentClusterwideNetworkPolicies{
-		gentype.NewClientWithList[*isovalentcomv1.IsovalentClusterwideNetworkPolicy, *isovalentcomv1.IsovalentClusterwideNetworkPolicyList](
+		gentype.NewClientWithListAndApply[*isovalentcomv1.IsovalentClusterwideNetworkPolicy, *isovalentcomv1.IsovalentClusterwideNetworkPolicyList, *applyconfigurationisovalentcomv1.IsovalentClusterwideNetworkPolicyApplyConfiguration](
 			"isovalentclusterwidenetworkpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

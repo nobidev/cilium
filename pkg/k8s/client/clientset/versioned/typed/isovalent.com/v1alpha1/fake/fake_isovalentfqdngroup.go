@@ -7,19 +7,20 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
+	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeIsovalentFQDNGroups implements IsovalentFQDNGroupInterface
 type fakeIsovalentFQDNGroups struct {
-	*gentype.FakeClientWithList[*v1alpha1.IsovalentFQDNGroup, *v1alpha1.IsovalentFQDNGroupList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.IsovalentFQDNGroup, *v1alpha1.IsovalentFQDNGroupList, *isovalentcomv1alpha1.IsovalentFQDNGroupApplyConfiguration]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakeIsovalentFQDNGroups(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentFQDNGroupInterface {
+func newFakeIsovalentFQDNGroups(fake *FakeIsovalentV1alpha1) typedisovalentcomv1alpha1.IsovalentFQDNGroupInterface {
 	return &fakeIsovalentFQDNGroups{
-		gentype.NewFakeClientWithList[*v1alpha1.IsovalentFQDNGroup, *v1alpha1.IsovalentFQDNGroupList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.IsovalentFQDNGroup, *v1alpha1.IsovalentFQDNGroupList, *isovalentcomv1alpha1.IsovalentFQDNGroupApplyConfiguration](
 			fake.Fake,
 			"",
 			v1alpha1.SchemeGroupVersion.WithResource("isovalentfqdngroups"),

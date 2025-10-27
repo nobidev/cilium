@@ -7,19 +7,20 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
+	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeIsovalentClusterwideEncryptionPolicies implements IsovalentClusterwideEncryptionPolicyInterface
 type fakeIsovalentClusterwideEncryptionPolicies struct {
-	*gentype.FakeClientWithList[*v1alpha1.IsovalentClusterwideEncryptionPolicy, *v1alpha1.IsovalentClusterwideEncryptionPolicyList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.IsovalentClusterwideEncryptionPolicy, *v1alpha1.IsovalentClusterwideEncryptionPolicyList, *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyApplyConfiguration]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakeIsovalentClusterwideEncryptionPolicies(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyInterface {
+func newFakeIsovalentClusterwideEncryptionPolicies(fake *FakeIsovalentV1alpha1) typedisovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyInterface {
 	return &fakeIsovalentClusterwideEncryptionPolicies{
-		gentype.NewFakeClientWithList[*v1alpha1.IsovalentClusterwideEncryptionPolicy, *v1alpha1.IsovalentClusterwideEncryptionPolicyList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.IsovalentClusterwideEncryptionPolicy, *v1alpha1.IsovalentClusterwideEncryptionPolicyList, *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyApplyConfiguration](
 			fake.Fake,
 			"",
 			v1alpha1.SchemeGroupVersion.WithResource("isovalentclusterwideencryptionpolicies"),

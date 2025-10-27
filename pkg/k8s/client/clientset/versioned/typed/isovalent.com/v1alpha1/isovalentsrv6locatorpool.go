@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -32,18 +33,19 @@ type IsovalentSRv6LocatorPoolInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentSRv6LocatorPoolList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentSRv6LocatorPool, err error)
+	Apply(ctx context.Context, isovalentSRv6LocatorPool *applyconfigurationisovalentcomv1alpha1.IsovalentSRv6LocatorPoolApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentSRv6LocatorPool, err error)
 	IsovalentSRv6LocatorPoolExpansion
 }
 
 // isovalentSRv6LocatorPools implements IsovalentSRv6LocatorPoolInterface
 type isovalentSRv6LocatorPools struct {
-	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentSRv6LocatorPool, *isovalentcomv1alpha1.IsovalentSRv6LocatorPoolList]
+	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.IsovalentSRv6LocatorPool, *isovalentcomv1alpha1.IsovalentSRv6LocatorPoolList, *applyconfigurationisovalentcomv1alpha1.IsovalentSRv6LocatorPoolApplyConfiguration]
 }
 
 // newIsovalentSRv6LocatorPools returns a IsovalentSRv6LocatorPools
 func newIsovalentSRv6LocatorPools(c *IsovalentV1alpha1Client) *isovalentSRv6LocatorPools {
 	return &isovalentSRv6LocatorPools{
-		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentSRv6LocatorPool, *isovalentcomv1alpha1.IsovalentSRv6LocatorPoolList](
+		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.IsovalentSRv6LocatorPool, *isovalentcomv1alpha1.IsovalentSRv6LocatorPoolList, *applyconfigurationisovalentcomv1alpha1.IsovalentSRv6LocatorPoolApplyConfiguration](
 			"isovalentsrv6locatorpools",
 			c.RESTClient(),
 			scheme.ParameterCodec,

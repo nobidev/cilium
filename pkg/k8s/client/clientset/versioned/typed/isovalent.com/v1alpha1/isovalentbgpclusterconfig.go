@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,18 +35,21 @@ type IsovalentBGPClusterConfigInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentBGPClusterConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentBGPClusterConfig, err error)
+	Apply(ctx context.Context, isovalentBGPClusterConfig *applyconfigurationisovalentcomv1alpha1.IsovalentBGPClusterConfigApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentBGPClusterConfig, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, isovalentBGPClusterConfig *applyconfigurationisovalentcomv1alpha1.IsovalentBGPClusterConfigApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentBGPClusterConfig, err error)
 	IsovalentBGPClusterConfigExpansion
 }
 
 // isovalentBGPClusterConfigs implements IsovalentBGPClusterConfigInterface
 type isovalentBGPClusterConfigs struct {
-	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentBGPClusterConfig, *isovalentcomv1alpha1.IsovalentBGPClusterConfigList]
+	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.IsovalentBGPClusterConfig, *isovalentcomv1alpha1.IsovalentBGPClusterConfigList, *applyconfigurationisovalentcomv1alpha1.IsovalentBGPClusterConfigApplyConfiguration]
 }
 
 // newIsovalentBGPClusterConfigs returns a IsovalentBGPClusterConfigs
 func newIsovalentBGPClusterConfigs(c *IsovalentV1alpha1Client) *isovalentBGPClusterConfigs {
 	return &isovalentBGPClusterConfigs{
-		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentBGPClusterConfig, *isovalentcomv1alpha1.IsovalentBGPClusterConfigList](
+		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.IsovalentBGPClusterConfig, *isovalentcomv1alpha1.IsovalentBGPClusterConfigList, *applyconfigurationisovalentcomv1alpha1.IsovalentBGPClusterConfigApplyConfiguration](
 			"isovalentbgpclusterconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,

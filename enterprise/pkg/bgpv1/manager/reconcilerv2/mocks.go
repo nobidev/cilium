@@ -26,7 +26,6 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -273,14 +272,12 @@ func registerMockStateReconciler(in mockStateReconcilerIn) *mockStateReconciler 
 
 func (m *mockStateReconciler) reconcile(ctx context.Context, retries int) (bool, error) {
 	params := reconcilerv2.StateReconcileParams{
-		ConfigMode: mode.NewConfigMode(),
 		UpdatedInstance: &instance.BGPInstance{
 			Name:   m.in.Instance.Name,
 			Config: m.in.Instance.Config,
 			Router: m.in.Instance.Router,
 		},
 	}
-	params.ConfigMode.Set(mode.BGPv2)
 
 	for _, reconciler := range m.reconcilers {
 		if err := reconciler.Reconcile(ctx, params); err != nil {

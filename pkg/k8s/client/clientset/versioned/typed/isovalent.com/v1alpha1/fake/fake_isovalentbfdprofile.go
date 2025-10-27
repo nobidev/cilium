@@ -7,19 +7,20 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
+	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeIsovalentBFDProfiles implements IsovalentBFDProfileInterface
 type fakeIsovalentBFDProfiles struct {
-	*gentype.FakeClientWithList[*v1alpha1.IsovalentBFDProfile, *v1alpha1.IsovalentBFDProfileList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.IsovalentBFDProfile, *v1alpha1.IsovalentBFDProfileList, *isovalentcomv1alpha1.IsovalentBFDProfileApplyConfiguration]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakeIsovalentBFDProfiles(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentBFDProfileInterface {
+func newFakeIsovalentBFDProfiles(fake *FakeIsovalentV1alpha1) typedisovalentcomv1alpha1.IsovalentBFDProfileInterface {
 	return &fakeIsovalentBFDProfiles{
-		gentype.NewFakeClientWithList[*v1alpha1.IsovalentBFDProfile, *v1alpha1.IsovalentBFDProfileList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.IsovalentBFDProfile, *v1alpha1.IsovalentBFDProfileList, *isovalentcomv1alpha1.IsovalentBFDProfileApplyConfiguration](
 			fake.Fake,
 			"",
 			v1alpha1.SchemeGroupVersion.WithResource("isovalentbfdprofiles"),

@@ -257,6 +257,14 @@ data:
   operator-prometheus-serve-addr: ":{{ .Values.operator.prometheus.port }}"
   enable-metrics: "true"
 {{- end }}
+{{- if and .Values.operator.prometheus.enabled .Values.operator.prometheus.tls.enabled }}
+  operator-prometheus-enable-tls: "true"
+  operator-prometheus-tls-cert-file: /var/lib/cilium/tls/prometheus/server.crt
+  operator-prometheus-tls-key-file: /var/lib/cilium/tls/prometheus/server.key
+  {{- if .Values.operator.prometheus.tls.server.mtls.enabled }}
+  operator-prometheus-tls-client-ca-files: /var/lib/cilium/tls/prometheus/client-ca.crt
+  {{- end }}
+{{- end }}
 
 {{- if .Values.operator.skipCRDCreation }}
   skip-crd-creation: "true"
@@ -847,6 +855,10 @@ data:
   bpf-lb-maglev-hash-seed: {{ .Values.maglev.hashSeed | quote}}
 {{- end }}
 
+{{- if .Values.bpf.monitorTraceIPOption }}
+  ip-tracing-option-type: {{ .Values.bpf.monitorTraceIPOption | quote }}
+{{- end }}
+
 {{- if hasKey .Values "l2NeighDiscovery" }}
 {{- if hasKey .Values.l2NeighDiscovery "enabled" }}
   enable-l2-neigh-discovery: {{ .Values.l2NeighDiscovery.enabled | quote }}
@@ -1397,6 +1409,7 @@ data:
 {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
   max-connected-clusters: {{ .Values.clustermesh.maxConnectedClusters | quote }}
 {{- end }}
+  clustermesh-cache-ttl: {{ .Values.clustermesh.cacheTTL | quote }}
   clustermesh-enable-endpoint-sync: {{ .Values.clustermesh.enableEndpointSliceSynchronization | quote }}
   clustermesh-enable-mcs-api: {{ (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) | quote }}
   policy-default-local-cluster: {{ .Values.clustermesh.policyDefaultLocalCluster | quote }}

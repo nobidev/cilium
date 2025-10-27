@@ -7,19 +7,20 @@ package fake
 
 import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
+	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1"
+	typedisovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeIsovalentBGPAdvertisements implements IsovalentBGPAdvertisementInterface
 type fakeIsovalentBGPAdvertisements struct {
-	*gentype.FakeClientWithList[*v1.IsovalentBGPAdvertisement, *v1.IsovalentBGPAdvertisementList]
+	*gentype.FakeClientWithListAndApply[*v1.IsovalentBGPAdvertisement, *v1.IsovalentBGPAdvertisementList, *isovalentcomv1.IsovalentBGPAdvertisementApplyConfiguration]
 	Fake *FakeIsovalentV1
 }
 
-func newFakeIsovalentBGPAdvertisements(fake *FakeIsovalentV1) isovalentcomv1.IsovalentBGPAdvertisementInterface {
+func newFakeIsovalentBGPAdvertisements(fake *FakeIsovalentV1) typedisovalentcomv1.IsovalentBGPAdvertisementInterface {
 	return &fakeIsovalentBGPAdvertisements{
-		gentype.NewFakeClientWithList[*v1.IsovalentBGPAdvertisement, *v1.IsovalentBGPAdvertisementList](
+		gentype.NewFakeClientWithListAndApply[*v1.IsovalentBGPAdvertisement, *v1.IsovalentBGPAdvertisementList, *isovalentcomv1.IsovalentBGPAdvertisementApplyConfiguration](
 			fake.Fake,
 			"",
 			v1.SchemeGroupVersion.WithResource("isovalentbgpadvertisements"),

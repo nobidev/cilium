@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,18 +35,21 @@ type IsovalentClusterwideNetworkPolicyInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentClusterwideNetworkPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentClusterwideNetworkPolicy, err error)
+	Apply(ctx context.Context, isovalentClusterwideNetworkPolicy *applyconfigurationisovalentcomv1alpha1.IsovalentClusterwideNetworkPolicyApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentClusterwideNetworkPolicy, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, isovalentClusterwideNetworkPolicy *applyconfigurationisovalentcomv1alpha1.IsovalentClusterwideNetworkPolicyApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentClusterwideNetworkPolicy, err error)
 	IsovalentClusterwideNetworkPolicyExpansion
 }
 
 // isovalentClusterwideNetworkPolicies implements IsovalentClusterwideNetworkPolicyInterface
 type isovalentClusterwideNetworkPolicies struct {
-	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentClusterwideNetworkPolicy, *isovalentcomv1alpha1.IsovalentClusterwideNetworkPolicyList]
+	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.IsovalentClusterwideNetworkPolicy, *isovalentcomv1alpha1.IsovalentClusterwideNetworkPolicyList, *applyconfigurationisovalentcomv1alpha1.IsovalentClusterwideNetworkPolicyApplyConfiguration]
 }
 
 // newIsovalentClusterwideNetworkPolicies returns a IsovalentClusterwideNetworkPolicies
 func newIsovalentClusterwideNetworkPolicies(c *IsovalentV1alpha1Client) *isovalentClusterwideNetworkPolicies {
 	return &isovalentClusterwideNetworkPolicies{
-		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentClusterwideNetworkPolicy, *isovalentcomv1alpha1.IsovalentClusterwideNetworkPolicyList](
+		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.IsovalentClusterwideNetworkPolicy, *isovalentcomv1alpha1.IsovalentClusterwideNetworkPolicyList, *applyconfigurationisovalentcomv1alpha1.IsovalentClusterwideNetworkPolicyApplyConfiguration](
 			"isovalentclusterwidenetworkpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -32,18 +33,19 @@ type IsovalentBGPVRFConfigInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentBGPVRFConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentBGPVRFConfig, err error)
+	Apply(ctx context.Context, isovalentBGPVRFConfig *applyconfigurationisovalentcomv1alpha1.IsovalentBGPVRFConfigApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentBGPVRFConfig, err error)
 	IsovalentBGPVRFConfigExpansion
 }
 
 // isovalentBGPVRFConfigs implements IsovalentBGPVRFConfigInterface
 type isovalentBGPVRFConfigs struct {
-	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentBGPVRFConfig, *isovalentcomv1alpha1.IsovalentBGPVRFConfigList]
+	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.IsovalentBGPVRFConfig, *isovalentcomv1alpha1.IsovalentBGPVRFConfigList, *applyconfigurationisovalentcomv1alpha1.IsovalentBGPVRFConfigApplyConfiguration]
 }
 
 // newIsovalentBGPVRFConfigs returns a IsovalentBGPVRFConfigs
 func newIsovalentBGPVRFConfigs(c *IsovalentV1alpha1Client) *isovalentBGPVRFConfigs {
 	return &isovalentBGPVRFConfigs{
-		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentBGPVRFConfig, *isovalentcomv1alpha1.IsovalentBGPVRFConfigList](
+		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.IsovalentBGPVRFConfig, *isovalentcomv1alpha1.IsovalentBGPVRFConfigList, *applyconfigurationisovalentcomv1alpha1.IsovalentBGPVRFConfigApplyConfiguration](
 			"isovalentbgpvrfconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,

@@ -7,19 +7,20 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
+	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeLBDeployments implements LBDeploymentInterface
 type fakeLBDeployments struct {
-	*gentype.FakeClientWithList[*v1alpha1.LBDeployment, *v1alpha1.LBDeploymentList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.LBDeployment, *v1alpha1.LBDeploymentList, *isovalentcomv1alpha1.LBDeploymentApplyConfiguration]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakeLBDeployments(fake *FakeIsovalentV1alpha1, namespace string) isovalentcomv1alpha1.LBDeploymentInterface {
+func newFakeLBDeployments(fake *FakeIsovalentV1alpha1, namespace string) typedisovalentcomv1alpha1.LBDeploymentInterface {
 	return &fakeLBDeployments{
-		gentype.NewFakeClientWithList[*v1alpha1.LBDeployment, *v1alpha1.LBDeploymentList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.LBDeployment, *v1alpha1.LBDeploymentList, *isovalentcomv1alpha1.LBDeploymentApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1alpha1.SchemeGroupVersion.WithResource("lbdeployments"),

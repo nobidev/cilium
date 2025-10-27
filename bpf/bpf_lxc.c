@@ -126,7 +126,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
 		ret = lb4_local(get_ct_map4(&tuple), ctx, ETH_HLEN, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
-				false, &cluster_id, ext_err, ENDPOINT_NETNS_COOKIE);
+				false, &cluster_id, ext_err, CONFIG(endpoint_netns_cookie));
 
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
@@ -202,7 +202,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
 		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
-				false, ext_err, ENDPOINT_NETNS_COOKIE);
+				false, ext_err, CONFIG(endpoint_netns_cookie));
 
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
@@ -449,7 +449,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
-	union macaddr router_mac = THIS_INTERFACE_MAC;
+	union macaddr router_mac = CONFIG(interface_mac);
 #endif
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
@@ -888,7 +888,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
-	union macaddr router_mac = THIS_INTERFACE_MAC;
+	union macaddr router_mac = CONFIG(interface_mac);
 #endif
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1436,12 +1436,12 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 #ifdef ENABLE_ARP_RESPONDER
 /*
  * ARP responder for ARP requests from container
- * Respond to IPV4_GATEWAY with THIS_INTERFACE_MAC
+ * Respond to IPV4_GATEWAY with CONFIG(interface_mac)
  */
 __declare_tail(CILIUM_CALL_ARP)
 int tail_handle_arp(struct __ctx_buff *ctx)
 {
-	union macaddr mac = THIS_INTERFACE_MAC;
+	union macaddr mac = CONFIG(interface_mac);
 	union macaddr smac;
 	__be32 sip;
 	__be32 tip;
@@ -1545,7 +1545,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	    bool from_tunnel)
 {
 	struct ct_state *ct_state, ct_state_new = {};
-	int ifindex = THIS_INTERFACE_IFINDEX;
+	int ifindex = CONFIG(interface_ifindex);
 	struct ipv6_ct_tuple *tuple;
 	bool is_untracked_fragment = false;
 	fraginfo_t fraginfo;
@@ -1742,7 +1742,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
 		if (do_redirect)
-			ret = redirect_ep(ctx, THIS_INTERFACE_IFINDEX, from_host,
+			ret = redirect_ep(ctx, CONFIG(interface_ifindex), from_host,
 					  from_tunnel);
 		break;
 	default:
@@ -1845,7 +1845,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	    bool from_tunnel)
 {
 	struct ct_state *ct_state, ct_state_new = {};
-	int ifindex = THIS_INTERFACE_IFINDEX;
+	int ifindex = CONFIG(interface_ifindex);
 	struct ipv4_ct_tuple *tuple;
 	fraginfo_t fraginfo;
 	bool is_untracked_fragment = false;
@@ -2063,7 +2063,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
 		if (do_redirect)
-			ret = redirect_ep(ctx, THIS_INTERFACE_IFINDEX, from_host,
+			ret = redirect_ep(ctx, CONFIG(interface_ifindex), from_host,
 					  from_tunnel);
 		break;
 	default:

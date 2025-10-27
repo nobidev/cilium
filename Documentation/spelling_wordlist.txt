@@ -123,6 +123,7 @@ Stormtroopers
 Suchakra
 Suricata
 Synchronizer
+Tailroom
 Talos
 Telco
 Terraform
@@ -556,8 +557,8 @@ matchLabels
 matchPattern
 maxUnavailable
 mc
-mediabot
 mcsapi
+mediabot
 memcache
 memcached
 memcd

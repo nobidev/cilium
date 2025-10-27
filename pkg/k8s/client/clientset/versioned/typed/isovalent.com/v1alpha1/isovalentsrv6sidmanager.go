@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,18 +35,21 @@ type IsovalentSRv6SIDManagerInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentSRv6SIDManagerList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentSRv6SIDManager, err error)
+	Apply(ctx context.Context, isovalentSRv6SIDManager *applyconfigurationisovalentcomv1alpha1.IsovalentSRv6SIDManagerApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentSRv6SIDManager, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, isovalentSRv6SIDManager *applyconfigurationisovalentcomv1alpha1.IsovalentSRv6SIDManagerApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentSRv6SIDManager, err error)
 	IsovalentSRv6SIDManagerExpansion
 }
 
 // isovalentSRv6SIDManagers implements IsovalentSRv6SIDManagerInterface
 type isovalentSRv6SIDManagers struct {
-	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentSRv6SIDManager, *isovalentcomv1alpha1.IsovalentSRv6SIDManagerList]
+	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.IsovalentSRv6SIDManager, *isovalentcomv1alpha1.IsovalentSRv6SIDManagerList, *applyconfigurationisovalentcomv1alpha1.IsovalentSRv6SIDManagerApplyConfiguration]
 }
 
 // newIsovalentSRv6SIDManagers returns a IsovalentSRv6SIDManagers
 func newIsovalentSRv6SIDManagers(c *IsovalentV1alpha1Client) *isovalentSRv6SIDManagers {
 	return &isovalentSRv6SIDManagers{
-		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentSRv6SIDManager, *isovalentcomv1alpha1.IsovalentSRv6SIDManagerList](
+		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.IsovalentSRv6SIDManager, *isovalentcomv1alpha1.IsovalentSRv6SIDManagerList, *applyconfigurationisovalentcomv1alpha1.IsovalentSRv6SIDManagerApplyConfiguration](
 			"isovalentsrv6sidmanagers",
 			c.RESTClient(),
 			scheme.ParameterCodec,

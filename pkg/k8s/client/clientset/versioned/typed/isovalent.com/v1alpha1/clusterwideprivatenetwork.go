@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -32,18 +33,19 @@ type ClusterwidePrivateNetworkInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.ClusterwidePrivateNetworkList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.ClusterwidePrivateNetwork, err error)
+	Apply(ctx context.Context, clusterwidePrivateNetwork *applyconfigurationisovalentcomv1alpha1.ClusterwidePrivateNetworkApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.ClusterwidePrivateNetwork, err error)
 	ClusterwidePrivateNetworkExpansion
 }
 
 // clusterwidePrivateNetworks implements ClusterwidePrivateNetworkInterface
 type clusterwidePrivateNetworks struct {
-	*gentype.ClientWithList[*isovalentcomv1alpha1.ClusterwidePrivateNetwork, *isovalentcomv1alpha1.ClusterwidePrivateNetworkList]
+	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.ClusterwidePrivateNetwork, *isovalentcomv1alpha1.ClusterwidePrivateNetworkList, *applyconfigurationisovalentcomv1alpha1.ClusterwidePrivateNetworkApplyConfiguration]
 }
 
 // newClusterwidePrivateNetworks returns a ClusterwidePrivateNetworks
 func newClusterwidePrivateNetworks(c *IsovalentV1alpha1Client) *clusterwidePrivateNetworks {
 	return &clusterwidePrivateNetworks{
-		gentype.NewClientWithList[*isovalentcomv1alpha1.ClusterwidePrivateNetwork, *isovalentcomv1alpha1.ClusterwidePrivateNetworkList](
+		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.ClusterwidePrivateNetwork, *isovalentcomv1alpha1.ClusterwidePrivateNetworkList, *applyconfigurationisovalentcomv1alpha1.ClusterwidePrivateNetworkApplyConfiguration](
 			"clusterwideprivatenetworks",
 			c.RESTClient(),
 			scheme.ParameterCodec,

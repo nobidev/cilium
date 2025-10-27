@@ -20,8 +20,12 @@
   "gitAuthor": "cilium-renovate[bot] <134692979+cilium-renovate[bot]@users.noreply.github.com>",
   "includePaths": [
     ".github/actions/bpftrace/**",
+    ".github/actions/cosign/**",
     ".github/actions/e2e/**",
     ".github/actions/kvstore/**",
+    ".github/actions/gather-metrics/**",
+    ".github/actions/merge-artifacts/**",
+    ".github/actions/post-logic/**",
     ".github/actions/ginkgo/**",
     ".github/actions/lvh-kind/**",
     ".github/actions/set-env-variables/action.yml",
@@ -291,6 +295,22 @@
       ],
       "matchPackageNames": [
         "docker.io/library/golang"
+      ],
+    },
+    // Do not allow any updates for major.minor on stable release branches to avoid churn from linters.
+    {
+      enabled: false,
+      matchPackageNames: [
+        'quay.io/goswagger/swagger',
+      ],
+      matchBaseBranches: [
+        "v1.18",
+        "v1.17",
+        "v1.16",
+      ],
+      matchUpdateTypes: [
+        'major',
+        'minor',
       ],
     },
     {
@@ -840,6 +860,8 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION: (?<currentValue>.*)",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+[\\w.]+:\\s+'(?<currentValue>.*)'",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.*FULL_KERNEL=\"(?<currentValue>.*)\"",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+kernel: '(?<currentValue>.*)'",
         '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+kernel: "(?<currentValue>.*)"',
         '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: "(?<currentValue>.*)"',

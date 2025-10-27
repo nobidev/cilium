@@ -7,19 +7,20 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
+	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeIsovalentMulticastNodes implements IsovalentMulticastNodeInterface
 type fakeIsovalentMulticastNodes struct {
-	*gentype.FakeClientWithList[*v1alpha1.IsovalentMulticastNode, *v1alpha1.IsovalentMulticastNodeList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.IsovalentMulticastNode, *v1alpha1.IsovalentMulticastNodeList, *isovalentcomv1alpha1.IsovalentMulticastNodeApplyConfiguration]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakeIsovalentMulticastNodes(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentMulticastNodeInterface {
+func newFakeIsovalentMulticastNodes(fake *FakeIsovalentV1alpha1) typedisovalentcomv1alpha1.IsovalentMulticastNodeInterface {
 	return &fakeIsovalentMulticastNodes{
-		gentype.NewFakeClientWithList[*v1alpha1.IsovalentMulticastNode, *v1alpha1.IsovalentMulticastNodeList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.IsovalentMulticastNode, *v1alpha1.IsovalentMulticastNodeList, *isovalentcomv1alpha1.IsovalentMulticastNodeApplyConfiguration](
 			fake.Fake,
 			"",
 			v1alpha1.SchemeGroupVersion.WithResource("isovalentmulticastnodes"),

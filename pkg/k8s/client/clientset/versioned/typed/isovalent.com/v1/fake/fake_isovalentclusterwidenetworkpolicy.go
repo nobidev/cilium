@@ -7,19 +7,20 @@ package fake
 
 import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
+	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1"
+	typedisovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeIsovalentClusterwideNetworkPolicies implements IsovalentClusterwideNetworkPolicyInterface
 type fakeIsovalentClusterwideNetworkPolicies struct {
-	*gentype.FakeClientWithList[*v1.IsovalentClusterwideNetworkPolicy, *v1.IsovalentClusterwideNetworkPolicyList]
+	*gentype.FakeClientWithListAndApply[*v1.IsovalentClusterwideNetworkPolicy, *v1.IsovalentClusterwideNetworkPolicyList, *isovalentcomv1.IsovalentClusterwideNetworkPolicyApplyConfiguration]
 	Fake *FakeIsovalentV1
 }
 
-func newFakeIsovalentClusterwideNetworkPolicies(fake *FakeIsovalentV1) isovalentcomv1.IsovalentClusterwideNetworkPolicyInterface {
+func newFakeIsovalentClusterwideNetworkPolicies(fake *FakeIsovalentV1) typedisovalentcomv1.IsovalentClusterwideNetworkPolicyInterface {
 	return &fakeIsovalentClusterwideNetworkPolicies{
-		gentype.NewFakeClientWithList[*v1.IsovalentClusterwideNetworkPolicy, *v1.IsovalentClusterwideNetworkPolicyList](
+		gentype.NewFakeClientWithListAndApply[*v1.IsovalentClusterwideNetworkPolicy, *v1.IsovalentClusterwideNetworkPolicyList, *isovalentcomv1.IsovalentClusterwideNetworkPolicyApplyConfiguration](
 			fake.Fake,
 			"",
 			v1.SchemeGroupVersion.WithResource("isovalentclusterwidenetworkpolicies"),

@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
+	applyconfigurationisovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,18 +35,21 @@ type IsovalentEgressGatewayPolicyInterface interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*isovalentcomv1.IsovalentEgressGatewayPolicyList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *isovalentcomv1.IsovalentEgressGatewayPolicy, err error)
+	Apply(ctx context.Context, isovalentEgressGatewayPolicy *applyconfigurationisovalentcomv1.IsovalentEgressGatewayPolicyApplyConfiguration, opts metav1.ApplyOptions) (result *isovalentcomv1.IsovalentEgressGatewayPolicy, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, isovalentEgressGatewayPolicy *applyconfigurationisovalentcomv1.IsovalentEgressGatewayPolicyApplyConfiguration, opts metav1.ApplyOptions) (result *isovalentcomv1.IsovalentEgressGatewayPolicy, err error)
 	IsovalentEgressGatewayPolicyExpansion
 }
 
 // isovalentEgressGatewayPolicies implements IsovalentEgressGatewayPolicyInterface
 type isovalentEgressGatewayPolicies struct {
-	*gentype.ClientWithList[*isovalentcomv1.IsovalentEgressGatewayPolicy, *isovalentcomv1.IsovalentEgressGatewayPolicyList]
+	*gentype.ClientWithListAndApply[*isovalentcomv1.IsovalentEgressGatewayPolicy, *isovalentcomv1.IsovalentEgressGatewayPolicyList, *applyconfigurationisovalentcomv1.IsovalentEgressGatewayPolicyApplyConfiguration]
 }
 
 // newIsovalentEgressGatewayPolicies returns a IsovalentEgressGatewayPolicies
 func newIsovalentEgressGatewayPolicies(c *IsovalentV1Client) *isovalentEgressGatewayPolicies {
 	return &isovalentEgressGatewayPolicies{
-		gentype.NewClientWithList[*isovalentcomv1.IsovalentEgressGatewayPolicy, *isovalentcomv1.IsovalentEgressGatewayPolicyList](
+		gentype.NewClientWithListAndApply[*isovalentcomv1.IsovalentEgressGatewayPolicy, *isovalentcomv1.IsovalentEgressGatewayPolicyList, *applyconfigurationisovalentcomv1.IsovalentEgressGatewayPolicyApplyConfiguration](
 			"isovalentegressgatewaypolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -32,18 +33,19 @@ type IsovalentBFDProfileInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentBFDProfileList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentBFDProfile, err error)
+	Apply(ctx context.Context, isovalentBFDProfile *applyconfigurationisovalentcomv1alpha1.IsovalentBFDProfileApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentBFDProfile, err error)
 	IsovalentBFDProfileExpansion
 }
 
 // isovalentBFDProfiles implements IsovalentBFDProfileInterface
 type isovalentBFDProfiles struct {
-	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentBFDProfile, *isovalentcomv1alpha1.IsovalentBFDProfileList]
+	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.IsovalentBFDProfile, *isovalentcomv1alpha1.IsovalentBFDProfileList, *applyconfigurationisovalentcomv1alpha1.IsovalentBFDProfileApplyConfiguration]
 }
 
 // newIsovalentBFDProfiles returns a IsovalentBFDProfiles
 func newIsovalentBFDProfiles(c *IsovalentV1alpha1Client) *isovalentBFDProfiles {
 	return &isovalentBFDProfiles{
-		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentBFDProfile, *isovalentcomv1alpha1.IsovalentBFDProfileList](
+		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.IsovalentBFDProfile, *isovalentcomv1alpha1.IsovalentBFDProfileList, *applyconfigurationisovalentcomv1alpha1.IsovalentBFDProfileApplyConfiguration](
 			"isovalentbfdprofiles",
 			c.RESTClient(),
 			scheme.ParameterCodec,

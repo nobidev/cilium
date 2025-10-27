@@ -7,19 +7,20 @@ package fake
 
 import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
+	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1"
+	typedisovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeIsovalentBGPNodeConfigOverrides implements IsovalentBGPNodeConfigOverrideInterface
 type fakeIsovalentBGPNodeConfigOverrides struct {
-	*gentype.FakeClientWithList[*v1.IsovalentBGPNodeConfigOverride, *v1.IsovalentBGPNodeConfigOverrideList]
+	*gentype.FakeClientWithListAndApply[*v1.IsovalentBGPNodeConfigOverride, *v1.IsovalentBGPNodeConfigOverrideList, *isovalentcomv1.IsovalentBGPNodeConfigOverrideApplyConfiguration]
 	Fake *FakeIsovalentV1
 }
 
-func newFakeIsovalentBGPNodeConfigOverrides(fake *FakeIsovalentV1) isovalentcomv1.IsovalentBGPNodeConfigOverrideInterface {
+func newFakeIsovalentBGPNodeConfigOverrides(fake *FakeIsovalentV1) typedisovalentcomv1.IsovalentBGPNodeConfigOverrideInterface {
 	return &fakeIsovalentBGPNodeConfigOverrides{
-		gentype.NewFakeClientWithList[*v1.IsovalentBGPNodeConfigOverride, *v1.IsovalentBGPNodeConfigOverrideList](
+		gentype.NewFakeClientWithListAndApply[*v1.IsovalentBGPNodeConfigOverride, *v1.IsovalentBGPNodeConfigOverrideList, *isovalentcomv1.IsovalentBGPNodeConfigOverrideApplyConfiguration](
 			fake.Fake,
 			"",
 			v1.SchemeGroupVersion.WithResource("isovalentbgpnodeconfigoverrides"),

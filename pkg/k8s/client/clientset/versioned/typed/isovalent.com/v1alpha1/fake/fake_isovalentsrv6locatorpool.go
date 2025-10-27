@@ -7,19 +7,20 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
+	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeIsovalentSRv6LocatorPools implements IsovalentSRv6LocatorPoolInterface
 type fakeIsovalentSRv6LocatorPools struct {
-	*gentype.FakeClientWithList[*v1alpha1.IsovalentSRv6LocatorPool, *v1alpha1.IsovalentSRv6LocatorPoolList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.IsovalentSRv6LocatorPool, *v1alpha1.IsovalentSRv6LocatorPoolList, *isovalentcomv1alpha1.IsovalentSRv6LocatorPoolApplyConfiguration]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakeIsovalentSRv6LocatorPools(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentSRv6LocatorPoolInterface {
+func newFakeIsovalentSRv6LocatorPools(fake *FakeIsovalentV1alpha1) typedisovalentcomv1alpha1.IsovalentSRv6LocatorPoolInterface {
 	return &fakeIsovalentSRv6LocatorPools{
-		gentype.NewFakeClientWithList[*v1alpha1.IsovalentSRv6LocatorPool, *v1alpha1.IsovalentSRv6LocatorPoolList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.IsovalentSRv6LocatorPool, *v1alpha1.IsovalentSRv6LocatorPoolList, *isovalentcomv1alpha1.IsovalentSRv6LocatorPoolApplyConfiguration](
 			fake.Fake,
 			"",
 			v1alpha1.SchemeGroupVersion.WithResource("isovalentsrv6locatorpools"),
