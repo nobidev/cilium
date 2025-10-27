@@ -107,9 +107,7 @@
         'enterprise/**/go.sum',
       ],
       matchBaseBranches: [
-        'v1.18-ce',
-        'v1.17-ce',
-        'v1.16-ce',
+        '!main-ce',
       ],
     },
     {
