@@ -56,6 +56,7 @@ type IngressPolicy struct {
 }
 
 // NewIngressPolicy returns a new instance of Ingress Policy
+// Caller is responsible for calling p.desiredPolicy.Ready() when done with the policy!
 func NewIngressPolicy(logger *slog.Logger, id identity.NumericIdentity, name string, selectorPolicy policy.SelectorPolicy, rev uint64) *IngressPolicy {
 	owner := &ingressPolicyOwner{
 		logger: logger,
@@ -77,16 +78,15 @@ func NewIngressPolicy(logger *slog.Logger, id identity.NumericIdentity, name str
 	return res
 }
 
-// UpdateSelectorPolicy updates the selector policy for this Ingress Policy.
+// updateSelectorPolicyLocked updates the selector policy for this Ingress Policy.
 // It returns true if the selector policy was changed, otherwise false.
-func (i *IngressPolicy) UpdateSelectorPolicy(sp policy.SelectorPolicy, rev uint64) bool {
+func (i *IngressPolicy) updateSelectorPolicyLocked(sp policy.SelectorPolicy, rev uint64) (closer func(), changed bool) {
 	if sp == nil {
-		return false
+		return func() {}, false
 	}
 	if i.selectorPolicy == sp {
 		closer, changes := i.desiredPolicy.ConsumeMapChanges()
-		defer closer()
-		return !changes.Empty()
+		return closer, !changes.Empty()
 	}
 	i.selectorPolicy = sp
 	i.rev = rev
@@ -97,8 +97,17 @@ func (i *IngressPolicy) UpdateSelectorPolicy(sp policy.SelectorPolicy, rev uint6
 	// call is optional.
 	// The reason for this is that the selector policy is not shared with other is
 	// due to unique security labels e.g. ingress:name=<name>.
+	if i.desiredPolicy != nil {
+		if i.desiredPolicy.VersionHandle.IsValid() {
+			// This should never happen, so log something so there is a chance to see if this
+			// does happen.
+			i.logger.Debug("ingresspolicy closed old version handle when distilling new one")
+			i.desiredPolicy.Ready()
+		}
+		i.desiredPolicy.Detach(i.logger)
+	}
 	i.desiredPolicy = sp.DistillPolicy(i.logger, i.owner, nil)
-	return true
+	return func() { i.desiredPolicy.Ready() }, true
 }
 
 // GetDesiredPolicy returns the desired Endpoint Policy for this Ingress Policy

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -126,10 +127,21 @@ func (m *ingressPolicyManager) EnsureIngressPolicy(ctx context.Context, key reso
 			// This should be done after the new policy is created.
 			defer func(p *IngressPolicy) {
 				m.logger.Debug("Cleaning up old policy", logfields.PolicyID, p.GetID())
+				if p.desiredPolicy != nil {
+					p.desiredPolicy.Ready()
+					p.desiredPolicy.Detach(m.logger)
+				}
 				m.xdsServer.RemoveNetworkPolicy(p)
 			}(existingPolicy)
 		}
 	}
+
+	// make sure the new identity is populated in the selector cache immediately
+	wg := &sync.WaitGroup{}
+	m.policyRepository.GetSelectorCache().UpdateIdentities(identity.IdentityMap{
+		ingressIdentity.ID: ingressIdentity.LabelArray,
+	}, nil, wg)
+	wg.Wait()
 
 	// Create a new selector policy for the identity.
 	m.logger.Debug("Creating new selector policy", logfields.Identity, ingressIdentity.ID.Uint32())
@@ -141,6 +153,7 @@ func (m *ingressPolicyManager) EnsureIngressPolicy(ctx context.Context, key reso
 	// Create a new Ingress Policy.
 	p := NewIngressPolicy(m.logger, ingressIdentity.ID, key.String(), selectorPolicy, rev)
 	m.ingressPolicies[key] = p
+	defer p.desiredPolicy.Ready()
 
 	return m.syncIngressPolicy(ctx, p)
 }
@@ -160,6 +173,10 @@ func (m *ingressPolicyManager) DeleteIngressPolicy(ctx context.Context, key reso
 	}
 
 	if p, exists := m.ingressPolicies[key]; exists {
+		if p.desiredPolicy != nil {
+			p.desiredPolicy.Ready()
+			p.desiredPolicy.Detach(m.logger)
+		}
 		m.xdsServer.RemoveNetworkPolicy(p)
 		delete(m.ingressPolicies, key)
 	}
@@ -209,6 +226,9 @@ func (m *ingressPolicyManager) ensureIdentityLocked(ctx context.Context, key res
 	return res, nil
 }
 
+// syncIngressPolicy updates the Envoy Network Policy. Caller is responsible for managing 'p' so
+// that it has a valid version when this is called. Caller is also responsible for releasing
+// resouces after this call has completed.
 func (m *ingressPolicyManager) syncIngressPolicy(ctx context.Context, p *IngressPolicy) error {
 	m.logger.Debug("Sync network policy",
 		logfields.Name, p.GetPolicyNames(),
@@ -226,9 +246,6 @@ func (m *ingressPolicyManager) syncIngressPolicy(ctx context.Context, p *Ingress
 				logfields.Name, p.GetPolicyNames(),
 				logfields.Error, revertErr)
 		}
-		return err
-	}
-	if err := p.GetDesiredPolicy().Ready(); err != nil {
 		return err
 	}
 	m.logger.Debug("Successfully updated network policy", logfields.Name, p.GetPolicyNames())
@@ -279,7 +296,17 @@ func (m *ingressPolicyManager) policyUpdateCallbackLocked(key resource.Key, p *I
 	if err != nil {
 		return fmt.Errorf("failed to get selector policy %s %w", key, err)
 	}
-	if p.UpdateSelectorPolicy(sp, rev) {
+	// use existing policy if not updated
+	if sp == nil {
+		sp = p.selectorPolicy
+		rev = p.rev
+	}
+	closer, changed := p.updateSelectorPolicyLocked(sp, rev)
+	// keep selector cache version available until end of this function, so that
+	// m.syncIngressPolicy() call can get it.
+	defer closer()
+
+	if changed {
 		m.logger.Debug("Policy update for ingress policy",
 			logfields.Name, p.GetPolicyNames(),
 			logfields.Incremental, incremental)

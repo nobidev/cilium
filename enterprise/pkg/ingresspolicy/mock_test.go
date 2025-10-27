@@ -89,6 +89,9 @@ func (s *mockXDSServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 }
 
 func (s *mockXDSServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced bool, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+	if !ep.GetPolicyVersionHandle().IsValid() {
+		panic("UpdateNetworkPolicy called with invalid version")
+	}
 	s.nrOfUpdates++
 	s.policies[ep.GetPolicyNames()[0]] = policy
 	return nil, func() error { return nil }
