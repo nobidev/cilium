@@ -7,20 +7,19 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
-	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeLBBackendPools implements LBBackendPoolInterface
 type fakeLBBackendPools struct {
-	*gentype.FakeClientWithListAndApply[*v1alpha1.LBBackendPool, *v1alpha1.LBBackendPoolList, *isovalentcomv1alpha1.LBBackendPoolApplyConfiguration]
+	*gentype.FakeClientWithList[*v1alpha1.LBBackendPool, *v1alpha1.LBBackendPoolList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakeLBBackendPools(fake *FakeIsovalentV1alpha1, namespace string) typedisovalentcomv1alpha1.LBBackendPoolInterface {
+func newFakeLBBackendPools(fake *FakeIsovalentV1alpha1, namespace string) isovalentcomv1alpha1.LBBackendPoolInterface {
 	return &fakeLBBackendPools{
-		gentype.NewFakeClientWithListAndApply[*v1alpha1.LBBackendPool, *v1alpha1.LBBackendPoolList, *isovalentcomv1alpha1.LBBackendPoolApplyConfiguration](
+		gentype.NewFakeClientWithList[*v1alpha1.LBBackendPool, *v1alpha1.LBBackendPoolList](
 			fake.Fake,
 			namespace,
 			v1alpha1.SchemeGroupVersion.WithResource("lbbackendpools"),

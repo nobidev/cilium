@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	applyconfigurationisovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type IsovalentBGPAdvertisementInterface interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*isovalentcomv1.IsovalentBGPAdvertisementList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *isovalentcomv1.IsovalentBGPAdvertisement, err error)
-	Apply(ctx context.Context, isovalentBGPAdvertisement *applyconfigurationisovalentcomv1.IsovalentBGPAdvertisementApplyConfiguration, opts metav1.ApplyOptions) (result *isovalentcomv1.IsovalentBGPAdvertisement, err error)
 	IsovalentBGPAdvertisementExpansion
 }
 
 // isovalentBGPAdvertisements implements IsovalentBGPAdvertisementInterface
 type isovalentBGPAdvertisements struct {
-	*gentype.ClientWithListAndApply[*isovalentcomv1.IsovalentBGPAdvertisement, *isovalentcomv1.IsovalentBGPAdvertisementList, *applyconfigurationisovalentcomv1.IsovalentBGPAdvertisementApplyConfiguration]
+	*gentype.ClientWithList[*isovalentcomv1.IsovalentBGPAdvertisement, *isovalentcomv1.IsovalentBGPAdvertisementList]
 }
 
 // newIsovalentBGPAdvertisements returns a IsovalentBGPAdvertisements
 func newIsovalentBGPAdvertisements(c *IsovalentV1Client) *isovalentBGPAdvertisements {
 	return &isovalentBGPAdvertisements{
-		gentype.NewClientWithListAndApply[*isovalentcomv1.IsovalentBGPAdvertisement, *isovalentcomv1.IsovalentBGPAdvertisementList, *applyconfigurationisovalentcomv1.IsovalentBGPAdvertisementApplyConfiguration](
+		gentype.NewClientWithList[*isovalentcomv1.IsovalentBGPAdvertisement, *isovalentcomv1.IsovalentBGPAdvertisementList](
 			"isovalentbgpadvertisements",
 			c.RESTClient(),
 			scheme.ParameterCodec,

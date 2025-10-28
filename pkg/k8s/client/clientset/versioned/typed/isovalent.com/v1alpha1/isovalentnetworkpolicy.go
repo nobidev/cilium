@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -35,21 +34,18 @@ type IsovalentNetworkPolicyInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentNetworkPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentNetworkPolicy, err error)
-	Apply(ctx context.Context, isovalentNetworkPolicy *applyconfigurationisovalentcomv1alpha1.IsovalentNetworkPolicyApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentNetworkPolicy, err error)
-	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, isovalentNetworkPolicy *applyconfigurationisovalentcomv1alpha1.IsovalentNetworkPolicyApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentNetworkPolicy, err error)
 	IsovalentNetworkPolicyExpansion
 }
 
 // isovalentNetworkPolicies implements IsovalentNetworkPolicyInterface
 type isovalentNetworkPolicies struct {
-	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.IsovalentNetworkPolicy, *isovalentcomv1alpha1.IsovalentNetworkPolicyList, *applyconfigurationisovalentcomv1alpha1.IsovalentNetworkPolicyApplyConfiguration]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentNetworkPolicy, *isovalentcomv1alpha1.IsovalentNetworkPolicyList]
 }
 
 // newIsovalentNetworkPolicies returns a IsovalentNetworkPolicies
 func newIsovalentNetworkPolicies(c *IsovalentV1alpha1Client, namespace string) *isovalentNetworkPolicies {
 	return &isovalentNetworkPolicies{
-		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.IsovalentNetworkPolicy, *isovalentcomv1alpha1.IsovalentNetworkPolicyList, *applyconfigurationisovalentcomv1alpha1.IsovalentNetworkPolicyApplyConfiguration](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentNetworkPolicy, *isovalentcomv1alpha1.IsovalentNetworkPolicyList](
 			"isovalentnetworkpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

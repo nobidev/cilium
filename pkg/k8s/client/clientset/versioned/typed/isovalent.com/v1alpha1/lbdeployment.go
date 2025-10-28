@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -35,21 +34,18 @@ type LBDeploymentInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.LBDeploymentList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.LBDeployment, err error)
-	Apply(ctx context.Context, lBDeployment *applyconfigurationisovalentcomv1alpha1.LBDeploymentApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.LBDeployment, err error)
-	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, lBDeployment *applyconfigurationisovalentcomv1alpha1.LBDeploymentApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.LBDeployment, err error)
 	LBDeploymentExpansion
 }
 
 // lBDeployments implements LBDeploymentInterface
 type lBDeployments struct {
-	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.LBDeployment, *isovalentcomv1alpha1.LBDeploymentList, *applyconfigurationisovalentcomv1alpha1.LBDeploymentApplyConfiguration]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.LBDeployment, *isovalentcomv1alpha1.LBDeploymentList]
 }
 
 // newLBDeployments returns a LBDeployments
 func newLBDeployments(c *IsovalentV1alpha1Client, namespace string) *lBDeployments {
 	return &lBDeployments{
-		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.LBDeployment, *isovalentcomv1alpha1.LBDeploymentList, *applyconfigurationisovalentcomv1alpha1.LBDeploymentApplyConfiguration](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.LBDeployment, *isovalentcomv1alpha1.LBDeploymentList](
 			"lbdeployments",
 			c.RESTClient(),
 			scheme.ParameterCodec,

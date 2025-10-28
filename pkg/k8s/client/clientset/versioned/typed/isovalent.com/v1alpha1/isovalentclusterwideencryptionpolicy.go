@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type IsovalentClusterwideEncryptionPolicyInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, err error)
-	Apply(ctx context.Context, isovalentClusterwideEncryptionPolicy *applyconfigurationisovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, err error)
 	IsovalentClusterwideEncryptionPolicyExpansion
 }
 
 // isovalentClusterwideEncryptionPolicies implements IsovalentClusterwideEncryptionPolicyInterface
 type isovalentClusterwideEncryptionPolicies struct {
-	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyList, *applyconfigurationisovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyApplyConfiguration]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyList]
 }
 
 // newIsovalentClusterwideEncryptionPolicies returns a IsovalentClusterwideEncryptionPolicies
 func newIsovalentClusterwideEncryptionPolicies(c *IsovalentV1alpha1Client) *isovalentClusterwideEncryptionPolicies {
 	return &isovalentClusterwideEncryptionPolicies{
-		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyList, *applyconfigurationisovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyApplyConfiguration](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicy, *isovalentcomv1alpha1.IsovalentClusterwideEncryptionPolicyList](
 			"isovalentclusterwideencryptionpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

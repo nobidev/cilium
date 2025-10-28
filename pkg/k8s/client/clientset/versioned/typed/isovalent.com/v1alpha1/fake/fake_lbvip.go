@@ -7,20 +7,19 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
-	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeLBVIPs implements LBVIPInterface
 type fakeLBVIPs struct {
-	*gentype.FakeClientWithListAndApply[*v1alpha1.LBVIP, *v1alpha1.LBVIPList, *isovalentcomv1alpha1.LBVIPApplyConfiguration]
+	*gentype.FakeClientWithList[*v1alpha1.LBVIP, *v1alpha1.LBVIPList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakeLBVIPs(fake *FakeIsovalentV1alpha1, namespace string) typedisovalentcomv1alpha1.LBVIPInterface {
+func newFakeLBVIPs(fake *FakeIsovalentV1alpha1, namespace string) isovalentcomv1alpha1.LBVIPInterface {
 	return &fakeLBVIPs{
-		gentype.NewFakeClientWithListAndApply[*v1alpha1.LBVIP, *v1alpha1.LBVIPList, *isovalentcomv1alpha1.LBVIPApplyConfiguration](
+		gentype.NewFakeClientWithList[*v1alpha1.LBVIP, *v1alpha1.LBVIPList](
 			fake.Fake,
 			namespace,
 			v1alpha1.SchemeGroupVersion.WithResource("lbvips"),

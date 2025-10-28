@@ -7,20 +7,19 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
-	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeIsovalentSRv6SIDManagers implements IsovalentSRv6SIDManagerInterface
 type fakeIsovalentSRv6SIDManagers struct {
-	*gentype.FakeClientWithListAndApply[*v1alpha1.IsovalentSRv6SIDManager, *v1alpha1.IsovalentSRv6SIDManagerList, *isovalentcomv1alpha1.IsovalentSRv6SIDManagerApplyConfiguration]
+	*gentype.FakeClientWithList[*v1alpha1.IsovalentSRv6SIDManager, *v1alpha1.IsovalentSRv6SIDManagerList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakeIsovalentSRv6SIDManagers(fake *FakeIsovalentV1alpha1) typedisovalentcomv1alpha1.IsovalentSRv6SIDManagerInterface {
+func newFakeIsovalentSRv6SIDManagers(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentSRv6SIDManagerInterface {
 	return &fakeIsovalentSRv6SIDManagers{
-		gentype.NewFakeClientWithListAndApply[*v1alpha1.IsovalentSRv6SIDManager, *v1alpha1.IsovalentSRv6SIDManagerList, *isovalentcomv1alpha1.IsovalentSRv6SIDManagerApplyConfiguration](
+		gentype.NewFakeClientWithList[*v1alpha1.IsovalentSRv6SIDManager, *v1alpha1.IsovalentSRv6SIDManagerList](
 			fake.Fake,
 			"",
 			v1alpha1.SchemeGroupVersion.WithResource("isovalentsrv6sidmanagers"),

@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type PrivateNetworkEndpointSliceInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.PrivateNetworkEndpointSliceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.PrivateNetworkEndpointSlice, err error)
-	Apply(ctx context.Context, privateNetworkEndpointSlice *applyconfigurationisovalentcomv1alpha1.PrivateNetworkEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.PrivateNetworkEndpointSlice, err error)
 	PrivateNetworkEndpointSliceExpansion
 }
 
 // privateNetworkEndpointSlices implements PrivateNetworkEndpointSliceInterface
 type privateNetworkEndpointSlices struct {
-	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.PrivateNetworkEndpointSlice, *isovalentcomv1alpha1.PrivateNetworkEndpointSliceList, *applyconfigurationisovalentcomv1alpha1.PrivateNetworkEndpointSliceApplyConfiguration]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.PrivateNetworkEndpointSlice, *isovalentcomv1alpha1.PrivateNetworkEndpointSliceList]
 }
 
 // newPrivateNetworkEndpointSlices returns a PrivateNetworkEndpointSlices
 func newPrivateNetworkEndpointSlices(c *IsovalentV1alpha1Client, namespace string) *privateNetworkEndpointSlices {
 	return &privateNetworkEndpointSlices{
-		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.PrivateNetworkEndpointSlice, *isovalentcomv1alpha1.PrivateNetworkEndpointSliceList, *applyconfigurationisovalentcomv1alpha1.PrivateNetworkEndpointSliceApplyConfiguration](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.PrivateNetworkEndpointSlice, *isovalentcomv1alpha1.PrivateNetworkEndpointSliceList](
 			"privatenetworkendpointslices",
 			c.RESTClient(),
 			scheme.ParameterCodec,

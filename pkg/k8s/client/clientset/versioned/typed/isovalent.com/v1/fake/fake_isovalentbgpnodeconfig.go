@@ -7,20 +7,19 @@ package fake
 
 import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1"
-	typedisovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
+	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeIsovalentBGPNodeConfigs implements IsovalentBGPNodeConfigInterface
 type fakeIsovalentBGPNodeConfigs struct {
-	*gentype.FakeClientWithListAndApply[*v1.IsovalentBGPNodeConfig, *v1.IsovalentBGPNodeConfigList, *isovalentcomv1.IsovalentBGPNodeConfigApplyConfiguration]
+	*gentype.FakeClientWithList[*v1.IsovalentBGPNodeConfig, *v1.IsovalentBGPNodeConfigList]
 	Fake *FakeIsovalentV1
 }
 
-func newFakeIsovalentBGPNodeConfigs(fake *FakeIsovalentV1) typedisovalentcomv1.IsovalentBGPNodeConfigInterface {
+func newFakeIsovalentBGPNodeConfigs(fake *FakeIsovalentV1) isovalentcomv1.IsovalentBGPNodeConfigInterface {
 	return &fakeIsovalentBGPNodeConfigs{
-		gentype.NewFakeClientWithListAndApply[*v1.IsovalentBGPNodeConfig, *v1.IsovalentBGPNodeConfigList, *isovalentcomv1.IsovalentBGPNodeConfigApplyConfiguration](
+		gentype.NewFakeClientWithList[*v1.IsovalentBGPNodeConfig, *v1.IsovalentBGPNodeConfigList](
 			fake.Fake,
 			"",
 			v1.SchemeGroupVersion.WithResource("isovalentbgpnodeconfigs"),

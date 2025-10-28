@@ -7,20 +7,19 @@ package fake
 
 import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1"
-	typedisovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
+	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeIsovalentEgressGatewayPolicies implements IsovalentEgressGatewayPolicyInterface
 type fakeIsovalentEgressGatewayPolicies struct {
-	*gentype.FakeClientWithListAndApply[*v1.IsovalentEgressGatewayPolicy, *v1.IsovalentEgressGatewayPolicyList, *isovalentcomv1.IsovalentEgressGatewayPolicyApplyConfiguration]
+	*gentype.FakeClientWithList[*v1.IsovalentEgressGatewayPolicy, *v1.IsovalentEgressGatewayPolicyList]
 	Fake *FakeIsovalentV1
 }
 
-func newFakeIsovalentEgressGatewayPolicies(fake *FakeIsovalentV1) typedisovalentcomv1.IsovalentEgressGatewayPolicyInterface {
+func newFakeIsovalentEgressGatewayPolicies(fake *FakeIsovalentV1) isovalentcomv1.IsovalentEgressGatewayPolicyInterface {
 	return &fakeIsovalentEgressGatewayPolicies{
-		gentype.NewFakeClientWithListAndApply[*v1.IsovalentEgressGatewayPolicy, *v1.IsovalentEgressGatewayPolicyList, *isovalentcomv1.IsovalentEgressGatewayPolicyApplyConfiguration](
+		gentype.NewFakeClientWithList[*v1.IsovalentEgressGatewayPolicy, *v1.IsovalentEgressGatewayPolicyList](
 			fake.Fake,
 			"",
 			v1.SchemeGroupVersion.WithResource("isovalentegressgatewaypolicies"),

@@ -7,20 +7,19 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
-	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeIsovalentVRFs implements IsovalentVRFInterface
 type fakeIsovalentVRFs struct {
-	*gentype.FakeClientWithListAndApply[*v1alpha1.IsovalentVRF, *v1alpha1.IsovalentVRFList, *isovalentcomv1alpha1.IsovalentVRFApplyConfiguration]
+	*gentype.FakeClientWithList[*v1alpha1.IsovalentVRF, *v1alpha1.IsovalentVRFList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakeIsovalentVRFs(fake *FakeIsovalentV1alpha1) typedisovalentcomv1alpha1.IsovalentVRFInterface {
+func newFakeIsovalentVRFs(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.IsovalentVRFInterface {
 	return &fakeIsovalentVRFs{
-		gentype.NewFakeClientWithListAndApply[*v1alpha1.IsovalentVRF, *v1alpha1.IsovalentVRFList, *isovalentcomv1alpha1.IsovalentVRFApplyConfiguration](
+		gentype.NewFakeClientWithList[*v1alpha1.IsovalentVRF, *v1alpha1.IsovalentVRFList](
 			fake.Fake,
 			"",
 			v1alpha1.SchemeGroupVersion.WithResource("isovalentvrfs"),

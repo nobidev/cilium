@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	isovalentcomv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	applyconfigurationisovalentcomv1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -35,21 +34,18 @@ type IsovalentBGPPeerConfigInterface interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*isovalentcomv1.IsovalentBGPPeerConfigList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *isovalentcomv1.IsovalentBGPPeerConfig, err error)
-	Apply(ctx context.Context, isovalentBGPPeerConfig *applyconfigurationisovalentcomv1.IsovalentBGPPeerConfigApplyConfiguration, opts metav1.ApplyOptions) (result *isovalentcomv1.IsovalentBGPPeerConfig, err error)
-	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, isovalentBGPPeerConfig *applyconfigurationisovalentcomv1.IsovalentBGPPeerConfigApplyConfiguration, opts metav1.ApplyOptions) (result *isovalentcomv1.IsovalentBGPPeerConfig, err error)
 	IsovalentBGPPeerConfigExpansion
 }
 
 // isovalentBGPPeerConfigs implements IsovalentBGPPeerConfigInterface
 type isovalentBGPPeerConfigs struct {
-	*gentype.ClientWithListAndApply[*isovalentcomv1.IsovalentBGPPeerConfig, *isovalentcomv1.IsovalentBGPPeerConfigList, *applyconfigurationisovalentcomv1.IsovalentBGPPeerConfigApplyConfiguration]
+	*gentype.ClientWithList[*isovalentcomv1.IsovalentBGPPeerConfig, *isovalentcomv1.IsovalentBGPPeerConfigList]
 }
 
 // newIsovalentBGPPeerConfigs returns a IsovalentBGPPeerConfigs
 func newIsovalentBGPPeerConfigs(c *IsovalentV1Client) *isovalentBGPPeerConfigs {
 	return &isovalentBGPPeerConfigs{
-		gentype.NewClientWithListAndApply[*isovalentcomv1.IsovalentBGPPeerConfig, *isovalentcomv1.IsovalentBGPPeerConfigList, *applyconfigurationisovalentcomv1.IsovalentBGPPeerConfigApplyConfiguration](
+		gentype.NewClientWithList[*isovalentcomv1.IsovalentBGPPeerConfig, *isovalentcomv1.IsovalentBGPPeerConfigList](
 			"isovalentbgppeerconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,

@@ -7,20 +7,19 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
-	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakePrivateNetworkEndpointSlices implements PrivateNetworkEndpointSliceInterface
 type fakePrivateNetworkEndpointSlices struct {
-	*gentype.FakeClientWithListAndApply[*v1alpha1.PrivateNetworkEndpointSlice, *v1alpha1.PrivateNetworkEndpointSliceList, *isovalentcomv1alpha1.PrivateNetworkEndpointSliceApplyConfiguration]
+	*gentype.FakeClientWithList[*v1alpha1.PrivateNetworkEndpointSlice, *v1alpha1.PrivateNetworkEndpointSliceList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakePrivateNetworkEndpointSlices(fake *FakeIsovalentV1alpha1, namespace string) typedisovalentcomv1alpha1.PrivateNetworkEndpointSliceInterface {
+func newFakePrivateNetworkEndpointSlices(fake *FakeIsovalentV1alpha1, namespace string) isovalentcomv1alpha1.PrivateNetworkEndpointSliceInterface {
 	return &fakePrivateNetworkEndpointSlices{
-		gentype.NewFakeClientWithListAndApply[*v1alpha1.PrivateNetworkEndpointSlice, *v1alpha1.PrivateNetworkEndpointSliceList, *isovalentcomv1alpha1.PrivateNetworkEndpointSliceApplyConfiguration](
+		gentype.NewFakeClientWithList[*v1alpha1.PrivateNetworkEndpointSlice, *v1alpha1.PrivateNetworkEndpointSliceList](
 			fake.Fake,
 			namespace,
 			v1alpha1.SchemeGroupVersion.WithResource("privatenetworkendpointslices"),

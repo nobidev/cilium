@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type IsovalentBGPNodeConfigOverrideInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentBGPNodeConfigOverrideList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentBGPNodeConfigOverride, err error)
-	Apply(ctx context.Context, isovalentBGPNodeConfigOverride *applyconfigurationisovalentcomv1alpha1.IsovalentBGPNodeConfigOverrideApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentBGPNodeConfigOverride, err error)
 	IsovalentBGPNodeConfigOverrideExpansion
 }
 
 // isovalentBGPNodeConfigOverrides implements IsovalentBGPNodeConfigOverrideInterface
 type isovalentBGPNodeConfigOverrides struct {
-	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.IsovalentBGPNodeConfigOverride, *isovalentcomv1alpha1.IsovalentBGPNodeConfigOverrideList, *applyconfigurationisovalentcomv1alpha1.IsovalentBGPNodeConfigOverrideApplyConfiguration]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentBGPNodeConfigOverride, *isovalentcomv1alpha1.IsovalentBGPNodeConfigOverrideList]
 }
 
 // newIsovalentBGPNodeConfigOverrides returns a IsovalentBGPNodeConfigOverrides
 func newIsovalentBGPNodeConfigOverrides(c *IsovalentV1alpha1Client) *isovalentBGPNodeConfigOverrides {
 	return &isovalentBGPNodeConfigOverrides{
-		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.IsovalentBGPNodeConfigOverride, *isovalentcomv1alpha1.IsovalentBGPNodeConfigOverrideList, *applyconfigurationisovalentcomv1alpha1.IsovalentBGPNodeConfigOverrideApplyConfiguration](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentBGPNodeConfigOverride, *isovalentcomv1alpha1.IsovalentBGPNodeConfigOverrideList](
 			"isovalentbgpnodeconfigoverrides",
 			c.RESTClient(),
 			scheme.ParameterCodec,

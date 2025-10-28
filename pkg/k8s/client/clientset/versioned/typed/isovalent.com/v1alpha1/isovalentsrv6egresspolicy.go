@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type IsovalentSRv6EgressPolicyInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentSRv6EgressPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, err error)
-	Apply(ctx context.Context, isovalentSRv6EgressPolicy *applyconfigurationisovalentcomv1alpha1.IsovalentSRv6EgressPolicyApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, err error)
 	IsovalentSRv6EgressPolicyExpansion
 }
 
 // isovalentSRv6EgressPolicies implements IsovalentSRv6EgressPolicyInterface
 type isovalentSRv6EgressPolicies struct {
-	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, *isovalentcomv1alpha1.IsovalentSRv6EgressPolicyList, *applyconfigurationisovalentcomv1alpha1.IsovalentSRv6EgressPolicyApplyConfiguration]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, *isovalentcomv1alpha1.IsovalentSRv6EgressPolicyList]
 }
 
 // newIsovalentSRv6EgressPolicies returns a IsovalentSRv6EgressPolicies
 func newIsovalentSRv6EgressPolicies(c *IsovalentV1alpha1Client) *isovalentSRv6EgressPolicies {
 	return &isovalentSRv6EgressPolicies{
-		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, *isovalentcomv1alpha1.IsovalentSRv6EgressPolicyList, *applyconfigurationisovalentcomv1alpha1.IsovalentSRv6EgressPolicyApplyConfiguration](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentSRv6EgressPolicy, *isovalentcomv1alpha1.IsovalentSRv6EgressPolicyList](
 			"isovalentsrv6egresspolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

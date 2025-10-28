@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -35,21 +34,18 @@ type LBBackendPoolInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.LBBackendPoolList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.LBBackendPool, err error)
-	Apply(ctx context.Context, lBBackendPool *applyconfigurationisovalentcomv1alpha1.LBBackendPoolApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.LBBackendPool, err error)
-	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, lBBackendPool *applyconfigurationisovalentcomv1alpha1.LBBackendPoolApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.LBBackendPool, err error)
 	LBBackendPoolExpansion
 }
 
 // lBBackendPools implements LBBackendPoolInterface
 type lBBackendPools struct {
-	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.LBBackendPool, *isovalentcomv1alpha1.LBBackendPoolList, *applyconfigurationisovalentcomv1alpha1.LBBackendPoolApplyConfiguration]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.LBBackendPool, *isovalentcomv1alpha1.LBBackendPoolList]
 }
 
 // newLBBackendPools returns a LBBackendPools
 func newLBBackendPools(c *IsovalentV1alpha1Client, namespace string) *lBBackendPools {
 	return &lBBackendPools{
-		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.LBBackendPool, *isovalentcomv1alpha1.LBBackendPoolList, *applyconfigurationisovalentcomv1alpha1.LBBackendPoolApplyConfiguration](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.LBBackendPool, *isovalentcomv1alpha1.LBBackendPoolList](
 			"lbbackendpools",
 			c.RESTClient(),
 			scheme.ParameterCodec,

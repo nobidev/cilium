@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	applyconfigurationisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -35,21 +34,18 @@ type IsovalentBGPNodeConfigInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*isovalentcomv1alpha1.IsovalentBGPNodeConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *isovalentcomv1alpha1.IsovalentBGPNodeConfig, err error)
-	Apply(ctx context.Context, isovalentBGPNodeConfig *applyconfigurationisovalentcomv1alpha1.IsovalentBGPNodeConfigApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentBGPNodeConfig, err error)
-	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, isovalentBGPNodeConfig *applyconfigurationisovalentcomv1alpha1.IsovalentBGPNodeConfigApplyConfiguration, opts v1.ApplyOptions) (result *isovalentcomv1alpha1.IsovalentBGPNodeConfig, err error)
 	IsovalentBGPNodeConfigExpansion
 }
 
 // isovalentBGPNodeConfigs implements IsovalentBGPNodeConfigInterface
 type isovalentBGPNodeConfigs struct {
-	*gentype.ClientWithListAndApply[*isovalentcomv1alpha1.IsovalentBGPNodeConfig, *isovalentcomv1alpha1.IsovalentBGPNodeConfigList, *applyconfigurationisovalentcomv1alpha1.IsovalentBGPNodeConfigApplyConfiguration]
+	*gentype.ClientWithList[*isovalentcomv1alpha1.IsovalentBGPNodeConfig, *isovalentcomv1alpha1.IsovalentBGPNodeConfigList]
 }
 
 // newIsovalentBGPNodeConfigs returns a IsovalentBGPNodeConfigs
 func newIsovalentBGPNodeConfigs(c *IsovalentV1alpha1Client) *isovalentBGPNodeConfigs {
 	return &isovalentBGPNodeConfigs{
-		gentype.NewClientWithListAndApply[*isovalentcomv1alpha1.IsovalentBGPNodeConfig, *isovalentcomv1alpha1.IsovalentBGPNodeConfigList, *applyconfigurationisovalentcomv1alpha1.IsovalentBGPNodeConfigApplyConfiguration](
+		gentype.NewClientWithList[*isovalentcomv1alpha1.IsovalentBGPNodeConfig, *isovalentcomv1alpha1.IsovalentBGPNodeConfigList](
 			"isovalentbgpnodeconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,

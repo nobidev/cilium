@@ -7,20 +7,19 @@ package fake
 
 import (
 	v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/isovalent.com/v1alpha1"
-	typedisovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	isovalentcomv1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeClusterwidePrivateNetworks implements ClusterwidePrivateNetworkInterface
 type fakeClusterwidePrivateNetworks struct {
-	*gentype.FakeClientWithListAndApply[*v1alpha1.ClusterwidePrivateNetwork, *v1alpha1.ClusterwidePrivateNetworkList, *isovalentcomv1alpha1.ClusterwidePrivateNetworkApplyConfiguration]
+	*gentype.FakeClientWithList[*v1alpha1.ClusterwidePrivateNetwork, *v1alpha1.ClusterwidePrivateNetworkList]
 	Fake *FakeIsovalentV1alpha1
 }
 
-func newFakeClusterwidePrivateNetworks(fake *FakeIsovalentV1alpha1) typedisovalentcomv1alpha1.ClusterwidePrivateNetworkInterface {
+func newFakeClusterwidePrivateNetworks(fake *FakeIsovalentV1alpha1) isovalentcomv1alpha1.ClusterwidePrivateNetworkInterface {
 	return &fakeClusterwidePrivateNetworks{
-		gentype.NewFakeClientWithListAndApply[*v1alpha1.ClusterwidePrivateNetwork, *v1alpha1.ClusterwidePrivateNetworkList, *isovalentcomv1alpha1.ClusterwidePrivateNetworkApplyConfiguration](
+		gentype.NewFakeClientWithList[*v1alpha1.ClusterwidePrivateNetwork, *v1alpha1.ClusterwidePrivateNetworkList](
 			fake.Fake,
 			"",
 			v1alpha1.SchemeGroupVersion.WithResource("clusterwideprivatenetworks"),
