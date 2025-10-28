@@ -35,8 +35,8 @@ func (d *dummy) Register(inb tables.INBNode, network tables.NetworkName) {
 		Node: tables.INBNodeStateHealthy, Network: tables.INBNetworkStateConfirmed}})
 }
 
-// Unregister implements Checker.
-func (d *dummy) Unregister(inb tables.INBNode, network tables.NetworkName) {}
+// Deregister implements Checker.
+func (d *dummy) Deregister(inb tables.INBNode, network tables.NetworkName) {}
 
 // Activate implements Checker.
 func (d *dummy) Activate(node tables.INBNode, network tables.NetworkName) {}

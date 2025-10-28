@@ -411,7 +411,7 @@ func (i *INBs) upsertINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Private
 		// The object revision is greater than the watermark if it has just been
 		// upserted as part of this function.
 		if maybeStale.Has(inb.Node.Cluster) && rev <= watermark {
-			i.checker.Unregister(inb.Node, inb.Network)
+			i.checker.Deregister(inb.Node, inb.Network)
 			i.tbl.Delete(wtx, inb)
 		}
 	}
@@ -426,7 +426,7 @@ func (i *INBs) deleteINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Network
 	}
 
 	for inb := range i.tbl.Prefix(wtx, tables.INBsByNetwork(privnet)) {
-		i.checker.Unregister(inb.Node, inb.Network)
+		i.checker.Deregister(inb.Node, inb.Network)
 		i.tbl.Delete(wtx, inb)
 	}
 }
@@ -465,7 +465,7 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 		// The object revision is greater than the watermark if it has just been
 		// upserted as part of this function.
 		if rev <= watermark {
-			i.checker.Unregister(inb.Node, inb.Network)
+			i.checker.Deregister(inb.Node, inb.Network)
 			i.tbl.Delete(wtx, inb)
 		}
 	}
@@ -473,7 +473,7 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 
 func (i *INBs) deleteINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 	for inb := range i.tbl.Prefix(wtx, tables.INBsByNode(node.Cluster, node.Name)) {
-		i.checker.Unregister(inb.Node, inb.Network)
+		i.checker.Deregister(inb.Node, inb.Network)
 		i.tbl.Delete(wtx, inb)
 	}
 }

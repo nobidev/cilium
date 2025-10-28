@@ -40,7 +40,7 @@ const (
 // Events represents a sequence of healthiness events.
 type Events = observers.Events[*Event, EventKind]
 
-// Checker allows to interact with the health checker, registering/unregistering
+// Checker allows to interact with the health checker, registering/deregistering
 // target INBs for probing, and observing health events. All methods shall be non
 // blocking (i.e., network operations need to be performed in background), as they
 // are expected to be invoked in the context of statedb write transactions.
@@ -53,9 +53,9 @@ type Checker interface {
 	// if the same pair is already registered, and the node IP matches.
 	Register(node tables.INBNode, network tables.NetworkName)
 
-	// Unregister unregisters an (INB, private network) pair for health checking.
+	// Deregister deregisters an (INB, private network) pair for health checking.
 	// It is a no-op if the same pair had not been registered before.
-	Unregister(node tables.INBNode, network tables.NetworkName)
+	Deregister(node tables.INBNode, network tables.NetworkName)
 
 	// Activate is called when an INB is to be promoted as the active one for a
 	// given network. Implementations may relay this information to the remote
