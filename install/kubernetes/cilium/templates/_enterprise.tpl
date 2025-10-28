@@ -165,6 +165,7 @@ hubble-export-aggregation-ttl: {{ . | quote }}
 {{- $defaultExportTimescapeAggregationStateFilter := .Values.hubble.export.timescape.aggregationStateFilter }}
 {{- $defaultExportTimescapeAggregationRenewTTL := .Values.hubble.export.timescape.aggregationRenewTTL }}
 {{- $defaultExportTimescapeTLSEnabled := .Values.hubble.export.timescape.tls.enabled }}
+{{- $defaultExportTimescapeTLSmTLSEnabled := .Values.hubble.export.timescape.tls.mtls.enabled }}
 {{- $defaultExportTimescapeTLSCAOverriden := not (.Values.hubble.export.timescape.tls.ca.configMap.name | empty) }}
 
 {{- if and .Values.hubble.timescape.enabled .Values.hubble.timescape.useStreamAPI }}
@@ -179,6 +180,7 @@ hubble-export-aggregation-ttl: {{ . | quote }}
 {{- $defaultExportTimescapeAggregationRenewTTL = "false" }}
 {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
 {{- $defaultExportTimescapeTLSEnabled = "true" }}
+{{- $defaultExportTimescapeTLSmTLSEnabled = "true" }}
 {{- $defaultExportTimescapeTLSCAOverriden = "true" }}
 {{- end }}
 {{- end }}
@@ -224,7 +226,7 @@ hubble-export-timescape-report-dropped-flows-interval: {{ . | quote }}
 {{- with $defaultExportTimescapeTLSEnabled }}
 hubble-export-timescape-tls-enabled: {{ . | quote }}
 {{- end }}
-{{- if .Values.hubble.export.timescape.tls.mtls.enabled }}
+{{- if $defaultExportTimescapeTLSmTLSEnabled }}
 hubble-export-timescape-tls-cert-file: /var/lib/cilium/tls/hubble-export-timescape/client.crt
 hubble-export-timescape-tls-key-file: /var/lib/cilium/tls/hubble-export-timescape/client.key
 {{- end }}
