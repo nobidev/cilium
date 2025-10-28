@@ -5,6 +5,41 @@
 
 #include "lib/overloadable.h"
 
+struct egress_gw_ha_policy_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u32 saddr;
+	__u32 daddr;
+};
+
+#define EGRESS_GW_HA_MAX_GATEWAY_NODES 64
+
+struct egress_gw_ha_policy_entry {
+	/* Size is the number of IPs set in the gateway_ips field (i.e. the number of
+	 * gateways configured for the policy).
+	 */
+	__u32 size;
+	__be32 egress_ip;
+	__be32 gateway_ips[EGRESS_GW_HA_MAX_GATEWAY_NODES];
+};
+
+struct egress_gw_ha_policy_entry_v2 {
+	struct egress_gw_ha_policy_entry policy;
+	__u32 egress_ifindex;
+};
+
+struct egress_gw_ha_ct_entry {
+	__be32 gateway_ip;
+};
+
+struct egress_gw_standalone_key {
+	__be32 endpoint_ip;
+};
+
+struct egress_gw_standalone_entry {
+	__be32 sec_identity;
+	__be32 tunnel_endpoint;
+};
+
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct egress_gw_policy_key);

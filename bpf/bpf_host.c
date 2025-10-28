@@ -61,7 +61,6 @@
 	 wg_maybe_redirect_to_encrypt(ctx, proto, src_sec_identity)
 
 #include "enterprise_bpf_host.h"
-#include "lib/enterprise_vxlan.h"
 #include "lib/enterprise_encrypt.h"
 #include "lib/enterprise_flowlogs.h"
 
