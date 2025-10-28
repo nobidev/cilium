@@ -46,7 +46,7 @@ runs:
           LABELS="--labels ${{ inputs.labels }}"
           LABELS="$LABELS,svic_falco_supported=no,svic_osquery_supported=no"
         else
-          LABELS="--labels svic_falco_supported=no,svic_osquer_supported=no"
+          LABELS="--labels svic_falco_supported=no,svic_osquery_supported=no"
         fi
 
         if [[ -n "${{ inputs.cluster-version }}" ]]; then
