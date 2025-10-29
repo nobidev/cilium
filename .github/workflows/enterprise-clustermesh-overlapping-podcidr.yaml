@@ -60,11 +60,6 @@ env:
 
 jobs:
   commit-status-start:
-    # Disable this workflow for now as it is broken by upstream change and the
-    # investigation is required. Please see the commit message for more details.
-    # The issue is tracked with: https://github.com/isovalent/cilium/issues/7178.
-    if: false
-
     name: Commit Status Start
     runs-on: ubuntu-24.04
     steps:
@@ -74,11 +69,6 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   installation-and-connectivity:
-    # Disable this workflow for now as it is broken by upstream change and the
-    # investigation is required. Please see the commit message for more details.
-    # The issue is tracked with: https://github.com/isovalent/cilium/issues/7178.
-    if: false
-
     name: Setup & Test
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
     timeout-minutes: 60
@@ -444,11 +434,7 @@ jobs:
 
   merge-upload-and-status:
     name: Merge Upload and Status
-    # Disable this workflow for now as it is broken by upstream change and the
-    # investigation is required. Please see the commit message for more details.
-    # The issue is tracked with: https://github.com/isovalent/cilium/issues/7178.
-    if: false
-    # if: ${{ always() }}
+    if: ${{ always() }}
     needs: installation-and-connectivity
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
