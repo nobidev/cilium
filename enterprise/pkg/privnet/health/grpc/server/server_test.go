@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"maps"
 	"slices"
+	"sync"
 	"testing"
 	"testing/synctest"
 
@@ -29,6 +30,7 @@ import (
 
 	api "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -37,6 +39,14 @@ type (
 	PNI = tables.PrivateNetworkInterface
 	AN  = tables.ActiveNetwork
 	WN  = tables.WorkloadNode
+)
+
+const (
+	// timeout is the timeout when waiting for an event to occur.
+	timeout = 1 * time.Second
+
+	// shortTimeout is a shorter timeout when checking that an event didn't occur.
+	shortTimeout = 100 * time.Millisecond
 )
 
 func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[PN], statedb.RWTable[AN], *server) {
@@ -92,6 +102,15 @@ func (m mockStream[Req, Res]) doSend(req *Req, err error) {
 	m.recv <- mockStreamReq[Req]{data: req, err: err}
 }
 
+func (m mockStream[Req, Res]) getSent(t *testing.T) (got *Res) {
+	select {
+	case got = <-m.sent:
+	case <-time.After(timeout):
+		require.FailNow(t, "Expected update to have been sent")
+	}
+	return got
+}
+
 func (m mockStream[Req, Res]) syncGetSent(t *testing.T) (got *Res) {
 	synctest.Wait()
 	select {
@@ -102,12 +121,24 @@ func (m mockStream[Req, Res]) syncGetSent(t *testing.T) (got *Res) {
 	return got
 }
 
+func (m mockStream[Req, Res]) noGetSent(t *testing.T) {
+	select {
+	case <-time.After(shortTimeout):
+	case <-m.sent:
+		require.FailNow(t, "No update should have been sent")
+	}
+}
+
 func (m mockStream[Req, Res]) Context() context.Context     { return m.ctx }
 func (m mockStream[Req, Res]) RecvMsg(any) error            { panic("unimplemented") }
 func (m mockStream[Req, Res]) SendHeader(metadata.MD) error { panic("unimplemented") }
 func (m mockStream[Req, Res]) SendMsg(any) error            { panic("unimplemented") }
 func (m mockStream[Req, Res]) SetHeader(metadata.MD) error  { panic("unimplemented") }
 func (m mockStream[Req, Res]) SetTrailer(metadata.MD)       { panic("unimplemented") }
+
+func TestMain(m *testing.M) {
+	testutils.GoleakVerifyTestMain(m)
+}
 
 func TestServerProbe(t *testing.T) {
 	var (
@@ -252,4 +283,198 @@ func TestServerProbeErrors(t *testing.T) {
 		})
 	}
 
+}
+
+func TestServerWatch(t *testing.T) {
+	// Ideally, we could use synctest here to not have to depend on timings.
+	// However, that turned out not working well because [Table.Changes] makes
+	// use of [runtime.SetFinalizer] to unregister the delete tracker. However,
+	// finalizers run outside of any bubble [1], causing a fatal error as it
+	// eventually closes a channel defined inside the bubble:
+	//
+	//     fatal error: close of synctest channel from outside bubble
+	//
+	// [1]: https://pkg.go.dev/testing/synctest#hdr-Isolation
+	// > Cleanup functions and finalizers registered with runtime.AddCleanup
+	// > and runtime.SetFinalizer run outside of any bubble.
+
+	// Override the settleTime to make the test faster.
+	settleTime = 0
+
+	var (
+		wg       sync.WaitGroup
+		sloth    = WN{Cluster: "local", Name: "sloth"}
+		snail    = WN{Cluster: "local", Name: "snail"}
+		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
+	)
+
+	db, networks, actnets, srv := fixture(t)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	stream := newMockStream[struct{}, api.NetworkEvents](ctx)
+	defer func() { cancel(); wg.Wait() }()
+
+	// Configure the initial state.
+	wtx := db.WriteTxn(networks, actnets)
+	networks.Insert(wtx, PN{Name: "blue", Interface: PNI{Name: "eth.blue", Index: 10}})
+	networks.Insert(wtx, PN{Name: "green", Interface: PNI{Name: "eth.green", Index: 11}})
+	networks.Insert(wtx, PN{Name: "yellow", Interface: PNI{Name: "eth.yellow", Index: 12}})
+	networks.Insert(wtx, PN{Name: "purple", Interface: PNI{Name: "eth.purple", Error: "broken"}})
+
+	actnets.Insert(wtx, AN{Node: sloth, Network: "green"})
+	actnets.Insert(wtx, AN{Node: snail, Network: "yellow"})
+	actnets.Insert(wtx, AN{Node: snail, Network: "blue"})
+	wtx.Commit()
+
+	// Invalid requests should return an InvalidArgument error.
+	err := srv.Watch(&api.WatchRequest{}, stream)
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+
+	wg.Go(func() { srv.Watch(&api.WatchRequest{Self: apiSloth}, stream) })
+
+	require.ElementsMatch(t, stream.getSent(t).GetEvents(),
+		[]*api.NetworkEvents_Event{
+			{Network: &api.Network{Name: "blue"}, Status: api.NetworkEvents_Event_STANDBY},
+			{Network: &api.Network{Name: "green"}, Status: api.NetworkEvents_Event_ACTIVE},
+			{Network: &api.Network{Name: "yellow"}, Status: api.NetworkEvents_Event_STANDBY},
+		},
+	)
+
+	// Update the state, and assert that a correct update is sent.
+	wtx = db.WriteTxn(networks, actnets)
+	networks.Insert(wtx, PN{Name: "red", Interface: PNI{Name: "eth.red", Index: 13}})
+	networks.Insert(wtx, PN{Name: "brown", Interface: PNI{Name: "eth.brown", Error: "broken"}})
+	networks.Delete(wtx, PN{Name: "blue", Interface: PNI{Name: "eth.blue"}})
+	networks.Insert(wtx, PN{Name: "yellow", Interface: PNI{Name: "eth.yellow", Error: "broken"}})
+	wtx.Commit()
+
+	require.ElementsMatch(t, stream.getSent(t).GetEvents(),
+		[]*api.NetworkEvents_Event{
+			{Network: &api.Network{Name: "blue"}, Status: api.NetworkEvents_Event_NOT_SERVING},
+			{Network: &api.Network{Name: "brown"}, Status: api.NetworkEvents_Event_NOT_SERVING},
+			{Network: &api.Network{Name: "red"}, Status: api.NetworkEvents_Event_STANDBY},
+			{Network: &api.Network{Name: "yellow"}, Status: api.NetworkEvents_Event_NOT_SERVING},
+		},
+	)
+
+	// Update the state again, and assert that a correct update is sent.
+	wtx = db.WriteTxn(networks, actnets)
+	actnets.Insert(wtx, AN{Node: sloth, Network: "red"})
+	actnets.Delete(wtx, AN{Node: sloth, Network: "green"})
+	wtx.Commit()
+
+	require.ElementsMatch(t, stream.getSent(t).GetEvents(),
+		[]*api.NetworkEvents_Event{
+			{Network: &api.Network{Name: "green"}, Status: api.NetworkEvents_Event_STANDBY},
+			{Network: &api.Network{Name: "red"}, Status: api.NetworkEvents_Event_ACTIVE},
+		},
+	)
+
+	// An unrelated update should not trigger an update.
+	wtx = db.WriteTxn(networks, actnets)
+	actnets.Insert(wtx, AN{Node: snail, Network: "green"})
+	wtx.Commit()
+
+	stream.noGetSent(t)
+}
+
+func TestServerActivate(t *testing.T) {
+	var (
+		sloth    = WN{Cluster: "local", Name: "sloth"}
+		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
+	)
+
+	db, networks, actnets, srv := fixture(t)
+
+	// Configure the initial state.
+	wtx := db.WriteTxn(networks)
+	networks.Insert(wtx, PN{Name: "blue", Interface: PNI{Name: "eth.blue", Index: 10}})
+	networks.Insert(wtx, PN{Name: "purple", Interface: PNI{Name: "eth.purple", Error: "broken"}})
+	wtx.Commit()
+
+	// Pretend that the sloth node is healthy.
+	srv.healthy[sloth] = wnEntry{}
+
+	// Invalid requests should return an InvalidArgument error.
+	_, err := srv.Activate(t.Context(), &api.ActivationRequest{Network: &api.Network{Name: "yellow"}})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+	_, err = srv.Activate(t.Context(), &api.ActivationRequest{Self: apiSloth})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+
+	// Activating a network that is unknown should return a FailedPrecondition error.
+	_, err = srv.Activate(t.Context(), &api.ActivationRequest{Self: apiSloth, Network: &api.Network{Name: "yellow"}})
+	require.Equal(t, codes.FailedPrecondition, status.Code(err))
+
+	// Activating a network that cannot be served should return a FailedPrecondition error.
+	_, err = srv.Activate(t.Context(), &api.ActivationRequest{Self: apiSloth, Network: &api.Network{Name: "purple"}})
+	require.Equal(t, codes.FailedPrecondition, status.Code(err))
+
+	// Activating a network for an unhealthy node should return a FailedPrecondition error.
+	other := &api.Node{Cluster: string(sloth.Cluster), Name: "snail"}
+	_, err = srv.Activate(t.Context(), &api.ActivationRequest{Self: other, Network: &api.Network{Name: "blue"}})
+	require.Equal(t, codes.FailedPrecondition, status.Code(err))
+
+	// Activating a network that can be served should succeed.
+	_, err = srv.Activate(t.Context(), &api.ActivationRequest{Self: apiSloth, Network: &api.Network{Name: "blue"}})
+	require.NoError(t, err, "[srv.Activate]")
+
+	// The active networks table should be updated correctly.
+	require.ElementsMatch(t, statedb.Collect(actnets.All(db.ReadTxn())), []AN{{Node: sloth, Network: "blue"}})
+
+	// Activating the same network again should succeed.
+	_, err = srv.Activate(t.Context(), &api.ActivationRequest{Self: apiSloth, Network: &api.Network{Name: "blue"}})
+	require.NoError(t, err, "[srv.Activate]")
+}
+
+func TestServerDeactivate(t *testing.T) {
+	var (
+		sloth    = WN{Cluster: "local", Name: "sloth"}
+		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
+	)
+
+	db, networks, actnets, srv := fixture(t)
+
+	// Configure the initial state.
+	wtx := db.WriteTxn(networks)
+	networks.Insert(wtx, PN{Name: "blue", Interface: PNI{Name: "eth.blue", Index: 10}})
+	networks.Insert(wtx, PN{Name: "purple", Interface: PNI{Name: "eth.purple", Error: "broken"}})
+	wtx.Commit()
+
+	// Pretend that the sloth node is healthy.
+	srv.healthy[sloth] = wnEntry{}
+
+	// Activate one of the networks.
+	_, err := srv.Activate(t.Context(), &api.ActivationRequest{Self: apiSloth, Network: &api.Network{Name: "blue"}})
+	require.NoError(t, err, "[srv.Activate]")
+	require.ElementsMatch(t, statedb.Collect(actnets.All(db.ReadTxn())), []AN{{Node: sloth, Network: "blue"}})
+
+	// Invalid requests should return an InvalidArgument error.
+	_, err = srv.Deactivate(t.Context(), &api.DeactivationRequest{Network: &api.Network{Name: "yellow"}})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+	_, err = srv.Deactivate(t.Context(), &api.DeactivationRequest{Self: apiSloth})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+
+	// Deactivating a network that is unknown should not return an error.
+	_, err = srv.Deactivate(t.Context(), &api.DeactivationRequest{Self: apiSloth, Network: &api.Network{Name: "yellow"}})
+	require.NoError(t, err, "[srv.Deactivate]")
+
+	// Deactivating a network that cannot be served should not return an error.
+	_, err = srv.Deactivate(t.Context(), &api.DeactivationRequest{Self: apiSloth, Network: &api.Network{Name: "purple"}})
+	require.NoError(t, err, "[srv.Deactivate]")
+
+	// Deactivating a network for an unhealthy node should not return an error.
+	other := &api.Node{Cluster: string(sloth.Cluster), Name: "snail"}
+	_, err = srv.Deactivate(t.Context(), &api.DeactivationRequest{Self: other, Network: &api.Network{Name: "blue"}})
+	require.NoError(t, err, "[srv.Deactivate]")
+
+	// Deactivating a network that was previously active should succeed.
+	_, err = srv.Deactivate(t.Context(), &api.DeactivationRequest{Self: apiSloth, Network: &api.Network{Name: "blue"}})
+	require.NoError(t, err, "[srv.Deactivate]")
+
+	// The active networks table should be updated correctly.
+	require.Empty(t, statedb.Collect(actnets.All(db.ReadTxn())))
+
+	// Deactivating a network that was already not active should succeed.
+	_, err = srv.Deactivate(t.Context(), &api.DeactivationRequest{Self: apiSloth, Network: &api.Network{Name: "blue"}})
+	require.NoError(t, err, "[srv.Deactivate]")
 }

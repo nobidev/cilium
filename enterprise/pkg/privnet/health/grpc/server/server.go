@@ -11,6 +11,8 @@
 package server
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -22,6 +24,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	api "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1"
@@ -38,6 +41,10 @@ type (
 	// server accepts connections on.
 	ListenerFactory func() (net.Listener, error)
 )
+
+// settleTime is the time reconcilers wait before proceeding with the actual
+// reconciliation, to batch work. It can be overridden for testing purposes.
+var settleTime = 100 * time.Millisecond
 
 func newDefaultListenerFactory(cfg config.Config) ListenerFactory {
 	port := strconv.FormatUint(uint64(cfg.Port), 10)
@@ -217,6 +224,182 @@ func (s *server) onProbeTimeout(node tables.WorkloadNode) {
 	}
 
 	wtx.Commit()
+}
+
+func (s *server) Watch(in *api.WatchRequest, stream grpc.ServerStreamingServer[api.NetworkEvents]) error {
+	var incremental bool
+
+	node, err := s.toWorkloadNode(in.GetSelf())
+	if err != nil {
+		return err
+	}
+
+	// Wait for networks table initialization, so that we only send the first
+	// snapshot once everything settled down.
+	_, watch := s.networks.Initialized(s.db.ReadTxn())
+	select {
+	case <-watch:
+	case <-stream.Context().Done():
+		return stream.Context().Err()
+	}
+
+	wtx := s.db.WriteTxn(s.networks, s.tbl)
+	networksIter, _ := s.networks.Changes(wtx)
+	activeIter, _ := s.tbl.Changes(wtx)
+	wtx.Commit()
+
+	for {
+		var (
+			events  api.NetworkEvents
+			changes = sets.New[tables.NetworkName]()
+			txn     = s.db.ReadTxn()
+		)
+
+		networkChanges, networksWatch := networksIter.Next(txn)
+		for change := range networkChanges {
+			changes.Insert(change.Object.Name)
+		}
+
+		activeChanges, activeWatch := activeIter.Next(txn)
+		for change := range activeChanges {
+			if change.Object.Node == node {
+				changes.Insert(change.Object.Network)
+			}
+		}
+
+		for network := range changes {
+			var status = api.NetworkEvents_Event_NOT_SERVING
+
+			obj, _, found := s.networks.Get(txn, tables.PrivateNetworkByName(network))
+			if found && obj.CanBeServedByINB() {
+				status = api.NetworkEvents_Event_STANDBY
+
+				_, _, active := s.tbl.Get(txn, tables.ActiveNetworkByKey(node, network))
+				if active {
+					status = api.NetworkEvents_Event_ACTIVE
+				}
+			}
+
+			// No need to send an event for non served networks in the initial snapshot.
+			if status != api.NetworkEvents_Event_NOT_SERVING || incremental {
+				events.Events = append(events.Events, &api.NetworkEvents_Event{
+					Network: &api.Network{Name: string(network)},
+					Status:  status,
+				})
+			}
+		}
+
+		if cnt := len(events.Events); cnt > 0 || !incremental {
+			err := stream.Send(&events)
+			if err != nil {
+				return fmt.Errorf("sending: %w", err)
+			}
+
+			s.log.Debug("Sent update of networks served to node",
+				logfields.Node, node,
+				logfields.Count, cnt,
+				logfields.Incremental, incremental,
+			)
+		}
+
+		incremental = true
+
+		select {
+		case <-networksWatch:
+		case <-activeWatch:
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		}
+
+		// Wait for a bit of time, to allow for possible other changes to
+		// accumulate in the meanwhile.
+		select {
+		case <-time.After(settleTime):
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		}
+	}
+}
+
+func (s *server) Activate(ctx context.Context, in *api.ActivationRequest) (*api.ActivationResponse, error) {
+	node, err := s.toWorkloadNode(in.GetSelf())
+	if err != nil {
+		return &api.ActivationResponse{}, err
+	}
+
+	network := tables.NetworkName(in.GetNetwork().GetName())
+	if network == "" {
+		return &api.ActivationResponse{}, status.Error(codes.InvalidArgument, "invalid [Network] parameter")
+	}
+
+	if err := s.activate(node, network); err != nil {
+		s.log.Warn("Failed activating network for node",
+			logfields.Error, err,
+			logfields.Node, node,
+			logfields.Network, network,
+		)
+		return &api.ActivationResponse{}, status.Error(codes.FailedPrecondition, err.Error())
+	}
+
+	s.log.Info("Successfully activated network for node",
+		logfields.Network, network,
+		logfields.Node, node,
+	)
+
+	return &api.ActivationResponse{}, nil
+}
+
+func (s *server) activate(node tables.WorkloadNode, network tables.NetworkName) error {
+	s.hmu.RLock()
+	defer s.hmu.RUnlock()
+
+	if _, healthy := s.healthy[node]; !healthy {
+		return errors.New("requesting node is not healthy")
+	}
+
+	wtx := s.db.WriteTxn(s.tbl)
+	defer wtx.Abort()
+
+	net, _, found := s.networks.Get(wtx, tables.PrivateNetworkByName(network))
+	if !found {
+		return errors.New("network is unknown")
+	}
+
+	if !net.CanBeServedByINB() {
+		return errors.New("network cannot be served")
+	}
+
+	_, hasOld, _ := s.tbl.Insert(wtx, tables.ActiveNetwork{Node: node, Network: network})
+	if hasOld {
+		// No need to commit if the entry was already present, as that would wake the watchers.
+		return nil
+	}
+
+	wtx.Commit()
+	return nil
+}
+
+func (s *server) Deactivate(ctx context.Context, in *api.DeactivationRequest) (*api.DeactivationResponse, error) {
+	node, err := s.toWorkloadNode(in.GetSelf())
+	if err != nil {
+		return &api.DeactivationResponse{}, err
+	}
+
+	network := tables.NetworkName(in.GetNetwork().GetName())
+	if network == "" {
+		return &api.DeactivationResponse{}, status.Error(codes.InvalidArgument, "invalid [Network] parameter")
+	}
+
+	wtx := s.db.WriteTxn(s.tbl)
+	s.tbl.Delete(wtx, tables.ActiveNetwork{Node: node, Network: network})
+	wtx.Commit()
+
+	s.log.Info("Successfully deactivated network for node",
+		logfields.Network, network,
+		logfields.Node, node,
+	)
+
+	return &api.DeactivationResponse{}, nil
 }
 
 func (s *server) toWorkloadNode(in *api.Node) (tables.WorkloadNode, error) {

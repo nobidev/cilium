@@ -134,6 +134,11 @@ func (pn PrivateNetwork) TableRow() []string {
 	}
 }
 
+// CanBeServedByINB returns whether this private network can be served by an INB.
+func (pn PrivateNetwork) CanBeServedByINB() bool {
+	return pn.Interface.Index > 0
+}
+
 // ToSlim returns a [SlimPrivateNetwork] object for this private network.
 func (pn PrivateNetwork) ToSlim(activeINB INBNode) SlimPrivateNetwork {
 	return SlimPrivateNetwork{
