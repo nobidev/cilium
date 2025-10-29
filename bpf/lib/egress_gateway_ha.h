@@ -33,8 +33,8 @@ struct {
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 
 #ifdef ENABLE_EGRESS_GATEWAY_HA
-static __always_inline
-struct egress_gw_ha_policy_entry_v2 *lookup_ip4_egress_gw_ha_policy_v2(__be32 saddr, __be32 daddr)
+static __always_inline const struct egress_gw_ha_policy_entry_v2 *
+lookup_ip4_egress_gw_ha_policy_v2(__be32 saddr, __be32 daddr)
 {
 	struct egress_gw_ha_policy_key key = {
 		.lpm_key = { EGRESS_IPV4_PREFIX, {} },
@@ -44,14 +44,15 @@ struct egress_gw_ha_policy_entry_v2 *lookup_ip4_egress_gw_ha_policy_v2(__be32 sa
 	return map_lookup_elem(&cilium_egress_gw_ha_policy_v4_v2, &key);
 }
 
-static __always_inline
-struct egress_gw_ha_ct_entry *lookup_ip4_egress_ct(struct ipv4_ct_tuple *ct_key)
+static __always_inline const struct egress_gw_ha_ct_entry *
+lookup_ip4_egress_ct(struct ipv4_ct_tuple *ct_key)
 {
 	return map_lookup_elem(&cilium_egress_gw_ha_ct_v4, ct_key);
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY_STANDALONE
-struct egress_gw_standalone_entry *lookup_ip4_segw(__be32 addr)
+static __always_inline const struct egress_gw_standalone_entry *
+lookup_ip4_segw(__be32 addr)
 {
 	struct egress_gw_standalone_key segw_key = { .endpoint_ip = addr };
 
@@ -102,9 +103,9 @@ egress_gw_ha_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 				    __be32 *gateway_ip __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY_HA) && !defined(ENABLE_EGRESS_GATEWAY_STANDALONE)
-	struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
-	struct egress_gw_ha_policy_entry *egress_gw_policy;
-	struct egress_gw_ha_ct_entry *egress_ct;
+	const struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
+	const struct egress_gw_ha_policy_entry *egress_gw_policy;
+	const struct egress_gw_ha_ct_entry *egress_ct;
 	struct ipv4_ct_tuple ct_key;
 
 	/* The first iteration of egress_gw_ha_request_needs_redirect() would
@@ -174,8 +175,8 @@ bool egress_gw_ha_snat_needed(__be32 saddr __maybe_unused,
 			      __u32 *egress_ifindex __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY_HA)
-	struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
-	struct egress_gw_ha_policy_entry *egress_gw_policy;
+	const struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
+	const struct egress_gw_ha_policy_entry *egress_gw_policy;
 
 	egress_gw_policy_v2 = lookup_ip4_egress_gw_ha_policy_v2(saddr, daddr);
 	if (!egress_gw_policy_v2)
@@ -201,7 +202,7 @@ static __always_inline bool
 egress_gw_ha_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY_HA)
-	struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
+	const struct egress_gw_ha_policy_entry_v2 *egress_gw_policy_v2;
 
 	/* Find a matching policy by looking up the reverse address tuple: */
 	egress_gw_policy_v2 = lookup_ip4_egress_gw_ha_policy_v2(ip4->daddr, ip4->saddr);

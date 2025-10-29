@@ -225,7 +225,7 @@ bool egress_gw_reply_needs_redirect_hook(struct iphdr *ip4, __u32 *tunnel_endpoi
 	if (egress_gw_reply_matches_policy(ip4) ||
 	    egress_gw_ha_reply_matches_policy(ip4)) {
 		struct remote_endpoint_info *info  __maybe_unused;
-		struct egress_gw_standalone_entry *segw_entry __maybe_unused;
+		const struct egress_gw_standalone_entry *segw_entry __maybe_unused;
 
 #if !defined(ENABLE_EGRESS_GATEWAY_STANDALONE)
 		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
