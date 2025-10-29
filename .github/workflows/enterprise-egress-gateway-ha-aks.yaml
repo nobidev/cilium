@@ -162,7 +162,7 @@ jobs:
 
           if [ "${{ matrix.ipam }}" == "cluster-pool" ]; then
             CILIUM_INSTALL_DEFAULTS+=" --set=ipam.mode=cluster-pool \
-                                      --set=ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
+                                      --set=ipam.operator.clusterPoolIPv4PodCIDRList=192.168.48.0/20 \
                                       --set=ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104 "
           fi
 
