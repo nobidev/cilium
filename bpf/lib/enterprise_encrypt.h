@@ -21,7 +21,7 @@ struct {
  */
 static __always_inline bool
 encrypt_flow_lookup(__u32 src_id, __be16 src_port, __u32 dst_id, __be16 dst_port, __u8 proto) {
-	struct encryption_policy_entry *entry;
+	const struct encryption_policy_entry *entry;
 	struct encryption_policy_key key = {
 		.lpm_key = { ENCRYPTION_POLICY_FULL_PREFIX, {} },
 		.src_sec_identity = src_id,
