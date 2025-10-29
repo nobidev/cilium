@@ -19,8 +19,10 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -477,4 +479,72 @@ func TestServerDeactivate(t *testing.T) {
 	// Deactivating a network that was already not active should succeed.
 	_, err = srv.Deactivate(t.Context(), &api.DeactivationRequest{Self: apiSloth, Network: &api.Network{Name: "blue"}})
 	require.NoError(t, err, "[srv.Deactivate]")
+}
+
+func TestServerGCer(t *testing.T) {
+	// Override the settleTime to make the test faster.
+	settleTime = 0
+
+	const interval = 10 * time.Millisecond
+
+	var (
+		wg        sync.WaitGroup
+		sloth     = WN{Cluster: "local", Name: "sloth"}
+		snail     = WN{Cluster: "local", Name: "snail"}
+		health, _ = cell.NewSimpleHealth()
+	)
+
+	db, networks, actnets, srv := fixture(t)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer func() { cancel(); wg.Wait() }()
+
+	// Configure the initial state.
+	wtx := db.WriteTxn(networks, actnets)
+	networks.Insert(wtx, PN{Name: "blue", Interface: PNI{Name: "eth.blue", Index: 10}})
+	networks.Insert(wtx, PN{Name: "green", Interface: PNI{Name: "eth.green", Index: 11}})
+	networks.Insert(wtx, PN{Name: "yellow", Interface: PNI{Name: "eth.yellow", Index: 12}})
+	networks.Insert(wtx, PN{Name: "purple", Interface: PNI{Name: "eth.purple", Error: "broken"}})
+
+	actnets.Insert(wtx, AN{Node: snail, Network: "blue"})
+	actnets.Insert(wtx, AN{Node: sloth, Network: "green"})
+	actnets.Insert(wtx, AN{Node: snail, Network: "green"})
+	actnets.Insert(wtx, AN{Node: snail, Network: "yellow"})
+	actnets.Insert(wtx, AN{Node: snail, Network: "purple"})
+	actnets.Insert(wtx, AN{Node: sloth, Network: "purple"})
+	wtx.Commit()
+
+	wg.Go(func() { srv.gcLoop(ctx, health) })
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.ElementsMatch(c, statedb.Collect(actnets.All(db.ReadTxn())), []AN{
+			{Node: snail, Network: "blue"},
+			{Node: sloth, Network: "green"},
+			{Node: snail, Network: "green"},
+			{Node: snail, Network: "yellow"},
+		})
+	}, timeout, interval)
+
+	// Delete one of the networks, the corresponding entries should be removed.
+	wtx = db.WriteTxn(networks)
+	networks.Delete(wtx, PN{Name: "green"})
+	wtx.Commit()
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.ElementsMatch(c, statedb.Collect(actnets.All(db.ReadTxn())), []AN{
+			{Node: snail, Network: "blue"},
+			{Node: snail, Network: "yellow"},
+		})
+	}, timeout, interval)
+
+	// One of the networks is no longer served, the corresponding entries should be removed.
+	wtx = db.WriteTxn(networks)
+	networks.Insert(wtx, PN{Name: "blue", Interface: PNI{Name: "eth.blue", Error: "broken"}})
+	wtx.Commit()
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.ElementsMatch(c, statedb.Collect(actnets.All(db.ReadTxn())), []AN{
+			{Node: snail, Network: "yellow"},
+		})
+	}, timeout, interval)
 }

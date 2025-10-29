@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -143,6 +144,75 @@ func newServer(in serverParams) *server {
 	)
 
 	return srv
+}
+
+// registerGCer registers a job to GC entries from the active networks table
+// when the given network can no longer be served.
+func (s *server) registerGCer(jg job.Group, cfg pncfg.Config) {
+	// No need to reconcile anything if we are not running as bridge.
+	if !cfg.EnabledAsBridge() {
+		return
+	}
+
+	jg.Add(
+		job.OneShot("health-server-active-gc", s.gcLoop),
+	)
+}
+
+func (s *server) gcLoop(ctx context.Context, health cell.Health) error {
+	wtx := s.db.WriteTxn(s.networks)
+	changeIter, _ := s.networks.Changes(wtx)
+	wtx.Commit()
+
+	health.OK("Primed")
+	for {
+		var toGC = sets.New[tables.NetworkName]()
+
+		wtx := s.db.WriteTxn(s.tbl)
+		changes, watch := changeIter.Next(wtx)
+
+		for change := range changes {
+			network := change.Object.Name
+			if change.Deleted || !change.Object.CanBeServedByINB() {
+				// The network cannot be served, hence trigger GC.
+				toGC.Insert(network)
+			}
+		}
+
+		if len(toGC) > 0 {
+			var cnt uint
+
+			// We assume that this operation is rare enough that it is better to
+			// simply iterate over all entries rather than adding a dedicated index.
+			for entry := range s.tbl.All(wtx) {
+				if toGC.Has(entry.Network) {
+					s.tbl.Delete(wtx, entry)
+					cnt++
+				}
+			}
+
+			if cnt > 0 {
+				wtx.Commit()
+				health.OK(fmt.Sprintf("Reconciliation completed, GCed %d entries", cnt))
+			}
+		}
+
+		wtx.Abort()
+
+		select {
+		case <-watch:
+		case <-ctx.Done():
+			return nil
+		}
+
+		// Wait for a bit of time, to allow for possible other
+		// changes to accumulate in the meanwhile.
+		select {
+		case <-time.After(settleTime):
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }
 
 func (s *server) Probe(stream grpc.BidiStreamingServer[api.ProbeRequest, api.ProbeResponse]) error {

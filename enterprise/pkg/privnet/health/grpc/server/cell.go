@@ -34,4 +34,9 @@ var Cell = cell.Group(
 		// Provides the ReadOnly active networks table.
 		statedb.RWTable[tables.ActiveNetwork].ToTable,
 	),
+
+	cell.Invoke(
+		// Registers the job to GC stale entries from the active networks table.
+		(*server).registerGCer,
+	),
 )
