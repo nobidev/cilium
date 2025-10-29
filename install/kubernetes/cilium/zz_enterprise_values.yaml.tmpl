@@ -126,7 +126,7 @@ enterprise:
   loadbalancer:
     # -- Enables Loadbalancer mode (Control Plane)
     enabled: false
-    gatewayAPI: 
+    gatewayAPI:
       # -- Enable support for Gateway API in ILB
       enabled: false
 
@@ -243,18 +243,22 @@ hubble:
       timout: ~
     ingester:
       k8sImporter:
-        # -- *experimental* Whether to enable the k8s event watcher for the K8s Importer.
+        # -- Whether to enable the k8s event watcher for the K8s Importer.
         # When enabled, this effectively replaces the K8sExporter deployment.
-        enabled: false
+        # If both `.hubble.timescape.ingester.k8sImporter.enabled` and
+        # `.hubble.timescape.useStreamAPI` are true, vector will not be deployed.
+        enabled: true
         # -- The interval at which the K8s Importer should flush k8s events to the database.
         flushInterval: "5s"
       streamAPI:
         # -- The interval at which the Stream API should flush flows to the database.
         flushInterval: "5s"
-    # -- Use experimental Stream API for Hubble Timescape.
+    # -- Use Stream API for Hubble Timescape.
     # This automatically enables the Hubble Timescape exporter in Cilium and the
     # Stream API in Hubble Timescape.
-    useStreamAPI: false
+    # If both `.hubble.timescape.ingester.k8sImporter.enabled` and
+    # `.hubble.timescape.useStreamAPI` are true, vector will not be deployed.
+    useStreamAPI: true
     image:
       # @schema
       # type: [null, string]
