@@ -1,0 +1,221 @@
+#! --private-networks-enabled=true --private-networks-mode=bridge --private-networks-health-check-interval=25ms --private-networks-health-check-timeout=250ms
+
+# Enable the interceptors to simulate failures.
+checkerpool/blockable
+
+# Create the checkers.
+checkerpool/new alpaca  camelidae/alpaca
+checkerpool/new llama   camelidae/llama
+checkerpool/new cheetah felidae/cheetah
+
+hive start
+
+# Populate the private networks table
+db/insert private-networks privnet-blue.v1.yaml
+db/insert private-networks privnet-green.v1.yaml
+db/insert private-networks privnet-yellow.v1.yaml
+
+# Register a few network pairs.
+checkerpool/register alpaca  local/sloth blue
+checkerpool/register alpaca  local/sloth yellow
+checkerpool/register alpaca  local/sloth purple
+checkerpool/register llama   local/sloth yellow
+checkerpool/register cheetah local/sloth green
+checkerpool/register cheetah local/sloth yellow
+
+checkerpool/synced alpaca
+checkerpool/synced llama
+checkerpool/synced cheetah
+
+# Check that the events have been received correctly.
+db/initialized
+db/cmp test-observed-state-alpaca expected-alpaca.v1.table
+db/cmp test-observed-state-llama expected-llama.v1.table
+db/cmp test-observed-state-cheetah expected-cheetah.v1.table
+
+# Activate a few networks, and check that the table is updated correctly.
+checkerpool/activate alpaca local/sloth blue
+checkerpool/activate alpaca local/sloth yellow
+checkerpool/activate llama  local/sloth yellow
+db/cmp privnet-inb-active-networks expected-active.v1.table
+
+# A new network is served, the update should propagate correctly.
+db/insert private-networks privnet-purple.v1.yaml
+db/cmp test-observed-state-alpaca expected-alpaca.v2.table
+
+# Perform a couple more activations and deactivations, and assert they propagate.
+checkerpool/deactivate alpaca local/sloth yellow
+checkerpool/activate alpaca local/sloth purple
+checkerpool/activate cheetah local/sloth yellow
+db/cmp privnet-inb-active-networks expected-active.v2.table
+
+# Update served networks, updates should be propagated, and stale entries GCed.
+db/delete private-networks privnet-yellow.v1.yaml # No longer served
+db/insert private-networks privnet-green.v2.yaml  # The interface is now valid
+db/insert private-networks privnet-purple.v2.yaml # The interface is now invalid
+
+db/cmp test-observed-state-alpaca expected-alpaca.v3.table
+db/cmp test-observed-state-llama expected-llama.v2.table
+db/cmp test-observed-state-cheetah expected-cheetah.v2.table
+db/cmp privnet-inb-active-networks expected-active.v3.table
+
+# Revert to the previous state, the observed state should reconverge again.
+db/insert private-networks privnet-yellow.v1.yaml
+db/insert private-networks privnet-green.v1.yaml
+db/insert private-networks privnet-purple.v1.yaml
+
+db/cmp test-observed-state-alpaca expected-alpaca.v2.table
+db/cmp test-observed-state-llama expected-llama.v1.table
+db/cmp test-observed-state-cheetah expected-cheetah.v1.table
+
+checkerpool/register cheetah local/sloth purple
+db/cmp test-observed-state-cheetah expected-cheetah.v3.table
+
+# Activate again a few networks, and check that the table is updated correctly.
+checkerpool/activate alpaca  local/sloth yellow
+checkerpool/activate cheetah local/sloth purple
+db/cmp privnet-inb-active-networks expected-active.v4.table
+
+# Pretend that the server lost its active networks state, and assert that it reconverges.
+db/get privnet-inb-active-networks camelidae/alpaca|blue -f yaml -o active-alpaca-blue.yaml
+db/get privnet-inb-active-networks camelidae/alpaca|yellow -f yaml -o active-alpaca-yellow.yaml
+db/delete privnet-inb-active-networks active-alpaca-blue.yaml
+db/delete privnet-inb-active-networks active-alpaca-yellow.yaml
+db/cmp privnet-inb-active-networks expected-active.v4.table
+
+# Block the alpaca checker, and assert that the corresponding active entries are removed.
+checkerpool/block alpaca
+db/cmp test-observed-state-alpaca expected-alpaca.v4.table
+db/cmp privnet-inb-active-networks expected-active.v5.table
+
+# Unblock it, it should eventually transition to healthy again.
+checkerpool/unblock alpaca
+db/cmp test-observed-state-alpaca expected-alpaca.v2.table
+
+# It should be possible to activate networks again.
+checkerpool/activate alpaca local/sloth yellow
+checkerpool/activate alpaca local/sloth purple
+db/cmp privnet-inb-active-networks expected-active.v6.table
+
+# ---
+
+-- expected-alpaca.v1.table --
+Instance      Network   Health
+local/sloth   blue      Healthy, Confirmed
+local/sloth   purple    Healthy, Denied
+local/sloth   yellow    Healthy, Confirmed
+
+-- expected-alpaca.v2.table --
+Instance      Network   Health
+local/sloth   blue      Healthy, Confirmed
+local/sloth   purple    Healthy, Confirmed
+local/sloth   yellow    Healthy, Confirmed
+
+-- expected-alpaca.v3.table --
+Instance      Network   Health
+local/sloth   blue      Healthy, Confirmed
+local/sloth   purple    Healthy, Denied
+local/sloth   yellow    Healthy, Denied
+
+-- expected-alpaca.v4.table --
+Instance      Network   Health
+local/sloth   blue      Unhealthy, Unknown
+local/sloth   purple    Unhealthy, Unknown
+local/sloth   yellow    Unhealthy, Unknown
+
+-- expected-llama.v1.table --
+Instance      Network   Health
+local/sloth   yellow    Healthy, Confirmed
+
+-- expected-llama.v2.table --
+Instance      Network   Health
+local/sloth   yellow    Healthy, Denied
+
+-- expected-cheetah.v1.table --
+Instance      Network   Health
+local/sloth   green     Healthy, Denied
+local/sloth   yellow    Healthy, Confirmed
+
+-- expected-cheetah.v2.table --
+Instance      Network   Health
+local/sloth   green     Healthy, Confirmed
+local/sloth   yellow    Healthy, Denied
+
+-- expected-cheetah.v3.table --
+Instance      Network   Health
+local/sloth   green     Healthy, Denied
+local/sloth   purple    Healthy, Confirmed
+local/sloth   yellow    Healthy, Confirmed
+
+
+-- expected-active.v1.table --
+Node               Network
+camelidae/alpaca   blue
+camelidae/alpaca   yellow
+camelidae/llama    yellow
+
+-- expected-active.v2.table --
+Node               Network
+camelidae/alpaca   blue
+camelidae/alpaca   purple
+camelidae/llama    yellow
+felidae/cheetah    yellow
+
+-- expected-active.v3.table --
+Node               Network
+camelidae/alpaca   blue
+
+-- expected-active.v4.table --
+Node               Network
+camelidae/alpaca   blue
+camelidae/alpaca   yellow
+felidae/cheetah    purple
+
+-- expected-active.v5.table --
+Node               Network
+felidae/cheetah    purple
+
+-- expected-active.v6.table --
+Node               Network
+camelidae/alpaca   purple
+camelidae/alpaca   yellow
+felidae/cheetah    purple
+
+
+-- privnet-blue.v1.yaml --
+name: blue
+interface:
+    name: eth.blue
+    index: 11
+
+-- privnet-green.v1.yaml --
+name: green
+interface:
+    name: eth.green
+    index: 0
+    error: "interface does not exist"
+
+-- privnet-green.v2.yaml --
+name: green
+interface:
+    name: eth.green
+    index: 12
+
+-- privnet-yellow.v1.yaml --
+name: yellow
+interface:
+    name: eth.yellow
+    index: 13
+
+-- privnet-purple.v1.yaml --
+name: purple
+interface:
+    name: eth.purple
+    index: 14
+
+-- privnet-purple.v2.yaml --
+name: purple
+interface:
+    name: eth.purple
+    index: 0
+    error: "interface does not exist"

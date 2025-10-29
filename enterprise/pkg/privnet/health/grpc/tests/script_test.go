@@ -15,17 +15,23 @@ import (
 	"flag"
 	"log/slog"
 	"maps"
+	"net"
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/hive/script/scripttest"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/server"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -50,11 +56,27 @@ func TestScript(t *testing.T) {
 			log := hivetest.Logger(t, opts...)
 
 			h := hive.New(
+				pncfg.Cell,
 				grpc.Cell,
 
 				ConnFactoryCell(t.TempDir()),
 				ServerPoolCell,
 				CheckerPoolCell,
+
+				cell.Group(
+					cell.Provide(
+						tables.NewPrivateNetworksTable,
+						statedb.RWTable[tables.PrivateNetwork].ToTable,
+					),
+
+					cell.DecorateAll(
+						func(cf ConnFactory) server.ListenerFactory {
+							return func() (net.Listener, error) {
+								return cf.NewListener(Instance{Cluster: "local", Name: "sloth"})
+							}
+						},
+					),
+				),
 			)
 
 			t.Cleanup(func() {
