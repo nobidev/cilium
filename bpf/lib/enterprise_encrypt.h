@@ -72,7 +72,7 @@ encrypt_get_l4_info_ipv4(struct iphdr *ip4, __u8 *l4_proto, __u32 *l4_off)
 static __always_inline int
 encrypt_handle_vxlan_inner_packet(struct __ctx_buff __maybe_unused *ctx,
 				  void *data, void *data_end, __u32 *l4_off, __u8 *l4_proto,
-				  struct remote_endpoint_info __maybe_unused **dst)
+				  const struct remote_endpoint_info __maybe_unused **dst)
 {
 	struct ipv6hdr __maybe_unused *inner_ip6;
 	struct iphdr __maybe_unused *inner_ip4;
@@ -161,8 +161,8 @@ encrypt_policy_matches(struct __ctx_buff *ctx, __u8 l4_proto, __u32 l4_off,
 static __always_inline int
 host_wg_encrypt_hook(struct __ctx_buff *ctx, __be16 proto, __u32 src_sec_identity)
 {
-	struct remote_endpoint_info *dst = NULL;
-	struct remote_endpoint_info __maybe_unused *src = NULL;
+	const struct remote_endpoint_info *dst = NULL;
+	const struct remote_endpoint_info __maybe_unused *src = NULL;
 	void *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
