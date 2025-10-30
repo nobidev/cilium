@@ -828,6 +828,7 @@ Makefile* @cilium/build
 /.github/workflows/enterprise-scale-encryption-policy.yaml @isovalent/encryption
 /.github/workflows/release-hubble-cli.yaml @isovalent/hubble
 /.github/workflows/enterprise-encryption-policy.yaml @isovalent/encryption
+/bpf/Makefile.override @isovalent/cilium-datapath
 /bpf/enterprise_* @isovalent/cilium-datapath
 /bpf/lib/enterprise_* @isovalent/cilium-datapath
 /bpf/lib/enterprise_encrypt.h @isovalent/encryption
