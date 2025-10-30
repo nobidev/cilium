@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	daemonK8s "github.com/cilium/cilium/daemon/k8s"
@@ -37,7 +36,6 @@ import (
 	cs_iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/synced"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -129,24 +127,24 @@ func newEndpointSlices(in struct {
 	return reconciler, nil
 }
 
-func (e *LocalEndpointSlices) registerK8sReflector(sync promise.Promise[synced.CRDSync]) error {
+func (e *LocalEndpointSlices) registerK8sReflector(sync promise.Promise[synced.CRDSync], listerWatcher endpointSliceSharedListerWatcher) error {
 	if !e.cfg.Enabled {
 		return nil
 	}
 
 	cfg := k8s.ReflectorConfig[tables.EndpointSlice]{
-		Name:  "to-table", // the full name will be "job-k8s-reflector-privnet-local-endpointslices-to-table"
-		Table: e.tbl,
-		ListerWatcher: utils.ListerWatcherWithFields(
-			utils.ListerWatcherFromTyped(e.client.PrivateNetworkEndpointSlices(metav1.NamespaceAll)),
-			fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName()),
-		),
-		MetricScope: "PrivateNetworkEndpointSlices",
-		CRDSync:     sync,
+		Name:                "to-table", // the full name will be "job-k8s-reflector-privnet-local-endpointslices-to-table"
+		Table:               e.tbl,
+		SharedListerWatcher: listerWatcher,
+		MetricScope:         "PrivateNetworkEndpointSlices",
+		CRDSync:             sync,
 
 		Transform: func(txn statedb.ReadTxn, obj any) (es tables.EndpointSlice, ok bool) {
 			slice, ok := obj.(*iso_v1alpha1.PrivateNetworkEndpointSlice)
 			if !ok {
+				return tables.EndpointSlice{}, false
+			}
+			if slice.Name != nodeTypes.GetName() {
 				return tables.EndpointSlice{}, false
 			}
 			return tables.EndpointSlice{

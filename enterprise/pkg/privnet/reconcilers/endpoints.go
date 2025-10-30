@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	cs_iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -40,6 +39,9 @@ var EndpointsCell = cell.Group(
 	cell.ProvidePrivate(
 		// Provides the ReadWrite Endpoints table.
 		tables.NewEndpointsTable,
+
+		// Provides a k8s.SharedListerWatcher for private network endpoint slices
+		newEndpointSliceSharedListerWatcher,
 
 		// Provides the reconciler handling private network endpoints.
 		newEndpoints,
@@ -72,8 +74,6 @@ type Endpoints struct {
 
 	db  *statedb.DB
 	tbl statedb.RWTable[tables.Endpoint]
-
-	client cs_iso_v1alpha1.PrivateNetworkEndpointSlicesGetter
 }
 
 func newEndpoints(in struct {
@@ -87,8 +87,6 @@ func newEndpoints(in struct {
 
 	DB    *statedb.DB
 	Table statedb.RWTable[tables.Endpoint]
-
-	Client client.Clientset
 }) (*Endpoints, error) {
 	reconciler := &Endpoints{
 		log:   in.Log,
@@ -103,25 +101,20 @@ func newEndpoints(in struct {
 		return reconciler, nil
 	}
 
-	if !in.Client.IsEnabled() {
-		return nil, errors.New("private networks requires Kubernetes support to be enabled")
-	}
-
-	reconciler.client = in.Client.IsovalentV1alpha1()
 	return reconciler, nil
 }
 
-func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync]) error {
+func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync], listerWatcher endpointSliceSharedListerWatcher) error {
 	if !ep.cfg.Enabled {
 		return nil
 	}
 
 	cfg := k8s.ReflectorConfig[tables.Endpoint]{
-		Name:          "to-table", // the full name will be "job-k8s-reflector-privnet-endpoints-to-table"
-		Table:         ep.tbl,
-		ListerWatcher: utils.ListerWatcherFromTyped(ep.client.PrivateNetworkEndpointSlices(metav1.NamespaceAll)),
-		MetricScope:   "PrivateNetworkEndpointSlices",
-		CRDSync:       sync,
+		Name:                "to-table", // the full name will be "job-k8s-reflector-privnet-endpoints-to-table"
+		Table:               ep.tbl,
+		SharedListerWatcher: listerWatcher,
+		MetricScope:         "PrivateNetworkEndpointSlices",
+		CRDSync:             sync,
 
 		// Make sure we o not delete the entries discovered via Cluster Mesh.
 		QueryAll: func(txn statedb.ReadTxn, tbl statedb.Table[tables.Endpoint]) iter.Seq2[tables.Endpoint, statedb.Revision] {
@@ -204,4 +197,26 @@ func (ep *Endpoints) registerClusterMeshReflector(obs *observers.PrivateNetworkE
 			}, obs,
 		),
 	)
+}
+
+type endpointSliceSharedListerWatcher k8s.SharedListerWatcher
+
+func newEndpointSliceSharedListerWatcher(in struct {
+	cell.In
+
+	Config   config.Config
+	JobGroup job.Group
+	Client   client.Clientset
+}) (endpointSliceSharedListerWatcher, error) {
+	if !in.Config.Enabled {
+		return nil, nil
+	}
+
+	if !in.Client.IsEnabled() {
+		return nil, errors.New("private networks requires Kubernetes support to be enabled")
+	}
+
+	epSlices := in.Client.IsovalentV1alpha1().PrivateNetworkEndpointSlices(metav1.NamespaceAll)
+	listerWatcher := utils.ListerWatcherFromTyped(epSlices)
+	return k8s.NewSharedListerWatcher("privnet-endpointslices", in.JobGroup, listerWatcher), nil
 }
