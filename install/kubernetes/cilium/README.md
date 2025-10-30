@@ -118,9 +118,9 @@ contributors across the globe, there is almost always someone available to help.
 | bandwidthManager.bbr | bool | `false` | Activate BBR TCP congestion control for Pods |
 | bandwidthManager.bbrHostNamespaceOnly | bool | `false` | Activate BBR TCP congestion control for Pods in the host namespace only. |
 | bandwidthManager.enabled | bool | `false` | Enable bandwidth manager infrastructure (also prerequirement for BBR) |
-| bgpControlPlane | object | `{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}` | This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs. |
+| bgpControlPlane | object | `{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}` | This feature set enables virtual BGP routers to be created via BGP CRDs. |
 | bgpControlPlane.enabled | bool | `false` | Enables the BGP control plane. |
-| bgpControlPlane.legacyOriginAttribute | object | `{"enabled":false}` | Legacy BGP ORIGIN attribute settings (BGPv2 only) |
+| bgpControlPlane.legacyOriginAttribute | object | `{"enabled":false}` | Legacy BGP ORIGIN attribute settings |
 | bgpControlPlane.legacyOriginAttribute.enabled | bool | `false` | Enable/Disable advertising LoadBalancerIP routes with the legacy BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0). Enable for compatibility with the legacy behavior of MetalLB integration. |
 | bgpControlPlane.routerIDAllocation | object | `{"ipPool":"","mode":"default"}` | BGP router-id allocation mode |
 | bgpControlPlane.routerIDAllocation.ipPool | string | `""` | IP pool to allocate the BGP router-id from when the mode is ip-pool. |
@@ -128,8 +128,8 @@ contributors across the globe, there is almost always someone available to help.
 | bgpControlPlane.secretsNamespace | object | `{"create":false,"name":"kube-system"}` | SecretsNamespace is the namespace which BGP support will retrieve secrets from. |
 | bgpControlPlane.secretsNamespace.create | bool | `false` | Create secrets namespace for BGP secrets. |
 | bgpControlPlane.secretsNamespace.name | string | `"kube-system"` | The name of the secret namespace to which Cilium agents are given read access |
-| bgpControlPlane.statusReport | object | `{"enabled":true}` | Status reporting settings (BGPv2 only) |
-| bgpControlPlane.statusReport.enabled | bool | `true` | Enable/Disable BGPv2 status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false. |
+| bgpControlPlane.statusReport | object | `{"enabled":true}` | Status reporting settings |
+| bgpControlPlane.statusReport.enabled | bool | `true` | Enable/Disable BGP status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false. |
 | bpf.authMapMax | int | `524288` | Configure the maximum number of entries in auth map. |
 | bpf.autoMount.enabled | bool | `true` | Enable automatic mount of BPF filesystem When `autoMount` is enabled, the BPF filesystem is mounted at `bpf.root` path on the underlying host and inside the cilium agent pod. If users disable `autoMount`, it's expected that users have mounted bpffs filesystem at the specified `bpf.root` volume, and then the volume will be mounted inside the cilium agent pod at the same path. |
 | bpf.ctAccounting | bool | `false` | Enable CT accounting for packets and bytes |
@@ -158,6 +158,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.monitorAggregation | string | `"medium"` | Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum. |
 | bpf.monitorFlags | string | `"all"` | Configure which TCP flags trigger notifications when seen for the first time in a connection. |
 | bpf.monitorInterval | string | `"5s"` | Configure the typical time between monitor notifications for active connections. |
+| bpf.monitorTraceIPOption | int | `0` | Configure the IP tracing option type. This option is used to specify the IP option type to use for tracing. The value must be an integer between 0 and 255. @schema type: [null, integer] minimum: 0 maximum: 255 @schema |
 | bpf.natMax | int | `524288` | Configure the maximum number of entries for the NAT table. |
 | bpf.neighMax | int | `524288` | Configure the maximum number of entries for the neighbor table. |
 | bpf.nodeMapMax | int | `nil` | Configures the maximum number of entries for the node table. |
@@ -279,6 +280,7 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.apiserver.tolerations | list | `[]` | Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ |
 | clustermesh.apiserver.topologySpreadConstraints | list | `[]` | Pod topology spread constraints for clustermesh-apiserver |
 | clustermesh.apiserver.updateStrategy | object | `{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}` | clustermesh-apiserver update strategy |
+| clustermesh.cacheTTL | string | `"0s"` | The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked (default). |
 | clustermesh.config | object | `{"clusters":[],"domain":"mesh.cilium.io","enabled":false}` | Clustermesh explicit configuration. |
 | clustermesh.config.clusters | list | `[]` | Clusters to be peered in the mesh. @schema type: [object, array] @schema |
 | clustermesh.config.domain | string | `"mesh.cilium.io"` | Default dns domain for the Clustermesh API servers This is used in the case cluster addresses are not provided and IPs are used. |
@@ -453,7 +455,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.httpRetryCount | int | `3` | Maximum number of retries for each HTTP request |
 | envoy.httpUpstreamLingerTimeout | string | `nil` | Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background. |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
-| envoy.image | object | `{"digest":"sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1759553787-f16dc8e69dee56f4e376afef9676c7b9d659ac37","useDigest":true}` | Envoy container image. |
+| envoy.image | object | `{"digest":"sha256:808c986a99e2a1ea9785b49604a1ccd1e1cdc21d4b7a2ff1236cc31788ea9b45","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1760614940-cb5737105ff9a4ca5d080c0c8f3ea1bfdc08de83","useDigest":true}` | Envoy container image. |
 | envoy.initContainers | list | `[]` | Init containers added to the cilium Envoy DaemonSet. |
 | envoy.initialFetchTimeoutSeconds | int | `30` | Time in seconds after which the initial fetch on an xDS stream is considered timed out |
 | envoy.livenessProbe.enabled | bool | `true` | Enable liveness probe for cilium-envoy |
@@ -989,7 +991,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.pprof.mutexProfileFraction | int | `0` | Enable mutex contention profiling for cilium-operator and set the fraction of sampled events (set to 1 to sample all events) |
 | operator.pprof.port | int | `6061` | Configure pprof listen port for cilium-operator |
 | operator.priorityClassName | string | `""` | The priority class to use for cilium-operator |
-| operator.prometheus | object | `{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}}` | Enable prometheus metrics for cilium-operator on the configured port at /metrics |
+| operator.prometheus | object | `{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"tls":{"enabled":false,"server":{"existingSecret":"","mtls":{"enabled":false}}}}` | Enable prometheus metrics for cilium-operator on the configured port at /metrics |
 | operator.prometheus.serviceMonitor.annotations | object | `{}` | Annotations to add to ServiceMonitor cilium-operator |
 | operator.prometheus.serviceMonitor.enabled | bool | `false` | Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml) |
 | operator.prometheus.serviceMonitor.interval | string | `"10s"` | Interval for scrape metrics. |
@@ -998,6 +1000,8 @@ contributors across the globe, there is almost always someone available to help.
 | operator.prometheus.serviceMonitor.metricRelabelings | string | `nil` | Metrics relabeling configs for the ServiceMonitor cilium-operator |
 | operator.prometheus.serviceMonitor.relabelings | string | `nil` | Relabeling configs for the ServiceMonitor cilium-operator |
 | operator.prometheus.serviceMonitor.scrapeTimeout | string | `nil` | Timeout after which scrape is considered to be failed. |
+| operator.prometheus.tls | object | `{"enabled":false,"server":{"existingSecret":"","mtls":{"enabled":false}}}` | TLS configuration for Prometheus |
+| operator.prometheus.tls.server.existingSecret | string | `""` | Name of the Secret containing the certificate, key and CA files for the Prometheus server. |
 | operator.removeNodeTaints | bool | `true` | Remove Cilium node taint from Kubernetes nodes that have a healthy Cilium pod running. |
 | operator.replicas | int | `2` | Number of replicas to run for the cilium-operator deployment |
 | operator.resources | object | `{}` | cilium-operator resource limits & requests ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/ |
@@ -1028,7 +1032,7 @@ contributors across the globe, there is almost always someone available to help.
 | preflight.affinity | object | `{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-preflight |
 | preflight.annotations | object | `{}` | Annotations to be added to all top-level preflight objects (resources under templates/cilium-preflight) |
 | preflight.enabled | bool | `false` | Enable Cilium pre-flight resources (required for upgrade) |
-| preflight.envoy.image | object | `{"digest":"sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1759553787-f16dc8e69dee56f4e376afef9676c7b9d659ac37","useDigest":true}` | Envoy pre-flight image. |
+| preflight.envoy.image | object | `{"digest":"sha256:808c986a99e2a1ea9785b49604a1ccd1e1cdc21d4b7a2ff1236cc31788ea9b45","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1760614940-cb5737105ff9a4ca5d080c0c8f3ea1bfdc08de83","useDigest":true}` | Envoy pre-flight image. |
 | preflight.extraEnv | list | `[]` | Additional preflight environment variables. |
 | preflight.extraVolumeMounts | list | `[]` | Additional preflight volumeMounts. |
 | preflight.extraVolumes | list | `[]` | Additional preflight volumes. |
