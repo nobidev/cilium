@@ -45,6 +45,8 @@ type CheckerPool struct {
 	factory checker.ConnFactoryFn
 	pool    map[string]*Checker
 	started bool
+
+	interceptors *Interceptors
 }
 
 func newCheckerPool(in struct {
@@ -57,6 +59,8 @@ func newCheckerPool(in struct {
 
 	Config  config.Config
 	Factory checker.ConnFactoryFn
+
+	Interceptors *Interceptors
 }) *CheckerPool {
 	cp := &CheckerPool{
 		log: in.Log,
@@ -67,6 +71,8 @@ func newCheckerPool(in struct {
 		cfg:     in.Config,
 		factory: in.Factory,
 		pool:    make(map[string]*Checker),
+
+		interceptors: in.Interceptors,
 	}
 
 	in.Lifecycle.Append(cell.Hook{
@@ -94,6 +100,10 @@ func (cp *CheckerPool) Commands() hive.ScriptCmdsOut {
 				"Deactivate a node, network pair for a checker", cp.deactivate),
 
 			"checkerpool/synced": cp.checkerCmd("Signal initialization to a checker", cp.synced),
+
+			"checkerpool/blockable": cp.emptyCmd("Make checkers blockable", cp.blockable),
+			"checkerpool/block":     cp.checkerCmd("Block a checker", cp.block),
+			"checkerpool/unblock":   cp.checkerCmd("Unblock a checker", cp.unblock),
 		},
 	)
 }
@@ -156,6 +166,21 @@ func (cp *CheckerPool) checkerCmd(usage string, do func(string) error) script.Cm
 	)
 }
 
+func (cp *CheckerPool) emptyCmd(usage string, do func() error) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: usage,
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 0 {
+				return nil, fmt.Errorf("%w: no parameter expected", script.ErrUsage)
+			}
+
+			return nil, do()
+		},
+	)
+}
+
 func (cp *CheckerPool) new(name string, inst Instance) error {
 	const loginst = "instance"
 
@@ -182,6 +207,7 @@ func (cp *CheckerPool) new(name string, inst Instance) error {
 
 		db:    cp.db,
 		state: state,
+		self:  inst,
 	}
 
 	wtx := cp.db.WriteTxn(c.state)
@@ -250,6 +276,27 @@ func (cp *CheckerPool) synced(name string) error {
 	})
 }
 
+func (cp *CheckerPool) blockable() error {
+	if cp.started {
+		return errors.New("hive already started")
+	}
+
+	cp.interceptors.Enable()
+	return nil
+}
+
+func (cp *CheckerPool) block(name string) error {
+	return cp.do(name, func(c *Checker) error {
+		return cp.interceptors.Block(c.self)
+	})
+}
+
+func (cp *CheckerPool) unblock(name string) error {
+	return cp.do(name, func(c *Checker) error {
+		return cp.interceptors.Unblock(c.self)
+	})
+}
+
 func (cp *CheckerPool) do(name string, fn func(*Checker) error) error {
 	checker, found := cp.pool[name]
 	if !found {
@@ -264,6 +311,7 @@ type Checker struct {
 
 	db    *statedb.DB
 	state statedb.RWTable[InstanceNetwork]
+	self  Instance
 }
 
 func (c *Checker) Register(node tables.INBNode, network tables.NetworkName) error {
