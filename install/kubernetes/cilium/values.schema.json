@@ -2409,6 +2409,14 @@
           "items": {},
           "type": "array"
         },
+        "gracefulRestart": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "healthPort": {
           "type": "integer"
         },

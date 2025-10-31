@@ -210,30 +210,83 @@ Allow packagers to add extra arguments to the clustermesh-apiserver kvstoremesh 
 Allow packagers to add init containers to the cilium-envoy pods.
 */}}
 {{- define "envoy.initContainers" -}}
+{{- if and .Values.envoy.gracefulRestart .Values.envoy.gracefulRestart.enabled }}
+initContainers:
+- name: get-hot-restart-epoch
+  image: gcr.io/cloud-builders/kubectl:latest
+  env:
+  - name: POD_TEMPLATE_GENERATION
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.labels['pod-template-generation']
+  command:
+    - sh
+    - -c
+    - |
+      restart_epoch=$(kubectl get cm restart-epoch-cm -o jsonpath="{['data']['restart-epoch']}")
+      pod_template_gen=$((POD_TEMPLATE_GENERATION - 1))
+      echo "initial restart_epoch is $POD_TEMPLATE_GENERATION"
+      if [ -z "$restart_epoch"]
+      then
+        echo "restart_epoch is empty, assigning zero"
+        kubectl create configmap restart-epoch-cm --from-literal=restart-epoch=$pod_template_gen --dry-run -o yaml | kubectl apply -f -
+      else              
+        kubectl patch cm restart-epoch-cm --type merge -p '{"data":{"restart-epoch":"'"$pod_template_gen"'"}}'
+      fi
+{{- end }}
 {{- end }}
 
 {{/*
 Allow packagers to add extra args to the cilium-envoy container.
 */}}
 {{- define "envoy.args.extra" -}}
+{{- if and .Values.envoy.gracefulRestart .Values.envoy.gracefulRestart.enabled }}
+- '--restart-epoch $(RESTART_EPOCH)'
+- '--socket-path /var/run/cilium-envoy/hot-restart-sockets/hot-restart.sock'
+- '--skip-hot-restart-on-no-parent'
+{{- end }}
 {{- end }}
 
 {{/*
 Allow packagers to add extra env vars to the cilium-envoy container.
 */}}
 {{- define "envoy.env.extra" -}}
+{{- if and .Values.envoy.gracefulRestart .Values.envoy.gracefulRestart.enabled }}
+- name: RESTART_EPOCH
+  valueFrom:
+    configMapKeyRef:
+      name: restart-epoch-cm
+      key: restart-epoch
+{{- end }}
 {{- end }}
 
 {{/*
 Allow packagers to add extra volume mounts to the cilium-envoy container.
 */}}
 {{- define "envoy.volumeMounts.extra" -}}
+{{- if and .Values.envoy.gracefulRestart .Values.envoy.gracefulRestart.enabled }}
+- mountPath: /dev/shm
+  name: envoy-shared-memory
+- mountPath: /var/run/cilium-envoy/hot-restart-sockets
+  name: envoy-hot-restart-sockets
+  readOnly: false
+{{- end }}
 {{- end }}
 
 {{/*
 Allow packagers to add extra host path mounts to the cilium-envoy container.
 */}}
 {{- define "envoy.hostPathMounts.extra" -}}
+{{- if and .Values.envoy.gracefulRestart .Values.envoy.gracefulRestart.enabled }}
+  - hostPath:
+      path: "/dev/envoy/shm"
+      type: DirectoryOrCreate
+    name: envoy-shared-memory
+  - hostPath:
+      path: "{{ .Values.daemon.runPath }}/cilium-envoy/hot-restart-sockets"
+      type: DirectoryOrCreate
+    name: envoy-hot-restart-sockets
+{{- end }}
 {{- end }}
 
 
@@ -243,6 +296,7 @@ The template needs to allow overriding ports spec not just adding.
 */}}
 {{- define "envoy.ports" -}}
         {{- if .Values.envoy.prometheus.enabled }}
+        {{- if and (eq .Values.envoy.prometheus.enabled true) (.Values.envoy.gracefulRestart) (eq .Values.envoy.gracefulRestart.enabled false) }}
         ports:
         - name: envoy-metrics
           containerPort: {{ .Values.envoy.prometheus.port }}
@@ -255,25 +309,68 @@ The template needs to allow overriding ports spec not just adding.
           protocol: TCP
         {{- end }}
         {{- end }}
+        {{- end }}
 {{- end }}
 
 {{/*
 Allow packagers to define update strategy for cilium-envoy pods.
 */}}
 {{- define "envoy.updateStrategy" -}}
-{{- with .Values.envoy.updateStrategy }}
+{{- if and (.Values.envoy.gracefulRestart) (.Values.envoy.gracefulRestart.enabled) }}
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 100
+{{- else }}
+  {{- with .Values.envoy.updateStrategy }}
 updateStrategy:
   {{- toYaml . | trim | nindent 2 }}
   {{- end }}
+{{- end }}
 {{- end }}
 
 {{/*
 Allow packagers to define affinity for cilium-envoy pods.
 */}}
 {{- define "envoy.affinity" -}}
+{{- if and .Values.envoy.gracefulRestart .Values.envoy.gracefulRestart.enabled }}
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 1
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: k8s-app
+            operator: In
+            values:
+            - cilium-envoy
+        topologyKey: kubernetes.io/hostname
+  podAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 1
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: k8s-app
+            operator: In
+            values:
+            - cilium
+        topologyKey: kubernetes.io/hostname
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 1
+      preference:
+        matchExpressions:
+        - key: cilium.io/no-schedule
+          operator: NotIn
+          values:
+          - "true" 
+{{- else }}
 {{- with .Values.envoy.affinity }}
 affinity:
-  {{- toYaml . | nindent 2 }}     
+  {{- toYaml . | nindent 2 }}
 {{- end }}
 {{- end }}
-
+{{- end }}
