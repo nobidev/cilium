@@ -1609,7 +1609,7 @@
      - object
      - ``{"enabled":false}``
    * - :spelling:ignore:`envoy.gracefulRestart.enabled`
-     - Enables graceful shutdown and draining of traffic for Envoy pods in a standalone DaemonSet. During rolling update 2 pods of Cilium Envoy will exist per node (new and old). All new connections will go to the new pod and traffic will be gracefully drained on the old pod. Proxy will send “Connection: close” for HTTP1 requests or HTTP2 GOAWAY for HTTP2 requests and terminate connections on request completion. When enabling ``gracefulRestart`` for  cilium-envoy daemonset make sure to configure ``envoy.terminationGracePeriodSeconds`` to a sufficiently large value to allow  traffic to drain (e.g. 60 seconds).
+     - Enables graceful shutdown and draining of traffic for Envoy pods in a standalone DaemonSet. During rolling update 2 pods of Cilium Envoy will exist per node (new and old). All new connections will go to the new pod and traffic will be gracefully drained on the old pod. Proxy will send “Connection: close” for HTTP1 requests or HTTP2 GOAWAY for HTTP2 requests and terminate connections on request completion. When enabling ``gracefulRestart`` for cilium-envoy daemonset make sure to configure ``envoy.terminationGracePeriodSeconds`` to a sufficiently large value to allow traffic to drain (e.g. 60 seconds).
      - bool
      - ``false``
    * - :spelling:ignore:`envoy.healthPort`

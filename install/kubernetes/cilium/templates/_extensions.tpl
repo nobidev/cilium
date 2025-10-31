@@ -230,7 +230,7 @@ initContainers:
       then
         echo "restart_epoch is empty, assigning zero"
         kubectl create configmap restart-epoch-cm --from-literal=restart-epoch=$pod_template_gen --dry-run -o yaml | kubectl apply -f -
-      else              
+      else
         kubectl patch cm restart-epoch-cm --type merge -p '{"data":{"restart-epoch":"'"$pod_template_gen"'"}}'
       fi
 {{- end }}
