@@ -53,7 +53,7 @@ func (ep Endpoint) MapEntryType() MapEntryType {
 
 // ToMapEntry returns the MapEntry object created from the Endpoint and
 // PrivateNetwork information.
-func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork, bridgeMode bool) *MapEntry {
+func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork, bridgeMode, announce bool) *MapEntry {
 	// gneigh status is only relevant on the INB where it will be set as done by the gneigh
 	// reconciler.
 	gneighStatus := reconciler.StatusDone()
@@ -75,6 +75,8 @@ func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork, bridgeMode bool) *MapE
 			NextHop:       ep.IP,
 			EgressIfIndex: privnet.EgressIfIndex,
 			Cluster:       ClusterName(ep.Source.Cluster),
+			// We cannot perform L2 announcements if the egress interface is not configured.
+			L2Announce: announce && privnet.EgressIfIndex > 0,
 		},
 
 		Status:       reconciler.StatusPending(),

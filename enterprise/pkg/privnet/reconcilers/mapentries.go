@@ -62,6 +62,7 @@ type MapEntries struct {
 	endpoints statedb.Table[tables.Endpoint]
 	routes    statedb.Table[tables.Route]
 	inbs      statedb.Table[tables.INB]
+	actnets   statedb.Table[tables.ActiveNetwork]
 	tbl       statedb.RWTable[*tables.MapEntry]
 
 	// knownNetworks is not protected by a mutex as access is serialized by write transactions.
@@ -86,6 +87,7 @@ func newMapEntries(in struct {
 	Endpoints statedb.Table[tables.Endpoint]
 	Routes    statedb.Table[tables.Route]
 	INBs      statedb.Table[tables.INB]
+	ActNets   statedb.Table[tables.ActiveNetwork]
 	Table     statedb.RWTable[*tables.MapEntry]
 }) (*MapEntries, error) {
 	reconciler := &MapEntries{
@@ -103,6 +105,7 @@ func newMapEntries(in struct {
 		endpoints: in.Endpoints,
 		routes:    in.Routes,
 		inbs:      in.INBs,
+		actnets:   in.ActNets,
 		tbl:       in.Table,
 
 		knownNetworks:     make(map[tables.NetworkName]tables.SlimPrivateNetwork),
@@ -140,10 +143,11 @@ func (m *MapEntries) registerReconciler() {
 			return inb.Node
 		}
 
-		txn := m.db.WriteTxn(m.networks, m.endpoints, m.routes)
+		txn := m.db.WriteTxn(m.networks, m.endpoints, m.routes, m.actnets)
 		epsChangeIter, _ := m.endpoints.Changes(txn)
 		netChangeIter, _ := m.networks.Changes(txn)
 		rtsChangeIter, _ := m.routes.Changes(txn)
+		actChangeIter, _ := m.actnets.Changes(txn)
 		txn.Commit()
 
 		for {
@@ -151,7 +155,8 @@ func (m *MapEntries) registerReconciler() {
 			netChanges, netWatch := netChangeIter.Next(txn)
 			epsChanges, epsWatch := epsChangeIter.Next(txn)
 			rtsChanges, rtsWatch := rtsChangeIter.Next(txn)
-			watchset.Add(netWatch, epsWatch, rtsWatch)
+			actChanges, actWatch := actChangeIter.Next(txn)
+			watchset.Add(netWatch, epsWatch, rtsWatch, actWatch)
 
 			// Handle network change events
 			upsertedNetworks := make(sets.Set[tables.NetworkName])
@@ -260,6 +265,37 @@ func (m *MapEntries) registerReconciler() {
 				}
 			}
 
+			// Handle active networks change events
+			for actChange := range actChanges {
+				// Skip change event if the network has already been handled above.
+				// Regardless of whether the network got added or removed, we are
+				// guaranteed that all corresponding endpoints have already been
+				// processed, and [L2Announce] has already been set correctly.
+				network := actChange.Object.Network
+				if upsertedNetworks.Has(network) || removedNetworks.Has(network) {
+					continue
+				}
+
+				m.log.Debug("Processing table event",
+					logfields.Table, m.actnets.Name(),
+					logfields.Event, actChange,
+				)
+
+				query := tables.EndpointsByNetworkNode(network, actChange.Object.Node)
+				for endpoint := range m.endpoints.List(txn, query) {
+					// Process the endpoint again, to update [L2Announce] as appropriate.
+					// We assume that it is unlikely that the given endpoint also changed
+					// and got already processed in this reconciliation round. Hence, we
+					// don't explicitly track them to avoid increasing complexity further,
+					// as the performance benefits would be minimal.
+					err := m.handleEndpointChange(txn, endpoint)
+					if err != nil {
+						txn.Abort()
+						return err
+					}
+				}
+			}
+
 			// In order to be able to propagate initialization, we need to check if the upstream
 			// tables have already been initialized
 			if !initDone {
@@ -267,6 +303,7 @@ func (m *MapEntries) registerReconciler() {
 				epsInit, ew := m.endpoints.Initialized(txn)
 				rtsInit, rw := m.routes.Initialized(txn)
 				inbInit, iw := m.inbs.Initialized(txn)
+				actInit, aw := m.actnets.Initialized(txn)
 
 				switch {
 				case !netInit:
@@ -277,6 +314,8 @@ func (m *MapEntries) registerReconciler() {
 					watchset.Add(rw)
 				case !inbInit:
 					watchset.Add(iw)
+				case !actInit:
+					watchset.Add(aw)
 				default:
 					initDone = true
 					initialized(txn)
@@ -330,7 +369,7 @@ func (m *MapEntries) handleEndpointChange(txn statedb.WriteTxn, ep tables.Endpoi
 	}
 
 	// Skip any further logic if the to-be-upserted entry is already present
-	desired := activeEp.ToMapEntry(privNet, m.cfg.EnabledAsBridge())
+	desired := activeEp.ToMapEntry(privNet, m.cfg.EnabledAsBridge(), m.shouldL2Announce(txn, ep))
 	if found && current.Equal(desired) {
 		return nil
 	}
@@ -392,6 +431,24 @@ func (m *MapEntries) shouldSkipExternalEndpoint(ep tables.Endpoint, privnet tabl
 			tables.NodeName(ep.NodeName) != privnet.ActiveINB.Name) &&
 		(tables.ClusterName(ep.Source.Cluster) != m.local.Cluster ||
 			tables.NodeName(ep.NodeName) != m.local.Name)
+}
+
+// shouldL2Announce returns whether the local node should announce the given endpoint
+// on the egress facing interface. This happens on INB nodes only, if the node hosting
+// the endpoint promoted us as active for that network.
+func (m *MapEntries) shouldL2Announce(txn statedb.ReadTxn, ep tables.Endpoint) bool {
+	if !m.cfg.EnabledAsBridge() || ep.Flags.External {
+		return false
+	}
+
+	_, _, active := m.actnets.Get(txn, tables.ActiveNetworkByKey(
+		tables.WorkloadNode{
+			Cluster: tables.ClusterName(ep.Source.Cluster),
+			Name:    tables.NodeName(ep.NodeName),
+		}, tables.NetworkName(ep.Network.Name),
+	))
+
+	return active
 }
 
 // findConflictingNATEntriesForActiveEP checks the endpoint table to find all endpoints

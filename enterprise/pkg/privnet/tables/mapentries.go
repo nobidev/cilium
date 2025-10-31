@@ -69,14 +69,20 @@ func (me MapEntry) String() string {
 var _ statedb.TableWritable = &MapEntry{}
 
 func (me *MapEntry) TableHeader() []string {
-	return []string{"Type", "Network", "CIDR", "Nexthop", "Status"}
+	return []string{"Type", "Network", "CIDR", "Nexthop", "L2Ann", "Status"}
 }
 
 func (me MapEntry) TableRow() []string {
+	var l2Announce = "No"
+	if me.Routing.L2Announce {
+		l2Announce = "Yes"
+	}
+
 	return []string{
 		me.Type.String(),
 		string(me.Target.NetworkName), me.Target.CIDR.String(),
 		me.Routing.NextHop.String(),
+		l2Announce,
 		me.Status.String(),
 	}
 }
@@ -151,7 +157,12 @@ type MapEntryRouting struct {
 	// Currently applicable on the INB clusters only.
 	EgressIfIndex int
 
-	// Cluster is the name of the cluster adjacent to the target.
+	// L2Announce is whether the local node should announce the target endpoint on
+	// the egress facing interface, replying to ARP/ND requests, as well as sending
+	// gratuitous ARP and ND packets. Currently applicable on the INB cluster(s) only,
+	// and for entries of type [MapEntryTypeEndpoint].
+	L2Announce bool
+
 	// Currently applicable only for [MapEntryTypeEndpoint].
 	Cluster ClusterName
 }

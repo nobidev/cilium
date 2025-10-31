@@ -1,11 +1,26 @@
 #! --private-networks-enabled --private-networks-mode=bridge
 
+# Create the checkers.
+checkerpool/new cougar felidae/cougar
+checkerpool/new lion   felidae/lion
+
 hive start
 
 # Populate the initial state.
 db/insert devices device.eth1.yaml
 db/insert devices device.eth2.yaml
 k8s/add icpn-1.yaml icpn-2.yaml
+
+# Register the networks.
+checkerpool/register cougar default/foobar-worker-1 firefly
+checkerpool/register cougar default/foobar-worker-1 maggot
+checkerpool/synced cougar
+db/cmp test-observed-state-cougar health.v1.table
+
+checkerpool/register lion default/foobar-worker-1 firefly
+checkerpool/register lion default/foobar-worker-1 maggot
+checkerpool/synced lion
+db/cmp test-observed-state-lion health.v1.table
 
 # Create a few local workloads.
 db/insert privnet-local-workloads local-workload-optimum-mouse.yaml
@@ -21,7 +36,37 @@ clustermesh/endpoints/sync
 
 # Assert that the mapentries table got properly reconciled. The only external
 # endpoint present should be the one advertised by the local node.
+# L2 announcements should not be enabled for any entry at this point.
 db/cmp privnet-mapentries mapentries.v1.table
+
+# Activate a few networks, and check that L2 announcements are correctly updated.
+checkerpool/activate cougar default/foobar-worker-1 maggot
+checkerpool/activate lion   default/foobar-worker-1 firefly
+db/cmp privnet-mapentries mapentries.v2.table
+
+# Deregister one of the networks, and check that L2 announcements are correctly updated.
+checkerpool/deactivate cougar default/foobar-worker-1 maggot
+db/cmp privnet-mapentries mapentries.v3.table
+
+# Register it again, and check that L2 announcements are correctly updated.
+checkerpool/activate cougar default/foobar-worker-1 maggot
+db/cmp privnet-mapentries mapentries.v2.table
+
+# Ingest a few more endpoints from clustermesh.
+clustermesh/endpoints/upsert maggot/10.245.8.23 endpoint-maggot-cougar-3.json
+clustermesh/endpoints/upsert firefly/10.245.8.33 endpoint-firefly-lion-2.json
+
+# L2 announcements should be set correctly.
+db/cmp privnet-mapentries mapentries.v4.table
+
+# Change registered networks once more, and check that L2 announcements are correct.
+checkerpool/activate cougar default/foobar-worker-1 firefly
+checkerpool/deactivate lion default/foobar-worker-1 firefly
+db/cmp privnet-mapentries mapentries.v5.table
+
+# Stop serving one of the networks, L2 announcements should be reset.
+db/insert devices device.eth1.v2.yaml
+db/cmp privnet-mapentries mapentries.v6.table
 
 -- device.eth1.yaml --
 index: 10
@@ -243,13 +288,79 @@ default/foobar-worker-1   firefly   Healthy, Confirmed
 default/foobar-worker-1   maggot    Healthy, Confirmed
 
 -- mapentries.v1.table --
-Type   Network   CIDR                Nexthop
-D      firefly   192.168.251.0/24    0.0.0.0
-E      firefly   192.168.251.30/32   10.245.8.30
-E      firefly   192.168.251.31/32   10.245.8.31
-E      firefly   192.168.251.32/32   10.245.8.32
-X      firefly   192.168.251.39/32   10.245.8.39
-D      maggot    192.168.250.0/24    0.0.0.0
-E      maggot    192.168.250.20/32   10.245.8.20
-E      maggot    192.168.250.21/32   10.245.8.21
-E      maggot    192.168.250.22/32   10.245.8.22
+Type   Network   CIDR                Nexthop       L2Ann
+D      firefly   192.168.251.0/24    0.0.0.0       No
+E      firefly   192.168.251.30/32   10.245.8.30   No
+E      firefly   192.168.251.31/32   10.245.8.31   No
+E      firefly   192.168.251.32/32   10.245.8.32   No
+X      firefly   192.168.251.39/32   10.245.8.39   No
+D      maggot    192.168.250.0/24    0.0.0.0       No
+E      maggot    192.168.250.20/32   10.245.8.20   No
+E      maggot    192.168.250.21/32   10.245.8.21   No
+E      maggot    192.168.250.22/32   10.245.8.22   No
+
+-- mapentries.v2.table --
+Type   Network   CIDR                Nexthop       L2Ann
+D      firefly   192.168.251.0/24    0.0.0.0       No
+E      firefly   192.168.251.30/32   10.245.8.30   No
+E      firefly   192.168.251.31/32   10.245.8.31   No
+E      firefly   192.168.251.32/32   10.245.8.32   Yes
+X      firefly   192.168.251.39/32   10.245.8.39   No
+D      maggot    192.168.250.0/24    0.0.0.0       No
+E      maggot    192.168.250.20/32   10.245.8.20   No
+E      maggot    192.168.250.21/32   10.245.8.21   Yes
+E      maggot    192.168.250.22/32   10.245.8.22   Yes
+
+-- mapentries.v3.table --
+Type   Network   CIDR                Nexthop       L2Ann
+D      firefly   192.168.251.0/24    0.0.0.0       No
+E      firefly   192.168.251.30/32   10.245.8.30   No
+E      firefly   192.168.251.31/32   10.245.8.31   No
+E      firefly   192.168.251.32/32   10.245.8.32   Yes
+X      firefly   192.168.251.39/32   10.245.8.39   No
+D      maggot    192.168.250.0/24    0.0.0.0       No
+E      maggot    192.168.250.20/32   10.245.8.20   No
+E      maggot    192.168.250.21/32   10.245.8.21   No
+E      maggot    192.168.250.22/32   10.245.8.22   No
+
+-- mapentries.v4.table --
+Type   Network   CIDR                Nexthop       L2Ann
+D      firefly   192.168.251.0/24    0.0.0.0       No
+E      firefly   192.168.251.30/32   10.245.8.30   No
+E      firefly   192.168.251.31/32   10.245.8.31   No
+E      firefly   192.168.251.32/32   10.245.8.32   Yes
+E      firefly   192.168.251.33/32   10.245.8.33   Yes
+X      firefly   192.168.251.39/32   10.245.8.39   No
+D      maggot    192.168.250.0/24    0.0.0.0       No
+E      maggot    192.168.250.20/32   10.245.8.20   No
+E      maggot    192.168.250.21/32   10.245.8.21   Yes
+E      maggot    192.168.250.22/32   10.245.8.22   Yes
+E      maggot    192.168.250.23/32   10.245.8.23   Yes
+
+-- mapentries.v5.table --
+Type   Network   CIDR                Nexthop       L2Ann
+D      firefly   192.168.251.0/24    0.0.0.0       No
+E      firefly   192.168.251.30/32   10.245.8.30   No
+E      firefly   192.168.251.31/32   10.245.8.31   Yes
+E      firefly   192.168.251.32/32   10.245.8.32   No
+E      firefly   192.168.251.33/32   10.245.8.33   No
+X      firefly   192.168.251.39/32   10.245.8.39   No
+D      maggot    192.168.250.0/24    0.0.0.0       No
+E      maggot    192.168.250.20/32   10.245.8.20   No
+E      maggot    192.168.250.21/32   10.245.8.21   Yes
+E      maggot    192.168.250.22/32   10.245.8.22   Yes
+E      maggot    192.168.250.23/32   10.245.8.23   Yes
+
+-- mapentries.v6.table --
+Type   Network   CIDR                Nexthop       L2Ann
+D      firefly   192.168.251.0/24    0.0.0.0       No
+E      firefly   192.168.251.30/32   10.245.8.30   No
+E      firefly   192.168.251.31/32   10.245.8.31   Yes
+E      firefly   192.168.251.32/32   10.245.8.32   No
+E      firefly   192.168.251.33/32   10.245.8.33   No
+X      firefly   192.168.251.39/32   10.245.8.39   No
+D      maggot    192.168.250.0/24    0.0.0.0       No
+E      maggot    192.168.250.20/32   10.245.8.20   No
+E      maggot    192.168.250.21/32   10.245.8.21   No
+E      maggot    192.168.250.22/32   10.245.8.22   No
+E      maggot    192.168.250.23/32   10.245.8.23   No
