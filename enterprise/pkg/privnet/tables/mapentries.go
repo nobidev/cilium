@@ -162,9 +162,6 @@ type MapEntryRouting struct {
 	// gratuitous ARP and ND packets. Currently applicable on the INB cluster(s) only,
 	// and for entries of type [MapEntryTypeEndpoint].
 	L2Announce bool
-
-	// Currently applicable only for [MapEntryTypeEndpoint].
-	Cluster ClusterName
 }
 
 // MapEntryKey is <network>|<type>|<network-cidr>.

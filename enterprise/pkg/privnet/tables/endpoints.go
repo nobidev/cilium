@@ -74,7 +74,6 @@ func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork, bridgeMode, announce b
 		Routing: MapEntryRouting{
 			NextHop:       ep.IP,
 			EgressIfIndex: privnet.EgressIfIndex,
-			Cluster:       ClusterName(ep.Source.Cluster),
 			// We cannot perform L2 announcements if the egress interface is not configured.
 			L2Announce: announce && privnet.EgressIfIndex > 0,
 		},
