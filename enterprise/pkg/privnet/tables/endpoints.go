@@ -163,6 +163,21 @@ func newEndpointNetIPKey(network NetworkName, networkIP netip.Addr) endpointNetI
 	return newEndpointNetIPKeyFromNetwork(network) + endpointNetIPKey(networkIP.String())
 }
 
+// endpointNetNodeKey is <network>|<cluster>/<node>
+type endpointNetNodeKey string
+
+func (key endpointNetNodeKey) Key() index.Key {
+	return index.String(string(key))
+}
+
+func newEndpointNetNodeKeyFromNetwork(network NetworkName) endpointNetNodeKey {
+	return endpointNetNodeKey(network) + indexDelimiter
+}
+
+func newEndpointNetNodeKey(network NetworkName, wn WorkloadNode) endpointNetNodeKey {
+	return newEndpointNetNodeKeyFromNetwork(network) + endpointNetNodeKey(wn.String())
+}
+
 var (
 	endpointsPrimaryIndex = statedb.Index[Endpoint, EndpointKey]{
 		Name: "primary",
@@ -195,6 +210,20 @@ var (
 		Unique:     false,
 	}
 
+	endpointsNetNodeIndex = statedb.Index[Endpoint, endpointNetNodeKey]{
+		Name: "network-node",
+		FromObject: func(obj Endpoint) index.KeySet {
+			return index.NewKeySet(newEndpointNetNodeKey(
+				NetworkName(obj.Network.Name), WorkloadNode{
+					Cluster: ClusterName(obj.Source.Cluster),
+					Name:    NodeName(obj.NodeName),
+				}).Key())
+		},
+		FromKey:    endpointNetNodeKey.Key,
+		FromString: index.FromString,
+		Unique:     false,
+	}
+
 	// EndpointsByPIP queries the endpoints table by Pod IP.
 	EndpointsByPIP = endpointsPIPIndex.Query
 )
@@ -219,6 +248,11 @@ func EndpointsByNetworkIP(network NetworkName, networkIP netip.Addr) statedb.Que
 	return endpointsNetIPIndex.Query(newEndpointNetIPKey(network, networkIP))
 }
 
+// EndpointsByNetworkNode queries the endpoints table by network name and hosting node.
+func EndpointsByNetworkNode(network NetworkName, node WorkloadNode) statedb.Query[Endpoint] {
+	return endpointsNetNodeIndex.Query(newEndpointNetNodeKey(network, node))
+}
+
 func NewEndpointsTable(db *statedb.DB) (statedb.RWTable[Endpoint], error) {
 	return statedb.NewTable(
 		db,
@@ -226,5 +260,6 @@ func NewEndpointsTable(db *statedb.DB) (statedb.RWTable[Endpoint], error) {
 		endpointsPrimaryIndex,
 		endpointsPIPIndex,
 		endpointsNetIPIndex,
+		endpointsNetNodeIndex,
 	)
 }
