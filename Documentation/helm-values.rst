@@ -1472,6 +1472,14 @@
      - Evaluation interval @schema type: [string] @schema
      - string
      - ``"5m"``
+   * - :spelling:ignore:`enterprise.dnsProxyHA.enabled`
+     - Enable agent support for DNS proxy HA.  This enables support for DNS proxy HA, but does not actually deploy the HA proxy. For lifecycle reasons, the HA proxy is deployed as a separate Helm chart. See the documentation for how to deploy the HA proxy.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`enterprise.dnsProxyHA.offlineMode.enabled`
+     - Enable agent support for DNS HA proxy offline updates  This enables support for the DNS HA proxy to write updates directly to BPF when the agent is down. This must also be enabled in the HA proxy; this setting only enables necessary support APIs in the agent.
+     - bool
+     - ``false``
    * - :spelling:ignore:`enterprise.egressGatewayHA`
      - Enables egress gateway HA
      - object

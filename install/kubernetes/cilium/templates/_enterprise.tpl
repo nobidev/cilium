@@ -32,6 +32,17 @@ bgp-maintenance-withdraw-time: {{ .Values.enterprise.bgpControlPlane.nodeMainten
 enable-bgp-route-import: {{ .Values.enterprise.bgpControlPlane.routeImport.enabled | default "false" | quote }}
 {{- end }}
 
+{{/*
+FQDN-ha proxy. Docs previously configured these directly with
+extraConfig, so we can't set these values unless explicitly enabled.
+*/}}
+{{- if .Values.enterprise.dnsProxyHA.enabled }}
+external-dns-proxy: "true"
+{{- end }}
+{{- if .Values.enterprise.dnsProxyHA.offlineMode.enabled }}
+tofqdns-enable-offline-mode: "true"
+{{- end }}
+
 # BFD subsystem
 enable-bfd: {{ .Values.enterprise.bfd.enabled | default "false" | quote }}
 

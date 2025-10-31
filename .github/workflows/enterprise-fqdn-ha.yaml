@@ -151,8 +151,8 @@ jobs:
         run: |
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=debug.enabled=true \
-            --helm-set-string=extraConfig.external-dns-proxy=true \
-            --helm-set-string=extraConfig.tofqdns-enable-offline-mode=${{ matrix.offline }} \
+            --helm-set=enterprise.dnsProxyHA.enabled=true \
+            --helm-set=enterprise.dnsProxyHA.offlineMode.enabled=${{ matrix.offline }} \
             --helm-set=enterprise.featureGate.strict=true \
           "
 

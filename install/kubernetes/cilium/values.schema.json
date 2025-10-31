@@ -2107,6 +2107,22 @@
           },
           "type": "object"
         },
+        "dnsProxyHA": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "offlineMode": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
         "egressGatewayHA": {
           "properties": {
             "enabled": {
