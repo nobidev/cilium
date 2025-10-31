@@ -118,14 +118,8 @@ func newGneighOps(clusterInfo cmtypes.ClusterInfo, sender gneigh.Sender) *Gneigh
 	}
 }
 
-func (ops *GneighOps) isRemoteEndpoint(me *tables.MapEntry) bool {
-	return me.Type == tables.MapEntryTypeEndpoint && // Skip entries not referring to single endpoints.
-		string(me.Routing.Cluster) != ops.clusterInfo.Name && // Skip entries already inside the network.
-		me.Routing.EgressIfIndex != 0 // Skip entries with unknown egress interface.
-}
-
 func (ops *GneighOps) Update(ctx context.Context, txn statedb.ReadTxn, rev statedb.Revision, me *tables.MapEntry) error {
-	if !ops.isRemoteEndpoint(me) {
+	if !me.Routing.L2Announce {
 		return nil
 	}
 
@@ -163,7 +157,7 @@ func (ops *GneighOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Rev
 func (ops *GneighOps) Prune(_ context.Context, txn statedb.ReadTxn, mes iter.Seq2[*tables.MapEntry, statedb.Revision]) error {
 	interfaces := sets.Set[int]{}
 	for me := range mes {
-		if ops.isRemoteEndpoint(me) {
+		if me.Routing.L2Announce {
 			interfaces.Insert(me.Routing.EgressIfIndex)
 		}
 	}

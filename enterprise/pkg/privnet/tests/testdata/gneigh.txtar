@@ -1,5 +1,8 @@
 #! --private-networks-enabled --private-networks-mode=bridge
 
+# Create the checker.
+checkerpool/new hookworm remote/hookworm
+
 hive start
 db/initialized private-networks
 
@@ -13,6 +16,15 @@ k8s/add icpn-1.yaml icpn-2.yaml
 # Ensure that they are correctly propagated into the table
 db/cmp private-networks privnet.v1.table
 
+# Let a workload node activate a few networks.
+checkerpool/register hookworm default/foobar-worker-1 blue-network
+checkerpool/register hookworm default/foobar-worker-1 green-network
+checkerpool/synced hookworm
+db/cmp test-observed-state-hookworm hookworm.expected.v1.table
+
+checkerpool/activate hookworm default/foobar-worker-1 blue-network
+checkerpool/activate hookworm default/foobar-worker-1 green-network
+
 # Add local endpoints. No gratuitous ARP/ND packets should be sent for these.
 k8s/add privnet-eps-1.yaml
 
@@ -23,6 +35,7 @@ k8s/add privnet-eps-1.yaml
 clustermesh/endpoints/upsert blue-network/10.245.5.77 clustermesh-entry-1.json
 clustermesh/endpoints/upsert blue-network/face:beed:4:5::77 clustermesh-entry-v6-1.json
 clustermesh/endpoints/upsert green-network/10.224.1.33 clustermesh-entry-green-1.json
+clustermesh/endpoints/upsert green-network/10.224.1.51 clustermesh-entry-green-2.json
 clustermesh/endpoints/sync
 
 # Wait for initial mapentries table to be populated
@@ -216,34 +229,55 @@ nodeName: cricket
   }
 }
 
+-- clustermesh-entry-green-2.json --
+{
+  "activatedAt": "2025-09-26T16:41:27.975Z",
+  "ip": "10.224.1.51",
+  "name": "magnetic-jaguar",
+  "network": {
+    "name": "green-network",
+    "ip": "192.168.99.51",
+    "mac": "00:80:ab:ad:ab:ec"
+  },
+  "nodeName": "corgi",
+  "source": {
+    "cluster": "remote",
+    "namespace": "keen-calf",
+    "name": "slice-1"
+  }
+}
+
 -- mapentries.v1.table --
-Type   Network        CIDR                   Nexthop
-D      blue-network   192.168.251.0/24       0.0.0.0
-D      blue-network   fd00:10:244::/64       ::
-E      blue-network   192.168.250.4/32       10.244.5.108
-E      blue-network   192.168.251.24/32      10.245.5.77
-E      blue-network   fc00:20:144:4::1/128   fd10:0:250::23
-E      blue-network   fd00:10:244:5::98/128  face:beed:4:5::77
-D      green-network  192.168.99.0/24        0.0.0.0
-E      green-network  192.168.99.49/32       10.224.1.33
+Type   Network        CIDR                   Nexthop            L2Ann
+D      blue-network   192.168.251.0/24       0.0.0.0            No
+D      blue-network   fd00:10:244::/64       ::                 No
+E      blue-network   192.168.250.4/32       10.244.5.108       No
+E      blue-network   192.168.251.24/32      10.245.5.77        Yes
+E      blue-network   fc00:20:144:4::1/128   fd10:0:250::23     No
+E      blue-network   fd00:10:244:5::98/128  face:beed:4:5::77  Yes
+D      green-network  192.168.99.0/24        0.0.0.0            No
+E      green-network  192.168.99.49/32       10.224.1.33        Yes
+E      green-network  192.168.99.51/32       10.224.1.51        No
 
 -- mapentries.v2.table --
-Type   Network        CIDR                   Nexthop
-D      blue-network   192.168.251.0/24       0.0.0.0
-D      blue-network   fd00:10:244::/64       ::
-E      blue-network   192.168.250.4/32       10.244.5.108
-E      blue-network   192.168.251.24/32      10.245.5.77
-E      blue-network   192.168.251.25/32      10.245.5.78
-E      blue-network   fc00:20:144:4::1/128   fd10:0:250::23
-E      blue-network   fd00:10:244:5::98/128  face:beed:4:5::77
-E      blue-network   fd00:10:244:5::99/128  face:beed:4:5::78
-D      green-network  192.168.99.0/24        0.0.0.0
-E      green-network  192.168.99.49/32       10.224.1.33
+Type   Network        CIDR                   Nexthop            L2Ann
+D      blue-network   192.168.251.0/24       0.0.0.0            No
+D      blue-network   fd00:10:244::/64       ::                 No
+E      blue-network   192.168.250.4/32       10.244.5.108       No
+E      blue-network   192.168.251.24/32      10.245.5.77        Yes
+E      blue-network   192.168.251.25/32      10.245.5.78        Yes
+E      blue-network   fc00:20:144:4::1/128   fd10:0:250::23     No
+E      blue-network   fd00:10:244:5::98/128  face:beed:4:5::77  Yes
+E      blue-network   fd00:10:244:5::99/128  face:beed:4:5::78  Yes
+D      green-network  192.168.99.0/24        0.0.0.0            No
+E      green-network  192.168.99.49/32       10.224.1.33        Yes
+E      green-network  192.168.99.51/32       10.224.1.51        No
 
 -- mapentries.v3.table --
-Type   Network        CIDR                   Nexthop
-D      green-network  192.168.99.0/24        0.0.0.0
-E      green-network  192.168.99.49/32       10.224.1.33
+Type   Network        CIDR                   Nexthop            L2Ann
+D      green-network  192.168.99.0/24        0.0.0.0            No
+E      green-network  192.168.99.49/32       10.224.1.33        Yes
+E      green-network  192.168.99.51/32       10.224.1.51        No
 
 -- gneigh.expected.v1.table --
 Type   Interface   MAC               IP
@@ -262,3 +296,8 @@ ND     eth1        12:42:ac:ab:00:01 fd00:10:244:5::99
 -- gneigh.expected.v3.table --
 Type   Interface   MAC               IP
 ARP    eth2        12:42:ac:ab:00:02 192.168.99.49
+
+-- hookworm.expected.v1.table --
+Instance                  Network         Health
+default/foobar-worker-1   blue-network    Healthy, Confirmed
+default/foobar-worker-1   green-network   Healthy, Confirmed
