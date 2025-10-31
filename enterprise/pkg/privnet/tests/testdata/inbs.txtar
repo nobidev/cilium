@@ -3,7 +3,34 @@
 # Populate the INBs checkpoint, to verify that associations are preserved.
 cp checkpoint.prev.json privnet-active-inbs.json
 
+# Create the health servers.
+serverpool/new felidae/cougar
+serverpool/new felidae/lion
+serverpool/new felidae/tiger
+serverpool/new camelidae/alpaca
+serverpool/new camelidae/llama
+serverpool/new elephantidae/elephant
+serverpool/new elephantidae/mammoth
+
 hive start
+
+# Configure the networks served by each INB.
+serverpool/serve felidae/cougar        blue red
+serverpool/serve felidae/lion          blue red
+serverpool/serve felidae/tiger         blue red
+serverpool/serve camelidae/llama       blue red
+serverpool/serve camelidae/alpaca      blue red
+serverpool/serve elephantidae/elephant blue red
+serverpool/serve elephantidae/mammoth  blue red
+
+# Start all health servers.
+serverpool/start felidae/cougar
+serverpool/start felidae/lion
+serverpool/start felidae/tiger
+serverpool/start camelidae/llama
+serverpool/start camelidae/alpaca
+serverpool/start elephantidae/elephant
+serverpool/start elephantidae/mammoth
 
 # Add two ClusterwidePrivateNetworks
 k8s/add icpn-blue.v1.yaml icpn-red.v1.yaml
@@ -49,6 +76,12 @@ clustermesh/nodes/delete _ nodes-felidae-tiger.json
 db/cmp privnet-inbs inbs.v3.table
 * cmp privnet-active-inbs.json checkpoint.v3.json
 
+# Let llama be matched again by privnet red. This is necessary to prevent flakiness
+# during the subsequent test, ensuring that it is always selected as the active one
+# (given that it is already Standby, and it is preferred having the smallest IP).
+replace s390x amd64 nodes-camelidae-llama.json
+clustermesh/nodes/upsert _ nodes-camelidae-llama.json
+db/cmp privnet-inbs inbs.v3bis.table
 
 # Update the privnet resources, and assert that the table is updated correctly.
 k8s/update icpn-blue.v2.yaml  # Change the selector of felidae, remove camelidae
@@ -277,6 +310,17 @@ Cluster        Node       IP              Network   Role
 camelidae      alpaca     192.168.0.4     blue      Standby
 camelidae      alpaca     192.168.0.4     red       Standby
 camelidae      llama      192.168.0.5     blue      Active
+elephantidae   elephant   192.168.0.6     blue      Standby
+felidae        cougar     192.168.0.3     blue      Standby
+felidae        cougar     192.168.0.3     red       Active
+felidae        lion       192.168.255.1   blue      Standby
+
+-- inbs.v3bis.table --
+Cluster        Node       IP              Network   Role
+camelidae      alpaca     192.168.0.4     blue      Standby
+camelidae      alpaca     192.168.0.4     red       Standby
+camelidae      llama      192.168.0.5     blue      Active
+camelidae      llama      192.168.0.5     red       Standby
 elephantidae   elephant   192.168.0.6     blue      Standby
 felidae        cougar     192.168.0.3     blue      Standby
 felidae        cougar     192.168.0.3     red       Active

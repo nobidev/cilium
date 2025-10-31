@@ -292,6 +292,9 @@ cilium-agent hive dot-graph [flags]
       --prepend-iptables-chains                                          Prepend custom iptables chains instead of appending (default true)
       --private-networks-bridge-gneigh-interval duration                 Interval at which workload cluster endpoints are announced using gratuitous ARP/ND in bridge mode. Ignored in default mode. (default 1m0s)
       --private-networks-enabled                                         Enable support for private networks
+      --private-networks-health-check-interval duration                  The interval for performing health checks against candidate INBs. Ignored in bridge mode. (default 2s)
+      --private-networks-health-check-port uint16                        The TCP port used for health checks (default 4239)
+      --private-networks-health-check-timeout duration                   The timeout after which a candidate INB is considered unhealthy if no health check response is received. Ignored in bridge mode. (default 5s)
       --private-networks-mode string                                     The private networks mode ("default" or "bridge") (default "default")
       --procfs string                                                    Path to the host's proc filesystem mount (default "/proc")
       --prometheus-serve-addr string                                     IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)

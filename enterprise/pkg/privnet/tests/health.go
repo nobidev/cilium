@@ -11,26 +11,51 @@
 package tests
 
 import (
+	"net"
+
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/checker"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/server"
+	ht "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/tests"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
-var Health = cell.Group(
-	cell.DecorateAll(
-		// Ensure consistent selection of the active INB by always picking the
-		// one associated with the smallest IP address.
-		func() reconcilers.ActiveINBIndexFunc {
-			return func(candidates []tables.INB) (out int) {
-				for idx := range candidates {
-					if candidates[idx].Node.IP.Less(candidates[out].Node.IP) {
-						out = idx
-					}
+func Health(path string) cell.Cell {
+	return cell.Group(
+		ht.ConnFactoryCell(path),
+		ht.ServerPoolCell,
+		ht.CheckerPoolCell,
+
+		cell.DecorateAll(
+			func(factory ht.ConnFactory) checker.ConnFactoryFn { return factory.ClientConnFactory() },
+		),
+
+		cell.DecorateAll(
+			func(cf ht.ConnFactory, cinfo cmtypes.ClusterInfo) server.ListenerFactory {
+				return func() (net.Listener, error) {
+					return cf.NewListener(ht.Instance{
+						Cluster: tables.ClusterName(cinfo.Name), Name: nodeName})
 				}
+			},
+		),
 
-				return out
-			}
-		},
-	),
-)
+		cell.DecorateAll(
+			// Ensure consistent selection of the active INB by always picking the
+			// one associated with the smallest IP address.
+			func() reconcilers.ActiveINBIndexFunc {
+				return func(candidates []tables.INB) (out int) {
+					for idx := range candidates {
+						if candidates[idx].Node.IP.Less(candidates[out].Node.IP) {
+							out = idx
+						}
+					}
+
+					return out
+				}
+			},
+		),
+	)
+}

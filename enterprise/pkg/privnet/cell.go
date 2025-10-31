@@ -15,7 +15,7 @@ import (
 
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/health"
+	health "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
 )
 

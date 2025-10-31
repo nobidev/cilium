@@ -1,6 +1,18 @@
 #! --private-networks-enabled
 
+# Create the health servers.
+serverpool/new felidae/cougar
+serverpool/new camelidae/alpaca
+
 hive start
+
+# Configure the networks served by each INB.
+serverpool/serve felidae/cougar   blue-network green-network
+serverpool/serve camelidae/alpaca blue-network green-network
+
+# Start all health servers.
+serverpool/start felidae/cougar
+serverpool/start camelidae/alpaca
 
 # Ingest initial blue private network and initial endpoint slice (containing blue and green endpoints)
 k8s/add icpn-blue.v1.yaml
