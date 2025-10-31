@@ -254,6 +254,7 @@ jobs:
             --node-count 2 \
             --labels rr-role=route-reflector \
             --tags svic_osquery_supported=no \
+            --node-vm-size Standard_D4ds_v4 \
             --vnet-subnet-id $EGW_SUBNET_ID
 
           az aks nodepool add \
@@ -264,6 +265,7 @@ jobs:
             --labels cilium.io/no-schedule=true \
             --node-taints "cilium.io/no-schedule=true:NoSchedule" \
             --tags svic_osquery_supported=no \
+            --node-vm-size Standard_D4ds_v4 \
             --vnet-subnet-id $EXTERNAL_SUBNET_ID
 
       - name: Get cluster credentials
