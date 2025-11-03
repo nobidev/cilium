@@ -255,4 +255,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.enterprise-srv6-datapath-test.result }}
+      success: ${{ needs.enterprise-srv6-datapath-test.result == 'success' }}

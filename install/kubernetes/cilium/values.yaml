@@ -868,6 +868,12 @@ daemon:
   #
   # By default, this functionality is enabled
   enableSourceIPVerification: true
+# -- Configure temporary volume for cilium-agent
+tmpVolume: {}
+# emptyDir:
+#   sizeLimit: "100Mi"
+#   medium: "Memory"
+
 # -- Specify which network interfaces can run the eBPF datapath. This means
 # that a packet sent from a pod to a destination outside the cluster will be
 # masqueraded (to an output device IPv4 address), if the output device runs the
@@ -1081,11 +1087,11 @@ encryption:
   # -- Enable encryption for pure node to node traffic.
   # This option is only effective when encryption.type is set to "wireguard".
   nodeEncryption: false
-  # -- Configure the WireGuard Pod2Pod strict mode.
+  # -- Configure the Encryption Pod2Pod strict mode.
   strictMode:
-    # -- Enable WireGuard Pod2Pod strict mode.
+    # -- Enable Encryption Pod2Pod strict mode.
     enabled: false
-    # -- CIDR for the WireGuard Pod2Pod strict mode.
+    # -- CIDR for the Encryption Pod2Pod strict mode.
     cidr: ""
     # -- Allow dynamic lookup of remote node identities.
     # This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
@@ -1201,12 +1207,15 @@ certgen:
     # @schema
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.2.4"
-    digest: "sha256:de7b97b1d19a34b674d0c4bc1da4db999f04ae355923a9a994ac3a81e1a1b5ff"
+    tag: "v0.3.0"
+    digest: "sha256:c6f836b5352adc16a241c5c24ba5576341c23a81b73c9fab4daba07b92d811a8"
     useDigest: true
     pullPolicy: "Always"
+  # @schema
+  # type: [null, integer]
+  # @schema
   # -- Seconds after which the completed job pod will be deleted
-  ttlSecondsAfterFinished: 1800
+  ttlSecondsAfterFinished: null
   # -- Labels to be added to hubble-certgen pods
   podLabels: {}
   # -- Annotations to be added to the hubble-certgen initial Job and CronJob
@@ -1231,6 +1240,11 @@ certgen:
   extraVolumeMounts: []
   # -- Affinity for certgen
   affinity: {}
+  cronJob:
+    # -- The number of successful finished jobs to keep
+    successfulJobsHistoryLimit: 3
+    # -- The number of failed finished jobs to keep
+    failedJobsHistoryLimit: 1
 hubble:
   # -- Enable Hubble (true by default).
   enabled: true
@@ -1954,6 +1968,11 @@ hubble:
       #  - secretName: chart-example-tls
       #    hosts:
       #      - chart-example.local
+    # -- Configure temporary volume for hubble-ui
+    tmpVolume: {}
+    # emptyDir:
+    #   # sizeLimit: "100Mi"
+    #   # medium: "Memory"
   # -- Hubble flows export.
   export:
     # --- Static exporter configuration.
@@ -4738,7 +4757,7 @@ authentication:
           override: ~
           repository: "docker.io/library/busybox"
           tag: "1.37.0"
-          digest: "sha256:d82f458899c9696cb26a7c02d5568f81c8c8223f8661bb2a7988b269c8b9051e"
+          digest: "sha256:e3652a00a2fabd16ce889f0aa32c38eec347b997e73bd09e69c962ec7f8732ee"
           useDigest: true
           pullPolicy: "Always"
         # SPIRE agent configuration

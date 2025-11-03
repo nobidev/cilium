@@ -13,10 +13,11 @@ package cmd
 import (
 	"os"
 
+	"github.com/cilium/hive/shell"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/cilium-dbg/cmd"
-	shell "github.com/cilium/cilium/pkg/shell/client"
+	"github.com/cilium/cilium/pkg/hive"
 )
 
 // bfdCmd is the root command of the BFD subsystem
@@ -31,13 +32,18 @@ var bfdPeersCmd = &cobra.Command{
 	Aliases: []string{"sessions"},
 	Short:   "List state of BFD peers",
 	Long:    "List current state of all configured BFD peers",
-	Run: func(_ *cobra.Command, args []string) {
-		shell.ShellExchange(os.Stdout, "db/show bfd-peers")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg := hive.DefaultShellConfig
+		if err := cfg.Parse(cmd.Flags()); err != nil {
+			return err
+		}
+
+		return shell.ShellExchange(cfg, os.Stdout, "db/show bfd-peers")
 	},
 }
 
 func init() {
 	cmd.RootCmd.AddCommand(bfdCmd)
 	bfdCmd.AddCommand(bfdPeersCmd)
-	shell.AddShellOptions(bfdPeersCmd)
+	hive.DefaultShellConfig.Flags(bfdPeersCmd.Flags())
 }

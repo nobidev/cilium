@@ -111,40 +111,34 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV6
 static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-		   __u32 srcid_from_ipcache, __u32 *sec_identity,
-		   const bool from_host)
+		   __u32 real_sec_identity, __u32 *ipcache_sec_identity)
 {
-	__u32 src_id = WORLD_IPV6_ID;
-	struct remote_endpoint_info *info = NULL;
+	const struct remote_endpoint_info *info = NULL;
 	union v6addr *src;
 
 	/* Packets from the proxy will already have a real identity. */
-	if (identity_is_reserved(srcid_from_ipcache)) {
+	if (identity_is_reserved(real_sec_identity)) {
 		src = (union v6addr *) &ip6->saddr;
 		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info) {
-			*sec_identity = info->sec_identity;
+			*ipcache_sec_identity = info->sec_identity;
 
 			/* When SNAT is enabled on traffic ingressing
 			 * into Cilium, all traffic from the world will
 			 * have a source IP of the host. It will only
-			 * actually be from the host if "srcid_from_proxy"
+			 * actually be from the host if "real_sec_identity"
 			 * (passed into this function) reports the src as
 			 * the host. So we can ignore the ipcache if it
 			 * reports the source as HOST_ID.
 			 */
-			if (*sec_identity != HOST_ID)
-				srcid_from_ipcache = *sec_identity;
+			if (*ipcache_sec_identity != HOST_ID)
+				real_sec_identity = *ipcache_sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   ((__u32 *) src)[3], srcid_from_ipcache);
+			   ((__u32 *)src)[3], real_sec_identity);
 	}
 
-	if (from_host)
-		src_id = srcid_from_ipcache;
-	else if (CONFIG(secctx_from_ipcache))
-		src_id = srcid_from_ipcache;
-	return src_id;
+	return real_sec_identity;
 }
 
 static __always_inline int
@@ -269,8 +263,8 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
 	int l3_off = ETH_HLEN;
-	struct remote_endpoint_info *info = NULL;
-	struct endpoint_info *ep;
+	const struct remote_endpoint_info *info = NULL;
+	const struct endpoint_info *ep;
 	int ret __maybe_unused;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
@@ -551,8 +545,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	if (src_sec_identity != HOST_ID)
 		src_sec_identity = 0;
 
-	srcid = resolve_srcid_ipv6(ctx, ip6, src_sec_identity,
-				   &ipcache_srcid, true);
+	srcid = resolve_srcid_ipv6(ctx, ip6, src_sec_identity, &ipcache_srcid);
 
 	/* to-netdev is attached to the egress path of the native device. */
 	return ipv6_host_policy_egress(ctx, srcid, ipcache_srcid, ip6, trace, ext_err);
@@ -563,41 +556,32 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #ifdef ENABLE_IPV4
 static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
-		   __u32 srcid_from_proxy, __u32 *sec_identity,
-		   const bool from_host)
+		   __u32 real_sec_identity, __u32 *ipcache_sec_identity)
 {
-	__u32 src_id = WORLD_IPV4_ID, srcid_from_ipcache = srcid_from_proxy;
-	struct remote_endpoint_info *info = NULL;
+	const struct remote_endpoint_info *info = NULL;
 
 	/* Packets from the proxy will already have a real identity. */
-	if (identity_is_reserved(srcid_from_ipcache)) {
+	if (identity_is_reserved(real_sec_identity)) {
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		if (info != NULL) {
-			*sec_identity = info->sec_identity;
+			*ipcache_sec_identity = info->sec_identity;
 
 			/* When SNAT is enabled on traffic ingressing
 			 * into Cilium, all traffic from the world will
 			 * have a source IP of the host. It will only
-			 * actually be from the host if "srcid_from_proxy"
+			 * actually be from the host if "real_sec_identity"
 			 * (passed into this function) reports the src as
 			 * the host. So we can ignore the ipcache if it
 			 * reports the source as HOST_ID.
 			 */
-			if (*sec_identity != HOST_ID)
-				srcid_from_ipcache = *sec_identity;
+			if (*ipcache_sec_identity != HOST_ID)
+				real_sec_identity = *ipcache_sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   ip4->saddr, srcid_from_ipcache);
+			   ip4->saddr, real_sec_identity);
 	}
 
-	if (from_host)
-		src_id = srcid_from_ipcache;
-	/* If we could not derive the secctx from the packet itself but
-	 * from the ipcache instead, then use the ipcache identity.
-	 */
-	else if (CONFIG(secctx_from_ipcache))
-		src_id = srcid_from_ipcache;
-	return src_id;
+	return real_sec_identity;
 }
 
 static __always_inline int
@@ -704,8 +688,8 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	__u32 __maybe_unused from_host_raw;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct remote_endpoint_info *info;
-	struct endpoint_info *ep;
+	const struct remote_endpoint_info *info;
+	const struct endpoint_info *ep;
 	int ret __maybe_unused;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
@@ -819,7 +803,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;
 
-		vkey.vtep_ip = ip4->daddr & VTEP_MASK;
+		vkey.vtep_ip = ip4->daddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
 		if (!vtep)
 			goto skip_vtep;
@@ -1010,8 +994,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	if (src_sec_identity != HOST_ID)
 		src_sec_identity = 0;
 
-	src_id = resolve_srcid_ipv4(ctx, ip4, src_sec_identity,
-				    &ipcache_srcid, true);
+	src_id = resolve_srcid_ipv4(ctx, ip4, src_sec_identity, &ipcache_srcid);
 
 	/* We need to pass the srcid from ipcache to host firewall. See
 	 * comment in ipv4_host_policy_egress() for details.
@@ -1123,7 +1106,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			return send_drop_notify_error(ctx, identity,
 						      DROP_INVALID,
 						      METRIC_INGRESS);
-		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
 		#ifdef ENABLE_L2_ANNOUNCEMENTS
 			ret = handle_l2_announcement(ctx, NULL);
@@ -1152,7 +1135,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 
 #endif /*ENABLE_L2_ANNOUNCEMENTS */
 
-		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid, from_host);
+		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 # if defined(ENABLE_HOST_FIREWALL)
@@ -1165,14 +1148,14 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			next_proto = ip6->nexthdr;
 			hdrlen = ipv6_hdrlen(ctx, &next_proto);
 			if (likely(hdrlen > 0) &&
-			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid)) {
+			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, identity)) {
 				trace.reason = TRACE_REASON_ENCRYPTED;
 				set_decrypt_mark(ctx, 0);
 			}
 		}
 # endif /* ENABLE_WIREGUARD */
 
-		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
 
 		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV6_FROM_HOST :
@@ -1192,8 +1175,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 						      METRIC_INGRESS);
 
-		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid,
-					      from_host);
+		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 # if defined(ENABLE_HOST_FIREWALL)
@@ -1205,14 +1187,14 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		if (!from_host) {
 			next_proto = ip4->protocol;
 			hdrlen = ipv4_hdrlen(ip4);
-			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid)) {
+			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, identity)) {
 				trace.reason = TRACE_REASON_ENCRYPTED;
 				set_decrypt_mark(ctx, 0);
 			}
 		}
 #endif /* ENABLE_WIREGUARD */
 
-		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
 
 		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV4_FROM_HOST :
@@ -1228,7 +1210,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 								CTX_ACT_OK, METRIC_INGRESS);
 #endif /* ENABLE_IPV4 */
 	default:
-		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
 #ifdef ENABLE_HOST_FIREWALL
 		ret = send_drop_notify_error(ctx, identity, DROP_UNKNOWN_L3,
@@ -1564,14 +1546,15 @@ skip_host_firewall:
 	} else {
 		trace.reason |= TRACE_REASON_ENCRYPTED;
 	}
+#endif /* ENABLE_WIREGUARD */
 
-#if defined(ENCRYPTION_STRICT_MODE)
+#if (defined(ENABLE_IPSEC) || defined(ENABLE_WIREGUARD)) &&		\
+     defined(ENCRYPTION_STRICT_MODE)
 	if (!strict_allow(ctx, proto)) {
 		ret = DROP_UNENCRYPTED_TRAFFIC;
 		goto drop_err;
 	}
 #endif /* ENCRYPTION_STRICT_MODE */
-#endif /* ENABLE_WIREGUARD */
 
 #ifdef ENABLE_HEALTH_CHECK
 	ret = lb_handle_health(ctx, proto);

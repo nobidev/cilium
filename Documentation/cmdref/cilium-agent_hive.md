@@ -81,6 +81,7 @@ cilium-agent hive [flags]
       --enable-enterprise-bgp-control-plane-status-report                Enable enterprise BGP status report in Cilium (default true)
       --enable-gateway-api                                               Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-gops                                                      Enable gops server (default true)
+      --enable-health-check-loadbalancer-ip                              Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled
       --enable-health-check-nodeport                                     Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)
       --enable-health-checking                                           Enable connectivity health checking (default true)
       --enable-health-server-without-active-checks                       Enable health server without active health checks
@@ -277,6 +278,7 @@ cilium-agent hive [flags]
       --metrics strings                                                  Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)
       --metrics-sampling-interval duration                               Set the internal metrics sampling interval (default 5m0s)
       --monitor-queue-size int                                           Size of the event queue when reading monitor events
+      --mtu int                                                          Overwrite auto-detected MTU of underlying network
       --multi-network-auto-direct-node-routes                            Enable multi-network aware automatic L2 routing between nodes (experimental) (default true)
       --multicast-enabled                                                Enables multicast in Cilium
       --nat-map-stats-entries int                                        Number k top stats entries to store locally in statedb (default 32)
