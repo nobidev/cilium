@@ -301,8 +301,9 @@ jobs:
         uses: cilium/scale-tests-action/export-results@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         with:
           test_name: ${{ env.test_name }}
+          tested_sha: ${{ steps.vars.outputs.SHA }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
-          artifacts: ./perf-tests/clusterloader2/report/*
+          artifacts: ./perf-tests/clusterloader2/report/
           other_files: ./perf-tests/clusterloader2/cl2-output.txt
 
   commit-status-final:
