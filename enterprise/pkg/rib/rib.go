@@ -254,10 +254,8 @@ func (r *RIB) DeleteRoutesByOwner(owner string) {
 
 // ListBestRoutes returns a map of VRF IDs to CIDRTrie of best routes
 func (r *RIB) ListBestRoutes() map[uint32]*bitlpm.CIDRTrie[*Route] {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-
 	bestRoutes := make(map[uint32]*bitlpm.CIDRTrie[*Route])
+
 	r.forEach(func(vrfID uint32, prefix netip.Prefix, dest *Destination) bool {
 		if dest.best != nil {
 			if _, ok := bestRoutes[vrfID]; !ok {
