@@ -79,8 +79,6 @@ spec:
 
                   If not specified, the default families of IPv6/unicast and IPv4/unicast will be created.
                 items:
-                  description: CiliumBGPFamilyWithAdverts represents a AFI/SAFI address
-                    family pair along with reference to BGP Advertisements.
                   properties:
                     advertisements:
                       description: |-
@@ -150,6 +148,17 @@ spec:
                       - ls
                       - opaque
                       type: string
+                    importPolicyRef:
+                      description: |-
+                        ImportPolicyRef is a reference to an IsovalentBGPPolicy to use for
+                        import policy for this family.
+                      properties:
+                        name:
+                          description: Name of the IsovalentBGPPolicy
+                          type: string
+                      required:
+                      - name
+                      type: object
                     safi:
                       description: Safi is the Subsequent Address Family Identifier
                         (SAFI) of the family.
