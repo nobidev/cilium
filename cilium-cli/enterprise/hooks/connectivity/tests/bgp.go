@@ -232,21 +232,19 @@ func configureBGPPeeringV1(ctx context.Context, t *check.Test, ipFamily features
 			Name: bgpPeerConfigName,
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: ciliumv2.CiliumBGPPeerConfigSpec{
-				Timers: &ciliumv2.CiliumBGPTimers{
-					ConnectRetryTimeSeconds: ptr.To[int32](1),
-					KeepAliveTimeSeconds:    ptr.To[int32](1),
-					HoldTimeSeconds:         ptr.To[int32](3),
-				},
-				Families: []ciliumv2.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
-							Afi:  ipFamily.String(),
-							Safi: "unicast",
-						},
-						Advertisements: &slimv1.LabelSelector{
-							MatchLabels: advertisement.Labels,
-						},
+			Timers: &ciliumv2.CiliumBGPTimers{
+				ConnectRetryTimeSeconds: ptr.To[int32](1),
+				KeepAliveTimeSeconds:    ptr.To[int32](1),
+				HoldTimeSeconds:         ptr.To[int32](3),
+			},
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
+						Afi:  ipFamily.String(),
+						Safi: "unicast",
+					},
+					Advertisements: &slimv1.LabelSelector{
+						MatchLabels: advertisement.Labels,
 					},
 				},
 			},

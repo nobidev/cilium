@@ -47,28 +47,26 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			Name: "peer-config-red",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
-				Families: []v2.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "unicast",
-						},
-						Advertisements: &slimv1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "red_bgp",
-							},
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					Advertisements: &slimv1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "red_bgp",
 						},
 					},
-					{
-						CiliumBGPFamily: v2.CiliumBGPFamily{
-							Afi:  "ipv6",
-							Safi: "unicast",
-						},
-						Advertisements: &slimv1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "red_bgp",
-							},
+				},
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv6",
+						Safi: "unicast",
+					},
+					Advertisements: &slimv1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "red_bgp",
 						},
 					},
 				},
@@ -81,17 +79,15 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			Name: "peer-config-red-v4",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
-				Families: []v2.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "unicast",
-						},
-						Advertisements: &slimv1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "red_bgp",
-							},
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					Advertisements: &slimv1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "red_bgp",
 						},
 					},
 				},
@@ -104,28 +100,26 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			Name: "peer-config-blue",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
-				Families: []v2.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "unicast",
-						},
-						Advertisements: &slimv1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "blue_bgp",
-							},
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					Advertisements: &slimv1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "blue_bgp",
 						},
 					},
-					{
-						CiliumBGPFamily: v2.CiliumBGPFamily{
-							Afi:  "ipv6",
-							Safi: "unicast",
-						},
-						Advertisements: &slimv1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "blue_bgp",
-							},
+				},
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv6",
+						Safi: "unicast",
+					},
+					Advertisements: &slimv1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "blue_bgp",
 						},
 					},
 				},

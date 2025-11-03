@@ -120,7 +120,7 @@ func toNeighborGracefulRestart(apiGR *v2.CiliumBGPNeighborGracefulRestart) *type
 	}
 }
 
-func toNeighborAfiSafis(families []v2.CiliumBGPFamilyWithAdverts) []*types.Family {
+func toNeighborAfiSafis(families []v1.IsovalentBGPFamilyWithAdverts) []*types.Family {
 	if len(families) == 0 {
 		return nil
 	}
@@ -137,8 +137,8 @@ func toNeighborAfiSafis(families []v2.CiliumBGPFamilyWithAdverts) []*types.Famil
 	return afiSafis
 }
 
-func toV2FamilyWithAdverts(fam v2alpha1.CiliumBGPFamilyWithAdverts) v2.CiliumBGPFamilyWithAdverts {
-	return v2.CiliumBGPFamilyWithAdverts{
+func toV1FamilyWithAdverts(fam v2alpha1.CiliumBGPFamilyWithAdverts) v1.IsovalentBGPFamilyWithAdverts {
+	return v1.IsovalentBGPFamilyWithAdverts{
 		CiliumBGPFamily: v2.CiliumBGPFamily{
 			Afi:  fam.Afi,
 			Safi: fam.Safi,

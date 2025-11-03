@@ -52,10 +52,8 @@ var (
 			},
 		},
 		Config: &v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
-				Transport: &v2.CiliumBGPTransport{
-					PeerPort: ptr.To[int32](v2.DefaultBGPPeerPort),
-				},
+			Transport: &v2.CiliumBGPTransport{
+				PeerPort: ptr.To[int32](v2.DefaultBGPPeerPort),
 			},
 		},
 	}
@@ -70,10 +68,8 @@ var (
 			},
 		},
 		Config: &v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
-				Transport: &v2.CiliumBGPTransport{
-					PeerPort: ptr.To[int32](v2.DefaultBGPPeerPort),
-				},
+			Transport: &v2.CiliumBGPTransport{
+				PeerPort: ptr.To[int32](v2.DefaultBGPPeerPort),
 			},
 		},
 	}
@@ -409,21 +405,19 @@ func getRunningPeers(req *require.Assertions, instance *instance.BGPInstance) []
 		}
 
 		peerConfObj := &v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
-				Transport: &v2.CiliumBGPTransport{
-					PeerPort: ptr.To[int32](int32(peer.PeerPort)),
-				},
-				Timers: &v2.CiliumBGPTimers{
-					ConnectRetryTimeSeconds: ptr.To[int32](int32(peer.ConnectRetryTimeSeconds)),
-					HoldTimeSeconds:         ptr.To[int32](int32(peer.ConfiguredHoldTimeSeconds)),
-					KeepAliveTimeSeconds:    ptr.To[int32](int32(peer.ConfiguredKeepAliveTimeSeconds)),
-				},
-				GracefulRestart: &v2.CiliumBGPNeighborGracefulRestart{
-					Enabled:            peer.GracefulRestart.Enabled,
-					RestartTimeSeconds: ptr.To[int32](int32(peer.GracefulRestart.RestartTimeSeconds)),
-				},
-				EBGPMultihop: ptr.To[int32](int32(peer.EbgpMultihopTTL)),
+			Transport: &v2.CiliumBGPTransport{
+				PeerPort: ptr.To[int32](int32(peer.PeerPort)),
 			},
+			Timers: &v2.CiliumBGPTimers{
+				ConnectRetryTimeSeconds: ptr.To[int32](int32(peer.ConnectRetryTimeSeconds)),
+				HoldTimeSeconds:         ptr.To[int32](int32(peer.ConfiguredHoldTimeSeconds)),
+				KeepAliveTimeSeconds:    ptr.To[int32](int32(peer.ConfiguredKeepAliveTimeSeconds)),
+			},
+			GracefulRestart: &v2.CiliumBGPNeighborGracefulRestart{
+				Enabled:            peer.GracefulRestart.Enabled,
+				RestartTimeSeconds: ptr.To[int32](int32(peer.GracefulRestart.RestartTimeSeconds)),
+			},
+			EBGPMultihop: ptr.To[int32](int32(peer.EbgpMultihopTTL)),
 		}
 
 		password := ""

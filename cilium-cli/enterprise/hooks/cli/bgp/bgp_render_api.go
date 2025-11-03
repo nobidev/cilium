@@ -506,10 +506,8 @@ func createBGPPeerConfig(name string, neigh *legacyv2alpha1.CiliumBGPNeighbor, a
 			Name: name,
 		},
 		Spec: isovalentv1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: ciliumv2.CiliumBGPPeerConfigSpec{
-				AuthSecretRef: neigh.AuthSecretRef,
-				EBGPMultihop:  neigh.EBGPMultihopTTL,
-			},
+			AuthSecretRef: neigh.AuthSecretRef,
+			EBGPMultihop:  neigh.EBGPMultihopTTL,
 		},
 	}
 	if neigh.GracefulRestart != nil {
@@ -519,7 +517,7 @@ func createBGPPeerConfig(name string, neigh *legacyv2alpha1.CiliumBGPNeighbor, a
 		}
 	}
 	if neigh.PeerPort != nil {
-		peerConfig.Spec.CiliumBGPPeerConfigSpec.Transport = &ciliumv2.CiliumBGPTransport{
+		peerConfig.Spec.Transport = &ciliumv2.CiliumBGPTransport{
 			PeerPort: ptr.To(*neigh.PeerPort),
 		}
 	}
@@ -541,7 +539,7 @@ func createBGPPeerConfig(name string, neigh *legacyv2alpha1.CiliumBGPNeighbor, a
 	}
 	for _, family := range families {
 		peerConfig.Spec.Families = append(peerConfig.Spec.Families,
-			ciliumv2.CiliumBGPFamilyWithAdverts{
+			isovalentv1.IsovalentBGPFamilyWithAdverts{
 				CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
 					Afi:  family.Afi,
 					Safi: family.Safi,

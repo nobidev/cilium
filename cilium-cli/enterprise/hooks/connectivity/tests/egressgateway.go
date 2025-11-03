@@ -1555,19 +1555,17 @@ func configureBGPPeeringV1ForEGW(ctx context.Context, t *check.Test, ipFamily fe
 			Name: egwRRCommonBGPPeerConfigName,
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: ciliumv2.CiliumBGPPeerConfigSpec{
-				Transport: &ciliumv2.CiliumBGPTransport{
-					PeerPort: ptr.To(int32(egwBGPRRLocalPort)),
-				},
-				Families: []ciliumv2.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
-							Afi:  ipFamily.String(),
-							Safi: "unicast",
-						},
-						Advertisements: &slimv1.LabelSelector{
-							MatchLabels: advertisement.Labels,
-						},
+			Transport: &ciliumv2.CiliumBGPTransport{
+				PeerPort: ptr.To(int32(egwBGPRRLocalPort)),
+			},
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
+						Afi:  ipFamily.String(),
+						Safi: "unicast",
+					},
+					Advertisements: &slimv1.LabelSelector{
+						MatchLabels: advertisement.Labels,
 					},
 				},
 			},
@@ -1583,16 +1581,14 @@ func configureBGPPeeringV1ForEGW(ctx context.Context, t *check.Test, ipFamily fe
 			Name: egwExternalBGPPeerConfigName,
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: ciliumv2.CiliumBGPPeerConfigSpec{
-				Families: []ciliumv2.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
-							Afi:  ipFamily.String(),
-							Safi: "unicast",
-						},
-						Advertisements: &slimv1.LabelSelector{
-							MatchLabels: advertisement.Labels,
-						},
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
+						Afi:  ipFamily.String(),
+						Safi: "unicast",
+					},
+					Advertisements: &slimv1.LabelSelector{
+						MatchLabels: advertisement.Labels,
 					},
 				},
 			},

@@ -83,17 +83,15 @@ var (
 			Name: "peer-config",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
-				Families: []v2.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "unicast",
-						},
-						Advertisements: &slimv1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "bgp",
-							},
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					Advertisements: &slimv1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "bgp",
 						},
 					},
 				},

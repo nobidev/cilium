@@ -1241,28 +1241,26 @@ var (
 			Name: "peer-config-red",
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
-				Families: []v2.CiliumBGPFamilyWithAdverts{
-					{
-						CiliumBGPFamily: v2.CiliumBGPFamily{
-							Afi:  "ipv4",
-							Safi: "unicast",
-						},
-						Advertisements: &slim_metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "red_bgp",
-							},
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					Advertisements: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "red_bgp",
 						},
 					},
-					{
-						CiliumBGPFamily: v2.CiliumBGPFamily{
-							Afi:  "ipv6",
-							Safi: "unicast",
-						},
-						Advertisements: &slim_metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"advertise": "red_bgp_v6",
-							},
+				},
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv6",
+						Safi: "unicast",
+					},
+					Advertisements: &slim_metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"advertise": "red_bgp_v6",
 						},
 					},
 				},

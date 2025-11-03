@@ -176,6 +176,12 @@ var (
 			},
 		},
 	}
+	isoFamilyWithAdverts = []v1.IsovalentBGPFamilyWithAdverts{
+		{
+			CiliumBGPFamily: ossPeerConfigSpec.Families[0].CiliumBGPFamily,
+			Advertisements:  ossPeerConfigSpec.Families[0].Advertisements,
+		},
+	}
 	isoPeerConfig = &v1.IsovalentBGPPeerConfig{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: "peer-config-1",
@@ -184,15 +190,13 @@ var (
 			},
 		},
 		Spec: v1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: v2.CiliumBGPPeerConfigSpec{
-				Transport: &v2.CiliumBGPTransport{
-					PeerPort: ossPeerConfigSpec.Transport.PeerPort,
-				},
-				Timers:          ossPeerConfigSpec.Timers,
-				AuthSecretRef:   ossPeerConfigSpec.AuthSecretRef,
-				GracefulRestart: ossPeerConfigSpec.GracefulRestart,
-				Families:        ossPeerConfigSpec.Families,
+			Transport: &v2.CiliumBGPTransport{
+				PeerPort: ossPeerConfigSpec.Transport.PeerPort,
 			},
+			Timers:          ossPeerConfigSpec.Timers,
+			AuthSecretRef:   ossPeerConfigSpec.AuthSecretRef,
+			GracefulRestart: ossPeerConfigSpec.GracefulRestart,
+			Families:        isoFamilyWithAdverts,
 		},
 	}
 	ossPeerConfig = &v2.CiliumBGPPeerConfig{

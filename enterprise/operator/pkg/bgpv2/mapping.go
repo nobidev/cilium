@@ -324,6 +324,13 @@ func createOSSClusterConfig(entClusterConfig *v1.IsovalentBGPClusterConfig) *v2.
 }
 
 func createOSSPeerConfig(entPeerConfig *v1.IsovalentBGPPeerConfig) *v2.CiliumBGPPeerConfig {
+	families := []v2.CiliumBGPFamilyWithAdverts{}
+	for _, family := range entPeerConfig.Spec.Families {
+		families = append(families, v2.CiliumBGPFamilyWithAdverts{
+			CiliumBGPFamily: family.CiliumBGPFamily,
+			Advertisements:  family.Advertisements,
+		})
+	}
 	newOSSPeerConfig := &v2.CiliumBGPPeerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        entPeerConfig.GetName(),
@@ -344,7 +351,7 @@ func createOSSPeerConfig(entPeerConfig *v1.IsovalentBGPPeerConfig) *v2.CiliumBGP
 			AuthSecretRef:   entPeerConfig.Spec.AuthSecretRef,
 			GracefulRestart: entPeerConfig.Spec.GracefulRestart,
 			EBGPMultihop:    entPeerConfig.Spec.EBGPMultihop,
-			Families:        entPeerConfig.Spec.Families,
+			Families:        families,
 		},
 	}
 	if entPeerConfig.Spec.Transport != nil {

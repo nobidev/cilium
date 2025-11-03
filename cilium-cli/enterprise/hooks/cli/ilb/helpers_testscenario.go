@@ -643,18 +643,16 @@ func (r *lbTestScenario) createBGPPeerConfig() {
 			Labels: map[string]string{TestResourceLabelName: "true"},
 		},
 		Spec: isovalentv1.IsovalentBGPPeerConfigSpec{
-			CiliumBGPPeerConfigSpec: ciliumv2.CiliumBGPPeerConfigSpec{
-				Families: []ciliumv2.CiliumBGPFamilyWithAdverts{},
-				Timers: &ciliumv2.CiliumBGPTimers{
-					ConnectRetryTimeSeconds: ptr.To(int32(1)),
-				},
+			Families: []isovalentv1.IsovalentBGPFamilyWithAdverts{},
+			Timers: &ciliumv2.CiliumBGPTimers{
+				ConnectRetryTimeSeconds: ptr.To(int32(1)),
 			},
 			BFDProfileRef: ptr.To(r.testName),
 		},
 	}
 
 	if r.t.IPv4Enabled() {
-		obj.Spec.CiliumBGPPeerConfigSpec.Families = append(obj.Spec.CiliumBGPPeerConfigSpec.Families, ciliumv2.CiliumBGPFamilyWithAdverts{
+		obj.Spec.Families = append(obj.Spec.Families, isovalentv1.IsovalentBGPFamilyWithAdverts{
 			CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
 				Afi:  "ipv4",
 				Safi: "unicast",
@@ -669,7 +667,7 @@ func (r *lbTestScenario) createBGPPeerConfig() {
 	}
 
 	if r.t.IPv6Enabled() {
-		obj.Spec.CiliumBGPPeerConfigSpec.Families = append(obj.Spec.CiliumBGPPeerConfigSpec.Families, ciliumv2.CiliumBGPFamilyWithAdverts{
+		obj.Spec.Families = append(obj.Spec.Families, isovalentv1.IsovalentBGPFamilyWithAdverts{
 			CiliumBGPFamily: ciliumv2.CiliumBGPFamily{
 				Afi:  "ipv6",
 				Safi: "unicast",

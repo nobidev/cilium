@@ -146,7 +146,7 @@ func (p *IsovalentAdvertisement) getPeerAdvertisements(peerConfig *v1.IsovalentB
 	return result, nil
 }
 
-func (p *IsovalentAdvertisement) getFamilyAdvertisements(family v2.CiliumBGPFamilyWithAdverts, selectAdvertTypes ...v1.IsovalentBGPAdvertType) ([]v1.BGPAdvertisement, error) {
+func (p *IsovalentAdvertisement) getFamilyAdvertisements(family v1.IsovalentBGPFamilyWithAdverts, selectAdvertTypes ...v1.IsovalentBGPAdvertType) ([]v1.BGPAdvertisement, error) {
 	// get all advertisement CRD objects.
 	advertResources, err := p.adverts.List()
 	if err != nil {
@@ -179,7 +179,7 @@ func (p *IsovalentAdvertisement) getFamilyAdvertisements(family v2.CiliumBGPFami
 	return selectedAdvertisements, nil
 }
 
-func (p *IsovalentAdvertisement) familySelectedAdvertisements(family v2.CiliumBGPFamilyWithAdverts, adverts []*v1.IsovalentBGPAdvertisement) ([]*v1.IsovalentBGPAdvertisement, error) {
+func (p *IsovalentAdvertisement) familySelectedAdvertisements(family v1.IsovalentBGPFamilyWithAdverts, adverts []*v1.IsovalentBGPAdvertisement) ([]*v1.IsovalentBGPAdvertisement, error) {
 	var result []*v1.IsovalentBGPAdvertisement
 	advertSelector, err := slim_metav1.LabelSelectorAsSelector(family.Advertisements)
 	if err != nil {
@@ -232,12 +232,12 @@ func (p *IsovalentAdvertisement) getVRFAdvertisements(vrfConfig *v1alpha1.Isoval
 	result := make(map[v2.CiliumBGPFamily][]v1.BGPAdvertisement)
 
 	for _, family := range vrfConfig.Spec.Families {
-		v2Family := toV2FamilyWithAdverts(family)
-		advert, err := p.getFamilyAdvertisements(v2Family, selectAdvertTypes...)
+		v1Family := toV1FamilyWithAdverts(family)
+		advert, err := p.getFamilyAdvertisements(v1Family, selectAdvertTypes...)
 		if err != nil {
 			return result, err
 		}
-		result[v2Family.CiliumBGPFamily] = advert
+		result[v1Family.CiliumBGPFamily] = advert
 	}
 	return result, nil
 }
