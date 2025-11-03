@@ -59,7 +59,7 @@ jobs:
             make-target: -C plugins/cilium-docker
 
           - name: cilium-dnsproxy
-            make-target: -C enterprise/fqdn-proxy/images
+            make-target: -C enterprise/fqdn-proxy
 
     steps:
       - name: Collect Workflow Telemetry
