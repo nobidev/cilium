@@ -1412,6 +1412,10 @@
      - Withdraws routes after configured timeout post going into maintenance mode. Does not withdraw if 0 / not configured.
      - string
      - ``"0s"``
+   * - :spelling:ignore:`enterprise.bgpControlPlane.routeImport.enabled`
+     - Enables importing routes from BGP peers.
+     - bool
+     - ``false``
    * - :spelling:ignore:`enterprise.bgpControlPlane.routerAdvertisementInterval`
      - Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled.
      - string

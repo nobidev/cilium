@@ -123,6 +123,7 @@ cilium-agent [flags]
       --enable-bgp-control-plane-status-report                           Enable the BGP control plane status reporting (default true)
       --enable-bgp-legacy-origin-attribute                               Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
       --enable-bgp-maintenance-graceful-shutdown-community               Enables sending GRACEFUL_SHUTDOWN BGP community when the node is in maintenance mode
+      --enable-bgp-route-import                                          Enables importing routes from BGP peers into Cilium
       --enable-bgp-svc-health-checking                                   Enables BGP integration with service health-checking
       --enable-bpf-clock-probe                                           Enable BPF clock source probing for more efficient tick retrieval
       --enable-bpf-masquerade                                            Masquerade packets from endpoints leaving the host with BPF instead of iptables

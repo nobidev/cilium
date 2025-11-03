@@ -5002,6 +5002,9 @@ enterprise:
         enabled: false
       # -- Withdraws routes after configured timeout post going into maintenance mode. Does not withdraw if 0 / not configured.
       withdrawTime: 0s
+    routeImport:
+      # -- Enables importing routes from BGP peers.
+      enabled: false
   bfd:
     # -- Enables Bidirectional Forwarding Detection (BFD) feature.
     enabled: false

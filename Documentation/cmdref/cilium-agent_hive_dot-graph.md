@@ -72,6 +72,7 @@ cilium-agent hive dot-graph [flags]
       --enable-bfd                                                       Enables BFD subsystem
       --enable-bgp-legacy-origin-attribute                               Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
       --enable-bgp-maintenance-graceful-shutdown-community               Enables sending GRACEFUL_SHUTDOWN BGP community when the node is in maintenance mode
+      --enable-bgp-route-import                                          Enables importing routes from BGP peers into Cilium
       --enable-bgp-svc-health-checking                                   Enables BGP integration with service health-checking
       --enable-cilium-api-server-access strings                          List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cilium-enterprise-api-server-access strings               List of cilium enterprise API APIs which are administratively enabled. Supports '*'. (default [*])

@@ -28,6 +28,8 @@ const (
 	// enableLegacySRv6Responder is the flag to enable legacy SRv6 responder. This is disabled by default
 	// and you should never enable for the new deployments.
 	enableLegacySRv6Responder = "enable-legacy-srv6-responder"
+	// enableBGPRouteImport is the flag to enable importing routes from BGP peers into Cilium
+	enableBGPRouteImport = "enable-bgp-route-import"
 )
 
 var defaultConfig = Config{
@@ -36,6 +38,7 @@ var defaultConfig = Config{
 	MaintenanceWithdrawTime:            0,
 	RouterAdvertisementInterval:        3 * time.Second, // based on RFC4861 MIN_DELAY_BETWEEN_RAS
 	EnableLegacySRv6Responder:          false,
+	RouteImportEnabled:                 false,
 }
 
 // Config holds configuration options of the enterprise reconcilers.
@@ -45,6 +48,7 @@ type Config struct {
 	MaintenanceWithdrawTime            time.Duration `mapstructure:"bgp-maintenance-withdraw-time"`
 	RouterAdvertisementInterval        time.Duration `mapstructure:"router-advertisement-interval"`
 	EnableLegacySRv6Responder          bool          `mapstructure:"enable-legacy-srv6-responder"`
+	RouteImportEnabled                 bool          `mapstructure:"enable-bgp-route-import"`
 }
 
 // Flags implements cell.Flagger interface to register the configuration options as command-line flags.
@@ -55,4 +59,5 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Duration(routerAdvertisementInterval, cfg.RouterAdvertisementInterval, "Interval between sending unsolicited Router Advertisement messages if BGP unnumbered is enabled")
 	flags.Bool(enableLegacySRv6Responder, cfg.EnableLegacySRv6Responder, "Enables legacy SRv6 responder. This is disabled by default and you should never enable for the new deployments.")
 	flags.MarkHidden(enableLegacySRv6Responder) // Don't let users enable this unless there's a problem
+	flags.Bool(enableBGPRouteImport, cfg.RouteImportEnabled, "Enables importing routes from BGP peers into Cilium")
 }

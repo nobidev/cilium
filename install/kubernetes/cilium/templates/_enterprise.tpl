@@ -29,6 +29,7 @@ router-advertisement-interval: {{ .Values.enterprise.bgpControlPlane.routerAdver
 bgp-router-id-allocation-mode: {{ .Values.enterprise.bgpControlPlane.routerIDAllocation.mode | quote }}
 enable-bgp-maintenance-graceful-shutdown-community: {{ .Values.enterprise.bgpControlPlane.nodeMaintenance.gracefulShutdownCommunity.enabled | default "false" | quote }}
 bgp-maintenance-withdraw-time: {{ .Values.enterprise.bgpControlPlane.nodeMaintenance.withdrawTime | default "0s" | quote }}
+enable-bgp-route-import: {{ .Values.enterprise.bgpControlPlane.routeImport.enabled | default "false" | quote }}
 {{- end }}
 
 # BFD subsystem
