@@ -23,7 +23,9 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	notypes "github.com/cilium/cilium/pkg/node/types"
 )
 
 var MapEntriesCell = cell.Group(
@@ -52,7 +54,8 @@ type MapEntries struct {
 	log *slog.Logger
 	jg  job.Group
 
-	cfg config.Config
+	cfg   config.Config
+	local tables.INBNode
 
 	db        *statedb.DB
 	networks  statedb.Table[tables.PrivateNetwork]
@@ -75,7 +78,8 @@ func newMapEntries(in struct {
 	Log      *slog.Logger
 	JobGroup job.Group
 
-	Config config.Config
+	Config      config.Config
+	ClusterInfo cmtypes.ClusterInfo
 
 	DB        *statedb.DB
 	Networks  statedb.Table[tables.PrivateNetwork]
@@ -89,6 +93,10 @@ func newMapEntries(in struct {
 		jg:  in.JobGroup,
 
 		cfg: in.Config,
+		local: tables.INBNode{
+			Cluster: tables.ClusterName(in.ClusterInfo.Name),
+			Name:    tables.NodeName(notypes.GetName()),
+		},
 
 		db:        in.DB,
 		networks:  in.Networks,
@@ -375,11 +383,15 @@ func (m *MapEntries) determineActiveEndpointForNetworkIP(txn statedb.ReadTxn, ne
 // shouldSkipExternalEndpointSkip returns whether a given external endpoint should
 // be skipped, that is if either this network has no active INB, or the endpoint
 // is not advertised by the currently active INB. This function always returns
-// false if the endpoint is not external.
+// false if the endpoint is not external, as well as for the external endpoints
+// advertised by the local node.
 func (m *MapEntries) shouldSkipExternalEndpoint(ep tables.Endpoint, privnet tables.SlimPrivateNetwork) bool {
-	return ep.Flags.External && (!privnet.ActiveINB.IP.IsValid() ||
-		tables.ClusterName(ep.Source.Cluster) != privnet.ActiveINB.Cluster ||
-		tables.NodeName(ep.NodeName) != privnet.ActiveINB.Name)
+	return ep.Flags.External &&
+		(!privnet.ActiveINB.IP.IsValid() ||
+			tables.ClusterName(ep.Source.Cluster) != privnet.ActiveINB.Cluster ||
+			tables.NodeName(ep.NodeName) != privnet.ActiveINB.Name) &&
+		(tables.ClusterName(ep.Source.Cluster) != m.local.Cluster ||
+			tables.NodeName(ep.NodeName) != m.local.Name)
 }
 
 // findConflictingNATEntriesForActiveEP checks the endpoint table to find all endpoints

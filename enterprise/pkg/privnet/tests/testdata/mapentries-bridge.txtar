@@ -1,0 +1,255 @@
+#! --private-networks-enabled --private-networks-mode=bridge
+
+hive start
+
+# Populate the initial state.
+db/insert devices device.eth1.yaml
+db/insert devices device.eth2.yaml
+k8s/add icpn-1.yaml icpn-2.yaml
+
+# Create a few local workloads.
+db/insert privnet-local-workloads local-workload-optimum-mouse.yaml
+db/insert privnet-local-workloads local-workload-shining-burro.yaml
+
+# Ingest the endpoints from endpointslices and clustermesh.
+k8s/add privnet-eps.yaml
+clustermesh/endpoints/upsert maggot/10.245.8.21 endpoint-maggot-cougar-1.json
+clustermesh/endpoints/upsert maggot/10.245.8.22 endpoint-maggot-cougar-2.json
+clustermesh/endpoints/upsert firefly/10.245.8.31 endpoint-firefly-cougar-1.json
+clustermesh/endpoints/upsert firefly/10.245.8.32 endpoint-firefly-lion-1.json
+clustermesh/endpoints/sync
+
+# Assert that the mapentries table got properly reconciled. The only external
+# endpoint present should be the one advertised by the local node.
+db/cmp privnet-mapentries mapentries.v1.table
+
+-- device.eth1.yaml --
+index: 10
+name: eth1
+type: veth
+selected: true
+
+-- device.eth1.v2.yaml --
+index: 10
+name: eth1
+type: veth
+selected: false
+notselectedreason: not matching user filter
+
+-- device.eth2.yaml --
+index: 11
+name: eth2
+type: veth
+selected: true
+
+-- icpn-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: maggot
+spec:
+  interface:
+    name: eth1
+  routes: []
+  subnets:
+  - cidr: 192.168.250.0/24
+
+-- icpn-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: firefly
+spec:
+  interface:
+    name: eth2
+  routes: []
+  subnets:
+  - cidr: 192.168.251.0/24
+
+-- local-workload-optimum-mouse.yaml --
+endpointid: 11
+namespace: foo
+endpoint:
+    addressing:
+      ipv4: 10.245.8.20
+    name: optimum-mouse
+interface:
+    addressing:
+      ipv4: 192.168.250.20
+    mac: 19:60:b8:48:84:20
+    network: maggot
+activatedat: 2025-06-20T12:40:00Z
+flags:
+    external: false
+
+-- local-workload-shining-burro.yaml --
+endpointid: 16
+namespace: foo
+endpoint:
+    addressing:
+      ipv4: 10.245.8.39
+    name: shining-burro
+interface:
+    addressing:
+      ipv4: 192.168.251.39
+    mac: 19:60:b8:48:84:39
+    network: firefly
+activatedat: 2025-06-20T12:40:00Z
+flags:
+    external: true
+
+-- privnet-eps.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkEndpointSlice
+metadata:
+  namespace: default
+  name: privnet-eps-1
+endpoints:
+- activatedAt: "2025-06-20T15:54:04.765000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.245.8.30
+    name: moved-racer
+  interface:
+    addressing:
+      ipv4: 192.168.251.30
+    mac: 19:60:b8:48:84:30
+    network: firefly
+- activatedAt: "2025-06-20T15:54:03.234000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.245.8.39
+    name: destined-bluejay
+  flags:
+    external: true
+  interface:
+    addressing:
+      ipv4: 192.168.251.39
+    mac: 19:60:b8:48:84:39
+    network: maggot
+nodeName: foobar-worker-2
+
+-- endpoint-maggot-cougar-1.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.421Z",
+  "ip": "10.245.8.21",
+  "name": "valid-monkey",
+  "network": {
+    "name": "maggot",
+    "ip": "192.168.250.21",
+    "mac": "19:60:b8:48:84:21"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
+-- endpoint-maggot-cougar-2.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.422Z",
+  "ip": "10.245.8.22",
+  "name": "intense-phoenix",
+  "network": {
+    "name": "maggot",
+    "ip": "192.168.250.22",
+    "mac": "19:60:b8:48:84:22"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
+-- endpoint-maggot-cougar-3.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.423Z",
+  "ip": "10.245.8.23",
+  "name": "charming-finch",
+  "network": {
+    "name": "maggot",
+    "ip": "192.168.250.23",
+    "mac": "19:60:b8:48:84:23"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
+-- endpoint-firefly-cougar-1.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.431Z",
+  "ip": "10.245.8.31",
+  "name": "eminent-griffon",
+  "network": {
+    "name": "firefly",
+    "ip": "192.168.251.31",
+    "mac": "19:60:b8:48:84:31"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
+-- endpoint-firefly-lion-1.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.432Z",
+  "ip": "10.245.8.32",
+  "name": "grateful-raccoon",
+  "network": {
+    "name": "firefly",
+    "ip": "192.168.251.32",
+    "mac": "19:60:b8:48:84:32"
+  },
+  "nodeName": "lion",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
+-- endpoint-firefly-lion-2.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.433Z",
+  "ip": "10.245.8.33",
+  "name": "quality-bass",
+  "network": {
+    "name": "firefly",
+    "ip": "192.168.251.33",
+    "mac": "19:60:b8:48:84:33"
+  },
+  "nodeName": "lion",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
+-- health.v1.table --
+Instance                  Network   Health
+default/foobar-worker-1   firefly   Healthy, Confirmed
+default/foobar-worker-1   maggot    Healthy, Confirmed
+
+-- mapentries.v1.table --
+Type   Network   CIDR                Nexthop
+D      firefly   192.168.251.0/24    0.0.0.0
+E      firefly   192.168.251.30/32   10.245.8.30
+E      firefly   192.168.251.31/32   10.245.8.31
+E      firefly   192.168.251.32/32   10.245.8.32
+X      firefly   192.168.251.39/32   10.245.8.39
+D      maggot    192.168.250.0/24    0.0.0.0
+E      maggot    192.168.250.20/32   10.245.8.20
+E      maggot    192.168.250.21/32   10.245.8.21
+E      maggot    192.168.250.22/32   10.245.8.22
