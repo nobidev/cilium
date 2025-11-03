@@ -75,6 +75,9 @@ const (
 	// IsovalentBGPNodeConfigCRDName is the full name of the IsovalentBGPNodeConfig CRD.
 	IsovalentBGPNodeConfigCRDName = k8sconstv1.IsovalentBGPNodeConfigKindDefinition + "/" + k8sconstv1.CustomResourceDefinitionVersion
 
+	// IsovalentBGPPolicyCRDName is the full name of the IsovalentBGPPolicy CRD.
+	IsovalentBGPPolicyCRDName = k8sconstv1.IsovalentBGPPolicyKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+
 	// IsovalentBGPNodeConfigOverrideCRDName is the full name of the IsovalentBGPNodeConfigOverride CRD.
 	IsovalentBGPNodeConfigOverrideCRDName = k8sconstv1.IsovalentBGPNodeConfigOverrideKindDefinition + "/" + k8sconstv1.CustomResourceDefinitionVersion
 
@@ -187,6 +190,10 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 		synced.CRDResourceName(k8sconstv1.IsovalentBGPNodeConfigOverrideName): {
 			Name:     IsovalentBGPNodeConfigOverrideCRDName,
 			FullName: k8sconstv1.IsovalentBGPNodeConfigOverrideName,
+		},
+		synced.CRDResourceName(k8sconstv1.IsovalentBGPPolicyName): {
+			Name:     IsovalentBGPPolicyCRDName,
+			FullName: k8sconstv1.IsovalentBGPPolicyName,
 		},
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentBGPVRFConfigName): {
 			Name:     IsovalentBGPVRFConfigCRDName,
@@ -306,6 +313,9 @@ var (
 	//go:embed crds/v1/isovalentbgpnodeconfigoverrides.yaml
 	crdsv1IsovalentBGPNodeConfigOverrides []byte
 
+	//go:embed crds/v1/isovalentbgppolicies.yaml
+	crdsv1IsovalentBGPPolicies []byte
+
 	//go:embed crds/v1alpha1/isovalentbgpvrfconfigs.yaml
 	crdsv1Alpha1IsovalentBGPVRFConfigs []byte
 
@@ -387,6 +397,8 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes = crdsv1IsovalentBGPNodeConfigs
 	case IsovalentBGPNodeConfigOverrideCRDName:
 		crdBytes = crdsv1IsovalentBGPNodeConfigOverrides
+	case IsovalentBGPPolicyCRDName:
+		crdBytes = crdsv1IsovalentBGPPolicies
 	case IsovalentBGPVRFConfigCRDName:
 		crdBytes = crdsv1Alpha1IsovalentBGPVRFConfigs
 	case IsovalentClusterwideEncryptionPolicyCRDName:

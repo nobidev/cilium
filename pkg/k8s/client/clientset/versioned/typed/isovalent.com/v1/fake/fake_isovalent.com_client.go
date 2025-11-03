@@ -35,6 +35,10 @@ func (c *FakeIsovalentV1) IsovalentBGPPeerConfigs() v1.IsovalentBGPPeerConfigInt
 	return newFakeIsovalentBGPPeerConfigs(c)
 }
 
+func (c *FakeIsovalentV1) IsovalentBGPPolicies() v1.IsovalentBGPPolicyInterface {
+	return newFakeIsovalentBGPPolicies(c)
+}
+
 func (c *FakeIsovalentV1) IsovalentClusterwideNetworkPolicies() v1.IsovalentClusterwideNetworkPolicyInterface {
 	return newFakeIsovalentClusterwideNetworkPolicies(c)
 }

@@ -39,6 +39,7 @@ rules:
   - isovalentbgpnodeconfigoverrides.isovalent.com
   - isovalentbgpvrfconfigs.isovalent.com
   - isovalentvrfs.isovalent.com
+  - isovalentbgppolicies.isovalent.com
 {{- end }}
 {{- if .Values.enterprise.loadbalancer.enabled }}
   - lbservices.isovalent.com

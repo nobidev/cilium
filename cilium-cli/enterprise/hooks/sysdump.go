@@ -1086,6 +1086,7 @@ func addEnterpriseBGPSysdumpTasks(collector *sysdump.Collector) {
 		collectIsovalentV1OrV1Alpha1Resource(collector, "IsovalentBGPAdvertisement", "isovalentbgpadvertisements"),
 		collectIsovalentV1OrV1Alpha1Resource(collector, "IsovalentBGPNodeConfig", "isovalentbgpnodeconfigs"),
 		collectIsovalentV1OrV1Alpha1Resource(collector, "IsovalentBGPNodeConfigOverride", "isovalentbgpnodeconfigoverrides"),
+		collectIsovalentV1OrV1Alpha1Resource(collector, "IsovalentBGPPolicy", "isovalentbgppolicies"),
 		collectIsovalentV1Alpha1Resource(collector, "IsovalentBGPVRFConfig", "isovalentbgpvrfconfigs"),
 	})
 }

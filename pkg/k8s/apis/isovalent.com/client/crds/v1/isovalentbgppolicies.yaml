@@ -1,0 +1,186 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: isovalentbgppolicies.isovalent.com
+spec:
+  group: isovalent.com
+  names:
+    categories:
+    - cilium
+    - isovalentbgp
+    kind: IsovalentBGPPolicy
+    listKind: IsovalentBGPPolicyList
+    plural: isovalentbgppolicies
+    shortNames:
+    - ibgppolicy
+    singular: isovalentbgppolicy
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: IsovalentBGPPolicy is the Schema for the isovalentbgppolicies
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              import:
+                description: Import defines the BGP import policy.
+                properties:
+                  statements:
+                    description: Statements is a list of BGP policy statements.
+                    items:
+                      description: BGPPolicyStatement defines a single BGP policy
+                        statement.
+                      properties:
+                        actions:
+                          description: Actions defines the actions to take when the
+                            conditions are met.
+                          properties:
+                            routeAction:
+                              description: RouteAction defines the action to take
+                                on the matched routes.
+                              enum:
+                              - Accept
+                              type: string
+                          required:
+                          - routeAction
+                          type: object
+                        conditions:
+                          description: Conditions defines the conditions to match
+                            routes for this statement.
+                          properties:
+                            prefixesV4:
+                              description: PrefixesV4 defines conditions to match
+                                IPv4 prefixes.
+                              properties:
+                                matchType:
+                                  description: Type of match to perform.
+                                  enum:
+                                  - Or
+                                  type: string
+                                matches:
+                                  description: List of IPv4 prefix matches.
+                                  items:
+                                    description: PrefixV4Match defines a single IPv4
+                                      prefix match.
+                                    properties:
+                                      maxLen:
+                                        description: |-
+                                          Maximum prefix length for the match. If not specified, it defaults
+                                          to the prefix length.
+                                        maximum: 32
+                                        minimum: 0
+                                        type: integer
+                                      minLen:
+                                        description: |-
+                                          Minimum prefix length for the match. It must be less than or equal
+                                          to maxLen. If not specified, it defaults to the maxLen.
+                                        maximum: 32
+                                        minimum: 0
+                                        type: integer
+                                      prefix:
+                                        description: Prefix is the IPv4 prefix to
+                                          match.
+                                        format: cidr
+                                        type: string
+                                    required:
+                                    - prefix
+                                    type: object
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - matchType
+                              - matches
+                              type: object
+                            prefixesV6:
+                              description: PrefixesV6 defines conditions to match
+                                IPv6 prefixes.
+                              properties:
+                                matchType:
+                                  description: Type of match to perform.
+                                  enum:
+                                  - Or
+                                  type: string
+                                matches:
+                                  description: List of IPv6 prefix matches.
+                                  items:
+                                    description: PrefixV6Match defines a single IPv6
+                                      prefix match.
+                                    properties:
+                                      maxLen:
+                                        description: |-
+                                          Maximum prefix length for the match. If not specified, it defaults
+                                          to the prefix length.
+                                        maximum: 128
+                                        minimum: 0
+                                        type: integer
+                                      minLen:
+                                        description: |-
+                                          Minimum prefix length for the match. It must be less than or equal
+                                          to maxLen. If not specified, it defaults to the maxLen.
+                                        maximum: 128
+                                        minimum: 0
+                                        type: integer
+                                      prefix:
+                                        description: Prefix is the IPv6 prefix to
+                                          match.
+                                        format: cidr
+                                        type: string
+                                    required:
+                                    - prefix
+                                    type: object
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - matchType
+                              - matches
+                              type: object
+                          type: object
+                          x-kubernetes-validations:
+                          - message: At least one of prefixesV4 or prefixesV6 must
+                              be specified
+                            rule: has(self.prefixesV4) || has(self.prefixesV6)
+                      required:
+                      - actions
+                      - conditions
+                      type: object
+                    minItems: 1
+                    type: array
+                required:
+                - statements
+                type: object
+            required:
+            - import
+            type: object
+        required:
+        - metadata
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}

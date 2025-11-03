@@ -20,6 +20,7 @@ type IsovalentV1Interface interface {
 	IsovalentBGPNodeConfigsGetter
 	IsovalentBGPNodeConfigOverridesGetter
 	IsovalentBGPPeerConfigsGetter
+	IsovalentBGPPoliciesGetter
 	IsovalentClusterwideNetworkPoliciesGetter
 	IsovalentEgressGatewayPoliciesGetter
 	IsovalentNetworkPoliciesGetter
@@ -48,6 +49,10 @@ func (c *IsovalentV1Client) IsovalentBGPNodeConfigOverrides() IsovalentBGPNodeCo
 
 func (c *IsovalentV1Client) IsovalentBGPPeerConfigs() IsovalentBGPPeerConfigInterface {
 	return newIsovalentBGPPeerConfigs(c)
+}
+
+func (c *IsovalentV1Client) IsovalentBGPPolicies() IsovalentBGPPolicyInterface {
+	return newIsovalentBGPPolicies(c)
 }
 
 func (c *IsovalentV1Client) IsovalentClusterwideNetworkPolicies() IsovalentClusterwideNetworkPolicyInterface {

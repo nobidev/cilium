@@ -25,6 +25,10 @@ type IsovalentBGPNodeConfigOverrideListerExpansion interface{}
 // IsovalentBGPPeerConfigLister.
 type IsovalentBGPPeerConfigListerExpansion interface{}
 
+// IsovalentBGPPolicyListerExpansion allows custom methods to be added to
+// IsovalentBGPPolicyLister.
+type IsovalentBGPPolicyListerExpansion interface{}
+
 // IsovalentClusterwideNetworkPolicyListerExpansion allows custom methods to be added to
 // IsovalentClusterwideNetworkPolicyLister.
 type IsovalentClusterwideNetworkPolicyListerExpansion interface{}

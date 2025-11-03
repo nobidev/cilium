@@ -21,6 +21,8 @@ type Interface interface {
 	IsovalentBGPNodeConfigOverrides() IsovalentBGPNodeConfigOverrideInformer
 	// IsovalentBGPPeerConfigs returns a IsovalentBGPPeerConfigInformer.
 	IsovalentBGPPeerConfigs() IsovalentBGPPeerConfigInformer
+	// IsovalentBGPPolicies returns a IsovalentBGPPolicyInformer.
+	IsovalentBGPPolicies() IsovalentBGPPolicyInformer
 	// IsovalentClusterwideNetworkPolicies returns a IsovalentClusterwideNetworkPolicyInformer.
 	IsovalentClusterwideNetworkPolicies() IsovalentClusterwideNetworkPolicyInformer
 	// IsovalentEgressGatewayPolicies returns a IsovalentEgressGatewayPolicyInformer.
@@ -63,6 +65,11 @@ func (v *version) IsovalentBGPNodeConfigOverrides() IsovalentBGPNodeConfigOverri
 // IsovalentBGPPeerConfigs returns a IsovalentBGPPeerConfigInformer.
 func (v *version) IsovalentBGPPeerConfigs() IsovalentBGPPeerConfigInformer {
 	return &isovalentBGPPeerConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// IsovalentBGPPolicies returns a IsovalentBGPPolicyInformer.
+func (v *version) IsovalentBGPPolicies() IsovalentBGPPolicyInformer {
+	return &isovalentBGPPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // IsovalentClusterwideNetworkPolicies returns a IsovalentClusterwideNetworkPolicyInformer.

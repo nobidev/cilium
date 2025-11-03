@@ -22,7 +22,8 @@ CRDS_ISOVALENT_V1="isovalentegressgatewaypolicies \
                    isovalentbgppeerconfigs \
                    isovalentbgpadvertisements \
                    isovalentbgpnodeconfigs \
-                   isovalentbgpnodeconfigoverrides"
+                   isovalentbgpnodeconfigoverrides \
+                   isovalentbgppolicies"
 
 # Set CRDS_ISOVALENT_V1ALPHA1 with the list of CRDs for v1alpha1
 CRDS_ISOVALENT_V1ALPHA1="isovalentfqdngroups \

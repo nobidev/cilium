@@ -51,6 +51,7 @@ func AllIsovalentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v1.IsovalentBGPAdvertisementName))
 		result = append(result, CRDResourceName(v1.IsovalentBGPNodeConfigName))
 		result = append(result, CRDResourceName(v1.IsovalentBGPNodeConfigOverrideName))
+		result = append(result, CRDResourceName(v1.IsovalentBGPPolicyName))
 		result = append(result, CRDResourceName(v1alpha1.IsovalentBGPVRFConfigName))
 	}
 

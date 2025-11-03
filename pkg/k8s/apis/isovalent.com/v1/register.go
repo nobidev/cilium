@@ -29,18 +29,21 @@ const (
 	IsovalentBGPAdvertisementPluralName      = "isovalentbgpadvertisements"
 	IsovalentBGPNodeConfigPluralName         = "isovalentbgpnodeconfigs"
 	IsovalentBGPNodeConfigOverridePluralName = "isovalentbgpnodeconfigoverrides"
+	IsovalentBGPPolicyPluralName             = "isovalentbgppolicies"
 
 	IsovalentBGPClusterConfigKindDefinition      = "IsovalentBGPClusterConfig"
 	IsovalentBGPPeerConfigKindDefinition         = "IsovalentBGPPeerConfig"
 	IsovalentBGPAdvertisementKindDefinition      = "IsovalentBGPAdvertisement"
 	IsovalentBGPNodeConfigKindDefinition         = "IsovalentBGPNodeConfig"
 	IsovalentBGPNodeConfigOverrideKindDefinition = "IsovalentBGPNodeConfigOverride"
+	IsovalentBGPPolicyKindDefinition             = "IsovalentBGPPolicy"
 
 	IsovalentBGPClusterConfigName      = IsovalentBGPClusterConfigPluralName + "." + CustomResourceDefinitionGroup
 	IsovalentBGPPeerConfigName         = IsovalentBGPPeerConfigPluralName + "." + CustomResourceDefinitionGroup
 	IsovalentBGPAdvertisementName      = IsovalentBGPAdvertisementPluralName + "." + CustomResourceDefinitionGroup
 	IsovalentBGPNodeConfigName         = IsovalentBGPNodeConfigPluralName + "." + CustomResourceDefinitionGroup
 	IsovalentBGPNodeConfigOverrideName = IsovalentBGPNodeConfigOverridePluralName + "." + CustomResourceDefinitionGroup
+	IsovalentBGPPolicyName             = IsovalentBGPPolicyPluralName + "." + CustomResourceDefinitionGroup
 
 	// Isovalent Network Policy (INP) and Isovalent Clusterwide Network Policy (ICNP)
 	IsovalentNetworkPolicyPluralName                = "isovalentnetworkpolicies"
@@ -104,6 +107,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&IsovalentBGPNodeConfigList{},
 		&IsovalentBGPNodeConfigOverride{},
 		&IsovalentBGPNodeConfigOverrideList{},
+		&IsovalentBGPPolicy{},
+		&IsovalentBGPPolicyList{},
 		&IsovalentNetworkPolicy{},
 		&IsovalentNetworkPolicyList{},
 		&IsovalentClusterwideNetworkPolicy{},
