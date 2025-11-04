@@ -88,6 +88,17 @@ func IsovalentBGPNodeConfigOverrideResource(lc cell.Lifecycle, c client.Clientse
 		), mp, resource.WithMetric("IsovalentBGPNodeConfigOverride"))
 }
 
+func IsovalentBGPPolicyResource(lc cell.Lifecycle, c client.Clientset, mp workqueue.MetricsProvider, bgpConfig config.Config) resource.Resource[*isovalent_api_v1.IsovalentBGPPolicy] {
+	if !c.IsEnabled() || !bgpConfig.Enabled {
+		return nil
+	}
+
+	return resource.New[*isovalent_api_v1.IsovalentBGPPolicy](
+		lc, utils.ListerWatcherFromTyped[*isovalent_api_v1.IsovalentBGPPolicyList](
+			c.IsovalentV1().IsovalentBGPPolicies(),
+		), mp, resource.WithMetric("IsovalentBGPPolicy"))
+}
+
 func IsovalentBGPVRFConfigResource(lc cell.Lifecycle, c client.Clientset, mp workqueue.MetricsProvider, bgpConfig config.Config) resource.Resource[*isovalent_api_v1alpha1.IsovalentBGPVRFConfig] {
 	if !c.IsEnabled() || !bgpConfig.Enabled {
 		return nil

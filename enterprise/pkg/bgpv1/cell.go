@@ -28,6 +28,7 @@ var Cell = cell.Module(
 		k8s.IsovalentBGPPeerConfigResource,
 		k8s.IsovalentBGPAdvertisementResource,
 		k8s.IsovalentBGPNodeConfigResource,
+		k8s.IsovalentBGPPolicyResource,
 		k8s.IsovalentBGPVRFConfigResource,
 		k8s.CiliumBGPPeerConfigResource,
 	),
