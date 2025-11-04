@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	enterpriseTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	ossreconcilerv2 "github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
@@ -28,18 +29,21 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 // NeighborReconciler is a ConfigReconciler which reconciles the peers of the
 // provided BGP server with the provided CiliumBGPVirtualRouter.
 type NeighborReconciler struct {
-	Logger       *slog.Logger
-	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
-	PeerConfig   store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
-	DaemonConfig *option.DaemonConfig
-	upgrader     paramUpgrader
-	metadata     map[string]*NeighborReconcilerMetadata
+	Logger           *slog.Logger
+	SecretStore      store.BGPCPResourceStore[*slim_corev1.Secret]
+	PeerConfig       store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
+	Policy           store.BGPCPResourceStore[*v1.IsovalentBGPPolicy]
+	EnterpriseConfig Config
+	DaemonConfig     *option.DaemonConfig
+	upgrader         paramUpgrader
+	metadata         map[string]*NeighborReconcilerMetadata
 }
 
 type NeighborReconcilerOut struct {
@@ -50,12 +54,14 @@ type NeighborReconcilerOut struct {
 
 type NeighborReconcilerIn struct {
 	cell.In
-	BGPConfig    config.Config
-	Logger       *slog.Logger
-	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
-	PeerConfig   store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
-	DaemonConfig *option.DaemonConfig
-	Upgrader     paramUpgrader
+	BGPConfig        config.Config
+	EnterpriseConfig Config
+	Logger           *slog.Logger
+	SecretStore      store.BGPCPResourceStore[*slim_corev1.Secret]
+	PeerConfig       store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
+	Policy           store.BGPCPResourceStore[*v1.IsovalentBGPPolicy]
+	DaemonConfig     *option.DaemonConfig
+	Upgrader         paramUpgrader
 }
 
 func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
@@ -65,12 +71,14 @@ func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 
 	return NeighborReconcilerOut{
 		Reconciler: &NeighborReconciler{
-			Logger:       params.Logger.With(types.ReconcilerLogField, "Neighbor"),
-			SecretStore:  params.SecretStore,
-			PeerConfig:   params.PeerConfig,
-			DaemonConfig: params.DaemonConfig,
-			upgrader:     params.Upgrader,
-			metadata:     make(map[string]*NeighborReconcilerMetadata),
+			Logger:           params.Logger.With(types.ReconcilerLogField, "Neighbor"),
+			SecretStore:      params.SecretStore,
+			PeerConfig:       params.PeerConfig,
+			Policy:           params.Policy,
+			EnterpriseConfig: params.EnterpriseConfig,
+			DaemonConfig:     params.DaemonConfig,
+			upgrader:         params.Upgrader,
+			metadata:         make(map[string]*NeighborReconcilerMetadata),
 		},
 	}
 }
@@ -319,7 +327,13 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 func (r *NeighborReconciler) reconcileRouteReflectorRoutePolicies(ctx context.Context, p EnterpriseReconcileParams) error {
 	metadata := r.getMetadata(p.BGPInstance)
 
-	desiredRoutePolicies := getDesiredRouteReflectorPolicies(p.DesiredConfig)
+	// Route reflector is not compatible with route import
+	var desiredRoutePolicies ossreconcilerv2.RoutePolicyMap
+	if p.DesiredConfig.RouteReflector != nil {
+		desiredRoutePolicies = getDesiredRouteReflectorPolicies(p.DesiredConfig)
+	} else {
+		desiredRoutePolicies = r.getDesiredUserDefinedImportPolicy(p.DesiredConfig)
+	}
 
 	updatedPolicies, err := ossreconcilerv2.ReconcileRoutePolicies(&ossreconcilerv2.ReconcileRoutePoliciesParams{
 		Logger:          r.Logger,
@@ -482,6 +496,81 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 		// We already allow all generated routes per neighbor. No need to add additional policies.
 	}
 	return desiredRoutePolicies
+}
+
+func (r *NeighborReconciler) getDesiredUserDefinedImportPolicy(instance *v1.IsovalentBGPNodeInstance) ossreconcilerv2.RoutePolicyMap {
+	desiredPolicies := ossreconcilerv2.RoutePolicyMap{}
+
+	// Feature disabled
+	if !r.EnterpriseConfig.RouteImportEnabled {
+		return desiredPolicies
+	}
+
+	for _, peer := range instance.Peers {
+		if peer.PeerAddress == nil {
+			// No PeerAddress, cannot create policy
+			continue
+		}
+
+		if peer.PeerConfigRef == nil {
+			// No PeerConfig, no import policy
+			continue
+		}
+
+		if peer.RouteReflector != nil {
+			// Route reflector is not compatible with route import
+			continue
+		}
+
+		peerAddr, err := netip.ParseAddr(*peer.PeerAddress)
+		if err != nil {
+			// Invalid PeerAddress, skip
+			continue
+		}
+
+		peerConfig, exists, err := r.getPeerConfig(peer.PeerConfigRef)
+		if err != nil || !exists {
+			// Cannot fetch PeerConfig, skip
+			continue
+		}
+
+		for _, family := range peerConfig.Families {
+			if family.ImportPolicyRef == nil {
+				// No import policy reference defined
+				continue
+			}
+
+			if (family.Afi != "ipv4" && family.Afi != "ipv6") || family.Safi != "unicast" {
+				// We only support ipv4-unicast and ipv6-unicast families at this point
+				continue
+			}
+
+			policy, exists, err := r.Policy.GetByKey(resource.Key{Name: family.ImportPolicyRef.Name})
+			if err != nil || !exists {
+				// Cannot fetch policy, skip
+				continue
+			}
+
+			if err := enterpriseTypes.ValidateAndDefaultImportPolicy(&policy.Spec.Import, family.CiliumBGPFamily); err != nil {
+				// Invalid import policy, skip
+				r.Logger.Error("Skipping import policy for peer due to validation error", logfields.Error, err)
+				continue
+			}
+
+			policyName := "import-user-defined-" + peer.Name + "-" + family.Afi + "-" + family.Safi
+
+			routePolicy := enterpriseTypes.ToRoutePolicy(
+				&policy.Spec.Import,
+				policyName,
+				peerAddr,
+				types.ToAgentFamily(family.CiliumBGPFamily),
+			)
+
+			desiredPolicies[policyName] = routePolicy
+		}
+	}
+
+	return desiredPolicies
 }
 
 // getPeerConfig returns the CiliumBGPPeerConfigSpec for the given peerConfig.

@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	ossreconcilerv2 "github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -762,6 +763,525 @@ func TestRouteReflectorPolicy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := getDesiredRouteReflectorPolicies(tt.instance)
 			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestUserDefinedImportPolicy(t *testing.T) {
+	policyV4 := &v1.IsovalentBGPPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "policy-v4",
+		},
+		Spec: v1.IsovalentBGPPolicySpec{
+			Import: v1.BGPImportPolicy{
+				Statements: []v1.BGPPolicyStatement{
+					{
+						Conditions: v1.BGPPolicyConditions{
+							PrefixesV4: &v1.PrefixesV4Condition{
+								MatchType: v1.BGPPolicyMatchTypeOr,
+								Matches: []v1.PrefixV4Match{
+									{
+										Prefix: "10.0.0.0/24",
+										MaxLen: ptr.To(uint8(16)),
+										MinLen: ptr.To(uint8(8)),
+									},
+								},
+							},
+						},
+						Actions: v1.BGPPolicyActions{
+							RouteAction: v1.BGPRouteActionAccept,
+						},
+					},
+				},
+			},
+		},
+	}
+	policyV6 := &v1.IsovalentBGPPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "policy-v6",
+		},
+		Spec: v1.IsovalentBGPPolicySpec{
+			Import: v1.BGPImportPolicy{
+				Statements: []v1.BGPPolicyStatement{
+					{
+						Conditions: v1.BGPPolicyConditions{
+							PrefixesV6: &v1.PrefixesV6Condition{
+								MatchType: v1.BGPPolicyMatchTypeOr,
+								Matches: []v1.PrefixV6Match{
+									{
+										Prefix: "fd00::/64",
+										MaxLen: ptr.To(uint8(32)),
+										MinLen: ptr.To(uint8(16)),
+									},
+								},
+							},
+						},
+						Actions: v1.BGPPolicyActions{
+							RouteAction: v1.BGPRouteActionAccept,
+						},
+					},
+				},
+			},
+		},
+	}
+	policyDual := &v1.IsovalentBGPPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "policy-dual",
+		},
+		Spec: v1.IsovalentBGPPolicySpec{
+			Import: v1.BGPImportPolicy{
+				Statements: []v1.BGPPolicyStatement{
+					{
+						Conditions: v1.BGPPolicyConditions{
+							PrefixesV4: &v1.PrefixesV4Condition{
+								MatchType: v1.BGPPolicyMatchTypeOr,
+								Matches: []v1.PrefixV4Match{
+									{
+										Prefix: "10.0.0.0/24",
+										MaxLen: ptr.To(uint8(16)),
+										MinLen: ptr.To(uint8(8)),
+									},
+								},
+							},
+							PrefixesV6: &v1.PrefixesV6Condition{
+								MatchType: v1.BGPPolicyMatchTypeOr,
+								Matches: []v1.PrefixV6Match{
+									{
+										Prefix: "fd00::/64",
+										MaxLen: ptr.To(uint8(32)),
+										MinLen: ptr.To(uint8(16)),
+									},
+								},
+							},
+						},
+						Actions: v1.BGPPolicyActions{
+							RouteAction: v1.BGPRouteActionAccept,
+						},
+					},
+				},
+			},
+		},
+	}
+	peerConfigV4Only := &v1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "v4-only",
+		},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					ImportPolicyRef: &v1.IsovalentBGPPolicyRef{
+						Name: policyV4.Name,
+					},
+				},
+			},
+		},
+	}
+	peerConfigV6Only := &v1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "v6-only",
+		},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv6",
+						Safi: "unicast",
+					},
+					ImportPolicyRef: &v1.IsovalentBGPPolicyRef{
+						Name: policyV6.Name,
+					},
+				},
+			},
+		},
+	}
+	peerConfigDual := &v1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "dual",
+		},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					ImportPolicyRef: &v1.IsovalentBGPPolicyRef{
+						Name: policyDual.Name,
+					},
+				},
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv6",
+						Safi: "unicast",
+					},
+					ImportPolicyRef: &v1.IsovalentBGPPolicyRef{
+						Name: policyDual.Name,
+					},
+				},
+			},
+		},
+	}
+	peerConfigOneFamily := &v1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "one-of-family",
+		},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					ImportPolicyRef: &v1.IsovalentBGPPolicyRef{
+						Name: policyV4.Name,
+					},
+				},
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					ImportPolicyRef: nil,
+				},
+			},
+		},
+	}
+	peerConfigNoRef := &v1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "no-reference",
+		},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					ImportPolicyRef: nil,
+				},
+			},
+		},
+	}
+	implicitAllowAllCase0 := &v1.IsovalentBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "implicit-allow-all-case0",
+		},
+		Spec: v1.IsovalentBGPPeerConfigSpec{
+			Families: []v1.IsovalentBGPFamilyWithAdverts{
+				{
+					CiliumBGPFamily: v2.CiliumBGPFamily{
+						Afi:  "ipv4",
+						Safi: "unicast",
+					},
+					// Attaching IPv6 matching policy to
+					// IPv4 family produces empty prefix
+					// matches.
+					ImportPolicyRef: &v1.IsovalentBGPPolicyRef{
+						Name: policyV6.Name,
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name             string
+		peer             *v1.IsovalentBGPNodePeer
+		expectedPolicies ossreconcilerv2.RoutePolicyMap
+	}{
+		{
+			name: "v4 only",
+			peer: &v1.IsovalentBGPNodePeer{
+				Name:        "peer0",
+				PeerAddress: ptr.To("10.0.0.1"),
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: peerConfigV4Only.Name,
+				},
+			},
+			expectedPolicies: ossreconcilerv2.RoutePolicyMap{
+				"import-user-defined-peer0-ipv4-unicast": &types.RoutePolicy{
+					Name: "import-user-defined-peer0-ipv4-unicast",
+					Type: types.RoutePolicyTypeImport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.0.0.1")},
+								MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+									{
+										CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
+										PrefixLenMax: 16,
+										PrefixLenMin: 8,
+									},
+								},
+								MatchFamilies: []types.Family{
+									{
+										Afi:  types.AfiIPv4,
+										Safi: types.SafiUnicast,
+									},
+								},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "v6 only",
+			peer: &v1.IsovalentBGPNodePeer{
+				Name:        "peer0",
+				PeerAddress: ptr.To("2001:db8::1"),
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: peerConfigV6Only.Name,
+				},
+			},
+			expectedPolicies: ossreconcilerv2.RoutePolicyMap{
+				"import-user-defined-peer0-ipv6-unicast": &types.RoutePolicy{
+					Name: "import-user-defined-peer0-ipv6-unicast",
+					Type: types.RoutePolicyTypeImport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
+								MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+									{
+										CIDR:         netip.MustParsePrefix("fd00::/64"),
+										PrefixLenMax: 32,
+										PrefixLenMin: 16,
+									},
+								},
+								MatchFamilies: []types.Family{
+									{
+										Afi:  types.AfiIPv6,
+										Safi: types.SafiUnicast,
+									},
+								},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "dual",
+			peer: &v1.IsovalentBGPNodePeer{
+				Name:        "peer0",
+				PeerAddress: ptr.To("2001:db8::1"),
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: peerConfigDual.Name,
+				},
+			},
+			expectedPolicies: ossreconcilerv2.RoutePolicyMap{
+				"import-user-defined-peer0-ipv4-unicast": &types.RoutePolicy{
+					Name: "import-user-defined-peer0-ipv4-unicast",
+					Type: types.RoutePolicyTypeImport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
+								MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+									{
+										CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
+										PrefixLenMax: 16,
+										PrefixLenMin: 8,
+									},
+								},
+								MatchFamilies: []types.Family{
+									{
+										Afi:  types.AfiIPv4,
+										Safi: types.SafiUnicast,
+									},
+								},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+				"import-user-defined-peer0-ipv6-unicast": &types.RoutePolicy{
+					Name: "import-user-defined-peer0-ipv6-unicast",
+					Type: types.RoutePolicyTypeImport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
+								MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+									{
+										CIDR:         netip.MustParsePrefix("fd00::/64"),
+										PrefixLenMax: 32,
+										PrefixLenMin: 16,
+									},
+								},
+								MatchFamilies: []types.Family{
+									{
+										Afi:  types.AfiIPv6,
+										Safi: types.SafiUnicast,
+									},
+								},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one of family",
+			peer: &v1.IsovalentBGPNodePeer{
+				Name:        "peer0",
+				PeerAddress: ptr.To("2001:db8::1"),
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: peerConfigOneFamily.Name,
+				},
+			},
+			expectedPolicies: ossreconcilerv2.RoutePolicyMap{
+				"import-user-defined-peer0-ipv4-unicast": &types.RoutePolicy{
+					Name: "import-user-defined-peer0-ipv4-unicast",
+					Type: types.RoutePolicyTypeImport,
+					Statements: []*types.RoutePolicyStatement{
+						{
+							Conditions: types.RoutePolicyConditions{
+								MatchNeighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
+								MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+									{
+										CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
+										PrefixLenMax: 16,
+										PrefixLenMin: 8,
+									},
+								},
+								MatchFamilies: []types.Family{
+									{
+										Afi:  types.AfiIPv4,
+										Safi: types.SafiUnicast,
+									},
+								},
+							},
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "route-reflector RR peer",
+			peer: &v1.IsovalentBGPNodePeer{
+				Name:        "peer0",
+				PeerAddress: ptr.To("10.0.0.1"),
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: peerConfigV4Only.Name,
+				},
+				RouteReflector: &v1.NodeRouteReflector{
+					Role: v1.RouteReflectorRoleRouteReflector,
+				},
+			},
+			expectedPolicies: ossreconcilerv2.RoutePolicyMap{},
+		},
+		{
+			name: "route-reflector client peer",
+			peer: &v1.IsovalentBGPNodePeer{
+				Name:        "peer0",
+				PeerAddress: ptr.To("10.0.0.1"),
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: peerConfigV4Only.Name,
+				},
+				RouteReflector: &v1.NodeRouteReflector{
+					Role: v1.RouteReflectorRoleClient,
+				},
+			},
+			expectedPolicies: ossreconcilerv2.RoutePolicyMap{},
+		},
+		{
+			name: "no peerAddress",
+			peer: &v1.IsovalentBGPNodePeer{
+				Name:        "peer0",
+				PeerAddress: nil,
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: peerConfigV4Only.Name,
+				},
+			},
+			expectedPolicies: ossreconcilerv2.RoutePolicyMap{},
+		},
+		{
+			name: "no peerConfigRef",
+			peer: &v1.IsovalentBGPNodePeer{
+				Name:          "peer0",
+				PeerAddress:   ptr.To("10.0.0.1"),
+				PeerConfigRef: nil,
+			},
+			expectedPolicies: ossreconcilerv2.RoutePolicyMap{},
+		},
+		{
+			name: "no importPolicyRef",
+			peer: &v1.IsovalentBGPNodePeer{
+				Name:        "peer0",
+				PeerAddress: ptr.To("10.0.0.1"),
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: peerConfigNoRef.Name,
+				},
+			},
+			expectedPolicies: ossreconcilerv2.RoutePolicyMap{},
+		},
+		{
+			name: "implicit allow all case0",
+			peer: &v1.IsovalentBGPNodePeer{
+				Name:        "peer0",
+				PeerAddress: ptr.To("10.0.0.1"),
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: implicitAllowAllCase0.Name,
+				},
+			},
+			expectedPolicies: ossreconcilerv2.RoutePolicyMap{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// setup fake store for peer config
+			peerConfigStore := store.InitMockStore([]*v1.IsovalentBGPPeerConfig{
+				peerConfigV4Only,
+				peerConfigV6Only,
+				peerConfigDual,
+				peerConfigOneFamily,
+				peerConfigNoRef,
+				implicitAllowAllCase0,
+			})
+
+			// setup fake store for policies
+			policyStore := store.InitMockStore([]*v1.IsovalentBGPPolicy{
+				policyV4,
+				policyV6,
+				policyDual,
+			})
+
+			reconcilerIn := NeighborReconcilerIn{
+				Logger:           hivetest.Logger(t),
+				BGPConfig:        config.Config{Enabled: true},
+				EnterpriseConfig: Config{RouteImportEnabled: true},
+				PeerConfig:       peerConfigStore,
+				Policy:           policyStore,
+			}
+
+			instance := &v1.IsovalentBGPNodeInstance{
+				Peers: []v1.IsovalentBGPNodePeer{*tt.peer},
+			}
+
+			reconciler := NewNeighborReconciler(reconcilerIn).Reconciler
+			result := reconciler.(*NeighborReconciler).getDesiredUserDefinedImportPolicy(instance)
+			require.Equal(t, tt.expectedPolicies, result)
 		})
 	}
 }
