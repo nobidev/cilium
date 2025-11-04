@@ -61,6 +61,7 @@ var ConfigReconcilers = cell.Group(
 	cell.Provide(
 		newImportVPNRouteStateReconciler,
 		NewStatusReconciler,
+		newImportRouteReconciler,
 	),
 
 	// config of the enterprise reconcilers

@@ -47,10 +47,12 @@ const (
 const (
 	ImportedVPNRouteReconcilerName = "ImportedVPNRoute"
 	CRDStatusReconcilerName        = "IsovalentBGPNodeConfigStatus"
+	ImportRouteReconcilerName      = "ImportRoute"
 )
 
 // State reconciler priorities
 const (
 	ImportedVPNRouteReconcilerPriority = 20
+	ImportRouteReconcilerPriority      = 40
 	CRDStatusReconcilerPriority        = 50
 )
