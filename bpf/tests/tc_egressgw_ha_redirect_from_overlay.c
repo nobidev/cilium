@@ -127,19 +127,20 @@ int egressgw_ha_skip_excluded_cidr_redirect_check(const struct __ctx_buff *ctx)
 	return ret;
 }
 
-/* Test that a packet matching an egress gateway policy without a gateway on the
- * from-overlay program does not get redirected to the target netdev.
+/* Test that a second packet for the same connection is still redirected
+ * to the target netdev, even when no gateways are available.
  */
-PKTGEN("tc", "tc_egressgw_ha_skip_no_gateway_redirect_from_overlay")
-int egressgw_ha_skip_no_gateway_redirect_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "tc_egressgw_ha_no_gateway_redirect_from_overlay")
+int egressgw_ha_no_gateway_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
-			.test = TEST_REDIRECT_SKIP_NO_GATEWAY,
+			.test = TEST_REDIRECT,
+			.redirect = true,
 		});
 }
 
-SETUP("tc", "tc_egressgw_ha_skip_no_gateway_redirect_from_overlay")
-int egressgw_ha_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
+SETUP("tc", "tc_egressgw_ha_no_gateway_redirect_from_overlay")
+int egressgw_ha_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, 0, {},
 				     EGRESS_IP, 0);
@@ -147,11 +148,11 @@ int egressgw_ha_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_ha_skip_no_gateway_redirect_from_overlay")
-int egressgw_ha_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
+CHECK("tc", "tc_egressgw_ha_no_gateway_redirect_from_overlay")
+int egressgw_ha_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 {
 	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
-			.status_code = TC_ACT_OK,
+			.status_code = TC_ACT_REDIRECT,
 	});
 
 	del_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);

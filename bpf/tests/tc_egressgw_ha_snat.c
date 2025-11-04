@@ -147,6 +147,38 @@ int egressgw_ha_snat1_3_reply_inactive_gw_check(const struct __ctx_buff *ctx)
 		});
 }
 
+/* Test that a second packet for the same connection is still SNATed with
+ * the egress IP of the policy, even when no gateways are available.
+ */
+PKTGEN("tc", "tc_egressgw_ha_snat1_4_inactive_gw")
+int egressgw_ha_snat1_4_pktgen(struct __ctx_buff *ctx)
+{
+	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_HA_SNAT1,
+		});
+}
+
+SETUP("tc", "tc_egressgw_ha_snat1_4_inactive_gw")
+int egressgw_ha_snat1_4_setup(struct __ctx_buff *ctx)
+{
+	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 0,
+				     { 0 }, EGRESS_IP, 0);
+
+	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "tc_egressgw_ha_snat1_4_inactive_gw")
+int egressgw_ha_snat1_4_check(const struct __ctx_buff *ctx)
+{
+	return egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_HA_SNAT1,
+			.packets = 4,
+			.status_code = CTX_ACT_OK
+		});
+}
+
 PKTGEN("tc", "tc_egressgw_ha_snat2")
 int egressgw_ha_snat2_pktgen(struct __ctx_buff *ctx)
 {

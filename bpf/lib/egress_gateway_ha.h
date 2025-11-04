@@ -219,8 +219,6 @@ bool egress_gw_ha_snat_needed(__be32 saddr __maybe_unused,
 
 	egress_gw_policy = &egress_gw_policy_v2->policy;
 	*egress_ifindex = egress_gw_policy_v2->egress_ifindex;
-	if (!egress_gw_policy->size)
-		return false;
 
 	/* If this is an excluded CIDR, skip SNAT */
 	if (egress_gw_ha_policy_entry_is_excluded_cidr(egress_gw_policy))
