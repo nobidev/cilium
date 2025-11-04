@@ -5,6 +5,7 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,19 +18,22 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
-	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/config"
-	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -38,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -84,17 +89,26 @@ type loader struct {
 	compilationLock    datapath.CompilationLock
 	configWriter       datapath.ConfigWriter
 	nodeConfigNotifier *manager.NodeConfigNotifier
+
+	db           *statedb.DB
+	devices      statedb.Table[*tables.Device]
+	routeManager *routeReconciler.DesiredRouteManager
 }
 
 type Params struct {
 	cell.In
 
+	JobGroup           job.Group
 	Logger             *slog.Logger
 	Sysctl             sysctl.Sysctl
 	Prefilter          datapath.PreFilter
 	CompilationLock    datapath.CompilationLock
 	ConfigWriter       datapath.ConfigWriter
 	NodeConfigNotifier *manager.NodeConfigNotifier
+	RouteManager       *routeReconciler.DesiredRouteManager
+	DB                 *statedb.DB
+	Devices            statedb.Table[*tables.Device]
+	EPRestorer         promise.Promise[endpointstate.Restorer]
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -103,6 +117,7 @@ type Params struct {
 
 // newLoader returns a new loader.
 func newLoader(p Params) *loader {
+	registerRouteInitializer(p)
 	return &loader{
 		logger:             p.Logger,
 		templateCache:      newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
@@ -112,26 +127,71 @@ func newLoader(p Params) *loader {
 		compilationLock:    p.CompilationLock,
 		configWriter:       p.ConfigWriter,
 		nodeConfigNotifier: p.NodeConfigNotifier,
+		routeManager:       p.RouteManager,
+
+		db:      p.DB,
+		devices: p.Devices,
 	}
 }
 
-func upsertEndpointRoute(logger *slog.Logger, ep datapath.Endpoint, ip net.IPNet) error {
-	endpointRoute := route.Route{
-		Prefix: ip,
-		Device: ep.InterfaceName(),
-		Scope:  netlink.SCOPE_LINK,
-		Proto:  linux_defaults.RTProto,
-	}
+func registerRouteInitializer(p Params) {
+	// [upsertEndpointRoute] Creates routes for endpoints that need per endpoint routes.
+	// We need to tell the route reconciler to delay pruning of routes from the kernel until we have had a chance
+	// to insert desired routes for all endpoints that need them.
+	//
+	// Use the endpoint restorer to get a signal when all existing endpoints have been restored, and thus
+	// [loader.ReloadDatapath] has been called for all existing endpoints. After that we can finalize the route
+	// initializer.
+	routeInitializer := p.RouteManager.RegisterInitializer("per-endpoint-routes")
+	p.JobGroup.Add(job.OneShot("per-endpoint-route-initializer", func(ctx context.Context, _ cell.Health) error {
+		defer p.RouteManager.FinalizeInitializer(routeInitializer)
 
-	return route.Upsert(logger, endpointRoute)
+		epRestorer, err := p.EPRestorer.Await(ctx)
+		if err != nil {
+			return fmt.Errorf("waiting for endpoint restorer: %w", err)
+		}
+
+		if err := epRestorer.WaitForEndpointRestore(ctx); err != nil {
+			return fmt.Errorf("waiting for endpoint restore: %w", err)
+		}
+
+		return nil
+	}))
 }
 
-func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
-	return route.Delete(route.Route{
-		Prefix: ip,
-		Device: ep.InterfaceName(),
-		Scope:  netlink.SCOPE_LINK,
+func upsertEndpointRoute(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager, ep datapath.Endpoint, ip netip.Prefix) error {
+	owner, err := rm.GetOrRegisterOwner("endpoint/" + ep.StringID())
+	if err != nil {
+		return fmt.Errorf("getting or registering owner for endpoint %s: %w", ep.StringID(), err)
+	}
+
+	epDev, _, found := devices.Get(db.ReadTxn(), tables.DeviceIDIndex.Query(ep.GetIfIndex()))
+	if !found {
+		return fmt.Errorf("device %d not found for endpoint %s", ep.GetIfIndex(), ep.StringID())
+	}
+
+	return rm.UpsertRoute(routeReconciler.DesiredRoute{
+		Owner:         owner,
+		Prefix:        ip,
+		Table:         routeReconciler.TableMain,
+		AdminDistance: routeReconciler.AdminDistanceDefault,
+
+		Device: epDev,
+		Scope:  routeReconciler.SCOPE_LINK,
 	})
+}
+
+func removeEndpointRoute(ep datapath.Endpoint, rm *routeReconciler.DesiredRouteManager) error {
+	owner, err := rm.GetOwner("endpoint/" + ep.StringID())
+	if err != nil {
+		if errors.Is(err, routeReconciler.ErrOwnerDoesNotExist) {
+			return nil
+		}
+
+		return fmt.Errorf("getting route owner for endpoint %s: %w", ep.StringID(), err)
+	}
+
+	return rm.RemoveOwner(owner)
 }
 
 func bpfMasqAddrs(ifName string, cfg *datapath.LocalNodeConfiguration) (masq4, masq6 netip.Addr) {
@@ -185,10 +245,6 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		cfg.EthHeaderLength = 0
 	}
 
-	if !option.Config.EnableHostLegacyRouting {
-		cfg.SecctxFromIPCache = true
-	}
-
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	ifindex := link.Attrs().Index
@@ -211,10 +267,16 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	if lnc.EnableWireguard {
 		cfg.WgIfindex = lnc.WireguardIfIndex
 		cfg.WgPort = wgtypes.ListenPort
+	}
+
+	if option.Config.EnableVTEP {
+		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
 	renames := map[string]string{
@@ -358,10 +420,16 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
+	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	if lnc.EnableWireguard {
 		cfg.WgIfindex = lnc.WireguardIfIndex
 		cfg.WgPort = wgtypes.ListenPort
+	}
+
+	if option.Config.EnableVTEP {
+		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
 	renames := map[string]string{
@@ -438,6 +506,8 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfindex = uint32(ifindex)
@@ -447,6 +517,10 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 	if lnc.EnableWireguard {
 		cfg.WgIfindex = lnc.WireguardIfIndex
 		cfg.WgPort = wgtypes.ListenPort
+	}
+
+	if option.Config.EnableVTEP {
+		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
 	renames := map[string]string{
@@ -612,6 +686,12 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
+
+	if option.Config.EnableVTEP {
+		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+	}
 
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
@@ -626,7 +706,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func reloadEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func reloadEndpoint(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
 	co, renames := endpointRewrites(ep, lnc)
@@ -693,14 +773,14 @@ func reloadEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Loc
 			logfields.Interface, device,
 		)
 		if ip := ep.IPv4Address(); ip.IsValid() {
-			if err := upsertEndpointRoute(logger, ep, *netipx.AddrIPNet(ip)); err != nil {
+			if err := upsertEndpointRoute(logger, db, devices, rm, ep, netip.PrefixFrom(ip, ip.BitLen())); err != nil {
 				scopedLog.Warn("Failed to upsert route",
 					logfields.Error, err,
 				)
 			}
 		}
 		if ip := ep.IPv6Address(); ip.IsValid() {
-			if err := upsertEndpointRoute(logger, ep, *netipx.AddrIPNet(ip)); err != nil {
+			if err := upsertEndpointRoute(logger, db, devices, rm, ep, netip.PrefixFrom(ip, ip.BitLen())); err != nil {
 				scopedLog.Warn("Failed to upsert route",
 					logfields.Error, err,
 				)
@@ -726,6 +806,12 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
+
+	if option.Config.EnableVTEP {
+		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+	}
 
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
@@ -777,6 +863,8 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
@@ -872,7 +960,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 
 	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = reloadEndpoint(l.logger, ep, lnc, spec)
+	err = reloadEndpoint(l.logger, l.db, l.devices, l.routeManager, ep, lnc, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }
@@ -881,11 +969,11 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 func (l *loader) Unload(ep datapath.Endpoint) {
 	if ep.RequireEndpointRoute() {
 		if ip := ep.IPv4Address(); ip.IsValid() {
-			removeEndpointRoute(ep, *netipx.AddrIPNet(ip))
+			removeEndpointRoute(ep, l.routeManager)
 		}
 
 		if ip := ep.IPv6Address(); ip.IsValid() {
-			removeEndpointRoute(ep, *netipx.AddrIPNet(ip))
+			removeEndpointRoute(ep, l.routeManager)
 		}
 	}
 

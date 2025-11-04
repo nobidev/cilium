@@ -105,6 +105,7 @@
 /contrib/coccinelle/ @isovalent/cni
 /contrib/scripts/portgen.py @isovalent/cni
 /contrib/scripts/check-datapathconfig.sh @isovalent/networking-framework
+/contrib/scripts/verifier_diff.py @isovalent/cni
 /daemon/ @isovalent/cni
 /daemon/cmd/datapath.go @isovalent/cni
 /daemon/cmd/endpoint* @isovalent/policy-identity-networking
@@ -182,6 +183,7 @@
 /pkg/annotation @isovalent/sig-k8s
 /pkg/alibabacloud/ @isovalent/infrastructure
 /pkg/alignchecker/ @isovalent/cni @isovalent/networking-framework
+/pkg/allocator/ @isovalent/policy-identity-networking
 /pkg/auth/ @isovalent/service-mesh
 /pkg/aws/ @isovalent/infrastructure
 /pkg/azure/ @isovalent/infrastructure
@@ -250,6 +252,7 @@
 /pkg/iana/ @isovalent/cni
 /pkg/identity @isovalent/policy-identity-networking
 /pkg/identity/restoration @isovalent/policy-identity-networking @isovalent/policy-identity-networking
+/pkg/idpool/ @isovalent/policy-identity-networking
 /pkg/ip/ @isovalent/cni
 /pkg/ipalloc/ @isovalent/networking-framework
 /pkg/ipam/ @isovalent/networking-framework
@@ -309,7 +312,6 @@
 /pkg/revert/ @isovalent/cni
 /pkg/safeio @isovalent/cni
 /pkg/safetime/ @isovalent/cni
-/pkg/shell @isovalent/ci-structure
 /pkg/shortener @isovalent/ci-structure @isovalent/sig-k8s
 /pkg/signal @isovalent/cni
 /pkg/slices @isovalent/ci-structure
@@ -378,6 +380,7 @@
 /.github/workflows/enterprise-scale-encryption-policy.yaml @isovalent/encryption
 /.github/workflows/release-hubble-cli.yaml @isovalent/hubble
 /.github/workflows/enterprise-encryption-policy.yaml @isovalent/encryption
+/bpf/Makefile.override @isovalent/cilium-datapath
 /bpf/enterprise_* @isovalent/cilium-datapath
 /bpf/enterprise_bpf_* @isovalent/cilium-datapath @isovalent/private-networking
 /bpf/include/bpf/config/enterprise_* @isovalent/cilium-datapath @isovalent/private-networking

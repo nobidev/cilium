@@ -24,7 +24,7 @@ import (
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/cilium/cilium/daemon/cmd"
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
@@ -105,12 +105,6 @@ type Manager struct {
 	// creation.
 	sidAlloc ipam.Allocator
 
-	// Promise to wait for the initialization of the Daemon. This is solely used
-	// for waiting for the IPAM initialization. Once the IPAM subsystem becomes
-	// fully modular (including lifecycle aspects), we can get rid of the dependency
-	// to the daemon promise.
-	daemonPromise promise.Promise[*cmd.Daemon]
-
 	// sidManager is an interface to interact with SIDManager
 	sidManagerPromise promise.Promise[sidmanager.SIDManager]
 	sidManager        sidmanager.SIDManager
@@ -135,7 +129,6 @@ type Params struct {
 	DaemonConfig              *option.DaemonConfig
 	Sig                       *signaler.BGPCPSignaler
 	CacheIdentityAllocator    identityCache.IdentityAllocator
-	DaemonPromise             promise.Promise[*cmd.Daemon]
 	SIDManagerPromise         promise.Promise[sidmanager.SIDManager]
 	CiliumEndpointResource    resource.Resource[*k8sTypes.CiliumEndpoint]
 	IsovalentVRFResource      resource.Resource[*iso_v1alpha1.IsovalentVRF]
@@ -144,6 +137,11 @@ type Params struct {
 	VRF6Map                   *srv6map.VRFMap6
 	IPAM                      *ipam.IPAM
 	RIB                       *rib.RIB
+
+	// This dependency is solely present to wait for the IPAM initialization.
+	// Once the IPAM subsystem becomes fully modular (including lifecycle aspects),
+	// we can get rid of this dependency on the daemon initialization.
+	DaemonInitialization legacy.DaemonInitialization
 }
 
 // NewSRv6Manager returns a new SRv6 policy manager.
@@ -159,7 +157,6 @@ func NewSRv6Manager(p Params) *Manager {
 		identityAllocator:   p.CacheIdentityAllocator,
 		allocatedSIDs:       make(map[uint32]*SIDAllocation),
 		bgp:                 p.Sig,
-		daemonPromise:       p.DaemonPromise,
 		sidManagerPromise:   p.SIDManagerPromise,
 		cepResource:         p.CiliumEndpointResource,
 		vrfResource:         p.IsovalentVRFResource,
@@ -175,14 +172,10 @@ func NewSRv6Manager(p Params) *Manager {
 
 	p.JobGroup.Add(
 		job.OneShot("init", func(ctx context.Context, health cell.Health) error {
-			// Wait for the IPAM to be initialized
-			_, err := manager.daemonPromise.Await(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to await on Daemon (IPAM): %w", err)
-			}
 			manager.setSIDAllocator(p.IPAM.IPv6Allocator)
 
 			// Create Endpoints store and watch for Endpoints events
+			var err error
 			manager.cepStore, err = manager.cepResource.Store(ctx)
 			if err != nil {
 				return fmt.Errorf("failed creating Endpoints resource.Store: %w", err)

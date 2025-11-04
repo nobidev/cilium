@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
 
-	"github.com/cilium/cilium/daemon/cmd"
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/dataplane"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
@@ -306,13 +306,10 @@ func newFixture(t *testing.T, useRealSIDManager bool, invokeFn any) *fixture {
 						EnableSRv6: true,
 					}
 				},
-				func() (promise.Promise[*cmd.Daemon], *ipam.IPAM, *fakeIPAMAllocator) {
+				func() (legacy.DaemonInitialization, *ipam.IPAM, *fakeIPAMAllocator) {
 					fia := &fakeIPAMAllocator{}
 					ipam := &ipam.IPAM{IPv6Allocator: fia}
-					daemonResolver, daemonPromise := promise.New[*cmd.Daemon]()
-					daemonResolver.Resolve(&cmd.Daemon{})
-
-					return daemonPromise, ipam, fia
+					return legacy.DaemonInitialization{}, ipam, fia
 				},
 				func() cache.IdentityAllocator {
 					return testidentity.NewMockIdentityAllocator(nil)

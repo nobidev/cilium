@@ -212,4 +212,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.enterprise-multicast-test.result }}
+      success: ${{ needs.enterprise-multicast-test.result == 'success' }}

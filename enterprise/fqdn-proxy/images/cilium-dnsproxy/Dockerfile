@@ -1,8 +1,8 @@
 # Copyright 2020-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:54817d687eacfaef365a8d2dc42b491fe7af83d9@sha256:baccdcd45dd25870c122edb16e22b6db21a9c4639ce24a78930c86bc83f4f289
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:a1bd16a33817e855510d87b53cf88280fb800fb6@sha256:6cb35a49170fdd653e2210f9a83dfffb7deadf608d78eec461638c7df6c3fbd4
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:4284f9bf400fa790b25591b3bf302a6fe62633c9@sha256:0b2b9fa9c4ad4794f460555aa4d4fb3308f7e676ae46d2dd4e7a4f84f7aec07a
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:d33cedf279723c094524689e9025a04ea8034940@sha256:398fa27832f9d30af6e033f73508078d2e9ffb07ffb784927ab4b6b08b63da23
 
 #
 # Cilium incremental build. Should be fast given builder-deps is up-to-date!

@@ -33,7 +33,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/daemon/cmd"
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	bfdtypes "github.com/cilium/cilium/enterprise/pkg/bfd/types"
@@ -69,7 +69,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -192,10 +191,8 @@ func TestPrivilegedScript(t *testing.T) {
 				func() cache.IdentityAllocator {
 					return testidentity.NewMockIdentityAllocator(nil)
 				},
-				func() promise.Promise[*cmd.Daemon] {
-					daemonResolver, daemonPromise := promise.New[*cmd.Daemon]()
-					daemonResolver.Resolve(&cmd.Daemon{})
-					return daemonPromise
+				func() legacy.DaemonInitialization {
+					return legacy.DaemonInitialization{}
 				},
 				func() *ipam.IPAM {
 					return &ipam.IPAM{}

@@ -28,7 +28,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 	struct iphdr __maybe_unused *ip4;
 	const struct privnet_fib_val *sip_val __maybe_unused = NULL;
 	const struct privnet_fib_val *dip_val __maybe_unused = NULL;
-	struct remote_endpoint_info *info __maybe_unused;
+	const struct remote_endpoint_info *info __maybe_unused;
 	__s8 __maybe_unused ext_err = 0;
 	int ret = CTX_ACT_OK;
 
