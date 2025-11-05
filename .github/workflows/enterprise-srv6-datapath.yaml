@@ -95,20 +95,17 @@ jobs:
       matrix:
         include:
           - name: '1'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20251031.120020'
+            kernel: '5.15'
             encap-mode: 'srh' # reduced not supported on kernels below 6.0
             sid-manger-enabled: 'true'
 
           - name: '2'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20251031.120020'
+            kernel: '6.1'
             encap-mode: 'reduced'
             sid-manger-enabled: 'true'
 
           - name: '3'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.6-20251031.120020'
+            kernel: '6.6'
             encap-mode: 'reduced'
             sid-manger-enabled: 'false'
 
@@ -171,6 +168,12 @@ jobs:
           echo sha=${SHA} >> $GITHUB_OUTPUT
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
+      - name: Resolve full kernel version
+        id: kernel-version
+        uses: ./.github/actions/resolve-kernel-version
+        with:
+          kernel: ${{ matrix.kernel }}
+
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
         with:
@@ -184,7 +187,7 @@ jobs:
         uses: ./.github/actions/lvh-kind
         with:
           test-name: srv6-datapath
-          kernel: ${{ matrix.kernel }}
+          kernel: ${{ steps.kernel-version.outputs.full }}
           kind-params: '"" 2 "" "" none dual'
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
