@@ -110,6 +110,10 @@ var networkTopology = map[NetworkName]NetworkData{
 				Interface:   "ethA",
 				ClusterName: "privnet-inb0",
 			},
+			{
+				Interface:   "ethA",
+				ClusterName: "privnet-inb1",
+			},
 		},
 		VMs: []VM{
 			{
@@ -177,6 +181,10 @@ var networkTopology = map[NetworkName]NetworkData{
 			{
 				Interface:   "ethB",
 				ClusterName: "privnet-inb0",
+			},
+			{
+				Interface:   "ethB",
+				ClusterName: "privnet-inb1",
 			},
 		},
 		VMs: []VM{
