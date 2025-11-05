@@ -5,6 +5,7 @@
 {{ else if lt $INDEX (AddInt .TotalCIDRGroupsLarge .TotalCIDRGroupsMedium) }}
 {{$CIDRNO = .CIDRGroupMediumSize}}
 {{ end }}
+{{$MAXSIZE := .CIDRGroupLargeSize}}
 
 apiVersion: cilium.io/v2
 kind: CiliumCIDRGroup
@@ -16,6 +17,18 @@ spec:
 {{ if eq $INDEX 0 }} # For local testing in kind
     - 172.19.0.1/32
 {{ end }}
+# First half is predictable based on the $INDEX/2
+# So for example CIDR with index=101 and index=100 will have the
+# same first half of the CIDRs
 {{ range $index := Loop $CIDRNO }}
+  {{ if lt $index (DivideInt $CIDRNO 2) }}
+  {{$REAL_INDEX := AddInt (MultiplyInt (DivideInt $INDEX 2) $MAXSIZE) $index}}
+  {{$FIRST_BYTE := 17}}
+  {{$SECOND_BYTE := Mod (DivideInt $REAL_INDEX 65536) 256}}
+  {{$THIRD_BYTE := Mod (DivideInt $REAL_INDEX 256) 256}}
+  {{$FOURTH_BYTE := Mod $REAL_INDEX 256}}
+    - {{$FIRST_BYTE}}.{{$SECOND_BYTE}}.{{$THIRD_BYTE}}.{{$FOURTH_BYTE}}/32
+  {{ else }}
     - {{RandIntRange 1 255}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}/32
+  {{ end }}
 {{ end }}

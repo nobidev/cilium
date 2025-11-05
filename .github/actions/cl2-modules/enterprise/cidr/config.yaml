@@ -62,7 +62,7 @@ steps:
     path: ./modules/metrics.yaml
     params:
       action: start
-      nodeLocalIdentitiesThreshold: {{AddInt $CIDRGROUPS_PER_LARGE_GW 1000}}
+      nodeLocalIdentitiesThreshold: {{AddInt $CIDRGROUPS_PER_LARGE_GW (DivideInt $CIDRGROUPS_PER_LARGE_GW 2) 1000}}
 
 - module:
     path: ../../cilium-agent-pprofs.yaml
@@ -108,7 +108,7 @@ steps:
     path: ./modules/metrics.yaml
     params:
       action: gather
-      nodeLocalIdentitiesThreshold: {{AddInt $CIDRGROUPS_PER_LARGE_GW 1000}}
+      nodeLocalIdentitiesThreshold: {{AddInt $CIDRGROUPS_PER_LARGE_GW (DivideInt $CIDRGROUPS_PER_LARGE_GW 2) 1000}}
 
 - name: Collect sysdump
   measurements:
