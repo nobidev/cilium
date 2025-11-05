@@ -513,6 +513,7 @@
 /pkg/clustermesh/**/enterprise_* @isovalent/clustermesh
 /pkg/datapath/**/enterprise*.go @isovalent/cilium-datapath
 /pkg/datapath/ipcache/enterprise_listener.go @isovalent/clustermesh
+/pkg/endpoint/enterprise_endpoint.go @isovalent/private-networking
 /pkg/fqdn/**/*enterprise* @isovalent/dns-proxy
 /pkg/maps/srv6map/*enterprise* @isovalent/traffic-engineering
 /pkg/metrics/enterprise_* @isovalent/cni
