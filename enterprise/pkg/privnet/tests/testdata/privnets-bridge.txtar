@@ -98,7 +98,7 @@ spec:
 -- privnet.table --
 Name             ID    Interface   INBClusters    Subnets
 direct-maggot    0x1   N/A         N/A            192.168.250.0/24
-united-firefly   0x2   eth2        N/A            192.168.251.0/24
+united-firefly   0x2   eth2 !      N/A            192.168.251.0/24
 
 -- privnet.expected.yaml --
 name: direct-maggot

@@ -82,6 +82,18 @@ type PrivateNetworkInterface struct {
 	Error string
 }
 
+func (pni PrivateNetworkInterface) String() string {
+	if pni.Name == "" {
+		return "N/A"
+	}
+
+	if pni.Error == "" {
+		return pni.Name
+	}
+
+	return pni.Name + " !"
+}
+
 // PrivateNetworkINBs contains the network bridge configuration of the private network
 type PrivateNetworkINBs struct {
 	// Selectors selects the candidate INB nodes for this private network.
@@ -122,7 +134,7 @@ func (pn PrivateNetwork) TableRow() []string {
 	return []string{
 		string(pn.Name),
 		"0x" + strconv.FormatUint(uint64(pn.ID), 16),
-		cmp.Or(pn.Interface.Name, "N/A"),
+		pn.Interface.String(),
 		cmp.Or(strings.Join(slices.Sorted(
 			cslices.MapIter(maps.Keys(pn.INBs.Selectors),
 				func(cn ClusterName) string { return string(cn) },
