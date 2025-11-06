@@ -1,0 +1,154 @@
+#! --test-peering-ips=10.100.100.1,fd00:10:100:100::1
+
+hive start
+db/initialized
+
+# Configure gobgp servers
+gobgp/add-server v4 --router-id=1.2.3.4 65001 10.100.100.1 1790
+gobgp/add-peer -s v4 10.100.100.1 65001
+gobgp/add-server v6 --router-id=1.2.3.4 65001 fd00:10:100:100::1 1790
+gobgp/add-peer -s v6 fd00:10:100:100::1 65001
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config-v4.yaml bgp-peer-config-v6.yaml bgp-policy.yaml
+bgptest/sync-oss-resources
+
+# Check that the policy is applied as expected
+bgp/route-policies -o bgp-policy.actual
+* cmp bgp-policy.expected bgp-policy.actual
+
+# Wait for peering to be established
+gobgp/wait-state -s v4 10.100.100.1 ESTABLISHED
+gobgp/wait-state -s v6 fd00:10:100:100::1 ESTABLISHED
+
+# Check edge values and some in-betweens
+gobgp/add-route -s v4 10.0.0.0/24
+gobgp/add-route -s v4 10.0.0.0/26
+gobgp/add-route -s v4 10.0.0.0/28
+gobgp/add-route -s v6 2001:db8::/64
+gobgp/add-route -s v6 2001:db8::/72
+gobgp/add-route -s v6 2001:db8::/80
+
+# These routes shouldn't be imported
+gobgp/add-route -s v4 10.0.0.0/23
+gobgp/add-route -s v4 10.0.0.0/29
+gobgp/add-route -s v6 2001:db8::/63
+gobgp/add-route -s v6 2001:db8::/81
+
+# Ensure expected routes are imported
+bgp/routes -o bgp-rib-v4.actual available ipv4 unicast
+* cmp bgp-rib-v4.expected bgp-rib-v4.actual
+bgp/routes -o bgp-rib-v6.actual available ipv6 unicast
+* cmp bgp-rib-v6.expected bgp-rib-v6.actual
+
+# Delete all servers
+gobgp/delete-server v4
+gobgp/delete-server v6
+
+# Ensure routes are deleted
+bgp/routes -o bgp-rib-v4.actual available ipv4 unicast
+* cmp bgp-rib-empty.expected bgp-rib-v4.actual
+bgp/routes -o bgp-rib-v6.actual available ipv6 unicast
+* cmp bgp-rib-empty.expected bgp-rib-v6.actual
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+
+-- bgp-node-config.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - name: instance0
+    localASN: 65001
+    routerID: 5.6.7.8
+    peers:
+    - name: peer-v4
+      peerASN: 65001
+      peerAddress: 10.100.100.1
+      peerConfigRef:
+        name: peer-config-v4
+    - name: peer-v6
+      peerASN: 65001
+      peerAddress: fd00:10:100:100::1
+      peerConfigRef:
+        name: peer-config-v6
+
+-- bgp-peer-config-v4.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPeerConfig
+metadata:
+  name: peer-config-v4
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    importPolicyRef:
+      name: policy0
+
+-- bgp-peer-config-v6.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPeerConfig
+metadata:
+  name: peer-config-v6
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv6
+    safi: unicast
+    importPolicyRef:
+      name: policy0
+
+-- bgp-policy.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPolicy
+metadata:
+  name: policy0
+spec:
+  import:
+    statements:
+    - conditions:
+        prefixesV4:
+          matchType: Or
+          matches:
+          - prefix: 10.0.0.0/24
+            minLen: 24
+            maxLen: 28
+        prefixesV6:
+          matchType: Or
+          matches:
+          - prefix: 2001:db8::/64
+            minLen: 64
+            maxLen: 80
+      actions:
+        routeAction: Accept
+
+-- bgp-policy.expected --
+VRouter   Policy Name                                Type     Match Peers          Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+65001     allow-local                                import                                                                         accept       
+65001     import-user-defined-peer-v4-ipv4-unicast   import   10.100.100.1         ipv4/unicast     10.0.0.0/24 (24..28)            accept       
+65001     import-user-defined-peer-v6-ipv6-unicast   import   fd00:10:100:100::1   ipv6/unicast     2001:db8::/64 (64..80)          accept       
+-- bgp-rib-v4.expected --
+VRouter   Prefix        NextHop        Attrs
+65001     10.0.0.0/24   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
+65001     10.0.0.0/26   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
+65001     10.0.0.0/28   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
+-- bgp-rib-v6.expected --
+VRouter   Prefix          NextHop              Attrs
+65001     2001:db8::/64   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/64]}}]
+65001     2001:db8::/72   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/72]}}]
+65001     2001:db8::/80   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/80]}}]
+-- bgp-rib-empty.expected --
+VRouter   Prefix   NextHop   Attrs

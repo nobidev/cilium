@@ -250,6 +250,7 @@ func TestPrivilegedScript(t *testing.T) {
 		)
 		hive.AddConfigOverride(h, func(cfg *reconcilerv2.Config) {
 			cfg.SvcHealthCheckingEnabled = true
+			cfg.RouteImportEnabled = true
 			if *enableNodeMaintenanceHelpers {
 				cfg.MaintenanceGracefulShutdownEnabled = true
 				cfg.MaintenanceWithdrawTime = 1 * time.Second
