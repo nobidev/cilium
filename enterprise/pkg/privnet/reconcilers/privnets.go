@@ -355,6 +355,8 @@ func (pn *PrivateNetworks) newInterface(name string, dev *dptables.Device) table
 	switch {
 	case dev == nil:
 		iface.Error = fmt.Sprintf("Interface %q not found", name)
+	case dev.OperStatus != "up":
+		iface.Error = fmt.Sprintf("Interface %q has %q operational status", name, dev.OperStatus)
 	case !dev.Selected:
 		iface.Error = fmt.Sprintf("Interface %q not selected by Cilium: %v", name, dev.NotSelectedReason)
 	default:

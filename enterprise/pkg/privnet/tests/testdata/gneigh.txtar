@@ -75,6 +75,7 @@ index: 10
 name: eth1
 hardwareaddr: [ 0x12, 0x42, 0xac, 0xab, 0x00, 0x01 ]
 type: veth
+operstatus: up
 selected: true
 
 -- device.eth2.yaml --
@@ -82,6 +83,7 @@ index: 11
 name: eth2
 hardwareaddr: [ 0x12, 0x42, 0xac, 0xab, 0x00, 0x02 ]
 type: veth
+operstatus: up
 selected: true
 
 -- icpn-1.yaml --

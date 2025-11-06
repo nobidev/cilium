@@ -25,26 +25,34 @@ db/show private-networks -f yaml -o privnet.actual.yaml
 * cmp privnet.actual.yaml privnet.expected.v2.yaml
 
 # Update the devices...
-replace 'selected: false' 'selected: true' device.eth2.yaml
+replace 'lower-layer-down' 'up' device.eth2.yaml
 db/insert devices device.eth2.yaml
 
 # ...and validate that the changes are correctly reflected
 db/show private-networks -f yaml -o privnet.actual.yaml
 * cmp privnet.actual.yaml privnet.expected.v3.yaml
 
+# Update the devices again...
+replace 'selected: false' 'selected: true' device.eth2.yaml
+db/insert devices device.eth2.yaml
+
+# ...and validate that the changes are correctly reflected
+db/show private-networks -f yaml -o privnet.actual.yaml
+* cmp privnet.actual.yaml privnet.expected.v4.yaml
+
 # Delete one of the devices...
 db/delete devices device.eth1.yaml
 
 # ...and validate that the changes are correctly reflected
 db/show private-networks -f yaml -o privnet.actual.yaml
-* cmp privnet.actual.yaml privnet.expected.v4.yaml
+* cmp privnet.actual.yaml privnet.expected.v5.yaml
 
 # Insert it back...
 db/insert devices device.eth1.yaml
 
 # ...and validate that the changes are correctly reflected
 db/show private-networks -f yaml -o privnet.actual.yaml
-* cmp privnet.actual.yaml privnet.expected.v3.yaml
+* cmp privnet.actual.yaml privnet.expected.v4.yaml
 
 # ---
 
@@ -52,12 +60,14 @@ db/show private-networks -f yaml -o privnet.actual.yaml
 index: 10
 name: eth1
 type: veth
+operstatus: up
 selected: true
 
 -- device.eth2.yaml --
 index: 11
 name: eth2
 type: veth
+operstatus: lower-layer-down
 selected: false
 notselectedreason: not matching user filter
 
@@ -110,7 +120,7 @@ inbs:
 interface:
     name: eth2
     index: 0
-    error: 'Interface "eth2" not selected by Cilium: not matching user filter'
+    error: Interface "eth2" has "lower-layer-down" operational status
 routes: []
 subnets:
     - cidr: 192.168.251.0/24
@@ -134,11 +144,35 @@ inbs:
 interface:
     name: eth2
     index: 0
-    error: 'Interface "eth2" not selected by Cilium: not matching user filter'
+    error: Interface "eth2" has "lower-layer-down" operational status
 routes: []
 subnets:
     - cidr: 192.168.251.0/24
 -- privnet.expected.v3.yaml --
+name: direct-maggot
+id: 1
+inbs:
+    selectors: {}
+interface:
+    name: eth1
+    index: 10
+    error: ""
+routes: []
+subnets:
+    - cidr: 192.168.250.0/24
+---
+name: united-firefly
+id: 2
+inbs:
+    selectors: {}
+interface:
+    name: eth2
+    index: 0
+    error: 'Interface "eth2" not selected by Cilium: not matching user filter'
+routes: []
+subnets:
+    - cidr: 192.168.251.0/24
+-- privnet.expected.v4.yaml --
 name: direct-maggot
 id: 1
 inbs:
@@ -162,7 +196,7 @@ interface:
 routes: []
 subnets:
     - cidr: 192.168.251.0/24
--- privnet.expected.v4.yaml --
+-- privnet.expected.v5.yaml --
 name: direct-maggot
 id: 1
 inbs:

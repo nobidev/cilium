@@ -72,19 +72,21 @@ db/cmp privnet-mapentries mapentries.v6.table
 index: 10
 name: eth1
 type: veth
+operstatus: up
 selected: true
 
 -- device.eth1.v2.yaml --
 index: 10
 name: eth1
 type: veth
-selected: false
-notselectedreason: not matching user filter
+operstatus: link-layer-down
+selected: true
 
 -- device.eth2.yaml --
 index: 11
 name: eth2
 type: veth
+operstatus: up
 selected: true
 
 -- icpn-1.yaml --
