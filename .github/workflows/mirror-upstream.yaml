@@ -56,8 +56,8 @@ jobs:
             echo "Synching ${UPSTREAM}@${branch}..."
 
             # fetches the branch and all tags from upstream cilium
-            git fetch --no-write-fetch-head --tags upstream "refs/heads/${branch}:refs/remotes/upstream/${branch}"
+            git fetch --no-write-fetch-head --no-tags upstream "refs/heads/${branch}:refs/remotes/upstream/${branch}"
 
             # push the given branch and all associated tags to origin remote (this repo)
-            git push --follow-tags origin "refs/remotes/upstream/${branch}:refs/heads/${branch}"
+            git push origin "refs/remotes/upstream/${branch}:refs/heads/${branch}"
           done
