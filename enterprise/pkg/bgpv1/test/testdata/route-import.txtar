@@ -41,6 +41,9 @@ bgp/routes -o bgp-rib-v4.actual available ipv4 unicast
 bgp/routes -o bgp-rib-v6.actual available ipv6 unicast
 * cmp bgp-rib-v6.expected bgp-rib-v6.actual
 
+# Ensure routes are written into the RIB
+db/cmp desired-routes desired-routes.expected
+
 # Delete all servers
 gobgp/delete-server v4
 gobgp/delete-server v6
@@ -50,6 +53,9 @@ bgp/routes -o bgp-rib-v4.actual available ipv4 unicast
 * cmp bgp-rib-empty.expected bgp-rib-v4.actual
 bgp/routes -o bgp-rib-v6.actual available ipv6 unicast
 * cmp bgp-rib-empty.expected bgp-rib-v6.actual
+
+# Ensure routes are removed from the RIB
+db/cmp desired-routes desired-routes-empty.expected
 
 -- cilium-node.yaml --
 apiVersion: cilium.io/v2
@@ -150,5 +156,15 @@ VRouter   Prefix          NextHop              Attrs
 65001     2001:db8::/64   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/64]}}]
 65001     2001:db8::/72   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/72]}}]
 65001     2001:db8::/80   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/80]}}]
+-- desired-routes.expected --
+Owner             Table        Prefix          Priority   AD    Selected   Nexthop              Src    Device   MTU    Scope      Type   
+bgp-instance0     main (254)   10.0.0.0/24     none       200   true       10.100.100.1         none   none     none   universe   unicast
+bgp-instance0     main (254)   10.0.0.0/26     none       200   true       10.100.100.1         none   none     none   universe   unicast
+bgp-instance0     main (254)   10.0.0.0/28     none       200   true       10.100.100.1         none   none     none   universe   unicast
+bgp-instance0     main (254)   2001:db8::/64   none       200   true       fd00:10:100:100::1   none   none     none   universe   unicast
+bgp-instance0     main (254)   2001:db8::/72   none       200   true       fd00:10:100:100::1   none   none     none   universe   unicast
+bgp-instance0     main (254)   2001:db8::/80   none       200   true       fd00:10:100:100::1   none   none     none   universe   unicast
 -- bgp-rib-empty.expected --
 VRouter   Prefix   NextHop   Attrs
+-- desired-routes-empty.expected --
+Owner             Table        Prefix          Priority   AD    Selected   Nexthop              Src    Device   MTU    Scope      Type

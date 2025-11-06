@@ -50,6 +50,7 @@ import (
 	osstest "github.com/cilium/cilium/pkg/bgp/test"
 	"github.com/cilium/cilium/pkg/bgp/test/commands"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
@@ -166,6 +167,9 @@ func TestPrivilegedScript(t *testing.T) {
 			srv6map.Cell,
 			rib.Cell,
 			rib.NopDataPlaneCell,
+
+			// Route Reconciler cell
+			routeReconciler.TableCell,
 
 			// Enterprise BGP dependencies
 			cell.Provide(
