@@ -167,7 +167,7 @@ struct privnet_fib_key {
 };
 
 struct privnet_fib_val {
-	__u8 flag_should_arp:1,
+	__u8 flag_l2_announce:1,
 		flag_is_subnet_route:1,
 		flag_is_static_route:1,
 		pad:5;
@@ -866,7 +866,7 @@ handle_privnet_ns(struct __ctx_buff *ctx, const void *map, const __u16 net_id, b
 	}
 
 	val = privnet_fib_lookup6(map, net_id, tip);
-	if (!val || !val->flag_should_arp)
+	if (!val || !val->flag_l2_announce)
 		return CTX_ACT_OK;
 
 	return icmp6_send_ndisc_adv(ctx, ETH_HLEN, &mac, false);
@@ -892,7 +892,7 @@ handle_privnet_arp(struct __ctx_buff *ctx, const void *map, const __u16 net_id)
 		return CTX_ACT_OK;
 
 	val = privnet_fib_lookup4(map, net_id, tip);
-	if (!val || !val->flag_should_arp)
+	if (!val || !val->flag_l2_announce)
 		return CTX_ACT_OK;
 
 	return arp_respond(ctx, &mac, tip, &smac, sip, 0);

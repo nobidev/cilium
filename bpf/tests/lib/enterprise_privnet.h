@@ -4,7 +4,7 @@
 static __always_inline void
 __privnet_fib_v4_add_entry(__u16 net_id, __be32 prefix, __be32 nexthop,
 			   bool is_subnet_route, bool is_static_route,
-			   bool should_arp)
+			   bool l2_announce)
 {
 	struct privnet_fib_key key = {
 		.lpm_key.prefixlen = PRIVNET_FIB_PREFIX_LEN(V4_PRIVNET_KEY_LEN),
@@ -17,7 +17,7 @@ __privnet_fib_v4_add_entry(__u16 net_id, __be32 prefix, __be32 nexthop,
 		.ip4 = nexthop,
 		.flag_is_static_route = is_static_route,
 		.flag_is_subnet_route = is_subnet_route,
-		.flag_should_arp = should_arp,
+		.flag_l2_announce = l2_announce,
 	};
 
 	map_update_elem(&cilium_privnet_fib, &key, &value, BPF_ANY);
@@ -39,7 +39,7 @@ __privnet_fib_v4_del_entry(__u16 net_id, __be32 prefix)
 static __always_inline void
 __privnet_fib_v6_add_entry(__u16 net_id, const union v6addr *prefix, const union v6addr *nexthop,
 			   bool is_subnet_route, bool is_static_route,
-			   bool should_arp)
+			   bool l2_announce)
 {
 	struct privnet_fib_key key = {
 		.lpm_key.prefixlen = PRIVNET_FIB_PREFIX_LEN(V6_PRIVNET_KEY_LEN),
@@ -50,7 +50,7 @@ __privnet_fib_v6_add_entry(__u16 net_id, const union v6addr *prefix, const union
 		.family = ENDPOINT_KEY_IPV6,
 		.flag_is_static_route = is_static_route,
 		.flag_is_subnet_route = is_subnet_route,
-		.flag_should_arp = should_arp,
+		.flag_l2_announce = l2_announce,
 	};
 
 	__bpf_memcpy_builtin(&key.ip6, prefix, sizeof(*prefix));
