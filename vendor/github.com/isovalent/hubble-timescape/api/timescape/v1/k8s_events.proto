@@ -1,0 +1,253 @@
+// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this
+// information or reproduction of this material is strictly forbidden unless
+// prior written permission is obtained from Isovalent Inc.
+
+syntax = "proto3";
+
+package timescape.v1;
+
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "k8sevent/v1/event.proto";
+import "timescape/v1/time_filter.proto";
+
+option go_package = "github.com/isovalent/hubble-timescape/api/timescape/v1";
+
+// K8sEventService is a service that allows for querying events about
+// Kubernetes resources.
+service K8sEventService {
+  // GetK8sEvents streams events about Kubernetes resources.
+  rpc GetK8sEvents(GetK8sEventsRequest) returns (stream GetK8sEventsResponse) {}
+
+  // GetK8sLatestEvents streams the latest kubernetes events available
+  // for each (cluster_name, namespace, name and kind).
+  rpc GetK8sLatestEvents(GetK8sLatestEventsRequest) returns (stream GetK8sLatestEventsResponse) {}
+
+  // GetActiveK8sResources streams the currently active Kubernetes resources. A resource is
+  // considered active if there is at least one event for it with no DELETED event type after it.
+  rpc GetActiveK8sResources(GetActiveK8sResourcesRequest) returns (stream GetActiveK8sResourcesResponse) {}
+}
+
+// GetK8sEventsRequest for the GetK8sEvents rpc call.
+message GetK8sEventsRequest {
+  // TimeFilter is a filter that allows to specify a time interval.
+  timescape.v1.TimeFilter time_filter = 1;
+
+  // Include are filters that events must match.
+  // If multiple include filters are specified, only one of them has to
+  // match for a flow to be included.
+  repeated K8sEventFilter include = 2;
+
+  // Exclude are filters that events must not match.
+  // If multiple excluded filters are specified, only one of them has to
+  // match for a flow to be excluded.
+  repeated K8sEventFilter exclude = 3;
+
+  // FieldMask allows clients to limit event fields that will be returned.
+  google.protobuf.FieldMask field_mask = 4;
+
+  // Limit is the maximum number of events to return.
+  // Defaults to the most recent (last) events, unless `first` is true, then it
+  // will return the earliest events.
+  uint64 limit = 5;
+
+  // Event fields to distinct by.
+  // Defaults to returning the most recent (last) distinct occurrence, unless
+  // `first` is true, then it will return the earliest occurrence.
+  repeated EventField distinct_on = 6;
+
+  // First specifies if we should look at the earliest (first) events or the
+  // most recent (last) events for both `limit` and `distinct_on`.
+  bool first = 7;
+
+  // ResultsOrder is an enum that defines result ordering.
+  enum ResultsOrder {
+    // RESULTS_ORDER_UNSPECIFIED means that no particular order should be
+    // assumed.
+    RESULTS_ORDER_UNSPECIFIED = 0;
+    // RESULTS_ORDER_EVENT_TIME_ASCENDING means that results are
+    // sorted by event time in ascending order.
+    RESULTS_ORDER_EVENT_TIME_ASCENDING = 1;
+    // RESULTS_ORDER_EVENT_TIME_DESCENDING means that results are
+    // sorted by event time in descending order.
+    RESULTS_ORDER_EVENT_TIME_DESCENDING = 2;
+  }
+  // results_order specifies the expected order of the results.
+  ResultsOrder results_order = 8;
+}
+
+// GetK8sEventsResponse for the GetK8sEvents rpc call.
+message GetK8sEventsResponse {
+  // Event is the event information.
+  k8sevent.v1.Event event = 1;
+}
+
+// GetK8sLatestEventsRequest for the GetK8sLatestEvents rpc call.
+message GetK8sLatestEventsRequest {
+  // TimeFilter is a filter that allows to specify a time interval.
+  timescape.v1.TimeFilter time_filter = 1;
+
+  // Include are filters that events must match.
+  // If multiple include filters are specified, only one of them has to
+  // match for a flow to be included.
+  repeated K8sLatestEventFilter include = 2;
+
+  // Exclude are filters that events must not match.
+  // If multiple excluded filters are specified, only one of them has to
+  // match for a flow to be excluded.
+  repeated K8sLatestEventFilter exclude = 3;
+
+  // FieldMask allows clients to limit event fields that will be returned.
+  google.protobuf.FieldMask field_mask = 4;
+
+  // ResultsOrder is an enum that defines result ordering.
+  enum ResultsOrder {
+    // RESULTS_ORDER_UNSPECIFIED means that no particular order should be
+    // assumed.
+    RESULTS_ORDER_UNSPECIFIED = 0;
+    // RESULTS_ORDER_EVENT_TIME_ASCENDING means that results are
+    // sorted by event time in ascending order.
+    RESULTS_ORDER_EVENT_TIME_ASCENDING = 1;
+    // RESULTS_ORDER_EVENT_TIME_DESCENDING means that results are
+    // sorted by event time in descending order.
+    RESULTS_ORDER_EVENT_TIME_DESCENDING = 2;
+  }
+  // results_order specifies the expected order of the results.
+  ResultsOrder results_order = 5;
+}
+
+// GetK8sLatestEventsResponse for the GetK8sLatestEvents rpc call.
+message GetK8sLatestEventsResponse {
+  // Event is the event information.
+  k8sevent.v1.Event event = 1;
+}
+
+// GetActiveK8sResourcesRequest for the GetActiveK8sResources rpc call.
+message GetActiveK8sResourcesRequest {
+  // when is the point in time to check for active resources.
+  google.protobuf.Timestamp when = 1;
+
+  // Include are filters that events must match.
+  // If multiple include filters are specified, only one of them has to
+  // match for a resource to be included.
+  repeated GetActiveK8sResourcesFilter include = 2;
+
+  // Exclude are filters that events must not match.
+  // If multiple excluded filters are specified, only one of them has to
+  // match for a resource to be excluded.
+  repeated GetActiveK8sResourcesFilter exclude = 3;
+
+  // FieldMask allows clients to limit event fields that will be returned.
+  google.protobuf.FieldMask field_mask = 4;
+}
+
+// GetActiveK8sResourcesResponse for the GetActiveK8sResources rpc call.
+message GetActiveK8sResourcesResponse {
+  // resoruce is the k8s resource.
+  K8sResource resource = 1;
+}
+
+// K8sEventFilter is a filter to be used in the GetK8sEventsRequest include/exclude fields.
+// All fields are optional. If multiple fields are set, then all fields must
+// match for the filter to match.
+message K8sEventFilter {
+  // Filter by the name of the k8s event.
+  repeated string name = 1;
+  // Filter by the k8s resource namespace.
+  repeated string namespace = 2;
+  // Filter by the k8s resource uuid.
+  repeated string resource_uuid = 3;
+  // Filter by the event type.
+  repeated k8sevent.v1.EventType event_type = 4;
+  // Filter by the k8s resource kind.
+  repeated k8sevent.v1.Kind kind = 5;
+  // Filter by the k8s resource cluster.
+  repeated string cluster = 6;
+}
+
+// K8sLatestEventFilter is a filter to be used in the GetK8sLatestEventsRequest
+// include/exclude fields.
+// All fields are optional. If multiple fields are set, then all fields must
+// match for the filter to match.
+message K8sLatestEventFilter {
+  // Filter by the k8s resource namespace.
+  repeated string namespace = 1;
+  // Filter by the k8s resource kind.
+  repeated k8sevent.v1.Kind kind = 2;
+  // Filter by the k8s resource cluster.
+  repeated string cluster = 3;
+}
+
+// GetActiveK8sResourcesFilter is a filter to be used in the GetActiveK8sResources include/exclude fields.
+// All fields are optional. If multiple fields are set, then all fields must
+// match for the filter to match.
+message GetActiveK8sResourcesFilter {
+  // api_version is the k8s apiVersion of the resource.
+  repeated string api_version = 1;
+  // Filter by the k8s resource kind.
+  repeated k8sevent.v1.Kind kind = 2;
+  // Filter by the name of the k8s event.
+  repeated string name = 3;
+  // Filter by the k8s resource namespace.
+  repeated string namespace = 4;
+  // Filter by the k8s resource cluster.
+  repeated string cluster = 5;
+}
+
+// Subset of the fields from k8sevent.v1.Event.
+//
+// Some indices are skipped to make sure they match the indexes on message
+// Event upstream.
+enum EventField {
+  // Unknown field
+  EVENT_FIELD_UNSPECIFIED = 0;
+
+  // 1 is skipped
+
+  // Event type
+  EVENT_FIELD_EVENT_TYPE = 2;
+  // Kubernetes resource version.
+  EVENT_FIELD_RESOURCE_VERSION = 3;
+  // Resource UUID;
+  EVENT_FIELD_RESOURCE_UUID = 4;
+  // API version of the resource.
+  EVENT_FIELD_API_VERSION = 5;
+  // Kubernetes kind of the resource.
+  EVENT_FIELD_KIND = 6;
+  // Name is the name of the Kubernetes resource resource the event was about.
+  EVENT_FIELD_NAME = 7;
+  // Namespace of the Kubernetes resource resource the event
+  // was about.
+  EVENT_FIELD_NAMESPACE = 8;
+
+  // 9-11 skipped
+
+  // Cluster name where Kubernetes event occurred.
+  EVENT_FIELD_CLUSTER = 12;
+}
+
+// K8sResource represents a Kubernetes resource.
+message K8sResource {
+  // Time is the time the resource was created or modified.
+  google.protobuf.Timestamp time = 1;
+  // api_version is the k8s apiVersion of the resource.
+  string api_version = 2;
+  // kind is the k8s kind of the resource.
+  k8sevent.v1.Kind kind = 3;
+  // cluster is the name of the cluster this event was recorded on.
+  string cluster = 4;
+  // namespace is the namespace of the Kubernetes resource resource the event was about.
+  string namespace = 5;
+  // name is the name of the Kubernetes resource resource the event was about.
+  string name = 6;
+  // resource_uuid is the k8s resource uuid.
+  string resource_uuid = 7;
+  // object is the full object stored as JSON.
+  string object = 8;
+}

@@ -1,0 +1,61 @@
+// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this
+// information or reproduction of this material is strictly forbidden unless
+// prior written permission is obtained from Isovalent Inc.
+
+syntax = "proto3";
+
+package timescape.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/isovalent/hubble-timescape/api/timescape/v1";
+
+// FileSource contains metadata about files in object storage or on disk.
+message FileSource {
+  // uri is the URL of the file that was ingested. It is used to
+  // uniquely identify the file, so that we can keep track of the files
+  // already fully or partially ingested.
+  // It includes the bucket name.
+  string uri = 1;
+  // compression is the type of compression for the source_uri.
+  Compression compression = 2;
+  // object_type defines the type of objects in the file.
+  ObjectType object_type = 3;
+  // mod_time is the files mod time
+  google.protobuf.Timestamp mod_time = 4;
+  // size is the  file size in bytes
+  int64 size = 5;
+}
+
+// Compression is an enum defining compression types.
+enum Compression {
+  // COMPRESSION_UNSPECIFIED means the type of compression of the file is unknown.
+  COMPRESSION_UNSPECIFIED = 0;
+  // COMPRESSION_NONE means that the object is uncompressed.
+  COMPRESSION_NONE = 1;
+  // COMPRESSION_UNCOMPRESSED means that the object is compressed with gzip.
+  COMPRESSION_GZIP = 2;
+}
+
+// ObjectType is the type of objects in a file
+enum ObjectType {
+  // OBJECT_TYPE_UNSPECIFIED means the type of objects in the file is unknown.
+  OBJECT_TYPE_UNSPECIFIED = 0;
+  // OBJECT_TYPE_FLOW means the type of objects in the file are flows.
+  OBJECT_TYPE_FLOW = 1;
+  // OBJECT_TYPE_TETRAGON_EVENT means the type of objects in the file are FGS events.
+  OBJECT_TYPE_TETRAGON_EVENT = 2;
+  // OBJECT_TYPE_K8S_EVENT means the type of objects in the file are K8s events.
+  OBJECT_TYPE_K8S_EVENT = 3;
+  // OBJECT_TYPE_SYSTEM_STATUS_EVENT marks the objects as system status events.
+  OBJECT_TYPE_SYSTEM_STATUS_EVENT = 4;
+  // OBJECT_TYPE_CONNECTIONLOG_EVENT means the type of objects in the file are
+  // graph API's ConnectionLog events.
+  OBJECT_TYPE_CONNECTIONLOG_EVENT = 5;
+}

@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package k8sevent.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/isovalent/hubble-timescape/api/k8sevent/v1";
+
+// ExportEvent represents an exported event.
+//
+// #### Experimental
+//
+// Notice: This type is EXPERIMENTAL and may be changed or removed in a
+// later release.
+message ExportEvent {
+  // time is the time when the event happened.
+  google.protobuf.Timestamp time = 1;
+  // event is the underlying event.
+  Event k8s_event = 2;
+}
+
+// Event represents an event occurring on a Kubernetes resource.
+//
+// #### Experimental
+//
+// Notice: This type is EXPERIMENTAL and may be changed or removed in a
+// later release.
+message Event {
+  // Time is the time when the event happened.
+  google.protobuf.Timestamp time = 1;
+  // event_type is the event type.
+  EventType event_type = 2;
+  // resource_version is the K8s resource version.
+  string resource_version = 3;
+  // resource_uuid is the k8s resource uuid.
+  string resource_uuid = 4;
+  // api_version is the k8s apiVersion of the resource.
+  string api_version = 5;
+  // kind is the k8s kind of the resource.
+  Kind kind = 6;
+  // name is the name of the Kubernetes resource resource the event was about.
+  string name = 7;
+  // namespace is the namespace of the Kubernetes resource resource the event was about.
+  string namespace = 8;
+  // labels are the labels on the resource when the event happened.
+  map<string, string> labels = 9;
+  // object is the full object stored as JSON.
+  string object = 10;
+  // old_object is the instance of the object before the update, stored as JSON.
+  string old_object = 11;
+  // cluster is the name of the cluster this event was recorded on.
+  string cluster = 12;
+  // generation is the k8s resource generation. It is a sequence number
+  // representing a specific generation of the desired state of the resource.
+  int64 generation = 13;
+  // Time is the time when the event was created, taken from the Kubernetes
+  // metadata.creationTimestamp field.
+  google.protobuf.Timestamp creation_time = 14;
+}
+
+// Kind represents the Kubernetes resource Kind
+//
+// #### Experimental
+//
+// Notice: This type is EXPERIMENTAL and may be changed or removed in a
+// later release.
+enum Kind {
+  // The kind of the object was unspecified. This is an error.
+  KIND_UNSPECIFIED = 0;
+  // The kind of the object was CiliumNetworkPolicy.
+  KIND_CILIUM_NETWORK_POLICY = 1;
+  // The kind of the object was CiliumClusterwideNetworkPolicy.
+  KIND_CILIUM_CLUSTERWIDE_NETWORK_POLICY = 2;
+  // The kind of the object was the upstream Kubernetes NetworkPolicy.
+  KIND_KUBERNETES_NETWORK_POLICY = 3;
+  // The kind of the object was the upstream Kubernetes Endpoint.
+  KIND_KUBERNETES_ENDPOINT = 4;
+  // The kind of the object was CiliumEndpoint.
+  KIND_CILIUM_ENDPOINT = 5;
+  // The kind of the object was CiliumIdentity.
+  KIND_CILIUM_IDENTITY = 6;
+  // The kind of the object was TetragonNetworkPolicy.
+  KIND_TETRAGON_NETWORK_POLICY = 7;
+  // The kind of the object was CiliumNode.
+  KIND_CILIUM_NODE = 8;
+  // The kind of the object was TetragonNetworkPolicyNamespaced.
+  KIND_TETRAGON_NETWORK_POLICY_NAMESPACED = 9;
+  // The kind of the object was TetragonNode.
+  KIND_TETRAGON_NODE = 10;
+  // The kind of the object was SmartSwitch.
+  KIND_SMART_SWITCH = 11;
+  // The kind of the object was SmartSwitchNetworkPolicy.
+  KIND_SMART_SWITCH_NETWORK_POLICY = 12;
+}
+
+// EventType represents the type of event that occurred.
+//
+// #### Experimental
+//
+// Notice: This type is EXPERIMENTAL and may be changed or removed in a
+// later release.
+enum EventType {
+  // The event type wasn't specified. This is an error.
+  EVENT_TYPE_UNSPECIFIED = 0;
+  // The resource was created.
+  // The event.object contains the object created.
+  EVENT_TYPE_CREATED = 1;
+  // The resource was updated.
+  // The event.object contains the new version and event.old_object contains the version before it
+  // was updated.
+  EVENT_TYPE_UPDATED = 2;
+  // The resource was deleted.
+  // The event.old_object contains the object that was deleted.
+  EVENT_TYPE_DELETED = 3;
+}

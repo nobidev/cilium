@@ -43,6 +43,7 @@ type Edge struct {
 	//
 	// Types that are valid to be assigned to Type:
 	//
+	//	*Edge_Basic
 	//	*Edge_NetworkTelemetry
 	//	*Edge_RoutingTelemetry
 	//	*Edge_L7Telemetry
@@ -88,6 +89,15 @@ func (x *Edge) GetType() isEdge_Type {
 	return nil
 }
 
+func (x *Edge) GetBasic() *EdgeTypeBasic {
+	if x != nil {
+		if x, ok := x.Type.(*Edge_Basic); ok {
+			return x.Basic
+		}
+	}
+	return nil
+}
+
 func (x *Edge) GetNetworkTelemetry() *EdgeTypeNetworkTelemetry {
 	if x != nil {
 		if x, ok := x.Type.(*Edge_NetworkTelemetry); ok {
@@ -119,23 +129,66 @@ type isEdge_Type interface {
 	isEdge_Type()
 }
 
+type Edge_Basic struct {
+	Basic *EdgeTypeBasic `protobuf:"bytes,1,opt,name=basic,proto3,oneof"`
+}
+
 type Edge_NetworkTelemetry struct {
-	NetworkTelemetry *EdgeTypeNetworkTelemetry `protobuf:"bytes,1,opt,name=network_telemetry,json=networkTelemetry,proto3,oneof"`
+	NetworkTelemetry *EdgeTypeNetworkTelemetry `protobuf:"bytes,2,opt,name=network_telemetry,json=networkTelemetry,proto3,oneof"`
 }
 
 type Edge_RoutingTelemetry struct {
-	RoutingTelemetry *EdgeTypeRoutingTelemetry `protobuf:"bytes,2,opt,name=routing_telemetry,json=routingTelemetry,proto3,oneof"`
+	RoutingTelemetry *EdgeTypeRoutingTelemetry `protobuf:"bytes,3,opt,name=routing_telemetry,json=routingTelemetry,proto3,oneof"`
 }
 
 type Edge_L7Telemetry struct {
-	L7Telemetry *EdgeTypeL7Telemetry `protobuf:"bytes,3,opt,name=l7_telemetry,json=l7Telemetry,proto3,oneof"`
+	L7Telemetry *EdgeTypeL7Telemetry `protobuf:"bytes,4,opt,name=l7_telemetry,json=l7Telemetry,proto3,oneof"`
 }
+
+func (*Edge_Basic) isEdge_Type() {}
 
 func (*Edge_NetworkTelemetry) isEdge_Type() {}
 
 func (*Edge_RoutingTelemetry) isEdge_Type() {}
 
 func (*Edge_L7Telemetry) isEdge_Type() {}
+
+// EdgeTypeBasic is a base edge that does not carry any information.
+type EdgeTypeBasic struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EdgeTypeBasic) Reset() {
+	*x = EdgeTypeBasic{}
+	mi := &file_graph_v1alpha_edge_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EdgeTypeBasic) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EdgeTypeBasic) ProtoMessage() {}
+
+func (x *EdgeTypeBasic) ProtoReflect() protoreflect.Message {
+	mi := &file_graph_v1alpha_edge_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EdgeTypeBasic.ProtoReflect.Descriptor instead.
+func (*EdgeTypeBasic) Descriptor() ([]byte, []int) {
+	return file_graph_v1alpha_edge_proto_rawDescGZIP(), []int{1}
+}
 
 // EdgeTypeNetworkTelemetry provides telemetry information regarding a network
 // connection.
@@ -161,7 +214,7 @@ type EdgeTypeNetworkTelemetry struct {
 
 func (x *EdgeTypeNetworkTelemetry) Reset() {
 	*x = EdgeTypeNetworkTelemetry{}
-	mi := &file_graph_v1alpha_edge_proto_msgTypes[1]
+	mi := &file_graph_v1alpha_edge_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -173,7 +226,7 @@ func (x *EdgeTypeNetworkTelemetry) String() string {
 func (*EdgeTypeNetworkTelemetry) ProtoMessage() {}
 
 func (x *EdgeTypeNetworkTelemetry) ProtoReflect() protoreflect.Message {
-	mi := &file_graph_v1alpha_edge_proto_msgTypes[1]
+	mi := &file_graph_v1alpha_edge_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -186,7 +239,7 @@ func (x *EdgeTypeNetworkTelemetry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EdgeTypeNetworkTelemetry.ProtoReflect.Descriptor instead.
 func (*EdgeTypeNetworkTelemetry) Descriptor() ([]byte, []int) {
-	return file_graph_v1alpha_edge_proto_rawDescGZIP(), []int{1}
+	return file_graph_v1alpha_edge_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *EdgeTypeNetworkTelemetry) GetNetworkTransmitPacketsTotal() uint64 {
@@ -263,7 +316,7 @@ type EdgeTypeRoutingTelemetry struct {
 
 func (x *EdgeTypeRoutingTelemetry) Reset() {
 	*x = EdgeTypeRoutingTelemetry{}
-	mi := &file_graph_v1alpha_edge_proto_msgTypes[2]
+	mi := &file_graph_v1alpha_edge_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -275,7 +328,7 @@ func (x *EdgeTypeRoutingTelemetry) String() string {
 func (*EdgeTypeRoutingTelemetry) ProtoMessage() {}
 
 func (x *EdgeTypeRoutingTelemetry) ProtoReflect() protoreflect.Message {
-	mi := &file_graph_v1alpha_edge_proto_msgTypes[2]
+	mi := &file_graph_v1alpha_edge_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -288,7 +341,7 @@ func (x *EdgeTypeRoutingTelemetry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EdgeTypeRoutingTelemetry.ProtoReflect.Descriptor instead.
 func (*EdgeTypeRoutingTelemetry) Descriptor() ([]byte, []int) {
-	return file_graph_v1alpha_edge_proto_rawDescGZIP(), []int{2}
+	return file_graph_v1alpha_edge_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *EdgeTypeRoutingTelemetry) GetRoutingForwardedTotal() uint64 {
@@ -362,7 +415,7 @@ type EdgeTypeL7Telemetry struct {
 
 func (x *EdgeTypeL7Telemetry) Reset() {
 	*x = EdgeTypeL7Telemetry{}
-	mi := &file_graph_v1alpha_edge_proto_msgTypes[3]
+	mi := &file_graph_v1alpha_edge_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -374,7 +427,7 @@ func (x *EdgeTypeL7Telemetry) String() string {
 func (*EdgeTypeL7Telemetry) ProtoMessage() {}
 
 func (x *EdgeTypeL7Telemetry) ProtoReflect() protoreflect.Message {
-	mi := &file_graph_v1alpha_edge_proto_msgTypes[3]
+	mi := &file_graph_v1alpha_edge_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -387,7 +440,7 @@ func (x *EdgeTypeL7Telemetry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EdgeTypeL7Telemetry.ProtoReflect.Descriptor instead.
 func (*EdgeTypeL7Telemetry) Descriptor() ([]byte, []int) {
-	return file_graph_v1alpha_edge_proto_rawDescGZIP(), []int{3}
+	return file_graph_v1alpha_edge_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *EdgeTypeL7Telemetry) GetHttpRequestsTotal() uint64 {
@@ -415,12 +468,14 @@ var File_graph_v1alpha_edge_proto protoreflect.FileDescriptor
 
 const file_graph_v1alpha_edge_proto_rawDesc = "" +
 	"\n" +
-	"\x18graph/v1alpha/edge.proto\x12\rgraph.v1alpha\"\x87\x02\n" +
-	"\x04Edge\x12V\n" +
-	"\x11network_telemetry\x18\x01 \x01(\v2'.graph.v1alpha.EdgeTypeNetworkTelemetryH\x00R\x10networkTelemetry\x12V\n" +
-	"\x11routing_telemetry\x18\x02 \x01(\v2'.graph.v1alpha.EdgeTypeRoutingTelemetryH\x00R\x10routingTelemetry\x12G\n" +
-	"\fl7_telemetry\x18\x03 \x01(\v2\".graph.v1alpha.EdgeTypeL7TelemetryH\x00R\vl7TelemetryB\x06\n" +
-	"\x04type\"\x9e\x03\n" +
+	"\x18graph/v1alpha/edge.proto\x12\rgraph.v1alpha\"\xbd\x02\n" +
+	"\x04Edge\x124\n" +
+	"\x05basic\x18\x01 \x01(\v2\x1c.graph.v1alpha.EdgeTypeBasicH\x00R\x05basic\x12V\n" +
+	"\x11network_telemetry\x18\x02 \x01(\v2'.graph.v1alpha.EdgeTypeNetworkTelemetryH\x00R\x10networkTelemetry\x12V\n" +
+	"\x11routing_telemetry\x18\x03 \x01(\v2'.graph.v1alpha.EdgeTypeRoutingTelemetryH\x00R\x10routingTelemetry\x12G\n" +
+	"\fl7_telemetry\x18\x04 \x01(\v2\".graph.v1alpha.EdgeTypeL7TelemetryH\x00R\vl7TelemetryB\x06\n" +
+	"\x04type\"\x0f\n" +
+	"\rEdgeTypeBasic\"\x9e\x03\n" +
 	"\x18EdgeTypeNetworkTelemetry\x12C\n" +
 	"\x1enetwork_transmit_packets_total\x18\x01 \x01(\x04R\x1bnetworkTransmitPacketsTotal\x12?\n" +
 	"\x1cnetwork_transmit_bytes_total\x18\x02 \x01(\x04R\x19networkTransmitBytesTotal\x12=\n" +
@@ -453,22 +508,24 @@ func file_graph_v1alpha_edge_proto_rawDescGZIP() []byte {
 	return file_graph_v1alpha_edge_proto_rawDescData
 }
 
-var file_graph_v1alpha_edge_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_graph_v1alpha_edge_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_graph_v1alpha_edge_proto_goTypes = []any{
 	(*Edge)(nil),                     // 0: graph.v1alpha.Edge
-	(*EdgeTypeNetworkTelemetry)(nil), // 1: graph.v1alpha.EdgeTypeNetworkTelemetry
-	(*EdgeTypeRoutingTelemetry)(nil), // 2: graph.v1alpha.EdgeTypeRoutingTelemetry
-	(*EdgeTypeL7Telemetry)(nil),      // 3: graph.v1alpha.EdgeTypeL7Telemetry
+	(*EdgeTypeBasic)(nil),            // 1: graph.v1alpha.EdgeTypeBasic
+	(*EdgeTypeNetworkTelemetry)(nil), // 2: graph.v1alpha.EdgeTypeNetworkTelemetry
+	(*EdgeTypeRoutingTelemetry)(nil), // 3: graph.v1alpha.EdgeTypeRoutingTelemetry
+	(*EdgeTypeL7Telemetry)(nil),      // 4: graph.v1alpha.EdgeTypeL7Telemetry
 }
 var file_graph_v1alpha_edge_proto_depIdxs = []int32{
-	1, // 0: graph.v1alpha.Edge.network_telemetry:type_name -> graph.v1alpha.EdgeTypeNetworkTelemetry
-	2, // 1: graph.v1alpha.Edge.routing_telemetry:type_name -> graph.v1alpha.EdgeTypeRoutingTelemetry
-	3, // 2: graph.v1alpha.Edge.l7_telemetry:type_name -> graph.v1alpha.EdgeTypeL7Telemetry
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	1, // 0: graph.v1alpha.Edge.basic:type_name -> graph.v1alpha.EdgeTypeBasic
+	2, // 1: graph.v1alpha.Edge.network_telemetry:type_name -> graph.v1alpha.EdgeTypeNetworkTelemetry
+	3, // 2: graph.v1alpha.Edge.routing_telemetry:type_name -> graph.v1alpha.EdgeTypeRoutingTelemetry
+	4, // 3: graph.v1alpha.Edge.l7_telemetry:type_name -> graph.v1alpha.EdgeTypeL7Telemetry
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_graph_v1alpha_edge_proto_init() }
@@ -477,6 +534,7 @@ func file_graph_v1alpha_edge_proto_init() {
 		return
 	}
 	file_graph_v1alpha_edge_proto_msgTypes[0].OneofWrappers = []any{
+		(*Edge_Basic)(nil),
 		(*Edge_NetworkTelemetry)(nil),
 		(*Edge_RoutingTelemetry)(nil),
 		(*Edge_L7Telemetry)(nil),
@@ -487,7 +545,7 @@ func file_graph_v1alpha_edge_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_graph_v1alpha_edge_proto_rawDesc), len(file_graph_v1alpha_edge_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

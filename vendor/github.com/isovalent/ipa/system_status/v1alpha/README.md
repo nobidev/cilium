@@ -6,12 +6,15 @@
 - [system_status/v1alpha/system_status.proto](#system_status_v1alpha_system_status-proto)
     - [ConditionMetadata](#system_status-v1alpha-ConditionMetadata)
     - [FailingCondition](#system_status-v1alpha-FailingCondition)
+    - [PolicyStatus](#system_status-v1alpha-PolicyStatus)
+    - [PolicyStatusUpdate](#system_status-v1alpha-PolicyStatusUpdate)
     - [SystemID](#system_status-v1alpha-SystemID)
     - [SystemMetadataUpdate](#system_status-v1alpha-SystemMetadataUpdate)
     - [SystemStatusEvent](#system_status-v1alpha-SystemStatusEvent)
     - [SystemStatusUpdate](#system_status-v1alpha-SystemStatusUpdate)
     - [SystemStatusUpdate.ExtraDataEntry](#system_status-v1alpha-SystemStatusUpdate-ExtraDataEntry)
   
+    - [PolicyType](#system_status-v1alpha-PolicyType)
     - [Severity](#system_status-v1alpha-Severity)
   
 - [Scalar Value Types](#scalar-value-types)
@@ -54,6 +57,42 @@
 | condition_id | [string](#string) |  | Identifier to identify a condition within a system. For a globally unique identifier this must be paired with [SystemID]. |
 | severity | [Severity](#system_status-v1alpha-Severity) |  | Severity of the failure |
 | message | [string](#string) |  | Optional details on why the condition is failing |
+
+
+
+
+
+
+<a name="system_status-v1alpha-PolicyStatus"></a>
+
+### PolicyStatus
+PolicyStatus represents the status of a single policy on a node.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| type | [PolicyType](#system_status-v1alpha-PolicyType) |  | Type of the policy. |
+| id | [string](#string) |  | ID of the policy. |
+| name | [string](#string) |  | Name of the policy. |
+| version | [string](#string) |  | Version of the policy. |
+| failing_conditions | [FailingCondition](#system_status-v1alpha-FailingCondition) | repeated | Conditions that are currently preventing the policy to be enforced. If empty, the policy is being enforced. |
+
+
+
+
+
+
+<a name="system_status-v1alpha-PolicyStatusUpdate"></a>
+
+### PolicyStatusUpdate
+PolicyStatusUpdate contains the current statuses of all the policies on a
+node.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| node_id | [string](#string) |  | The ID of the node that&#39;s reporting the policy statuses. |
+| statuses | [PolicyStatus](#system_status-v1alpha-PolicyStatus) | repeated | The statuses of all the policies on the node. |
 
 
 
@@ -110,6 +149,7 @@ separately even though they&#39;re part of the same system.
 | time | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Time at which the event was produced |
 | status | [SystemStatusUpdate](#system_status-v1alpha-SystemStatusUpdate) |  |  |
 | metadata | [SystemMetadataUpdate](#system_status-v1alpha-SystemMetadataUpdate) |  |  |
+| policy | [PolicyStatusUpdate](#system_status-v1alpha-PolicyStatusUpdate) |  |  |
 
 
 
@@ -154,6 +194,18 @@ on a particular node.
 
 
  
+
+
+<a name="system_status-v1alpha-PolicyType"></a>
+
+### PolicyType
+PolicyType represents the type of a policy.
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| POLICY_TYPE_UNSPECIFIED | 0 |  |
+| POLICY_TYPE_TETRAGON_NETWORK_POLICY | 1 |  |
+
 
 
 <a name="system_status-v1alpha-Severity"></a>

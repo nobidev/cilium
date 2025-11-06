@@ -95,6 +95,53 @@ func (Severity) EnumDescriptor() ([]byte, []int) {
 	return file_system_status_v1alpha_system_status_proto_rawDescGZIP(), []int{0}
 }
 
+// PolicyType represents the type of a policy.
+type PolicyType int32
+
+const (
+	PolicyType_POLICY_TYPE_UNSPECIFIED             PolicyType = 0
+	PolicyType_POLICY_TYPE_TETRAGON_NETWORK_POLICY PolicyType = 1
+)
+
+// Enum value maps for PolicyType.
+var (
+	PolicyType_name = map[int32]string{
+		0: "POLICY_TYPE_UNSPECIFIED",
+		1: "POLICY_TYPE_TETRAGON_NETWORK_POLICY",
+	}
+	PolicyType_value = map[string]int32{
+		"POLICY_TYPE_UNSPECIFIED":             0,
+		"POLICY_TYPE_TETRAGON_NETWORK_POLICY": 1,
+	}
+)
+
+func (x PolicyType) Enum() *PolicyType {
+	p := new(PolicyType)
+	*p = x
+	return p
+}
+
+func (x PolicyType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PolicyType) Descriptor() protoreflect.EnumDescriptor {
+	return file_system_status_v1alpha_system_status_proto_enumTypes[1].Descriptor()
+}
+
+func (PolicyType) Type() protoreflect.EnumType {
+	return &file_system_status_v1alpha_system_status_proto_enumTypes[1]
+}
+
+func (x PolicyType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PolicyType.Descriptor instead.
+func (PolicyType) EnumDescriptor() ([]byte, []int) {
+	return file_system_status_v1alpha_system_status_proto_rawDescGZIP(), []int{1}
+}
+
 type SystemStatusEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Time at which the event was produced
@@ -103,6 +150,7 @@ type SystemStatusEvent struct {
 	//
 	//	*SystemStatusEvent_Status
 	//	*SystemStatusEvent_Metadata
+	//	*SystemStatusEvent_Policy
 	Event         isSystemStatusEvent_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -170,6 +218,15 @@ func (x *SystemStatusEvent) GetMetadata() *SystemMetadataUpdate {
 	return nil
 }
 
+func (x *SystemStatusEvent) GetPolicy() *PolicyStatusUpdate {
+	if x != nil {
+		if x, ok := x.Event.(*SystemStatusEvent_Policy); ok {
+			return x.Policy
+		}
+	}
+	return nil
+}
+
 type isSystemStatusEvent_Event interface {
 	isSystemStatusEvent_Event()
 }
@@ -182,9 +239,15 @@ type SystemStatusEvent_Metadata struct {
 	Metadata *SystemMetadataUpdate `protobuf:"bytes,3,opt,name=metadata,proto3,oneof"`
 }
 
+type SystemStatusEvent_Policy struct {
+	Policy *PolicyStatusUpdate `protobuf:"bytes,4,opt,name=policy,proto3,oneof"`
+}
+
 func (*SystemStatusEvent_Status) isSystemStatusEvent_Event() {}
 
 func (*SystemStatusEvent_Metadata) isSystemStatusEvent_Event() {}
+
+func (*SystemStatusEvent_Policy) isSystemStatusEvent_Event() {}
 
 // An update describing the current state of a system running
 // on a particular node.
@@ -549,15 +612,155 @@ func (x *ConditionMetadata) GetResolution() string {
 	return ""
 }
 
+// PolicyStatus represents the status of a single policy on a node.
+type PolicyStatus struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Type of the policy.
+	Type PolicyType `protobuf:"varint,1,opt,name=type,proto3,enum=system_status.v1alpha.PolicyType" json:"type,omitempty"`
+	// ID of the policy.
+	Id string `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	// Name of the policy.
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	// Version of the policy.
+	Version string `protobuf:"bytes,4,opt,name=version,proto3" json:"version,omitempty"`
+	// Conditions that are currently preventing the policy to be enforced.
+	// If empty, the policy is being enforced.
+	FailingConditions []*FailingCondition `protobuf:"bytes,5,rep,name=failing_conditions,json=failingConditions,proto3" json:"failing_conditions,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *PolicyStatus) Reset() {
+	*x = PolicyStatus{}
+	mi := &file_system_status_v1alpha_system_status_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PolicyStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PolicyStatus) ProtoMessage() {}
+
+func (x *PolicyStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_system_status_v1alpha_system_status_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PolicyStatus.ProtoReflect.Descriptor instead.
+func (*PolicyStatus) Descriptor() ([]byte, []int) {
+	return file_system_status_v1alpha_system_status_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *PolicyStatus) GetType() PolicyType {
+	if x != nil {
+		return x.Type
+	}
+	return PolicyType_POLICY_TYPE_UNSPECIFIED
+}
+
+func (x *PolicyStatus) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PolicyStatus) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PolicyStatus) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *PolicyStatus) GetFailingConditions() []*FailingCondition {
+	if x != nil {
+		return x.FailingConditions
+	}
+	return nil
+}
+
+// PolicyStatusUpdate contains the current statuses of all the policies on a
+// node.
+type PolicyStatusUpdate struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The ID of the node that's reporting the policy statuses.
+	NodeId string `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// The statuses of all the policies on the node.
+	Statuses      []*PolicyStatus `protobuf:"bytes,2,rep,name=statuses,proto3" json:"statuses,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PolicyStatusUpdate) Reset() {
+	*x = PolicyStatusUpdate{}
+	mi := &file_system_status_v1alpha_system_status_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PolicyStatusUpdate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PolicyStatusUpdate) ProtoMessage() {}
+
+func (x *PolicyStatusUpdate) ProtoReflect() protoreflect.Message {
+	mi := &file_system_status_v1alpha_system_status_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PolicyStatusUpdate.ProtoReflect.Descriptor instead.
+func (*PolicyStatusUpdate) Descriptor() ([]byte, []int) {
+	return file_system_status_v1alpha_system_status_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *PolicyStatusUpdate) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *PolicyStatusUpdate) GetStatuses() []*PolicyStatus {
+	if x != nil {
+		return x.Statuses
+	}
+	return nil
+}
+
 var File_system_status_v1alpha_system_status_proto protoreflect.FileDescriptor
 
 const file_system_status_v1alpha_system_status_proto_rawDesc = "" +
 	"\n" +
-	")system_status/v1alpha/system_status.proto\x12\x15system_status.v1alpha\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdc\x01\n" +
+	")system_status/v1alpha/system_status.proto\x12\x15system_status.v1alpha\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa1\x02\n" +
 	"\x11SystemStatusEvent\x12.\n" +
 	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12C\n" +
 	"\x06status\x18\x02 \x01(\v2).system_status.v1alpha.SystemStatusUpdateH\x00R\x06status\x12I\n" +
-	"\bmetadata\x18\x03 \x01(\v2+.system_status.v1alpha.SystemMetadataUpdateH\x00R\bmetadataB\a\n" +
+	"\bmetadata\x18\x03 \x01(\v2+.system_status.v1alpha.SystemMetadataUpdateH\x00R\bmetadata\x12C\n" +
+	"\x06policy\x18\x04 \x01(\v2).system_status.v1alpha.PolicyStatusUpdateH\x00R\x06policyB\a\n" +
 	"\x05event\"\xe2\x03\n" +
 	"\x12SystemStatusUpdate\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x1b\n" +
@@ -590,13 +793,26 @@ const file_system_status_v1alpha_system_status_proto_rawDesc = "" +
 	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x1e\n" +
 	"\n" +
 	"resolution\x18\x05 \x01(\tR\n" +
-	"resolution*w\n" +
+	"resolution\"\xdb\x01\n" +
+	"\fPolicyStatus\x125\n" +
+	"\x04type\x18\x01 \x01(\x0e2!.system_status.v1alpha.PolicyTypeR\x04type\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x18\n" +
+	"\aversion\x18\x04 \x01(\tR\aversion\x12V\n" +
+	"\x12failing_conditions\x18\x05 \x03(\v2'.system_status.v1alpha.FailingConditionR\x11failingConditions\"n\n" +
+	"\x12PolicyStatusUpdate\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12?\n" +
+	"\bstatuses\x18\x02 \x03(\v2#.system_status.v1alpha.PolicyStatusR\bstatuses*w\n" +
 	"\bSeverity\x12\x18\n" +
 	"\x14SEVERITY_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eSEVERITY_DEBUG\x10\x01\x12\x12\n" +
 	"\x0eSEVERITY_MINOR\x10\x02\x12\x12\n" +
 	"\x0eSEVERITY_MAJOR\x10\x03\x12\x15\n" +
-	"\x11SEVERITY_CRITICAL\x10\x04B0Z.github.com/isovalent/ipa/system_status/v1alphab\x06proto3"
+	"\x11SEVERITY_CRITICAL\x10\x04*R\n" +
+	"\n" +
+	"PolicyType\x12\x1b\n" +
+	"\x17POLICY_TYPE_UNSPECIFIED\x10\x00\x12'\n" +
+	"#POLICY_TYPE_TETRAGON_NETWORK_POLICY\x10\x01B0Z.github.com/isovalent/ipa/system_status/v1alphab\x06proto3"
 
 var (
 	file_system_status_v1alpha_system_status_proto_rawDescOnce sync.Once
@@ -610,35 +826,42 @@ func file_system_status_v1alpha_system_status_proto_rawDescGZIP() []byte {
 	return file_system_status_v1alpha_system_status_proto_rawDescData
 }
 
-var file_system_status_v1alpha_system_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_system_status_v1alpha_system_status_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_system_status_v1alpha_system_status_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_system_status_v1alpha_system_status_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_system_status_v1alpha_system_status_proto_goTypes = []any{
 	(Severity)(0),                 // 0: system_status.v1alpha.Severity
-	(*SystemStatusEvent)(nil),     // 1: system_status.v1alpha.SystemStatusEvent
-	(*SystemStatusUpdate)(nil),    // 2: system_status.v1alpha.SystemStatusUpdate
-	(*SystemID)(nil),              // 3: system_status.v1alpha.SystemID
-	(*FailingCondition)(nil),      // 4: system_status.v1alpha.FailingCondition
-	(*SystemMetadataUpdate)(nil),  // 5: system_status.v1alpha.SystemMetadataUpdate
-	(*ConditionMetadata)(nil),     // 6: system_status.v1alpha.ConditionMetadata
-	nil,                           // 7: system_status.v1alpha.SystemStatusUpdate.ExtraDataEntry
-	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
+	(PolicyType)(0),               // 1: system_status.v1alpha.PolicyType
+	(*SystemStatusEvent)(nil),     // 2: system_status.v1alpha.SystemStatusEvent
+	(*SystemStatusUpdate)(nil),    // 3: system_status.v1alpha.SystemStatusUpdate
+	(*SystemID)(nil),              // 4: system_status.v1alpha.SystemID
+	(*FailingCondition)(nil),      // 5: system_status.v1alpha.FailingCondition
+	(*SystemMetadataUpdate)(nil),  // 6: system_status.v1alpha.SystemMetadataUpdate
+	(*ConditionMetadata)(nil),     // 7: system_status.v1alpha.ConditionMetadata
+	(*PolicyStatus)(nil),          // 8: system_status.v1alpha.PolicyStatus
+	(*PolicyStatusUpdate)(nil),    // 9: system_status.v1alpha.PolicyStatusUpdate
+	nil,                           // 10: system_status.v1alpha.SystemStatusUpdate.ExtraDataEntry
+	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
 }
 var file_system_status_v1alpha_system_status_proto_depIdxs = []int32{
-	8,  // 0: system_status.v1alpha.SystemStatusEvent.time:type_name -> google.protobuf.Timestamp
-	2,  // 1: system_status.v1alpha.SystemStatusEvent.status:type_name -> system_status.v1alpha.SystemStatusUpdate
-	5,  // 2: system_status.v1alpha.SystemStatusEvent.metadata:type_name -> system_status.v1alpha.SystemMetadataUpdate
-	3,  // 3: system_status.v1alpha.SystemStatusUpdate.system:type_name -> system_status.v1alpha.SystemID
-	8,  // 4: system_status.v1alpha.SystemStatusUpdate.started_at:type_name -> google.protobuf.Timestamp
-	4,  // 5: system_status.v1alpha.SystemStatusUpdate.failing_conditions:type_name -> system_status.v1alpha.FailingCondition
-	7,  // 6: system_status.v1alpha.SystemStatusUpdate.extra_data:type_name -> system_status.v1alpha.SystemStatusUpdate.ExtraDataEntry
-	0,  // 7: system_status.v1alpha.FailingCondition.severity:type_name -> system_status.v1alpha.Severity
-	3,  // 8: system_status.v1alpha.SystemMetadataUpdate.system:type_name -> system_status.v1alpha.SystemID
-	6,  // 9: system_status.v1alpha.SystemMetadataUpdate.conditions:type_name -> system_status.v1alpha.ConditionMetadata
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	11, // 0: system_status.v1alpha.SystemStatusEvent.time:type_name -> google.protobuf.Timestamp
+	3,  // 1: system_status.v1alpha.SystemStatusEvent.status:type_name -> system_status.v1alpha.SystemStatusUpdate
+	6,  // 2: system_status.v1alpha.SystemStatusEvent.metadata:type_name -> system_status.v1alpha.SystemMetadataUpdate
+	9,  // 3: system_status.v1alpha.SystemStatusEvent.policy:type_name -> system_status.v1alpha.PolicyStatusUpdate
+	4,  // 4: system_status.v1alpha.SystemStatusUpdate.system:type_name -> system_status.v1alpha.SystemID
+	11, // 5: system_status.v1alpha.SystemStatusUpdate.started_at:type_name -> google.protobuf.Timestamp
+	5,  // 6: system_status.v1alpha.SystemStatusUpdate.failing_conditions:type_name -> system_status.v1alpha.FailingCondition
+	10, // 7: system_status.v1alpha.SystemStatusUpdate.extra_data:type_name -> system_status.v1alpha.SystemStatusUpdate.ExtraDataEntry
+	0,  // 8: system_status.v1alpha.FailingCondition.severity:type_name -> system_status.v1alpha.Severity
+	4,  // 9: system_status.v1alpha.SystemMetadataUpdate.system:type_name -> system_status.v1alpha.SystemID
+	7,  // 10: system_status.v1alpha.SystemMetadataUpdate.conditions:type_name -> system_status.v1alpha.ConditionMetadata
+	1,  // 11: system_status.v1alpha.PolicyStatus.type:type_name -> system_status.v1alpha.PolicyType
+	5,  // 12: system_status.v1alpha.PolicyStatus.failing_conditions:type_name -> system_status.v1alpha.FailingCondition
+	8,  // 13: system_status.v1alpha.PolicyStatusUpdate.statuses:type_name -> system_status.v1alpha.PolicyStatus
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_system_status_v1alpha_system_status_proto_init() }
@@ -649,14 +872,15 @@ func file_system_status_v1alpha_system_status_proto_init() {
 	file_system_status_v1alpha_system_status_proto_msgTypes[0].OneofWrappers = []any{
 		(*SystemStatusEvent_Status)(nil),
 		(*SystemStatusEvent_Metadata)(nil),
+		(*SystemStatusEvent_Policy)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_system_status_v1alpha_system_status_proto_rawDesc), len(file_system_status_v1alpha_system_status_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   7,
+			NumEnums:      2,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

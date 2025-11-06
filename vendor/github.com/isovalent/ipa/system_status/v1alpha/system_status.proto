@@ -22,6 +22,7 @@ message SystemStatusEvent {
   oneof event {
     SystemStatusUpdate status = 2;
     SystemMetadataUpdate metadata = 3;
+    PolicyStatusUpdate policy = 4;
   }
 }
 
@@ -128,4 +129,34 @@ enum Severity {
   // Critical severity is for failures that have significant impact to
   // the whole cluster.
   SEVERITY_CRITICAL = 4;
+}
+
+// PolicyType represents the type of a policy.
+enum PolicyType {
+  POLICY_TYPE_UNSPECIFIED = 0;
+  POLICY_TYPE_TETRAGON_NETWORK_POLICY = 1;
+}
+
+// PolicyStatus represents the status of a single policy on a node.
+message PolicyStatus {
+  // Type of the policy.
+  PolicyType type = 1;
+  // ID of the policy.
+  string id = 2;
+  // Name of the policy.
+  string name = 3;
+  // Version of the policy.
+  string version = 4;
+  // Conditions that are currently preventing the policy to be enforced.
+  // If empty, the policy is being enforced.
+  repeated FailingCondition failing_conditions = 5;
+}
+
+// PolicyStatusUpdate contains the current statuses of all the policies on a
+// node.
+message PolicyStatusUpdate {
+  // The ID of the node that's reporting the policy statuses.
+  string node_id = 1;
+  // The statuses of all the policies on the node.
+  repeated PolicyStatus statuses = 2;
 }

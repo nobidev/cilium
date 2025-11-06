@@ -1,12 +1,12 @@
 module github.com/isovalent/cilium/enterprise/hubble-timescape
 
-go 1.25.0
+go 1.25.3
 
 require (
-	github.com/cilium/cilium v1.18.2
+	github.com/cilium/cilium v1.18.3
 	github.com/cilium/fake/flow v0.7.0
 	github.com/google/go-cmp v0.7.0
-	github.com/isovalent/hubble-timescape/api v1.8.3
+	github.com/isovalent/hubble-timescape/api v1.18.0-rc.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10

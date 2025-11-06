@@ -1,0 +1,37 @@
+// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this
+// information or reproduction of this material is strictly forbidden unless
+// prior written permission is obtained from Isovalent Inc.
+
+syntax = "proto3";
+
+package timescape.v1;
+
+import "timescape/v1/file_source.proto";
+
+option go_package = "github.com/isovalent/hubble-timescape/api/timescape/v1";
+
+// CoordinatorService is a service that enables coordination amongst multiple
+// ingester replicas.
+service CoordinatorService {
+  // GetFileSourceURIs returns a stream of URIs to ingest.
+  rpc GetFileSourceURIs(GetFileSourceURIsRequest) returns (stream GetFileSourceURIsResponse) {}
+}
+
+// GetFileSourceURIsRequest is the request parameter for the GetFileSourceURIs
+// RPC.
+message GetFileSourceURIsRequest {}
+
+// GetFileSourceURIsResponse contains a response from the GetFileSourceURIs RPC
+// endpoint.
+message GetFileSourceURIsResponse {
+  // Source contains the metadata of the file to ingest.
+  // TODO: Should this be a list of FileSource, so we can send batches of files
+  // to ingesters, instead of sending one file at a time?
+  FileSource source = 1;
+}

@@ -23,11 +23,15 @@ message Edge {
   // If an emitter collects more relevant data, it MAY emit more than one
   // ConnectionLog with different edge types.
   oneof type {
-    EdgeTypeNetworkTelemetry network_telemetry = 1;
-    EdgeTypeRoutingTelemetry routing_telemetry = 2;
-    EdgeTypeL7Telemetry l7_telemetry = 3;
+    EdgeTypeBasic basic = 1;
+    EdgeTypeNetworkTelemetry network_telemetry = 2;
+    EdgeTypeRoutingTelemetry routing_telemetry = 3;
+    EdgeTypeL7Telemetry l7_telemetry = 4;
   }
 }
+
+// EdgeTypeBasic is a base edge that does not carry any information.
+message EdgeTypeBasic {}
 
 // EdgeTypeNetworkTelemetry provides telemetry information regarding a network
 // connection.

@@ -5,6 +5,7 @@
 
 - [graph/v1alpha/edge.proto](#graph_v1alpha_edge-proto)
     - [Edge](#graph-v1alpha-Edge)
+    - [EdgeTypeBasic](#graph-v1alpha-EdgeTypeBasic)
     - [EdgeTypeL7Telemetry](#graph-v1alpha-EdgeTypeL7Telemetry)
     - [EdgeTypeNetworkTelemetry](#graph-v1alpha-EdgeTypeNetworkTelemetry)
     - [EdgeTypeRoutingTelemetry](#graph-v1alpha-EdgeTypeRoutingTelemetry)
@@ -20,15 +21,6 @@
     - [ConnectionLog](#graph-v1alpha-ConnectionLog)
   
     - [Emitter](#graph-v1alpha-Emitter)
-  
-- [graph/v1alpha/service.proto](#graph_v1alpha_service-proto)
-    - [ConnectionResponse](#graph-v1alpha-ConnectionResponse)
-    - [ConnectionResponse.DestinationFieldsEntry](#graph-v1alpha-ConnectionResponse-DestinationFieldsEntry)
-    - [ConnectionResponse.SourceFieldsEntry](#graph-v1alpha-ConnectionResponse-SourceFieldsEntry)
-    - [GetConnectionsRequest](#graph-v1alpha-GetConnectionsRequest)
-    - [GetConnectionsResponse](#graph-v1alpha-GetConnectionsResponse)
-  
-    - [GraphService](#graph-v1alpha-GraphService)
   
 - [Scalar Value Types](#scalar-value-types)
 
@@ -49,9 +41,20 @@ An edge represents aggregatable properties of a given connection.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| basic | [EdgeTypeBasic](#graph-v1alpha-EdgeTypeBasic) |  |  |
 | network_telemetry | [EdgeTypeNetworkTelemetry](#graph-v1alpha-EdgeTypeNetworkTelemetry) |  |  |
 | routing_telemetry | [EdgeTypeRoutingTelemetry](#graph-v1alpha-EdgeTypeRoutingTelemetry) |  |  |
 | l7_telemetry | [EdgeTypeL7Telemetry](#graph-v1alpha-EdgeTypeL7Telemetry) |  |  |
+
+
+
+
+
+
+<a name="graph-v1alpha-EdgeTypeBasic"></a>
+
+### EdgeTypeBasic
+EdgeTypeBasic is a base edge that does not carry any information.
 
 
 
@@ -194,6 +197,11 @@ network device.
 | name | [string](#string) |  | name is the name of the network device. |
 | ip | [string](#string) |  | ip is a network address that can be associated with the network device and the connection. |
 | port | [uint32](#uint32) |  | port is the network port associated with the ip address. |
+| ip_protocol | [common.net.v1alpha.IPProtocol](#common-net-v1alpha-IPProtocol) |  | protocol is the protocol that is used for the connection at the L3/L4 layer. |
+| application_protocol | [string](#string) |  | application_protocol is the layer 7 protocol used for the connection. |
+| vlan_name | [string](#string) |  | vlan_name is a human readable name associated with a VLAN ID. |
+| vlan_id | [uint32](#uint32) |  | vlan_id is an ID in the range 1 to 4094 that defines a broadcast domain at the data link layer. |
+| vrf_name | [string](#string) |  | vrf_name is the name of a virtual routing and forwarding segement that is the equivalent of a VLAN but at the network layer. |
 
 
 
@@ -268,6 +276,7 @@ ConnectionLog events SHOULD NOT have overlapping time windows.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| uuid | [string](#string) |  | Uuid is a universally unique identifier for this event. |
 | emitter | [Emitter](#graph-v1alpha-Emitter) |  | An emitter is the source that observes connection information. The emitter typically observes data at the source of the connection. |
 | window_start | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Window start is the time at which the emitter started collecting information regarding the observed connections. |
 | window_end | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Window end is the time at which the emitter stopped collecting information regarding the observed connections. |
@@ -290,125 +299,12 @@ Emitter is a list of all known connection log data sources.
 | EMITTER_UNSPECIFIED | 0 | The source of the data is unspecified. |
 | EMITTER_HUBBLE | 1 | The source of the data is Hubble. |
 | EMITTER_TETRAGON | 2 | The source of the data is Tetragon. |
+| EMITTER_SMARTSWITCH | 3 | The source of the data is a smart switch. |
 
 
  
 
  
-
- 
-
-
-
-<a name="graph_v1alpha_service-proto"></a>
-<p align="right"><a href="#top">Top</a></p>
-
-## graph/v1alpha/service.proto
-
-
-
-<a name="graph-v1alpha-ConnectionResponse"></a>
-
-### ConnectionResponse
-ConnectionResponse represents a specific connection.
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| link | [Edge](#graph-v1alpha-Edge) |  | Link may provide aggregated information regarding the connection. |
-| source_fields | [ConnectionResponse.SourceFieldsEntry](#graph-v1alpha-ConnectionResponse-SourceFieldsEntry) | repeated | Source fields are properties that correspond to the vertex field keys specified in the group_by_source field of the query. Example: { &#34;cluster_name&#34;: &#34;df-hubble-dev-ce-01&#34;, &#34;node_name&#34;: &#34;ip-10-1-5-110.us-west-2.compute.internal&#34; } |
-| destination_fields | [ConnectionResponse.DestinationFieldsEntry](#graph-v1alpha-ConnectionResponse-DestinationFieldsEntry) | repeated | Destination fields are properties that correspond to the vertex field keys specified in the group_by_destination field of the query. Example: { &#34;namespace&#34;: &#34;kube-system&#34;, } |
-
-
-
-
-
-
-<a name="graph-v1alpha-ConnectionResponse-DestinationFieldsEntry"></a>
-
-### ConnectionResponse.DestinationFieldsEntry
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [string](#string) |  |  |
-| value | [string](#string) |  |  |
-
-
-
-
-
-
-<a name="graph-v1alpha-ConnectionResponse-SourceFieldsEntry"></a>
-
-### ConnectionResponse.SourceFieldsEntry
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [string](#string) |  |  |
-| value | [string](#string) |  |  |
-
-
-
-
-
-
-<a name="graph-v1alpha-GetConnectionsRequest"></a>
-
-### GetConnectionsRequest
-GetConnectionsRequest allows for specifying the type of connections that
-should be returned.
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| window_start | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Window start is the start time of the time window. A time window SHOULD be provided to limit the number of connections returned. |
-| window_end | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Window end is the end time of the time window. A time window SHOULD be provided to limit the number of connections returned. |
-| link_type | [uint32](#uint32) |  | The link type MUST be provided. It corresponds to the protobuf tag of the desired edge type of the link. |
-| filter | [string](#string) |  | A CEL expression MAY be used to filter connections.
-
-The filtering expression may use the `link` (type: Edge), `source` and `destination` variables (type: Vertex). Example: has(link.network_telemetry) &amp;&amp; link.network_telemetry.tx_packets &gt; 0 &amp;&amp; has(source.kubernetes) &amp;&amp; source.kubernetes.cluster_name == &#34;df-hubble-demo-ce-01&#34; &amp;&amp; has(destination.kubernetes) &amp;&amp; destination.kubernetes.cluster_name = &#34;df-hubble-dev-ce-01&#34; |
-| group_by_source | [string](#string) | repeated | Field keys by which the source vertex should be grouped. At least one field MUST be provided. Example: [&#34;source.kubernetes.cluster_name&#34;, &#34;source.kubernetes.node_name&#34;] |
-| group_by_destination | [string](#string) | repeated | Field keys by which the destination vertex should be grouped. At least one field MUST be provided. Example: [&#34;destination.kubernetes.cluster_name&#34;, &#34;destination.kubernetes.node_name&#34;] |
-
-
-
-
-
-
-<a name="graph-v1alpha-GetConnectionsResponse"></a>
-
-### GetConnectionsResponse
-GetConnectionsResponse is the response provided by the GetConnections endpoint.
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| connections | [ConnectionResponse](#graph-v1alpha-ConnectionResponse) | repeated | Connections is a list of all the connections that match the request criteria. There should be only one connection per unique vertex-edge-vertex. In other words, field values and time window are aggregated. |
-
-
-
-
-
- 
-
- 
-
- 
-
-
-<a name="graph-v1alpha-GraphService"></a>
-
-### GraphService
-The graph services allows querying connections information that are
-typically useful to render a graph visualization.
-
-| Method Name | Request Type | Response Type | Description |
-| ----------- | ------------ | ------------- | ------------|
-| GetConnections | [GetConnectionsRequest](#graph-v1alpha-GetConnectionsRequest) | [GetConnectionsResponse](#graph-v1alpha-GetConnectionsResponse) | GetConnections returns a set of connections that match the query criteria. |
 
  
 

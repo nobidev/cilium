@@ -22,20 +22,22 @@ option go_package = "github.com/isovalent/ipa/graph/v1alpha";
 // Emitters SHOULD NOT re-emit ConnectionLog events.
 // ConnectionLog events SHOULD NOT have overlapping time windows.
 message ConnectionLog {
+  // Uuid is a universally unique identifier for this event.
+  string uuid = 1;
   // An emitter is the source that observes connection information. The emitter
   // typically observes data at the source of the connection.
-  Emitter emitter = 1;
+  Emitter emitter = 2;
 
   // Window start is the time at which the emitter started collecting
   // information regarding the observed connections.
-  google.protobuf.Timestamp window_start = 2;
+  google.protobuf.Timestamp window_start = 3;
   // Window end is the time at which the emitter stopped collecting information
   // regarding the observed connections.
-  google.protobuf.Timestamp window_end = 3;
+  google.protobuf.Timestamp window_end = 4;
 
   // Connections is a list of all connections that were tracked during the
   // given time window.
-  repeated Connection connections = 4;
+  repeated Connection connections = 5;
 }
 
 // Emitter is a list of all known connection log data sources.
@@ -46,6 +48,8 @@ enum Emitter {
   EMITTER_HUBBLE = 1;
   // The source of the data is Tetragon.
   EMITTER_TETRAGON = 2;
+  // The source of the data is a smart switch.
+  EMITTER_SMARTSWITCH = 3;
 }
 
 // A connection is a simple directed graph where an edge links two vertices in

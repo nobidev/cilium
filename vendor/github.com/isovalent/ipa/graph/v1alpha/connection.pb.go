@@ -40,6 +40,8 @@ const (
 	Emitter_EMITTER_HUBBLE Emitter = 1
 	// The source of the data is Tetragon.
 	Emitter_EMITTER_TETRAGON Emitter = 2
+	// The source of the data is a smart switch.
+	Emitter_EMITTER_SMARTSWITCH Emitter = 3
 )
 
 // Enum value maps for Emitter.
@@ -48,11 +50,13 @@ var (
 		0: "EMITTER_UNSPECIFIED",
 		1: "EMITTER_HUBBLE",
 		2: "EMITTER_TETRAGON",
+		3: "EMITTER_SMARTSWITCH",
 	}
 	Emitter_value = map[string]int32{
 		"EMITTER_UNSPECIFIED": 0,
 		"EMITTER_HUBBLE":      1,
 		"EMITTER_TETRAGON":    2,
+		"EMITTER_SMARTSWITCH": 3,
 	}
 )
 
@@ -90,18 +94,20 @@ func (Emitter) EnumDescriptor() ([]byte, []int) {
 // ConnectionLog events SHOULD NOT have overlapping time windows.
 type ConnectionLog struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// Uuid is a universally unique identifier for this event.
+	Uuid string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
 	// An emitter is the source that observes connection information. The emitter
 	// typically observes data at the source of the connection.
-	Emitter Emitter `protobuf:"varint,1,opt,name=emitter,proto3,enum=graph.v1alpha.Emitter" json:"emitter,omitempty"`
+	Emitter Emitter `protobuf:"varint,2,opt,name=emitter,proto3,enum=graph.v1alpha.Emitter" json:"emitter,omitempty"`
 	// Window start is the time at which the emitter started collecting
 	// information regarding the observed connections.
-	WindowStart *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=window_start,json=windowStart,proto3" json:"window_start,omitempty"`
+	WindowStart *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=window_start,json=windowStart,proto3" json:"window_start,omitempty"`
 	// Window end is the time at which the emitter stopped collecting information
 	// regarding the observed connections.
-	WindowEnd *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=window_end,json=windowEnd,proto3" json:"window_end,omitempty"`
+	WindowEnd *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=window_end,json=windowEnd,proto3" json:"window_end,omitempty"`
 	// Connections is a list of all connections that were tracked during the
 	// given time window.
-	Connections   []*Connection `protobuf:"bytes,4,rep,name=connections,proto3" json:"connections,omitempty"`
+	Connections   []*Connection `protobuf:"bytes,5,rep,name=connections,proto3" json:"connections,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -134,6 +140,13 @@ func (x *ConnectionLog) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ConnectionLog.ProtoReflect.Descriptor instead.
 func (*ConnectionLog) Descriptor() ([]byte, []int) {
 	return file_graph_v1alpha_connection_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ConnectionLog) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
 }
 
 func (x *ConnectionLog) GetEmitter() Emitter {
@@ -241,22 +254,24 @@ var File_graph_v1alpha_connection_proto protoreflect.FileDescriptor
 
 const file_graph_v1alpha_connection_proto_rawDesc = "" +
 	"\n" +
-	"\x1egraph/v1alpha/connection.proto\x12\rgraph.v1alpha\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18graph/v1alpha/edge.proto\x1a\x1agraph/v1alpha/vertex.proto\"\xf8\x01\n" +
-	"\rConnectionLog\x120\n" +
-	"\aemitter\x18\x01 \x01(\x0e2\x16.graph.v1alpha.EmitterR\aemitter\x12=\n" +
-	"\fwindow_start\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vwindowStart\x129\n" +
+	"\x1egraph/v1alpha/connection.proto\x12\rgraph.v1alpha\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18graph/v1alpha/edge.proto\x1a\x1agraph/v1alpha/vertex.proto\"\x8c\x02\n" +
+	"\rConnectionLog\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x120\n" +
+	"\aemitter\x18\x02 \x01(\x0e2\x16.graph.v1alpha.EmitterR\aemitter\x12=\n" +
+	"\fwindow_start\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vwindowStart\x129\n" +
 	"\n" +
-	"window_end\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\twindowEnd\x12;\n" +
-	"\vconnections\x18\x04 \x03(\v2\x19.graph.v1alpha.ConnectionR\vconnections\"\x9f\x01\n" +
+	"window_end\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\twindowEnd\x12;\n" +
+	"\vconnections\x18\x05 \x03(\v2\x19.graph.v1alpha.ConnectionR\vconnections\"\x9f\x01\n" +
 	"\n" +
 	"Connection\x12-\n" +
 	"\x06source\x18\x01 \x01(\v2\x15.graph.v1alpha.VertexR\x06source\x127\n" +
 	"\vdestination\x18\x02 \x01(\v2\x15.graph.v1alpha.VertexR\vdestination\x12)\n" +
-	"\x05links\x18\x03 \x03(\v2\x13.graph.v1alpha.EdgeR\x05links*L\n" +
+	"\x05links\x18\x03 \x03(\v2\x13.graph.v1alpha.EdgeR\x05links*e\n" +
 	"\aEmitter\x12\x17\n" +
 	"\x13EMITTER_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eEMITTER_HUBBLE\x10\x01\x12\x14\n" +
-	"\x10EMITTER_TETRAGON\x10\x02B(Z&github.com/isovalent/ipa/graph/v1alphab\x06proto3"
+	"\x10EMITTER_TETRAGON\x10\x02\x12\x17\n" +
+	"\x13EMITTER_SMARTSWITCH\x10\x03B(Z&github.com/isovalent/ipa/graph/v1alphab\x06proto3"
 
 var (
 	file_graph_v1alpha_connection_proto_rawDescOnce sync.Once

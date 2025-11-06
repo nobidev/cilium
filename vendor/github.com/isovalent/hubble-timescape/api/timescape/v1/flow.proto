@@ -1,0 +1,149 @@
+// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this
+// information or reproduction of this material is strictly forbidden unless
+// prior written permission is obtained from Isovalent Inc.
+
+syntax = "proto3";
+
+package timescape.v1;
+
+import "aggregation/aggregation.proto";
+import "flow/flow.proto";
+import "google/protobuf/timestamp.proto";
+import "timescape/v1/flowmask.proto";
+import "timescape/v1/time_filter.proto";
+
+option go_package = "github.com/isovalent/hubble-timescape/api/timescape/v1";
+
+// FlowService is a service that offers network flow related information.
+service FlowService {
+  // GetFlow returns the flow that corresponds to the unique identifier.
+  rpc GetFlow(GetFlowRequest) returns (GetFlowResponse) {}
+
+  // GetFlowCount returns the flow count per time window. If the duration of
+  // the time window is 0, results are not aggregated by window. The filter
+  // parameter can be used to limit the scope to flows that match the filter
+  // (e.g. time range).
+  rpc GetFlowCount(GetFlowCountRequest) returns (stream GetFlowCountResponse) {}
+
+  // GetNamespaces returns a unique list of namespaces seen in the hubble flows
+  // (either as a source, or a destination).
+  rpc GetNamespaces(GetNamespacesRequest) returns (GetNamespacesResponse) {}
+
+  // GetFlowsSummary allows retrieval of multiple flows at the same time.
+  rpc GetFlowsSummary(GetFlowsSummaryRequest) returns (stream GetFlowsSummaryResponse) {}
+}
+
+// GetFlowRequest for the GetFlow rpc call.
+message GetFlowRequest {
+  // id of the flow as seen in the timescape data store
+  string id = 1;
+}
+
+// GetFlowResponse for the GetFlow rpc call.
+message GetFlowResponse {
+  // flow information
+  flow.Flow flow = 1;
+}
+
+// GetFlowCountRequest for the GetFlowCount rpc call.
+message GetFlowCountRequest {
+  // Limit is the maximum number of results to return.
+  uint64 limit = 1;
+
+  // Since and Until can be used to specify a time interval.
+  TimeFilter time_filter = 2;
+
+  // If the duration window is not provided, the results are not aggregated by window.
+  uint64 window = 3;
+
+  // Include are filters that flows must match.
+  repeated flow.FlowFilter include = 4;
+  // Exclude are filters that flows must not match.
+  repeated flow.FlowFilter exclude = 5;
+}
+
+// FlowCount is the result of a FlowCount operation.
+message FlowCount {
+  // Start is the time at which the time window starts.
+  google.protobuf.Timestamp start = 1;
+
+  // Count is the number of flows in the time window.
+  uint64 count = 2;
+}
+
+// GetFlowCountResponse for the GetFlowCount rpc call.
+message GetFlowCountResponse {
+  // FlowCount returns the number of flows matching the query
+  FlowCount flow_count = 1;
+}
+
+// GetNamespacesRequest for the GetNamespaces rpc call.
+message GetNamespacesRequest {
+  // Since and Until can be used to specify a time interval.
+  TimeFilter time_filter = 1;
+}
+
+// GetNamespacesResponse for the GetNamespaces rpc call.
+message GetNamespacesResponse {
+  // Namespaces list
+  repeated Namespace namespaces = 1;
+}
+
+// Namespace represents a namespace.
+message Namespace {
+  // Name is the name of the namespace.
+  string name = 1;
+  // Cluster is the cluster of the namespace.
+  string cluster = 2;
+}
+
+// GetFlowsSummaryRequest for the GetFlows rpc call.
+message GetFlowsSummaryRequest {
+  // Limit is the maximum number of results to return. Note that when
+  // aggregation is enabled limit is strictly an upper bound: if 10 results are
+  // returned when a limit of 100 was requested, there could be more aggregated
+  // flows than 10 matching the request. This is currently a limitation of the
+  // current implementation needed for performance reasons.
+  uint64 limit = 1;
+
+  // Since and Until can be used to specify a time interval.
+  TimeFilter time_filter = 2;
+
+  // Include are filters that flows must match.
+  repeated flow.FlowFilter include = 3;
+  // Exclude are filters that flows must not match.
+  repeated flow.FlowFilter exclude = 4;
+
+  // FlowMask controls which fields to inflate for each Flow in the response.
+  //
+  // This gives control to the caller for how much information about each flow
+  // they would like returned back.
+  //
+  // Omitting this field from the request will default to populating all fields
+  // of a Flow in response.
+  FlowMask mask = 5;
+
+  // Aggregation is an aggregator configuration.
+  isovalent.flow.aggregation.Aggregation aggregation = 10001;
+}
+
+// GetFlowsSummaryResponse for the GetFlows rpc call.
+message GetFlowsSummaryResponse {
+  // Flow matching the request parameters.
+  TSFlow flow = 1;
+}
+
+// TSFlow wraps Hubble's flow.Flow definition with additional metadata.
+message TSFlow {
+  // A unique identifier for the embedded flow.
+  string id = 1;
+
+  // Flow as created defined by the Hubble observer.
+  flow.Flow flow = 2;
+}

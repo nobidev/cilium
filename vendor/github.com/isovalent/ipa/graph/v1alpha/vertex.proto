@@ -13,6 +13,7 @@ package graph.v1alpha;
 import "common/k8s/type/v1alpha/resource.proto";
 import "common/k8s/type/v1alpha/service.proto";
 import "common/k8s/type/v1alpha/workload.proto";
+import "common/net/v1alpha/protocol.proto";
 
 option go_package = "github.com/isovalent/ipa/graph/v1alpha";
 
@@ -75,6 +76,20 @@ message VertexFamilyNetworkDevice {
   string ip = 2;
   // port is the network port associated with the ip address.
   uint32 port = 3;
+  // protocol is the protocol that is used for the connection at the L3/L4
+  // layer.
+  common.net.v1alpha.IPProtocol ip_protocol = 4;
+  // application_protocol is the layer 7 protocol used for the connection.
+  string application_protocol = 5;
+  reserved 6; // tunneling protocol?
+  // vlan_name is a human readable name associated with a VLAN ID.
+  string vlan_name = 7;
+  // vlan_id is an ID in the range 1 to 4094 that defines a broadcast domain at
+  // the data link layer.
+  uint32 vlan_id = 8;
+  // vrf_name is the name of a virtual routing and forwarding segement that is
+  // the equivalent of a VLAN but at the network layer.
+  string vrf_name = 9;
 }
 
 // VertexFamilyWorldEntity represents a broad set of network elements outside

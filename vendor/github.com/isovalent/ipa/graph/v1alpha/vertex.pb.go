@@ -16,6 +16,7 @@ package v1alpha
 
 import (
 	v1alpha "github.com/isovalent/ipa/common/k8s/type/v1alpha"
+	v1alpha1 "github.com/isovalent/ipa/common/net/v1alpha"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -311,7 +312,20 @@ type VertexFamilyNetworkDevice struct {
 	// the connection.
 	Ip string `protobuf:"bytes,2,opt,name=ip,proto3" json:"ip,omitempty"`
 	// port is the network port associated with the ip address.
-	Port          uint32 `protobuf:"varint,3,opt,name=port,proto3" json:"port,omitempty"`
+	Port uint32 `protobuf:"varint,3,opt,name=port,proto3" json:"port,omitempty"`
+	// protocol is the protocol that is used for the connection at the L3/L4
+	// layer.
+	IpProtocol v1alpha1.IPProtocol `protobuf:"varint,4,opt,name=ip_protocol,json=ipProtocol,proto3,enum=common.net.v1alpha.IPProtocol" json:"ip_protocol,omitempty"`
+	// application_protocol is the layer 7 protocol used for the connection.
+	ApplicationProtocol string `protobuf:"bytes,5,opt,name=application_protocol,json=applicationProtocol,proto3" json:"application_protocol,omitempty"`
+	// vlan_name is a human readable name associated with a VLAN ID.
+	VlanName string `protobuf:"bytes,7,opt,name=vlan_name,json=vlanName,proto3" json:"vlan_name,omitempty"`
+	// vlan_id is an ID in the range 1 to 4094 that defines a broadcast domain at
+	// the data link layer.
+	VlanId uint32 `protobuf:"varint,8,opt,name=vlan_id,json=vlanId,proto3" json:"vlan_id,omitempty"`
+	// vrf_name is the name of a virtual routing and forwarding segement that is
+	// the equivalent of a VLAN but at the network layer.
+	VrfName       string `protobuf:"bytes,9,opt,name=vrf_name,json=vrfName,proto3" json:"vrf_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -365,6 +379,41 @@ func (x *VertexFamilyNetworkDevice) GetPort() uint32 {
 		return x.Port
 	}
 	return 0
+}
+
+func (x *VertexFamilyNetworkDevice) GetIpProtocol() v1alpha1.IPProtocol {
+	if x != nil {
+		return x.IpProtocol
+	}
+	return v1alpha1.IPProtocol(0)
+}
+
+func (x *VertexFamilyNetworkDevice) GetApplicationProtocol() string {
+	if x != nil {
+		return x.ApplicationProtocol
+	}
+	return ""
+}
+
+func (x *VertexFamilyNetworkDevice) GetVlanName() string {
+	if x != nil {
+		return x.VlanName
+	}
+	return ""
+}
+
+func (x *VertexFamilyNetworkDevice) GetVlanId() uint32 {
+	if x != nil {
+		return x.VlanId
+	}
+	return 0
+}
+
+func (x *VertexFamilyNetworkDevice) GetVrfName() string {
+	if x != nil {
+		return x.VrfName
+	}
+	return ""
 }
 
 // VertexFamilyWorldEntity represents a broad set of network elements outside
@@ -437,7 +486,7 @@ var File_graph_v1alpha_vertex_proto protoreflect.FileDescriptor
 
 const file_graph_v1alpha_vertex_proto_rawDesc = "" +
 	"\n" +
-	"\x1agraph/v1alpha/vertex.proto\x12\rgraph.v1alpha\x1a&common/k8s/type/v1alpha/resource.proto\x1a%common/k8s/type/v1alpha/service.proto\x1a&common/k8s/type/v1alpha/workload.proto\"\xfb\x01\n" +
+	"\x1agraph/v1alpha/vertex.proto\x12\rgraph.v1alpha\x1a&common/k8s/type/v1alpha/resource.proto\x1a%common/k8s/type/v1alpha/service.proto\x1a&common/k8s/type/v1alpha/workload.proto\x1a!common/net/v1alpha/protocol.proto\"\xfb\x01\n" +
 	"\x06Vertex\x12G\n" +
 	"\n" +
 	"kubernetes\x18\x01 \x01(\v2%.graph.v1alpha.VertexFamilyKubernetesH\x00R\n" +
@@ -460,11 +509,17 @@ const file_graph_v1alpha_vertex_proto_rawDesc = "" +
 	"\rworkload_kind\x18\v \x01(\x0e2%.common.k8s.type.v1alpha.WorkloadKindR\fworkloadKind\x12\x0e\n" +
 	"\x02ip\x18\f \x01(\tR\x02ip\x12\x12\n" +
 	"\x04port\x18\r \x01(\rR\x04port\x124\n" +
-	"\x16application_model_uuid\x18\x0e \x01(\tR\x14applicationModelUuid\"S\n" +
+	"\x16application_model_uuid\x18\x0e \x01(\tR\x14applicationModelUuid\"\x9e\x02\n" +
 	"\x19VertexFamilyNetworkDevice\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x0e\n" +
 	"\x02ip\x18\x02 \x01(\tR\x02ip\x12\x12\n" +
-	"\x04port\x18\x03 \x01(\rR\x04port\"X\n" +
+	"\x04port\x18\x03 \x01(\rR\x04port\x12?\n" +
+	"\vip_protocol\x18\x04 \x01(\x0e2\x1e.common.net.v1alpha.IPProtocolR\n" +
+	"ipProtocol\x121\n" +
+	"\x14application_protocol\x18\x05 \x01(\tR\x13applicationProtocol\x12\x1b\n" +
+	"\tvlan_name\x18\a \x01(\tR\bvlanName\x12\x17\n" +
+	"\avlan_id\x18\b \x01(\rR\x06vlanId\x12\x19\n" +
+	"\bvrf_name\x18\t \x01(\tR\avrfNameJ\x04\b\x06\x10\a\"X\n" +
 	"\x17VertexFamilyWorldEntity\x12\x19\n" +
 	"\bdns_name\x18\x01 \x01(\tR\adnsName\x12\x0e\n" +
 	"\x02ip\x18\x02 \x01(\tR\x02ip\x12\x12\n" +
@@ -491,6 +546,7 @@ var file_graph_v1alpha_vertex_proto_goTypes = []any{
 	(v1alpha.ResourceKind)(0),         // 4: common.k8s.type.v1alpha.ResourceKind
 	(v1alpha.ServiceKind)(0),          // 5: common.k8s.type.v1alpha.ServiceKind
 	(v1alpha.WorkloadKind)(0),         // 6: common.k8s.type.v1alpha.WorkloadKind
+	(v1alpha1.IPProtocol)(0),          // 7: common.net.v1alpha.IPProtocol
 }
 var file_graph_v1alpha_vertex_proto_depIdxs = []int32{
 	1, // 0: graph.v1alpha.Vertex.kubernetes:type_name -> graph.v1alpha.VertexFamilyKubernetes
@@ -499,11 +555,12 @@ var file_graph_v1alpha_vertex_proto_depIdxs = []int32{
 	4, // 3: graph.v1alpha.VertexFamilyKubernetes.resource_kind:type_name -> common.k8s.type.v1alpha.ResourceKind
 	5, // 4: graph.v1alpha.VertexFamilyKubernetes.service_kind:type_name -> common.k8s.type.v1alpha.ServiceKind
 	6, // 5: graph.v1alpha.VertexFamilyKubernetes.workload_kind:type_name -> common.k8s.type.v1alpha.WorkloadKind
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	7, // 6: graph.v1alpha.VertexFamilyNetworkDevice.ip_protocol:type_name -> common.net.v1alpha.IPProtocol
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_graph_v1alpha_vertex_proto_init() }

@@ -1,6 +1,6 @@
 module github.com/cilium/cilium
 
-go 1.25.0
+go 1.25.3
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
@@ -69,7 +69,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hmarr/codeowners v1.2.1
 	github.com/int128/listener v1.1.0
-	github.com/isovalent/ipa v1.18.0-pre.2
+	github.com/isovalent/ipa v1.18.0-rc.6
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/json-iterator/go v1.1.12
 	github.com/kevinburke/ssh_config v1.4.0
@@ -155,7 +155,7 @@ require (
 // Enterprise specific deps
 require (
 	github.com/YutaroHayakawa/go-ra v0.0.0-20241125075947-1274124821d6
-	github.com/isovalent/hubble-timescape/api v1.8.3
+	github.com/isovalent/hubble-timescape/api v1.18.0-rc.0
 	github.com/jonboulle/clockwork v0.5.0
 )
 

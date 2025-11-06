@@ -1,0 +1,26 @@
+// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this
+// information or reproduction of this material is strictly forbidden unless
+// prior written permission is obtained from Isovalent Inc.
+
+syntax = "proto3";
+
+package timescape.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/isovalent/hubble-timescape/api/timescape/v1";
+
+// TimeFilter is a filter that allows to specify a starting time, ending time
+// or time range.
+message TimeFilter {
+  // since defines the starting time for the filter (inclusive).
+  google.protobuf.Timestamp since = 1;
+  // until defines the ending time for the filter (inclusive).
+  google.protobuf.Timestamp until = 2;
+}

@@ -9,6 +9,24 @@
   
     - [IngesterService](#timescape-v1alpha-IngesterService)
   
+- [timescape/v1alpha/system_status.proto](#timescape_v1alpha_system_status-proto)
+    - [ExtraData](#timescape-v1alpha-ExtraData)
+    - [ExtraData.DataEntry](#timescape-v1alpha-ExtraData-DataEntry)
+    - [FailingCondition](#timescape-v1alpha-FailingCondition)
+    - [GetDetailRequest](#timescape-v1alpha-GetDetailRequest)
+    - [GetDetailResponse](#timescape-v1alpha-GetDetailResponse)
+    - [GetExtraDataRequest](#timescape-v1alpha-GetExtraDataRequest)
+    - [GetExtraDataResponse](#timescape-v1alpha-GetExtraDataResponse)
+    - [GetSummaryRequest](#timescape-v1alpha-GetSummaryRequest)
+    - [GetSummaryResponse](#timescape-v1alpha-GetSummaryResponse)
+    - [GetTimelineRequest](#timescape-v1alpha-GetTimelineRequest)
+    - [GetTimelineResponse](#timescape-v1alpha-GetTimelineResponse)
+    - [NodeFailingCondition](#timescape-v1alpha-NodeFailingCondition)
+    - [QualifiedConditionID](#timescape-v1alpha-QualifiedConditionID)
+    - [TimelineSample](#timescape-v1alpha-TimelineSample)
+  
+    - [SystemStatusService](#timescape-v1alpha-SystemStatusService)
+  
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -60,6 +78,270 @@ for Timescape.
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
 | Ingest | [IngestRequest](#timescape-v1alpha-IngestRequest) stream | [IngestResponse](#timescape-v1alpha-IngestResponse) | Ingest ingests data into Timescape. |
+
+ 
+
+
+
+<a name="timescape_v1alpha_system_status-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## timescape/v1alpha/system_status.proto
+
+
+
+<a name="timescape-v1alpha-ExtraData"></a>
+
+### ExtraData
+Extra data for a specific node.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster | [string](#string) |  | The cluster of the node. |
+| node | [string](#string) |  | The node |
+| timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Time at which the extra data was received. |
+| data | [ExtraData.DataEntry](#timescape-v1alpha-ExtraData-DataEntry) | repeated | The extra data for this node. |
+
+
+
+
+
+
+<a name="timescape-v1alpha-ExtraData-DataEntry"></a>
+
+### ExtraData.DataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="timescape-v1alpha-FailingCondition"></a>
+
+### FailingCondition
+A failing condition
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| condition_id | [QualifiedConditionID](#timescape-v1alpha-QualifiedConditionID) |  | The qualified condition id. |
+| severity | [string](#string) |  | Condition severity. |
+| affected_nodes_count | [uint32](#uint32) |  | Number of affected nodes. |
+| last_time | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Latest time it occurred. |
+
+
+
+
+
+
+<a name="timescape-v1alpha-GetDetailRequest"></a>
+
+### GetDetailRequest
+Request of GetDetail rpc call
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster | [string](#string) |  | Optional cluster to filter the results |
+| time_filter | [timescape.v1.TimeFilter](#timescape-v1-TimeFilter) |  | Since and Until can be used to specify a time interval. |
+| qid | [QualifiedConditionID](#timescape-v1alpha-QualifiedConditionID) |  | The condition we&#39;re requesting. |
+
+
+
+
+
+
+<a name="timescape-v1alpha-GetDetailResponse"></a>
+
+### GetDetailResponse
+Response of GetDetail rpc call contains the list of nodes
+on which the given condition is failing along with the
+failing condition message from each node.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| metadata | [system_status.v1alpha.ConditionMetadata](#system_status-v1alpha-ConditionMetadata) |  | Metadata associated with the condition |
+| nodes | [NodeFailingCondition](#timescape-v1alpha-NodeFailingCondition) | repeated | The nodes for which this condition is failing on. |
+
+
+
+
+
+
+<a name="timescape-v1alpha-GetExtraDataRequest"></a>
+
+### GetExtraDataRequest
+Request for the GetExtraData rpc call.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster | [string](#string) |  | Optional cluster to filter the results |
+| system | [system_status.v1alpha.SystemID](#system_status-v1alpha-SystemID) |  | The required system name and version. |
+
+
+
+
+
+
+<a name="timescape-v1alpha-GetExtraDataResponse"></a>
+
+### GetExtraDataResponse
+Response for the GetExtraData rpc call.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| nodes | [ExtraData](#timescape-v1alpha-ExtraData) | repeated | The extra data for each node for the requested system. |
+
+
+
+
+
+
+<a name="timescape-v1alpha-GetSummaryRequest"></a>
+
+### GetSummaryRequest
+Request of GetSummary rpc call.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster | [string](#string) |  | Optional cluster to filter the results |
+| time_filter | [timescape.v1.TimeFilter](#timescape-v1-TimeFilter) |  | Since and Until can be used to specify a time interval. |
+
+
+
+
+
+
+<a name="timescape-v1alpha-GetSummaryResponse"></a>
+
+### GetSummaryResponse
+Response of GetSummary rpc call.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| failing_conditions | [FailingCondition](#timescape-v1alpha-FailingCondition) | repeated | The currently failing conditions. |
+
+
+
+
+
+
+<a name="timescape-v1alpha-GetTimelineRequest"></a>
+
+### GetTimelineRequest
+Request of GetTimeline rpc call
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| condition_id | [QualifiedConditionID](#timescape-v1alpha-QualifiedConditionID) |  | Optional condition ID to show the timeline for. If unset all conditions are included. |
+| cluster | [string](#string) |  | Optional cluster to filter the results. |
+| time_filter | [timescape.v1.TimeFilter](#timescape-v1-TimeFilter) |  | Since and Until can be used to specify a time interval. If not set defaults to last 24 hours. |
+| window_size | [google.protobuf.Duration](#google-protobuf-Duration) |  | Optional window size for samples. Defaults to 1 hour. |
+
+
+
+
+
+
+<a name="timescape-v1alpha-GetTimelineResponse"></a>
+
+### GetTimelineResponse
+Response of GetTimeline rpc call
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| samples | [TimelineSample](#timescape-v1alpha-TimelineSample) | repeated | Samples of failing and succeeding conditions in buckets specified by &#39;window_size&#39; in the time range specified by &#39;time_filter&#39;. |
+
+
+
+
+
+
+<a name="timescape-v1alpha-NodeFailingCondition"></a>
+
+### NodeFailingCondition
+Details of a failing condition on a specific node
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster | [string](#string) |  | The cluster for the node. |
+| node | [string](#string) |  | The node on which the condition is failing. |
+| message | [string](#string) |  | The failing condition message giving more details on why it is failing. |
+| severity | [system_status.v1alpha.Severity](#system_status-v1alpha-Severity) |  | Severity of the failure. |
+
+
+
+
+
+
+<a name="timescape-v1alpha-QualifiedConditionID"></a>
+
+### QualifiedConditionID
+QualifiedConditionID uniquely identifies the condition to a specific system.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| system | [system_status.v1alpha.SystemID](#system_status-v1alpha-SystemID) |  | The system name and version. |
+| condition_id | [string](#string) |  | Condition identifier. |
+
+
+
+
+
+
+<a name="timescape-v1alpha-TimelineSample"></a>
+
+### TimelineSample
+A timeline sample
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Time of the sample |
+| success_count | [uint32](#uint32) |  | Number of succeeding conditions across all nodes. |
+| fail_count | [uint32](#uint32) |  | Number of failing conditions across all nodes. |
+| node_success_count | [uint32](#uint32) |  | Number of nodes without any failing conditions. |
+| node_fail_count | [uint32](#uint32) |  | Number of nodes with at least one failing condition. |
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+
+<a name="timescape-v1alpha-SystemStatusService"></a>
+
+### SystemStatusService
+SystemStatusService for querying the system status.
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| GetSummary | [GetSummaryRequest](#timescape-v1alpha-GetSummaryRequest) | [GetSummaryResponse](#timescape-v1alpha-GetSummaryResponse) | GetSummary returns a summary of failing conditions. |
+| GetDetail | [GetDetailRequest](#timescape-v1alpha-GetDetailRequest) | [GetDetailResponse](#timescape-v1alpha-GetDetailResponse) | GetDetail returns details about a specific condition. |
+| GetTimeline | [GetTimelineRequest](#timescape-v1alpha-GetTimelineRequest) | [GetTimelineResponse](#timescape-v1alpha-GetTimelineResponse) | GetTimeline returns a timeline of counts of succeeding and failing conditions. |
+| GetExtraData | [GetExtraDataRequest](#timescape-v1alpha-GetExtraDataRequest) | [GetExtraDataResponse](#timescape-v1alpha-GetExtraDataResponse) | GetExtraData returns the latest extra data from each node for a specific system. |
 
  
 
