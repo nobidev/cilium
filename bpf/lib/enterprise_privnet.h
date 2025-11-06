@@ -866,8 +866,22 @@ handle_privnet_ns(struct __ctx_buff *ctx, const void *map, const __u16 net_id, b
 	}
 
 	val = privnet_fib_lookup6(map, net_id, tip);
-	if (!val || !val->flag_l2_announce)
+	if (!val || is_privnet_route_entry(val) || !(from_lxc || val->flag_l2_announce))
 		return CTX_ACT_OK;
+
+#ifdef IS_BPF_LXC
+	{
+		union v6addr lip = CONFIG(privnet_ipv6);
+
+		/*
+		 * Don't reply to neighbor solicitations for the IPv6 address
+		 * associated with the local endpoint, to avoid issues caused
+		 * by duplicate address detection checks.
+		 */
+		if (ipv6_addr_equals(&tip, &lip))
+			return CTX_ACT_OK;
+	}
+#endif /* IS_BPF_LXC */
 
 	return icmp6_send_ndisc_adv(ctx, ETH_HLEN, &mac, false);
 }
