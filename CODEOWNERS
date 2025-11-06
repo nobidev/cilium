@@ -805,6 +805,7 @@ Makefile* @cilium/build
 /.github/actions/get-wolfi-packages/* @isovalent/infrastructure
 /.github/kind-config-enterprise-hubble-rbac.yaml @isovalent/hubble
 /.github/workflows/add-pr-to-hubble-project.yml @isovalent/hubble
+/.github/workflows/enterprise-auto-backport.yaml @isovalent/backporters @isovalent/release-managers
 /.github/workflows/enterprise-build-cilium-cli-release-image.yaml @isovalent/cli
 /.github/workflows/enterprise-build-images-fips.yaml @isovalent/security
 /.github/workflows/enterprise-close-fixed-issues.yaml @isovalent/backporters

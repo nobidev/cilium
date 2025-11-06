@@ -14,6 +14,9 @@ triggers:
     - enterprise-encryption-policy.yaml
     - enterprise-ingress-policy.yaml
     - enterprise-standalone-egress-gateway.yaml
+  /backport (.+):
+    workflows:
+    - enterprise-auto-backport.yaml
   /ci-clustermesh:
     workflows:
     - enterprise-clustermesh-mixed-routing.yaml
