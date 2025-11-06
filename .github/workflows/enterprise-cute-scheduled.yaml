@@ -218,10 +218,20 @@ jobs:
           },
           {
             repo: jpmc,
-            dir: aws-eks-eni,
+            dir: .,
             umbrella: false,
             oss: false,
-            region: us-west-2,
+            region: us-east-2,
+            deploy: cute,
+            ipsec: false,
+            owner: U06BHHDV6EB # James Strong
+          },
+          {
+            repo: confluent,
+            dir: AWS/aws-flink,
+            umbrella: false,
+            oss: false,
+            region: us-east-2,
             deploy: cute,
             ipsec: false,
             owner: U06BHHDV6EB # James Strong
