@@ -8,13 +8,35 @@ app.kubernetes.io/component: hubble-timescape
 {{- end }}
 {{- end }}
 
+{{/*
+Converts a Go time.Duration into an integer number of seconds
+*/}}
+{{- define "durationSeconds" -}}
+{{/* The value of `before` doesn't matter, we just need a date object to work with so we can extract a duration from it */}}
+{{- $before := mustToDate "2006-01-02" "2017-12-31" }}
+{{- $after := ($before | mustDateModify .) }}
+{{- sub (unixEpoch $after) (unixEpoch $before) }}
+{{- end }}
+
 {{- define "hubble.timescape.ttl" -}}
 {{- $defaultTTL := "6h0m0s" }}
 {{- if not .Values.hubble.timescape.persistence.enabled -}}
 {{/* use even lower default ttl if there is no persistent clickhouse database */}}
 {{- $defaultTTL = "1h0m0s" }}
 {{- end }}
-{{- .Values.hubble.timescape.ttl | default $defaultTTL | quote }}
+{{- .Values.hubble.timescape.ttl | default $defaultTTL }}
+{{- end }}
+
+{{/*
+system-status TTL must be at least 24h, therefore compute the max between
+the default and computed value.
+*/}}
+{{- define "hubble.timescape.system-status-ttl" -}}
+{{- $minTTL := "24h0m0s" }}
+{{- $minTTLSeconds := (include "durationSeconds" $minTTL) }}
+{{- $ttl := (include "hubble.timescape.ttl" .) }}
+{{- $ttlSeconds := (include "durationSeconds" $ttl) }}
+{{- gt $ttlSeconds $minTTLSeconds | ternary $ttl $minTTL | quote }}
 {{- end }}
 
 {{ if .Values.hubble.timescape.enabled }}
@@ -63,11 +85,11 @@ spec:
     - protocol: TCP
       name: grpc
       port: {{ eq (include "hubble.timescape.tls.enabled" .) "true" | ternary 443 80 }}
-      targetPort: {{ .Values.hubble.rbac.enabled | ternary "grpc-rbac" "server-grpc" }}
+      targetPort: server-grpc
     {{- if .Values.hubble.timescape.ui.enabled }}
     - protocol: TCP
       name: ui
-      port: 8080
+      port: 8000
       targetPort: ui
     {{- end }}
     {{- if .Values.hubble.timescape.metrics.enabled }}
@@ -235,7 +257,7 @@ spec:
               protocol: TCP
             {{- if .Values.hubble.timescape.ui.enabled }}
             - name: ui
-              containerPort: 8080
+              containerPort: 8000
               protocol: TCP
             {{- end }}
             {{- if .Values.hubble.timescape.metrics.enabled }}
@@ -270,11 +292,11 @@ spec:
             name: tls
             readOnly: true
           {{- end }}
-        {{- if .Values.hubble.rbac.enabled }}
-        {{- with (include "container.rbac" (dict "Values" .Values "isTimescape" true)) | fromYaml | list | toYaml }}
-        {{- . | nindent 8}}
-        {{- end }}
-        {{- end }}
+          {{- if .Values.hubble.rbac.enabled }}
+          - name: rbac
+            mountPath: /var/lib/hubble-timescape/rbac
+            readOnly: true
+          {{- end }}
       volumes:
       - name: config
         configMap:
@@ -311,18 +333,19 @@ spec:
           {{- end -}}
       {{- end }}
       {{- if .Values.hubble.rbac.enabled }}
-      - name: hubble-rbac-policy
-        configMap:
-          name: {{ .Values.hubble.rbac.policy.configMap.name }}
+      - name: rbac
+        projected:
           defaultMode: 0400
-      {{- if .Values.hubble.rbac.auth.oidc.ca.configMap.name }}
-      - name: hubble-rbac-tls-oidc
-        configMap:
-          name: {{ .Values.hubble.rbac.auth.oidc.ca.configMap.name }}
-          items:
-          - key: {{ .Values.hubble.rbac.auth.oidc.ca.configMap.key }}
-            path: hubble-oidc-provider-ca.pem
-      {{- end }}
+          sources:
+          - configMap:
+              name: {{ .Values.hubble.rbac.policy.configMap.name }}
+          {{- if .Values.hubble.rbac.auth.oidc.ca.configMap.name }}
+          - configMap:
+              name: {{ .Values.hubble.rbac.auth.oidc.ca.configMap.name }}
+              items:
+              - key: {{ .Values.hubble.rbac.auth.oidc.ca.configMap.key }}
+                path: oidc-provider-ca.pem
+          {{- end }}
       {{- end }}
       - name: clickhouse-config
         configMap:
@@ -448,7 +471,7 @@ spec:
     {{- end }}
     - backendRefs:
         - name: hubble-timescape
-          port: 8080
+          port: 8000
       {{- with .Values.hubble.timescape.ui.route.filters }}
       filters:
         {{- toYaml . | nindent 8 }}

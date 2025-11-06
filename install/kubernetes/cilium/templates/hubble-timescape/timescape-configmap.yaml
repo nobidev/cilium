@@ -26,29 +26,35 @@ data:
     gops-port: "9898"
     flows-ttl: {{ include "hubble.timescape.ttl" . }}
     k8s-ttl: {{ include "hubble.timescape.ttl" . }}
-    use-distributed-tables: false
-    use-distributed-ddl: false
+    assessment-reports-ttl: {{ include "hubble.timescape.ttl" . }}
+    system-status-ttl: {{ include "hubble.timescape.system-status-ttl" . }}
+    connection-logs-ttl: {{ include "hubble.timescape.ttl" . }}
     enable-clickhouse-server-logs: false
     log-query-progress: false
     health-listen-address: ":8083"
     server:
-      {{- if .Values.hubble.rbac.enabled }}
-      listen-address: localhost:4244
-      {{- else }}
       listen-address: :4244
-      {{- end }}
-      {{- if and (not .Values.hubble.rbac.enabled) ( eq (include "hubble.timescape.tls.enabled" .) "true" )}}
+      {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
       enable-tls: true
       tls-cert-file: /var/lib/hubble-timescape/tls/server.crt
       tls-key-file: /var/lib/hubble-timescape/tls/server.key
       {{- end }}
       enable-experimental-api: true
+      rbac:
+        enabled: {{ .Values.hubble.rbac.enabled }}
+        {{- if .Values.hubble.rbac.enabled }}
+        auth-types: oidc
+        oidc-issuer-url: {{ .Values.hubble.rbac.auth.oidc.issuerUrl | required "hubble.rbac.auth.oidc.issuerUrl is required" }}
+        {{- if .Values.hubble.rbac.auth.oidc.ca.configMap.name }}
+        oidc-issuer-ca: /var/lib/hubble-timescape/rbac/oidc-provider-ca.pem
+        {{- end }}
+        oidc-client-ids: {{ .Values.hubble.rbac.auth.oidc.clientID | required "hubble.rbac.auth.oidc.clientID is required" }}
+        policy-mode: config
+        policy-file: {{ printf "/var/lib/hubble-timescape/rbac/%s" .Values.hubble.rbac.policy.configMap.key }}
+        policy-log-roles: {{ .Values.hubble.rbac.policy.logRoles }}
+        {{- end }}
     ingester:
-      batch-size: 10000
       cluster-name: {{ .Values.cluster.name | quote }}
-      enable-flows-ingestion: true
-      enable-fgs-events-ingestion: false
-      enable-k8s-events-ingestion: true
       report-interval: 60s
       enable-stream-api: true
       stream-api-flush-interval: {{ .Values.hubble.timescape.ingester.streamAPI.flushInterval }}
@@ -69,16 +75,9 @@ data:
       push-api-async-insert: "true"
       push-api-async-insert-busy-timeout: 2s
       push-api-async-insert-max-data-size: 104857600
-      filter-batch-size: 100
-      filter-batch-window: 10s
-      {{- if .Values.hubble.timescape.ingester.k8sImporter.enabled }}
       enable-k8s-importer: true
       k8s-importer-cluster-name: {{ .Values.cluster.name | quote }}
       k8s-importer-flush-interval: {{ .Values.hubble.timescape.ingester.k8sImporter.flushInterval | quote }}
-      k8s-importer-k8s-endpoints: false
-      k8s-importer-cilium-endpoints: false
-      k8s-importer-cilium-identities: true
-      {{- end }}
     migrate:
       clickhouse-nodes-count: "0"
     trimmer:
@@ -93,18 +92,18 @@ data:
     enable-ui: {{ .Values.hubble.timescape.ui.enabled }}
     {{- if .Values.hubble.timescape.ui.enabled }}
     ui:
-      http-address: ":8080"
-      {{- if .Values.hubble.rbac.enabled }}
-      timescape-address: "localhost:4245"
-      {{- else }}
+      http-address: ":8000"
       timescape-address: "localhost:4244"
-      {{- end }}
       {{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
       timescape-enable-tls: true
       timescape-ca-files: /var/lib/hubble-timescape/tls/ca.crt
       {{- else }}
       timescape-enable-tls: false
       {{- end }}
+      network-security:
+        enabled: true
+        analyzer:
+          enabled: {{ .Values.hubble.timescape.analyzer.enabled }}
       {{- if (eq (include "hubble.timescape.ui.auth.enabled" .) "true") }}
       oauth2:
         enabled: true

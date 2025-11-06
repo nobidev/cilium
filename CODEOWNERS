@@ -968,7 +968,6 @@ Makefile* @cilium/build
 /install/kubernetes/cilium/templates/hubble-relay/rbac @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /install/kubernetes/cilium/templates/*enterprise* @isovalent/sig-k8s @isovalent/helm
 /install/kubernetes/cilium/templates/hubble-timescape/ @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
-/install/kubernetes/cilium/templates/hubble-k8s-exporter/ @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /pkg/bgpv1/manager/**/enterprise_* @isovalent/traffic-engineering
 /pkg/bgpv1/test/**/enterprise_* @isovalent/traffic-engineering
 /pkg/clustermesh/**/enterprise_* @isovalent/clustermesh

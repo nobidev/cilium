@@ -211,11 +211,6 @@ serviceAccounts:
     name: cilium-coredns-mcsapi-autoconfig
     automount: true
     annotations: {}
-  hubbleK8sExporter:
-    create: true
-    name: hubble-k8s-exporter
-    automount: true
-    annotations: {}
 # -- Configure termination grace period for cilium-agent DaemonSet.
 terminationGracePeriodSeconds: 1
 # -- Install the cilium agent resources.
@@ -2325,30 +2320,19 @@ hubble:
       timout: ~
     ingester:
       k8sImporter:
-        # -- Whether to enable the k8s event watcher for the K8s Importer.
-        # When enabled, this effectively replaces the K8sExporter deployment.
-        # If both `.hubble.timescape.ingester.k8sImporter.enabled` and
-        # `.hubble.timescape.useStreamAPI` are true, vector will not be deployed.
-        enabled: true
         # -- The interval at which the K8s Importer should flush k8s events to the database.
         flushInterval: "5s"
       streamAPI:
         # -- The interval at which the Stream API should flush flows to the database.
         flushInterval: "5s"
-    # -- Use Stream API for Hubble Timescape.
-    # This automatically enables the Hubble Timescape exporter in Cilium and the
-    # Stream API in Hubble Timescape.
-    # If both `.hubble.timescape.ingester.k8sImporter.enabled` and
-    # `.hubble.timescape.useStreamAPI` are true, vector will not be deployed.
-    useStreamAPI: true
     image:
       # @schema
       # type: [null, string]
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-timescape-lite
-      tag: v1.8.3
-      digest: sha256:9ca1acba33eb3d582935cda6824ba6764deb9d1e05433846dd32351ffb215c10
+      tag: v1.18.0-rc.0
+      digest: sha256:b0069e8efd74bde84899f69e693f879c39eb8905eb10eda32eb44f6b48ffa628
       useDigest: true
       pullPolicy: "Always"
     clickhouse:
@@ -2361,8 +2345,8 @@ hubble:
         # @schema
         override: ~
         repository: quay.io/isovalent/clickhouse-server
-        tag: 25.3.6.56-alpine
-        digest: sha256:157423fca52f596b62a1bf301b037b9f74bfca38089aa57d1bd36c9025f7ecef
+        tag: 25.8.11.66-alpine
+        digest: sha256:32a477a44e92a37347e6df7684a1e6cce01f5af73d356e03ca13383da0bdf8b3
         useDigest: true
         pullPolicy: "Always"
       resources: {}
@@ -2473,71 +2457,6 @@ hubble:
           # @schema
           # -- Metrics relabeling configs for the ServiceMonitor (Clickhouse metrics)
           metricRelabelings: ~
-    vector:
-      image:
-        # @schema
-        # type: [null, string]
-        # @schema
-        override: ~
-        repository: quay.io/isovalent/vector
-        tag: 0.50.0-distroless-libc
-        digest: sha256:2f0769913c408e6a21dfd7cad18aa9ca590e77809a2f9c8acb03b295231c2f10
-        useDigest: true
-        pullPolicy: "Always"
-      resources: {}
-      affinity: {}
-      # -- Node labels for pod assignment
-      # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-      nodeSelector:
-        kubernetes.io/os: linux
-      # -- Node tolerations for pod assignment on nodes with taints
-      # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-      tolerations: []
-      priorityClassName: ""
-      podSecurityContext:
-        fsGroup: 0
-      securityContext:
-        privileged: true
-        allowPrivilegeEscalation: true
-        runAsNonRoot: false
-        runAsUser: 0
-        runAsGroup: 0
-        capabilities:
-          drop:
-            - ALL
-      # Vector metrics configuration
-      metrics:
-        # -- Enables exporting vector metrics in OpenMetrics format.
-        enabled: true
-        serviceMonitor:
-          # -- Enable service monitor.
-          # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
-          enabled: false
-          # -- Labels to add to ServiceMonitor
-          labels: {}
-          # -- Annotations to add to ServiceMonitor
-          annotations: {}
-          # -- Specify the Kubernetes namespace where Prometheus expects to find
-          # service monitors configured.
-          # namespace: ""
-
-          # -- Interval for scrape metrics
-          interval: "10s"
-          # @schema
-          # type: [null, string]
-          # @schema
-          # -- Timeout after which scrape is considered to be failed.
-          scrapeTimeout: ~
-          # @schema
-          # type: [null, array]
-          # @schema
-          # -- Relabeling configs for the ServiceMonitor
-          relabelings: ~
-          # @schema
-          # type: [null, array]
-          # @schema
-          # -- Metrics relabeling configs for the ServiceMonitor
-          metricRelabelings: ~
     ui:
       enabled: true
       ingress:
@@ -2644,65 +2563,12 @@ hubble:
           #     value: example
     analyzer:
       # -- Enables the Hubble Timescape analyzer responsible for generating
-      # Network Security assessment reports. Note that k8sExporter must also
-      # be enabled for the analyzer to work properly as it relies on Cilium
-      # Identities.
+      # Network Security assessment reports.
       enabled: false
       # -- The interval at which the analyzer will run and generate a new assessment report.
       # When a run goes beyond this interval, the next one will start as soon as the running
       # one is completed.
       scheduleInterval: "24h"
-  # -- Enables experimental support for using the Hubble Kubernetes Events Exporter.
-  # The exporter is enabled by default when using integrated Hubble Timescape
-  k8sExporter:
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    enabled: ~
-    image:
-      # @schema
-      # type: [null, string]
-      # @schema
-      override: ~
-      repository: quay.io/isovalent/hubble-k8s-exporter
-      tag: v1.8.3
-      digest: sha256:dc5f3de94df0c5ec309cdac2dbcb1000eb5c04f8b0751c14c6e8641192bf556c
-      useDigest: true
-      pullPolicy: "Always"
-    # -- Specifies the resources for the hubble-k8s-exporter pods
-    resources: {}
-    # -- Affinity for hubble-k8s-exporter
-    affinity: {}
-    # -- Node labels for pod assignment
-    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-    nodeSelector:
-      kubernetes.io/os: linux
-    # -- Node tolerations for pod assignment on nodes with taints
-    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-    tolerations: []
-    priorityClassName: ""
-    # -- Annotations to be added to hubble-k8s-exporter pods
-    podAnnotations: {}
-    podSecurityContext:
-      fsGroup: 65532
-    # -- hubble-k8s-exporter container security context
-    securityContext:
-      # readOnlyRootFilesystem: true
-      runAsUser: 0
-      capabilities:
-        drop:
-          - ALL
-    export:
-      # Absolute path of the export file location
-      filePath: "/var/run/cilium/hubble/k8s-events.log"
-      # Compress rotated files
-      fileCompression: true
-      # Interval at which to rotate JSON export files in addition to rotating them by size
-      fileRotationInterval: 0s
-      # Maximum size of the file in megabytes
-      maxFileSize: 50
-      # Number of rotated files to keep
-      maxFileBackups: 3
   # -- Enables experimental support for using Hubble RBAC with Hubble Relay.
   # This is incompatible with Hubble RBAC installed via the Hubble Enterprise chart.
   rbac:

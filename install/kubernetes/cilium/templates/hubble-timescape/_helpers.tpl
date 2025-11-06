@@ -53,10 +53,7 @@ grpc:
 {{- end }}
 
 {{- define "hubble.timescape.export.extraVolumes" -}}
-{{- if and
-  (eq (include "hubble.timescape.tls.enabled" .) "true")
-  .Values.hubble.timescape.useStreamAPI
-}}
+{{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
 - name: hubble-export-timescape-tls
   projected:
     defaultMode: 0400
@@ -104,10 +101,7 @@ grpc:
 
 {{- define "hubble.timescape.export.extraVolumeMounts" -}}
 {{- if or
-  (and
-    (eq (include "hubble.timescape.tls.enabled" .) "true")
-    .Values.hubble.timescape.useStreamAPI
-  )
+  (eq (include "hubble.timescape.tls.enabled" .) "true")
   (and
     .Values.hubble.export.timescape.enabled
     .Values.hubble.export.timescape.tls.enabled

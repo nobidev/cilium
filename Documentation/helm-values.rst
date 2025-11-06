@@ -2188,34 +2188,6 @@
      - The name of the Secret containing the TLS material to enable mTLS. The secret must be of type ``kubernetes.io/tls``. @schema type: [null, string] @schema
      - string
      - ``nil``
-   * - :spelling:ignore:`hubble.k8sExporter`
-     - Enables experimental support for using the Hubble Kubernetes Events Exporter. The exporter is enabled by default when using integrated Hubble Timescape
-     - object
-     - ``{"affinity":{},"enabled":null,"export":{"fileCompression":true,"filePath":"/var/run/cilium/hubble/k8s-events.log","fileRotationInterval":"0s","maxFileBackups":3,"maxFileSize":50},"image":{"digest":"sha256:dc5f3de94df0c5ec309cdac2dbcb1000eb5c04f8b0751c14c6e8641192bf556c","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-k8s-exporter","tag":"v1.8.3","useDigest":true},"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podSecurityContext":{"fsGroup":65532},"priorityClassName":"","resources":{},"securityContext":{"capabilities":{"drop":["ALL"]},"runAsUser":0},"tolerations":[]}``
-   * - :spelling:ignore:`hubble.k8sExporter.affinity`
-     - Affinity for hubble-k8s-exporter
-     - object
-     - ``{}``
-   * - :spelling:ignore:`hubble.k8sExporter.nodeSelector`
-     - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-     - object
-     - ``{"kubernetes.io/os":"linux"}``
-   * - :spelling:ignore:`hubble.k8sExporter.podAnnotations`
-     - Annotations to be added to hubble-k8s-exporter pods
-     - object
-     - ``{}``
-   * - :spelling:ignore:`hubble.k8sExporter.resources`
-     - Specifies the resources for the hubble-k8s-exporter pods
-     - object
-     - ``{}``
-   * - :spelling:ignore:`hubble.k8sExporter.securityContext`
-     - hubble-k8s-exporter container security context
-     - object
-     - ``{"capabilities":{"drop":["ALL"]},"runAsUser":0}``
-   * - :spelling:ignore:`hubble.k8sExporter.tolerations`
-     - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-     - list
-     - ``[]``
    * - :spelling:ignore:`hubble.listenAddress`
      - An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244.
      - string
@@ -2643,13 +2615,13 @@
    * - :spelling:ignore:`hubble.timescape`
      - Enables support for integrated Hubble Timescape.
      - object
-     - ``{"affinity":{},"analyzer":{"enabled":false,"scheduleInterval":"24h"},"clickhouse":{"image":{"digest":"sha256:157423fca52f596b62a1bf301b037b9f74bfca38089aa57d1bd36c9025f7ecef","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/clickhouse-server","tag":"25.3.6.56-alpine","useDigest":true},"resources":{},"rollOutPods":true,"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":101,"runAsNonRoot":true,"runAsUser":101}},"clustermesh":{"primary":{"createNamespace":false,"id":0,"namespace":""}},"enabled":false,"image":{"digest":"sha256:9ca1acba33eb3d582935cda6824ba6764deb9d1e05433846dd32351ffb215c10","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-timescape-lite","tag":"v1.8.3","useDigest":true},"ingester":{"k8sImporter":{"enabled":true,"flushInterval":"5s"},"streamAPI":{"flushInterval":"5s"}},"logLevel":"info","metrics":{"clickhouse":{"enabled":true},"enabled":true,"serviceMonitor":{"annotations":{},"clickhouse":{"interval":"10s","metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}},"nodeSelector":{"kubernetes.io/os":"linux"},"persistence":{"enabled":false,"storageClassName":null,"volumeSize":"10Gi"},"podSecurityContext":{"fsGroup":65532},"priorityClassName":"","resources":{},"rollOutPods":false,"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"tls":{"client":{"existingSecret":""},"enabled":null,"server":{"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[]}},"tolerations":[],"trimmer":{"flowCount":0,"intervalMinutes":20,"timout":null},"ttl":null,"ui":{"auth":{"enabled":null,"oidc":{"clientAssertionFile":null,"clientAssertionType":null,"clientID":null,"clientSecret":{"secretKey":"client-secret","secretName":"hubble-timescape-ui"},"extraFields":[],"idTokenUserClaim":"email","issuerCA":{"configMap":{"key":"ca.crt","name":null}},"issuerURL":null,"redirectURL":null,"scopes":["openid","email","offline_access"]},"sessionKey":{"secretKey":"session-key","secretName":"hubble-timescape-ui"}},"enabled":true,"ingress":{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]},"route":{"additionalRules":[],"annotations":{},"enabled":false,"filters":[],"hostnames":[],"labels":{},"matches":[{"path":{"type":"PathPrefix","value":"/"}}],"parentRefs":[]}},"useStreamAPI":true,"vector":{"affinity":{},"image":{"digest":"sha256:2f0769913c408e6a21dfd7cad18aa9ca590e77809a2f9c8acb03b295231c2f10","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/vector","tag":"0.50.0-distroless-libc","useDigest":true},"metrics":{"enabled":true,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}},"nodeSelector":{"kubernetes.io/os":"linux"},"podSecurityContext":{"fsGroup":0},"priorityClassName":"","resources":{},"securityContext":{"allowPrivilegeEscalation":true,"capabilities":{"drop":["ALL"]},"privileged":true,"runAsGroup":0,"runAsNonRoot":false,"runAsUser":0},"tolerations":[]}}``
+     - ``{"affinity":{},"analyzer":{"enabled":false,"scheduleInterval":"24h"},"clickhouse":{"image":{"digest":"sha256:32a477a44e92a37347e6df7684a1e6cce01f5af73d356e03ca13383da0bdf8b3","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/clickhouse-server","tag":"25.8.11.66-alpine","useDigest":true},"resources":{},"rollOutPods":true,"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":101,"runAsNonRoot":true,"runAsUser":101}},"clustermesh":{"primary":{"createNamespace":false,"id":0,"namespace":""}},"enabled":false,"image":{"digest":"sha256:b0069e8efd74bde84899f69e693f879c39eb8905eb10eda32eb44f6b48ffa628","override":null,"pullPolicy":"Always","repository":"quay.io/isovalent/hubble-timescape-lite","tag":"v1.18.0-rc.0","useDigest":true},"ingester":{"k8sImporter":{"flushInterval":"5s"},"streamAPI":{"flushInterval":"5s"}},"logLevel":"info","metrics":{"clickhouse":{"enabled":true},"enabled":true,"serviceMonitor":{"annotations":{},"clickhouse":{"interval":"10s","metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}},"nodeSelector":{"kubernetes.io/os":"linux"},"persistence":{"enabled":false,"storageClassName":null,"volumeSize":"10Gi"},"podSecurityContext":{"fsGroup":65532},"priorityClassName":"","resources":{},"rollOutPods":false,"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532},"tls":{"client":{"existingSecret":""},"enabled":null,"server":{"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[]}},"tolerations":[],"trimmer":{"flowCount":0,"intervalMinutes":20,"timout":null},"ttl":null,"ui":{"auth":{"enabled":null,"oidc":{"clientAssertionFile":null,"clientAssertionType":null,"clientID":null,"clientSecret":{"secretKey":"client-secret","secretName":"hubble-timescape-ui"},"extraFields":[],"idTokenUserClaim":"email","issuerCA":{"configMap":{"key":"ca.crt","name":null}},"issuerURL":null,"redirectURL":null,"scopes":["openid","email","offline_access"]},"sessionKey":{"secretKey":"session-key","secretName":"hubble-timescape-ui"}},"enabled":true,"ingress":{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]},"route":{"additionalRules":[],"annotations":{},"enabled":false,"filters":[],"hostnames":[],"labels":{},"matches":[{"path":{"type":"PathPrefix","value":"/"}}],"parentRefs":[]}}}``
    * - :spelling:ignore:`hubble.timescape.affinity`
      - Affinity for hubble-timescape
      - object
      - ``{}``
    * - :spelling:ignore:`hubble.timescape.analyzer.enabled`
-     - Enables the Hubble Timescape analyzer responsible for generating Network Security assessment reports. Note that k8sExporter must also be enabled for the analyzer to work properly as it relies on Cilium Identities.
+     - Enables the Hubble Timescape analyzer responsible for generating Network Security assessment reports.
      - bool
      - ``false``
    * - :spelling:ignore:`hubble.timescape.analyzer.scheduleInterval`
@@ -2664,10 +2636,6 @@
      - Experimental support for using Hubble Timescape with clustermesh. If enabled, all flow log will be sent to the ``primary`` Timescape instance.
      - object
      - ``{"primary":{"createNamespace":false,"id":0,"namespace":""}}``
-   * - :spelling:ignore:`hubble.timescape.ingester.k8sImporter.enabled`
-     - Whether to enable the k8s event watcher for the K8s Importer. When enabled, this effectively replaces the K8sExporter deployment. If both ``.hubble.timescape.ingester.k8sImporter.enabled`` and ``.hubble.timescape.useStreamAPI`` are true, vector will not be deployed.
-     - bool
-     - ``true``
    * - :spelling:ignore:`hubble.timescape.ingester.k8sImporter.flushInterval`
      - The interval at which the K8s Importer should flush k8s events to the database.
      - string
@@ -2858,50 +2826,6 @@
      - ``[{"path":{"type":"PathPrefix","value":"/"}}]``
    * - :spelling:ignore:`hubble.timescape.ui.route.parentRefs`
      - Parent references for the route.
-     - list
-     - ``[]``
-   * - :spelling:ignore:`hubble.timescape.useStreamAPI`
-     - Use Stream API for Hubble Timescape. This automatically enables the Hubble Timescape exporter in Cilium and the Stream API in Hubble Timescape. If both ``.hubble.timescape.ingester.k8sImporter.enabled`` and ``.hubble.timescape.useStreamAPI`` are true, vector will not be deployed.
-     - bool
-     - ``true``
-   * - :spelling:ignore:`hubble.timescape.vector.metrics.enabled`
-     - Enables exporting vector metrics in OpenMetrics format.
-     - bool
-     - ``true``
-   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.annotations`
-     - Annotations to add to ServiceMonitor
-     - object
-     - ``{}``
-   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.enabled`
-     - Enable service monitor. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
-     - bool
-     - ``false``
-   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.interval`
-     - Interval for scrape metrics
-     - string
-     - ``"10s"``
-   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.labels`
-     - Labels to add to ServiceMonitor
-     - object
-     - ``{}``
-   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.metricRelabelings`
-     - Metrics relabeling configs for the ServiceMonitor
-     - string
-     - ``nil``
-   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.relabelings`
-     - Relabeling configs for the ServiceMonitor
-     - string
-     - ``nil``
-   * - :spelling:ignore:`hubble.timescape.vector.metrics.serviceMonitor.scrapeTimeout`
-     - Timeout after which scrape is considered to be failed.
-     - string
-     - ``nil``
-   * - :spelling:ignore:`hubble.timescape.vector.nodeSelector`
-     - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-     - object
-     - ``{"kubernetes.io/os":"linux"}``
-   * - :spelling:ignore:`hubble.timescape.vector.tolerations`
-     - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
      - ``[]``
    * - :spelling:ignore:`hubble.tls`

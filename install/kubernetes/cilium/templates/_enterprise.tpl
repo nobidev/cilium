@@ -83,42 +83,6 @@ auto-create-default-pod-network: {{ .Values.enterprise.multiNetwork.autoCreateDe
 {{- end }}
 {{- end }}
 
-{{- $defaultExportFilePath := "" }}
-{{- $defaultExportAggregation := "" }}
-{{- $defaultExportAggregationStateFilter := "" }}
-{{- $defaultExportAggregationRenewTTL := "true" }}
-
-# For cilium version <1.16 we enable export to /var/run/cilium/hubble by
-# default.
-{{- if semverCompare "<1.16" (default "1.16" .Values.upgradeCompatibility) }}
-{{- $defaultExportFilePath = "/var/run/cilium/hubble/hubble.log" }}
-{{- end }}
-
-# If integrated Timescape is enabled we enable export and export aggregation by
-# default. If the export-file-path is set by the user we do not enable export
-# aggregation by default to not change the existing behavior.
-{{- if and
-  .Values.hubble.timescape.enabled
-  (not .Values.hubble.timescape.useStreamAPI)
-  (or
-    (not .Values.extraConfig)
-    (empty (get .Values.extraConfig "export-file-path"))
-  )
-}}
-{{- $defaultExportFilePath = "/var/run/cilium/hubble/hubble.log" }}
-{{- $defaultExportAggregation = "connection" }}
-{{- $defaultExportAggregationStateFilter = "new error" }}
-{{- $defaultExportAggregationRenewTTL = "false" }}
-{{- end }}
-
-# Keep minimal set of deprecated legacy config for Integrated Timescape
-export-file-path: {{ $defaultExportFilePath | quote }}
-export-aggregation: {{ $defaultExportAggregation | quote }}
-{{- with $defaultExportAggregationStateFilter }}
-export-aggregation-state-filter: {{ . | quote }}
-{{- end }}
-export-aggregation-renew-ttl: {{ $defaultExportAggregationRenewTTL | quote }}
-
 {{- if .Values.hubble.export }}
 {{- if .Values.hubble.export.static.enabled }}
 hubble-export-format-version: {{ .Values.hubble.export.static.formatVersion | quote }}
@@ -149,8 +113,6 @@ hubble-export-aggregation-ttl: {{ . | quote }}
 {{- end }}
 {{- end }}
 
-# If integrated Timescape and the experimental Stream API are enabled, we enable
-# the Hubble timescape exporter and export aggregation by default.
 {{- $defaultExportTimescapeEnabled := .Values.hubble.export.timescape.enabled }}
 {{- $defaultExportTimescapeTarget := .Values.hubble.export.timescape.target }}
 {{- $defaultExportTimescapeAggregation := .Values.hubble.export.timescape.aggregation }}
@@ -160,7 +122,9 @@ hubble-export-aggregation-ttl: {{ . | quote }}
 {{- $defaultExportTimescapeTLSmTLSEnabled := .Values.hubble.export.timescape.tls.mtls.enabled }}
 {{- $defaultExportTimescapeTLSCAOverriden := not (.Values.hubble.export.timescape.tls.ca.configMap.name | empty) }}
 
-{{- if and .Values.hubble.timescape.enabled .Values.hubble.timescape.useStreamAPI }}
+# If integrated Timescape is enabled, we enable the Hubble timescape exporter
+# and export aggregation by default.
+{{- if .Values.hubble.timescape.enabled }}
 {{- $targetNamespace := (include "cilium.namespace" .) }}
 {{- if .Values.hubble.timescape.clustermesh.primary.namespace }}
 {{- $targetNamespace = .Values.hubble.timescape.clustermesh.primary.namespace }}

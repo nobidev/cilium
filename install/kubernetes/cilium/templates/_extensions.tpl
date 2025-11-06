@@ -22,7 +22,7 @@ Allow packagers to set dnsPolicy for cilium-agent.
 dnsPolicy: {{ .Values.dnsPolicy }}
 {{- else if or
   .Values.hubble.export.timescape.enabled
-  (and .Values.hubble.timescape.enabled .Values.hubble.timescape.useStreamAPI)
+  .Values.hubble.timescape.enabled
 }}
 # When Timescape export is enabled, cilium-agent needs to be able to resolve
 # the Timescape service name. Since cilium-agent runs with hostNetwork: true,
@@ -366,7 +366,7 @@ affinity:
         - key: cilium.io/no-schedule
           operator: NotIn
           values:
-          - "true" 
+          - "true"
 {{- else }}
 {{- with .Values.envoy.affinity }}
 affinity:
