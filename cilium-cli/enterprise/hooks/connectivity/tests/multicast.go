@@ -292,7 +292,7 @@ func sendMulticastTraffic(ctx context.Context, t *check.Test, sourcePods map[str
 			defer wg.Done()
 			for i, group := range groupAddrs {
 				groupUDPPort := testMulticastUDPPort + i
-				for i := 0; i < numOfMessages; i++ {
+				for i := range numOfMessages {
 					message := fmt.Sprintf("%s_%s_%d", pod.Pod.Name, group, i)
 					socatSend := fmt.Sprintf(`echo %s | socat -u - UDP4-DATAGRAM:%s:%d`, message, group, groupUDPPort)
 					actualCmd := []string{"bash", "-c", socatSend}
@@ -601,8 +601,8 @@ func getMulticastMessageFiles(ctx context.Context, t *check.Test, subscriberPods
 				return nil, fmt.Errorf("failed to read multicast file %s from pod %s: %w", testFile, pod.Name(), err)
 			}
 
-			lines := strings.Split(stdout.String(), "\n")
-			for _, line := range lines {
+			lines := strings.SplitSeq(stdout.String(), "\n")
+			for line := range lines {
 				if line == "" {
 					continue
 				}
@@ -683,7 +683,7 @@ func GenerateMulticastGroups(prefix string, groups int) []isovalentv1alpha1.Mult
 	var groupAddrs []isovalentv1alpha1.MulticastGroupAddr
 	addr := netip.MustParseAddr(prefix)
 
-	for i := 0; i < groups; i++ {
+	for range groups {
 		next := addr.Next()
 		if next.Is4() && next.IsMulticast() {
 			addr = next

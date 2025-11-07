@@ -1007,10 +1007,7 @@ func (s *bfdSession) updateDetectionTime(pkt *ControlPacket) {
 	// received Desired Min TX Interval).  The Detect Mult value is (roughly
 	// speaking, due to jitter) the number of packets that have to be missed
 	// in a row to declare the session to be down.
-	remoteTransmitInterval := s.local.requiredMinRxInterval
-	if uint32(pkt.DesiredMinTxInterval) > remoteTransmitInterval {
-		remoteTransmitInterval = uint32(pkt.DesiredMinTxInterval)
-	}
+	remoteTransmitInterval := max(uint32(pkt.DesiredMinTxInterval), s.local.requiredMinRxInterval)
 
 	s.curDetectionTime = time.Duration(uint32(pkt.DetectMultiplier)*remoteTransmitInterval) * time.Microsecond
 }

@@ -171,7 +171,7 @@ type UPN struct {
 // OtherName type for asn1 encoding
 type OtherName struct {
 	OID   asn1.ObjectIdentifier
-	Value interface{} `asn1:"tag:0"`
+	Value any `asn1:"tag:0"`
 }
 
 // GeneralNames type for asn1 encoding

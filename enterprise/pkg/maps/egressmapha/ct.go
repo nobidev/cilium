@@ -152,7 +152,7 @@ type EgressCtIterateCallback func(*EgressCtKey4, *EgressCtVal4)
 // passing each key/value pair to the cb callback.
 func (m *ctMap) IterateWithCallback(cb EgressCtIterateCallback) error {
 	return m.Map.IterateWithCallback(&EgressCtKey4{}, &EgressCtVal4{},
-		func(k, v interface{}) {
+		func(k, v any) {
 			key := k.(*EgressCtKey4)
 			value := v.(*EgressCtVal4)
 

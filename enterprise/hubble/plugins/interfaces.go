@@ -22,7 +22,7 @@ type Init func() (Instance, error)
 
 // Instance makes API slightly easier to read. It means any pointer to a hubble
 // plugin type.
-type Instance interface{}
+type Instance any
 
 // CommandInit is a signature required for those hubble plugins that wish to
 // include a sub-command. Plugin instances use this signature via `AddCommands`

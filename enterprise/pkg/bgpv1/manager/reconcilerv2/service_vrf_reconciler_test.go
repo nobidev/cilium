@@ -687,7 +687,7 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			svcVRFReconciler.setMetadata(testBGPInstance, tt.prevMetadata)
 
 			// reconcile twice to test idempotency
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				err := svcVRFReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
 					BGPInstance: testOSSBGPInstance,
 					CiliumNode:  testCiliumNodeConfig,

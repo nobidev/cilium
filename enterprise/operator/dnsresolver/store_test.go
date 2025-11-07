@@ -374,9 +374,7 @@ func TestStoreConcurrentSubscribers(t *testing.T) {
 
 	// run the store in a separate goroutine, so the main one will listen for errors from subscribers
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 
 		// wait for subscribers to be ready before notifying events
 		<-subscribedA
@@ -390,7 +388,7 @@ func TestStoreConcurrentSubscribers(t *testing.T) {
 		// remove subscriptions
 		store.stop(subA)
 		store.stop(subB)
-	}()
+	})
 
 	// check for errors from subscriber
 	for err := range merge(errsA, errsB) {

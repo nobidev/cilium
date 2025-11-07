@@ -4,6 +4,8 @@
 package watchers
 
 import (
+	"maps"
+
 	isovalent_v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 )
@@ -17,7 +19,5 @@ var isovalentResourceToGroupMapping = map[string]watcherInfo{
 }
 
 func init() {
-	for crdName, watcher := range isovalentResourceToGroupMapping {
-		ciliumResourceToGroupMapping[crdName] = watcher
-	}
+	maps.Copy(ciliumResourceToGroupMapping, isovalentResourceToGroupMapping)
 }

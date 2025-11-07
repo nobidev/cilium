@@ -33,7 +33,7 @@ func TestConfigValidate(t *testing.T) {
 		cmcfg     cecmcfg.Config
 		ipsecCfg  fakeTypes.IPsecConfig
 		lbmode    string
-		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
+		assertion func(t assert.TestingT, err error, msgAndArgs ...any) bool
 	}{
 		{
 			name:      "mixed routing mode disabled",

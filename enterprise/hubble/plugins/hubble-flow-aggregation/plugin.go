@@ -108,7 +108,7 @@ type clientStream struct {
 	aggregation *aggregationpb.Aggregation
 }
 
-func (s *clientStream) SendMsg(m interface{}) error {
+func (s *clientStream) SendMsg(m any) error {
 	getFlowsReq, ok := m.(*observerpb.GetFlowsRequest)
 	if ok {
 		// Configure the GetFlowsRequest.Extensions

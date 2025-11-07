@@ -226,7 +226,7 @@ func parseUnstructuredBGPPeeringPolicy(bgpPeeringPolicy *unstructured.Unstructur
 		return nil, fmt.Errorf("failed parsing virtualRouters in %s: %w", bgpPeeringPolicy.GetName(), err)
 	}
 	for _, vr := range vrs {
-		vrMap := vr.(map[string]interface{})
+		vrMap := vr.(map[string]any)
 
 		// check if mapSRv6VRFs is present & enabled - if yes, return the unsupported error
 		mapSRv6VRFs, found, err := unstructured.NestedBool(vrMap, "mapSRv6VRFs")
@@ -253,7 +253,7 @@ func parseUnstructuredBGPPeeringPolicy(bgpPeeringPolicy *unstructured.Unstructur
 		}
 		if found {
 			ls := slimv1.LabelSelector{}
-			err = runtime.DefaultUnstructuredConverter.FromUnstructured(egwSelector.(map[string]interface{}), &ls)
+			err = runtime.DefaultUnstructuredConverter.FromUnstructured(egwSelector.(map[string]any), &ls)
 			if err != nil {
 				return nil, fmt.Errorf("failed converting EGW LabelSelector from unstructured in %s: %w", bgpPeeringPolicy.GetName(), err)
 			}

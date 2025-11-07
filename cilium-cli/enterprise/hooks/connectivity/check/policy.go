@@ -34,9 +34,7 @@ func ParsePolicyYAML[T runtime.Object](input string, scheme *runtime.Scheme) (ou
 		return nil, nil
 	}
 
-	yamls := strings.Split(input, "\n---")
-
-	for _, yaml := range yamls {
+	for yaml := range strings.SplitSeq(input, "\n---") {
 		if strings.TrimSpace(yaml) == "" {
 			continue
 		}

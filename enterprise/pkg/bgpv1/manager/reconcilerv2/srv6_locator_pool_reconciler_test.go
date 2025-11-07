@@ -731,7 +731,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			})
 
 			// run the reconciler twice to ensure idempotency
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				err := reconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
 					BGPInstance: testOSSBGPInstance,
 				})

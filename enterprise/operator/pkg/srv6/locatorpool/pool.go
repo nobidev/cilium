@@ -168,10 +168,7 @@ func validatePool(conf poolConfig) error {
 // calculateMax calculates the maximum node ID based on the locator length and prefix length.
 // with upper limit of 2^16
 func calculateMax(locatorLenBits, prefixLenBits uint8) int {
-	nodeBits := locatorLenBits - prefixLenBits
-	if nodeBits > maxNodeBits {
-		nodeBits = maxNodeBits
-	}
+	nodeBits := min(locatorLenBits-prefixLenBits, maxNodeBits)
 
 	return 1 << nodeBits
 }

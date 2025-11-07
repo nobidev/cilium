@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"slices"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -122,10 +123,8 @@ func (c *dockerCli) imageExists(ctx context.Context, img string) (bool, error) {
 	}
 
 	for _, image := range images {
-		for _, tag := range image.RepoTags {
-			if tag == img {
-				return true, nil
-			}
+		if slices.Contains(image.RepoTags, img) {
+			return true, nil
 		}
 	}
 

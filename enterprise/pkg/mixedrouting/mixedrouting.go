@@ -248,7 +248,7 @@ func parseRoutingModes(in string) (valid routingModesType, invalid []string) {
 		return
 	}
 
-	for _, mode := range strings.Split(in, routingModesSeparator) {
+	for mode := range strings.SplitSeq(in, routingModesSeparator) {
 		switch mode {
 		case routingModeNative, routingModeVXLAN, routingModeGeneve:
 			valid = append(valid, mode)

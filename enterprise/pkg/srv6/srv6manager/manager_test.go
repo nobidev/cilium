@@ -14,6 +14,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -239,26 +240,14 @@ func (a *sidKV) Equal(b *sidKV) bool {
 
 func bpfMapsEqual[T comparableKV[T]](a, b []T) bool {
 	for _, kva := range a {
-		found := false
-		for _, kvb := range a {
-			if kva.Equal(kvb) {
-				found = true
-				break
-			}
-		}
+		found := slices.ContainsFunc(a, kva.Equal)
 		if !found {
 			return false
 		}
 	}
 
 	for _, kvb := range b {
-		found := false
-		for _, kva := range a {
-			if kvb.Equal(kva) {
-				found = true
-				break
-			}
-		}
+		found := slices.ContainsFunc(a, kvb.Equal)
 		if !found {
 			return false
 		}

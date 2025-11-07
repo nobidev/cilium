@@ -165,7 +165,7 @@ func (m *Manager) GetNetworksForPod(ctx context.Context, podNamespace, podName s
 	}
 
 	var attachments []*models.NetworkAttachmentElement
-	for _, networkName := range strings.Split(networkAnnotation, ",") {
+	for networkName := range strings.SplitSeq(networkAnnotation, ",") {
 		network, ok, err := m.networkStore.GetByKey(resource.Key{Name: networkName})
 		if err != nil {
 			return nil, fmt.Errorf("failed to lookup IsovalentPodNetwork %q: %w", networkName, err)

@@ -70,8 +70,8 @@ func TestPrivilegedPerClusterMapsLifecycle(t *testing.T) {
 		dcfg *option.DaemonConfig
 		init func(t *testing.T)
 
-		assertV4 func(require.TestingT, string, ...interface{})
-		assertV6 func(require.TestingT, string, ...interface{})
+		assertV4 func(require.TestingT, string, ...any)
+		assertV6 func(require.TestingT, string, ...any)
 	}{
 		{
 			name: "cluster-aware addressing disabled",

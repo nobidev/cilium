@@ -107,7 +107,7 @@ func (r *IsovalentNetworkPolicyRule) MarshalJSON() ([]byte, error) {
 		Order             *float32               `json:"order,omitempty"`
 	}
 
-	var a interface{}
+	var a any
 	ruleCommon := common{
 		Ingress:     r.Ingress,
 		IngressDeny: r.IngressDeny,

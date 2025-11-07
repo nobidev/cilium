@@ -268,9 +268,7 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 			maps.Copy(desiredSvcPaths, currentSvcPaths)
 
 			// override only modified services
-			for svcKey, svcAFPaths := range updatedSvcPaths {
-				desiredSvcPaths[svcKey] = svcAFPaths
-			}
+			maps.Copy(desiredSvcPaths, updatedSvcPaths)
 			desiredVRFPaths[vrf.VRFRef] = desiredSvcPaths
 		}
 	}

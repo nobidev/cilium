@@ -63,7 +63,7 @@ func UpsertEGWPolicyCommand(egwMgr *egwManagerMock) script.Cmd {
 				return nil, fmt.Errorf("invalid command format, should be: 'bgptest/upsert-egw-policy name labels egress-ips'")
 			}
 			labels := make(map[string]string)
-			for _, label := range strings.Split(args[1], ",") {
+			for label := range strings.SplitSeq(args[1], ",") {
 				parts := strings.Split(label, "=")
 				if len(parts) != 2 {
 					return nil, fmt.Errorf("invalid label format: '%s'", label)
@@ -71,7 +71,7 @@ func UpsertEGWPolicyCommand(egwMgr *egwManagerMock) script.Cmd {
 				labels[parts[0]] = parts[1]
 			}
 			egressIPs := make([]netip.Addr, 0)
-			for _, ip := range strings.Split(args[2], ",") {
+			for ip := range strings.SplitSeq(args[2], ",") {
 				if ip == "" {
 					continue
 				}

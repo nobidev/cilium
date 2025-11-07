@@ -25,7 +25,7 @@ func TestConfigValidate(t *testing.T) {
 		cfg       Config
 		dcfg      func(*option.DaemonConfig)
 		healthCfg healthconfig.Config
-		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
+		assertion func(t assert.TestingT, err error, msgAndArgs ...any) bool
 	}{
 		{
 			name: "segw enabled",

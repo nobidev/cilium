@@ -36,7 +36,7 @@ func TestConfigValidate(t *testing.T) {
 		kprCfg    kpr.KPRConfig
 		wgCfg     fakeWgConfig
 		ipsecCfg  fakeTypes.IPsecConfig
-		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
+		assertion func(t assert.TestingT, err error, msgAndArgs ...any) bool
 	}{
 		{
 			name: "ClusterAwareAddressing disabled",

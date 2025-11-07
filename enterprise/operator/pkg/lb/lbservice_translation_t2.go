@@ -1521,10 +1521,7 @@ func (r *lbServiceT2Translator) desiredEnvoyRouterFilter() *envoy_extensions_fil
 func (r *lbServiceT2Translator) desiredHealthCheckFilter(model *lbService) *envoy_extensions_filters_http_healthcheck_v3.HealthCheck {
 	healthCheckFilterClusters := map[string]*envoy_type_v3.Percent{}
 
-	minHealthyBackendPercentage := r.config.T1T2HealthCheck.T2ProbeMinHealthyBackendPercentage
-	if minHealthyBackendPercentage > 100 {
-		minHealthyBackendPercentage = 100
-	}
+	minHealthyBackendPercentage := min(r.config.T1T2HealthCheck.T2ProbeMinHealthyBackendPercentage, 100)
 
 	refBackendNamesSorted := slices.Sorted(maps.Keys(model.referencedBackends))
 

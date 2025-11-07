@@ -620,7 +620,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 
 			// reconcile pod cidr
 			// run reconciler twice to ensure idempotency
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				err := podCIDRReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
 					BGPInstance: &instance.BGPInstance{
 						Name: testBGPInstance.Name,

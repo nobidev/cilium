@@ -17,6 +17,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"slices"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -310,10 +311,8 @@ type vpnPath struct {
 
 func rtMatches(pathRTs []string, vrfRTs []string) bool {
 	for _, pathRT := range pathRTs {
-		for _, vrfRT := range vrfRTs {
-			if pathRT == vrfRT {
-				return true
-			}
+		if slices.Contains(vrfRTs, pathRT) {
+			return true
 		}
 	}
 	return false

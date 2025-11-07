@@ -943,7 +943,7 @@ func escapePatchString(str string) string {
 func (s *egressGatewayAZAffinity) updateAZAffinity(ctx context.Context, iegpName, azAffinity string) error {
 	for _, entClient := range s.entClients {
 		if _, err := entClient.PatchIsovalentEgressGatewayPolicy(ctx, iegpName, types.JSONPatchType,
-			[]byte(fmt.Sprintf(`[{"op": "replace", "path": "/spec/azAffinity", "value": "%s"}]`, azAffinity))); err != nil {
+			fmt.Appendf(nil, `[{"op": "replace", "path": "/spec/azAffinity", "value": "%s"}]`, azAffinity)); err != nil {
 			return err
 		}
 	}

@@ -13,6 +13,7 @@ package check
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -111,9 +112,7 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 		},
 	}
 
-	for k, v := range p.Labels {
-		dep.Spec.Template.ObjectMeta.Labels[k] = v
-	}
+	maps.Copy(dep.Spec.Template.ObjectMeta.Labels, p.Labels)
 
 	return dep
 }

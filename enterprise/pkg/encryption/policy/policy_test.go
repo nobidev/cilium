@@ -11,7 +11,6 @@
 package policy
 
 import (
-	"context"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -114,8 +113,7 @@ func assertEntryOwners(t *testing.T, e *EncryptionPolicyEntry, resourceNames ...
 
 func TestPolicyEngine(t *testing.T) {
 	engine, tbl, db := newTestEngine(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	fetchEntry := func(txn statedb.ReadTxn, subject, peer identity.NumericIdentity, proto u8proto.U8proto, port uint16) *EncryptionPolicyEntry {
 		t.Helper()

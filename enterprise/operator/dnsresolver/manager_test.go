@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"net/netip"
 	"reflect"
-	"sort"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -87,9 +87,7 @@ func TestManagerSingleFQDNGroup(t *testing.T) {
 		Cell,
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+	ctx := t.Context()
 	log := hivetest.Logger(t)
 	if err := hive.Start(log, ctx); err != nil {
 		t.Fatalf("failed to start: %s", err)
@@ -205,9 +203,7 @@ func TestManagerSingleFQDNGroupSameCIDRs(t *testing.T) {
 		Cell,
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+	ctx := t.Context()
 	log := hivetest.Logger(t)
 	if err := hive.Start(log, ctx); err != nil {
 		t.Fatalf("failed to start: %s", err)
@@ -337,9 +333,7 @@ func TestManagerMultipleSets(t *testing.T) {
 		Cell,
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+	ctx := t.Context()
 	log := hivetest.Logger(t)
 	if err := hive.Start(log, ctx); err != nil {
 		t.Fatalf("failed to start: %s", err)
@@ -493,9 +487,7 @@ func TestManagerPeriodicResolver(t *testing.T) {
 		metrics.Metric(newMetrics),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+	ctx := t.Context()
 	log := hivetest.Logger(t)
 	if err := hive.Start(log, ctx); err != nil {
 		t.Fatalf("failed to start: %s", err)
@@ -542,9 +534,7 @@ func testCIDRGroup(clientset k8sClient.Clientset, cidrGroup string, cidrs []api.
 			}
 			sorted := make([]api.CIDR, len(cidrGroup.Spec.ExternalCIDRs))
 			copy(sorted, cidrGroup.Spec.ExternalCIDRs)
-			sort.Slice(sorted, func(i, j int) bool {
-				return sorted[i] < sorted[j]
-			})
+			slices.Sort(sorted)
 			if !reflect.DeepEqual(sorted, cidrs) {
 				return fmt.Errorf("expected cidrs to be %v, got %v", cidrs, sorted)
 			}
