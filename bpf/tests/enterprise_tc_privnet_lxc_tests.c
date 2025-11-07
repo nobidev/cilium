@@ -29,6 +29,7 @@ ASSIGN_CONFIG(bool, privnet_enable, true)
 ASSIGN_CONFIG(__u16, privnet_network_id, NET_ID)
 ASSIGN_CONFIG(__u32, privnet_unknown_sec_id, 99) /* tunnel id 99 is reserved for unknown privnet flow */
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr}) /* set lxc mac */
+ASSIGN_CONFIG(union v6addr, privnet_ipv6, {.addr = v6_svc_one_addr})
 
 PKTGEN("tc", "01_icmp_from_container_nat_src_dst")
 int privnet_icmp_from_container_nat_src_dst_pktgen(struct __ctx_buff *ctx)
@@ -428,44 +429,145 @@ int privnet_icmp_to_container_unknown_src_miss_dst_check(struct __ctx_buff *ctx)
 }
 
 /* IPv6 test cases */
+const __u8 *BUF(__UNUSED__) = NULL;
+
+#define PRIVNET_ICMP6_NS_SETUP(CTX)						\
+	do {									\
+		privnet_v6_add_endpoint_entry(NET_ID,				\
+			(const union v6addr *)V6_NET_IP_1,			\
+			(const union v6addr *)V6_POD_IP_1);			\
+		privnet_v6_add_endpoint_entry(NET_ID,				\
+			(const union v6addr *)V6_NET_IP_2,			\
+			(const union v6addr *)V6_POD_IP_2);			\
+										\
+		pod_send_packet(ctx);						\
+	} while (0)
+
+#define PRIVNET_ICMP6_NS_CHECK(CTX, TEST_NAME, STATUS_CODE, NA_BUF_NAME)	\
+	do {									\
+		void *data;							\
+		void *data_end;							\
+		__u32 *status_code;						\
+										\
+		test_init();							\
+										\
+		data = ctx_data(ctx);						\
+		data_end = ctx_data_end(ctx);					\
+										\
+		if (data + sizeof(__u32) > data_end)				\
+			test_fatal("status code out of bounds");		\
+										\
+		status_code = data;						\
+										\
+		assert(*status_code == (STATUS_CODE));				\
+		if (STATUS_CODE == TC_ACT_REDIRECT) {				\
+			ASSERT_CTX_BUF_OFF(TEST_NAME, "Ether", ctx,		\
+				sizeof(__u32), NA_BUF_NAME,			\
+				sizeof(BUF(NA_BUF_NAME)));			\
+		}								\
+										\
+		privnet_v6_del_endpoint_entry(NET_ID,				\
+			(const union v6addr *)V6_NET_IP_1,			\
+			(const union v6addr *)V6_POD_IP_1);			\
+		privnet_v6_del_endpoint_entry(NET_ID,				\
+			(const union v6addr *)V6_NET_IP_2,			\
+			(const union v6addr *)V6_POD_IP_2);			\
+										\
+		test_finish();							\
+	} while (0)
 
 /* Neighbor solicitation response generated for link local address */
-PKTGEN("tc", "09_icmp6_from_container_neighbor_solicitation")
-int privnet_icmp6_from_container_neighbor_solicitation_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "09_icmp6_from_container_neighbor_solicitation_link_local")
+int privnet_icmp6_from_container_neighbor_solicitation_link_local_pktgen(struct __ctx_buff *ctx)
 {
-	build_privnet_packet(ctx, LXC_ICMP6_NS);
+	build_privnet_packet(ctx, LXC_ICMP6_NS_LL);
 	return 0;
 }
 
-SETUP("tc", "09_icmp6_from_container_neighbor_solicitation")
-int privnet_icmp6_from_container_neighbor_solicitation_setup(struct __ctx_buff *ctx)
+SETUP("tc", "09_icmp6_from_container_neighbor_solicitation_link_local")
+int privnet_icmp6_from_container_neighbor_solicitation_link_local_setup(struct __ctx_buff *ctx)
 {
-	pod_send_packet(ctx);
+	PRIVNET_ICMP6_NS_SETUP(CTX);
 	return TEST_ERROR;
 }
 
-CHECK("tc", "09_icmp6_from_container_neighbor_solicitation")
-int privnet_icmp6_from_container_neighbor_solicitation_check(struct __ctx_buff *ctx)
+CHECK("tc", "09_icmp6_from_container_neighbor_solicitation_link_local")
+int privnet_icmp6_from_container_neighbor_solicitation_link_local_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
+	PRIVNET_ICMP6_NS_CHECK(ctx,
+			       "09_icmp6_from_container_neighbor_solicitation_link_local",
+			       TC_ACT_REDIRECT, LXC_ICMP6_NA_LL
+	);
+}
 
-	test_init();
+/* Neighbor solicitation response generated for endpoint address */
+PKTGEN("tc", "10_icmp6_from_container_neighbor_solicitation_ep_match")
+int privnet_icmp6_from_container_neighbor_solicitation_ep_match_pktgen(struct __ctx_buff *ctx)
+{
+	build_privnet_packet(ctx, LXC_ICMP6_NS_EP1);
+	return 0;
+}
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
+SETUP("tc", "10_icmp6_from_container_neighbor_solicitation_ep_match")
+int privnet_icmp6_from_container_neighbor_solicitation_ep_match_setup(struct __ctx_buff *ctx)
+{
+	PRIVNET_ICMP6_NS_SETUP(CTX);
+	return TEST_ERROR;
+}
 
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
+CHECK("tc", "10_icmp6_from_container_neighbor_solicitation_ep_match")
+int privnet_icmp6_from_container_neighbor_solicitation_ep_match_check(struct __ctx_buff *ctx)
+{
+	PRIVNET_ICMP6_NS_CHECK(ctx,
+			       "10_icmp6_from_container_neighbor_solicitation_ep_match",
+			       TC_ACT_REDIRECT, LXC_ICMP6_NA_EP1
+	);
+}
 
-	status_code = data;
+/* Neighbor solicitation response should not be generated for endpoint address not in FIB map */
+PKTGEN("tc", "11_icmp6_from_container_neighbor_solicitation_ep_no_match")
+int privnet_icmp6_from_container_neighbor_solicitation_ep_no_match_pktgen(struct __ctx_buff *ctx)
+{
+	build_privnet_packet(ctx, LXC_ICMP6_NS_EP2);
+	return 0;
+}
 
-	assert(*status_code == TC_ACT_REDIRECT); /* packet is sent back to lxc */
+SETUP("tc", "11_icmp6_from_container_neighbor_solicitation_ep_no_match")
+int privnet_icmp6_from_container_neighbor_solicitation_ep_no_match_setup(struct __ctx_buff *ctx)
+{
+	PRIVNET_ICMP6_NS_SETUP(CTX);
+	return TEST_ERROR;
+}
 
-	ASSERT_CTX_BUF_OFF("icmp6_from_container_neighbor_solicitation", "Ether", ctx,
-			   sizeof(__u32), LXC_ICMP6_NA,
-			   sizeof(BUF(LXC_ICMP6_NA)));
+CHECK("tc", "11_icmp6_from_container_neighbor_solicitation_ep_no_match")
+int privnet_icmp6_from_container_neighbor_solicitation_ep_no_match_check(struct __ctx_buff *ctx)
+{
+	PRIVNET_ICMP6_NS_CHECK(ctx,
+			       "10_icmp6_from_container_neighbor_solicitation_ep_no_match",
+			       TC_ACT_SHOT, __UNUSED__
+	);
+}
 
-	test_finish();
+/* Neighbor solicitation response should not be generated for the self endpoint address */
+PKTGEN("tc", "12_icmp6_from_container_neighbor_solicitation_self")
+int privnet_icmp6_from_container_neighbor_solicitation_self_pktgen(struct __ctx_buff *ctx)
+{
+	build_privnet_packet(ctx, LXC_ICMP6_NS_SELF);
+	return 0;
+}
+
+SETUP("tc", "12_icmp6_from_container_neighbor_solicitation_self")
+int privnet_icmp6_from_container_neighbor_solicitation_self_setup(struct __ctx_buff *ctx)
+{
+	PRIVNET_ICMP6_NS_SETUP(CTX);
+	return TEST_ERROR;
+}
+
+CHECK("tc", "12_icmp6_from_container_neighbor_solicitation_self")
+int privnet_icmp6_from_container_neighbor_solicitation_self_check(struct __ctx_buff *ctx)
+{
+	PRIVNET_ICMP6_NS_CHECK(ctx,
+			       "12_icmp6_from_container_neighbor_solicitation_self",
+			       TC_ACT_SHOT, __UNUSED__
+	);
 }
