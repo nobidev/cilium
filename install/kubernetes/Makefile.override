@@ -10,22 +10,25 @@
 
 include ../../Makefile.defs
 
-ifeq ($(RELEASE),yes)
-    export CERTGEN_REPO:=quay.io/isovalent/certgen
-    export CILIUM_ENVOY_REPO:=quay.io/isovalent/cilium-envoy
-    export CILIUM_NODEINIT_REPO:=quay.io/isovalent/startup-script
-    export SPIRE_AGENT_REPO:=quay.io/isovalent/spire-agent
-    export SPIRE_INIT_REPO:=quay.io/isovalent/busybox
-    export SPIRE_SERVER_REPO:=quay.io/isovalent/spire-server
-endif
-
 ifeq ($(OVERRIDE_EXTERNAL_IMAGE_TAGS),yes)
     OVERRIDE_IMAGE_TAG:=v$(shell cat ../../VERSION)
+
+    export CERTGEN_REPO:=quay.io/isovalent/certgen
     export CERTGEN_VERSION:=$(OVERRIDE_IMAGE_TAG)
+
+    export CILIUM_ENVOY_REPO:=quay.io/isovalent/cilium-envoy
     export CILIUM_ENVOY_VERSION:=$(OVERRIDE_IMAGE_TAG)
+
+    export CILIUM_NODEINIT_REPO:=quay.io/isovalent/startup-script
     export CILIUM_NODEINIT_VERSION:=$(OVERRIDE_IMAGE_TAG)
+
+    export SPIRE_AGENT_REPO:=quay.io/isovalent/spire-agent
     export SPIRE_AGENT_VERSION:=$(OVERRIDE_IMAGE_TAG)
+
+    export SPIRE_INIT_REPO:=quay.io/isovalent/busybox
     export SPIRE_INIT_VERSION:=$(OVERRIDE_IMAGE_TAG)
+
+    export SPIRE_SERVER_REPO:=quay.io/isovalent/spire-server
     export SPIRE_SERVER_VERSION:=$(OVERRIDE_IMAGE_TAG)
 endif
 

@@ -5,7 +5,7 @@
 
 set -ex
 
-echo "QUAY_ORGANIZATION=isovalent" >> "$GITHUB_ENV"
+echo "QUAY_ORGANIZATION=isovalent-staging" >> "$GITHUB_ENV"
 echo "QUAY_ORGANIZATION_DEV=isovalent-dev" >> "$GITHUB_ENV"
 echo "CILIUM_HELM_REPO_NAME=isovalent" >> "$GITHUB_ENV"
 echo "CILIUM_HELM_REPO_URL=https://helm.isovalent.com" >> "$GITHUB_ENV"

@@ -1,6 +1,6 @@
 # cilium-dnsproxy
 
-![Version: 1.18.0-dev](https://img.shields.io/badge/Version-1.18.0--dev-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.18.0-dev](https://img.shields.io/badge/AppVersion-1.18.0--dev-informational?style=flat-square)
+![Version: 1.19.0-dev](https://img.shields.io/badge/Version-1.19.0--dev-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.19.0-dev](https://img.shields.io/badge/AppVersion-1.19.0--dev-informational?style=flat-square)
 
 Cilium DNS Proxy
 
@@ -12,9 +12,7 @@ Cilium DNS Proxy
 | annotations | object | `{}` | Annotations to add to cilium-dnsproxy DaemonSet |
 | debug | bool | `false` |  |
 | dnsPolicy | string | `""` |  |
-| dnsProxy.dnsRejectResponseCode | string | `"refused"` |  |
 | enableCriticalPriorityClass | bool | `false` | Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in `helm template` calls, it depends on k8s libraries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for |
-| enableOfflineMode | bool | `false` |  |
 | extraArgs | list | `[]` |  |
 | extraVolumeMounts | list | `[]` |  |
 | extraVolumes | list | `[]` |  |
@@ -30,6 +28,7 @@ Cilium DNS Proxy
 | metrics.serviceMonitor.labels | object | `{}` | Labels to add to cilium-dnsproxy ServiceMonitor |
 | metrics.serviceMonitor.scrapeInterval | string | `"10s"` | Scrape interval. |
 | nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node selector for cilium-dnsproxy. |
+| offlineMode.enabled | bool | `false` |  |
 | podLabels | object | `{}` | Labels to be added to cilium-dnsproxy pods |
 | podSecurityContext | object | `{}` |  |
 | pprof.enabled | bool | `false` |  |

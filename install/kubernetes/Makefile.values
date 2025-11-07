@@ -5,7 +5,7 @@ DIGESTS_PATH:=Makefile.digests-isovalent
 include $(DIGESTS_PATH)
 export USE_DIGESTS ?= $(shell if grep -q '""' $(DIGESTS_PATH); then echo "false"; else echo "true"; fi)
 export RELEASE_REGISTRY ?= quay.io
-export RELEASE_ORG ?= isovalent
+export RELEASE_ORG ?= isovalent-staging
 export CI_REGISTRY ?= quay.io
 export CI_ORG ?= isovalent-dev
 

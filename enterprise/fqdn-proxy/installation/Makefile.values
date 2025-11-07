@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 export RELEASE_REGISTRY ?= quay.io
-export RELEASE_ORG ?= isovalent
+export RELEASE_ORG ?= isovalent-staging
 export CI_REGISTRY ?= quay.io
 export CI_ORG ?= isovalent-dev
 

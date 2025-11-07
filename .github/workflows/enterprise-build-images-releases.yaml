@@ -88,7 +88,7 @@ jobs:
           if [[ -z "${upstream_version}" ]]; then
              echo "No version available for ${{ matrix.component }} in install/kubernetes/Makefile.values. Build skipped."
              echo "rebuild=false" >> $GITHUB_OUTPUT
-          elif docker manifest inspect quay.io/isovalent/${{ matrix.image-name }}:${version} >/dev/null; then
+          elif docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.image-name }}:${version} >/dev/null; then
             echo "Image already exists! Build skipped."
             echo "rebuild=false" >> $GITHUB_OUTPUT
           else
@@ -149,7 +149,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/isovalent/${{ matrix.image-name }}:${{ steps.version.outputs.version }}
+            quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.image-name }}:${{ steps.version.outputs.version }}
           build-args: |
             # renovate: datasource=docker
             BASE_IMAGE=${{ matrix.base-image }}
@@ -161,7 +161,7 @@ jobs:
         id: docker_digest
         shell: bash
         run: |
-          digest=$(images/scripts/get-image-digest.sh quay.io/isovalent/${{ matrix.image-name }}:${{ steps.version.outputs.version }})
+          digest=$(images/scripts/get-image-digest.sh quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.image-name }}:${{ steps.version.outputs.version }})
           echo digest=${digest} >> $GITHUB_OUTPUT
 
       - name: Install Cosign
@@ -171,7 +171,7 @@ jobs:
       - name: Sign Container Images
         if: ${{ steps.version.outputs.rebuild == 'true' }}
         run: |
-          cosign sign -y quay.io/isovalent/${{ matrix.image-name }}:${{ steps.version.outputs.version }}@${{ steps.docker_digest.outputs.digest }}
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.image-name }}:${{ steps.version.outputs.version }}@${{ steps.docker_digest.outputs.digest }}
 
       - name: Generate SBOM
         if: ${{ steps.version.outputs.rebuild == 'true' }}
@@ -179,13 +179,13 @@ jobs:
         with:
           artifact-name: sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json
           output-file: ./sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json
-          image: quay.io/isovalent/${{ matrix.image-name }}:${{ steps.version.outputs.version }}
+          image: quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.image-name }}:${{ steps.version.outputs.version }}
           upload-release-assets: false
 
       - name: Attach SBOM attestation to container image
         if: ${{ steps.version.outputs.rebuild == 'true' }}
         run: |
-          cosign attest -y --predicate sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json --type spdxjson quay.io/isovalent/${{ matrix.image-name }}:${{ steps.version.outputs.version }}
+          cosign attest -y --predicate sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.image-name }}:${{ steps.version.outputs.version }}
 
       - name: Image Release Digest
         shell: bash
@@ -193,7 +193,7 @@ jobs:
           mkdir -p image-digest/
           echo "### ${{ matrix.image-name }}" > image-digest/${{ matrix.image-name }}.txt
           echo "" >> image-digest/${{ matrix.image-name }}.txt
-          echo "\`quay.io/isovalent/${{ matrix.image-name }}:${{ steps.version.outputs.version }}@${{ steps.docker_digest.outputs.digest }}\`" >> image-digest/${{ matrix.image-name }}.txt
+          echo "\`quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.image-name }}:${{ steps.version.outputs.version }}@${{ steps.docker_digest.outputs.digest }}\`" >> image-digest/${{ matrix.image-name }}.txt
           echo "" >> image-digest/${{ matrix.image-name }}.txt
 
       # Upload artifact digests
