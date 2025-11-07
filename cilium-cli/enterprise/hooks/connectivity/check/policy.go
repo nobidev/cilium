@@ -15,45 +15,15 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
 	isovalentv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
-
-// ParsePolicyYAML decodes a yaml file into a slice of policies.
-func ParsePolicyYAML[T runtime.Object](input string, scheme *runtime.Scheme) (output []T, err error) {
-	if input == "" {
-		return nil, nil
-	}
-
-	for yaml := range strings.SplitSeq(input, "\n---") {
-		if strings.TrimSpace(yaml) == "" {
-			continue
-		}
-
-		obj, kind, err := serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
-		if err != nil {
-			return nil, fmt.Errorf("decoding yaml file: %s\nerror: %w", yaml, err)
-		}
-
-		switch policy := obj.(type) {
-		case T:
-			output = append(output, policy)
-		default:
-			return nil, fmt.Errorf("unknown type '%s' in: %s", kind.Kind, yaml)
-		}
-	}
-
-	return output, nil
-}
 
 // createOrUpdateIEGP creates the IEGP and updates it if it already exists.
 func createOrUpdateIEGP(ctx context.Context, client *enterpriseK8s.EnterpriseClient, iegp *isovalentv1.IsovalentEgressGatewayPolicy) error {

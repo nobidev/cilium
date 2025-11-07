@@ -24,12 +24,12 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	enterpriseTests "github.com/cilium/cilium/cilium-cli/enterprise/hooks/connectivity/tests"
+	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/utils"
 	enterpriseFeatures "github.com/cilium/cilium/cilium-cli/enterprise/hooks/utils/features"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	isovalentv1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
@@ -114,7 +114,7 @@ type IsovalentEgressGatewayPolicyParams struct {
 // note that the egress gateway enabled feature requirement is applied directly
 // here.
 func (t *EnterpriseTest) WithIsovalentEgressGatewayPolicy(params IsovalentEgressGatewayPolicyParams) *EnterpriseTest {
-	pl, err := ParsePolicyYAML[*isovalentv1.IsovalentEgressGatewayPolicy](egressGatewayPolicyYAML, scheme.Scheme)
+	pl, err := utils.ParseYAML[*isovalentv1.IsovalentEgressGatewayPolicy](egressGatewayPolicyYAML)
 	if err != nil {
 		t.Fatalf("Parsing policy YAML: %s", err)
 	}
@@ -252,7 +252,7 @@ type IsovalentMulticastGroupParams struct {
 // note that the multicast enabled feature requirement is applied directly
 // here.
 func (t *EnterpriseTest) WithIsovalentMulticastGroup(params IsovalentMulticastGroupParams) *EnterpriseTest {
-	pl, err := ParsePolicyYAML[*isovalentv1alpha1.IsovalentMulticastGroup](multicastGroupYAML, scheme.Scheme)
+	pl, err := utils.ParseYAML[*isovalentv1alpha1.IsovalentMulticastGroup](multicastGroupYAML)
 	if err != nil {
 		t.Fatalf("Parsing policy YAML: %s", err)
 	}
@@ -331,7 +331,7 @@ func (t *EnterpriseTest) WithMulticastDeployment(params MulticastDeploymentParam
 // document and adds the isovalent clusterwide encryption polic(y)(ies) to the scope of the
 // Test, to be applied when the test starts running.
 func (t *EnterpriseTest) WithIsovalentClusterwideEncryptionPolicy(policy string) *EnterpriseTest {
-	pl, err := ParsePolicyYAML[*isovalentv1alpha1.IsovalentClusterwideEncryptionPolicy](policy, scheme.Scheme)
+	pl, err := utils.ParseYAML[*isovalentv1alpha1.IsovalentClusterwideEncryptionPolicy](policy)
 	if err != nil {
 		t.Fatalf("Parsing encryption policy YAML: %s", err)
 	}
