@@ -9,5 +9,9 @@ echo "CL2_MEDIAN_MEM_USAGE_THRESHOLD=270" >> "$GITHUB_ENV"
 echo "CL2_EGW_POLICY_TEMPLATE=manifests/enterprise-egw-policy.yaml" >> "$GITHUB_ENV"
 echo "CL2_EGW_MASQ_CPU_USAGE_THRESHOLD=0.17" >> "$GITHUB_ENV"
 echo "CL2_EGW_MASQ_MEM_USAGE_THRESHOLD=320" >> "$GITHUB_ENV"
-echo "EGRESS_GATEWAY_SCALE_HELM_VALUES=--helm-set=healthChecking=false --helm-set=endpointHealthChecking.enabled=false \
-    --helm-set=enterprise.healthServerWithoutActiveChecks.enabled=true" >> "$GITHUB_ENV"
+
+if [[ "$GITHUB_WORKFLOW_REF" =~ scale-test-egw.yaml ]]; then
+    echo EGRESS_GATEWAY_HELM_VALUES="$(grep -oP '^EGRESS_GATEWAY_HELM_VALUES=\K.*' "$GITHUB_ENV") \
+        --helm-set=healthChecking=false --helm-set=endpointHealthChecking.enabled=false \
+        --helm-set=enterprise.healthServerWithoutActiveChecks.enabled=true" >> "$GITHUB_ENV"
+fi
