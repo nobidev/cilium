@@ -51,7 +51,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.25.3
+  go_version: 1.25.4
   cilium_cli_ci_version:
   # Adding k8s.local to the end makes kops happy-
   # has stricter DNS naming requirements.
@@ -68,7 +68,7 @@ env:
   # 'server supports reverse-lookup on wildcard DNS SAN').
   domain: c.${{ secrets.GCP_PERF_PROJECT_ID }}.internal
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 545.0.0
+  gcloud_version: 546.0.0
 
   # renovate: datasource=github-releases depName=cert-manager/cert-manager
   cert_manager_version: v1.19.1
