@@ -71,8 +71,9 @@ func TestScript(t *testing.T) {
 
 					cell.DecorateAll(
 						func(cf ConnFactory) server.ListenerFactory {
-							return func() (net.Listener, error) {
-								return cf.NewListener(Instance{Cluster: "local", Name: "sloth"})
+							return func(context.Context) ([]net.Listener, error) {
+								lis, err := cf.NewListener(Instance{Cluster: "local", Name: "sloth"})
+								return []net.Listener{lis}, err
 							}
 						},
 					),

@@ -11,6 +11,7 @@
 package tests
 
 import (
+	"context"
 	"net"
 
 	"github.com/cilium/hive/cell"
@@ -35,9 +36,10 @@ func Health(path string) cell.Cell {
 
 		cell.DecorateAll(
 			func(cf ht.ConnFactory, cinfo cmtypes.ClusterInfo) server.ListenerFactory {
-				return func() (net.Listener, error) {
-					return cf.NewListener(ht.Instance{
+				return func(context.Context) ([]net.Listener, error) {
+					lis, err := cf.NewListener(ht.Instance{
 						Cluster: tables.ClusterName(cinfo.Name), Name: nodeName})
+					return []net.Listener{lis}, err
 				}
 			},
 		),

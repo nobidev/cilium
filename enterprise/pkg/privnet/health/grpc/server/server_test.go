@@ -12,8 +12,10 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"maps"
+	"net"
 	"slices"
 	"sync"
 	"testing"
@@ -31,7 +33,11 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	api "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/addressing"
+	notypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -547,4 +553,86 @@ func TestServerGCer(t *testing.T) {
 			{Node: snail, Network: "yellow"},
 		})
 	}, timeout, interval)
+}
+
+func TestDefaultListenerFactory(t *testing.T) {
+	tests := []struct {
+		name      string
+		addresses []notypes.Address
+		expected  []string
+		assertErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "ipv4-only",
+			addresses: []notypes.Address{
+				{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.1")},
+				{Type: addressing.NodeExternalIP, IP: net.ParseIP("10.255.0.1")},
+			},
+			expected:  []string{"10.0.0.1:1234"},
+			assertErr: assert.NoError,
+		},
+		{
+			name: "ipv6-only",
+			addresses: []notypes.Address{
+				{Type: addressing.NodeInternalIP, IP: net.ParseIP("fd10::1")},
+				{Type: addressing.NodeExternalIP, IP: net.ParseIP("fc10::1")},
+			},
+			expected:  []string{"[fd10::1]:1234"},
+			assertErr: assert.NoError,
+		},
+		{
+			name: "dual-stack",
+			addresses: []notypes.Address{
+				{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.1")},
+				{Type: addressing.NodeExternalIP, IP: net.ParseIP("10.255.0.1")},
+				{Type: addressing.NodeInternalIP, IP: net.ParseIP("fd10::1")},
+				{Type: addressing.NodeExternalIP, IP: net.ParseIP("fc10::1")},
+			},
+			expected:  []string{"10.0.0.1:1234", "[fd10::1]:1234"},
+			assertErr: assert.NoError,
+		},
+		{
+			name: "fallback",
+			addresses: []notypes.Address{
+				{Type: addressing.NodeExternalIP, IP: net.ParseIP("10.255.0.1")},
+				{Type: addressing.NodeExternalIP, IP: net.ParseIP("fc10::1")},
+			},
+			expected:  []string{"10.255.0.1:1234", "[fc10::1]:1234"},
+			assertErr: assert.NoError,
+		},
+		{
+			name:      "missing",
+			assertErr: assert.Error,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var (
+				cfg = config.Config{Port: 1234}
+				lns = node.NewTestLocalNodeStore(
+					node.LocalNode{Node: notypes.Node{IPAddresses: tt.addresses}},
+				)
+
+				factory = newDefaultListenerFactory(cfg, lns)
+			)
+
+			defer func(orig func(string, string) (net.Listener, error)) { netListen = orig }(netListen)
+			netListen = func(network, address string) (net.Listener, error) {
+				if network != "tcp" {
+					return nil, fmt.Errorf("unexpected network protocol %q", network)
+				}
+
+				if !slices.Contains(tt.expected, address) {
+					return nil, fmt.Errorf("unexpected address %q", address)
+				}
+
+				return &net.TCPListener{}, nil
+			}
+
+			listeners, err := factory(t.Context())
+			tt.assertErr(t, err)
+			assert.Len(t, listeners, len(tt.expected))
+		})
+	}
 }

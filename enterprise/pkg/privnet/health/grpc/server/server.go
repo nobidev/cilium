@@ -34,24 +34,52 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 type (
-	// ListenerFactory is the type of the function returning the listener the
+	// ListenerFactory is the type of the function returning the listeners the
 	// server accepts connections on.
-	ListenerFactory func() (net.Listener, error)
+	ListenerFactory func(ctx context.Context) ([]net.Listener, error)
 )
 
 // settleTime is the time reconcilers wait before proceeding with the actual
 // reconciliation, to batch work. It can be overridden for testing purposes.
 var settleTime = 100 * time.Millisecond
 
-func newDefaultListenerFactory(cfg config.Config) ListenerFactory {
+// netListen is the [net.Listen] function. It can be overridden for testing purposes.
+var netListen = net.Listen
+
+func newDefaultListenerFactory(cfg config.Config, lns *node.LocalNodeStore) ListenerFactory {
 	port := strconv.FormatUint(uint64(cfg.Port), 10)
-	return func() (net.Listener, error) {
-		// Currently, we listen to all addresses for simplicity, even though suboptimal.
-		return net.Listen("tcp", net.JoinHostPort("", port))
+	return func(ctx context.Context) ([]net.Listener, error) {
+		ln, err := lns.Get(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("retrieving local node: %w", err)
+		}
+
+		var listeners []net.Listener
+
+		// Listen to the NodeInternalIP addresses (both IPv4 and IPv6 if available),
+		// with a fallback to the NodeExternalIP ones. This matches the symmetric
+		// logic to determine the address to use on the client side ([types.NewNode]).
+		for _, ip := range []net.IP{ln.GetNodeIP(false), ln.GetNodeIP(true)} {
+			if ip != nil {
+				lis, err := netListen("tcp", net.JoinHostPort(ip.String(), port))
+				if err != nil {
+					return nil, err
+				}
+
+				listeners = append(listeners, lis)
+			}
+		}
+
+		if len(listeners) == 0 {
+			return nil, errors.New("no valid node IP address found")
+		}
+
+		return listeners, nil
 	}
 }
 
@@ -116,20 +144,24 @@ func newServer(in serverParams) *server {
 
 	in.Lifecycle.Append(
 		cell.Hook{
-			OnStart: func(cell.HookContext) error {
-				lis, err := in.Factory()
+			OnStart: func(hctx cell.HookContext) error {
+				listeners, err := in.Factory(hctx)
 				if err != nil {
-					return fmt.Errorf("cannot create private networks health server listener: %w", err)
+					return fmt.Errorf("cannot create private networks health server listeners: %w", err)
 				}
 
-				srv.wg.Go(func() {
-					err := gsrv.Serve(lis)
-					if err != nil {
-						in.Shutdowner.Shutdown(hive.ShutdownWithError(
-							fmt.Errorf("cannot start private networks health server: %w", err),
-						))
-					}
-				})
+				for _, lis := range listeners {
+					srv.log.Info("Starting health server", logfields.Address, lis.Addr().String())
+
+					srv.wg.Go(func() {
+						err := gsrv.Serve(lis)
+						if err != nil {
+							in.Shutdowner.Shutdown(hive.ShutdownWithError(
+								fmt.Errorf("cannot start private networks health server on %v: %w", lis.Addr(), err),
+							))
+						}
+					})
+				}
 
 				return nil
 			},
