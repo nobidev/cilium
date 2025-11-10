@@ -1,17 +1,6 @@
 ---
 name: Auto Backport Merged Pull Requests
 
-# This workflow runs in two scenarios:
-# 1. When a pull request is closed (merged)
-#    - Checks for the `auto-backport` label on the PR
-#    - If present, creates backport PRs to target branches inferred from labels
-# 2. When a comment is created on a pull request (when closed and when open - by workflow_dispatch from ariane)
-#    - If the comment starts with `/backport` followed by target branches
-#    - Checks for the `auto-backport` label on the PR
-#    - If present, check if the PR is merged
-#      - If not merged, adds `needs-backport/<target-branch>` labels to PR for each target branch specified in the comment
-#      - If merged, creates backport PRs to target branches specified in the comment
-
 on:
   issue_comment:
     types: [created]
@@ -40,6 +29,20 @@ on:
 permissions:
   id-token: write
 
+
+# This workflow runs in two scenarios:
+# 1. When a pull request is closed (merged)
+#    - Checks for the `auto-backport` label on the PR
+#    - If present, creates backport PRs to target branches inferred from labels
+
+# 2. When a comment is created on a pull request (when closed and when open - by workflow_dispatch from ariane)
+#    - If the comment starts with `/backport` followed by target branches
+#    - Checks for the `auto-backport` label on the PR
+#    - If present, check if the PR is merged
+#      - If not merged, adds `needs-backport/<target-branch>` labels to PR for each target branch specified in the comment
+#      - If merged, creates backport PRs to target branches specified in the comment
+
+
 jobs:
   backport:
     name: Backport Changes
@@ -53,19 +56,20 @@ jobs:
         TARGET_BRANCHES: ''  # Will be set in the steps below
         PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.PR-number}}
 
-    # run only when a PR is merged or when a comment with /backport is created on a pull request
+    # run only when a PR is merged or when a comment with /backport is created on a pull request or on workflow_dispatch
     if: >
       github.event.pull_request.merged ||
+      github.event_name == 'workflow_dispatch' ||
       (
         github.event_name == 'issue_comment' &&
         github.event.issue.pull_request &&
         github.event.comment.user.type != 'Bot' &&
         startsWith(github.event.comment.body, '/backport')
-      ) ||
-      github.event_name == 'workflow_dispatch'
+      )
 
     steps:
       - name: Get Mirror GitHub App Credentials from Vault
+        id: get-vault-secrets
         uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3.3.0
         env:
           SECRETS_PATH: "secret/data/org/${{ github.repository_owner }}"
@@ -106,7 +110,7 @@ jobs:
           script: |
             let targetBranches = '';
 
-            if ('${{ github.event_name }}' === 'workflow_dispatch') {
+            if (context.eventName === 'workflow_dispatch') {
                 targetBranches = '${{ fromJson(inputs.extra-args) }}'.trim();
                 core.info(`Using target branches from workflow dispatch input: '${targetBranches}'`);
             } else {
@@ -120,12 +124,12 @@ jobs:
             core.exportVariable('TARGET_BRANCHES', targetBranches);
 
       - name: Check for `auto-backport` label on the PR
-        id: check-labels
+        id: check-backport-labels
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ steps.generate-token.outputs.token }}
           script: |
-            const prNumber = '${{ env.PR_NUMBER }}';
+            const prNumber = process.env.PR_NUMBER;
             console.log('Checking labels for PR #' + prNumber);
             const { data: pr } = await github.rest.pulls.get({
                 owner: context.repo.owner,
@@ -133,18 +137,26 @@ jobs:
                 pull_number: prNumber
             });
 
+            const result = pr.labels.find(label => label.name === '${{ vars.AUTO_BACKPORT_LABEL }}');
+
             // Check if the `auto-backport` label is present. If not, comment and exit with failure.
-            if (!pr.labels.some(label => label.name === '${{ vars.AUTO_BACKPORT_LABEL }}')) {
-                core.setFailed('Skipping backporting process as `auto-backport` label is not present.');
+            // Do not add comment to workflow runs triggered by pull_request event.
+            if (!result) {
+                if (context.eventName === 'pull_request') {
+                    return;
+                }
                 await github.rest.issues.createComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: prNumber,
                     body: 'ℹ️ `auto-backport` label not found. Skipping backporting process.\n' +
-                      'To enable automatic backporting for this pull request, please add the `${{ vars.AUTO_BACKPORT_LABEL }}` label.\n' +
-                      'You can retrigger the workflow by adding a new comment `/backport ${{ env.TARGET_BRANCHES }}` to this PR.'
+                      'To enable automatic backporting for this pull request, ' +
+                      'please add the `${{ vars.AUTO_BACKPORT_LABEL }}` label.\n' +
+                      'You can retrigger the workflow by adding a new comment ' +
+                      '`/backport ${{ env.TARGET_BRANCHES }} <space separated branch list>` to this PR.'
                 });
             }
+            return result.toString();
 
       - name: Check if pull_request is merged
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
@@ -153,15 +165,21 @@ jobs:
           github-token: ${{ steps.generate-token.outputs.token }}
           result-encoding: string
           script: |
+            if (context.eventName === 'pull_request') {
+                return context.payload.pull_request.merged.toString();
+            }
+
             const { data: pr } = await github.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: '${{ env.PR_NUMBER }}'
+                pull_number: process.env.PR_NUMBER
             });
+
             return pr.merged.toString();
 
       - name: Setup Labels if pull_request is not merged
-        if: steps.check-pr-merged.outputs.result == 'false'
+        id: setup-labels
+        if: steps.check-backport-labels.outputs.result == 'true' && steps.check-pr-merged.outputs.result == 'false'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ steps.generate-token.outputs.token }}
@@ -188,7 +206,7 @@ jobs:
 
       - name: Checkout code
         id: checkout
-        if: steps.check-pr-merged.outputs.result == 'true'
+        if: steps.check-backport-labels.outputs.result == 'true' && steps.check-pr-merged.outputs.result == 'true'
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           token: ${{ steps.generate-token.outputs.token }}
@@ -196,7 +214,7 @@ jobs:
       - name: Create backport pull requests
         id: backport
         uses: isovalent/backport-action@7841e9b4aca996cbaca3e1b0a6972747ca1ec38d
-        if: steps.check-pr-merged.outputs.result == 'true'
+        if: steps.checkout.outcome == 'success'
         with:
           github_token: ${{ steps.generate-token.outputs.token }}
           branch_name: backport/${target_branch}/${pull_number}
@@ -291,6 +309,26 @@ jobs:
                     labels: newLabels
                 });
             }
+
+            `${{ steps.backport.outputs.created_pull_numbers }}`
+                .split(' ')
+                .filter(pr => pr.trim() !== '')
+                .forEach(pr_number => {
+                    console.log(`Backport PR created: #${pr_number}`);
+                    const { data: pr } = await github.rest.pulls.get({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        pull_number: pr_number
+                    });
+
+                    const backport_label = `backport/${pr.base.ref.replace(`${{ env.TARGET_BRANCH_PREFIX }}`, '')}`;
+                    await github.rest.issues.addLabels({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: pr_number,
+                        labels: [backport_label]
+                    });
+                });
 
             if ('${{ steps.backport.outputs.was_successful }}' == 'false') {
                 core.setFailed('One or more backports failed. Please check the logs.');
