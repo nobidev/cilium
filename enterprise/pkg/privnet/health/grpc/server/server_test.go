@@ -35,6 +35,7 @@ import (
 	api "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	notypes "github.com/cilium/cilium/pkg/node/types"
@@ -629,6 +630,11 @@ func TestDefaultListenerFactory(t *testing.T) {
 
 				return &net.TCPListener{}, nil
 			}
+
+			// Assert that the local node annotation is correctly set.
+			ln, err := lns.Get(t.Context())
+			require.NoError(t, err, "[lns.Get]")
+			assert.Equal(t, "1234", ln.Annotations[types.PrivateNetworkINBHealthServerPortAnnotation])
 
 			listeners, err := factory(t.Context())
 			tt.assertErr(t, err)

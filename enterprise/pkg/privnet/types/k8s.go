@@ -20,12 +20,19 @@ import (
 )
 
 const (
+	// PrivateNetworkAnnotationPrefix is the common prefix for private network annotations.
+	PrivateNetworkAnnotationPrefix = "privnet.isovalent.com"
+
 	// PrivateNetworkAnnotation is the name of the annotation to attach pods to a particular
 	// private network.
 	PrivateNetworkAnnotation = "network.v1alpha1.isovalent.com/network-attachment"
 
 	// PrivateNetworkInactiveAnnotation is the name of the annotation which marks the pod inactive.
 	PrivateNetworkInactiveAnnotation = "network.v1alpha1.isovalent.com/inactive"
+
+	// PrivateNetworkINBHealthServerPortAnnotation is the name of the node annotation propagating
+	// the TCP port the privnet health server is listening to.
+	PrivateNetworkINBHealthServerPortAnnotation = PrivateNetworkAnnotationPrefix + "/inb-health-server-port"
 )
 
 // NetworkAttachment is the value of PrivateNetworkAnnotation (encoded as JSON)

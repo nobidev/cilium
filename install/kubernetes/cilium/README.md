@@ -437,7 +437,7 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.multicast.enabled | bool | `false` | Enables multicast in cilium, multicast replication works only in tunnel mode. |
 | enterprise.privateNetworks.enabled | bool | `false` | Enable private networks.  Private networks enable network-level isolation between Cilium-managed endpoints. Endpoints within the same private network can communicate with each other, but are isolated from endpoints in other private networks. |
 | enterprise.privateNetworks.healthcheck.interval | string | `"2s"` | The interval for performing health checks against candidate INBs. Ignored in "bridge" mode. |
-| enterprise.privateNetworks.healthcheck.port | int | `4239` | The TCP port used for health checks. |
+| enterprise.privateNetworks.healthcheck.port | int | `4239` | The TCP port the health checks server listens to, in "bridge" mode. Otherwise, it represents the fallback port to connect to a candidate INB, if not explicitly advertised by the candidate INB itself. |
 | enterprise.privateNetworks.healthcheck.timeout | string | `"5s"` | The timeout after which a candidate INB is considered unhealthy if no health check response is received. Must be at least 50% higher than the configured interval. Ignored in "bridge" mode. |
 | enterprise.privateNetworks.mode | string | `"default"` | The private networks operational mode. The "bridge" mode provides connectivity between cilium-managed endpoints and external endpoints that belong to the same private network.  @schema enum: ["default", "bridge"] @schema |
 | enterprise.srv6.enabled | bool | `false` | Enable SRv6 encapsulation support. |

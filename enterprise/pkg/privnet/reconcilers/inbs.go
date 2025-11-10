@@ -364,9 +364,10 @@ func (i *INBs) upsertINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Private
 				inb := tables.INB{
 					Network: privnet.Name,
 					Node: tables.INBNode{
-						Cluster: node.Cluster,
-						Name:    node.Name,
-						IP:      node.IP,
+						Cluster:    node.Cluster,
+						Name:       node.Name,
+						IP:         node.IP,
+						HealthPort: node.HealthPort,
 					},
 				}
 
@@ -379,10 +380,10 @@ func (i *INBs) upsertINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Private
 				}
 
 				old, hadOld, _ := i.tbl.Modify(wtx, inb, func(old, new tables.INB) tables.INB {
-					// Preserve the previous state, in case the IP did not change.
+					// Preserve the previous state, in case the IP/port did not change.
 					// The other fields are either fixed (i.e., part of the primary
 					// key), or status related.
-					if old.Node.IP == new.Node.IP {
+					if old.Node == new.Node {
 						return old
 					}
 					return new
@@ -470,9 +471,10 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 			inb := tables.INB{
 				Network: network,
 				Node: tables.INBNode{
-					Cluster: node.Cluster,
-					Name:    node.Name,
-					IP:      node.IP,
+					Cluster:    node.Cluster,
+					Name:       node.Name,
+					IP:         node.IP,
+					HealthPort: node.HealthPort,
 				},
 			}
 
@@ -485,10 +487,10 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 			}
 
 			old, hadOld, _ := i.tbl.Modify(wtx, inb, func(old, new tables.INB) tables.INB {
-				// Preserve the previous state, in case the IP did not change.
+				// Preserve the previous state, in case the IP/port did not change.
 				// The other fields are either fixed (i.e., part of the primary
 				// key), or status related.
-				if old.Node.IP == new.Node.IP {
+				if old.Node == new.Node {
 					return old
 				}
 				return new
@@ -538,8 +540,8 @@ func (i *INBs) deleteINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 
 func (i *INBs) updateINBState(wtx statedb.WriteTxn, ev *health.Event) {
 	inb, _, found := i.tbl.Get(wtx, tables.INBByNodeAndNetwork(ev.Node.Cluster, ev.Node.Name, ev.Network))
-	if !found || inb.Node.IP != ev.Node.IP {
-		// The event is stale, as the entry no longer exists, or the node IP changed.
+	if !found || inb.Node != ev.Node {
+		// The event is stale, as the entry no longer exists, or the node ip/port changed.
 		return
 	}
 

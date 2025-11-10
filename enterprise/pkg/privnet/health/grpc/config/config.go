@@ -47,7 +47,8 @@ type Config struct {
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.Uint16("private-networks-health-check-port", def.Port, "The TCP port used for health checks")
+	flags.Uint16("private-networks-health-check-port", def.Port,
+		fmt.Sprintf("The TCP port the health checks server listens to, in %s mode", config.ModeBridge))
 	flags.Duration("private-networks-health-check-interval", def.Interval,
 		fmt.Sprintf("The interval for performing health checks against candidate INBs. Ignored in %s mode.", config.ModeBridge))
 	flags.Duration("private-networks-health-check-timeout", def.Timeout,

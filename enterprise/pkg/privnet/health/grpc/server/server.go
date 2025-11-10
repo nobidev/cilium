@@ -31,6 +31,7 @@ import (
 	api "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -53,6 +54,16 @@ var netListen = net.Listen
 
 func newDefaultListenerFactory(cfg config.Config, lns *node.LocalNodeStore) ListenerFactory {
 	port := strconv.FormatUint(uint64(cfg.Port), 10)
+
+	// Set the node annotation to propagate the health server port.
+	lns.Update(func(ln *node.LocalNode) {
+		if ln.Annotations == nil {
+			ln.Annotations = make(map[string]string)
+		}
+
+		ln.Annotations[types.PrivateNetworkINBHealthServerPortAnnotation] = port
+	})
+
 	return func(ctx context.Context) ([]net.Listener, error) {
 		ln, err := lns.Get(ctx)
 		if err != nil {

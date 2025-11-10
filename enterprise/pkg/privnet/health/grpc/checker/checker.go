@@ -15,8 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
-	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -46,11 +44,10 @@ type (
 	LocalNode struct{ Cluster, Name string }
 )
 
-func newDefaultConnFactory(cfg config.Config) ConnFactoryFn {
-	port := strconv.FormatUint(uint64(cfg.Port), 10)
+func newDefaultConnFactory() ConnFactoryFn {
 	return func(target tables.INBNode) (*grpc.ClientConn, error) {
 		return grpc.NewClient(
-			net.JoinHostPort(target.IP.String(), port),
+			target.HealthAddress(),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)
 	}

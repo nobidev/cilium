@@ -66,9 +66,11 @@ db/cmp privnet-inbs inbs.v2.table
 replace arm64 amd64 nodes-felidae-cougar.json   # Now matched by privnet blue
 replace amd64 s390x nodes-camelidae-llama.json  # No longer matched by privnet red
 replace 192.168.0.1 192.168.255.1 nodes-felidae-lion.json
+replace 9939 9940 nodes-elephantidae-elephant.json
 
 clustermesh/nodes/upsert _ nodes-camelidae-alpaca.json
 clustermesh/nodes/upsert _ nodes-camelidae-llama.json
+clustermesh/nodes/upsert _ nodes-elephantidae-elephant.json
 clustermesh/nodes/upsert _ nodes-felidae-cougar.json
 clustermesh/nodes/upsert _ nodes-felidae-lion.json
 clustermesh/nodes/delete _ nodes-felidae-tiger.json
@@ -242,6 +244,9 @@ spec:
     "IPAddresses": [
         {"Type": "InternalIP", "IP": "192.168.0.4"}
     ],
+    "Annotations": {
+        "privnet.isovalent.com/inb-health-server-port": "8091"
+    },
     "Labels": {
         "kubernetes.io/hostname": "alpaca",
         "kubernetes.io/arch": "amd64"
@@ -255,6 +260,9 @@ spec:
     "IPAddresses": [
         {"Type": "InternalIP", "IP": "192.168.0.5"}
     ],
+    "Annotations": {
+        "privnet.isovalent.com/inb-health-server-port": "8091"
+    },
     "Labels": {
         "kubernetes.io/hostname": "llama",
         "kubernetes.io/arch": "amd64"
@@ -268,6 +276,9 @@ spec:
     "IPAddresses": [
       {"Type": "InternalIP", "IP": "192.168.0.6"}
     ],
+    "Annotations": {
+        "privnet.isovalent.com/inb-health-server-port": "9939"
+    },
     "Labels": {
         "kubernetes.io/hostname": "elephant",
         "kubernetes.io/arch": "amd64"
@@ -279,6 +290,9 @@ spec:
     "Cluster": "elephantidae",
     "Name": "mammoth",
     "IPAddresses": [],
+    "Annotations": {
+        "privnet.isovalent.com/inb-health-server-port": "9939"
+    },
     "Labels": {
         "kubernetes.io/hostname": "mammoth",
         "kubernetes.io/arch": "amd64"
@@ -286,69 +300,70 @@ spec:
 }
 
 -- inbs.v1.table --
-Cluster        Node       IP              Network   Role
-camelidae      llama      192.168.0.5     blue      Standby
-camelidae      llama      192.168.0.5     red       Standby
-elephantidae   elephant   192.168.0.6     blue      Standby
-felidae        cougar     192.168.0.3     red       Standby
-felidae        lion       192.168.0.1     blue      Standby
-felidae        tiger      192.168.0.2     blue      Standby
-felidae        tiger      192.168.0.2     red       Standby
+Cluster        Node       IP            Port   Network   Role
+camelidae      llama      192.168.0.5   8091   blue      Standby
+camelidae      llama      192.168.0.5   8091   red       Standby
+elephantidae   elephant   192.168.0.6   9939   blue      Standby
+felidae        cougar     192.168.0.3   4239   red       Standby
+felidae        lion       192.168.0.1   4239   blue      Standby
+felidae        tiger      192.168.0.2   4239   blue      Standby
+felidae        tiger      192.168.0.2   4239   red       Standby
 
 -- inbs.v2.table --
-Cluster        Node       IP              Network   Role
-camelidae      llama      192.168.0.5     blue      Active
-camelidae      llama      192.168.0.5     red       Standby
-elephantidae   elephant   192.168.0.6     blue      Standby
-felidae        cougar     192.168.0.3     red       Standby
-felidae        lion       192.168.0.1     blue      Standby
-felidae        tiger      192.168.0.2     blue      Standby
-felidae        tiger      192.168.0.2     red       Active
+Cluster        Node       IP            Port   Network   Role
+camelidae      llama      192.168.0.5   8091   blue      Active
+camelidae      llama      192.168.0.5   8091   red       Standby
+elephantidae   elephant   192.168.0.6   9939   blue      Standby
+felidae        cougar     192.168.0.3   4239   red       Standby
+felidae        lion       192.168.0.1   4239   blue      Standby
+felidae        tiger      192.168.0.2   4239   blue      Standby
+felidae        tiger      192.168.0.2   4239   red       Active
 
 -- inbs.v3.table --
-Cluster        Node       IP              Network   Role
-camelidae      alpaca     192.168.0.4     blue      Standby
-camelidae      alpaca     192.168.0.4     red       Standby
-camelidae      llama      192.168.0.5     blue      Active
-elephantidae   elephant   192.168.0.6     blue      Standby
-felidae        cougar     192.168.0.3     blue      Standby
-felidae        cougar     192.168.0.3     red       Active
-felidae        lion       192.168.255.1   blue      Standby
+Cluster        Node       IP              Port   Network   Role
+camelidae      alpaca     192.168.0.4     8091   blue      Standby
+camelidae      alpaca     192.168.0.4     8091   red       Standby
+camelidae      llama      192.168.0.5     8091   blue      Active
+elephantidae   elephant   192.168.0.6     9940   blue      Standby
+felidae        cougar     192.168.0.3     4239   blue      Standby
+felidae        cougar     192.168.0.3     4239   red       Active
+felidae        lion       192.168.255.1   4239   blue      Standby
 
 -- inbs.v3bis.table --
-Cluster        Node       IP              Network   Role
-camelidae      alpaca     192.168.0.4     blue      Standby
-camelidae      alpaca     192.168.0.4     red       Standby
-camelidae      llama      192.168.0.5     blue      Active
-camelidae      llama      192.168.0.5     red       Standby
-elephantidae   elephant   192.168.0.6     blue      Standby
-felidae        cougar     192.168.0.3     blue      Standby
-felidae        cougar     192.168.0.3     red       Active
-felidae        lion       192.168.255.1   blue      Standby
+Cluster        Node       IP              Port   Network   Role
+camelidae      alpaca     192.168.0.4     8091   blue      Standby
+camelidae      alpaca     192.168.0.4     8091   red       Standby
+camelidae      llama      192.168.0.5     8091   blue      Active
+camelidae      llama      192.168.0.5     8091   red       Standby
+elephantidae   elephant   192.168.0.6     9940   blue      Standby
+felidae        cougar     192.168.0.3     4239   blue      Standby
+felidae        cougar     192.168.0.3     4239   red       Active
+felidae        lion       192.168.255.1   4239   blue      Standby
 
 -- inbs.v4.table --
-Cluster        Node       IP              Network   Role
-camelidae      llama      192.168.0.5     red       Active
-elephantidae   elephant   192.168.0.6     blue      Standby
-elephantidae   elephant   192.168.0.6     red       Standby
-felidae        cougar     192.168.0.3     blue      Active
-felidae        lion       192.168.255.1   blue      Standby
-felidae        lion       192.168.255.1   red       Standby
+Cluster        Node       IP              Port   Network   Role
+camelidae      llama      192.168.0.5     8091   red       Active
+elephantidae   elephant   192.168.0.6     9940   blue      Standby
+elephantidae   elephant   192.168.0.6     9940   red       Standby
+felidae        cougar     192.168.0.3     4239   blue      Active
+felidae        lion       192.168.255.1   4239   blue      Standby
+felidae        lion       192.168.255.1   4239   red       Standby
 
 -- inbs.v5.table --
-Cluster        Node       IP              Network   Role
-elephantidae   elephant   192.168.0.6     blue      Standby
-felidae        cougar     192.168.0.3     blue      Active
-felidae        lion       192.168.255.1   blue      Standby
+Cluster        Node       IP              Port   Network   Role
+elephantidae   elephant   192.168.0.6     9940   blue      Standby
+felidae        cougar     192.168.0.3     4239   blue      Active
+felidae        lion       192.168.255.1   4239   blue      Standby
 
 -- inbs.v6.table --
-Cluster        Node       IP              Network   Health
-camelidae      llama      192.168.0.5     red       Healthy, Confirmed
-elephantidae   elephant   192.168.0.6     blue      Healthy, Confirmed
-elephantidae   elephant   192.168.0.6     red       Healthy, Confirmed
-felidae        cougar     192.168.0.3     blue      Healthy, Confirmed
-felidae        lion       192.168.255.1   blue      Healthy, Confirmed
-felidae        lion       192.168.255.1   red       Healthy, Confirmed
+Cluster        Node       IP              Port   Network   Health
+camelidae      llama      192.168.0.5     8091   red       Healthy, Confirmed
+elephantidae   elephant   192.168.0.6     9940   blue      Healthy, Confirmed
+elephantidae   elephant   192.168.0.6     9940   red       Healthy, Confirmed
+felidae        cougar     192.168.0.3     4239   blue      Healthy, Confirmed
+felidae        lion       192.168.255.1   4239   blue      Healthy, Confirmed
+felidae        lion       192.168.255.1   4239   red       Healthy, Confirmed
+
 -- inbs.v6.active.table --
 Network   State
 red       Active

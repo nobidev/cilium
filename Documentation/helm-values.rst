@@ -1549,7 +1549,7 @@
      - string
      - ``"2s"``
    * - :spelling:ignore:`enterprise.privateNetworks.healthcheck.port`
-     - The TCP port used for health checks.
+     - The TCP port the health checks server listens to, in "bridge" mode. Otherwise, it represents the fallback port to connect to a candidate INB, if not explicitly advertised by the candidate INB itself.
      - int
      - ``4239``
    * - :spelling:ignore:`enterprise.privateNetworks.healthcheck.timeout`

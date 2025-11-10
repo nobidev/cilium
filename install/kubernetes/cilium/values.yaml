@@ -4943,7 +4943,9 @@ enterprise:
     mode: default
     # Configure health checks between workload nodes and INBs.
     healthcheck:
-      # -- The TCP port used for health checks.
+      # -- The TCP port the health checks server listens to, in "bridge" mode.
+      # Otherwise, it represents the fallback port to connect to a candidate
+      # INB, if not explicitly advertised by the candidate INB itself.
       port: 4239
       # -- The interval for performing health checks against candidate INBs.
       # Ignored in "bridge" mode.

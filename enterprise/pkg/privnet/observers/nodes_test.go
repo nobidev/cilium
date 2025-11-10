@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	health "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -56,6 +57,7 @@ func TestNodesObserver(t *testing.T) {
 	const timeout = 3 * time.Second
 
 	var (
+		hcfg = health.Config{Port: 1234}
 		mock = &mocknm{nodes: sets.New[notypes.Identity]()}
 
 		mgr nomgr.NodeManager
@@ -69,6 +71,7 @@ func TestNodesObserver(t *testing.T) {
 	err := hive.New(
 		cell.Provide(
 			func() tunnel.Config { return tunnel.NewTestConfig(tunnel.VXLAN) },
+			func() health.Config { return hcfg },
 			func() nomgr.NodeManager { return mock },
 			observers.NewNodes,
 		),
@@ -112,10 +115,10 @@ func TestNodesObserver(t *testing.T) {
 	select {
 	case got := <-stream.ToChannel(t.Context(), obs):
 		require.Equal(t, observers.Events[*types.Node, resource.EventKind]{
-			{Object: types.NewNode(no1, false), EventKind: resource.Upsert},
-			{Object: types.NewNode(no2, false), EventKind: resource.Upsert},
-			{Object: types.NewNode(no1, false), EventKind: resource.Delete},
-			{Object: types.NewNode(no3, false), EventKind: resource.Upsert},
+			{Object: types.NewNode(no1, false, hcfg.Port), EventKind: resource.Upsert},
+			{Object: types.NewNode(no2, false, hcfg.Port), EventKind: resource.Upsert},
+			{Object: types.NewNode(no1, false, hcfg.Port), EventKind: resource.Delete},
+			{Object: types.NewNode(no3, false, hcfg.Port), EventKind: resource.Upsert},
 			{EventKind: resource.Sync},
 		}, got)
 	case <-time.After(timeout):
@@ -123,8 +126,8 @@ func TestNodesObserver(t *testing.T) {
 	}
 
 	// Assert that List returns the correct nodes snapshot.
-	require.ElementsMatch(t, []*types.Node{types.NewNode(no2, false)}, obs.List("foo"))
-	require.ElementsMatch(t, []*types.Node{types.NewNode(no3, false)}, obs.List("bar"))
+	require.ElementsMatch(t, []*types.Node{types.NewNode(no2, false, hcfg.Port)}, obs.List("foo"))
+	require.ElementsMatch(t, []*types.Node{types.NewNode(no3, false, hcfg.Port)}, obs.List("bar"))
 	require.Empty(t, obs.List("other"))
 }
 
@@ -147,7 +150,7 @@ func TestNodesObserverSync(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obs := observers.NewNodes(&mocknm{}, tunnel.Config{})
+			obs := observers.NewNodes(&mocknm{}, tunnel.Config{}, health.Config{})
 			tt.do(obs)
 
 			select {

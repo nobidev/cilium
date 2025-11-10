@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/stream"
 
+	health "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -36,7 +37,8 @@ type Nodes struct {
 	nomgr.NodeManager
 	*Generic[*types.Node, resource.EventKind]
 
-	ipv6Underlay bool
+	ipv6Underlay  bool
+	defHealthPort uint16
 
 	cacheMu lock.RWMutex
 	cache   map[types.ClusterName]map[types.NodeName]*types.Node
@@ -50,12 +52,13 @@ var (
 	_ stream.Observable[NodeEvents] = (*Nodes)(nil)
 )
 
-func NewNodes(nm nomgr.NodeManager, tcfg tunnel.Config) *Nodes {
+func NewNodes(nm nomgr.NodeManager, tcfg tunnel.Config, hcfg health.Config) *Nodes {
 	return &Nodes{
-		NodeManager:  nm,
-		Generic:      NewGeneric[*types.Node, resource.EventKind](),
-		ipv6Underlay: tcfg.UnderlayProtocol() == tunnel.IPv6,
-		cache:        make(map[types.ClusterName]map[types.NodeName]*types.Node),
+		NodeManager:   nm,
+		Generic:       NewGeneric[*types.Node, resource.EventKind](),
+		ipv6Underlay:  tcfg.UnderlayProtocol() == tunnel.IPv6,
+		defHealthPort: hcfg.Port,
+		cache:         make(map[types.ClusterName]map[types.NodeName]*types.Node),
 	}
 }
 
@@ -71,7 +74,7 @@ func (o *Nodes) List(cluster types.ClusterName) []*types.Node {
 
 // NodeUpdated wraps the corresponding [NodeManager] method.
 func (o *Nodes) NodeUpdated(no notypes.Node) {
-	slim := types.NewNode(no, o.ipv6Underlay)
+	slim := types.NewNode(no, o.ipv6Underlay, o.defHealthPort)
 
 	o.cacheMu.Lock()
 	inner := o.cache[slim.Cluster]
@@ -88,7 +91,7 @@ func (o *Nodes) NodeUpdated(no notypes.Node) {
 
 // NodeDeleted wraps the corresponding [NodeManager] method.
 func (o *Nodes) NodeDeleted(no notypes.Node) {
-	slim := types.NewNode(no, o.ipv6Underlay)
+	slim := types.NewNode(no, o.ipv6Underlay, o.defHealthPort)
 
 	o.cacheMu.Lock()
 	inner := o.cache[slim.Cluster]

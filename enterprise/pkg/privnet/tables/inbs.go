@@ -13,6 +13,7 @@ package tables
 import (
 	"errors"
 	"net/netip"
+	"strconv"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -46,7 +47,7 @@ type INB struct {
 var _ statedb.TableWritable = INB{}
 
 func (i INB) TableHeader() []string {
-	return []string{"Cluster", "Node", "IP", "Network", "Health", "Role", "LastUpdate"}
+	return []string{"Cluster", "Node", "IP", "Port", "Network", "Health", "Role", "LastUpdate"}
 }
 
 func (i INB) TableRow() []string {
@@ -58,6 +59,7 @@ func (i INB) TableRow() []string {
 	return []string{
 		string(i.Node.Cluster), string(i.Node.Name),
 		i.Node.IP.String(),
+		strconv.FormatUint(uint64(i.Node.HealthPort), 10),
 		string(i.Network),
 		i.Health.String(),
 		i.Role.String(),
@@ -108,10 +110,18 @@ type INBNode struct {
 
 	// IP is the IP address this node is reachable at.
 	IP netip.Addr
+
+	// HealthPort is the TCP port the privnet health server is listening to.
+	HealthPort uint16
 }
 
 func (node INBNode) String() string {
 	return string(node.Cluster) + "/" + string(node.Name)
+}
+
+// HealthAddress returns the address to connect to the INB health server.
+func (node INBNode) HealthAddress() string {
+	return netip.AddrPortFrom(node.IP, node.HealthPort).String()
 }
 
 // INBState represents the health state of an INB for a given private network.
