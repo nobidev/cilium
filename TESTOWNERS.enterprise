@@ -424,6 +424,7 @@
 /cilium-cli/enterprise/hooks/k8s/vm_exec.go @isovalent/private-networking
 /cilium-cli/enterprise/hooks/manifests/ingress-policy/ @isovalent/service-mesh
 /cilium-cli/enterprise/hooks/sysdump/timescape*.go @isovalent/timescape
+/contrib/scripts/enterprise-check-api-code-gen.sh @isovalent/cilium-agent
 /contrib/scripts/enterprise-k8s-manifests-gen.sh @isovalent/sig-k8s
 /contrib/testing/enterprise-kind.yaml @isovalent/infrastructure
 /contrib/testing/enterprise-kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer

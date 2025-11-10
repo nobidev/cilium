@@ -72,3 +72,16 @@ jobs:
       - name: Check that all enterprise files are covered in CODEOWNERS
         run: |
           ./contrib/scripts/enterprise-codeowners.sh
+
+  generate-enterprise-api:
+    runs-on: ubuntu-24.04
+    name: Generate Enterprise API
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Check api generated files
+        run: |
+          contrib/scripts/enterprise-check-api-code-gen.sh
