@@ -17,7 +17,7 @@ on:
 permissions: read-all
 
 jobs:
-  lint:
+  mindfulness:
     name: Mindfulness
     runs-on: ubuntu-24.04
     steps:
@@ -51,8 +51,18 @@ jobs:
           contrib/scripts/enterprise-meditation.sh \
             --repo cilium/cilium --stat \
             --noisy
+
+  codeowners:
+    name: CODEOWNERS
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
       - name: Check TESTOWNERS.enterprise is up to date
-        if: ${{ always() && steps.checkout.outcome == 'success' && steps.checkout-oss.outcome == 'success' }}
         run: |
           ./contrib/scripts/enterprise-testowners.sh
           if ! git diff --exit-code; then
@@ -60,6 +70,5 @@ jobs:
             exit 1
           fi
       - name: Check that all enterprise files are covered in CODEOWNERS
-        if: ${{ always() && steps.checkout.outcome == 'success' && steps.checkout-oss.outcome == 'success' }}
         run: |
           ./contrib/scripts/enterprise-codeowners.sh
