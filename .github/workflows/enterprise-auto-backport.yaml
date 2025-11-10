@@ -28,7 +28,7 @@ on:
         required: true
       SHA:
         description: "SHA under test (head of the PR branch)."
-        required: true
+        required: false
       base-SHA:
         description: "SHA of the base branch (target branch of the PR)."
         required: false
@@ -301,14 +301,14 @@ jobs:
     permissions:
       statuses: write
     runs-on: ubuntu-24.04
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.SHA != ''
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA }}
   commit-status-final:
-    if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.SHA != '' }}
     name: Commit Status Final
     needs:
       - backport
