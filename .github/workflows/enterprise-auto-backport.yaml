@@ -247,13 +247,12 @@ jobs:
                 * `backport-pending/<target>` label.
             */
 
-            const results = '${{ steps.backport.outputs.was_successful_by_target }}'
+            const results = `${{ steps.backport.outputs.was_successful_by_target }}`
               .split('\n')
               .filter(result => result.trim() !== '');
 
             console.log('Backporting output:', results);
 
-            let hasFailures = false;
             const labelsToRemove = [];
             const labelsToAdd = [];
 
@@ -262,7 +261,6 @@ jobs:
 
                 if (was_successful !== 'true') {
                     core.error(`Backport to ${branch} failed.`);
-                    hasFailures = true;
                     continue;
                 }
 
@@ -294,7 +292,7 @@ jobs:
                 });
             }
 
-            if (hasFailures) {
+            if ('${{ steps.backport.outputs.was_successful }}' == 'false') {
                 core.setFailed('One or more backports failed. Please check the logs.');
             }
 
