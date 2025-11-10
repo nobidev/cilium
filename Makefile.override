@@ -91,5 +91,12 @@ sync-grafana-to-perses: ## Migrate Perses dashboards from Grafana
 	@echo "  SYNC Perses dashboards from Grafana"
 	./enterprise/dashboards/sync_grafana_to_perses.sh
 
+.PHONY: generate-enterprise-apis
+generate-enterprise-apis: ## Generate all enterprise-only APIs.
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C enterprise/api/extensions proto
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C enterprise/fqdn-proxy/api/v1 proto
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C enterprise/pkg/hubble/aggregation/api/aggregation proto
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C enterprise/pkg/privnet/health/grpc/api proto
+
 # Cilium FQDN HA proxy specific targets
 -include Makefile.fqdn-proxy
