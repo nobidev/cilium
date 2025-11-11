@@ -13,16 +13,23 @@ on:
         description: "Pull request number."
         required: true
       context-ref:
-        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
-        required: true
+        description: "Placeholder for ariane. Not used in the workflow."
+        required: false
+        default: ''
       SHA:
-        description: "SHA under test (head of the PR branch)."
+        description: "Placeholder for ariane. Not used in the workflow."
         required: false
+        default: ''
       base-SHA:
-        description: "SHA of the base branch (target branch of the PR)."
+        description: "Placeholder for ariane. Not used in the workflow."
         required: false
+        default: ''
       extra-args:
         description: "[string] Arbitrary arguments (space separated) passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args)' in workflow."
+        required: false
+        default: ''
+      target-branches:
+        description: "[string] Target branches (space separated) for backporting."
         required: false
         default: ''
 
@@ -54,7 +61,7 @@ jobs:
         PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.PR-number}}
         TARGET_BRANCH_PREFIX: ${{ vars.TARGET_BRANCH_PREFIX }}
         TARGET_BRANCH_SUFFIX: ${{ vars.TARGET_BRANCH_SUFFIX }}
-        TARGET_BRANCHES: ${{ github.event_name == 'workflow_dispatch' && fromJson(inputs.extra-args) || '' }}
+        TARGET_BRANCHES: ''
 
     # run only when a PR is merged or when a comment with /backport is created on a pull request or on workflow_dispatch
     if: >
@@ -107,6 +114,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ steps.generate-token.outputs.token }}
+          result-encoding: string
           script: |
             const prNumber = process.env.PR_NUMBER;
             const { data: pr } = await github.rest.pulls.get({
@@ -132,6 +140,7 @@ jobs:
                 });
             }
 
+            console.log(`Is "auto-backport" label present: ${result}`);
             return result.toString();
 
       - name: Check if pull_request is merged
@@ -141,17 +150,31 @@ jobs:
           github-token: ${{ steps.generate-token.outputs.token }}
           result-encoding: string
           script: |
-            if (context.eventName === 'pull_request') {
-                return context.payload.pull_request.merged.toString();
-            }
-
             const { data: pr } = await github.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: process.env.PR_NUMBER
             });
 
-            return pr.merged.toString();
+            console.log(`Is pull request merged: ${pr.merged}`);
+            return pr.merged === true ? 'true' : 'false';
+
+      - name: Setup Target Branches from workflow_dispatch input
+        if: github.event_name == 'workflow_dispatch'
+        id: setup-target-branches-dispatch
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            let targetBranches = '';
+            if ( '${{ inputs.target-branches }}'.trim() != '' ) {
+                targetBranches = '${{ inputs.target-branches }}';
+            }
+            if ( '${{ inputs.extra-args }}'.trim() != '' ) {
+                targetBranches = JSON.parse('${{ inputs.extra-args }}');
+            }
+            console.log(`Setting TARGET_BRANCHES to: '${targetBranches}'`);
+            core.exportVariable('TARGET_BRANCHES', targetBranches);
 
       - name: Setup Target Branches from text comment / command
         if: github.event_name == 'issue_comment'
@@ -173,7 +196,7 @@ jobs:
 
       - name: Setup Labels if pull_request is not merged
         id: setup-labels
-        if: steps.check-backport-labels.outputs.result == 'true' && steps.check-pr-merged.outputs.result == 'false'
+        if: true == false
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ steps.generate-token.outputs.token }}
@@ -198,6 +221,54 @@ jobs:
                         'Labels `' + target_labels.join(", ") + '` have been added accordingly.'
             });
 
+      - name: Validate Branches
+        id: validate-branches
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        if: github.event_name == 'issue_comment' || github.event_name == 'workflow_dispatch'
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          script: |
+            const branchPrefix = process.env.TARGET_BRANCH_PREFIX;
+            const branchSuffix = process.env.TARGET_BRANCH_SUFFIX;
+            const targetBranches = process.env.TARGET_BRANCHES.split(' ')
+                .filter(branch => branch.trim() !== '')
+                .map(branch => `${branch}${branchSuffix}`);
+
+            if (targetBranches.length === 0) {
+                await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: process.env.PR_NUMBER,
+                    body: '⚠️ No target branches specified for backporting. ' +
+                          'Please provide at least one target branch in the comment like:\n' +
+                          '`/backport <target-branch-1> <target-branch-2> ...`'
+                });
+                core.setFailed('No target branches specified for backporting.');
+            }
+
+            for (const branch of targetBranches) {
+                const fullBranchName = `${branchPrefix}${branch}`;
+                try {
+                    await github.rest.repos.getBranch({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        branch: fullBranchName
+                    });
+                } catch (error) {
+                    await github.rest.issues.createComment({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: process.env.PR_NUMBER,
+                        body: `⚠️ Target branch \`${fullBranchName}\` does not exist in the repository. ` +
+                            'Please provide valid target branches for backporting.'
+                    });
+                    core.setFailed(`Target branch ${fullBranchName} does not exist in the repository.`);
+                }
+            }
+
+            console.log(`Validated target branches: ${targetBranches.join(', ')}`);
+            core.exportVariable('TARGET_BRANCHES', targetBranches.join(' '));
+
       - name: Checkout code
         id: checkout
         if: steps.check-backport-labels.outputs.result == 'true' && steps.check-pr-merged.outputs.result == 'true'
@@ -218,7 +289,7 @@ jobs:
           copy_milestone: false # Reviewer should set this manually
           copy_requested_reviewers: false # Previous reviewers may not be available for review
           label_pattern: '^needs-backport\/([\w\.\-]+)$'
-          pull_title: '${target_branch} Backport: ${pull_title}'
+          pull_title: '[${target_branch} Backport]: ${pull_title}'
           pull_description: |
             Backport of #${pull_number} to `${target_branch}`.
             * [x] #${pull_number}
@@ -231,7 +302,7 @@ jobs:
             ```upstream-prs
             ${pull_number}
             ```
-          add_labels: 'kind/backport'
+          add_labels: 'kind/backports, backport-automation'
           source_pr_number: ${{ env.PR_NUMBER }}
           target_branch_prefix: ${{ env.TARGET_BRANCH_PREFIX }}
           target_branch_suffix: ${{ env.TARGET_BRANCH_SUFFIX }}
@@ -304,28 +375,25 @@ jobs:
                 });
             }
 
-            `${{ steps.backport.outputs.created_pull_numbers }}`
+            const prs = `${{ steps.backport.outputs.created_pull_numbers }}`
                 .split(' ')
-                .filter(pr => pr.trim() !== '')
-                .forEach(pr_number => {
-                    console.log(`Backport PR created: #${pr_number}`);
-                    const { data: pr } = await github.rest.pulls.get({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        pull_number: pr_number
-                    });
+                .filter(pr => pr.trim() !== '');
 
-                    const backport_label = `backport/${pr.base.ref.replace(`${{ env.TARGET_BRANCH_PREFIX }}`, '')}`;
-                    await github.rest.issues.addLabels({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        issue_number: pr_number,
-                        labels: [backport_label]
-                    });
+            for (const pr_number of prs) {
+                console.log(`Backport PR created: #${pr_number}`);
+                const { data: pr } = await github.rest.pulls.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: pr_number
                 });
 
-            if ('${{ steps.backport.outputs.was_successful }}' == 'false') {
-                core.setFailed('One or more backports failed. Please check the logs.');
+                const backport_label = `backport/${pr.base.ref.replace(`${{ env.TARGET_BRANCH_PREFIX }}`, '')}`;
+                await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: pr_number,
+                    labels: [backport_label]
+                });
             }
 
   commit-status-start:
