@@ -22,9 +22,9 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 )
@@ -32,7 +32,7 @@ import (
 type VPNRoutePolicyReconcilerOut struct {
 	cell.Out
 
-	Reconciler reconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
+	Reconciler reconciler.ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
 type VPNRoutePolicyReconcilerIn struct {
@@ -57,7 +57,7 @@ type VPNRoutePolicyReconciler struct {
 }
 
 type VPNRoutePolicyMetadata struct {
-	VPNPolicies reconcilerv2.RoutePolicyMap
+	VPNPolicies reconciler.RoutePolicyMap
 }
 
 func NewVPNRoutePolicyReconciler(in VPNRoutePolicyReconcilerIn) VPNRoutePolicyReconcilerOut {
@@ -102,7 +102,7 @@ func (r *VPNRoutePolicyReconciler) Init(i *instance.BGPInstance) error {
 		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
 	}
 	r.metadata[i.Name] = VPNRoutePolicyMetadata{
-		VPNPolicies: make(reconcilerv2.RoutePolicyMap),
+		VPNPolicies: make(reconciler.RoutePolicyMap),
 	}
 	return nil
 }
@@ -113,7 +113,7 @@ func (r *VPNRoutePolicyReconciler) Cleanup(i *instance.BGPInstance) {
 	}
 }
 
-func (r *VPNRoutePolicyReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+func (r *VPNRoutePolicyReconciler) Reconcile(ctx context.Context, p reconciler.ReconcileParams) error {
 	if !r.initialized.Load() {
 		r.logger.Debug("Not initialized yet, skipping VPN route policy reconciliation")
 		return nil
@@ -137,7 +137,7 @@ func (r *VPNRoutePolicyReconciler) Reconcile(ctx context.Context, p reconcilerv2
 		return err
 	}
 
-	updatedPolicies, err := reconcilerv2.ReconcileRoutePolicies(&reconcilerv2.ReconcileRoutePoliciesParams{
+	updatedPolicies, err := reconciler.ReconcileRoutePolicies(&reconciler.ReconcileRoutePoliciesParams{
 		Logger:          r.logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:             ctx,
 		Router:          p.BGPInstance.Router,
@@ -152,8 +152,8 @@ func (r *VPNRoutePolicyReconciler) Reconcile(ctx context.Context, p reconcilerv2
 	return err
 }
 
-func (r *VPNRoutePolicyReconciler) getDesiredRoutePolicies(desiredConfig *v1.IsovalentBGPNodeInstance) (reconcilerv2.RoutePolicyMap, error) {
-	desiredPolicies := make(reconcilerv2.RoutePolicyMap)
+func (r *VPNRoutePolicyReconciler) getDesiredRoutePolicies(desiredConfig *v1.IsovalentBGPNodeInstance) (reconciler.RoutePolicyMap, error) {
+	desiredPolicies := make(reconciler.RoutePolicyMap)
 
 	for _, peer := range desiredConfig.Peers {
 		if peer.PeerAddress == nil || *peer.PeerAddress == "" {

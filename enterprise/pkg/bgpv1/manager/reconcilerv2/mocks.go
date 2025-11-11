@@ -26,9 +26,9 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -89,7 +89,7 @@ func (u *upgraderMock) setNodeInstance(n *v1.IsovalentBGPNodeInstance) {
 	u.bgpNodeInstance = n
 }
 
-func (u *upgraderMock) upgrade(params reconcilerv2.ReconcileParams) (EnterpriseReconcileParams, error) {
+func (u *upgraderMock) upgrade(params reconciler.ReconcileParams) (EnterpriseReconcileParams, error) {
 	return EnterpriseReconcileParams{
 		BGPInstance: &EnterpriseBGPInstance{
 			Name:   params.BGPInstance.Name,
@@ -100,7 +100,7 @@ func (u *upgraderMock) upgrade(params reconcilerv2.ReconcileParams) (EnterpriseR
 	}, nil
 }
 
-func (u *upgraderMock) upgradeState(params reconcilerv2.StateReconcileParams) (EnterpriseStateReconcileParams, error) {
+func (u *upgraderMock) upgradeState(params reconciler.StateReconcileParams) (EnterpriseStateReconcileParams, error) {
 	return EnterpriseStateReconcileParams{
 		DesiredConfig: u.bgpNodeInstance, // put provided isovalentBGPNodeInstance into the desired config
 		UpdatedInstance: &EnterpriseBGPInstance{
@@ -248,20 +248,20 @@ type mockStateReconcilerIn struct {
 	Logger           *slog.Logger
 	Instance         *instance.BGPInstance
 	StateCh          types.StateNotificationCh
-	StateReconcilers []reconcilerv2.StateReconciler `group:"bgp-state-reconciler-v2"`
+	StateReconcilers []reconciler.StateReconciler `group:"bgp-state-reconciler"`
 }
 
 // Mocked state reconciler. It only supports pre-configured, single instance.
 // It only supports Update event.
 type mockStateReconciler struct {
 	in          mockStateReconcilerIn
-	reconcilers []reconcilerv2.StateReconciler
+	reconcilers []reconciler.StateReconciler
 }
 
 func registerMockStateReconciler(in mockStateReconcilerIn) *mockStateReconciler {
 	r := &mockStateReconciler{
 		in: in,
-		reconcilers: reconcilerv2.GetActiveStateReconcilers(
+		reconcilers: reconciler.GetActiveStateReconcilers(
 			in.Logger,
 			in.StateReconcilers,
 		),
@@ -271,7 +271,7 @@ func registerMockStateReconciler(in mockStateReconcilerIn) *mockStateReconciler 
 }
 
 func (m *mockStateReconciler) reconcile(ctx context.Context, retries int) (bool, error) {
-	params := reconcilerv2.StateReconcileParams{
+	params := reconciler.StateReconcileParams{
 		UpdatedInstance: &instance.BGPInstance{
 			Name:   m.in.Instance.Name,
 			Config: m.in.Instance.Config,

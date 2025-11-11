@@ -26,9 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
-	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
-	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/gobgp"
+	"github.com/cilium/cilium/pkg/bgp/test/commands"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	client "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"

@@ -21,9 +21,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 )
@@ -100,10 +100,10 @@ var (
 func TestVPNRoutePolicy(t *testing.T) {
 	tests := []struct {
 		name        string
-		preRPs      reconcilerv2.RoutePolicyMap
+		preRPs      reconciler.RoutePolicyMap
 		peerConfigs []*v1.IsovalentBGPPeerConfig
 		peers       []v1.IsovalentBGPNodePeer
-		expectedRPs reconcilerv2.RoutePolicyMap
+		expectedRPs reconciler.RoutePolicyMap
 	}{
 		{
 			name:        "ipv4-unicast peer, no policy",
@@ -118,7 +118,7 @@ func TestVPNRoutePolicy(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: make(reconcilerv2.RoutePolicyMap),
+			expectedRPs: make(reconciler.RoutePolicyMap),
 		},
 		{
 			name:        "ipv4-vpn peer, policies applied",
@@ -133,14 +133,14 @@ func TestVPNRoutePolicy(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: reconcilerv2.RoutePolicyMap{
+			expectedRPs: reconciler.RoutePolicyMap{
 				importPeerPolicy.Name: importPeerPolicy,
 				exportPeerPolicy.Name: exportPeerPolicy,
 			},
 		},
 		{
 			name: "ipv4-unicast peer, cleanup old policies",
-			preRPs: reconcilerv2.RoutePolicyMap{
+			preRPs: reconciler.RoutePolicyMap{
 				importPeerPolicy.Name: importPeerPolicy,
 				exportPeerPolicy.Name: exportPeerPolicy,
 			},
@@ -154,11 +154,11 @@ func TestVPNRoutePolicy(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: make(reconcilerv2.RoutePolicyMap),
+			expectedRPs: make(reconciler.RoutePolicyMap),
 		},
 		{
 			name: "no peer found, cleanup old policies",
-			preRPs: reconcilerv2.RoutePolicyMap{
+			preRPs: reconciler.RoutePolicyMap{
 				importPeerPolicy.Name: importPeerPolicy,
 				exportPeerPolicy.Name: exportPeerPolicy,
 			},
@@ -172,7 +172,7 @@ func TestVPNRoutePolicy(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: make(reconcilerv2.RoutePolicyMap),
+			expectedRPs: make(reconciler.RoutePolicyMap),
 		},
 	}
 
@@ -204,7 +204,7 @@ func TestVPNRoutePolicy(t *testing.T) {
 				})
 			}
 
-			reconciler := &VPNRoutePolicyReconciler{
+			vpnReconciler := &VPNRoutePolicyReconciler{
 				logger:          hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
 				peerConfigStore: newMockResourceStore[*v1.IsovalentBGPPeerConfig](),
 				metadata:        make(map[string]VPNRoutePolicyMetadata),
@@ -212,28 +212,28 @@ func TestVPNRoutePolicy(t *testing.T) {
 			}
 
 			if len(tt.peerConfigs) > 0 {
-				reconciler.peerConfigStore = InitMockStore[*v1.IsovalentBGPPeerConfig](tt.peerConfigs)
+				vpnReconciler.peerConfigStore = InitMockStore[*v1.IsovalentBGPPeerConfig](tt.peerConfigs)
 			}
 
-			reconciler.Init(testOSSBGPInstance)
-			defer reconciler.Cleanup(testOSSBGPInstance)
-			reconciler.initialized.Store(true)
+			vpnReconciler.Init(testOSSBGPInstance)
+			defer vpnReconciler.Cleanup(testOSSBGPInstance)
+			vpnReconciler.initialized.Store(true)
 
 			// set preconfigured route policies
-			reconciler.SetMetadata(testBGPInstance, VPNRoutePolicyMetadata{
+			vpnReconciler.SetMetadata(testBGPInstance, VPNRoutePolicyMetadata{
 				VPNPolicies: tt.preRPs,
 			})
 
 			// reconcile peer configs
 			for range 2 {
-				err := reconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
+				err := vpnReconciler.Reconcile(context.Background(), reconciler.ReconcileParams{
 					BGPInstance:   testOSSBGPInstance,
 					DesiredConfig: ossNodeInstance,
 				})
 				req.NoError(err)
 			}
 
-			req.Equal(tt.expectedRPs, reconciler.GetMetadata(testBGPInstance).VPNPolicies)
+			req.Equal(tt.expectedRPs, vpnReconciler.GetMetadata(testBGPInstance).VPNPolicies)
 		})
 	}
 }

@@ -24,8 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
+	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	"github.com/cilium/cilium/pkg/bgp/manager/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"

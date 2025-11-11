@@ -10,7 +10,7 @@
 
 package reconcilerv2
 
-import ossreconcilerv2 "github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
+import ossreconcilerv2 "github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 
 const (
 	LinkLocalReconcilerName        = "LinkLocal"

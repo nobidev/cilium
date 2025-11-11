@@ -33,7 +33,7 @@ import (
 	enterprise_tables "github.com/cilium/cilium/enterprise/datapath/tables"
 	"github.com/cilium/cilium/enterprise/pkg/datapath/sockets"
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"

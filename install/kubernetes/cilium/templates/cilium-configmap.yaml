@@ -1383,6 +1383,7 @@ data:
   proxy-idle-timeout-seconds: {{ .Values.envoy.idleTimeoutDurationSeconds | quote }}
   proxy-max-concurrent-retries: {{ .Values.envoy.maxConcurrentRetries | quote }}
   http-retry-count: {{ .Values.envoy.httpRetryCount | quote }}
+  http-stream-idle-timeout: {{ .Values.envoy.streamIdleTimeoutDurationSeconds | quote }}
 
   external-envoy-proxy: {{ include "envoyDaemonSetEnabled" . | quote }}
   envoy-base-id: {{ .Values.envoy.baseID | quote }}
@@ -1412,6 +1413,7 @@ data:
   clustermesh-cache-ttl: {{ .Values.clustermesh.cacheTTL | quote }}
   clustermesh-enable-endpoint-sync: {{ .Values.clustermesh.enableEndpointSliceSynchronization | quote }}
   clustermesh-enable-mcs-api: {{ (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) | quote }}
+  clustermesh-mcs-api-install-crds: {{ .Values.clustermesh.mcsapi.installCRDs | quote }}
   policy-default-local-cluster: {{ .Values.clustermesh.policyDefaultLocalCluster | quote }}
 
   nat-map-stats-entries: {{ .Values.nat.mapStatsEntries | quote }}

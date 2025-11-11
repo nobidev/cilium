@@ -22,8 +22,8 @@ import (
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/time"

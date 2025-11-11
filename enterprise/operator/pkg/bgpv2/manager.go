@@ -23,8 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"

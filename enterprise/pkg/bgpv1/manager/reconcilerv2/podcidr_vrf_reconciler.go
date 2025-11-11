@@ -24,9 +24,9 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	entTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -50,7 +50,7 @@ type PodCIDRVRFReconcilerIn struct {
 type PodCIDRVRFReconcilerOut struct {
 	cell.Out
 
-	Reconciler reconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
+	Reconciler reconciler.ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
 type PodCIDRVRFReconciler struct {
@@ -63,7 +63,7 @@ type PodCIDRVRFReconciler struct {
 }
 
 type PodCIDRVRFReconcilerMetadata struct {
-	VRFAFPaths reconcilerv2.ResourceAFPathsMap
+	VRFAFPaths reconciler.ResourceAFPathsMap
 }
 
 func NewPodCIDRVRFReconciler(in PodCIDRVRFReconcilerIn) PodCIDRVRFReconcilerOut {
@@ -103,7 +103,7 @@ func (r *PodCIDRVRFReconciler) Init(i *instance.BGPInstance) error {
 		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
 	}
 	r.metadata[i.Name] = PodCIDRVRFReconcilerMetadata{
-		VRFAFPaths: make(reconcilerv2.ResourceAFPathsMap),
+		VRFAFPaths: make(reconciler.ResourceAFPathsMap),
 	}
 	return nil
 }
@@ -114,7 +114,7 @@ func (r *PodCIDRVRFReconciler) Cleanup(i *instance.BGPInstance) {
 	}
 }
 
-func (r *PodCIDRVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+func (r *PodCIDRVRFReconciler) Reconcile(ctx context.Context, p reconciler.ReconcileParams) error {
 	iParams, err := r.Upgrader.upgrade(p)
 	if err != nil {
 		if errors.Is(err, ErrEntNodeConfigNotFound) {
@@ -168,7 +168,7 @@ func (r *PodCIDRVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseR
 
 	metadata := r.getMetadata(p.BGPInstance)
 
-	metadata.VRFAFPaths, err = reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
+	metadata.VRFAFPaths, err = reconciler.ReconcileResourceAFPaths(reconciler.ReconcileResourceAFPathsParams{
 		Logger:                 r.Logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:                    ctx,
 		Router:                 p.BGPInstance.Router,
@@ -181,8 +181,8 @@ func (r *PodCIDRVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseR
 	return err
 }
 
-func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams, podCIDRPrefixes []netip.Prefix, desiredVRFAdverts VRFAdvertisements) (reconcilerv2.ResourceAFPathsMap, error) {
-	desiredVRFsAFPaths := make(reconcilerv2.ResourceAFPathsMap)
+func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams, podCIDRPrefixes []netip.Prefix, desiredVRFAdverts VRFAdvertisements) (reconciler.ResourceAFPathsMap, error) {
+	desiredVRFsAFPaths := make(reconciler.ResourceAFPathsMap)
 
 	metadata := r.getMetadata(p.BGPInstance)
 
@@ -223,7 +223,7 @@ func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams,
 			continue
 		}
 
-		desiredVRFAFPaths := make(reconcilerv2.AFPathsMap)
+		desiredVRFAFPaths := make(reconciler.AFPathsMap)
 		for fam, adverts := range afAdverts {
 			family := types.ToAgentFamily(fam)
 
@@ -244,7 +244,7 @@ func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams,
 						continue
 					}
 					path.Family = family
-					reconcilerv2.AddPathToAFPathsMap(desiredVRFAFPaths, family, path, pathKey)
+					reconciler.AddPathToAFPathsMap(desiredVRFAFPaths, family, path, pathKey)
 				}
 
 				if prefix.Addr().Is6() && family.Afi == types.AfiIPv6 {
@@ -257,7 +257,7 @@ func (r *PodCIDRVRFReconciler) getDesiredVRFAFPaths(p EnterpriseReconcileParams,
 						continue
 					}
 					path.Family = family
-					reconcilerv2.AddPathToAFPathsMap(desiredVRFAFPaths, family, path, pathKey)
+					reconciler.AddPathToAFPathsMap(desiredVRFAFPaths, family, path, pathKey)
 				}
 			}
 		}

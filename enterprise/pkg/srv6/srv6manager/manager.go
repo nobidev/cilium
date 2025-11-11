@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"

@@ -25,7 +25,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/datapath/tables"
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"

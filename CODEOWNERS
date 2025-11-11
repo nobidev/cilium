@@ -126,6 +126,7 @@
 # - @cilium/alibabacloud
 # - @cilium/aws
 # - @cilium/azure
+# - @cilium/gke
 #
 # Cilium Internals
 # ++++++++++++++++
@@ -257,11 +258,13 @@
 /.github/workflows/*ingress*.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*kpr*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
 /.github/actions/cl2-modules/ @cilium/sig-scalability
+/.github/actions/cl2-modules/l7 @cilium/envoy @cilium/sig-scalability
 /.github/workflows/*scale*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*perf*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-aks.yaml @cilium/azure @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-aws-cni.yaml @cilium/aws @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-eks.yaml @cilium/aws @cilium/ipsec @cilium/github-sec @cilium/ci-structure
+/.github/workflows/conformance-gke.yaml @cilium/gke @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-kind-proxy-embedded.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/tests-ces-migrate.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.gitignore @cilium/contributing
@@ -286,7 +289,8 @@ Makefile* @cilium/build
 /bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
 /bpf/lib/drop_reasons.h @cilium/sig-hubble
 /bpf/lib/egress_gateway.h @cilium/egress-gateway
-/bpf/lib/encrypt.h @cilium/ipsec
+/bpf/lib/encrypt.h @cilium/sig-encryption @cilium/ipsec @cilium/wireguard
+/bpf/lib/ipsec.h @cilium/ipsec
 /bpf/lib/policy.h @cilium/sig-datapath @cilium/sig-policy
 /bpf/lib/proxy.h @cilium/proxy @cilium/sig-datapath
 /bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
@@ -479,7 +483,7 @@ Makefile* @cilium/build
 /netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
 /operator/doublewrite @cilium/metrics
-/operator/pkg/bgpv2 @cilium/sig-bgp
+/operator/pkg/bgp @cilium/sig-bgp
 /operator/pkg/ciliumendpointslice @cilium/sig-scalability
 /operator/pkg/ciliumenvoyconfig @cilium/sig-servicemesh
 /operator/pkg/controller-runtime @cilium/envoy @cilium/sig-servicemesh
@@ -501,7 +505,7 @@ Makefile* @cilium/build
 /pkg/azure/ @cilium/azure
 /pkg/backoff/ @cilium/sig-agent
 /pkg/bufuuid/ @cilium/sig-scalability
-/pkg/bgpv1/ @cilium/sig-bgp
+/pkg/bgp/ @cilium/sig-bgp
 /pkg/bpf/ @cilium/loader
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
 /pkg/cgroups/ @cilium/sig-datapath
@@ -968,8 +972,8 @@ Makefile* @cilium/build
 /install/kubernetes/cilium/templates/hubble-relay/rbac @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /install/kubernetes/cilium/templates/*enterprise* @isovalent/sig-k8s @isovalent/helm
 /install/kubernetes/cilium/templates/hubble-timescape/ @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
-/pkg/bgpv1/manager/**/enterprise_* @isovalent/traffic-engineering
-/pkg/bgpv1/test/**/enterprise_* @isovalent/traffic-engineering
+/pkg/bgp/manager/**/enterprise_* @isovalent/traffic-engineering
+/pkg/bgp/test/**/enterprise_* @isovalent/traffic-engineering
 /pkg/clustermesh/**/enterprise_* @isovalent/clustermesh
 /pkg/datapath/**/enterprise*.go @isovalent/cilium-datapath
 /pkg/datapath/ipcache/enterprise_listener.go @isovalent/clustermesh

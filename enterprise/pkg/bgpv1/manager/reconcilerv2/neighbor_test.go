@@ -22,10 +22,10 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -256,7 +256,7 @@ func TestNeighborReconciler(t *testing.T) {
 			neighborReconciler := NewNeighborReconciler(params).Reconciler
 			neighborReconciler.Init(testInstance)
 			defer neighborReconciler.Cleanup(testInstance)
-			reconcileParams := reconcilerv2.ReconcileParams{
+			reconcileParams := reconciler.ReconcileParams{
 				BGPInstance: testInstance,
 				DesiredConfig: &v2.CiliumBGPNodeInstance{
 					// Enterprise-specific logic. As the
@@ -278,7 +278,7 @@ func TestNeighborReconciler(t *testing.T) {
 			neighborReconciler.(*NeighborReconciler).PeerConfig = params.PeerConfig
 			neighborReconciler.(*NeighborReconciler).SecretStore = params.SecretStore
 			neighborReconciler.(*NeighborReconciler).upgrader = params.Upgrader
-			reconcileParams = reconcilerv2.ReconcileParams{
+			reconcileParams = reconciler.ReconcileParams{
 				BGPInstance: testInstance,
 				DesiredConfig: &v2.CiliumBGPNodeInstance{
 					// Enterprise-specific logic. As the
@@ -438,12 +438,12 @@ func TestRouteReflectorPolicy(t *testing.T) {
 	tests := []struct {
 		name     string
 		instance *v1.IsovalentBGPNodeInstance
-		expected reconcilerv2.RoutePolicyMap
+		expected reconciler.RoutePolicyMap
 	}{
 		{
 			name:     "non-route-reflector",
 			instance: &v1.IsovalentBGPNodeInstance{},
-			expected: reconcilerv2.RoutePolicyMap{},
+			expected: reconciler.RoutePolicyMap{},
 		},
 		{
 			name: "route-reflector no RR peer",
@@ -452,7 +452,7 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Role: v1.RouteReflectorRoleRouteReflector,
 				},
 			},
-			expected: reconcilerv2.RoutePolicyMap{},
+			expected: reconciler.RoutePolicyMap{},
 		},
 		{
 			name: "client no RR peer",
@@ -461,7 +461,7 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Role: v1.RouteReflectorRoleClient,
 				},
 			},
-			expected: reconcilerv2.RoutePolicyMap{},
+			expected: reconciler.RoutePolicyMap{},
 		},
 		{
 			name: "route-reflector to route-reflectors",
@@ -484,7 +484,7 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					},
 				},
 			},
-			expected: reconcilerv2.RoutePolicyMap{
+			expected: reconciler.RoutePolicyMap{
 				"rr-rr-allow-all-imports-from-rr": &types.RoutePolicy{
 					Name: "rr-rr-allow-all-imports-from-rr",
 					Type: types.RoutePolicyTypeImport,
@@ -537,7 +537,7 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					},
 				},
 			},
-			expected: reconcilerv2.RoutePolicyMap{
+			expected: reconciler.RoutePolicyMap{
 				"rr-rr-allow-all-imports-from-clients": &types.RoutePolicy{
 					Name: "rr-rr-allow-all-imports-from-clients",
 					Type: types.RoutePolicyTypeImport,
@@ -602,7 +602,7 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					},
 				},
 			},
-			expected: reconcilerv2.RoutePolicyMap{
+			expected: reconciler.RoutePolicyMap{
 				"rr-rr-allow-all-imports-from-clients": &types.RoutePolicy{
 					Name: "rr-rr-allow-all-imports-from-clients",
 					Type: types.RoutePolicyTypeImport,
@@ -672,7 +672,7 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					},
 				},
 			},
-			expected: reconcilerv2.RoutePolicyMap{
+			expected: reconciler.RoutePolicyMap{
 				"rr-client-allow-all-imports-from-rr": &types.RoutePolicy{
 					Name: "rr-client-allow-all-imports-from-rr",
 					Type: types.RoutePolicyTypeImport,
@@ -713,7 +713,7 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					},
 				},
 			},
-			expected: reconcilerv2.RoutePolicyMap{
+			expected: reconciler.RoutePolicyMap{
 				"rr-rr-allow-all-imports-from-clients": &types.RoutePolicy{
 					Name: "rr-rr-allow-all-imports-from-clients",
 					Type: types.RoutePolicyTypeImport,

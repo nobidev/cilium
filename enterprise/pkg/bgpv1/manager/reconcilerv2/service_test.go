@@ -29,11 +29,11 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/annotation"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -118,9 +118,9 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
@@ -139,15 +139,15 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
@@ -168,15 +168,15 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
@@ -197,9 +197,9 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
@@ -218,15 +218,15 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
@@ -246,9 +246,9 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
@@ -271,15 +271,15 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
@@ -302,9 +302,9 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
@@ -335,8 +335,8 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
@@ -345,8 +345,8 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 						redPeer65001v6LBRPName: redPeer65001v6LBRP,
 					},
@@ -371,15 +371,15 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
 							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 						redPeer65001v6LBRPName: redPeer65001v6LBRP,
 					},
@@ -404,9 +404,9 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 						redPeer65001v6LBRPName: redPeer65001v6LBRP,
 					},
@@ -430,15 +430,15 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
@@ -458,9 +458,9 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
@@ -480,9 +480,9 @@ func Test_ServiceHealthChecker(t *testing.T) {
 						{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{lbSvcAdvertWithSelector(redSvcSelector)},
 					},
 				},
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 					},
 				},
@@ -1297,8 +1297,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			frontends:      []*loadbalancer.Frontend{svcLBFrontend(redSvcTPCluster, ingressV4), svcLBFrontend(redSvcTPCluster, ingressV6)},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: nil,
@@ -1316,8 +1316,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
@@ -1339,8 +1339,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
@@ -1349,8 +1349,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 						redPeer65001v6LBRPName: redPeer65001v6LBRP,
 					},
@@ -1377,8 +1377,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
@@ -1387,8 +1387,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 						redPeer65001v6LBRPName: redPeer65001v6LBRP,
 					},
@@ -1415,8 +1415,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
@@ -1425,8 +1425,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 						redPeer65001v6LBRPName: redPeer65001v6LBRP,
 					},
@@ -1453,8 +1453,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
@@ -1477,8 +1477,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
@@ -1500,8 +1500,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							aggregateV4Prefix24: types.NewPathForPrefix(netip.MustParsePrefix(aggregateV4Prefix24)),
 						},
@@ -1510,8 +1510,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRPWith24PrefixLen,
 						redPeer65001v6LBRPName: redPeer65001v6LBRPWith120PrefixLen,
 					},
@@ -1538,8 +1538,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)), // /32 advertisement
 						},
@@ -1548,8 +1548,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP, // policy is also created for /32 advertisement
 						redPeer65001v6LBRPName: redPeer65001v6LBRP, // policy is also created for /128 advertisement
 					},
@@ -1575,8 +1575,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(lbSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120), lbSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							aggregateV4Prefix24: types.NewPathForPrefix(netip.MustParsePrefix(aggregateV4Prefix24)),
 							ingressV4Prefix:     types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
@@ -1587,8 +1587,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRPMultiPaths,
 						redPeer65001v6LBRPName: redPeer65001v6LBRPMultiPaths,
 					},
@@ -1619,8 +1619,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 			frontends:      []*loadbalancer.Frontend{svcExtIPFrontend(redSvcTPCluster, externalV4), svcExtIPFrontend(redSvcTPCluster, externalV6)},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: nil,
@@ -1638,8 +1638,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
@@ -1661,8 +1661,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
 						},
@@ -1671,8 +1671,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ExtRPName: redPeer65001v4ExtRP,
 						redPeer65001v6ExtRPName: redPeer65001v6ExtRP,
 					},
@@ -1699,8 +1699,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
 						},
@@ -1709,8 +1709,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ExtRPName: redPeer65001v4ExtRP,
 						redPeer65001v6ExtRPName: redPeer65001v6ExtRP,
 					},
@@ -1737,8 +1737,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
 						},
@@ -1747,8 +1747,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ExtRPName: redPeer65001v4ExtRP,
 						redPeer65001v6ExtRPName: redPeer65001v6ExtRP,
 					},
@@ -1775,8 +1775,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(externalSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
@@ -1798,8 +1798,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							aggregateV4Prefix24: types.NewPathForPrefix(netip.MustParsePrefix(aggregateV4Prefix24)),
 						},
@@ -1808,8 +1808,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ExtRPName: redPeer65001v4ExtRPWithPrefixAgg,
 						redPeer65001v6ExtRPName: redPeer65001v6ExtRPWithPrefixAgg,
 					},
@@ -1836,8 +1836,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)), // /32 advertisement
 						},
@@ -1846,8 +1846,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ExtRPName: redPeer65001v4ExtRP, // /32 policy
 						redPeer65001v6ExtRPName: redPeer65001v6ExtRP, // /128 policy
 					},
@@ -1873,8 +1873,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(exSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120), externalSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							aggregateV4Prefix24: types.NewPathForPrefix(netip.MustParsePrefix(aggregateV4Prefix24)),
 							externalV4Prefix:    types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
@@ -1885,8 +1885,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ExtRPName: redPeer65001v4ExtRPMultiPaths,
 						redPeer65001v6ExtRPName: redPeer65001v6ExtRPMultiPaths,
 					},
@@ -1917,8 +1917,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 			frontends:      []*loadbalancer.Frontend{svcClusterIPFrontend(redSvcTPCluster, clusterV4), svcClusterIPFrontend(redSvcTPCluster, clusterV6)},
 			advertisements: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: nil,
@@ -1936,8 +1936,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(mismatchSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
@@ -1959,8 +1959,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
 						},
@@ -1969,8 +1969,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ClusterRPName: redPeer65001v4ClusterRP,
 						redPeer65001v6ClusterRPName: redPeer65001v6ClusterRP,
 					},
@@ -1997,8 +1997,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
 						},
@@ -2007,8 +2007,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ClusterRPName: redPeer65001v4ClusterRP,
 						redPeer65001v6ClusterRPName: redPeer65001v6ClusterRP,
 					},
@@ -2035,8 +2035,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
 						},
@@ -2045,8 +2045,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ClusterRPName: redPeer65001v4ClusterRP,
 						redPeer65001v6ClusterRPName: redPeer65001v6ClusterRP,
 					},
@@ -2073,8 +2073,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
@@ -2096,8 +2096,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							aggregateV4Prefix24: types.NewPathForPrefix(netip.MustParsePrefix(aggregateV4Prefix24)),
 						},
@@ -2106,8 +2106,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ClusterRPName: redPeer65001v4ClusterRPWithPrefixAgg,
 						redPeer65001v6ClusterRPName: redPeer65001v6ClusterRPWithPrefixAgg,
 					},
@@ -2134,8 +2134,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)), // /32 advertisement
 						},
@@ -2144,8 +2144,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ClusterRPName: redPeer65001v4ClusterRP, // /32 policy
 						redPeer65001v6ClusterRPName: redPeer65001v6ClusterRP, // /128 policy
 					},
@@ -2171,8 +2171,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 				redV6SvcAdvertWithAdvertisements(clusterIPSvcAdvertWithSelectorAndPrefixLen(redSvcSelector, 120), clusterIPSvcAdvertWithSelector(redSvcSelector)),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							aggregateV4Prefix24: types.NewPathForPrefix(netip.MustParsePrefix(aggregateV4Prefix24)),
 							clusterV4Prefix:     types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
@@ -2183,8 +2183,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ClusterRPName: redPeer65001v4ClusterRPMultiPaths,
 						redPeer65001v6ClusterRPName: redPeer65001v6ClusterRPMultiPaths,
 					},
@@ -2216,8 +2216,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			frontends:      nil,
 			backends:       nil,
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: nil,
@@ -2262,8 +2262,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Only cluster IPs are advertised
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
 						},
@@ -2272,8 +2272,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ClusterRPName: redPeer65001v4ClusterRP,
 						redPeer65001v6ClusterRPName: redPeer65001v6ClusterRP,
 					},
@@ -2352,8 +2352,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Both cluster and external IPs are advertised
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix:  types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
 							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
@@ -2364,8 +2364,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ClusterRPName: redPeer65001v4ClusterRP,
 						redPeer65001v4ExtRPName:     redPeer65001v4ExtRP,
 						redPeer65001v6ClusterRPName: redPeer65001v6ClusterRP,
@@ -2422,8 +2422,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Both cluster and external IPs are withdrawn, since traffic policy is local and there are no endpoints.
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
@@ -2475,8 +2475,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			backends: redSvcBackendsLocal,
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Both cluster and external IPs are advertised since there is local endpoint.
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							clusterV4Prefix:  types.NewPathForPrefix(netip.MustParsePrefix(clusterV4Prefix)),
 							externalV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(externalV4Prefix)),
@@ -2487,8 +2487,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4ClusterRPName: redPeer65001v4ClusterRP,
 						redPeer65001v4ExtRPName:     redPeer65001v4ExtRP,
 						redPeer65001v6ClusterRPName: redPeer65001v6ClusterRP,
@@ -2546,8 +2546,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 			backends: nil,
 			expectedMetadata: ServiceReconcilerMetadata{
 				// Both cluster and external IPs are withdrawn since local endpoints were deleted.
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
@@ -2631,8 +2631,8 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				svcFrontend(redSvcTPCluster, ingressV6, 80, loadbalancer.SVCTypeLoadBalancer),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
@@ -2641,8 +2641,8 @@ func Test_ServiceVIPSharing(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 						redPeer65001v6LBRPName: redPeer65001v6LBRP,
 					},
@@ -2690,8 +2690,8 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				svcFrontend(redSvc2TPCluster, ingressV6, 443, loadbalancer.SVCTypeLoadBalancer),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
@@ -2699,7 +2699,7 @@ func Test_ServiceVIPSharing(t *testing.T) {
 							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
 						},
 					},
-					redSvc2Key: reconcilerv2.AFPathsMap{
+					redSvc2Key: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
@@ -2708,12 +2708,12 @@ func Test_ServiceVIPSharing(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: redPeer65001v4LBRP,
 						redPeer65001v6LBRPName: redPeer65001v6LBRP,
 					},
-					redSvc2Key: reconcilerv2.RoutePolicyMap{
+					redSvc2Key: reconciler.RoutePolicyMap{
 						redPeer65001Svc2v4LBRPName: redPeer65001Svc2v4LBRP(),
 						redPeer65001Svc2v6LBRPName: redPeer65001Svc2v6LBRP(),
 					},
@@ -2761,8 +2761,8 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				svcFrontend(redSvcTPCluster, ingressV6, 80, loadbalancer.SVCTypeLoadBalancer),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvc2Key: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvc2Key: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
@@ -2771,8 +2771,8 @@ func Test_ServiceVIPSharing(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvc2Key: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvc2Key: reconciler.RoutePolicyMap{
 						redPeer65001Svc2v4LBRPName: redPeer65001Svc2v4LBRP(),
 						redPeer65001Svc2v6LBRPName: redPeer65001Svc2v6LBRP(),
 					},
@@ -2820,8 +2820,8 @@ func Test_ServiceVIPSharing(t *testing.T) {
 				svcFrontend(redSvc2TPCluster, ingressV6, 443, loadbalancer.SVCTypeLoadBalancer),
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths:         reconcilerv2.ResourceAFPathsMap{},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{},
+				ServicePaths:         reconciler.ResourceAFPathsMap{},
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: FamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{
@@ -2905,8 +2905,8 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 			},
 			frontends: []*loadbalancer.Frontend{svcLBFrontend(redSvcTPCluster, ingressV4), svcLBFrontend(redSvcTPCluster, ingressV6)},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
@@ -2915,8 +2915,8 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: &types.RoutePolicy{
 							Name: redPeer65001v4LBRPName,
 							Type: types.RoutePolicyTypeExport,
@@ -3011,8 +3011,8 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 				},
 			},
 			expectedMetadata: ServiceReconcilerMetadata{
-				ServicePaths: reconcilerv2.ResourceAFPathsMap{
-					redSvcKey: reconcilerv2.AFPathsMap{
+				ServicePaths: reconciler.ResourceAFPathsMap{
+					redSvcKey: reconciler.AFPathsMap{
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 						},
@@ -3021,8 +3021,8 @@ func Test_ServiceAdvertisementWithPeerIPChange(t *testing.T) {
 						},
 					},
 				},
-				ServiceRoutePolicies: reconcilerv2.ResourceRoutePolicyMap{
-					redSvcKey: reconcilerv2.RoutePolicyMap{
+				ServiceRoutePolicies: reconciler.ResourceRoutePolicyMap{
+					redSvcKey: reconciler.RoutePolicyMap{
 						redPeer65001v4LBRPName: &types.RoutePolicy{
 							Name: redPeer65001v4LBRPName,
 							Type: types.RoutePolicyTypeExport,
@@ -3118,15 +3118,15 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 				{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{},
 			},
 		}
-		expectedServicePaths = reconcilerv2.ResourceAFPathsMap{
-			redSvcKey: reconcilerv2.AFPathsMap{
+		expectedServicePaths = reconciler.ResourceAFPathsMap{
+			redSvcKey: reconciler.AFPathsMap{
 				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 					ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
 				},
 			},
 		}
-		expectedPolicies = reconcilerv2.ResourceRoutePolicyMap{
-			redSvcKey: reconcilerv2.RoutePolicyMap{
+		expectedPolicies = reconciler.ResourceRoutePolicyMap{
+			redSvcKey: reconciler.RoutePolicyMap{
 				redPeer65001v4LBRPName: &types.RoutePolicy{
 					Name: redPeer65001v4LBRPName,
 					Type: types.RoutePolicyTypeExport,
@@ -3151,8 +3151,8 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 				},
 			},
 		}
-		expectedPoliciesWithGSCommunity = reconcilerv2.ResourceRoutePolicyMap{
-			redSvcKey: reconcilerv2.RoutePolicyMap{
+		expectedPoliciesWithGSCommunity = reconciler.ResourceRoutePolicyMap{
+			redSvcKey: reconciler.RoutePolicyMap{
 				redPeer65001v4LBRPName: &types.RoutePolicy{
 					Name: redPeer65001v4LBRPName,
 					Type: types.RoutePolicyTypeExport,
@@ -3209,7 +3209,7 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerAdvertisements,
 				ServiceRoutePolicies:  expectedPoliciesWithGSCommunity,
-				ServicePaths:          reconcilerv2.ResourceAFPathsMap{},
+				ServicePaths:          reconciler.ResourceAFPathsMap{},
 			},
 		},
 		{
@@ -3229,7 +3229,7 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerAdvertisements,
 				ServiceRoutePolicies:  expectedPoliciesWithGSCommunity,
-				ServicePaths:          reconcilerv2.ResourceAFPathsMap{},
+				ServicePaths:          reconciler.ResourceAFPathsMap{},
 			},
 		},
 		{
@@ -3258,7 +3258,7 @@ func Test_ServiceNodeMaintenance(t *testing.T) {
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServiceAdvertisements: peerAdvertisements,
 				ServiceRoutePolicies:  expectedPolicies,
-				ServicePaths:          reconcilerv2.ResourceAFPathsMap{},
+				ServicePaths:          reconciler.ResourceAFPathsMap{},
 			},
 		},
 		{
@@ -3342,7 +3342,7 @@ func runServiceTests(t *testing.T, steps []svcTestStep) {
 
 			// reconcile twice to validate idempotency
 			for range 2 {
-				err = f.svcReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
+				err = f.svcReconciler.Reconcile(context.Background(), reconciler.ReconcileParams{
 					BGPInstance: testBGPInstance,
 					CiliumNode: &v2.CiliumNode{
 						ObjectMeta: metav1.ObjectMeta{
@@ -3483,7 +3483,7 @@ func serviceMetadataEqual(req *require.Assertions, expectedMetadata, runningMeta
 		"ServiceRoutePolicies mismatch, expected: %v, got: %v", expectedMetadata.ServiceRoutePolicies, runningMetadata.ServiceRoutePolicies)
 }
 
-func advertisedPrefixesMatch(req *require.Assertions, bgpInstance *instance.BGPInstance, expectedPaths reconcilerv2.ResourceAFPathsMap) {
+func advertisedPrefixesMatch(req *require.Assertions, bgpInstance *instance.BGPInstance, expectedPaths reconciler.ResourceAFPathsMap) {
 	expected := make(map[string]*types.Path)
 	for _, svcPaths := range expectedPaths {
 		for _, afPaths := range svcPaths {

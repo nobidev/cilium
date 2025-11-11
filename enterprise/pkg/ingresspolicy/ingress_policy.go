@@ -232,11 +232,11 @@ func (m *ingressPolicyManager) ensureIdentityLocked(ctx context.Context, key res
 func (m *ingressPolicyManager) syncIngressPolicy(ctx context.Context, p *IngressPolicy) error {
 	m.logger.Debug("Sync network policy",
 		logfields.Name, p.GetPolicyNames(),
-		logfields.Ingress, p.GetDesiredPolicy().IngressPolicyEnabled,
-		logfields.Egress, p.GetDesiredPolicy().EgressPolicyEnabled)
+		logfields.Ingress, p.GetDesiredPolicy().SelectorPolicy.IngressPolicyEnabled,
+		logfields.Egress, p.GetDesiredPolicy().SelectorPolicy.EgressPolicyEnabled)
 
-	if err, rf := m.xdsServer.UpdateNetworkPolicy(p, &p.GetDesiredPolicy().L4Policy,
-		p.GetDesiredPolicy().IngressPolicyEnabled, p.GetDesiredPolicy().EgressPolicyEnabled,
+	if err, rf := m.xdsServer.UpdateNetworkPolicy(p, &p.GetDesiredPolicy().SelectorPolicy.L4Policy,
+		p.GetDesiredPolicy().SelectorPolicy.IngressPolicyEnabled, p.GetDesiredPolicy().SelectorPolicy.EgressPolicyEnabled,
 		completion.NewWaitGroup(ctx)); err != nil {
 		m.logger.Error("Failed to update network policy",
 			logfields.Name, p.GetPolicyNames(),

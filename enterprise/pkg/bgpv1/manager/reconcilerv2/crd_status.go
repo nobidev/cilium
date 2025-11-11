@@ -31,11 +31,11 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	"github.com/cilium/cilium/pkg/bgp/manager/tables"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
@@ -84,7 +84,7 @@ type StatusReconcilerIn struct {
 type StatusReconcilerOut struct {
 	cell.Out
 
-	Reconciler reconcilerv2.StateReconciler `group:"bgp-state-reconciler-v2"`
+	Reconciler reconciler.StateReconciler `group:"bgp-state-reconciler"`
 }
 
 func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
@@ -191,7 +191,7 @@ func (r *StatusReconciler) Priority() int {
 	return CRDStatusReconcilerPriority
 }
 
-func (r *StatusReconciler) Reconcile(ctx context.Context, params reconcilerv2.StateReconcileParams) error {
+func (r *StatusReconciler) Reconcile(ctx context.Context, params reconciler.StateReconcileParams) error {
 	r.Lock()
 	defer r.Unlock()
 
@@ -275,7 +275,7 @@ func (r *StatusReconciler) updateErrorConditions() error {
 	var message strings.Builder
 	for _, errObj := range instanceErrors {
 		// maximum length of message can be 32*1024
-		if message.Len()+len(errObj.String()) >= reconcilerv2.MaxConditionsMessageLen {
+		if message.Len()+len(errObj.String()) >= reconciler.MaxConditionsMessageLen {
 			break
 		}
 		message.WriteString(fmt.Sprintf("%s: %s\n", errObj.Instance, errObj.Error))

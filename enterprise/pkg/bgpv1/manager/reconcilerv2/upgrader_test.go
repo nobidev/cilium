@@ -27,11 +27,11 @@ import (
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
@@ -155,7 +155,7 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ossParams := reconcilerv2.ReconcileParams{
+	ossParams := reconciler.ReconcileParams{
 		BGPInstance: &instance.BGPInstance{
 			Config: &ossNode.Spec.BGPInstances[0],
 			Router: types.NewFakeRouter(),

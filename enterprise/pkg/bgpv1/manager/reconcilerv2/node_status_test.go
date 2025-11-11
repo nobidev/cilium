@@ -24,7 +24,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sfake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"

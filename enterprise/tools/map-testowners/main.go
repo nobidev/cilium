@@ -53,6 +53,7 @@ var (
 		"@cilium/envoy":              "@isovalent/service-mesh",
 		"@cilium/fqdn":               "@isovalent/dns-proxy",
 		"@cilium/github-sec":         ignore,
+		"@cilium/gke":                "@isovalent/infrastructure",
 		"@cilium/helm":               ignore,
 		"@cilium/hubble-metrics":     "@isovalent/hubble",
 		"@cilium/ipcache":            "@isovalent/policy-identity-networking",

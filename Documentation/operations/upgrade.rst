@@ -316,7 +316,8 @@ communicating via the proxy must reconnect to re-establish connections.
   This flag currently masquerades traffic to node ``InternalIP`` addresses.
   This may change in future. See :gh-issue:`35823`
   and :gh-issue:`17177` for further discussion on this topic.
-* MCS-API CRDs need to be updated, see the MCS-API :ref:`clustermesh_mcsapi_prereqs` for updated CRD links.
+* If MCS-API support is enabled, Cilium now installs and manages MCS-API CRDs by default.
+  You can set ``clustermesh.mcsapi.installCRDs`` to ``false`` to opt-out.
 * Cilium will stop reporting its local cluster name and node name in metrics. Users relying on those
   should configure their metrics collection system to add similar labels instead.
 * The previously deprecated ``CiliumBGPPeeringPolicy`` CRD and its control plane (BGPv1) has been removed.
@@ -333,6 +334,8 @@ communicating via the proxy must reconnect to re-establish connections.
   makes it compatible by default with the Helm ``--wait`` option or through ArgoCD.
   You are no longer expected to create a Job manually or as part of your own
   automation when bootstrapping your clusters.
+* Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel
+  (previously this was a RHEL8.6-compatible kernel).
 
 Removed Options
 ~~~~~~~~~~~~~~~

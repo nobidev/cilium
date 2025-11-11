@@ -279,6 +279,11 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
+	if option.Config.EnableL2Announcements {
+		cfg.EnableL2Announcements = true
+		cfg.L2AnnouncementsMaxLiveness = uint64(option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
+	}
+
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
@@ -430,6 +435,11 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 
 	if option.Config.EnableVTEP {
 		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+	}
+
+	if option.Config.EnableL2Announcements {
+		cfg.EnableL2Announcements = true
+		cfg.L2AnnouncementsMaxLiveness = uint64(option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
 	renames := map[string]string{
@@ -686,6 +696,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
 		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 

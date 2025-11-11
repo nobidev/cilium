@@ -41,7 +41,6 @@ mock_ext_eps_policy_can_access(struct __ctx_buff __maybe_unused *ctx,
 #define ext_ep_policy_verdict mock_ext_eps_policy_can_access
 
 #undef EFFECTIVE_EP_ID
-#undef EVENT_SOURCE
 
 /* Include an actual datapath code */
 #include "lib/bpf_overlay.h"
