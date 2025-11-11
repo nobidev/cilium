@@ -1,0 +1,14 @@
+Node                                          [36mworker-0[0m                                    Status  [32mOK[0m
+
+  Network [36mblue[0m                        Active INB  [32minb-east/inb-0[0m                                  [32mOK[0m
+    Subnets   192.168.1.1/24
+    Routes    0.0.0.0/0 via 192.168.1.1
+    Local Endpoints 1                                                              Total Endpoints 6
+
+    Endpoints           cluster-west (local)  3 Endpoints
+                        cluster-east          1 Endpoints
+                        inb-east              1 Endpoints
+                        inb-west              1 Endpoints
+
+    Connected INBs    [32minb-east 2/2 [active][0m  [31minb-west 0/1[0m
+

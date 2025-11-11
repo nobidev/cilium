@@ -1,0 +1,904 @@
+#! --private-networks-enabled --private-networks-health-check-interval 30ms --private-networks-health-check-timeout 50ms
+
+# Create the health servers.
+serverpool/new felidae/cougar
+serverpool/new camelidae/alpaca
+
+hive start
+
+# Configure the networks served by each INB.
+serverpool/serve felidae/cougar   blue-network green-network
+serverpool/serve camelidae/alpaca blue-network green-network
+
+# Start all health servers.
+serverpool/start felidae/cougar
+serverpool/start camelidae/alpaca
+
+# Ingest initial blue private network and initial endpoint slice (containing blue and green endpoints)
+k8s/add icpn-blue.v1.yaml
+k8s/add privnet-eps.v1.yaml
+k8s/add icpn-green.v1.yaml
+
+# Ingest the endpoints from clustermesh.
+clustermesh/endpoints/upsert blue-network/10.245.8.21 endpoint-felidae-cougar-1.json
+clustermesh/endpoints/upsert blue-network/10.245.8.87 endpoint-felidae-cougar-2.json
+clustermesh/endpoints/upsert blue-network/10.245.9.41 endpoint-camelidae-alpaca-1.json
+
+# Observe INB node information from clustermesh (the etcd key is omitted as unused).
+clustermesh/nodes/upsert _ nodes-felidae-cougar.json
+clustermesh/nodes/upsert _ nodes-camelidae-alpaca.json
+clustermesh/nodes/sync
+
+# Mark clustermesh endpoints synchronized - this should transitively also initialize the privnet-mapentries table
+clustermesh/endpoints/sync
+db/initialized privnet-mapentries
+
+# Check initial status
+privnet/status -o=json
+* cmp stdout status.1.json
+privnet/status --color=false
+cmp stdout status.1.txt
+
+# Update blue net to also include other inb + add routes
+k8s/add icpn-blue.v2.yaml
+
+# Check status
+privnet/status -o=json
+* cmp stdout status.2.json
+privnet/status --color=false
+cmp stdout status.2.txt
+
+# Stop camelidae - should fail over to felidae
+serverpool/stop camelidae/alpaca
+
+# Check status
+privnet/status -o=json
+* cmp stdout status.3.json
+privnet/status --color=false
+cmp stdout status.3.txt
+
+-- icpn-blue.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: blue-network
+spec:
+  networkBridges:
+  - cluster: felidae
+  routes: []
+  subnets:
+  - cidr: 192.168.250.0/24
+  - cidr: fd10:0:250::0/64
+  - cidr: 192.168.250.24/32
+
+-- icpn-blue.v2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: blue-network
+spec:
+  networkBridges:
+  - cluster: felidae
+  - cluster: camelidae
+  routes:
+  - destination: 192.168.252.0/24
+    gateway: 192.168.250.2
+  - destination: 0.0.0.0/0
+    gateway: 192.168.250.1
+  subnets:
+  - cidr: 192.168.250.0/23
+  - cidr: fd10:0:250::0/64
+  - cidr: 192.168.250.24/32
+
+-- icpn-green.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: green-network
+spec:
+  networkBridges:
+  - cluster: camelidae
+  routes: []
+  subnets:
+  - cidr: 10.0.100.0/24
+  - cidr: fd00:10:100::0/64
+
+-- privnet-eps.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkEndpointSlice
+metadata:
+  namespace: default
+  name: privnet-eps-1
+endpoints:
+- activatedAt: "2025-06-20T15:54:04.501000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.108
+      ipv6: fd00:10:244:5::108
+    name: optimum-mouse
+  interface:
+    addressing:
+      ipv4: 192.168.250.20
+      ipv6: fd10:0:250::20
+    mac: 00:50:56:ad:45:ec
+    network: blue-network
+- activatedAt: "2025-06-20T15:54:03.421000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.109
+      ipv6: fd00:10:244:5::109
+    name: regular-koi
+  interface:
+    addressing:
+      ipv4: 192.168.250.21
+      ipv6: fd10:0:250::21
+    mac: 00:50:56:ad:11:99
+    network: blue-network
+- activatedAt: "2025-06-20T16:30:00.000000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.110
+      ipv6: fd00:10:244:5::110
+    name: pumped-ocelot
+  interface:
+    addressing:
+      ipv4: 10.0.100.30
+      ipv6: fd00:10:100::30
+    mac: 00:50:56:ad:45:d8
+    network: green-network
+- activatedAt: "2025-06-20T16:29:50.200000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.5.111
+      ipv6: fd00:10:244:5::111
+    name: admiring-wombat
+  interface:
+    addressing:
+      ipv4: 10.0.100.31
+      ipv6: fd00:10:100::31
+    mac: 00:50:56:ad:45:f7
+    network: green-network
+nodeName: crayfish
+
+-- nodes-felidae-cougar.json --
+{
+    "Cluster": "felidae",
+    "Name": "cougar",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "172.128.0.6"}
+    ]
+}
+
+-- nodes-camelidae-alpaca.json --
+{
+    "Cluster": "camelidae",
+    "Name": "alpaca",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "172.128.0.7"}
+    ]
+}
+
+-- endpoint-felidae-cougar-1.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.435Z",
+  "flags": {
+    "external": true
+  },
+  "ip": "10.245.8.21",
+  "name": "valid-monkey",
+  "network": {
+    "name": "blue-network",
+    "ip": "192.168.250.200",
+    "mac": "19:60:b8:48:84:b9"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
+-- endpoint-felidae-cougar-2.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.435Z",
+  "flags": {
+    "external": true
+  },
+  "ip": "10.245.8.87",
+  "name": "resolved-monster",
+  "network": {
+    "name": "blue-network",
+    "ip": "192.168.250.201",
+    "mac": "ad:e7:f2:bf:0b:58"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
+-- endpoint-camelidae-alpaca-1.json --
+{
+  "activatedAt": "2025-06-20T15:53:01.435Z",
+  "flags": {
+    "external": true
+  },
+  "ip": "10.245.9.41",
+  "name": "resolved-monster",
+  "network": {
+    "name": "blue-network",
+    "ip": "192.168.250.201",
+    "mac": "ad:e7:f2:bf:0b:58"
+  },
+  "nodeName": "alpaca",
+  "source": {
+    "cluster": "camelidae",
+    "namespace": "gopher",
+    "name": "privnet-eps-1"
+  }
+}
+
+
+
+-- status.1.txt --
+Node                                       foobar-worker-1                                Status  OK
+
+  Network blue-network                Active INB  felidae/cougar                                  OK
+    Subnets   192.168.250.0/24  fd10:0:250::/64  192.168.250.24/32
+    Routes    No routes defined for network
+    Local Endpoints 0                                                              Total Endpoints 5
+
+    Endpoints           default (local)     2 Endpoints
+                        camelidae           1 Endpoints
+                        felidae             2 Endpoints
+
+    Connected INBs    felidae 1/1 [active]
+
+  Network green-network              Active INB  camelidae/alpaca                                 OK
+    Subnets   10.0.100.0/24  fd00:10:100::/64
+    Routes    No routes defined for network
+    Local Endpoints 0                                                              Total Endpoints 2
+
+    Endpoints           default (local)     2 Endpoints
+
+    Connected INBs    camelidae 1/1 [active]
+
+-- status.1.json --
+{
+  "Name": "foobar-worker-1",
+  "Cluster": "default",
+  "ConnectedClusters": [
+    {
+      "Name": "camelidae",
+      "NodeNames": [
+        "alpaca"
+      ]
+    },
+    {
+      "Name": "felidae",
+      "NodeNames": [
+        "cougar"
+      ]
+    }
+  ],
+  "Enabled": true,
+  "Mode": "default",
+  "Networks": [
+    {
+      "Name": "blue-network",
+      "Error": "",
+      "Routes": [],
+      "Subnets": [
+        {
+          "CIDR": "192.168.250.0/24"
+        },
+        {
+          "CIDR": "fd10:0:250::/64"
+        },
+        {
+          "CIDR": "192.168.250.24/32"
+        }
+      ],
+      "Endpoints": [
+        {
+          "Name": "resolved-monster",
+          "Cluster": "camelidae",
+          "Node": "alpaca",
+          "IPv4": "10.245.9.41",
+          "NetIPv4": "192.168.250.201",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        },
+        {
+          "Name": "optimum-mouse",
+          "Cluster": "default",
+          "Node": "crayfish",
+          "IPv4": "10.244.5.108",
+          "NetIPv4": "192.168.250.20",
+          "IPv6": "fd00:10:244:5::108",
+          "NetIPv6": "fd10:0:250::20",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "regular-koi",
+          "Cluster": "default",
+          "Node": "crayfish",
+          "IPv4": "10.244.5.109",
+          "NetIPv4": "192.168.250.21",
+          "IPv6": "fd00:10:244:5::109",
+          "NetIPv6": "fd10:0:250::21",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "resolved-monster",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.87",
+          "NetIPv4": "192.168.250.201",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        },
+        {
+          "Name": "valid-monkey",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.21",
+          "NetIPv4": "192.168.250.200",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        }
+      ],
+      "INBStatus": {
+        "Serving": false,
+        "Interface": {
+          "Name": "",
+          "Index": 0,
+          "Error": ""
+        },
+        "ActiveWorkloadNodes": null
+      },
+      "WorkerStatus": {
+        "ActiveINB": "felidae/cougar",
+        "ConnectedINBCluster": [
+          {
+            "Name": "felidae",
+            "INBs": [
+              {
+                "Cluster": "felidae",
+                "Name": "cougar",
+                "Active": true,
+                "Healthy": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "Name": "green-network",
+      "Error": "",
+      "Routes": [],
+      "Subnets": [
+        {
+          "CIDR": "10.0.100.0/24"
+        },
+        {
+          "CIDR": "fd00:10:100::/64"
+        }
+      ],
+      "Endpoints": [
+        {
+          "Name": "admiring-wombat",
+          "Cluster": "default",
+          "Node": "crayfish",
+          "IPv4": "10.244.5.111",
+          "NetIPv4": "10.0.100.31",
+          "IPv6": "fd00:10:244:5::111",
+          "NetIPv6": "fd00:10:100::31",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "pumped-ocelot",
+          "Cluster": "default",
+          "Node": "crayfish",
+          "IPv4": "10.244.5.110",
+          "NetIPv4": "10.0.100.30",
+          "IPv6": "fd00:10:244:5::110",
+          "NetIPv6": "fd00:10:100::30",
+          "Active": false,
+          "External": false
+        }
+      ],
+      "INBStatus": {
+        "Serving": false,
+        "Interface": {
+          "Name": "",
+          "Index": 0,
+          "Error": ""
+        },
+        "ActiveWorkloadNodes": null
+      },
+      "WorkerStatus": {
+        "ActiveINB": "camelidae/alpaca",
+        "ConnectedINBCluster": [
+          {
+            "Name": "camelidae",
+            "INBs": [
+              {
+                "Cluster": "camelidae",
+                "Name": "alpaca",
+                "Active": true,
+                "Healthy": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
+-- status.2.txt --
+Node                                       foobar-worker-1                                Status  OK
+
+  Network blue-network                Active INB  felidae/cougar                                  OK
+    Subnets   192.168.250.0/23  fd10:0:250::/64  192.168.250.24/32
+    Routes    192.168.252.0/24 via 192.168.250.2  0.0.0.0/0 via 192.168.250.1
+    Local Endpoints 0                                                              Total Endpoints 5
+
+    Endpoints           default (local)     2 Endpoints
+                        camelidae           1 Endpoints
+                        felidae             2 Endpoints
+
+    Connected INBs    camelidae 1/1  felidae 1/1 [active]
+
+  Network green-network              Active INB  camelidae/alpaca                                 OK
+    Subnets   10.0.100.0/24  fd00:10:100::/64
+    Routes    No routes defined for network
+    Local Endpoints 0                                                              Total Endpoints 2
+
+    Endpoints           default (local)     2 Endpoints
+
+    Connected INBs    camelidae 1/1 [active]
+
+-- status.2.json --
+{
+  "Name": "foobar-worker-1",
+  "Cluster": "default",
+  "ConnectedClusters": [
+    {
+      "Name": "camelidae",
+      "NodeNames": [
+        "alpaca"
+      ]
+    },
+    {
+      "Name": "felidae",
+      "NodeNames": [
+        "cougar"
+      ]
+    }
+  ],
+  "Enabled": true,
+  "Mode": "default",
+  "Networks": [
+    {
+      "Name": "blue-network",
+      "Error": "",
+      "Routes": [
+        {
+          "Destination": "192.168.252.0/24",
+          "Gateway": "192.168.250.2"
+        },
+        {
+          "Destination": "0.0.0.0/0",
+          "Gateway": "192.168.250.1"
+        }
+      ],
+      "Subnets": [
+        {
+          "CIDR": "192.168.250.0/23"
+        },
+        {
+          "CIDR": "fd10:0:250::/64"
+        },
+        {
+          "CIDR": "192.168.250.24/32"
+        }
+      ],
+      "Endpoints": [
+        {
+          "Name": "resolved-monster",
+          "Cluster": "camelidae",
+          "Node": "alpaca",
+          "IPv4": "10.245.9.41",
+          "NetIPv4": "192.168.250.201",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        },
+        {
+          "Name": "optimum-mouse",
+          "Cluster": "default",
+          "Node": "crayfish",
+          "IPv4": "10.244.5.108",
+          "NetIPv4": "192.168.250.20",
+          "IPv6": "fd00:10:244:5::108",
+          "NetIPv6": "fd10:0:250::20",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "regular-koi",
+          "Cluster": "default",
+          "Node": "crayfish",
+          "IPv4": "10.244.5.109",
+          "NetIPv4": "192.168.250.21",
+          "IPv6": "fd00:10:244:5::109",
+          "NetIPv6": "fd10:0:250::21",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "resolved-monster",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.87",
+          "NetIPv4": "192.168.250.201",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        },
+        {
+          "Name": "valid-monkey",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.21",
+          "NetIPv4": "192.168.250.200",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        }
+      ],
+      "INBStatus": {
+        "Serving": false,
+        "Interface": {
+          "Name": "",
+          "Index": 0,
+          "Error": ""
+        },
+        "ActiveWorkloadNodes": null
+      },
+      "WorkerStatus": {
+        "ActiveINB": "felidae/cougar",
+        "ConnectedINBCluster": [
+          {
+            "Name": "camelidae",
+            "INBs": [
+              {
+                "Cluster": "camelidae",
+                "Name": "alpaca",
+                "Active": false,
+                "Healthy": true
+              }
+            ]
+          },
+          {
+            "Name": "felidae",
+            "INBs": [
+              {
+                "Cluster": "felidae",
+                "Name": "cougar",
+                "Active": true,
+                "Healthy": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "Name": "green-network",
+      "Error": "",
+      "Routes": [],
+      "Subnets": [
+        {
+          "CIDR": "10.0.100.0/24"
+        },
+        {
+          "CIDR": "fd00:10:100::/64"
+        }
+      ],
+      "Endpoints": [
+        {
+          "Name": "admiring-wombat",
+          "Cluster": "default",
+          "Node": "crayfish",
+          "IPv4": "10.244.5.111",
+          "NetIPv4": "10.0.100.31",
+          "IPv6": "fd00:10:244:5::111",
+          "NetIPv6": "fd00:10:100::31",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "pumped-ocelot",
+          "Cluster": "default",
+          "Node": "crayfish",
+          "IPv4": "10.244.5.110",
+          "NetIPv4": "10.0.100.30",
+          "IPv6": "fd00:10:244:5::110",
+          "NetIPv6": "fd00:10:100::30",
+          "Active": false,
+          "External": false
+        }
+      ],
+      "INBStatus": {
+        "Serving": false,
+        "Interface": {
+          "Name": "",
+          "Index": 0,
+          "Error": ""
+        },
+        "ActiveWorkloadNodes": null
+      },
+      "WorkerStatus": {
+        "ActiveINB": "camelidae/alpaca",
+        "ConnectedINBCluster": [
+          {
+            "Name": "camelidae",
+            "INBs": [
+              {
+                "Cluster": "camelidae",
+                "Name": "alpaca",
+                "Active": true,
+                "Healthy": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
+-- status.3.txt --
+Node                                       foobar-worker-1                          Status  DEGRADED
+
+  Network blue-network                Active INB  felidae/cougar                                  OK
+    Subnets   192.168.250.0/23  fd10:0:250::/64  192.168.250.24/32
+    Routes    192.168.252.0/24 via 192.168.250.2  0.0.0.0/0 via 192.168.250.1
+    Local Endpoints 0                                                              Total Endpoints 5
+
+    Endpoints           default (local)     2 Endpoints
+                        camelidae           1 Endpoints
+                        felidae             2 Endpoints
+
+    Connected INBs    camelidae 0/1  felidae 1/1 [active]
+
+  Network green-network                                                                     DEGRADED
+      No Active INB
+    Subnets   10.0.100.0/24  fd00:10:100::/64
+    Routes    No routes defined for network
+    Local Endpoints 0                                                              Total Endpoints 2
+
+    Endpoints           default (local)     2 Endpoints
+
+    Connected INBs    camelidae 0/1
+
+-- status.3.json --
+{
+  "Name": "foobar-worker-1",
+  "Cluster": "default",
+  "ConnectedClusters": [
+    {
+      "Name": "camelidae",
+      "NodeNames": [
+        "alpaca"
+      ]
+    },
+    {
+      "Name": "felidae",
+      "NodeNames": [
+        "cougar"
+      ]
+    }
+  ],
+  "Enabled": true,
+  "Mode": "default",
+  "Networks": [
+    {
+      "Name": "blue-network",
+      "Error": "",
+      "Routes": [
+        {
+          "Destination": "192.168.252.0/24",
+          "Gateway": "192.168.250.2"
+        },
+        {
+          "Destination": "0.0.0.0/0",
+          "Gateway": "192.168.250.1"
+        }
+      ],
+      "Subnets": [
+        {
+          "CIDR": "192.168.250.0/23"
+        },
+        {
+          "CIDR": "fd10:0:250::/64"
+        },
+        {
+          "CIDR": "192.168.250.24/32"
+        }
+      ],
+      "Endpoints": [
+        {
+          "Name": "resolved-monster",
+          "Cluster": "camelidae",
+          "Node": "alpaca",
+          "IPv4": "10.245.9.41",
+          "NetIPv4": "192.168.250.201",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        },
+        {
+          "Name": "optimum-mouse",
+          "Cluster": "default",
+          "Node": "crayfish",
+          "IPv4": "10.244.5.108",
+          "NetIPv4": "192.168.250.20",
+          "IPv6": "fd00:10:244:5::108",
+          "NetIPv6": "fd10:0:250::20",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "regular-koi",
+          "Cluster": "default",
+          "Node": "crayfish",
+          "IPv4": "10.244.5.109",
+          "NetIPv4": "192.168.250.21",
+          "IPv6": "fd00:10:244:5::109",
+          "NetIPv6": "fd10:0:250::21",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "resolved-monster",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.87",
+          "NetIPv4": "192.168.250.201",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        },
+        {
+          "Name": "valid-monkey",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.21",
+          "NetIPv4": "192.168.250.200",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        }
+      ],
+      "INBStatus": {
+        "Serving": false,
+        "Interface": {
+          "Name": "",
+          "Index": 0,
+          "Error": ""
+        },
+        "ActiveWorkloadNodes": null
+      },
+      "WorkerStatus": {
+        "ActiveINB": "felidae/cougar",
+        "ConnectedINBCluster": [
+          {
+            "Name": "camelidae",
+            "INBs": [
+              {
+                "Cluster": "camelidae",
+                "Name": "alpaca",
+                "Active": false,
+                "Healthy": false
+              }
+            ]
+          },
+          {
+            "Name": "felidae",
+            "INBs": [
+              {
+                "Cluster": "felidae",
+                "Name": "cougar",
+                "Active": true,
+                "Healthy": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "Name": "green-network",
+      "Error": "No Active INB",
+      "Routes": [],
+      "Subnets": [
+        {
+          "CIDR": "10.0.100.0/24"
+        },
+        {
+          "CIDR": "fd00:10:100::/64"
+        }
+      ],
+      "Endpoints": [
+        {
+          "Name": "admiring-wombat",
+          "Cluster": "default",
+          "Node": "crayfish",
+          "IPv4": "10.244.5.111",
+          "NetIPv4": "10.0.100.31",
+          "IPv6": "fd00:10:244:5::111",
+          "NetIPv6": "fd00:10:100::31",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "pumped-ocelot",
+          "Cluster": "default",
+          "Node": "crayfish",
+          "IPv4": "10.244.5.110",
+          "NetIPv4": "10.0.100.30",
+          "IPv6": "fd00:10:244:5::110",
+          "NetIPv6": "fd00:10:100::30",
+          "Active": false,
+          "External": false
+        }
+      ],
+      "INBStatus": {
+        "Serving": false,
+        "Interface": {
+          "Name": "",
+          "Index": 0,
+          "Error": ""
+        },
+        "ActiveWorkloadNodes": null
+      },
+      "WorkerStatus": {
+        "ActiveINB": "",
+        "ConnectedINBCluster": [
+          {
+            "Name": "camelidae",
+            "INBs": [
+              {
+                "Cluster": "camelidae",
+                "Name": "alpaca",
+                "Active": false,
+                "Healthy": false
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

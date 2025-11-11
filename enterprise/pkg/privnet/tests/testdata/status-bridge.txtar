@@ -1,0 +1,694 @@
+#! --private-networks-enabled --private-networks-mode=bridge
+
+# Create the checkers.
+checkerpool/new cougar felidae/cougar
+checkerpool/new lion   felidae/lion
+
+hive start
+
+
+# Add local and remote nodes
+clustermesh/nodes/upsert _ nodes-felidae-cougar.json
+clustermesh/nodes/upsert _ nodes-felidae-lion.json
+clustermesh/nodes/upsert _ nodes-local.json
+clustermesh/nodes/upsert _ nodes-local-2.json
+clustermesh/nodes/sync
+
+# Populate the initial state.
+db/insert devices device.eth1.yaml
+db/insert devices device.eth2.yaml
+k8s/add icpn-1.yaml icpn-2.yaml
+
+# Register the networks.
+checkerpool/register cougar default/foobar-worker-1 firefly
+checkerpool/register cougar default/foobar-worker-1 maggot
+checkerpool/synced cougar
+db/cmp test-observed-state-cougar health.v1.table
+
+checkerpool/register lion default/foobar-worker-1 firefly
+checkerpool/register lion default/foobar-worker-1 maggot
+checkerpool/synced lion
+db/cmp test-observed-state-lion health.v1.table
+
+checkerpool/activate cougar default/foobar-worker-1 maggot
+checkerpool/activate lion   default/foobar-worker-1 firefly
+
+
+# Create a few local workloads.
+db/insert privnet-local-workloads local-workload-optimum-mouse.yaml
+db/insert privnet-local-workloads local-workload-shining-burro.yaml
+
+# Ingest the endpoints from endpointslices and clustermesh.
+k8s/add privnet-eps.yaml
+clustermesh/endpoints/upsert maggot/10.245.8.21 endpoint-maggot-cougar-1.json
+clustermesh/endpoints/upsert maggot/10.245.8.22 endpoint-maggot-cougar-2.json
+clustermesh/endpoints/upsert firefly/10.245.8.31 endpoint-firefly-cougar-1.json
+clustermesh/endpoints/upsert firefly/10.245.8.32 endpoint-firefly-lion-1.json
+clustermesh/endpoints/sync
+
+
+# Check initial status
+privnet/status -o json
+* cmp stdout status-1.json
+privnet/status --color=false
+cmp stdout status-1.txt
+
+# Stop serving one of the networks, 
+db/insert devices device.eth1.v2.yaml
+
+
+# Check status - we should not be serving anymore
+privnet/status -o json
+* cmp stdout status-2.json
+privnet/status --color=false
+cmp stdout status-2.txt
+
+-- device.eth1.yaml --
+index: 10
+name: eth1
+type: veth
+operstatus: up
+selected: true
+
+-- device.eth1.v2.yaml --
+index: 10
+name: eth1
+type: veth
+operstatus: link-layer-down
+selected: true
+
+-- device.eth2.yaml --
+index: 11
+name: eth2
+type: veth
+operstatus: up
+selected: true
+
+-- icpn-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: maggot
+spec:
+  interface:
+    name: eth1
+  routes: []
+  subnets:
+  - cidr: 192.168.250.0/24
+
+-- icpn-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: firefly
+spec:
+  interface:
+    name: eth2
+  routes: []
+  subnets:
+  - cidr: 192.168.251.0/24
+
+-- local-workload-optimum-mouse.yaml --
+endpointid: 11
+namespace: foo
+endpoint:
+  addressing:
+    ipv4: 10.245.8.20
+  name: optimum-mouse
+interface:
+  addressing:
+    ipv4: 192.168.250.20
+  mac: 19:60:b8:48:84:20
+  network: maggot
+activatedat: 2025-06-20T12:40:00Z
+flags:
+  external: false
+
+-- local-workload-shining-burro.yaml --
+endpointid: 16
+namespace: foo
+endpoint:
+  addressing:
+    ipv4: 10.245.8.39
+  name: shining-burro
+interface:
+  addressing:
+    ipv4: 192.168.251.39
+  mac: 19:60:b8:48:84:39
+  network: firefly
+activatedat: 2025-06-20T12:40:00Z
+flags:
+  external: true
+
+-- privnet-eps.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkEndpointSlice
+metadata:
+  namespace: default
+  name: foobar-worker-2
+endpoints:
+- activatedAt: "2025-06-20T15:54:04.765000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.245.8.30
+    name: moved-racer
+  interface:
+    addressing:
+      ipv4: 192.168.251.30
+    mac: 19:60:b8:48:84:30
+    network: firefly
+- activatedAt: "2025-06-20T15:54:03.234000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.245.8.40
+    name: destined-bluejay
+  flags:
+    external: true
+  interface:
+    addressing:
+      ipv4: 192.168.250.40
+    mac: 19:60:b8:48:84:40
+    network: maggot
+nodeName: foobar-worker-2
+
+-- endpoint-maggot-cougar-1.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.421Z",
+  "ip": "10.245.8.21",
+  "name": "valid-monkey",
+  "network": {
+    "name": "maggot",
+    "ip": "192.168.250.21",
+    "mac": "19:60:b8:48:84:21"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "cougar"
+  }
+}
+
+-- endpoint-maggot-cougar-2.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.422Z",
+  "ip": "10.245.8.22",
+  "name": "intense-phoenix",
+  "network": {
+    "name": "maggot",
+    "ip": "192.168.250.22",
+    "mac": "19:60:b8:48:84:22"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "cougar"
+  }
+}
+
+-- endpoint-maggot-cougar-3.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.423Z",
+  "ip": "10.245.8.23",
+  "name": "charming-finch",
+  "network": {
+    "name": "maggot",
+    "ip": "192.168.250.23",
+    "mac": "19:60:b8:48:84:23"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "cougar"
+  }
+}
+
+-- endpoint-firefly-cougar-1.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.431Z",
+  "ip": "10.245.8.31",
+  "name": "eminent-griffon",
+  "network": {
+    "name": "firefly",
+    "ip": "192.168.251.31",
+    "mac": "19:60:b8:48:84:31"
+  },
+  "nodeName": "cougar",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "cougar"
+  }
+}
+
+-- endpoint-firefly-lion-1.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.432Z",
+  "ip": "10.245.8.32",
+  "name": "grateful-raccoon",
+  "network": {
+    "name": "firefly",
+    "ip": "192.168.251.32",
+    "mac": "19:60:b8:48:84:32"
+  },
+  "nodeName": "lion",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "lion"
+  }
+}
+
+-- endpoint-firefly-lion-2.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.433Z",
+  "ip": "10.245.8.33",
+  "name": "quality-bass",
+  "network": {
+    "name": "firefly",
+    "ip": "192.168.251.33",
+    "mac": "19:60:b8:48:84:33"
+  },
+  "nodeName": "lion",
+  "source": {
+    "cluster": "felidae",
+    "namespace": "gopher",
+    "name": "lion"
+  }
+}
+-- health.v1.table --
+Instance                  Network   Health
+default/foobar-worker-1   firefly   Healthy, Confirmed
+default/foobar-worker-1   maggot    Healthy, Confirmed
+
+-- nodes-felidae-cougar.json --
+{
+    "Cluster": "felidae",
+    "Name": "cougar",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "172.128.0.6"}
+    ]
+}
+-- nodes-felidae-lion.json --
+{
+    "Cluster": "felidae",
+    "Name": "lion",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "172.128.0.7"}
+    ]
+}
+-- nodes-local.json --
+{
+    "Cluster": "default",
+    "Name": "foobar-worker-1",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "172.128.0.5"}
+    ]
+}
+-- nodes-local-2.json --
+{
+    "Cluster": "default",
+    "Name": "foobar-worker-2",
+    "IPAddresses": [
+        {"Type": "InternalIP", "IP": "172.128.0.8"}
+    ]
+}
+
+-- status-1.txt --
+Network Bridge                             foobar-worker-1                                Status  OK
+
+  Network firefly                       Interface eth2 state UP                              SERVING
+    Subnets   192.168.251.0/24
+    Routes    No routes defined for network
+    External Endpoints 1                   Served Endpoints 1                      Total Endpoints 4
+
+    Served Nodes        felidae        1/2 (1/2 endpoints)
+
+  Network maggot                        Interface eth1 state UP                              SERVING
+    Subnets   192.168.250.0/24
+    Routes    No routes defined for network
+    External Endpoints 0                   Served Endpoints 2                      Total Endpoints 4
+
+    Served Nodes        felidae        1/2 (2/2 endpoints)
+
+-- status-1.json --
+{
+  "Name": "foobar-worker-1",
+  "Cluster": "default",
+  "ConnectedClusters": [
+    {
+      "Name": "default",
+      "NodeNames": [
+        "foobar-worker-1",
+        "foobar-worker-2"
+      ]
+    },
+    {
+      "Name": "felidae",
+      "NodeNames": [
+        "cougar",
+        "lion"
+      ]
+    }
+  ],
+  "Enabled": true,
+  "Mode": "bridge",
+  "Networks": [
+    {
+      "Name": "firefly",
+      "Error": "",
+      "Routes": [],
+      "Subnets": [
+        {
+          "CIDR": "192.168.251.0/24"
+        }
+      ],
+      "Endpoints": [
+        {
+          "Name": "moved-racer",
+          "Cluster": "default",
+          "Node": "foobar-worker-2",
+          "IPv4": "10.245.8.30",
+          "NetIPv4": "192.168.251.30",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "shining-burro",
+          "Cluster": "default",
+          "Node": "foobar-worker-1",
+          "IPv4": "10.245.8.39",
+          "NetIPv4": "192.168.251.39",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        },
+        {
+          "Name": "eminent-griffon",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.31",
+          "NetIPv4": "192.168.251.31",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "grateful-raccoon",
+          "Cluster": "felidae",
+          "Node": "lion",
+          "IPv4": "10.245.8.32",
+          "NetIPv4": "192.168.251.32",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": true,
+          "External": false
+        }
+      ],
+      "INBStatus": {
+        "Serving": true,
+        "Interface": {
+          "Name": "eth2",
+          "Index": 11,
+          "Error": ""
+        },
+        "ActiveWorkloadNodes": [
+          {
+            "Cluster": "felidae",
+            "Name": "lion"
+          }
+        ]
+      },
+      "WorkerStatus": {
+        "ActiveINB": "",
+        "ConnectedINBCluster": null
+      }
+    },
+    {
+      "Name": "maggot",
+      "Error": "",
+      "Routes": [],
+      "Subnets": [
+        {
+          "CIDR": "192.168.250.0/24"
+        }
+      ],
+      "Endpoints": [
+        {
+          "Name": "destined-bluejay",
+          "Cluster": "default",
+          "Node": "foobar-worker-2",
+          "IPv4": "10.245.8.40",
+          "NetIPv4": "192.168.250.40",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        },
+        {
+          "Name": "optimum-mouse",
+          "Cluster": "default",
+          "Node": "foobar-worker-1",
+          "IPv4": "10.245.8.20",
+          "NetIPv4": "192.168.250.20",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "intense-phoenix",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.22",
+          "NetIPv4": "192.168.250.22",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": true,
+          "External": false
+        },
+        {
+          "Name": "valid-monkey",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.21",
+          "NetIPv4": "192.168.250.21",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": true,
+          "External": false
+        }
+      ],
+      "INBStatus": {
+        "Serving": true,
+        "Interface": {
+          "Name": "eth1",
+          "Index": 10,
+          "Error": ""
+        },
+        "ActiveWorkloadNodes": [
+          {
+            "Cluster": "felidae",
+            "Name": "cougar"
+          }
+        ]
+      },
+      "WorkerStatus": {
+        "ActiveINB": "",
+        "ConnectedINBCluster": null
+      }
+    }
+  ]
+}
+-- status-2.txt --
+Network Bridge                             foobar-worker-1                          Status  DEGRADED
+
+  Network firefly                       Interface eth2 state UP                              SERVING
+    Subnets   192.168.251.0/24
+    Routes    No routes defined for network
+    External Endpoints 1                   Served Endpoints 1                      Total Endpoints 4
+
+    Served Nodes        felidae        1/2 (1/2 endpoints)
+
+  Network maggot                      Interface eth1 state ERROR                            DEGRADED
+      Interface "eth1" has "link-layer-down" operational status
+    Subnets   192.168.250.0/24
+    Routes    No routes defined for network
+    External Endpoints 0                   Served Endpoints 0                      Total Endpoints 4
+
+    Served Nodes        felidae        0/2 (0/2 endpoints)
+
+-- status-2.json --
+{
+  "Name": "foobar-worker-1",
+  "Cluster": "default",
+  "ConnectedClusters": [
+    {
+      "Name": "default",
+      "NodeNames": [
+        "foobar-worker-1",
+        "foobar-worker-2"
+      ]
+    },
+    {
+      "Name": "felidae",
+      "NodeNames": [
+        "cougar",
+        "lion"
+      ]
+    }
+  ],
+  "Enabled": true,
+  "Mode": "bridge",
+  "Networks": [
+    {
+      "Name": "firefly",
+      "Error": "",
+      "Routes": [],
+      "Subnets": [
+        {
+          "CIDR": "192.168.251.0/24"
+        }
+      ],
+      "Endpoints": [
+        {
+          "Name": "moved-racer",
+          "Cluster": "default",
+          "Node": "foobar-worker-2",
+          "IPv4": "10.245.8.30",
+          "NetIPv4": "192.168.251.30",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "shining-burro",
+          "Cluster": "default",
+          "Node": "foobar-worker-1",
+          "IPv4": "10.245.8.39",
+          "NetIPv4": "192.168.251.39",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        },
+        {
+          "Name": "eminent-griffon",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.31",
+          "NetIPv4": "192.168.251.31",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "grateful-raccoon",
+          "Cluster": "felidae",
+          "Node": "lion",
+          "IPv4": "10.245.8.32",
+          "NetIPv4": "192.168.251.32",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": true,
+          "External": false
+        }
+      ],
+      "INBStatus": {
+        "Serving": true,
+        "Interface": {
+          "Name": "eth2",
+          "Index": 11,
+          "Error": ""
+        },
+        "ActiveWorkloadNodes": [
+          {
+            "Cluster": "felidae",
+            "Name": "lion"
+          }
+        ]
+      },
+      "WorkerStatus": {
+        "ActiveINB": "",
+        "ConnectedINBCluster": null
+      }
+    },
+    {
+      "Name": "maggot",
+      "Error": "Interface \"eth1\" has \"link-layer-down\" operational status",
+      "Routes": [],
+      "Subnets": [
+        {
+          "CIDR": "192.168.250.0/24"
+        }
+      ],
+      "Endpoints": [
+        {
+          "Name": "destined-bluejay",
+          "Cluster": "default",
+          "Node": "foobar-worker-2",
+          "IPv4": "10.245.8.40",
+          "NetIPv4": "192.168.250.40",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        },
+        {
+          "Name": "optimum-mouse",
+          "Cluster": "default",
+          "Node": "foobar-worker-1",
+          "IPv4": "10.245.8.20",
+          "NetIPv4": "192.168.250.20",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "intense-phoenix",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.22",
+          "NetIPv4": "192.168.250.22",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "valid-monkey",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.21",
+          "NetIPv4": "192.168.250.21",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        }
+      ],
+      "INBStatus": {
+        "Serving": false,
+        "Interface": {
+          "Name": "eth1",
+          "Index": 0,
+          "Error": "Interface \"eth1\" has \"link-layer-down\" operational status"
+        },
+        "ActiveWorkloadNodes": null
+      },
+      "WorkerStatus": {
+        "ActiveINB": "",
+        "ConnectedINBCluster": null
+      }
+    }
+  ]
+}

@@ -12,6 +12,7 @@ package tests
 
 import (
 	"fmt"
+	"maps"
 	"os"
 
 	uhive "github.com/cilium/hive"
@@ -23,6 +24,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/lock"
 	nomgr "github.com/cilium/cilium/pkg/node/manager"
 	nostore "github.com/cilium/cilium/pkg/node/store"
 	notypes "github.com/cilium/cilium/pkg/node/types"
@@ -45,7 +47,11 @@ var ClusterMeshObservers = cell.Group(
 		// limited to clustermesh nodes only. However, let's reuse the same testing
 		// machinery, given that scaffolding is already there, and it does not make
 		// any difference from the practical point of view.
-		func() nomgr.NodeManager { return mockNM{} },
+		func() nomgr.NodeManager {
+			return &mockNM{
+				nodes: map[notypes.Identity]notypes.Node{},
+			}
+		},
 		func(obs *observers.Nodes) uhive.ScriptCmdsOut {
 			return uhive.NewScriptCmds(
 				cmObserver[*notypes.Node]{
@@ -135,19 +141,42 @@ func (obs cmObserver[t]) sync() script.Cmd {
 	)
 }
 
-type mockNM struct{}
+type mockNM struct {
+	mu    lock.Mutex
+	nodes map[notypes.Identity]notypes.Node
+}
 
-var _ nomgr.NodeManager = mockNM{}
+var _ nomgr.NodeManager = &mockNM{}
 
-func (mockNM) ClusterSizeDependantInterval(time.Duration) time.Duration { panic("unimplemented") }
-func (mockNM) GetNodeIdentities() []notypes.Identity                    { panic("unimplemented") }
-func (mockNM) GetNodes() map[notypes.Identity]notypes.Node              { panic("unimplemented") }
-func (mockNM) Subscribe(dptypes.NodeHandler)                            { panic("unimplemented") }
-func (mockNM) Unsubscribe(dptypes.NodeHandler)                          { panic("unimplemented") }
+func (nm *mockNM) GetNodes() map[notypes.Identity]notypes.Node {
+	nm.mu.Lock()
+	defer nm.mu.Unlock()
+	return maps.Clone(nm.nodes)
+}
+func (nm *mockNM) NodeUpdated(n notypes.Node) {
+	nm.mu.Lock()
+	defer nm.mu.Unlock()
+	nm.nodes[notypes.Identity{
+		Name:    n.Name,
+		Cluster: n.Cluster,
+	}] = n
+}
 
-func (mockNM) SetPrefixClusterMutatorFn(func(*notypes.Node) []cmtypes.PrefixClusterOpts) {}
+func (nm *mockNM) NodeDeleted(n notypes.Node) {
+	nm.mu.Lock()
+	defer nm.mu.Unlock()
+	delete(nm.nodes, notypes.Identity{
+		Name:    n.Name,
+		Cluster: n.Cluster,
+	})
+}
 
-func (mockNM) NodeUpdated(notypes.Node) {}
-func (mockNM) NodeDeleted(notypes.Node) {}
-func (mockNM) NodeSync()                {}
-func (mockNM) MeshNodeSync()            {}
+func (*mockNM) ClusterSizeDependantInterval(time.Duration) time.Duration { panic("unimplemented") }
+func (*mockNM) GetNodeIdentities() []notypes.Identity                    { panic("unimplemented") }
+func (*mockNM) Subscribe(dptypes.NodeHandler)                            { panic("unimplemented") }
+func (*mockNM) Unsubscribe(dptypes.NodeHandler)                          { panic("unimplemented") }
+
+func (*mockNM) SetPrefixClusterMutatorFn(func(*notypes.Node) []cmtypes.PrefixClusterOpts) {}
+
+func (*mockNM) NodeSync()     {}
+func (*mockNM) MeshNodeSync() {}

@@ -8,27 +8,19 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package privnet
+package status
 
 import (
-	"github.com/cilium/hive/cell"
-
-	"github.com/cilium/cilium/enterprise/pkg/privnet/addressing"
-	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
-	health "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/status"
+	"flag"
+	"os"
+	"testing"
 )
 
-var Cell = cell.Module(
-	"private-networks",
-	"Support for Private Networks",
-
-	pncfg.Cell,
-	reconcilers.Cell,
-	endpoints.Cell,
-	health.Cell,
-	addressing.Cell,
-	status.Cell,
+var (
+	update = flag.Bool("update", false, "update the golden files for the formatter tests")
 )
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	os.Exit(m.Run())
+}

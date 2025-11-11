@@ -151,6 +151,11 @@ func (pn PrivateNetwork) CanBeServedByINB() bool {
 	return pn.Interface.Index > 0
 }
 
+// Error returns any errors associated with this private network
+func (pn PrivateNetwork) Error() string {
+	return pn.Interface.Error
+}
+
 // ToSlim returns a [SlimPrivateNetwork] object for this private network.
 func (pn PrivateNetwork) ToSlim(activeINB INBNode) SlimPrivateNetwork {
 	return SlimPrivateNetwork{
