@@ -115,7 +115,7 @@ jobs:
                 pull_number: prNumber
             });
 
-            const result = pr.labels.find(label => label.name === '${{ vars.AUTO_BACKPORT_LABEL }}');
+            const result = pr.labels.some(label => label.name === '${{ vars.AUTO_BACKPORT_LABEL }}');
 
             // Check if the `auto-backport` label is present. If not, comment and exit with failure.
             // Do not add comment to workflow runs triggered by pull_request event.
@@ -156,15 +156,14 @@ jobs:
       - name: Setup Target Branches from text comment / command
         if: github.event_name == 'issue_comment' || github.event_name == 'workflow_dispatch'
         id: setup-target-branches
-        env:
-          INPUT_TARGET_BRANCHES: ${{ fromJson(inputs.extra-args) }}
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
+          github-token: ${{ steps.generate-token.outputs.token }}
           script: |
             let targetBranches = '';
 
             if (context.eventName === 'workflow_dispatch') {
-                targetBranches = process.env.INPUT_TARGET_BRANCHES.trim();
+                targetBranches = '${{ fromJson(inputs.extra-args) }}'.trim();
             } else {
                 const parsedComment = context.payload.comment.body.trim().split(' ');
                 if (parsedComment.length > 1) {
