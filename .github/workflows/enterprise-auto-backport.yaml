@@ -49,12 +49,12 @@ jobs:
     runs-on: ubuntu-24.04 # Change this to ${{ vars.UBUNTU_2404_2CPU_1GB }} before merging
     timeout-minutes: 10
     env:
-        GH_BACKPORTER_APP_ID: ""
-        GH_BACKPORTER_APP_PEM: ""
-        TARGET_BRANCH_PREFIX: 'v'
-        TARGET_BRANCH_SUFFIX: '-ce'
-        TARGET_BRANCHES: ''  # Will be set in the steps below
+        GH_BACKPORTER_APP_ID: ''
+        GH_BACKPORTER_APP_PEM: ''
         PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.PR-number}}
+        TARGET_BRANCH_PREFIX: ${{ vars.TARGET_BRANCH_PREFIX }}
+        TARGET_BRANCH_SUFFIX: ${{ vars.TARGET_BRANCH_SUFFIX }}
+        TARGET_BRANCHES: ''  # Will be set in the steps below
 
     # run only when a PR is merged or when a comment with /backport is created on a pull request or on workflow_dispatch
     if: >
@@ -102,27 +102,6 @@ jobs:
                 content: 'rocket'
             });
 
-      - name: Setup Target Branches from text comment / command
-        if: github.event_name == 'issue_comment' || github.event_name == 'workflow_dispatch'
-        id: setup-target-branches
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        with:
-          script: |
-            let targetBranches = '';
-
-            if (context.eventName === 'workflow_dispatch') {
-                targetBranches = '${{ fromJson(inputs.extra-args) }}'.trim();
-                core.info(`Using target branches from workflow dispatch input: '${targetBranches}'`);
-            } else {
-                const match = context.payload.comment.body.match(/^\/backport\s+(.+)$/);
-                if (match && match[1]) {
-                    targetBranches = match[1].trim();
-                    core.info(`Using target branches from comment: '${targetBranches}'`);
-                }
-            }
-
-            core.exportVariable('TARGET_BRANCHES', targetBranches);
-
       - name: Check for `auto-backport` label on the PR
         id: check-backport-labels
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
@@ -130,7 +109,6 @@ jobs:
           github-token: ${{ steps.generate-token.outputs.token }}
           script: |
             const prNumber = process.env.PR_NUMBER;
-            console.log('Checking labels for PR #' + prNumber);
             const { data: pr } = await github.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -141,10 +119,7 @@ jobs:
 
             // Check if the `auto-backport` label is present. If not, comment and exit with failure.
             // Do not add comment to workflow runs triggered by pull_request event.
-            if (!result) {
-                if (context.eventName === 'pull_request') {
-                    return;
-                }
+            if (!result && context.eventName != 'pull_request') {
                 await github.rest.issues.createComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
@@ -156,6 +131,7 @@ jobs:
                       '`/backport ${{ env.TARGET_BRANCHES }} <space separated branch list>` to this PR.'
                 });
             }
+
             return result.toString();
 
       - name: Check if pull_request is merged
@@ -176,6 +152,29 @@ jobs:
             });
 
             return pr.merged.toString();
+
+      - name: Setup Target Branches from text comment / command
+        if: github.event_name == 'issue_comment' || github.event_name == 'workflow_dispatch'
+        id: setup-target-branches
+        env:
+          INPUT_TARGET_BRANCHES: ${{ fromJson(inputs.extra-args) }}
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            let targetBranches = '';
+
+            if (context.eventName === 'workflow_dispatch') {
+                targetBranches = process.env.INPUT_TARGET_BRANCHES.trim();
+            } else {
+                const parsedComment = context.payload.comment.body.trim().split(' ');
+                if (parsedComment.length > 1) {
+                    targetBranches = parsedComment.slice(1)
+                        .filter(branch => branch.trim() !== '').join(' ');
+                }
+            }
+
+            console.log(`Setting TARGET_BRANCHES to: '${targetBranches}'`);
+            core.exportVariable('TARGET_BRANCHES', targetBranches);
 
       - name: Setup Labels if pull_request is not merged
         id: setup-labels
