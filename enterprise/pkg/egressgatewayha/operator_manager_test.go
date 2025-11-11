@@ -2655,6 +2655,91 @@ func TestEgressCIDRAllocation(t *testing.T) {
 	})
 }
 
+// Test that EGW-IPAM prioritizes active nodes over quarantined ones, and if necessary moves the assigned IPs.
+// This sort of "floating IP" setup is discouraged (it prevents graceful shutdown of gateway nodes).
+func TestEgressCIDRAllocationFloatingIP(t *testing.T) {
+	k := setupEgressGatewayOperatorTestSuite(t)
+
+	node1 := k.addNode(t, node1Name, node1IP, nodeGroup1Labels)
+
+	// Create a non-HA policy (one EgressIP, maxGatewayNodes == 1).
+	// Add one gateway node for the policy.
+	k.addPolicy(t, &policyParams{
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		egressCIDRs:      []string{"10.100.255.48/32"},
+		egressGroups:     []egressGroupParams{{iface: testInterface1, nodeLabels: nodeGroup1Labels, maxGatewayNodes: 1}},
+	})
+
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs:  []string{node1IP},
+		healthyGatewayIPs: []string{node1IP},
+		egressIPByGatewayIP: map[string]string{
+			node1IP: "10.100.255.48",
+		},
+	})
+	k.assertIegpStatusConditions(t, []metav1.Condition{
+		{
+			Type:   egwIPAMRequestSatisfied,
+			Status: metav1.ConditionTrue,
+		},
+	})
+
+	// Add second gateway node. Shouldn't be selected as active.
+	k.addNode(t, node2Name, node2IP, nodeGroup1Labels)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs:  []string{node1IP},
+		healthyGatewayIPs: []string{node1IP, node2IP},
+		egressIPByGatewayIP: map[string]string{
+			node1IP: "10.100.255.48",
+		},
+	})
+	k.assertIegpStatusConditions(t, []metav1.Condition{
+		{
+			Type:   egwIPAMRequestSatisfied,
+			Status: metav1.ConditionTrue,
+		},
+	})
+
+	// Quarantine node1. Node2 should become active, and take over the egressIP.
+	k.makeNodeUnschedulableByTaint(t, node1)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs:  []string{node2IP},
+		healthyGatewayIPs: []string{node1IP, node2IP},
+		egressIPByGatewayIP: map[string]string{
+			node2IP: "10.100.255.48",
+		},
+	})
+	k.assertIegpStatusConditions(t, []metav1.Condition{
+		{
+			Type:   egwIPAMRequestSatisfied,
+			Status: metav1.ConditionFalse,
+		},
+		{
+			Type:   egwIPAMPoolExhausted,
+			Status: metav1.ConditionUnknown,
+		},
+	})
+
+	// Add back node1. Node2 should stay the active gateway node.
+	k.updateNodeTaints(t, node1, nil)
+	k.assertIegpGatewayStatus(t, gatewayStatus{
+		activeGatewayIPs:  []string{node2IP},
+		healthyGatewayIPs: []string{node1IP, node2IP},
+		egressIPByGatewayIP: map[string]string{
+			node2IP: "10.100.255.48",
+		},
+	})
+	k.assertIegpStatusConditions(t, []metav1.Condition{
+		{
+			Type:   egwIPAMRequestSatisfied,
+			Status: metav1.ConditionTrue,
+		},
+	})
+}
+
 func TestEgressCIDRAllocationWithConflicts(t *testing.T) {
 	k := setupEgressGatewayOperatorTestSuite(t)
 
