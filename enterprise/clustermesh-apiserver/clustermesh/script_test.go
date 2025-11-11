@@ -34,7 +34,7 @@ import (
 	entcmk8s "github.com/cilium/cilium/enterprise/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/enterprise/pkg/clustermesh/clustercfg"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
-	"github.com/cilium/cilium/pkg/clustermesh/operator"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -78,7 +78,7 @@ func TestScript(t *testing.T) {
 
 		h := hive.New(
 			cell.Config(cmtypes.DefaultClusterInfo),
-			cell.Config(operator.MCSAPIConfig{}),
+			cell.Config(mcsapitypes.DefaultMCSAPIConfig),
 			cell.Invoke(cmtypes.ClusterInfo.Validate),
 
 			k8sClient.FakeClientCell(),

@@ -26,10 +26,10 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	bgptypes "github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	bgptypes "github.com/cilium/cilium/pkg/bgp/types"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -54,7 +54,7 @@ type BFDStateReconcilerIn struct {
 type BFDStateReconcilerOut struct {
 	cell.Out
 
-	Reconciler reconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
+	Reconciler reconciler.ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
 // BFDStateReconciler reconciles BFD peers' state into BGP router state - if a BFD peer
@@ -131,7 +131,7 @@ func (r *BFDStateReconciler) Cleanup(i *instance.BGPInstance) {
 
 // Reconcile checks if a BFD peer that was configured for the router instance went down,
 // and if yes, it hard-resets the BGP peering for that peer address on the router instance.
-func (r *BFDStateReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+func (r *BFDStateReconciler) Reconcile(ctx context.Context, p reconciler.ReconcileParams) error {
 	params, err := r.upgrader.upgrade(p)
 	if err != nil {
 		if errors.Is(err, ErrEntNodeConfigNotFound) {

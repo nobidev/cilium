@@ -687,6 +687,14 @@ ct_recreate6:
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
+#ifdef ENABLE_IDENTITY_MARK
+	/* Always encode the source identity when forwarding the packet.
+	 * This prevents loss of identity if the packet is later SNATed,
+	 * or the endpoint is torn down.
+	 */
+	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
+#endif
+
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow || is_defined(ENABLE_HOST_ROUTING)) {
 		const struct endpoint_info *ep;
 		union v6addr daddr;
@@ -775,15 +783,6 @@ pass_to_stack:
 	ret = ipv6_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
-#endif
-
-#ifdef ENABLE_IDENTITY_MARK
-	/* Always encode the source identity when passing to the stack.
-	 * If the stack hairpins the packet back to a local endpoint the
-	 * source identity can still be derived even if SNAT is
-	 * performed by a component such as portmap.
-	 */
-	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 #endif
 
 pass_to_stack_hostfw: __maybe_unused
@@ -1160,6 +1159,14 @@ ct_recreate4:
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
+#ifdef ENABLE_IDENTITY_MARK
+	/* Always encode the source identity when forwarding the packet.
+	 * This prevents loss of identity if the packet is later SNATed,
+	 * or the endpoint is torn down.
+	 */
+	set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
+#endif
+
 	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
 	 * disabled (for example, with per-endpoint routes). Otherwise, the
 	 * packet will be dropped by the kernel if the packet will be routed to
@@ -1334,15 +1341,6 @@ pass_to_stack:
 		return ret;
 #endif
 
-#ifdef ENABLE_IDENTITY_MARK
-	/* Always encode the source identity when passing to the stack.
-	 * If the stack hairpins the packet back to a local endpoint the
-	 * source identity can still be derived even if SNAT is
-	 * performed by a component such as portmap.
-	 */
-	set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
-#endif
-
 pass_to_stack_hostfw: __maybe_unused
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, *dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
@@ -1449,6 +1447,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	union macaddr smac;
 	__be32 sip;
 	__be32 tip;
+	int ret;
 
 	/* Pass any unknown ARP requests to the Linux stack */
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
@@ -1467,7 +1466,11 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (tip == CONFIG(endpoint_ipv4).be32)
 		return CTX_ACT_OK;
 
-	return arp_respond(ctx, &mac, tip, &smac, sip, 0);
+	ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
+
+	return ret;
 }
 #endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */

@@ -52,6 +52,7 @@
 #include "lib/tailcall.h"
 #include "lib/overloadable.h"
 #include "lib/encrypt.h"
+#include "lib/ipsec.h"
 #include "lib/wireguard.h"
 #include "lib/l2_responder.h"
 #include "lib/vtep.h"
@@ -1003,78 +1004,6 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV4 */
 
-#ifdef ENABLE_L2_ANNOUNCEMENTS
-static __always_inline
-int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
-{
-	union macaddr mac = CONFIG(interface_mac);
-	union macaddr smac;
-	__be32 __maybe_unused sip;
-	__be32 __maybe_unused tip;
-	union v6addr __maybe_unused tip6;
-	struct l2_responder_stats *stats;
-	int ret;
-	__u64 time;
-
-	/* Announcing L2 addresses for a L3 device makes no sense: */
-	if (THIS_IS_L3_DEV)
-		return CTX_ACT_OK;
-
-	time = config_get(RUNTIME_CONFIG_AGENT_LIVENESS);
-	if (!time)
-		return CTX_ACT_OK;
-
-	/* If the agent is not active for X seconds, we can't trust the contents
-	 * of the responder map anymore. So stop responding, assuming other nodes
-	 * will take over for a node without an active agent.
-	 */
-	if (ktime_get_ns() - (time) > L2_ANNOUNCEMENTS_MAX_LIVENESS)
-		return CTX_ACT_OK;
-
-	if (!ip6) {
-		struct l2_responder_v4_key key;
-
-		if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
-			return CTX_ACT_OK;
-
-		key.ip4 = tip;
-		key.ifindex = ctx->ingress_ifindex;
-		stats = map_lookup_elem(&cilium_l2_responder_v4, &key);
-		if (!stats)
-			return CTX_ACT_OK;
-
-		ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
-	} else {
-#ifdef ENABLE_IPV6
-		struct l2_responder_v6_key key6;
-		int l3_off;
-
-		if (!icmp6_ndisc_validate(ctx, ip6, &mac, &tip6))
-			return CTX_ACT_OK;
-
-		key6.ip6 = tip6;
-		key6.ifindex = ctx->ingress_ifindex;
-		key6.pad = 0;
-		stats = map_lookup_elem(&cilium_l2_responder_v6, &key6);
-		if (!stats)
-			return CTX_ACT_OK;
-
-		l3_off = (int)((__u8 *)ip6 - (__u8 *)ctx_data(ctx));
-
-		ret = icmp6_send_ndisc_adv(ctx, l3_off, &mac, false);
-#else
-		return CTX_ACT_OK;
-#endif
-	}
-
-	if (ret == CTX_ACT_REDIRECT)
-		__sync_fetch_and_add(&stats->responses_sent, 1);
-
-	return ret;
-}
-
-#endif
-
 static __always_inline int
 do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 	  enum trace_point obs_point,  const bool __maybe_unused from_host)
@@ -1084,6 +1013,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	__u32 __maybe_unused ipcache_srcid = 0;
+	enum metric_dir dir = METRIC_INGRESS;
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
@@ -1098,41 +1028,26 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		return ret;
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER || \
-     defined ENABLE_L2_ANNOUNCEMENTS
-	case bpf_htons(ETH_P_ARP):
-		if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp))
-			return send_drop_notify_error(ctx, identity,
-						      DROP_INVALID,
-						      METRIC_INGRESS);
-		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
-		#ifdef ENABLE_L2_ANNOUNCEMENTS
-			ret = handle_l2_announcement(ctx, NULL);
-		#else
-			ret = CTX_ACT_OK;
-		#endif
-		break;
-# endif
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
-			return send_drop_notify_error(ctx, identity,
-						      DROP_INVALID,
-						      METRIC_INGRESS);
-#ifdef ENABLE_L2_ANNOUNCEMENTS
-		if (ip6->nexthdr == NEXTHDR_ICMP) {
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto drop_err_ingress;
+		}
+
+		if (CONFIG(enable_l2_announcements) && ip6->nexthdr == NEXTHDR_ICMP) {
 			ret = handle_l2_announcement(ctx, ip6);
+			if (IS_ERR(ret))
+				goto drop_err_egress;
+
 			if (ret != CTX_ACT_OK)
 				break;
 			/* Verifier invalidates ip6 for some reason.. sigh*/
-			if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
-				return send_drop_notify_error(ctx, identity,
-							      DROP_INVALID,
-							      METRIC_INGRESS);
+			if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
+				ret = DROP_INVALID;
+				goto drop_err_ingress;
+			}
 		}
-
-#endif /*ENABLE_L2_ANNOUNCEMENTS */
 
 		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
@@ -1170,9 +1085,10 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		 * Make sure that we don't legitimately drop the packet if the skb
 		 * arrived with the header not being not in the linear data.
 		 */
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
-			return send_drop_notify_error(ctx, identity, DROP_INVALID,
-						      METRIC_INGRESS);
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto drop_err_ingress;
+		}
 
 		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
@@ -1208,12 +1124,36 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
 								CTX_ACT_OK, METRIC_INGRESS);
 #endif /* ENABLE_IPV4 */
+	case bpf_htons(ETH_P_ARP):
+		if (is_defined(ENABLE_ARP_PASSTHROUGH) ||
+		    is_defined(ENABLE_ARP_RESPONDER) ||
+		    CONFIG(enable_l2_announcements)) {
+			if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp)) {
+				ret = DROP_INVALID;
+				goto drop_err_ingress;
+			}
+
+			send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+					  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
+
+			if (CONFIG(enable_l2_announcements)) {
+				ret = handle_l2_announcement(ctx, NULL);
+				if (IS_ERR(ret))
+					goto drop_err_egress;
+			} else {
+				ret = CTX_ACT_OK;
+			}
+
+			break;
+		}
+
+		fallthrough;
 	default:
 		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
 #ifdef ENABLE_HOST_FIREWALL
-		ret = send_drop_notify_error(ctx, identity, DROP_UNKNOWN_L3,
-					     METRIC_INGRESS);
+		ret = DROP_UNKNOWN_L3;
+		goto drop_err_ingress;
 #else
 		/* Pass unknown traffic to the stack */
 		ret = CTX_ACT_OK;
@@ -1221,6 +1161,11 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 	}
 
 	return ret;
+
+drop_err_egress: __maybe_unused
+	dir = METRIC_EGRESS;
+drop_err_ingress: __maybe_unused
+	return send_drop_notify_error(ctx, identity, ret, dir);
 }
 
 /*
@@ -1293,7 +1238,10 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	 * decrypted), we want to run all subsequent logic here. We therefore
 	 * ignore the return value from do_decrypt.
 	 */
-	do_decrypt(ctx, proto);
+	ret = do_decrypt(ctx, proto);
+	if (IS_ERR(ret))
+		goto drop_err;
+
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
 		return CTX_ACT_OK;
 #endif
@@ -1784,7 +1732,7 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
-		.monitor = TRACE_PAYLOAD_LEN,
+		.monitor = 0,
 	};
 	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool traced = ctx_load_meta(ctx, CB_TRACED);

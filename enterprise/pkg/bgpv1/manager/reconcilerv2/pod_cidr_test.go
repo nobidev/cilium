@@ -22,10 +22,10 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	ipamtypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
@@ -318,11 +318,11 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 		peerConfig            []*v1.IsovalentBGPPeerConfig
 		advertisements        []*v1.IsovalentBGPAdvertisement
 		preconfiguredPaths    map[types.Family]map[string]struct{}
-		preconfiguredRPs      reconcilerv2.RoutePolicyMap
+		preconfiguredRPs      reconciler.RoutePolicyMap
 		testCiliumNode        *v2.CiliumNode
 		testBGPInstanceConfig *v1.IsovalentBGPNodeInstance
 		expectedPaths         map[types.Family]map[string]struct{}
-		expectedRPs           reconcilerv2.RoutePolicyMap
+		expectedRPs           reconciler.RoutePolicyMap
 	}{
 		{
 			name: "pod cidr advertisement with no preconfigured advertisements",
@@ -603,7 +603,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				Router: types.NewFakeRouter(),
 			}
 
-			presetAdverts := make(reconcilerv2.AFPathsMap)
+			presetAdverts := make(reconciler.AFPathsMap)
 			for preAdvertFam, preAdverts := range tt.preconfiguredPaths {
 				pathSet := make(map[string]*types.Path)
 				for preAdvert := range preAdverts {
@@ -621,7 +621,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			// reconcile pod cidr
 			// run reconciler twice to ensure idempotency
 			for range 2 {
-				err := podCIDRReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
+				err := podCIDRReconciler.Reconcile(context.Background(), reconciler.ReconcileParams{
 					BGPInstance: &instance.BGPInstance{
 						Name: testBGPInstance.Name,
 						Config: &v2.CiliumBGPNodeInstance{

@@ -23,10 +23,10 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -300,8 +300,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 	emptyAFPathMap := func() map[resource.Key]map[types.Family]map[string]struct{} {
 		return map[resource.Key]map[types.Family]map[string]struct{}{}
 	}
-	emptyRPMap := func() reconcilerv2.ResourceRoutePolicyMap {
-		return reconcilerv2.ResourceRoutePolicyMap{}
+	emptyRPMap := func() reconciler.ResourceRoutePolicyMap {
+		return reconciler.ResourceRoutePolicyMap{}
 	}
 
 	tests := []struct {
@@ -309,9 +309,9 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 		locators             map[string]srv6Types.Locator
 		LocatorPools         []v1alpha1.IsovalentSRv6LocatorPool
 		preconfiguredAFPaths map[resource.Key]map[types.Family]map[string]struct{}
-		preconfiguredRPs     reconcilerv2.ResourceRoutePolicyMap
+		preconfiguredRPs     reconciler.ResourceRoutePolicyMap
 		expectedAFPaths      map[resource.Key]map[types.Family]map[string]struct{}
-		expectedRPs          reconcilerv2.ResourceRoutePolicyMap
+		expectedRPs          reconciler.ResourceRoutePolicyMap
 	}{
 		{
 			name: "Single Pool Create",
@@ -335,8 +335,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
-				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
+			expectedRPs: reconciler.ResourceRoutePolicyMap{
+				{Name: "pool1"}: reconciler.RoutePolicyMap{
 					pool1RPNamePeer1: pool1Locator1RPPeer1,
 					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
@@ -362,8 +362,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					},
 				},
 			},
-			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
-				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
+			preconfiguredRPs: reconciler.ResourceRoutePolicyMap{
+				{Name: "pool1"}: reconciler.RoutePolicyMap{
 					pool1RPNamePeer1: pool1Locator1RPPeer1,
 					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
@@ -375,8 +375,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
-				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
+			expectedRPs: reconciler.ResourceRoutePolicyMap{
+				{Name: "pool1"}: reconciler.RoutePolicyMap{
 					pool1RPNamePeer1: pool1Locator2RPPeer1,
 					pool1RPNamePeer2: pool1Locator2RPPeer2,
 				},
@@ -402,8 +402,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					},
 				},
 			},
-			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
-				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
+			preconfiguredRPs: reconciler.ResourceRoutePolicyMap{
+				{Name: "pool1"}: reconciler.RoutePolicyMap{
 					pool1RPNamePeer1: pool1Locator1RPPeer1,
 					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
@@ -422,8 +422,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					},
 				},
 			},
-			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
-				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
+			preconfiguredRPs: reconciler.ResourceRoutePolicyMap{
+				{Name: "pool1"}: reconciler.RoutePolicyMap{
 					pool1RPNamePeer1: pool1Locator1RPPeer1,
 					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
@@ -465,12 +465,12 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
-				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
+			expectedRPs: reconciler.ResourceRoutePolicyMap{
+				{Name: "pool1"}: reconciler.RoutePolicyMap{
 					pool1RPNamePeer1: pool1Locator1RPPeer1,
 					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
-				{Name: "pool2"}: reconcilerv2.RoutePolicyMap{
+				{Name: "pool2"}: reconciler.RoutePolicyMap{
 					pool2RPNamePeer1: pool2Locator2RPPeer1,
 					pool2RPNamePeer2: pool2Locator2RPPeer2,
 				},
@@ -508,12 +508,12 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					},
 				},
 			},
-			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
-				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
+			preconfiguredRPs: reconciler.ResourceRoutePolicyMap{
+				{Name: "pool1"}: reconciler.RoutePolicyMap{
 					pool1RPNamePeer1: pool1Locator1RPPeer1,
 					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
-				{Name: "pool2"}: reconcilerv2.RoutePolicyMap{
+				{Name: "pool2"}: reconciler.RoutePolicyMap{
 					pool2RPNamePeer1: pool2Locator2RPPeer1,
 					pool2RPNamePeer2: pool2Locator2RPPeer2,
 				},
@@ -530,12 +530,12 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
-				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
+			expectedRPs: reconciler.ResourceRoutePolicyMap{
+				{Name: "pool1"}: reconciler.RoutePolicyMap{
 					pool1RPNamePeer1: pool1Locator1RPPeer1,
 					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
-				{Name: "pool2"}: reconcilerv2.RoutePolicyMap{
+				{Name: "pool2"}: reconciler.RoutePolicyMap{
 					pool2RPNamePeer1: pool2Locator3RPPeer1,
 					pool2RPNamePeer2: pool2Locator3RPPeer2,
 				},
@@ -573,12 +573,12 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					},
 				},
 			},
-			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
-				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
+			preconfiguredRPs: reconciler.ResourceRoutePolicyMap{
+				{Name: "pool1"}: reconciler.RoutePolicyMap{
 					pool1RPNamePeer1: pool1Locator1RPPeer1,
 					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
-				{Name: "pool2"}: reconcilerv2.RoutePolicyMap{
+				{Name: "pool2"}: reconciler.RoutePolicyMap{
 					pool2RPNamePeer1: pool2Locator2RPPeer1,
 					pool2RPNamePeer2: pool2Locator2RPPeer2,
 				},
@@ -590,8 +590,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
-				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
+			expectedRPs: reconciler.ResourceRoutePolicyMap{
+				{Name: "pool1"}: reconciler.RoutePolicyMap{
 					pool1RPNamePeer1: pool1Locator1RPPeer1,
 					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
@@ -622,12 +622,12 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					},
 				},
 			},
-			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
-				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
+			preconfiguredRPs: reconciler.ResourceRoutePolicyMap{
+				{Name: "pool1"}: reconciler.RoutePolicyMap{
 					pool1RPNamePeer1: pool1Locator1RPPeer1,
 					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
-				{Name: "pool2"}: reconcilerv2.RoutePolicyMap{
+				{Name: "pool2"}: reconciler.RoutePolicyMap{
 					pool2RPNamePeer1: pool2Locator2RPPeer1,
 					pool2RPNamePeer2: pool2Locator2RPPeer2,
 				},
@@ -639,8 +639,8 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
-				{Name: "pool1"}: reconcilerv2.RoutePolicyMap{
+			expectedRPs: reconciler.ResourceRoutePolicyMap{
+				{Name: "pool1"}: reconciler.RoutePolicyMap{
 					pool1RPNamePeer1: pool1Locator1RPPeer1,
 					pool1RPNamePeer2: pool1Locator1RPPeer2,
 				},
@@ -687,7 +687,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 				mockLocatorPoolStore.Upsert(&r)
 			}
 
-			reconciler := LocatorPoolReconciler{
+			lpReconciler := LocatorPoolReconciler{
 				logger:           logger,
 				upgrader:         newUpgraderMock(testInstanceConfig),
 				locatorPoolStore: mockLocatorPoolStore,
@@ -700,22 +700,22 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 				metadata: make(map[string]LocatorPoolReconcilerMetadata),
 			}
 
-			reconciler.initialized.Store(true)
+			lpReconciler.initialized.Store(true)
 
 			testOSSBGPInstance := instance.NewFakeBGPInstance()
 			testBGPInstance := &EnterpriseBGPInstance{
 				Name:   testOSSBGPInstance.Name,
 				Router: testOSSBGPInstance.Router,
 			}
-			reconciler.Init(testOSSBGPInstance)
-			defer reconciler.Cleanup(testOSSBGPInstance)
+			lpReconciler.Init(testOSSBGPInstance)
+			defer lpReconciler.Cleanup(testOSSBGPInstance)
 
 			// set preconfigured data
-			presetAFPaths := make(reconcilerv2.ResourceAFPathsMap)
+			presetAFPaths := make(reconciler.ResourceAFPathsMap)
 			for key, preAFPaths := range test.preconfiguredAFPaths {
-				presetAFPaths[key] = make(reconcilerv2.AFPathsMap)
+				presetAFPaths[key] = make(reconciler.AFPathsMap)
 				for fam, afPaths := range preAFPaths {
-					pathSet := make(reconcilerv2.PathMap)
+					pathSet := make(reconciler.PathMap)
 					for prePath := range afPaths {
 						path := types.NewPathForPrefix(netip.MustParsePrefix(prePath))
 						path.Family = fam
@@ -725,14 +725,14 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 				}
 			}
 
-			reconciler.setMetadata(testBGPInstance, LocatorPoolReconcilerMetadata{
+			lpReconciler.setMetadata(testBGPInstance, LocatorPoolReconcilerMetadata{
 				AFPaths:       presetAFPaths,
 				RoutePolicies: test.preconfiguredRPs,
 			})
 
 			// run the reconciler twice to ensure idempotency
 			for range 2 {
-				err := reconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
+				err := lpReconciler.Reconcile(context.Background(), reconciler.ReconcileParams{
 					BGPInstance: testOSSBGPInstance,
 				})
 				req.NoError(err)
@@ -740,7 +740,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 
 			// check if the advertisement is as expected
 			runningAFPaths := make(map[resource.Key]map[types.Family]map[string]struct{})
-			for key, afPaths := range reconciler.getMetadata(testBGPInstance).AFPaths {
+			for key, afPaths := range lpReconciler.getMetadata(testBGPInstance).AFPaths {
 				runningAFPaths[key] = make(map[types.Family]map[string]struct{})
 				for fam, afPaths := range afPaths {
 					pathSet := make(map[string]struct{})
@@ -752,7 +752,7 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 			}
 
 			req.Equal(test.expectedAFPaths, runningAFPaths)
-			req.Equal(test.expectedRPs, reconciler.getMetadata(testBGPInstance).RoutePolicies)
+			req.Equal(test.expectedRPs, lpReconciler.getMetadata(testBGPInstance).RoutePolicies)
 		})
 	}
 }

@@ -20,9 +20,9 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/option"
@@ -31,7 +31,7 @@ import (
 type PodCIDRReconcilerOut struct {
 	cell.Out
 
-	Reconciler reconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
+	Reconciler reconciler.ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
 type PodCIDRReconcilerIn struct {
@@ -53,8 +53,8 @@ type PodCIDRReconciler struct {
 
 // PodCIDRReconcilerMetadata is a map of advertisements per family, key is family type
 type PodCIDRReconcilerMetadata struct {
-	AFPaths       reconcilerv2.AFPathsMap
-	RoutePolicies reconcilerv2.RoutePolicyMap
+	AFPaths       reconciler.AFPathsMap
+	RoutePolicies reconciler.RoutePolicyMap
 }
 
 func NewPodCIDRReconciler(params PodCIDRReconcilerIn) PodCIDRReconcilerOut {
@@ -90,8 +90,8 @@ func (r *PodCIDRReconciler) Init(i *instance.BGPInstance) error {
 		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
 	}
 	r.metadata[i.Name] = PodCIDRReconcilerMetadata{
-		AFPaths:       make(reconcilerv2.AFPathsMap),
-		RoutePolicies: make(reconcilerv2.RoutePolicyMap),
+		AFPaths:       make(reconciler.AFPathsMap),
+		RoutePolicies: make(reconciler.RoutePolicyMap),
 	}
 	return nil
 }
@@ -102,7 +102,7 @@ func (r *PodCIDRReconciler) Cleanup(i *instance.BGPInstance) {
 	}
 }
 
-func (r *PodCIDRReconciler) Reconcile(ctx context.Context, _p reconcilerv2.ReconcileParams) error {
+func (r *PodCIDRReconciler) Reconcile(ctx context.Context, _p reconciler.ReconcileParams) error {
 	if _p.DesiredConfig == nil {
 		return fmt.Errorf("BUG: PodCIDR reconciler called with nil CiliumBGPNodeConfig")
 	}
@@ -151,7 +151,7 @@ func (r *PodCIDRReconciler) reconcilePaths(ctx context.Context, p EnterpriseReco
 	desiredFamilyAdverts := r.getDesiredPathsPerFamily(desiredPeerAdverts, podPrefixes)
 
 	// reconcile family advertisements
-	updatedAFPaths, err := reconcilerv2.ReconcileAFPaths(&reconcilerv2.ReconcileAFPathsParams{
+	updatedAFPaths, err := reconciler.ReconcileAFPaths(&reconciler.ReconcileAFPathsParams{
 		Logger:       r.logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:          ctx,
 		Router:       p.BGPInstance.Router,
@@ -174,7 +174,7 @@ func (r *PodCIDRReconciler) reconcileRoutePolicies(ctx context.Context, p Enterp
 	}
 
 	// reconcile route policies
-	updatedPolicies, err := reconcilerv2.ReconcileRoutePolicies(&reconcilerv2.ReconcileRoutePoliciesParams{
+	updatedPolicies, err := reconciler.ReconcileRoutePolicies(&reconciler.ReconcileRoutePoliciesParams{
 		Logger:          r.logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:             ctx,
 		Router:          p.BGPInstance.Router,
@@ -190,15 +190,15 @@ func (r *PodCIDRReconciler) reconcileRoutePolicies(ctx context.Context, p Enterp
 // getDesiredPathsPerFamily returns a map of desired paths per address family.
 // Note: This returns prefixes per address family. Global routing table will contain prefix per family not per neighbor.
 // Per neighbor advertisement will be controlled by BGP Policy.
-func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) reconcilerv2.AFPathsMap {
+func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) reconciler.AFPathsMap {
 	// Calculate desired paths per address family, collapsing per-peer advertisements into per-family advertisements.
-	desiredFamilyAdverts := make(reconcilerv2.AFPathsMap)
+	desiredFamilyAdverts := make(reconciler.AFPathsMap)
 	for _, peerFamilyAdverts := range desiredPeerAdverts {
 		for family, familyAdverts := range peerFamilyAdverts {
 			agentFamily := types.ToAgentFamily(family)
 			pathsPerFamily, exists := desiredFamilyAdverts[agentFamily]
 			if !exists {
-				pathsPerFamily = make(reconcilerv2.PathMap)
+				pathsPerFamily = make(reconciler.PathMap)
 				desiredFamilyAdverts[agentFamily] = pathsPerFamily
 			}
 
@@ -223,8 +223,8 @@ func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdve
 	return desiredFamilyAdverts
 }
 
-func (r *PodCIDRReconciler) getDesiredRoutePolicies(desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) (reconcilerv2.RoutePolicyMap, error) {
-	desiredPolicies := make(reconcilerv2.RoutePolicyMap)
+func (r *PodCIDRReconciler) getDesiredRoutePolicies(desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) (reconciler.RoutePolicyMap, error) {
+	desiredPolicies := make(reconciler.RoutePolicyMap)
 
 	for peer, afAdverts := range desiredPeerAdverts {
 		if peer.Address == "" {
@@ -254,7 +254,7 @@ func (r *PodCIDRReconciler) getDesiredRoutePolicies(desiredPeerAdverts PeerAdver
 
 				if len(v6Prefixes) > 0 || len(v4Prefixes) > 0 {
 					name := PolicyName(peer.Name, fam.Afi.String(), advert.AdvertisementType, "")
-					policy, err := reconcilerv2.CreatePolicy(name, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
+					policy, err := reconciler.CreatePolicy(name, peerAddr, v4Prefixes, v6Prefixes, v2.BGPAdvertisement{
 						Attributes: advert.Attributes,
 					})
 					if err != nil {

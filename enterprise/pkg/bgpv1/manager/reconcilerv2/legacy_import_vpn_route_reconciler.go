@@ -30,8 +30,8 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	ceetypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -78,7 +78,7 @@ func (r *legacyImportVPNRouteReconciler) Priority() int {
 	return ImportedVPNRouteReconcilerPriority
 }
 
-func (r *legacyImportVPNRouteReconciler) Reconcile(ctx context.Context, p reconcilerv2.StateReconcileParams) error {
+func (r *legacyImportVPNRouteReconciler) Reconcile(ctx context.Context, p reconciler.StateReconcileParams) error {
 	iParams, err := r.Upgrader.upgradeState(p)
 	if err != nil {
 		if errors.Is(err, ErrEntNodeConfigNotFound) {

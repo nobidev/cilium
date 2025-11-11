@@ -28,9 +28,9 @@ import (
 	entTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -56,7 +56,7 @@ type ServiceVRFReconcilerIn struct {
 type ServiceVRFReconcilerOut struct {
 	cell.Out
 
-	Reconciler reconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
+	Reconciler reconciler.ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
 type ServiceVRFReconciler struct {
@@ -90,7 +90,7 @@ func NewServiceVRFReconciler(in ServiceVRFReconcilerIn) ServiceVRFReconcilerOut 
 }
 
 // VRFPaths is a map type that contains service paths for a VRF, key being the VRF name.
-type VRFPaths map[string]reconcilerv2.ResourceAFPathsMap
+type VRFPaths map[string]reconciler.ResourceAFPathsMap
 
 // VRFSIDInfo is a map type that contains SRv6 SID information for a VRF, key being the VRF name.
 type VRFSIDInfo map[string]*sidmanager.SIDInfo
@@ -151,7 +151,7 @@ func (r *ServiceVRFReconciler) Priority() int {
 	return ServiceVRFReconcilerPriority
 }
 
-func (r *ServiceVRFReconciler) Reconcile(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+func (r *ServiceVRFReconciler) Reconcile(ctx context.Context, p reconciler.ReconcileParams) error {
 	iParams, err := r.upgrader.upgrade(p)
 	if err != nil {
 		if errors.Is(err, ErrEntNodeConfigNotFound) {
@@ -264,7 +264,7 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 			}
 
 			// update modified services
-			desiredSvcPaths := make(reconcilerv2.ResourceAFPathsMap)
+			desiredSvcPaths := make(reconciler.ResourceAFPathsMap)
 			maps.Copy(desiredSvcPaths, currentSvcPaths)
 
 			// override only modified services
@@ -292,12 +292,12 @@ func (r *ServiceVRFReconciler) reconcileVRFs(ctx context.Context, p EnterpriseRe
 	return err
 }
 
-func (r *ServiceVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseReconcileParams, vrfName string, currentSvcPaths, desiredSvcPaths reconcilerv2.ResourceAFPathsMap) (reconcilerv2.ResourceAFPathsMap, error) {
+func (r *ServiceVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseReconcileParams, vrfName string, currentSvcPaths, desiredSvcPaths reconciler.ResourceAFPathsMap) (reconciler.ResourceAFPathsMap, error) {
 	if currentSvcPaths == nil {
-		currentSvcPaths = make(reconcilerv2.ResourceAFPathsMap)
+		currentSvcPaths = make(reconciler.ResourceAFPathsMap)
 	}
 	if desiredSvcPaths == nil {
-		desiredSvcPaths = make(reconcilerv2.ResourceAFPathsMap)
+		desiredSvcPaths = make(reconciler.ResourceAFPathsMap)
 	}
 
 	if len(desiredSvcPaths) == 0 {
@@ -307,7 +307,7 @@ func (r *ServiceVRFReconciler) reconcilePaths(ctx context.Context, p EnterpriseR
 		}
 	}
 
-	updatedSvcPaths, err := reconcilerv2.ReconcileResourceAFPaths(reconcilerv2.ReconcileResourceAFPathsParams{
+	updatedSvcPaths, err := reconciler.ReconcileResourceAFPaths(reconciler.ReconcileResourceAFPathsParams{
 		Logger: r.logger.With(
 			types.InstanceLogField, p.DesiredConfig.Name,
 			entTypes.VRFLogField, vrfName,
@@ -369,8 +369,8 @@ func (r *ServiceVRFReconciler) diffReconciliationServiceList(i *EnterpriseBGPIns
 	return
 }
 
-func (r *ServiceVRFReconciler) getDesiredPaths(p EnterpriseReconcileParams, toReconcile []*loadbalancer.Service, bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements, rx statedb.ReadTxn) (reconcilerv2.ResourceAFPathsMap, error) {
-	desiredServiceAFPaths := make(reconcilerv2.ResourceAFPathsMap)
+func (r *ServiceVRFReconciler) getDesiredPaths(p EnterpriseReconcileParams, toReconcile []*loadbalancer.Service, bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements, rx statedb.ReadTxn) (reconciler.ResourceAFPathsMap, error) {
+	desiredServiceAFPaths := make(reconciler.ResourceAFPathsMap)
 	for _, svc := range toReconcile {
 		svcKey := resource.Key{Name: svc.Name.Name(), Namespace: svc.Name.Namespace()}
 
@@ -384,8 +384,8 @@ func (r *ServiceVRFReconciler) getDesiredPaths(p EnterpriseReconcileParams, toRe
 	return desiredServiceAFPaths, nil
 }
 
-func (r *ServiceVRFReconciler) getServiceAFPaths(p EnterpriseReconcileParams, svc *loadbalancer.Service, bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements, rx statedb.ReadTxn) (reconcilerv2.AFPathsMap, error) {
-	desiredFamilyPaths := make(reconcilerv2.AFPathsMap)
+func (r *ServiceVRFReconciler) getServiceAFPaths(p EnterpriseReconcileParams, svc *loadbalancer.Service, bgpVRF v1.IsovalentBGPNodeVRF, desiredVRFAdverts VRFAdvertisements, rx statedb.ReadTxn) (reconciler.AFPathsMap, error) {
+	desiredFamilyPaths := make(reconciler.AFPathsMap)
 
 	vrfFamilyAdvertisements, exists := desiredVRFAdverts[bgpVRF.VRFRef]
 	if !exists {
@@ -412,7 +412,7 @@ func (r *ServiceVRFReconciler) getServiceAFPaths(p EnterpriseReconcileParams, sv
 
 				// we only support ipv4/mpls_vpn address family
 				if agentFamily.Afi == types.AfiIPv4 && prefix.Addr().Is4() {
-					reconcilerv2.AddPathToAFPathsMap(desiredFamilyPaths, agentFamily, path, pathKey)
+					reconciler.AddPathToAFPathsMap(desiredFamilyPaths, agentFamily, path, pathKey)
 				}
 			}
 		}

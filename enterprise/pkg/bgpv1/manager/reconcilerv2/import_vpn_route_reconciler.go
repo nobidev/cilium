@@ -28,8 +28,8 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
 	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -41,7 +41,7 @@ import (
 type importVPNRouteReconcilerOut struct {
 	cell.Out
 
-	Reconciler reconcilerv2.StateReconciler `group:"bgp-state-reconciler-v2"`
+	Reconciler reconciler.StateReconciler `group:"bgp-state-reconciler"`
 }
 
 func newImportVPNRouteStateReconciler(
@@ -119,7 +119,7 @@ func (r *importVPNRouteReconciler) Priority() int {
 	return ImportedVPNRouteReconcilerPriority
 }
 
-func (r *importVPNRouteReconciler) Reconcile(ctx context.Context, _p reconcilerv2.StateReconcileParams) error {
+func (r *importVPNRouteReconciler) Reconcile(ctx context.Context, _p reconciler.StateReconcileParams) error {
 	if !r.initialized.Load() {
 		return fmt.Errorf("init job is not yet done")
 	}

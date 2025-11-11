@@ -28,10 +28,10 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	bgptypes "github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	bgptypes "github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -573,7 +573,7 @@ func TestBFDStateReconciler(t *testing.T) {
 				}
 
 				// run reconciliation
-				reconcileParams := reconcilerv2.ReconcileParams{
+				reconcileParams := reconciler.ReconcileParams{
 					BGPInstance:   f.instance,
 					DesiredConfig: ossNodeInstance,
 				}

@@ -22,10 +22,10 @@ import (
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -239,16 +239,16 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 		name                    string
 		advertisement           *v1.IsovalentBGPAdvertisement
 		preconfiguredEGWAFPaths map[resource.Key]map[types.Family]map[string]struct{}
-		preconfiguredRPs        reconcilerv2.ResourceRoutePolicyMap
+		preconfiguredRPs        reconciler.ResourceRoutePolicyMap
 		testEGWPolicies         []mockEGWPolicy
 		testBGPInstanceConfig   *v1.IsovalentBGPNodeInstance
 		expectedEGWAFPaths      map[resource.Key]map[types.Family]map[string]struct{}
-		expectedRPs             reconcilerv2.ResourceRoutePolicyMap
+		expectedRPs             reconciler.ResourceRoutePolicyMap
 	}{
 		{
 			name:             "EGW correct advertisement",
 			advertisement:    egwAdvert,
-			preconfiguredRPs: make(reconcilerv2.ResourceRoutePolicyMap),
+			preconfiguredRPs: make(reconciler.ResourceRoutePolicyMap),
 			testEGWPolicies: []mockEGWPolicy{
 				{
 					id: k8sTypes.NamespacedName{
@@ -271,8 +271,8 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
-				egwPolicyKey: reconcilerv2.RoutePolicyMap{
+			expectedRPs: reconciler.ResourceRoutePolicyMap{
+				egwPolicyKey: reconciler.RoutePolicyMap{
 					egw1Peer1RPName: egw1Peer1RP,
 				},
 			},
@@ -287,8 +287,8 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					},
 				},
 			},
-			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
-				egwPolicyKey: reconcilerv2.RoutePolicyMap{
+			preconfiguredRPs: reconciler.ResourceRoutePolicyMap{
+				egwPolicyKey: reconciler.RoutePolicyMap{
 					egw1Peer1RPName: egw1Peer1RP,
 				},
 			},
@@ -327,11 +327,11 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
-				egwPolicyKey: reconcilerv2.RoutePolicyMap{
+			expectedRPs: reconciler.ResourceRoutePolicyMap{
+				egwPolicyKey: reconciler.RoutePolicyMap{
 					egw1Peer1RPName: egw1Peer1RP,
 				},
-				egwPolicyKey2: reconcilerv2.RoutePolicyMap{ // new route policy added
+				egwPolicyKey2: reconciler.RoutePolicyMap{ // new route policy added
 					egw2RPName: egw2RP,
 				},
 			},
@@ -351,11 +351,11 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					},
 				},
 			},
-			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
-				egwPolicyKey: reconcilerv2.RoutePolicyMap{
+			preconfiguredRPs: reconciler.ResourceRoutePolicyMap{
+				egwPolicyKey: reconciler.RoutePolicyMap{
 					egw1Peer1RPName: egw1Peer1RP,
 				},
-				egwPolicyKey2: reconcilerv2.RoutePolicyMap{ // old route policy, contains old community
+				egwPolicyKey2: reconciler.RoutePolicyMap{ // old route policy, contains old community
 					egw2RPName: egw2RPOld,
 				},
 			},
@@ -394,11 +394,11 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
-				egwPolicyKey: reconcilerv2.RoutePolicyMap{
+			expectedRPs: reconciler.ResourceRoutePolicyMap{
+				egwPolicyKey: reconciler.RoutePolicyMap{
 					egw1Peer1RPName: egw1Peer1RP,
 				},
-				egwPolicyKey2: reconcilerv2.RoutePolicyMap{ // updated route policy added
+				egwPolicyKey2: reconciler.RoutePolicyMap{ // updated route policy added
 					egw2RPName: egw2RP,
 				},
 			},
@@ -418,11 +418,11 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					},
 				},
 			},
-			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
-				egwPolicyKey: reconcilerv2.RoutePolicyMap{
+			preconfiguredRPs: reconciler.ResourceRoutePolicyMap{
+				egwPolicyKey: reconciler.RoutePolicyMap{
 					egw1Peer1RPName: egw1Peer1RP,
 				},
-				egwPolicyKey2: reconcilerv2.RoutePolicyMap{
+				egwPolicyKey2: reconciler.RoutePolicyMap{
 					egw2RPName: egw2RP,
 				},
 			},
@@ -433,7 +433,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 				Peers:    []v1.IsovalentBGPNodePeer{peer},
 			},
 			expectedEGWAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{},
-			expectedRPs:        reconcilerv2.ResourceRoutePolicyMap{},
+			expectedRPs:        reconciler.ResourceRoutePolicyMap{},
 		},
 
 		{
@@ -451,11 +451,11 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					},
 				},
 			},
-			preconfiguredRPs: reconcilerv2.ResourceRoutePolicyMap{
-				egwPolicyKey: reconcilerv2.RoutePolicyMap{
+			preconfiguredRPs: reconciler.ResourceRoutePolicyMap{
+				egwPolicyKey: reconciler.RoutePolicyMap{
 					egw1Peer1RPName: egw1Peer1RP,
 				},
-				egwPolicyKey2: reconcilerv2.RoutePolicyMap{
+				egwPolicyKey2: reconciler.RoutePolicyMap{
 					egw2RPName: egw2RP,
 				},
 			},
@@ -483,12 +483,12 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 				Peers:    []v1.IsovalentBGPNodePeer{peer},
 			},
 			expectedEGWAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{},
-			expectedRPs:        reconcilerv2.ResourceRoutePolicyMap{},
+			expectedRPs:        reconciler.ResourceRoutePolicyMap{},
 		},
 		{
 			name:             "Test with two peers",
 			advertisement:    egwAdvert,
-			preconfiguredRPs: make(reconcilerv2.ResourceRoutePolicyMap),
+			preconfiguredRPs: make(reconciler.ResourceRoutePolicyMap),
 			testEGWPolicies: []mockEGWPolicy{
 				{
 					id: k8sTypes.NamespacedName{
@@ -511,8 +511,8 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 					},
 				},
 			},
-			expectedRPs: reconcilerv2.ResourceRoutePolicyMap{
-				egwPolicyKey: reconcilerv2.RoutePolicyMap{
+			expectedRPs: reconciler.ResourceRoutePolicyMap{
+				egwPolicyKey: reconciler.RoutePolicyMap{
 					egw1Peer1RPName: egw1Peer1RP,
 					egw1Peer2RPName: egw1Peer2RP,
 				},
@@ -528,7 +528,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			mockPeerConfigStore := store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
 			mockAdvertStore := store.NewMockBGPCPResourceStore[*v1.IsovalentBGPAdvertisement]()
 
-			reconciler := EgressGatewayIPsReconciler{
+			egwReconciler := EgressGatewayIPsReconciler{
 				logger:         logger,
 				egwIPsProvider: newEGWManagerMock(tt.testEGWPolicies),
 				upgrader:       newUpgraderMock(tt.testBGPInstanceConfig),
@@ -553,11 +553,11 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			}
 
 			// set preconfigured data
-			presetEGWAFPaths := make(reconcilerv2.ResourceAFPathsMap)
+			presetEGWAFPaths := make(reconciler.ResourceAFPathsMap)
 			for key, preAFPaths := range tt.preconfiguredEGWAFPaths {
-				presetEGWAFPaths[key] = make(reconcilerv2.AFPathsMap)
+				presetEGWAFPaths[key] = make(reconciler.AFPathsMap)
 				for fam, afPaths := range preAFPaths {
-					pathSet := make(reconcilerv2.PathMap)
+					pathSet := make(reconciler.PathMap)
 					for prePath := range afPaths {
 						path := types.NewPathForPrefix(netip.MustParsePrefix(prePath))
 						path.Family = fam
@@ -567,14 +567,14 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 				}
 			}
 
-			reconciler.setMetadata(testBGPInstance, EgressGatewayIPsMetadata{
+			egwReconciler.setMetadata(testBGPInstance, EgressGatewayIPsMetadata{
 				EGWAFPaths:       presetEGWAFPaths,
 				EGWRoutePolicies: tt.preconfiguredRPs,
 			})
 
 			// run podIPPoolReconciler twice to ensure idempotency
 			for range 2 {
-				err := reconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
+				err := egwReconciler.Reconcile(context.Background(), reconciler.ReconcileParams{
 					BGPInstance: testOSSBGPInstance,
 				})
 				req.NoError(err)
@@ -582,7 +582,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 
 			// check if the advertisement is as expected
 			runningEGWAFPaths := make(map[resource.Key]map[types.Family]map[string]struct{})
-			for key, egwAFPaths := range reconciler.getMetadata(testBGPInstance).EGWAFPaths {
+			for key, egwAFPaths := range egwReconciler.getMetadata(testBGPInstance).EGWAFPaths {
 				runningEGWAFPaths[key] = make(map[types.Family]map[string]struct{})
 				for fam, afPaths := range egwAFPaths {
 					pathSet := make(map[string]struct{})
@@ -594,7 +594,7 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 			}
 
 			req.Equal(tt.expectedEGWAFPaths, runningEGWAFPaths)
-			req.Equal(tt.expectedRPs, reconciler.getMetadata(testBGPInstance).EGWRoutePolicies)
+			req.Equal(tt.expectedRPs, egwReconciler.getMetadata(testBGPInstance).EGWRoutePolicies)
 		})
 	}
 }

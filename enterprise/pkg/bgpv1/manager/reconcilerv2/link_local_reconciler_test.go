@@ -24,9 +24,9 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -382,7 +382,7 @@ func TestLinkLocalReconciler(t *testing.T) {
 			}
 
 			// run reconciliation
-			reconcileParams := reconcilerv2.ReconcileParams{
+			reconcileParams := reconciler.ReconcileParams{
 				BGPInstance:   instance,
 				DesiredConfig: ossNodeInstance,
 			}
@@ -593,7 +593,7 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 			f.upgrader.setNodeInstance(tt.nodeInstance)
 
 			// run reconciliation
-			reconcileParams := reconcilerv2.ReconcileParams{
+			reconcileParams := reconciler.ReconcileParams{
 				BGPInstance:   instance,
 				DesiredConfig: ossNodeInstance,
 			}

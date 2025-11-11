@@ -11,11 +11,13 @@
 /.github/workflows/*ingress*.yaml @isovalent/service-mesh
 /.github/workflows/*kpr*.yaml @isovalent/cni
 /.github/actions/cl2-modules/ @isovalent/scalability-performance
+/.github/actions/cl2-modules/l7 @isovalent/service-mesh @isovalent/scalability-performance
 /.github/workflows/*scale*.yaml @isovalent/scalability-performance
 /.github/workflows/*perf*.yaml @isovalent/scalability-performance
 /.github/workflows/conformance-aks.yaml @isovalent/infrastructure @isovalent/encryption
 /.github/workflows/conformance-aws-cni.yaml @isovalent/infrastructure
 /.github/workflows/conformance-eks.yaml @isovalent/infrastructure @isovalent/encryption
+/.github/workflows/conformance-gke.yaml @isovalent/infrastructure @isovalent/encryption
 /.github/workflows/conformance-kind-proxy-embedded.yaml @isovalent/service-mesh
 /.github/workflows/tests-ces-migrate.yaml @isovalent/scalability-performance
 /api/v1/Makefile @isovalent/hubble-api
@@ -32,7 +34,8 @@
 /bpf/lib/auth.h @isovalent/cni @isovalent/service-mesh
 /bpf/lib/drop_reasons.h @isovalent/hubble
 /bpf/lib/egress_gateway.h @isovalent/egress-gateway
-/bpf/lib/encrypt.h @isovalent/encryption
+/bpf/lib/encrypt.h @isovalent/encryption @isovalent/encryption @isovalent/encryption
+/bpf/lib/ipsec.h @isovalent/encryption
 /bpf/lib/policy.h @isovalent/cni @isovalent/policy-identity-networking
 /bpf/lib/proxy.h @isovalent/service-mesh @isovalent/cni
 /bpf/lib/wireguard.h @isovalent/encryption @isovalent/cni
@@ -169,7 +172,7 @@
 /install/kubernetes/cilium/**/spire @isovalent/sig-k8s @isovalent/service-mesh
 /install/kubernetes/cilium/templates/clustermesh* @isovalent/sig-k8s @isovalent/clustermesh
 /install/kubernetes/cilium/templates/hubble* @isovalent/sig-k8s @isovalent/hubble
-/operator/pkg/bgpv2 @isovalent/traffic-engineering
+/operator/pkg/bgp @isovalent/traffic-engineering
 /operator/pkg/ciliumendpointslice @isovalent/scalability-performance
 /operator/pkg/ciliumenvoyconfig @isovalent/service-mesh
 /operator/pkg/controller-runtime @isovalent/service-mesh @isovalent/service-mesh
@@ -189,7 +192,7 @@
 /pkg/azure/ @isovalent/infrastructure
 /pkg/backoff/ @isovalent/cni
 /pkg/bufuuid/ @isovalent/scalability-performance
-/pkg/bgpv1/ @isovalent/traffic-engineering
+/pkg/bgp/ @isovalent/traffic-engineering
 /pkg/bpf/ @isovalent/networking-framework
 /pkg/byteorder/ @isovalent/cni
 /pkg/cgroups/ @isovalent/cni
@@ -512,8 +515,8 @@
 /install/kubernetes/cilium/templates/hubble-relay/rbac @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
 /install/kubernetes/cilium/templates/*enterprise* @isovalent/sig-k8s @isovalent/helm
 /install/kubernetes/cilium/templates/hubble-timescape/ @isovalent/sig-k8s @isovalent/helm @isovalent/hubble
-/pkg/bgpv1/manager/**/enterprise_* @isovalent/traffic-engineering
-/pkg/bgpv1/test/**/enterprise_* @isovalent/traffic-engineering
+/pkg/bgp/manager/**/enterprise_* @isovalent/traffic-engineering
+/pkg/bgp/test/**/enterprise_* @isovalent/traffic-engineering
 /pkg/clustermesh/**/enterprise_* @isovalent/clustermesh
 /pkg/datapath/**/enterprise*.go @isovalent/cilium-datapath
 /pkg/datapath/ipcache/enterprise_listener.go @isovalent/clustermesh

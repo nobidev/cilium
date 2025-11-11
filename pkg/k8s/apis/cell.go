@@ -82,20 +82,20 @@ func createCRDs(p params) {
 	})
 }
 
-type registerCRDsFuncOut struct {
+type RegisterCRDsFuncOut struct {
 	cell.Out
 
 	Func RegisterCRDsFunc `group:"register-crd-funcs"`
 }
 
-func newCiliumGroupCRDs() registerCRDsFuncOut {
-	return registerCRDsFuncOut{
+func newCiliumGroupCRDs() RegisterCRDsFuncOut {
+	return RegisterCRDsFuncOut{
 		Func: client.RegisterCRDs,
 	}
 }
 
-func newIsovalentGroupCRDs() registerCRDsFuncOut {
-	return registerCRDsFuncOut{
+func newIsovalentGroupCRDs() RegisterCRDsFuncOut {
+	return RegisterCRDsFuncOut{
 		Func: isovalentclient.RegisterCRDs,
 	}
 }

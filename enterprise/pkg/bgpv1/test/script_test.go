@@ -43,12 +43,12 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
-	"github.com/cilium/cilium/pkg/bgpv1"
-	"github.com/cilium/cilium/pkg/bgpv1/agent"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/bgpv1/manager"
-	osstest "github.com/cilium/cilium/pkg/bgpv1/test"
-	"github.com/cilium/cilium/pkg/bgpv1/test/commands"
+	"github.com/cilium/cilium/pkg/bgp"
+	"github.com/cilium/cilium/pkg/bgp/agent"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/manager"
+	osstest "github.com/cilium/cilium/pkg/bgp/test"
+	"github.com/cilium/cilium/pkg/bgp/test/commands"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -157,7 +157,7 @@ func TestPrivilegedScript(t *testing.T) {
 			cell.Config(svcrouteconfig.DefaultConfig),
 
 			// OSS BGP cell
-			bgpv1.Cell,
+			bgp.Cell,
 
 			// Enterprise BGP + SRv6 cells
 			enterprisebgpv1.Cell,

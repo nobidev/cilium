@@ -27,10 +27,10 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/types"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	bgptypes "github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	bgptypes "github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
@@ -366,16 +366,16 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			name: "pre config: 2 path, new config: 1 VRF, expect: 1 path removed, 1 path unchanged",
 			prevMetadata: ServiceVRFReconcilerMetadata{
 				vrfPaths: VRFPaths{
-					"vrf1": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf1LBSvcName.Name()}: reconcilerv2.AFPathsMap{
-							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
+					"vrf1": reconciler.ResourceAFPathsMap{
+						resource.Key{Name: vrf1LBSvcName.Name()}: reconciler.AFPathsMap{
+							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconciler.PathMap{
 								vrf1LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf1LBIngressIPNLRI}, // dummy path
 							},
 						},
 					},
-					"vrf2": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf2LBSvcName.Name()}: reconcilerv2.AFPathsMap{
-							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
+					"vrf2": reconciler.ResourceAFPathsMap{
+						resource.Key{Name: vrf2LBSvcName.Name()}: reconciler.AFPathsMap{
+							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconciler.PathMap{
 								vrf2LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf2LBIngressIPNLRI}, // dummy path
 							},
 						},
@@ -420,16 +420,16 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			name: "pre config: 2 path, new config: no advertisement, expect: 2 paths removed",
 			prevMetadata: ServiceVRFReconcilerMetadata{
 				vrfPaths: VRFPaths{
-					"vrf1": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf1LBSvcName.Name()}: reconcilerv2.AFPathsMap{
-							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
+					"vrf1": reconciler.ResourceAFPathsMap{
+						resource.Key{Name: vrf1LBSvcName.Name()}: reconciler.AFPathsMap{
+							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconciler.PathMap{
 								vrf1LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf1LBIngressIPNLRI}, // dummy path
 							},
 						},
 					},
-					"vrf2": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf2LBSvcName.Name()}: reconcilerv2.AFPathsMap{
-							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
+					"vrf2": reconciler.ResourceAFPathsMap{
+						resource.Key{Name: vrf2LBSvcName.Name()}: reconciler.AFPathsMap{
+							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconciler.PathMap{
 								vrf2LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf2LBIngressIPNLRI}, // dummy path
 							},
 						},
@@ -471,16 +471,16 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			name: "pre config: 2 path, new config: no vrf config, expect: 2 paths removed",
 			prevMetadata: ServiceVRFReconcilerMetadata{
 				vrfPaths: VRFPaths{
-					"vrf1": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf1LBSvcName.Name()}: reconcilerv2.AFPathsMap{
-							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
+					"vrf1": reconciler.ResourceAFPathsMap{
+						resource.Key{Name: vrf1LBSvcName.Name()}: reconciler.AFPathsMap{
+							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconciler.PathMap{
 								vrf1LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf1LBIngressIPNLRI}, // dummy path
 							},
 						},
 					},
-					"vrf2": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf2LBSvcName.Name()}: reconcilerv2.AFPathsMap{
-							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
+					"vrf2": reconciler.ResourceAFPathsMap{
+						resource.Key{Name: vrf2LBSvcName.Name()}: reconciler.AFPathsMap{
+							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconciler.PathMap{
 								vrf2LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf2LBIngressIPNLRI}, // dummy path
 							},
 						},
@@ -515,16 +515,16 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			name: "pre config: 2 path, new config: updated RDs, expect: 2 updated paths",
 			prevMetadata: ServiceVRFReconcilerMetadata{
 				vrfPaths: VRFPaths{
-					"vrf1": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf1LBSvcName.Name()}: reconcilerv2.AFPathsMap{
-							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
+					"vrf1": reconciler.ResourceAFPathsMap{
+						resource.Key{Name: vrf1LBSvcName.Name()}: reconciler.AFPathsMap{
+							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconciler.PathMap{
 								vrf1LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf1LBIngressIPNLRI}, // dummy path with old RD
 							},
 						},
 					},
-					"vrf2": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf2LBSvcName.Name()}: reconcilerv2.AFPathsMap{
-							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
+					"vrf2": reconciler.ResourceAFPathsMap{
+						resource.Key{Name: vrf2LBSvcName.Name()}: reconciler.AFPathsMap{
+							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconciler.PathMap{
 								vrf2LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf2LBIngressIPNLRI}, // dummy path with old RD
 							},
 						},
@@ -577,16 +577,16 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			name: "pre config: 2 path, new config: delete VRFs, expect: empty paths",
 			prevMetadata: ServiceVRFReconcilerMetadata{
 				vrfPaths: VRFPaths{
-					"vrf1": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf1LBSvcName.Name()}: reconcilerv2.AFPathsMap{
-							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
+					"vrf1": reconciler.ResourceAFPathsMap{
+						resource.Key{Name: vrf1LBSvcName.Name()}: reconciler.AFPathsMap{
+							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconciler.PathMap{
 								vrf1LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf1LBIngressIPNLRI},
 							},
 						},
 					},
-					"vrf2": reconcilerv2.ResourceAFPathsMap{
-						resource.Key{Name: vrf2LBSvcName.Name()}: reconcilerv2.AFPathsMap{
-							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconcilerv2.PathMap{
+					"vrf2": reconciler.ResourceAFPathsMap{
+						resource.Key{Name: vrf2LBSvcName.Name()}: reconciler.AFPathsMap{
+							{Afi: bgptypes.AfiIPv4, Safi: bgptypes.SafiMplsVpn}: reconciler.PathMap{
 								vrf2LBIngressIPNLRI.String(): &bgptypes.Path{NLRI: vrf2LBIngressIPNLRI},
 							},
 						},
@@ -688,7 +688,7 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 
 			// reconcile twice to test idempotency
 			for range 2 {
-				err := svcVRFReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
+				err := svcVRFReconciler.Reconcile(context.Background(), reconciler.ReconcileParams{
 					BGPInstance: testOSSBGPInstance,
 					CiliumNode:  testCiliumNodeConfig,
 				})
@@ -1131,7 +1131,7 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			defer svcVRFReconciler.Cleanup(testOSSBGPInstance)
 
 			// reconcile to test initial state
-			err = svcVRFReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
+			err = svcVRFReconciler.Reconcile(context.Background(), reconciler.ReconcileParams{
 				BGPInstance: testOSSBGPInstance,
 				CiliumNode:  testCiliumNodeConfig,
 			})
@@ -1161,7 +1161,7 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			}
 
 			// reconcile again to test parital reconciliation
-			err = svcVRFReconciler.Reconcile(context.Background(), reconcilerv2.ReconcileParams{
+			err = svcVRFReconciler.Reconcile(context.Background(), reconciler.ReconcileParams{
 				BGPInstance: testOSSBGPInstance,
 				CiliumNode:  testCiliumNodeConfig,
 			})

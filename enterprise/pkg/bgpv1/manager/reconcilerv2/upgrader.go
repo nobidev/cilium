@@ -22,10 +22,10 @@ import (
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	"github.com/cilium/cilium/pkg/bgp/manager/store"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -66,8 +66,8 @@ type EnterpriseBGPInstance struct {
 }
 
 type paramUpgrader interface {
-	upgrade(params reconcilerv2.ReconcileParams) (EnterpriseReconcileParams, error)
-	upgradeState(params reconcilerv2.StateReconcileParams) (EnterpriseStateReconcileParams, error)
+	upgrade(params reconciler.ReconcileParams) (EnterpriseReconcileParams, error)
+	upgradeState(params reconciler.StateReconcileParams) (EnterpriseStateReconcileParams, error)
 }
 
 type reconcilerParamsUpgraderIn struct {
@@ -116,7 +116,7 @@ func newReconcileParamsUpgrader(in reconcilerParamsUpgraderIn) paramUpgrader {
 	return u
 }
 
-func (u *reconcileParamsUpgrader) upgrade(params reconcilerv2.ReconcileParams) (EnterpriseReconcileParams, error) {
+func (u *reconcileParamsUpgrader) upgrade(params reconciler.ReconcileParams) (EnterpriseReconcileParams, error) {
 	if !u.initialized.Load() {
 		return EnterpriseReconcileParams{}, ErrNotInitialized
 	}
@@ -172,7 +172,7 @@ func (u *reconcileParamsUpgrader) upgrade(params reconcilerv2.ReconcileParams) (
 	return EnterpriseReconcileParams{}, fmt.Errorf("enterprise node instance not found")
 }
 
-func (u *reconcileParamsUpgrader) upgradeState(params reconcilerv2.StateReconcileParams) (EnterpriseStateReconcileParams, error) {
+func (u *reconcileParamsUpgrader) upgradeState(params reconciler.StateReconcileParams) (EnterpriseStateReconcileParams, error) {
 	if !u.initialized.Load() {
 		return EnterpriseStateReconcileParams{}, ErrNotInitialized
 	}

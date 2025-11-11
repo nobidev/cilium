@@ -29,10 +29,10 @@ import (
 	enterpriseannotation "github.com/cilium/cilium/enterprise/pkg/annotation"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
-	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
-	ossreconcilerv2 "github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
-	bgptypes "github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
+	ossreconcilerv2 "github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	bgptypes "github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -76,7 +76,7 @@ type ServiceReconciler struct {
 type ServiceReconcilerOut struct {
 	cell.Out
 
-	Reconciler ossreconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
+	Reconciler ossreconcilerv2.ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
 type ServiceReconcilerIn struct {
