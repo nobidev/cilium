@@ -356,7 +356,8 @@ func createOSSPeerConfig(entPeerConfig *v1.IsovalentBGPPeerConfig) *v2.CiliumBGP
 	}
 	if entPeerConfig.Spec.Transport != nil {
 		newOSSPeerConfig.Spec.Transport = &v2.CiliumBGPTransport{
-			PeerPort: entPeerConfig.Spec.Transport.PeerPort,
+			PeerPort:        entPeerConfig.Spec.Transport.PeerPort,
+			SourceInterface: entPeerConfig.Spec.Transport.SourceInterface,
 		}
 	}
 
