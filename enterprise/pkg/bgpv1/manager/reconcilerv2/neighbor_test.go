@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -27,6 +28,7 @@ import (
 	ossreconcilerv2 "github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -294,6 +296,233 @@ func TestNeighborReconciler(t *testing.T) {
 
 			// validate neighbors
 			validatePeers(req, tt.newNeighbors, getRunningPeers(req, testInstance), tt.checks)
+		})
+	}
+}
+
+func TestNeighborReconciler_SourceInterfaceAddress(t *testing.T) {
+	req := require.New(t)
+
+	var (
+		sourceInterfaceName   = "lo"
+		sourceInterfaceV4Addr = "10.100.100.100"
+		sourceInterfaceV6Addr = "fd00::aa:bb:100"
+
+		peerV4 = PeerData{
+			Peer: &v1.IsovalentBGPNodePeer{
+				Name:        "peer-v4",
+				PeerAddress: ptr.To[string]("192.168.0.1"),
+				PeerASN:     ptr.To[int64](64124),
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: "peer-config",
+				},
+			},
+			Config: &v1.IsovalentBGPPeerConfigSpec{
+				Transport: &v2.CiliumBGPTransport{
+					SourceInterface: &sourceInterfaceName,
+				},
+			},
+		}
+		peerV6 = PeerData{
+			Peer: &v1.IsovalentBGPNodePeer{
+				Name:        "peer-v6",
+				PeerAddress: ptr.To[string]("fc00::100:1"),
+				PeerASN:     ptr.To[int64](64124),
+				PeerConfigRef: &v1.PeerConfigReference{
+					Name: "peer-config",
+				},
+			},
+			Config: &v1.IsovalentBGPPeerConfigSpec{
+				Transport: &v2.CiliumBGPTransport{
+					SourceInterface: &sourceInterfaceName,
+				},
+			},
+		}
+	)
+
+	table := []struct {
+		name                   string
+		configuredNeighbors    []PeerData
+		upsertDevices          []*tables.Device
+		expectedNeighbors      []PeerData
+		expectPeerLocalAddress map[string]string
+		checks                 checks
+	}{
+		{
+			name:                   "no device, no local address",
+			configuredNeighbors:    []PeerData{peerV4, peerV6},
+			expectedNeighbors:      []PeerData{},
+			expectPeerLocalAddress: map[string]string{},
+		},
+		{
+			name:                "add unrelated device, no local address",
+			configuredNeighbors: []PeerData{peerV4, peerV6},
+			upsertDevices: []*tables.Device{
+				{
+					Index: 1,
+					Name:  "eth0",
+					Addrs: []tables.DeviceAddress{
+						{Addr: netip.MustParseAddr("10.0.0.1")},
+						{Addr: netip.MustParseAddr("fc00::aa:bb:1")},
+					},
+				},
+			},
+			expectedNeighbors:      []PeerData{},
+			expectPeerLocalAddress: map[string]string{},
+		},
+		{
+			name:                "add device with IPv4 address only, IPv4 local address",
+			configuredNeighbors: []PeerData{peerV4, peerV6},
+			upsertDevices: []*tables.Device{
+				{
+					Index: 100,
+					Name:  sourceInterfaceName,
+					Addrs: []tables.DeviceAddress{
+						{Addr: netip.MustParseAddr(sourceInterfaceV4Addr)},
+					},
+				},
+			},
+			expectedNeighbors: []PeerData{peerV4},
+			expectPeerLocalAddress: map[string]string{
+				peerV4.Peer.Name: sourceInterfaceV4Addr,
+			},
+		},
+		{
+			name:                "add IPv6 device address, IPv4 + IPv6 local address",
+			configuredNeighbors: []PeerData{peerV4, peerV6},
+			upsertDevices: []*tables.Device{
+				{
+					Index: 100,
+					Name:  sourceInterfaceName,
+					Addrs: []tables.DeviceAddress{
+						{Addr: netip.MustParseAddr(sourceInterfaceV4Addr)},
+						{Addr: netip.MustParseAddr(sourceInterfaceV6Addr)},
+					},
+				},
+			},
+			expectedNeighbors: []PeerData{peerV4, peerV6},
+			expectPeerLocalAddress: map[string]string{
+				peerV4.Peer.Name: sourceInterfaceV4Addr,
+				peerV6.Peer.Name: sourceInterfaceV6Addr,
+			},
+		},
+		{
+			name:                "Remove usable device addresses, no local address",
+			configuredNeighbors: []PeerData{peerV4, peerV6},
+			upsertDevices: []*tables.Device{
+				{
+					Index: 100,
+					Name:  sourceInterfaceName,
+					Addrs: []tables.DeviceAddress{
+						{Addr: netip.IPv4Unspecified()},          // IPv4 unspecified should be ignored
+						{Addr: netip.MustParseAddr("127.0.0.1")}, // IPv4 loopback should be ignored
+						{Addr: netip.MustParseAddr("224.0.0.1")}, // IPv4 multicast should be ignored
+						{Addr: netip.IPv6Unspecified()},          // IPv6 unspecified should be ignored
+						{Addr: netip.MustParseAddr("::1")},       // IPv6 loopback should be ignored
+						{Addr: netip.MustParseAddr("ff00::1")},   // IPv6 multicast should be ignored
+						{Addr: netip.MustParseAddr("fe80::1")},   // IPv6 link-local should be ignored
+					},
+				},
+			},
+			expectedNeighbors:      []PeerData{},
+			expectPeerLocalAddress: map[string]string{},
+		},
+	}
+
+	// initialize test statedb
+	db := statedb.New()
+	deviceTable, err := tables.NewDeviceTable(db)
+	req.NoError(err)
+
+	peerConfigStore := store.NewMockBGPCPResourceStore[*v1.IsovalentBGPPeerConfig]()
+
+	neighborReconciler := NewNeighborReconciler(NeighborReconcilerIn{
+		BGPConfig:    config.Config{Enabled: true, StatusReportEnabled: false},
+		Logger:       hivetest.Logger(t),
+		SecretStore:  nil,
+		PeerConfig:   peerConfigStore,
+		DaemonConfig: &option.DaemonConfig{},
+		DB:           db,
+		DeviceTable:  deviceTable,
+	}).Reconciler.(*NeighborReconciler)
+
+	// initialize test instance
+	srvParams := types.ServerParameters{
+		Global: types.BGPGlobal{
+			ASN:        64125,
+			RouterID:   "127.0.0.1",
+			ListenPort: -1,
+		},
+	}
+	testInstance, err := instance.NewBGPInstance(context.Background(), hivetest.Logger(t), "test-instance", srvParams)
+	req.NoError(err)
+	t.Cleanup(func() {
+		testInstance.Router.Stop(context.Background(), types.StopRequest{FullDestroy: true})
+	})
+	neighborReconciler.Init(testInstance)
+	defer neighborReconciler.Cleanup(testInstance)
+
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			// upsert devices in statedb
+			if len(tt.upsertDevices) > 0 {
+				wtxn := db.WriteTxn(deviceTable)
+				for _, device := range tt.upsertDevices {
+					_, _, err = deviceTable.Insert(wtxn, device)
+					req.NoError(err)
+				}
+				wtxn.Commit()
+			}
+
+			// build desired node config
+			nodeConfig := &v1.IsovalentBGPNodeInstance{
+				Name: "bgp-node",
+			}
+			neighborReconciler.upgrader = newUpgraderMock(nodeConfig)
+			for _, p := range tt.configuredNeighbors {
+				obj := &v1.IsovalentBGPPeerConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: p.Peer.PeerConfigRef.Name,
+					},
+					Spec: *p.Config.DeepCopy(),
+				}
+				peerConfigStore.Upsert(obj)
+				nodeConfig.Peers = append(nodeConfig.Peers, *p.Peer)
+			}
+
+			// run reconciliation
+			reconcileParams := reconciler.ReconcileParams{
+				BGPInstance: testInstance,
+				DesiredConfig: &v2.CiliumBGPNodeInstance{
+					// Enterprise-specific logic. As the
+					// NodeInstance is upgraded internally,
+					// we only need to provide the name of
+					// the NodeInstance.
+					Name: nodeConfig.Name,
+				},
+				CiliumNode: &v2.CiliumNode{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bgp-node",
+					},
+				},
+			}
+			err = neighborReconciler.Reconcile(context.Background(), reconcileParams)
+			req.NoError(err)
+
+			// validate running peers
+			validatePeers(req, tt.expectedNeighbors, getRunningPeers(req, testInstance), tt.checks)
+
+			// validate local address used for peering
+			runningMeta := neighborReconciler.getMetadata(&EnterpriseBGPInstance{Name: testInstance.Name})
+			for expectPeer, expectAddr := range tt.expectPeerLocalAddress {
+				req.NotNil(runningMeta.Peers[expectPeer], "peer %s is missing in the metadata", expectPeer)
+				if expectAddr != "" {
+					req.NotNil(runningMeta.Peers[expectPeer].Peer.LocalAddress, "LocalAddress is nil for the peer %s", expectPeer)
+					req.Equal(expectAddr, *runningMeta.Peers[expectPeer].Peer.LocalAddress)
+				} else {
+					req.Nil(runningMeta.Peers[expectPeer].Peer.LocalAddress, "LocalAddress is expected to be for the peer %s", expectPeer)
+				}
+			}
 		})
 	}
 }

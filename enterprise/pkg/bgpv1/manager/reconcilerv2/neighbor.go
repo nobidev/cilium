@@ -19,6 +19,8 @@ import (
 	"slices"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	enterpriseTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
@@ -26,6 +28,7 @@ import (
 	ossreconcilerv2 "github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -42,6 +45,8 @@ type NeighborReconciler struct {
 	Policy           store.BGPCPResourceStore[*v1.IsovalentBGPPolicy]
 	EnterpriseConfig Config
 	DaemonConfig     *option.DaemonConfig
+	DB               *statedb.DB
+	DeviceTable      statedb.Table[*tables.Device]
 	upgrader         paramUpgrader
 	metadata         map[string]*NeighborReconcilerMetadata
 }
@@ -61,6 +66,8 @@ type NeighborReconcilerIn struct {
 	PeerConfig       store.BGPCPResourceStore[*v1.IsovalentBGPPeerConfig]
 	Policy           store.BGPCPResourceStore[*v1.IsovalentBGPPolicy]
 	DaemonConfig     *option.DaemonConfig
+	DB               *statedb.DB
+	DeviceTable      statedb.Table[*tables.Device]
 	Upgrader         paramUpgrader
 }
 
@@ -77,10 +84,14 @@ func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 			Policy:           params.Policy,
 			EnterpriseConfig: params.EnterpriseConfig,
 			DaemonConfig:     params.DaemonConfig,
+			DB:               params.DB,
+			DeviceTable:      params.DeviceTable,
 			upgrader:         params.Upgrader,
 			metadata:         make(map[string]*NeighborReconcilerMetadata),
 		},
 	}
+	// NOTE: there is no need to trigger reconciliation upon Device table changes,
+	// this is already done by the OSS DefaultGatewayReconciler.
 }
 
 // PeerData keeps a peer and its configuration. It also keeps the TCP password from secret store.
@@ -204,9 +215,10 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 		}
 
 		var (
-			key = r.neighborID(&n)
-			h   *member
-			ok  bool
+			peer = &newNeigh[i]
+			key  = r.neighborID(&n)
+			h    *member
+			ok   bool
 		)
 
 		config, exists, err := r.getPeerConfig(n.PeerConfigRef)
@@ -222,10 +234,26 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 			return err
 		}
 
+		// If the local address is not provided via override and the source interface is provided in the peer config,
+		// use the local address from the provided source interface.
+		if ptr.Deref(peer.LocalAddress, "") == "" &&
+			config.Transport != nil && ptr.Deref(config.Transport.SourceInterface, "") != "" {
+			localAddr, found, err := r.getInterfaceLocalAddress(*config.Transport.SourceInterface, *n.PeerAddress)
+			if err != nil {
+				return err
+			}
+			if !found {
+				l.Warn("Peer does not have a valid IP address on the configured source interface, skipping")
+				continue
+			}
+			peer = peer.DeepCopy()
+			peer.LocalAddress = &localAddr
+		}
+
 		if h, ok = nset[key]; !ok {
 			nset[key] = &member{
 				new: &PeerData{
-					Peer:     &newNeigh[i],
+					Peer:     peer,
 					Config:   config,
 					Password: passwd,
 				},
@@ -233,7 +261,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 			continue
 		}
 		h.new = &PeerData{
-			Peer:     &newNeigh[i],
+			Peer:     peer,
 			Config:   config,
 			Password: passwd,
 		}
@@ -652,4 +680,47 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 
 func (r *NeighborReconciler) neighborID(n *v1.IsovalentBGPNodePeer) string {
 	return fmt.Sprintf("%s%s%d", n.Name, *n.PeerAddress, *n.PeerASN)
+}
+
+func (r *NeighborReconciler) getInterfaceLocalAddress(interfaceName, peerAddress string) (localAddr string, found bool, err error) {
+	peerAddr, err := netip.ParseAddr(peerAddress)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to parse peer address %q: %w", peerAddress, err)
+	}
+	log := r.Logger.With(
+		logfields.Interface, interfaceName,
+		types.PeerLogField, peerAddress,
+	)
+	dev, _, deviceFound := r.DeviceTable.Get(r.DB.ReadTxn(), tables.DeviceNameIndex.Query(interfaceName))
+	if !deviceFound {
+		log.Warn("Interface not found, can not use it as the source interface for the peer.")
+		return "", false, nil
+	}
+	for _, addr := range dev.Addrs {
+		// Skip families non-matching with the peer.
+		if peerAddr.Is4() != addr.Addr.Is4() {
+			continue
+		}
+		// Skip:
+		// - IPv4-mapped IPv6 addresses,
+		// - unspecified, loopback, multicast and link-local IPv6 addresses,
+		// - unspecified, loopback and multicast IPv4 addresses (link-local IPv4 is allowed).
+		if addr.Addr.Is4In6() ||
+			(addr.Addr.Is6() && !addr.Addr.IsGlobalUnicast()) ||
+			(addr.Addr.Is4() && !(addr.Addr.IsGlobalUnicast() || addr.Addr.IsLinkLocalUnicast())) {
+			continue
+		}
+		if localAddr != "" {
+			log.Warn("Multiple IP addresses found on the interface, can not use it as the source interface for the peer.")
+			return "", false, nil
+		}
+		localAddr = addr.Addr.String()
+		found = true
+	}
+	if !found {
+		log.Warn("No usable IP addresses found on the interface, can not use it as the source interface for the peer.")
+	} else {
+		log.Debug("Using local IP address from the source interface", logfields.IPAddr, localAddr)
+	}
+	return localAddr, found, nil
 }
