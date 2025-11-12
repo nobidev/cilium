@@ -52,7 +52,7 @@ func (i INB) TableHeader() []string {
 func (i INB) TableRow() []string {
 	var updatedAt = "Never"
 	if !i.UpdatedAt.IsZero() {
-		updatedAt = i.UpdatedAt.Format(time.RFC3339)
+		updatedAt = i.UpdatedAt.UTC().Format(time.RFC3339)
 	}
 
 	return []string{
