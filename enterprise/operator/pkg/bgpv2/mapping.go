@@ -395,6 +395,7 @@ func createOSSAdvertisement(entAdvertisement *v1.IsovalentBGPAdvertisement) *v2.
 		ossAdvert := v2.BGPAdvertisement{
 			AdvertisementType: advertType,
 			Service:           ossServiceOptionFromEnt(advert.Service),
+			Interface:         advert.Interface,
 			Selector:          advert.Selector,
 			Attributes:        advert.Attributes,
 		}
@@ -422,6 +423,8 @@ func ossAdvertTypeFromEnt(advert v1.IsovalentBGPAdvertType) v2.BGPAdvertisementT
 		return v2.BGPServiceAdvert
 	case v1.BGPCiliumPodIPPoolAdvert:
 		return v2.BGPCiliumPodIPPoolAdvert
+	case v1.BGPInterfaceAdvert:
+		return v2.BGPInterfaceAdvert
 	}
 	return "unknown"
 }
