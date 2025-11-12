@@ -26,6 +26,14 @@ func (in *BGPAdvertisement) DeepEqual(other *BGPAdvertisement) bool {
 		}
 	}
 
+	if (in.Interface == nil) != (other.Interface == nil) {
+		return false
+	} else if in.Interface != nil {
+		if !in.Interface.DeepEqual(other.Interface) {
+			return false
+		}
+	}
+
 	if (in.Selector == nil) != (other.Selector == nil) {
 		return false
 	} else if in.Selector != nil {

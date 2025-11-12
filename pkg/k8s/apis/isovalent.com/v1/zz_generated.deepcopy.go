@@ -23,6 +23,11 @@ func (in *BGPAdvertisement) DeepCopyInto(out *BGPAdvertisement) {
 		*out = new(BGPServiceOptions)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Interface != nil {
+		in, out := &in.Interface, &out.Interface
+		*out = new(v2.BGPInterfaceOptions)
+		**out = **in
+	}
 	if in.Selector != nil {
 		in, out := &in.Selector, &out.Selector
 		*out = new(metav1.LabelSelector)

@@ -15,7 +15,7 @@ import (
 // Note list of supported advertisements is not exhaustive and can be extended in the future.
 // Consumer of this API should be able to handle unknown values.
 //
-// +kubebuilder:validation:Enum=PodCIDR;CiliumPodIPPool;Service;EgressGateway;SRv6LocatorPool
+// +kubebuilder:validation:Enum=PodCIDR;CiliumPodIPPool;Service;Interface;EgressGateway;SRv6LocatorPool
 type IsovalentBGPAdvertType string
 
 const (
@@ -33,6 +33,9 @@ const (
 
 	// BGPServiceAdvert when configured, Cilium will advertise service related routes to BGP peers.
 	BGPServiceAdvert IsovalentBGPAdvertType = "Service"
+
+	// BGPInterfaceAdvert when configured, Cilium will advertise IPs applied on the configured local interface.
+	BGPInterfaceAdvert IsovalentBGPAdvertType = "Interface"
 )
 
 // +genclient
@@ -77,6 +80,9 @@ type IsovalentBGPAdvertisementSpec struct {
 // Optionally, additional attributes can be set to the advertised routes.
 //
 // +kubebuilder:validation:XValidation:rule="self.advertisementType != 'Service' || has(self.service)", message="service field is required for the 'Service' advertisementType"
+// +kubebuilder:validation:XValidation:rule="self.advertisementType == 'Service' || !has(self.service)", message="service field is not allowed for non-'Service' advertisementType"
+// +kubebuilder:validation:XValidation:rule="self.advertisementType != 'Interface' || has(self.interface)", message="interface field is required for the 'Interface' advertisementType"
+// +kubebuilder:validation:XValidation:rule="self.advertisementType == 'Interface' || !has(self.interface)", message="interface field is not allowed for non-'Interface' advertisementType"
 // +kubebuilder:validation:XValidation:rule="self.advertisementType != 'PodCIDR' || !has(self.selector)", message="selector field is not allowed for the 'PodCIDR' advertisementType"
 type BGPAdvertisement struct {
 	// AdvertisementType defines type of advertisement which has to be advertised.
@@ -84,10 +90,15 @@ type BGPAdvertisement struct {
 	// +kubebuilder:validation:Required
 	AdvertisementType IsovalentBGPAdvertType `json:"advertisementType"`
 
-	// Service defines configuration options for advertisementType service.
+	// Service defines configuration options for the "Service" advertisementType.
 	//
 	// +kubebuilder:validation:Optional
 	Service *BGPServiceOptions `json:"service,omitempty"`
+
+	// Interface defines configuration options for the "Interface" advertisementType.
+	//
+	// +kubebuilder:validation:Optional
+	Interface *v2.BGPInterfaceOptions `json:"interface,omitempty"`
 
 	// Selector is a label selector to select objects of the type specified by AdvertisementType.
 	// For the PodCIDR AdvertisementType it is not applicable. For other advertisement types,
