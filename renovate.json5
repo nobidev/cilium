@@ -12,6 +12,7 @@
     '.github/actions/enterprise-*',
     '.github/actions/set-env-variables/enterprise-overrides.sh',
     '.github/workflows/enterprise-*',
+    'cilium-cli/enterprise/**',
     'enterprise/images/**',
     'enterprise/olm/Dockerfile',
     'enterprise/**/go.mod',
@@ -359,6 +360,14 @@
       matchStrings: [
         "repository:\\s+[\"']?(?<depName>.+?)[\"']?\\s+tag:\\s*[\"']?(?<currentValue>.+?)[\"']?\\s+(digest:\\s*[\"']?(?<currentDigest>sha256:[a-f0-9]+)[\"']?\\s)?",
       ],
+    },
+    {
+      "fileMatch": [
+        "^cilium-cli/enterprise/defaults/defaults\\.go$"
+      ],
+      "matchStrings": [
+        "\/\/ renovate: datasource=(?<datasource>.*?)\\s+\"[^\"]+\": \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
+      ]
     },
   ],
 }

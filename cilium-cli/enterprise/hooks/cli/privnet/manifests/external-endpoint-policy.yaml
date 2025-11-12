@@ -1,0 +1,16 @@
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentNetworkPolicy
+metadata:
+  name: {{ .Name }}
+  namespace: {{ .TestNamespace }}
+  labels:
+    app.kubernetes.io/part-of: cilium-cli-privnet
+spec:
+  endpointSelector:
+    matchLabels:
+      name: {{ .Name }}
+  ingress:
+    - toPorts:
+      - ports:
+        - port: "{{ .Port }}"
+          protocol: TCP

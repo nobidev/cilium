@@ -27,5 +27,12 @@ const (
 	EgressGatewayPeerAddress = ""
 )
 
-// EgressGatewayCIDRsDefault is the default list of CIDRs to use when allocating egress IPs for EGW IPAM tests
-var EgressGatewayCIDRsDefault = []string{"172.18.0.8/30"}
+var (
+	// EgressGatewayCIDRsDefault is the default list of CIDRs to use when allocating egress IPs for EGW IPAM tests
+	EgressGatewayCIDRsDefault = []string{"172.18.0.8/30"}
+
+	PrivnetTestImages = map[string]string{
+		// renovate: datasource=docker
+		"VMImage": "quay.io/kubevirt/fedora-with-test-tooling-container-disk:v1.6.3@sha256:c43d0851eef3fe31d0a41f81876691189b5769aa85b9098dd244920c73828cb1",
+	}
+)

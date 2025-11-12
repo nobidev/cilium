@@ -110,4 +110,7 @@ const (
 	WorldIdentity = "worldIdentity"
 
 	ClusterwidePrivateNetwork = "ClusterwidePrivateNetwork"
+
+	Stdout = "stdout"
+	Stderr = "stderr"
 )

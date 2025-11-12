@@ -1,0 +1,32 @@
+apiVersion: "isovalent.com/v1alpha1"
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: "{{ .Network }}"
+  labels:
+    app.kubernetes.io/part-of: cilium-cli-privnet
+spec:
+  {{- if .INBInterface }}
+  interface:
+    name: "{{ .INBInterface }}"
+  {{- end }}
+  subnets:
+    {{- range .Prefixes }}
+    - cidr: {{ . }}
+    {{- end }}
+  {{- if .INBClusterNames }}
+  networkBridges:
+    {{- range .INBClusterNames }}
+    - cluster: {{ . }}
+    {{- end }}
+  {{- else }}
+  networkBridges: []
+  {{- end }}
+  {{- if .Routes }}
+  routes:
+    {{- range .Routes }}
+    - destination: {{ .Destination }}
+      gateway: {{ .Gateway }}
+    {{- end }}
+  {{- else }}
+  routes: []
+  {{- end }}

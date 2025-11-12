@@ -859,8 +859,9 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/check/enterprise.go @isovalent/cli
 /cilium-cli/enterprise/ @isovalent/cli
 /cilium-cli/enterprise/hooks/cli/bgp/ @isovalent/traffic-engineering
-/cilium-cli/enterprise/hooks/cli/loadbalancer* @isovalent/isovalent-loadbalancer
 /cilium-cli/enterprise/hooks/cli/ilb/ @isovalent/isovalent-loadbalancer
+/cilium-cli/enterprise/hooks/cli/loadbalancer* @isovalent/isovalent-loadbalancer
+/cilium-cli/enterprise/hooks/cli/privnet* @isovalent/private-networking
 /cilium-cli/enterprise/hooks/connectivity/tests/bfd.go @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/connectivity/tests/bgp.go @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/connectivity/tests/egressgateway.go @isovalent/egress-gateway
@@ -870,6 +871,7 @@ Makefile* @cilium/build
 /cilium-cli/enterprise/hooks/connectivity/tests/multicast.go @isovalent/traffic-engineering
 /cilium-cli/enterprise/hooks/connectivity/tests/phantom.go @isovalent/clustermesh
 /cilium-cli/enterprise/hooks/connectivity_ingress.go @isovalent/service-mesh
+/cilium-cli/enterprise/hooks/k8s/vm_exec.go @isovalent/private-networking
 /cilium-cli/enterprise/hooks/manifests/ingress-policy/ @isovalent/service-mesh
 /cilium-cli/enterprise/hooks/sysdump/timescape*.go @isovalent/timescape
 /contrib/scripts/enterprise-codeowners.sh @isovalent/core-structure

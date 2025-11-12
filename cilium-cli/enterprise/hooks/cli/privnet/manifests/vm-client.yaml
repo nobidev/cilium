@@ -1,0 +1,66 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: "{{ .Name }}"
+  namespace: "{{ .TestNamespace }}"
+  labels:
+    app.kubernetes.io/part-of: cilium-cli-privnet
+    {{- if .ID }}
+    vmID: {{ .ID }}
+    {{- end }}
+    {{- with .PlanID }}
+    plan: {{ . }}
+    {{- end }}
+spec:
+  runStrategy: Always
+  template:
+    metadata:
+      name: "{{ .Name }}"
+      labels:
+        kind: client
+      {{- if .NeedsAnnotation }}
+      annotations:
+        "network.v1alpha1.isovalent.com/network-attachment": '{"network":"{{ .NetName }}","ipv4":"{{ .NetIPv4 }}","ipv6":"{{ .NetIPv6 }}","mac":"{{ .NetMAC }}"}'
+      {{- end }}
+    spec:
+      dnsPolicy: None
+      dnsConfig:
+        nameservers:
+        - {{ .NetDNSServer }}
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          interfaces:
+          - bridge: {}
+            name: default
+          rng: {}
+        resources:
+          requests:
+            memory: 1024M
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - containerDisk:
+          image: "{{ .VMImage }}"
+        name: containerdisk
+      - cloudInitNoCloud:
+          userData: |-
+            #cloud-config
+            password: fedora
+            chpasswd: { expire: False }
+          networkData: |
+            version: 2
+            ethernets:
+              eth0:
+                dhcp4: true
+                addresses: [ {{ .NetIPv6 }}/128 ]
+                gateway6: {{ .NetIPv6Gateway }}
+        name: cloudinitdisk
