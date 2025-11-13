@@ -160,19 +160,32 @@ func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager, tx st
 		azAffinity:           config.azAffinity,
 	}
 
+	upsertPolicy := func() {
+		// Still upsert, as we want to overwrite the gatewayConfig.
+		if _, err := manager.upsertPolicy(tx, *config); err != nil {
+			manager.logger.Error("BUG: could not upsert policy with empty gw config",
+				logfields.Error, err)
+		}
+	}
 	if len(config.groupStatuses) == 0 {
+		upsertPolicy()
 		return
 	}
 
 	localNode, err := manager.localNodeStore.Get(context.TODO())
 	if err != nil {
-		manager.logger.Error("Failed to get local node store")
+		manager.logger.Error("Failed to get local node store",
+			logfields.Error, err)
+		upsertPolicy()
 		return
 	}
 
-	localNodeK8sAddr, ok := netipx.FromStdIP(localNode.GetK8sNodeIP())
+	nip := localNode.GetK8sNodeIP()
+	localNodeK8sAddr, ok := netipx.FromStdIP(nip)
 	if !ok {
-		manager.logger.Error("Failed to parse local node IP")
+		manager.logger.Error("Failed to parse local node IP",
+			logfields.IPAddr, nip)
+		upsertPolicy()
 		return
 	}
 
@@ -264,8 +277,11 @@ func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager, tx st
 	curEgressIPs := manager.egressConfigsByPolicy[config.id]
 	toDel := curEgressIPs.Difference(nextEgressIPs)
 	updateEgressIPsConfig(manager.logger, manager.db, manager.egressIPTable, nextEgressIPs, toDel, config.dstCIDRs)
+	if _, err := manager.upsertPolicy(tx, *config); err != nil {
+		manager.logger.Error("BUG: could not upsert policy with new gw config",
+			logfields.Error, err)
+	}
 	manager.egressConfigsByPolicy[config.id] = nextEgressIPs
-
 }
 
 func updateEgressIPsConfig(
