@@ -901,9 +901,11 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 	// if the IEGP's status is already up to date, that is:
 	// - ObservedGeneration is already equal to the IEGP Generation
 	// - GroupStatuses are already in sync with the computed ones
+	// - Conditions are in sync with the computed ones
 	// then skip updating the status to avoid emitting an update event for the policy
 	if config.generation == config.groupStatusesGeneration &&
-		cmp.Equal(iegp.Status.GroupStatuses, newIEGP.Status.GroupStatuses, cmpopts.EquateEmpty()) {
+		cmp.Equal(iegp.Status.GroupStatuses, newIEGP.Status.GroupStatuses, cmpopts.EquateEmpty()) &&
+		cmp.Equal(iegp.Status.Conditions, newIEGP.Status.Conditions, cmpopts.EquateEmpty()) {
 		return nil
 	}
 
