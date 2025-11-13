@@ -745,9 +745,9 @@ func (manager *Manager) removePolicyEgressIPs(egressIPs sets.Set[gwEgressIPConfi
 	txn.Commit()
 }
 
-func (manager *Manager) regenerateGatewayConfigs(tx statedb.ReadTxn) {
+func (manager *Manager) regenerateGatewayConfigs(tx statedb.WriteTxn) {
 	for policyConfig := range manager.policyConfigsTable.All(tx) {
-		policyConfig.regenerateGatewayConfig(manager)
+		policyConfig.regenerateGatewayConfig(manager, tx)
 	}
 }
 

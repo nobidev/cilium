@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"slices"
 
@@ -114,31 +115,43 @@ func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata
 	return false
 }
 
-// updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
-func (config *AgentPolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) bool {
-	prevMatchedEndpoints := config.matchedEndpoints
-	config.matchedEndpoints = map[endpointID]*endpointMetadata{}
-	dirty := false
-	for _, endpoint := range epDataStore {
-		prevEp, prevMatched := prevMatchedEndpoints[endpoint.id]
-		currMatched := config.matchesEndpointLabels(endpoint)
-		if currMatched {
-			config.matchedEndpoints[endpoint.id] = endpoint
-		}
-
-		// If the endpoint was matched/unmatched since the last state, or
-		// the endpoint was matched and remains matched but the endpoint metadata
-		// has changed, then we return true to denote that the policyConfig should
-		// be updated back into the table.
-		if currMatched != prevMatched ||
-			(currMatched && prevMatched && !endpoint.equals(prevEp)) {
-			dirty = true
-		}
-	}
-	return dirty
+func keys[Map ~map[K]V, K comparable, V any](m Map) sets.Set[K] {
+	return sets.New(slices.Collect(maps.Keys(m))...)
 }
 
-func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager) {
+// updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
+func (config *AgentPolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) bool {
+	// save old matched endpoints
+	prevMatchedEndpoints := config.matchedEndpoints
+
+	// update matched endpoints
+	config.matchedEndpoints = make(map[endpointID]*endpointMetadata)
+	for _, endpoint := range epDataStore {
+		if config.matchesEndpointLabels(endpoint) {
+			config.matchedEndpoints[endpoint.id] = endpoint
+		}
+	}
+
+	// if a new endpoint is matched or a previously matched endpoint is not anymore
+	// an update is needed
+	cur, prev := keys(config.matchedEndpoints), keys(prevMatchedEndpoints)
+	if !cur.Equal(prev) {
+		return true
+	}
+
+	// if an endpoint is matched and already was, but its metadata changed,
+	// an update is needed
+	for endpointID := range config.matchedEndpoints {
+		if !config.matchedEndpoints[endpointID].equals(prevMatchedEndpoints[endpointID]) {
+			return true
+		}
+	}
+
+	// no update needed
+	return false
+}
+
+func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager, tx statedb.WriteTxn) {
 	config.gatewayConfig = &gatewayConfig{
 		egressIP:             netip.IPv4Unspecified(),
 		activeGatewayIPs:     []netip.Addr{},
