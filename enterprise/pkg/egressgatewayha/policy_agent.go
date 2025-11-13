@@ -45,12 +45,12 @@ type AgentPolicyConfig struct {
 
 // parseAgentIEGP parses IEGP from k8s resource and initializes agent specific
 // policy config fields for us in agent manager.
-func parseAgentIEGP(logger *slog.Logger, iegp *v1.IsovalentEgressGatewayPolicy) (*AgentPolicyConfig, error) {
+func parseAgentIEGP(logger *slog.Logger, iegp *v1.IsovalentEgressGatewayPolicy) (AgentPolicyConfig, error) {
 	config, err := ParseIEGP(logger, iegp)
 	if err != nil {
-		return nil, err
+		return AgentPolicyConfig{}, err
 	}
-	return &AgentPolicyConfig{
+	return AgentPolicyConfig{
 		PolicyConfig: config,
 	}, nil
 }

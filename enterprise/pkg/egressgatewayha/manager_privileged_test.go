@@ -91,7 +91,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 		db            *statedb.DB
 		egressIPTable statedb.RWTable[*tables.EgressIPEntry]
 		r             reconciler.Reconciler[*tables.EgressIPEntry]
-		policyTable   statedb.RWTable[*AgentPolicyConfig]
+		policyTable   statedb.RWTable[AgentPolicyConfig]
 	)
 
 	// create a hive to provide statedb, egress-ips table and a mock reconcile
@@ -105,7 +105,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 		),
 
 		cell.Invoke(func(db_ *statedb.DB,
-			pt statedb.RWTable[*AgentPolicyConfig],
+			pt statedb.RWTable[AgentPolicyConfig],
 			table statedb.RWTable[*tables.EgressIPEntry],
 			reconciler reconciler.Reconciler[*tables.EgressIPEntry]) {
 			db = db_

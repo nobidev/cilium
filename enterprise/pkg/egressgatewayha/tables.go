@@ -20,9 +20,9 @@ import (
 )
 
 var (
-	AgentIndex = statedb.Index[*AgentPolicyConfig, types.NamespacedName]{
+	AgentIndex = statedb.Index[AgentPolicyConfig, types.NamespacedName]{
 		Name: "id",
-		FromObject: func(s *AgentPolicyConfig) index.KeySet {
+		FromObject: func(s AgentPolicyConfig) index.KeySet {
 			return index.NewKeySet(s.Key())
 		},
 		FromKey: func(key types.NamespacedName) index.Key {
@@ -32,9 +32,9 @@ var (
 		Unique:     true,
 	}
 	// This is by matching endpoint IP.
-	ByEndpointSourceIP = statedb.Index[*AgentPolicyConfig, string]{
+	ByEndpointSourceIP = statedb.Index[AgentPolicyConfig, string]{
 		Name: "source-ip",
-		FromObject: func(s *AgentPolicyConfig) index.KeySet {
+		FromObject: func(s AgentPolicyConfig) index.KeySet {
 			ks := []index.Key{}
 			for _, ep := range s.matchedEndpoints {
 				for _, ip := range ep.ips {
@@ -47,11 +47,11 @@ var (
 	}
 )
 
-func (p *AgentPolicyConfig) TableHeader() []string {
+func (p AgentPolicyConfig) TableHeader() []string {
 	return []string{"ID", "Endpoints", "Generation", "IsGateway", "Interface", "EgressIP", "Groups"}
 }
 
-func (p *AgentPolicyConfig) TableRow() []string {
+func (p AgentPolicyConfig) TableRow() []string {
 	eps := []string{}
 	for _, ep := range p.matchedEndpoints {
 		for _, ip := range ep.ips {
@@ -93,6 +93,6 @@ func (p *AgentPolicyConfig) TableRow() []string {
 	}
 }
 
-func newAgentTables(db *statedb.DB) (statedb.RWTable[*AgentPolicyConfig], error) {
+func newAgentTables(db *statedb.DB) (statedb.RWTable[AgentPolicyConfig], error) {
 	return statedb.NewTable(db, "policy-config", AgentIndex, ByEndpointSourceIP)
 }

@@ -135,11 +135,6 @@ func (pc *PolicyConfig) clone() *PolicyConfig {
 	return &out
 }
 
-func (pc *AgentPolicyConfig) clone() *AgentPolicyConfig {
-	out := *pc
-	return &out
-}
-
 // PolicyID includes policy name and namespace
 type policyID = types.NamespacedName
 

@@ -138,7 +138,7 @@ type Manager struct {
 	nodesByIP map[string]nodeTypes.Node
 
 	// policyConfigs stores policy configs indexed by policyID
-	policyConfigsTable statedb.RWTable[*AgentPolicyConfig]
+	policyConfigsTable statedb.RWTable[AgentPolicyConfig]
 
 	// epDataStore stores endpointId to endpoint metadata mapping
 	epDataStore map[endpointID]*endpointMetadata
@@ -222,7 +222,7 @@ type Params struct {
 	DB                 *statedb.DB
 	EgressIPTable      statedb.RWTable[*enterprise_tables.EgressIPEntry]
 	EgressIPReconciler reconciler.Reconciler[*enterprise_tables.EgressIPEntry]
-	PolicyConfigsTable statedb.RWTable[*AgentPolicyConfig]
+	PolicyConfigsTable statedb.RWTable[AgentPolicyConfig]
 
 	CTNATMapGC ctmap.GCRunner
 
@@ -543,7 +543,7 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 }
 
 func (manager *Manager) deletePolicyByID(tx statedb.WriteTxn, id types.NamespacedName) bool {
-	_, deleted, err := manager.policyConfigsTable.Delete(tx, &AgentPolicyConfig{
+	_, deleted, err := manager.policyConfigsTable.Delete(tx, AgentPolicyConfig{
 		PolicyConfig: &PolicyConfig{id: id},
 	})
 	if err != nil {
@@ -555,8 +555,8 @@ func (manager *Manager) deletePolicyByID(tx statedb.WriteTxn, id types.Namespace
 	return deleted
 }
 
-func (manager *Manager) upsertPolicy(tx statedb.WriteTxn, p *AgentPolicyConfig) (bool, error) {
-	_, hadPrev, err := manager.policyConfigsTable.Insert(tx, p.clone())
+func (manager *Manager) upsertPolicy(tx statedb.WriteTxn, p AgentPolicyConfig) (bool, error) {
+	_, hadPrev, err := manager.policyConfigsTable.Insert(tx, p)
 	if err != nil {
 		return hadPrev, err
 	}
@@ -686,7 +686,7 @@ func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.Cili
 func (manager *Manager) updatePoliciesMatchedEndpointIDs(tx statedb.WriteTxn) error {
 	for policy := range manager.policyConfigsTable.All(tx) {
 		if needsUpdate := policy.updateMatchedEndpointIDs(manager.epDataStore); needsUpdate {
-			if _, _, err := manager.policyConfigsTable.Insert(tx, policy.clone()); err != nil {
+			if _, _, err := manager.policyConfigsTable.Insert(tx, policy); err != nil {
 				return fmt.Errorf("failed to update matched endpoint ID: %w", err)
 			}
 		}
@@ -876,7 +876,7 @@ func (manager *Manager) removeExpiredCtEntries(tx statedb.ReadTxn) error {
 			ctEntries[*key] = *val
 		})
 
-	policyMatchesCtEntry := func(policy *AgentPolicyConfig, ctKey *egressmapha.EgressCtKey4, ctVal *egressmapha.EgressCtVal4) bool {
+	policyMatchesCtEntry := func(policy AgentPolicyConfig, ctKey *egressmapha.EgressCtKey4, ctVal *egressmapha.EgressCtVal4) bool {
 		gatewayIP, ok := netipx.FromStdIP(ctVal.Gateway.IP())
 		if !ok {
 			manager.logger.Error("Cannot parse CT entry's gateway IP while removing expired entries")
