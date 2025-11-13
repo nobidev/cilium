@@ -316,8 +316,17 @@ spec:
                 path: server.crt
               - key: tls.key
                 path: server.key
+          {{- if not .Values.tls.caBundle.enabled }}
               - key: ca.crt
                 path: ca.crt
+              {{- else }}
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
+              name: {{ .Values.tls.caBundle.name }}
+              optional: true
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: ca.crt
+          {{- end }}
           {{- $oidcCAConfigMapName := .Values.hubble.rbac.auth.oidc.ca.configMap.name }}
           {{- $oidcCAConfigMapKey := .Values.hubble.rbac.auth.oidc.ca.configMap.key }}
           {{- if .Values.hubble.timescape.ui.auth.oidc.issuerCA.configMap.name }}
