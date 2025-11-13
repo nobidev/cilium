@@ -7,6 +7,7 @@ triggers:
     - enterprise-clustermesh-mixed-routing.yaml
     - enterprise-clustermesh-overlapping-podcidr.yaml
     - enterprise-fqdn-ha.yaml
+    - enterprise-fqdn-ha-upgrade.yaml
     - enterprise-multi-network.yaml
     - enterprise-srv6-datapath.yaml
     - enterprise-multicast.yaml
