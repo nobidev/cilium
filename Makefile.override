@@ -97,6 +97,7 @@ generate-enterprise-apis: ## Generate all enterprise-only APIs.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C enterprise/fqdn-proxy/api/v1 proto
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C enterprise/pkg/hubble/aggregation/api/aggregation proto
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C enterprise/pkg/privnet/health/grpc/api proto
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C enterprise generate-enterprise-api
 
 # Cilium FQDN HA proxy specific targets
 -include Makefile.fqdn-proxy
