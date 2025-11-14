@@ -104,7 +104,7 @@ jobs:
           # renovate: datasource=github-releases depName=mikefarah/yq
           yq_version: 4.48.1
           # renovate: datasource=github-releases depName=operator-framework/operator-registry
-          opm_version: 1.60.0
+          opm_version: 1.61.0
           # opm tooling cannot cope with anything that is not semver... and not with semver either... forced to use - when + would be correct
           VERSION: "0.0.1-${{ github.sha }}"
           IMAGE_TAG_BASE: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci"

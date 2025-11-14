@@ -437,7 +437,7 @@ jobs:
           # renovate: datasource=github-releases depName=mikefarah/yq
           yq_version: 4.48.1
           # renovate: datasource=github-releases depName=operator-framework/operator-registry
-          opm_version: 1.60.0
+          opm_version: 1.61.0
           VERSION: "${{ steps.tag.outputs.tag }}"
           CATALOG_TAG: "1.0.0"
           IMAGE_TAG_BASE: "${{ steps.tag.outputs.image_tag_base }}"

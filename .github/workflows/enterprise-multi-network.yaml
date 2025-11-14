@@ -171,7 +171,7 @@ jobs:
           binary-dir: ./
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
+        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
         with:
           test-name: enterprise-multi-network
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -191,7 +191,7 @@ jobs:
           done
 
       - name: Run connectivity tests
-        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
+        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
         with:
           provision: 'false'
           cmd: |
@@ -249,7 +249,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
+        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
         with:
           provision: 'false'
           cmd: |
