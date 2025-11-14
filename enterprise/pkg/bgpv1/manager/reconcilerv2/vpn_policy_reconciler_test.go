@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/fake"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/types"
@@ -180,10 +181,13 @@ func TestVPNRoutePolicy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
 
-			testOSSBGPInstance := instance.NewFakeBGPInstance()
+			testOSSBGPInstance := &instance.BGPInstance{
+				Name:   "fake-instance",
+				Router: fake.NewEnterpriseFakeRouter(),
+			}
 			testBGPInstance := &EnterpriseBGPInstance{
 				Name:   testOSSBGPInstance.Name,
-				Router: testOSSBGPInstance.Router,
+				Router: upgradeRouter(testOSSBGPInstance.Router),
 			}
 			iNodeInstance := &v1.IsovalentBGPNodeInstance{
 				Name:     "test-instance",

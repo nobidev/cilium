@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/fake"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	srv6Types "github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
@@ -702,10 +703,13 @@ func TestExportSRv6LocatorPoolReconciler(t *testing.T) {
 
 			lpReconciler.initialized.Store(true)
 
-			testOSSBGPInstance := instance.NewFakeBGPInstance()
+			testOSSBGPInstance := &instance.BGPInstance{
+				Name:   "fake-instance",
+				Router: fake.NewEnterpriseFakeRouter(),
+			}
 			testBGPInstance := &EnterpriseBGPInstance{
 				Name:   testOSSBGPInstance.Name,
-				Router: testOSSBGPInstance.Router,
+				Router: upgradeRouter(testOSSBGPInstance.Router),
 			}
 			lpReconciler.Init(testOSSBGPInstance)
 			defer lpReconciler.Cleanup(testOSSBGPInstance)

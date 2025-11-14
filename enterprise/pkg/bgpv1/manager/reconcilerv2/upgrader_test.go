@@ -27,11 +27,11 @@ import (
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/fake"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
-	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
@@ -158,7 +158,7 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 	ossParams := reconciler.ReconcileParams{
 		BGPInstance: &instance.BGPInstance{
 			Config: &ossNode.Spec.BGPInstances[0],
-			Router: types.NewFakeRouter(),
+			Router: fake.NewEnterpriseFakeRouter(),
 		},
 		DesiredConfig: &ossNode.Spec.BGPInstances[0],
 		CiliumNode: &v2.CiliumNode{
@@ -176,10 +176,9 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 		}
 	}, time.Second*3, time.Millisecond*100)
 
-	require.Equal(t,
-		// Pointer equality
-		ceeParams.BGPInstance.Router, ossParams.BGPInstance.Router,
-		"CEE router doesn't point to the same router instance as OSS",
+	require.IsType(t,
+		&fake.EnterpriseFakeRouter{}, ceeParams.BGPInstance.Router,
+		"CEE router is not of type EnterpriseFakeRouter",
 	)
 
 	require.Equal(t,

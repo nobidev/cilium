@@ -24,6 +24,7 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/fake"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	srv6 "github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/types"
@@ -678,10 +679,13 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			}
 
 			// setup preconfig
-			testOSSBGPInstance := instance.NewFakeBGPInstance()
+			testOSSBGPInstance := &instance.BGPInstance{
+				Name:   "fake-instance",
+				Router: fake.NewEnterpriseFakeRouter(),
+			}
 			testBGPInstance := &EnterpriseBGPInstance{
 				Name:   testOSSBGPInstance.Name,
-				Router: testOSSBGPInstance.Router,
+				Router: upgradeRouter(testOSSBGPInstance.Router),
 			}
 			svcVRFReconciler.Init(testOSSBGPInstance)
 			svcVRFReconciler.setMetadata(testBGPInstance, tt.prevMetadata)
@@ -1122,10 +1126,13 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			}
 
 			// setup preconfig
-			testOSSBGPInstance := instance.NewFakeBGPInstance()
+			testOSSBGPInstance := &instance.BGPInstance{
+				Name:   "fake-instance",
+				Router: fake.NewEnterpriseFakeRouter(),
+			}
 			testBGPInstance := &EnterpriseBGPInstance{
 				Name:   testOSSBGPInstance.Name,
-				Router: testOSSBGPInstance.Router,
+				Router: upgradeRouter(testOSSBGPInstance.Router),
 			}
 			svcVRFReconciler.Init(testOSSBGPInstance)
 			defer svcVRFReconciler.Cleanup(testOSSBGPInstance)

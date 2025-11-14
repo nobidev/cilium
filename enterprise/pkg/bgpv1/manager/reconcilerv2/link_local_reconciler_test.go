@@ -24,6 +24,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/fake"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
@@ -100,7 +101,8 @@ func newLinkLocalTestFixture() *linkLocalTestFixture {
 
 func TestLinkLocalReconciler(t *testing.T) {
 	instance := &instance.BGPInstance{
-		Name: "test-instance",
+		Name:   "test-instance",
+		Router: fake.NewEnterpriseFakeRouter(),
 	}
 	iNodeInstance := &v1.IsovalentBGPNodeInstance{
 		Name:     instance.Name,
@@ -573,7 +575,8 @@ func TestLinkLocalReconcilerMultipleInstances(t *testing.T) {
 
 			// configure instances
 			instance := &instance.BGPInstance{
-				Name: tt.nodeInstance.Name,
+				Name:   tt.nodeInstance.Name,
+				Router: fake.NewEnterpriseFakeRouter(),
 			}
 			ossNodeInstance := &v2.CiliumBGPNodeInstance{
 				Name:     tt.nodeInstance.Name,

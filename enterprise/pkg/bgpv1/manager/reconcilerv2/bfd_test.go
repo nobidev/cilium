@@ -28,10 +28,10 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bfd/types"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/fake"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
-	bgptypes "github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -48,7 +48,7 @@ const (
 type bfdTestFixture struct {
 	hive *hive.Hive
 
-	router      *bfdFakeRouter
+	router      *fake.EnterpriseFakeRouter
 	reconciler  *BFDStateReconciler
 	instance    *instance.BGPInstance
 	bgpSignaler *signaler.BGPCPSignaler
@@ -62,7 +62,7 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *v1.Isova
 	var pcOnce sync.Once
 	pcWatchStarted := make(chan struct{})
 
-	router := newBFDFakeRouter()
+	router := fake.NewEnterpriseFakeRouter()
 	f := &bfdTestFixture{
 		router: router,
 		instance: &instance.BGPInstance{
@@ -140,22 +140,6 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *v1.Isova
 		}
 	}
 	return f, watchersReadyFn
-}
-
-type bfdFakeRouter struct {
-	bgptypes.FakeRouter
-	resetPeersCh chan netip.Addr
-}
-
-func newBFDFakeRouter() *bfdFakeRouter {
-	return &bfdFakeRouter{
-		resetPeersCh: make(chan netip.Addr, 10),
-	}
-}
-
-func (r *bfdFakeRouter) ResetNeighbor(ctx context.Context, rr bgptypes.ResetNeighborRequest) error {
-	r.resetPeersCh <- rr.PeerAddress
-	return nil
 }
 
 func TestBFDStateReconciler(t *testing.T) {
@@ -587,7 +571,7 @@ func TestBFDStateReconciler(t *testing.T) {
 				// check that expected sessions have been reset
 				for range tt.expectReset {
 					select {
-					case reset := <-f.router.resetPeersCh:
+					case reset := <-f.router.ResetPeersCh:
 						require.Contains(t, tt.expectReset, reset)
 					case <-testCtx.Done():
 						t.Fatalf("missed expected peer reset")
@@ -595,7 +579,7 @@ func TestBFDStateReconciler(t *testing.T) {
 				}
 			} else {
 				// check no session have been reset
-				require.Empty(t, f.router.resetPeersCh, "unexpected peer reset")
+				require.Empty(t, f.router.ResetPeersCh, "unexpected peer reset")
 			}
 		})
 	}

@@ -22,6 +22,7 @@ import (
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/fake"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
@@ -546,10 +547,15 @@ func TestEgressGatewayAdvertisements(t *testing.T) {
 				mockAdvertStore.Upsert(tt.advertisement)
 			}
 
-			testOSSBGPInstance := instance.NewFakeBGPInstance()
+			router := fake.NewEnterpriseFakeRouter()
+			testOSSBGPInstance := &instance.BGPInstance{
+				Name:   "fake-instance",
+				Config: nil,
+				Router: router,
+			}
 			testBGPInstance := &EnterpriseBGPInstance{
 				Name:   testOSSBGPInstance.Name,
-				Router: testOSSBGPInstance.Router,
+				Router: router,
 			}
 
 			// set preconfigured data

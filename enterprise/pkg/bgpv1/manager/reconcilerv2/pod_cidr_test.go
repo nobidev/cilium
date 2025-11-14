@@ -22,6 +22,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/fake"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
@@ -596,11 +597,13 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			})
 			podCIDRReconciler := out.Reconciler.(*PodCIDRReconciler)
 
+			router := fake.NewEnterpriseFakeRouter()
+
 			// preconfigure advertisements
 			testBGPInstance := &EnterpriseBGPInstance{
 				Name:   "fake-instance",
 				Config: nil,
-				Router: types.NewFakeRouter(),
+				Router: router,
 			}
 
 			presetAdverts := make(reconciler.AFPathsMap)
@@ -627,7 +630,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 						Config: &v2.CiliumBGPNodeInstance{
 							Name: testBGPInstance.Name,
 						},
-						Router: testBGPInstance.Router,
+						Router: router,
 					},
 					DesiredConfig: &v2.CiliumBGPNodeInstance{
 						Name: testBGPInstance.Name,

@@ -29,6 +29,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/annotation"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/fake"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
@@ -3285,10 +3286,13 @@ func runServiceTests(t *testing.T, steps []svcTestStep) {
 	})
 
 	// init BGP instance
-	testBGPInstance := instance.NewFakeBGPInstance()
+	testBGPInstance := &instance.BGPInstance{
+		Name:   "fake-instance",
+		Router: fake.NewEnterpriseFakeRouter(),
+	}
 	ceeBGPInstance := &EnterpriseBGPInstance{
 		Name:   testBGPInstance.Name,
-		Router: testBGPInstance.Router,
+		Router: upgradeRouter(testBGPInstance.Router),
 	}
 	f.svcReconciler.Init(testBGPInstance)
 	t.Cleanup(func() {
