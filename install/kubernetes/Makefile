@@ -50,9 +50,6 @@ all: update-versions check-values-yaml docs lint extra_all
 
 extra_all: $(EXTRA_ALL)
 
-# Add the ability to override variables and add more targets.
--include Makefile.override
-
 update-chart: $(ROOT_DIR)/VERSION # Update chart versions to point to the current version.
 	$(ECHO_GEN)cilium/Chart.yaml
 	$(QUIET)grep -lR -e 'version:' -e 'appVersion:' $(CILIUM_CHARTS)/ \
