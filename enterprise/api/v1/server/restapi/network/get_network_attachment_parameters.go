@@ -38,7 +38,6 @@ func NewGetNetworkAttachmentParams() GetNetworkAttachmentParams {
 //
 // swagger:parameters GetNetworkAttachment
 type GetNetworkAttachmentParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -47,6 +46,7 @@ type GetNetworkAttachmentParams struct {
 	  In: query
 	*/
 	PodName string
+
 	/*Kubernetes pod namespace for which to query the network attachment
 	  Required: true
 	  In: query
@@ -62,7 +62,6 @@ func (o *GetNetworkAttachmentParams) BindRequest(r *http.Request, route *middlew
 	var res []error
 
 	o.HTTPRequest = r
-
 	qs := runtime.Values(r.URL.Query())
 
 	qPodName, qhkPodName, _ := qs.GetOK("pod-name")

@@ -43,7 +43,7 @@ func NewGetHealthzOK() *GetHealthzOK {
 // WriteResponse to the client
 func (o *GetHealthzOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -68,7 +68,7 @@ func NewGetHealthzDisabled() *GetHealthzDisabled {
 // WriteResponse to the client
 func (o *GetHealthzDisabled) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

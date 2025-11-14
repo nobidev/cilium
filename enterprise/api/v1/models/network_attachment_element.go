@@ -17,6 +17,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -70,11 +71,15 @@ func (m *NetworkAttachmentElement) validateIpam(formats strfmt.Registry) error {
 
 	if m.Ipam != nil {
 		if err := m.Ipam.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("ipam")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("ipam")
 			}
+
 			return err
 		}
 	}
@@ -103,11 +108,15 @@ func (m *NetworkAttachmentElement) validateRoutes(formats strfmt.Registry) error
 
 		if m.Routes[i] != nil {
 			if err := m.Routes[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("routes" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("routes" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -144,11 +153,15 @@ func (m *NetworkAttachmentElement) contextValidateIpam(ctx context.Context, form
 		}
 
 		if err := m.Ipam.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("ipam")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("ipam")
 			}
+
 			return err
 		}
 	}
@@ -167,11 +180,15 @@ func (m *NetworkAttachmentElement) contextValidateRoutes(ctx context.Context, fo
 			}
 
 			if err := m.Routes[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("routes" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("routes" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
