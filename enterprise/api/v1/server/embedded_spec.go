@@ -123,6 +123,10 @@ func init() {
         "multi-network": {
           "description": "Indicates whether multi-network support is enabled",
           "type": "boolean"
+        },
+        "private-networks": {
+          "description": "Private networks configuration",
+          "$ref": "#/definitions/PrivateNetworksConfiguration"
         }
       }
     },
@@ -193,6 +197,20 @@ func init() {
         },
         "gateway": {
           "description": "Route gateway",
+          "type": "string"
+        }
+      }
+    },
+    "PrivateNetworksConfiguration": {
+      "description": "Private networks configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Indicates whether support for private networks is enabled",
+          "type": "boolean"
+        },
+        "mode": {
+          "description": "Private networks mode",
           "type": "string"
         }
       }
@@ -322,6 +340,10 @@ func init() {
         "multi-network": {
           "description": "Indicates whether multi-network support is enabled",
           "type": "boolean"
+        },
+        "private-networks": {
+          "description": "Private networks configuration",
+          "$ref": "#/definitions/PrivateNetworksConfiguration"
         }
       }
     },
@@ -392,6 +414,20 @@ func init() {
         },
         "gateway": {
           "description": "Route gateway",
+          "type": "string"
+        }
+      }
+    },
+    "PrivateNetworksConfiguration": {
+      "description": "Private networks configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Indicates whether support for private networks is enabled",
+          "type": "boolean"
+        },
+        "mode": {
+          "description": "Private networks mode",
           "type": "string"
         }
       }

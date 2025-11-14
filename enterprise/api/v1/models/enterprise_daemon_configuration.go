@@ -17,7 +17,9 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 
+	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
@@ -29,15 +31,84 @@ type EnterpriseDaemonConfiguration struct {
 
 	// Indicates whether multi-network support is enabled
 	MultiNetwork bool `json:"multi-network,omitempty"`
+
+	// Private networks configuration
+	PrivateNetworks *PrivateNetworksConfiguration `json:"private-networks,omitempty"`
 }
 
 // Validate validates this enterprise daemon configuration
 func (m *EnterpriseDaemonConfiguration) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validatePrivateNetworks(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
 	return nil
 }
 
-// ContextValidate validates this enterprise daemon configuration based on context it is used
+func (m *EnterpriseDaemonConfiguration) validatePrivateNetworks(formats strfmt.Registry) error {
+	if swag.IsZero(m.PrivateNetworks) { // not required
+		return nil
+	}
+
+	if m.PrivateNetworks != nil {
+		if err := m.PrivateNetworks.Validate(formats); err != nil {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
+				return ve.ValidateName("private-networks")
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
+				return ce.ValidateName("private-networks")
+			}
+
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this enterprise daemon configuration based on the context it is used
 func (m *EnterpriseDaemonConfiguration) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidatePrivateNetworks(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *EnterpriseDaemonConfiguration) contextValidatePrivateNetworks(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.PrivateNetworks != nil {
+
+		if swag.IsZero(m.PrivateNetworks) { // not required
+			return nil
+		}
+
+		if err := m.PrivateNetworks.ContextValidate(ctx, formats); err != nil {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
+				return ve.ValidateName("private-networks")
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
+				return ce.ValidateName("private-networks")
+			}
+
+			return err
+		}
+	}
+
 	return nil
 }
 
