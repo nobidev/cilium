@@ -17,6 +17,7 @@ module.exports = {
   ],
   allowedCommands: [
     '^make .*$',
+    '^ls .*$',
   ],
   customEnvVariables: {
     GOPRIVATE: "github.com/isovalent/*",

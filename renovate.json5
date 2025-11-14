@@ -214,6 +214,9 @@
       ],
       postUpgradeTasks: {
         commands: [
+          'ls -d $PWD/install/kubernetes',
+          'ls -l install/kubernetes',
+          'ls -l install/kubernetes/cilium',
           'make -C install/kubernetes update-versions check-values-yaml docs lint',
           'make -C Documentation update-helm-values',
         ],
