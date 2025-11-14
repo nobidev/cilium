@@ -1,0 +1,56 @@
+// Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+// NOTICE: All information contained herein is, and remains the property of
+// Isovalent Inc and its suppliers, if any. The intellectual and technical
+// concepts contained herein are proprietary to Isovalent Inc and its suppliers
+// and may be covered by U.S. and Foreign Patents, patents in process, and are
+// protected by trade secret or copyright law.  Dissemination of this information
+// or reproduction of this material is strictly forbidden unless prior written
+// permission is obtained from Isovalent Inc.
+
+package types
+
+import (
+	"context"
+	"net/netip"
+
+	ossTypes "github.com/cilium/cilium/pkg/bgp/types"
+)
+
+// EnterpriseRouter is an extension of the ossTypes.Router interface that adds
+// enterprise-specific functionality. This is a superset of the OSS Router
+// interface. We can add support for these enterprise-specific methods in the
+// OSS Router implementations through enterprise_*.go file and on the
+// enterprise side, we can upgrade the OSS Router to an EnterpriseRouter when
+// needed (most likely through upgrader).
+type EnterpriseRouter interface {
+	ossTypes.Router
+
+	// GetRoutesExtended retrieves routes from the RIB of underlying router
+	// implementation. The reply contains extended enterprise-specific
+	// route information.
+	GetRoutesExtended(ctx context.Context, r *GetRoutesExtendedRequest) (*GetRoutesExtendedResponse, error)
+}
+
+type GetRoutesExtendedRequest struct {
+	ossTypes.GetRoutesRequest
+}
+
+type GetRoutesExtendedResponse struct {
+	Routes []*ExtendedRoute
+}
+
+type ExtendedRoute struct {
+	Prefix string
+	Paths  []*ExtendedPath
+}
+
+type ExtendedPath struct {
+	ossTypes.Path
+
+	// NeighborAddr is the address of the neighbor that advertised this
+	// path. When the neighbor is a BGP Unnumbered Peer, the netip.Addr
+	// will contain the zone information to identify the neighbor
+	// interface.
+	NeighborAddr netip.Addr
+}
