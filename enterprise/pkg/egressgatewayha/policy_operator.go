@@ -27,6 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go4.org/netipx"
 	core_v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -915,10 +916,19 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 	updatedIEGP, err := operatorManager.clientset.IsovalentV1().IsovalentEgressGatewayPolicies().
 		UpdateStatus(context.TODO(), newIEGP, meta_v1.UpdateOptions{})
 	if err != nil {
-		logger.Warn("Cannot update IsovalentEgressGatewayPolicy status, retrying",
-			logfields.K8sGeneration, newIEGP.Status.ObservedGeneration,
-			logfields.Error, err,
-		)
+		if k8serrors.IsNotFound(err) {
+			// Suppress a warning when the IEGP is non-existent. We should eventually catch up
+			// to the IEGP's Deletion event, and stop trying to reconcile it.
+			logger.Debug("Cannot update IsovalentEgressGatewayPolicy status, retrying",
+				logfields.K8sGeneration, newIEGP.Status.ObservedGeneration,
+				logfields.Error, err,
+			)
+		} else {
+			logger.Warn("Cannot update IsovalentEgressGatewayPolicy status, retrying",
+				logfields.K8sGeneration, newIEGP.Status.ObservedGeneration,
+				logfields.Error, err,
+			)
+		}
 
 		return err
 	}
