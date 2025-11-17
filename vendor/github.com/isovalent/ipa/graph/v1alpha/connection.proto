@@ -10,6 +10,7 @@ syntax = "proto3";
 
 package graph.v1alpha;
 
+import "common/v1alpha/emitter.proto";
 import "google/protobuf/timestamp.proto";
 import "graph/v1alpha/edge.proto";
 import "graph/v1alpha/vertex.proto";
@@ -26,7 +27,7 @@ message ConnectionLog {
   string uuid = 1;
   // An emitter is the source that observes connection information. The emitter
   // typically observes data at the source of the connection.
-  Emitter emitter = 2;
+  common.v1alpha.Emitter emitter = 2;
 
   // Window start is the time at which the emitter started collecting
   // information regarding the observed connections.
@@ -38,18 +39,6 @@ message ConnectionLog {
   // Connections is a list of all connections that were tracked during the
   // given time window.
   repeated Connection connections = 5;
-}
-
-// Emitter is a list of all known connection log data sources.
-enum Emitter {
-  // The source of the data is unspecified.
-  EMITTER_UNSPECIFIED = 0;
-  // The source of the data is Hubble.
-  EMITTER_HUBBLE = 1;
-  // The source of the data is Tetragon.
-  EMITTER_TETRAGON = 2;
-  // The source of the data is a smart switch.
-  EMITTER_SMARTSWITCH = 3;
 }
 
 // A connection is a simple directed graph where an edge links two vertices in

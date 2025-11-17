@@ -12,13 +12,28 @@ package connectionlog
 
 import (
 	typeV1 "github.com/isovalent/ipa/common/k8s/type/v1alpha"
+	commonV1 "github.com/isovalent/ipa/common/v1alpha"
 	graphV1 "github.com/isovalent/ipa/graph/v1alpha"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/version"
 )
+
+var (
+	// emitterName holds the name reported in the ConnectionLog's Emitter field.
+	emitterName string = "Hubble"
+	// emitterVersion holds the version string reported in the ConnectionLog's
+	// Emitter field.
+	emitterVersion string
+)
+
+func init() {
+	ciliumVersion := version.GetCiliumVersion()
+	emitterVersion = ciliumVersion.Version
+}
 
 // flowstatToConnection convert a flowstats val into a graphV1 Connection.
 func flowstatToConnection(v flowstatval) *graphV1.Connection {
@@ -143,7 +158,10 @@ func endpointToVertex(ep *flowpb.Endpoint, node, addr, name string) *graphV1.Ver
 
 func connectionLog(from, to time.Time, connections []*graphV1.Connection) *graphV1.ConnectionLog {
 	return &graphV1.ConnectionLog{
-		Emitter:     graphV1.Emitter_EMITTER_HUBBLE,
+		Emitter: &commonV1.Emitter{
+			Name:    emitterName,
+			Version: emitterVersion,
+		},
 		WindowStart: timestamppb.New(from),
 		WindowEnd:   timestamppb.New(to),
 		Connections: connections,

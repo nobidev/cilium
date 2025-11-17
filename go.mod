@@ -69,7 +69,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hmarr/codeowners v1.2.1
 	github.com/int128/listener v1.1.0
-	github.com/isovalent/ipa v1.18.0-rc.6
+	github.com/isovalent/ipa v1.18.0-rc.12
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/json-iterator/go v1.1.12
 	github.com/kevinburke/ssh_config v1.4.0

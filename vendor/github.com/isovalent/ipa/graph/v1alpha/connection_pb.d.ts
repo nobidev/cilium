@@ -10,8 +10,9 @@
 // @generated from file graph/v1alpha/connection.proto (package graph.v1alpha, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import type { Message } from "@bufbuild/protobuf";
+import type { Emitter } from "../../common/v1alpha/emitter_pb";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import type { Vertex } from "./vertex_pb";
 import type { Edge } from "./edge_pb";
@@ -42,9 +43,9 @@ export declare type ConnectionLog = Message<"graph.v1alpha.ConnectionLog"> & {
    * An emitter is the source that observes connection information. The emitter
    * typically observes data at the source of the connection.
    *
-   * @generated from field: graph.v1alpha.Emitter emitter = 2;
+   * @generated from field: common.v1alpha.Emitter emitter = 2;
    */
-  emitter: Emitter;
+  emitter?: Emitter;
 
   /**
    * Window start is the time at which the emitter started collecting
@@ -119,44 +120,4 @@ export declare type Connection = Message<"graph.v1alpha.Connection"> & {
  * Use `create(ConnectionSchema)` to create a new message.
  */
 export declare const ConnectionSchema: GenMessage<Connection>;
-
-/**
- * Emitter is a list of all known connection log data sources.
- *
- * @generated from enum graph.v1alpha.Emitter
- */
-export enum Emitter {
-  /**
-   * The source of the data is unspecified.
-   *
-   * @generated from enum value: EMITTER_UNSPECIFIED = 0;
-   */
-  UNSPECIFIED = 0,
-
-  /**
-   * The source of the data is Hubble.
-   *
-   * @generated from enum value: EMITTER_HUBBLE = 1;
-   */
-  HUBBLE = 1,
-
-  /**
-   * The source of the data is Tetragon.
-   *
-   * @generated from enum value: EMITTER_TETRAGON = 2;
-   */
-  TETRAGON = 2,
-
-  /**
-   * The source of the data is a smart switch.
-   *
-   * @generated from enum value: EMITTER_SMARTSWITCH = 3;
-   */
-  SMARTSWITCH = 3,
-}
-
-/**
- * Describes the enum graph.v1alpha.Emitter.
- */
-export declare const EmitterSchema: GenEnum<Emitter>;
 

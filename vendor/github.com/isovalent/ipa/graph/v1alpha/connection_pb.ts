@@ -10,8 +10,10 @@
 // @generated from file graph/v1alpha/connection.proto (package graph.v1alpha, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { Emitter } from "../../common/v1alpha/emitter_pb";
+import { file_common_v1alpha_emitter } from "../../common/v1alpha/emitter_pb";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { Edge } from "./edge_pb";
@@ -24,7 +26,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file graph/v1alpha/connection.proto.
  */
 export const file_graph_v1alpha_connection: GenFile = /*@__PURE__*/
-  fileDesc("Ch5ncmFwaC92MWFscGhhL2Nvbm5lY3Rpb24ucHJvdG8SDWdyYXBoLnYxYWxwaGEi2AEKDUNvbm5lY3Rpb25Mb2cSDAoEdXVpZBgBIAEoCRInCgdlbWl0dGVyGAIgASgOMhYuZ3JhcGgudjFhbHBoYS5FbWl0dGVyEjAKDHdpbmRvd19zdGFydBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKd2luZG93X2VuZBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoLY29ubmVjdGlvbnMYBSADKAsyGS5ncmFwaC52MWFscGhhLkNvbm5lY3Rpb24igwEKCkNvbm5lY3Rpb24SJQoGc291cmNlGAEgASgLMhUuZ3JhcGgudjFhbHBoYS5WZXJ0ZXgSKgoLZGVzdGluYXRpb24YAiABKAsyFS5ncmFwaC52MWFscGhhLlZlcnRleBIiCgVsaW5rcxgDIAMoCzITLmdyYXBoLnYxYWxwaGEuRWRnZSplCgdFbWl0dGVyEhcKE0VNSVRURVJfVU5TUEVDSUZJRUQQABISCg5FTUlUVEVSX0hVQkJMRRABEhQKEEVNSVRURVJfVEVUUkFHT04QAhIXChNFTUlUVEVSX1NNQVJUU1dJVENIEANCKFomZ2l0aHViLmNvbS9pc292YWxlbnQvaXBhL2dyYXBoL3YxYWxwaGFiBnByb3RvMw", [file_google_protobuf_timestamp, file_graph_v1alpha_edge, file_graph_v1alpha_vertex]);
+  fileDesc("Ch5ncmFwaC92MWFscGhhL2Nvbm5lY3Rpb24ucHJvdG8SDWdyYXBoLnYxYWxwaGEi2QEKDUNvbm5lY3Rpb25Mb2cSDAoEdXVpZBgBIAEoCRIoCgdlbWl0dGVyGAIgASgLMhcuY29tbW9uLnYxYWxwaGEuRW1pdHRlchIwCgx3aW5kb3dfc3RhcnQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCndpbmRvd19lbmQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KC2Nvbm5lY3Rpb25zGAUgAygLMhkuZ3JhcGgudjFhbHBoYS5Db25uZWN0aW9uIoMBCgpDb25uZWN0aW9uEiUKBnNvdXJjZRgBIAEoCzIVLmdyYXBoLnYxYWxwaGEuVmVydGV4EioKC2Rlc3RpbmF0aW9uGAIgASgLMhUuZ3JhcGgudjFhbHBoYS5WZXJ0ZXgSIgoFbGlua3MYAyADKAsyEy5ncmFwaC52MWFscGhhLkVkZ2VCKFomZ2l0aHViLmNvbS9pc292YWxlbnQvaXBhL2dyYXBoL3YxYWxwaGFiBnByb3RvMw", [file_common_v1alpha_emitter, file_google_protobuf_timestamp, file_graph_v1alpha_edge, file_graph_v1alpha_vertex]);
 
 /**
  * A connection log is a message that a source emits periodically and which
@@ -47,9 +49,9 @@ export type ConnectionLog = Message<"graph.v1alpha.ConnectionLog"> & {
    * An emitter is the source that observes connection information. The emitter
    * typically observes data at the source of the connection.
    *
-   * @generated from field: graph.v1alpha.Emitter emitter = 2;
+   * @generated from field: common.v1alpha.Emitter emitter = 2;
    */
-  emitter: Emitter;
+  emitter?: Emitter;
 
   /**
    * Window start is the time at which the emitter started collecting
@@ -126,45 +128,4 @@ export type Connection = Message<"graph.v1alpha.Connection"> & {
  */
 export const ConnectionSchema: GenMessage<Connection> = /*@__PURE__*/
   messageDesc(file_graph_v1alpha_connection, 1);
-
-/**
- * Emitter is a list of all known connection log data sources.
- *
- * @generated from enum graph.v1alpha.Emitter
- */
-export enum Emitter {
-  /**
-   * The source of the data is unspecified.
-   *
-   * @generated from enum value: EMITTER_UNSPECIFIED = 0;
-   */
-  UNSPECIFIED = 0,
-
-  /**
-   * The source of the data is Hubble.
-   *
-   * @generated from enum value: EMITTER_HUBBLE = 1;
-   */
-  HUBBLE = 1,
-
-  /**
-   * The source of the data is Tetragon.
-   *
-   * @generated from enum value: EMITTER_TETRAGON = 2;
-   */
-  TETRAGON = 2,
-
-  /**
-   * The source of the data is a smart switch.
-   *
-   * @generated from enum value: EMITTER_SMARTSWITCH = 3;
-   */
-  SMARTSWITCH = 3,
-}
-
-/**
- * Describes the enum graph.v1alpha.Emitter.
- */
-export const EmitterSchema: GenEnum<Emitter> = /*@__PURE__*/
-  enumDesc(file_graph_v1alpha_connection, 0);
 

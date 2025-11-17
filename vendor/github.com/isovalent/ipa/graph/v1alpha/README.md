@@ -20,8 +20,6 @@
     - [Connection](#graph-v1alpha-Connection)
     - [ConnectionLog](#graph-v1alpha-ConnectionLog)
   
-    - [Emitter](#graph-v1alpha-Emitter)
-  
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -277,7 +275,7 @@ ConnectionLog events SHOULD NOT have overlapping time windows.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | uuid | [string](#string) |  | Uuid is a universally unique identifier for this event. |
-| emitter | [Emitter](#graph-v1alpha-Emitter) |  | An emitter is the source that observes connection information. The emitter typically observes data at the source of the connection. |
+| emitter | [common.v1alpha.Emitter](#common-v1alpha-Emitter) |  | An emitter is the source that observes connection information. The emitter typically observes data at the source of the connection. |
 | window_start | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Window start is the time at which the emitter started collecting information regarding the observed connections. |
 | window_end | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Window end is the time at which the emitter stopped collecting information regarding the observed connections. |
 | connections | [Connection](#graph-v1alpha-Connection) | repeated | Connections is a list of all connections that were tracked during the given time window. |
@@ -287,20 +285,6 @@ ConnectionLog events SHOULD NOT have overlapping time windows.
 
 
  
-
-
-<a name="graph-v1alpha-Emitter"></a>
-
-### Emitter
-Emitter is a list of all known connection log data sources.
-
-| Name | Number | Description |
-| ---- | ------ | ----------- |
-| EMITTER_UNSPECIFIED | 0 | The source of the data is unspecified. |
-| EMITTER_HUBBLE | 1 | The source of the data is Hubble. |
-| EMITTER_TETRAGON | 2 | The source of the data is Tetragon. |
-| EMITTER_SMARTSWITCH | 3 | The source of the data is a smart switch. |
-
 
  
 

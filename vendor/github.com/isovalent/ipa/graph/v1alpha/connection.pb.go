@@ -15,6 +15,7 @@
 package v1alpha
 
 import (
+	v1alpha "github.com/isovalent/ipa/common/v1alpha"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -30,63 +31,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Emitter is a list of all known connection log data sources.
-type Emitter int32
-
-const (
-	// The source of the data is unspecified.
-	Emitter_EMITTER_UNSPECIFIED Emitter = 0
-	// The source of the data is Hubble.
-	Emitter_EMITTER_HUBBLE Emitter = 1
-	// The source of the data is Tetragon.
-	Emitter_EMITTER_TETRAGON Emitter = 2
-	// The source of the data is a smart switch.
-	Emitter_EMITTER_SMARTSWITCH Emitter = 3
-)
-
-// Enum value maps for Emitter.
-var (
-	Emitter_name = map[int32]string{
-		0: "EMITTER_UNSPECIFIED",
-		1: "EMITTER_HUBBLE",
-		2: "EMITTER_TETRAGON",
-		3: "EMITTER_SMARTSWITCH",
-	}
-	Emitter_value = map[string]int32{
-		"EMITTER_UNSPECIFIED": 0,
-		"EMITTER_HUBBLE":      1,
-		"EMITTER_TETRAGON":    2,
-		"EMITTER_SMARTSWITCH": 3,
-	}
-)
-
-func (x Emitter) Enum() *Emitter {
-	p := new(Emitter)
-	*p = x
-	return p
-}
-
-func (x Emitter) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Emitter) Descriptor() protoreflect.EnumDescriptor {
-	return file_graph_v1alpha_connection_proto_enumTypes[0].Descriptor()
-}
-
-func (Emitter) Type() protoreflect.EnumType {
-	return &file_graph_v1alpha_connection_proto_enumTypes[0]
-}
-
-func (x Emitter) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Emitter.Descriptor instead.
-func (Emitter) EnumDescriptor() ([]byte, []int) {
-	return file_graph_v1alpha_connection_proto_rawDescGZIP(), []int{0}
-}
-
 // A connection log is a message that a source emits periodically and which
 // provides information about connections.
 //
@@ -98,7 +42,7 @@ type ConnectionLog struct {
 	Uuid string `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
 	// An emitter is the source that observes connection information. The emitter
 	// typically observes data at the source of the connection.
-	Emitter Emitter `protobuf:"varint,2,opt,name=emitter,proto3,enum=graph.v1alpha.Emitter" json:"emitter,omitempty"`
+	Emitter *v1alpha.Emitter `protobuf:"bytes,2,opt,name=emitter,proto3" json:"emitter,omitempty"`
 	// Window start is the time at which the emitter started collecting
 	// information regarding the observed connections.
 	WindowStart *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=window_start,json=windowStart,proto3" json:"window_start,omitempty"`
@@ -149,11 +93,11 @@ func (x *ConnectionLog) GetUuid() string {
 	return ""
 }
 
-func (x *ConnectionLog) GetEmitter() Emitter {
+func (x *ConnectionLog) GetEmitter() *v1alpha.Emitter {
 	if x != nil {
 		return x.Emitter
 	}
-	return Emitter_EMITTER_UNSPECIFIED
+	return nil
 }
 
 func (x *ConnectionLog) GetWindowStart() *timestamppb.Timestamp {
@@ -254,10 +198,10 @@ var File_graph_v1alpha_connection_proto protoreflect.FileDescriptor
 
 const file_graph_v1alpha_connection_proto_rawDesc = "" +
 	"\n" +
-	"\x1egraph/v1alpha/connection.proto\x12\rgraph.v1alpha\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18graph/v1alpha/edge.proto\x1a\x1agraph/v1alpha/vertex.proto\"\x8c\x02\n" +
+	"\x1egraph/v1alpha/connection.proto\x12\rgraph.v1alpha\x1a\x1ccommon/v1alpha/emitter.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18graph/v1alpha/edge.proto\x1a\x1agraph/v1alpha/vertex.proto\"\x8d\x02\n" +
 	"\rConnectionLog\x12\x12\n" +
-	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x120\n" +
-	"\aemitter\x18\x02 \x01(\x0e2\x16.graph.v1alpha.EmitterR\aemitter\x12=\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x121\n" +
+	"\aemitter\x18\x02 \x01(\v2\x17.common.v1alpha.EmitterR\aemitter\x12=\n" +
 	"\fwindow_start\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vwindowStart\x129\n" +
 	"\n" +
 	"window_end\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\twindowEnd\x12;\n" +
@@ -266,12 +210,7 @@ const file_graph_v1alpha_connection_proto_rawDesc = "" +
 	"Connection\x12-\n" +
 	"\x06source\x18\x01 \x01(\v2\x15.graph.v1alpha.VertexR\x06source\x127\n" +
 	"\vdestination\x18\x02 \x01(\v2\x15.graph.v1alpha.VertexR\vdestination\x12)\n" +
-	"\x05links\x18\x03 \x03(\v2\x13.graph.v1alpha.EdgeR\x05links*e\n" +
-	"\aEmitter\x12\x17\n" +
-	"\x13EMITTER_UNSPECIFIED\x10\x00\x12\x12\n" +
-	"\x0eEMITTER_HUBBLE\x10\x01\x12\x14\n" +
-	"\x10EMITTER_TETRAGON\x10\x02\x12\x17\n" +
-	"\x13EMITTER_SMARTSWITCH\x10\x03B(Z&github.com/isovalent/ipa/graph/v1alphab\x06proto3"
+	"\x05links\x18\x03 \x03(\v2\x13.graph.v1alpha.EdgeR\x05linksB(Z&github.com/isovalent/ipa/graph/v1alphab\x06proto3"
 
 var (
 	file_graph_v1alpha_connection_proto_rawDescOnce sync.Once
@@ -285,21 +224,20 @@ func file_graph_v1alpha_connection_proto_rawDescGZIP() []byte {
 	return file_graph_v1alpha_connection_proto_rawDescData
 }
 
-var file_graph_v1alpha_connection_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_graph_v1alpha_connection_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_graph_v1alpha_connection_proto_goTypes = []any{
-	(Emitter)(0),                  // 0: graph.v1alpha.Emitter
-	(*ConnectionLog)(nil),         // 1: graph.v1alpha.ConnectionLog
-	(*Connection)(nil),            // 2: graph.v1alpha.Connection
+	(*ConnectionLog)(nil),         // 0: graph.v1alpha.ConnectionLog
+	(*Connection)(nil),            // 1: graph.v1alpha.Connection
+	(*v1alpha.Emitter)(nil),       // 2: common.v1alpha.Emitter
 	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
 	(*Vertex)(nil),                // 4: graph.v1alpha.Vertex
 	(*Edge)(nil),                  // 5: graph.v1alpha.Edge
 }
 var file_graph_v1alpha_connection_proto_depIdxs = []int32{
-	0, // 0: graph.v1alpha.ConnectionLog.emitter:type_name -> graph.v1alpha.Emitter
+	2, // 0: graph.v1alpha.ConnectionLog.emitter:type_name -> common.v1alpha.Emitter
 	3, // 1: graph.v1alpha.ConnectionLog.window_start:type_name -> google.protobuf.Timestamp
 	3, // 2: graph.v1alpha.ConnectionLog.window_end:type_name -> google.protobuf.Timestamp
-	2, // 3: graph.v1alpha.ConnectionLog.connections:type_name -> graph.v1alpha.Connection
+	1, // 3: graph.v1alpha.ConnectionLog.connections:type_name -> graph.v1alpha.Connection
 	4, // 4: graph.v1alpha.Connection.source:type_name -> graph.v1alpha.Vertex
 	4, // 5: graph.v1alpha.Connection.destination:type_name -> graph.v1alpha.Vertex
 	5, // 6: graph.v1alpha.Connection.links:type_name -> graph.v1alpha.Edge
@@ -322,14 +260,13 @@ func file_graph_v1alpha_connection_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_graph_v1alpha_connection_proto_rawDesc), len(file_graph_v1alpha_connection_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_graph_v1alpha_connection_proto_goTypes,
 		DependencyIndexes: file_graph_v1alpha_connection_proto_depIdxs,
-		EnumInfos:         file_graph_v1alpha_connection_proto_enumTypes,
 		MessageInfos:      file_graph_v1alpha_connection_proto_msgTypes,
 	}.Build()
 	File_graph_v1alpha_connection_proto = out.File
