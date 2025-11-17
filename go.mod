@@ -136,7 +136,7 @@ require (
 	helm.sh/helm/v3 v3.19.0
 	k8s.io/api v0.34.1
 	k8s.io/apiextensions-apiserver v0.34.1
-	k8s.io/apimachinery v0.34.1
+	k8s.io/apimachinery v0.34.2
 	k8s.io/cli-runtime v0.34.1
 	k8s.io/client-go v0.34.1
 	k8s.io/component-base v0.34.1
@@ -155,7 +155,7 @@ require (
 // Enterprise specific deps
 require (
 	github.com/YutaroHayakawa/go-ra v0.0.0-20241125075947-1274124821d6
-	github.com/isovalent/hubble-timescape/api v1.18.0-rc.0
+	github.com/isovalent/hubble-timescape/api v1.18.0
 	github.com/jonboulle/clockwork v0.5.0
 )
 

@@ -6,12 +6,12 @@ require (
 	github.com/cilium/cilium v1.18.3
 	github.com/cilium/fake/flow v0.7.0
 	github.com/google/go-cmp v0.7.0
-	github.com/isovalent/hubble-timescape/api v1.18.0-rc.0
+	github.com/isovalent/hubble-timescape/api v1.18.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
 	k8s.io/api v0.34.1
-	k8s.io/apimachinery v0.34.1
+	k8s.io/apimachinery v0.34.2
 	k8s.io/cli-runtime v0.34.1
 	k8s.io/client-go v0.34.1
 )
