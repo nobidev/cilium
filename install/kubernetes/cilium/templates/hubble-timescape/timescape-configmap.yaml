@@ -101,9 +101,9 @@ data:
       timescape-enable-tls: false
       {{- end }}
       network-security:
-        enabled: true
-        analyzer:
-          enabled: {{ .Values.hubble.timescape.analyzer.enabled }}
+        assessment:
+          analyzer:
+            enabled: {{ .Values.hubble.timescape.analyzer.enabled }}
       {{- if (eq (include "hubble.timescape.ui.auth.enabled" .) "true") }}
       oauth2:
         enabled: true

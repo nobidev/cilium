@@ -2331,8 +2331,8 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-timescape-lite
-      tag: v1.18.0-rc.0
-      digest: sha256:b0069e8efd74bde84899f69e693f879c39eb8905eb10eda32eb44f6b48ffa628
+      tag: v1.18.0
+      digest: sha256:301316c99962eb6eef6ae5a5a8d8c24e907c303cd1fc6337e96bd0e56000a6e9
       useDigest: true
       pullPolicy: "Always"
     clickhouse:
@@ -2564,7 +2564,7 @@ hubble:
     analyzer:
       # -- Enables the Hubble Timescape analyzer responsible for generating
       # Network Security assessment reports.
-      enabled: false
+      enabled: true
       # -- The interval at which the analyzer will run and generate a new assessment report.
       # When a run goes beyond this interval, the next one will start as soon as the running
       # one is completed.

@@ -129,6 +129,7 @@ grpc:
   - ciliumnetworkpolicies
   - ciliumclusterwidenetworkpolicies
   - ciliumidentities
+  - ciliumnodes
   verbs:
   - get
   - list
