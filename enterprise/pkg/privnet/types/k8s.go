@@ -52,6 +52,11 @@ type annotatedObject interface {
 	GetAnnotations() map[string]string
 }
 
+func HasNetworkAttachmentAnnotation(obj annotatedObject) bool {
+	_, found := annotation.Get(obj, PrivateNetworkAnnotation, PrivateNetworkAnnotationLegacy)
+	return found
+}
+
 func ExtractNetworkAttachmentAnnotation(obj annotatedObject) (*NetworkAttachment, error) {
 	raw, found := annotation.Get(obj, PrivateNetworkAnnotation, PrivateNetworkAnnotationLegacy)
 	if !found {

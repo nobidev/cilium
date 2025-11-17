@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -93,7 +92,7 @@ func (p *Pods) registerReconciler() {
 			pods, watch := p.pods.AllWatch(p.db.ReadTxn())
 			eventTime := time.Now()
 			for pod := range pods {
-				if _, ok := annotation.Get(pod, types.PrivateNetworkAnnotation, types.PrivateNetworkAnnotationLegacy); !ok {
+				if !types.HasNetworkAttachmentAnnotation(pod) {
 					continue // ignore pods without a private network annotation
 				}
 
