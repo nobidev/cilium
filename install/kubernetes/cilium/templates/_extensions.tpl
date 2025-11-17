@@ -154,11 +154,9 @@ Allow packagers to add extra configuration to certgen.
       commonName: "hubble-timescape"
       hosts:
       - "hubble-timescape"
-      - "hubble-timescape."
       - "hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local"
-      - "hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local."
       - "hubble-timescape.{{ .Release.Namespace }}.svc"
-      - "hubble-timescape.{{ .Release.Namespace }}.svc."
+      - "localhost"
       {{- range $dns := .Values.hubble.timescape.tls.server.extraDnsNames }}
       - {{ $dns | quote }}
       {{- end }}
