@@ -18,7 +18,7 @@ spec:
       name: "{{ .Name }}"
       {{- if .NeedsAnnotation }}
       annotations:
-        "network.v1alpha1.isovalent.com/network-attachment": '{"network":"{{ .NetName }}","ipv4":"{{ .NetIPv4 }}","ipv6":"{{ .NetIPv6 }}","mac":"{{ .NetMAC }}"}'
+        "privnet.isovalent.com/network-attachment": '{"network":"{{ .NetName }}","ipv4":"{{ .NetIPv4 }}","ipv6":"{{ .NetIPv6 }}","mac":"{{ .NetMAC }}"}'
       {{- end }}
     spec:
       affinity:

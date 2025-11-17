@@ -16,6 +16,7 @@ import (
 	"net/netip"
 	"strconv"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/mac"
 )
 
@@ -25,10 +26,14 @@ const (
 
 	// PrivateNetworkAnnotation is the name of the annotation to attach pods to a particular
 	// private network.
-	PrivateNetworkAnnotation = "network.v1alpha1.isovalent.com/network-attachment"
+	PrivateNetworkAnnotation = PrivateNetworkAnnotationPrefix + "/network-attachment"
 
-	// PrivateNetworkInactiveAnnotation is the name of the annotation which marks the pod inactive.
-	PrivateNetworkInactiveAnnotation = "network.v1alpha1.isovalent.com/inactive"
+	// PrivateNetworkAnnotationLegacy is the name of the legacy annotation to attach pods to a
+	// particular private network.
+	PrivateNetworkAnnotationLegacy = "network.v1alpha1.isovalent.com/network-attachment"
+
+	// PrivateNetworkInactiveAnnotationLegacy is the name of the annotation which marks the pod inactive.
+	PrivateNetworkInactiveAnnotation = PrivateNetworkAnnotationPrefix + "/inactive"
 
 	// PrivateNetworkINBHealthServerPortAnnotation is the name of the node annotation propagating
 	// the TCP port the privnet health server is listening to.
@@ -43,8 +48,12 @@ type NetworkAttachment struct {
 	MAC     mac.MAC    `json:"mac,omitempty"`
 }
 
-func ExtractNetworkAttachmentAnnotation(annotations map[string]string) (*NetworkAttachment, error) {
-	raw, found := annotations[PrivateNetworkAnnotation]
+type annotatedObject interface {
+	GetAnnotations() map[string]string
+}
+
+func ExtractNetworkAttachmentAnnotation(obj annotatedObject) (*NetworkAttachment, error) {
+	raw, found := annotation.Get(obj, PrivateNetworkAnnotation, PrivateNetworkAnnotationLegacy)
 	if !found {
 		return nil, nil // not found
 	}
@@ -58,8 +67,8 @@ func ExtractNetworkAttachmentAnnotation(annotations map[string]string) (*Network
 	return attachment, nil
 }
 
-func ExtractInactiveAnnotation(annotations map[string]string) (inactive bool, err error) {
-	raw, found := annotations[PrivateNetworkInactiveAnnotation]
+func ExtractInactiveAnnotation(obj annotatedObject) (inactive bool, err error) {
+	raw, found := annotation.Get(obj, PrivateNetworkInactiveAnnotation)
 	if !found {
 		return false, nil // not found means endpoint is active
 	}

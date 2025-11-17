@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -92,12 +93,12 @@ func (p *Pods) registerReconciler() {
 			pods, watch := p.pods.AllWatch(p.db.ReadTxn())
 			eventTime := time.Now()
 			for pod := range pods {
-				if _, ok := pod.Annotations[types.PrivateNetworkAnnotation]; !ok {
+				if _, ok := annotation.Get(pod, types.PrivateNetworkAnnotation, types.PrivateNetworkAnnotationLegacy); !ok {
 					continue // ignore pods without a private network annotation
 				}
 
 				podFullName := pod.GetNamespace() + "/" + pod.GetName()
-				newIsInactive, err := types.ExtractInactiveAnnotation(pod.Annotations)
+				newIsInactive, err := types.ExtractInactiveAnnotation(pod)
 				if err != nil {
 					p.log.Warn("Failed to parse pod annotation",
 						logfields.Pod, podFullName,

@@ -116,8 +116,8 @@ metadata:
   name: speedy-cheetah
   namespace: bar
   annotations:
-    network.v1alpha1.isovalent.com/inactive: "true"
-    network.v1alpha1.isovalent.com/network-attachment: '{"network":"green-network","ipv4":"10.20.0.11","ipv6":"fd00:10:244:5::116","mac":"00:50:56:ad:11:02"}'
+    privnet.isovalent.com/inactive: "true"
+    privnet.isovalent.com/network-attachment: '{"network":"green-network","ipv4":"10.20.0.11","ipv6":"fd00:10:244:5::116","mac":"00:50:56:ad:11:02"}'
 spec:
   containers:
   - name: sleep
