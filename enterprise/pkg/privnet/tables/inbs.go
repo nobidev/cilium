@@ -198,6 +198,8 @@ const (
 
 func (role INBRole) String() string {
 	switch role {
+	case INBRoleNone:
+		return "None"
 	case INBRoleStandby:
 		return "Standby"
 	case INBRoleActive:
@@ -209,6 +211,8 @@ func (role INBRole) String() string {
 
 func (role INBRole) Key() uint8 {
 	switch role {
+	case INBRoleNone:
+		return 'N'
 	case INBRoleStandby:
 		return 'S'
 	case INBRoleActive:
