@@ -20,7 +20,7 @@ ARG VERSION=0.0.0
 LABEL version=${VERSION}
 
 # Install kubectl and other necessary tools
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+RUN curl -LO "https://dl.k8s.io/release/v1.34.2/bin/linux/amd64/kubectl" && \
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/kubectl
 
