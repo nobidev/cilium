@@ -667,6 +667,14 @@ func (in *HealthCheck) DeepEqual(other *HealthCheck) bool {
 		}
 	}
 
+	if (in.Port == nil) != (other.Port == nil) {
+		return false
+	} else if in.Port != nil {
+		if *in.Port != *other.Port {
+			return false
+		}
+	}
+
 	return true
 }
 

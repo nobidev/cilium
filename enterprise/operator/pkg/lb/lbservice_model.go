@@ -716,6 +716,7 @@ type lbBackendHealthCheckConfig struct {
 	unhealthyThreshold           int
 	unhealthyEdgeIntervalSeconds int
 	unhealthyIntervalSeconds     int
+	port                         uint32
 }
 
 type lbBackendHealthCheckHTTPConfig struct {

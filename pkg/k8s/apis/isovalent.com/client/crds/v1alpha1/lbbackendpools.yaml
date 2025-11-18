@@ -271,6 +271,14 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
+                  port:
+                    description: |-
+                      The port to use in the health checking probe. When
+                      omitted, the probe uses the port that the backend listens on.
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
                   tcp:
                     description: |-
                       The TCP health check configuration. Exactly one of http or tcp must

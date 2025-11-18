@@ -285,6 +285,7 @@ func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendP
 				unhealthyThreshold:           int(*b.Spec.HealthCheck.UnhealthyThreshold),
 				unhealthyEdgeIntervalSeconds: int(*b.Spec.HealthCheck.IntervalSeconds),
 				unhealthyIntervalSeconds:     int(*b.Spec.HealthCheck.IntervalSeconds),
+				port:                         toHealthCheckPort(b.Spec.HealthCheck.Port),
 			},
 			tcpConfig:         r.toBackendTCPConfig(b.Spec.TCPConfig),
 			tlsConfig:         r.toBackendTLSConfig(b.Spec.TLSConfig),
@@ -1732,4 +1733,11 @@ func (r *ingestor) toHTTPRouteJWTAuth(jwtAuth *isovalentv1alpha1.LBServiceHTTPRo
 	return &lbRouteHTTPJWTAuth{
 		disabled: jwtAuth.Disabled,
 	}
+}
+
+func toHealthCheckPort(port *int32) uint32 {
+	if port != nil {
+		return uint32(*port)
+	}
+	return 0
 }

@@ -2088,6 +2088,14 @@ type HealthCheck struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:OneOf
 	TCP *HealthCheckTCP `json:"tcp,omitempty"`
+
+	// The port to use in the health checking probe. When
+	// omitted, the probe uses the port that the backend listens on.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port *int32 `json:"port,omitempty"`
 }
 
 func (r *HealthCheck) ConfiguresPayload() bool {

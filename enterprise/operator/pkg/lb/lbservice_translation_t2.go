@@ -2103,6 +2103,12 @@ func (r *lbServiceT2Translator) desiredEnvoyClusterLoadAssignment(name string, b
 	lbEndpoints := []*envoy_config_endpoint_v3.LbEndpoint{}
 
 	for _, lbBackend := range b.lbBackends {
+		var hcConfig *envoy_config_endpoint_v3.Endpoint_HealthCheckConfig
+		if b.healthCheckConfig.port > 0 {
+			hcConfig = &envoy_config_endpoint_v3.Endpoint_HealthCheckConfig{
+				PortValue: b.healthCheckConfig.port,
+			}
+		}
 		for _, a := range lbBackend.addresses {
 			lbEndpoints = append(lbEndpoints, &envoy_config_endpoint_v3.LbEndpoint{
 				LoadBalancingWeight: wrapperspb.UInt32(lbBackend.weight),
@@ -2112,6 +2118,7 @@ func (r *lbServiceT2Translator) desiredEnvoyClusterLoadAssignment(name string, b
 						Address:       a,
 						PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{PortValue: uint32(lbBackend.port)},
 					}}},
+					HealthCheckConfig: hcConfig,
 				}},
 			})
 		}
