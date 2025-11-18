@@ -14,11 +14,131 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
+	"github.com/osrg/gobgp/v3/pkg/server"
 
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
+	ossTypes "github.com/cilium/cilium/pkg/bgp/types"
 )
+
+// NewEnterpriseGoBGPServer returns instance of go bgp router wrapper.
+func NewEnterpriseGoBGPServer(ctx context.Context, log *slog.Logger, params ossTypes.ServerParameters) (ossTypes.Router, error) {
+	logger := NewServerLogger(log, LogParams{
+		AS:        params.Global.ASN,
+		Component: "gobgp.BgpServerInstance",
+		SubSys:    "bgp-control-plane",
+	})
+
+	s := server.NewBgpServer(server.LoggerOption(logger))
+	go s.Serve()
+
+	startReq := &gobgp.StartBgpRequest{
+		Global: &gobgp.Global{
+			Asn:        params.Global.ASN,
+			RouterId:   params.Global.RouterID,
+			ListenPort: params.Global.ListenPort,
+
+			UseMultiplePaths: true, // CEE-specific
+		},
+	}
+
+	if params.Global.RouteSelectionOptions != nil {
+		startReq.Global.RouteSelectionOptions = &gobgp.RouteSelectionOptionsConfig{
+			AdvertiseInactiveRoutes: params.Global.RouteSelectionOptions.AdvertiseInactiveRoutes,
+		}
+	}
+
+	if err := s.StartBgp(ctx, startReq); err != nil {
+		return nil, fmt.Errorf("failed starting BGP server: %w", err)
+	}
+
+	gobgpSrv := &GoBGPServer{
+		logger: log,
+		asn:    params.Global.ASN,
+		server: s,
+	}
+
+	// Reject all paths announced toward Cilium from external peers. This first step configures an
+	// "allow" policy for local routes. It was observed during testing that global policies are also
+	// applied to local routes, which we need to permit.
+	if err := gobgpSrv.server.AddPolicy(ctx, &gobgp.AddPolicyRequest{Policy: allowLocalPolicy}); err != nil {
+		return nil, fmt.Errorf("failed to add %s policy: %w", allowLocalPolicy.Name, err)
+	}
+
+	// Reject all paths announced toward Cilium from external peers. This step configures the actual
+	// import policy.
+	err := gobgpSrv.server.SetPolicyAssignment(ctx, &gobgp.SetPolicyAssignmentRequest{
+		Assignment: &gobgp.PolicyAssignment{
+			Name:          globalPolicyAssignmentName,
+			Direction:     gobgp.PolicyDirection_IMPORT,
+			DefaultAction: gobgp.RouteAction_REJECT,
+			Policies:      []*gobgp.Policy{allowLocalPolicy},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed configuring BGP server's global import policy: %w", err)
+	}
+
+	// send state notifications upon peer changes
+	watchPeerRequest := &gobgp.WatchEventRequest{
+		Peer: &gobgp.WatchEventRequest_Peer{},
+	}
+	err = s.WatchEvent(ctx, watchPeerRequest, func(r *gobgp.WatchEventResponse) {
+		if p := r.GetPeer(); p != nil && p.Type == gobgp.WatchEventResponse_PeerEvent_STATE {
+			gobgpSrv.stopMutex.Lock()
+			defer gobgpSrv.stopMutex.Unlock()
+
+			if gobgpSrv.stopping {
+				return
+			}
+			// do not block when channel is nil (e.g. in tests)
+			select {
+			case params.StateNotification <- struct{}{}:
+			default:
+			}
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure peer watching for virtual router with local-asn %v: %w", startReq.Global.Asn, err)
+	}
+
+	// send state notifications upon table changes
+	watchTableRequest := &gobgp.WatchEventRequest{
+		Table: &gobgp.WatchEventRequest_Table{
+			Filters: []*gobgp.WatchEventRequest_Table_Filter{
+				{
+					Type: gobgp.WatchEventRequest_Table_Filter_BEST,
+				},
+			},
+		},
+	}
+	err = s.WatchEvent(ctx, watchTableRequest, func(_ *gobgp.WatchEventResponse) {
+		gobgpSrv.stopMutex.Lock()
+		defer gobgpSrv.stopMutex.Unlock()
+
+		if gobgpSrv.stopping {
+			return
+		}
+		// do not block when channel is nil (e.g. in tests)
+		select {
+		case params.StateNotification <- struct{}{}:
+		default:
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure table watching for virtual router with local-asn %v: %w", startReq.Global.Asn, err)
+	}
+
+	// trigger initial state reconciliation
+	select {
+	case params.StateNotification <- struct{}{}:
+	default:
+	}
+
+	return gobgpSrv, nil
+}
 
 func (g *GoBGPServer) GetRoutesExtended(ctx context.Context, r *types.GetRoutesExtendedRequest) (*types.GetRoutesExtendedResponse, error) {
 	var (

@@ -18,6 +18,8 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/agent/commands"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/manager/reconcilerv2"
 	ossAgent "github.com/cilium/cilium/pkg/bgp/agent"
+	"github.com/cilium/cilium/pkg/bgp/gobgp"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/k8s"
 )
 
@@ -39,7 +41,7 @@ var Cell = cell.Module(
 	// enterprise-only reconcilers
 	reconcilerv2.ConfigReconcilers,
 
-	// set enterprise BGP config objct in agent
+	// set enterprise BGP config object in agent
 	cell.Config(config.DefaultConfig),
 
 	// enterprise BGP commands
@@ -49,6 +51,13 @@ var Cell = cell.Module(
 		// provide enterprise router manager (used by the enterprise commands)
 		func(manager ossAgent.BGPRouterManager) agent.EnterpriseBGPRouterManager {
 			return manager.(agent.EnterpriseBGPRouterManager)
+		},
+	),
+
+	// override GoBGP router provider with the enterprise version
+	cell.DecorateAll(
+		func(_ types.RouterProvider) types.RouterProvider {
+			return gobgp.NewEnterpriseRouterProvider()
 		},
 	),
 )
