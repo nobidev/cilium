@@ -16,6 +16,7 @@ spec:
     healthyThreshold: 2
     unhealthyThreshold: 2
     minHealthyPercentage: 30
+    port: 8181
     tlsConfig:
       minTLSVersion: TLSv1_2
       maxTLSVersion: TLSv1_2
