@@ -3369,6 +3369,12 @@
                     }
                   },
                   "type": "object"
+                },
+                "useCiliumServiceResolver": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
                 }
               },
               "type": "object"

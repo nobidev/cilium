@@ -2107,6 +2107,17 @@ hubble:
       # @schema
       # @default -- `hubble-timescape-export.hubble-timescape.svc.cluster.local:4261`
       target: ~
+      # -- Whether to enable the Cilium service resolver to resolve the IP
+      # address of the Hubble Timescape service.
+      # This is enabled by default and is required when Timescape is running in
+      # the same cluster as the Cilium agent. Disable this option if Hubble
+      # Timescape is running in a different cluster not using clustermesh and
+      # fallback to host DNS resolution.
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # @default -- `true`
+      useCiliumServiceResolver: ~
       # -- The list of fields to include in exported events.
       # Leave empty to include all fields.
       # @schema
