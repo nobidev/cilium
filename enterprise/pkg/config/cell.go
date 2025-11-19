@@ -33,7 +33,7 @@ type GetConfigParams struct {
 }
 
 func newConfigAPIHandler(p GetConfigParams) daemon.GetConfigHandler {
-	return api.NewHandler[daemon.GetConfigParams](func(rp daemon.GetConfigParams) middleware.Responder {
+	return api.NewHandler(func(rp daemon.GetConfigParams) middleware.Responder {
 		p.Logger.Debug("GET /v1enterprise/config request", logfields.Params, rp)
 		cfg := &models.EnterpriseDaemonConfiguration{
 			MultiNetwork: p.MultiNetworkCfg.EnableMultiNetwork,

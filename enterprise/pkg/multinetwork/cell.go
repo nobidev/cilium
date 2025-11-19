@@ -116,7 +116,7 @@ func newMultiNetworkManager(params managerParams) *Manager {
 
 // newNetworkHandler returns a default handler for the /network/attachments endpoint
 func newNetworkAPIHandler(m *Manager) network.GetNetworkAttachmentHandler {
-	return api.NewHandler[network.GetNetworkAttachmentParams](func(p network.GetNetworkAttachmentParams) middleware.Responder {
+	return api.NewHandler(func(p network.GetNetworkAttachmentParams) middleware.Responder {
 		if m == nil {
 			return network.NewGetNetworkAttachmentDisabled()
 		}

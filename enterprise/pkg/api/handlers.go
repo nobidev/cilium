@@ -33,7 +33,7 @@ func NewHandler[Params any](handler func(p Params) middleware.Responder) *Handle
 
 // newHealthzHandler returns a handler for the /v1enterprise/healthz endpoint.
 func newHealthzHandler() restapi.GetHealthzHandler {
-	return NewHandler[restapi.GetHealthzParams](func(p restapi.GetHealthzParams) middleware.Responder {
+	return NewHandler(func(p restapi.GetHealthzParams) middleware.Responder {
 		return restapi.NewGetHealthzOK()
 	})
 }
