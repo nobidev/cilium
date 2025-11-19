@@ -113,9 +113,61 @@ func init() {
           }
         }
       }
+    },
+    "/network/private/addressing": {
+      "get": {
+        "tags": [
+          "network"
+        ],
+        "summary": "Retrieve the private network for the pod",
+        "parameters": [
+          {
+            "$ref": "#/parameters/network-pod-name"
+          },
+          {
+            "$ref": "#/parameters/network-pod-namespace"
+          },
+          {
+            "$ref": "#/parameters/network-pod-uid"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PrivateNetworkAddressingResponse"
+            }
+          },
+          "500": {
+            "description": "Network attachment error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          },
+          "501": {
+            "description": "Private network feature is disabled",
+            "x-go-name": "Disabled"
+          }
+        }
+      }
     }
   },
   "definitions": {
+    "AddressPair": {
+      "description": "Addressing information of an endpoint",
+      "type": "object",
+      "properties": {
+        "ipv4": {
+          "description": "IPv4 address",
+          "type": "string"
+        },
+        "ipv6": {
+          "description": "IPv6 address",
+          "type": "string"
+        }
+      }
+    },
     "EnterpriseDaemonConfiguration": {
       "description": "The current configuration of any enterprise-only features",
       "type": "object",
@@ -201,6 +253,49 @@ func init() {
         }
       }
     },
+    "PrivateNetworkAddressing": {
+      "description": "Description of a private network",
+      "type": "object",
+      "properties": {
+        "activatedAt": {
+          "description": "Time timestamp when the pod was activated",
+          "type": "string",
+          "format": "date-time"
+        },
+        "address": {
+          "$ref": "#/definitions/AddressPair"
+        },
+        "mac": {
+          "description": "MAC address of the endpoint within the private network",
+          "type": "string"
+        },
+        "network": {
+          "description": "Private network name",
+          "type": "string"
+        }
+      }
+    },
+    "PrivateNetworkAddressingResponse": {
+      "description": "Contains the endpoint's private network specific information",
+      "properties": {
+        "addressing": {
+          "description": "Optional network addressing information. Empty if the endpoint is not attached to a specific private network.\n",
+          "$ref": "#/definitions/PrivateNetworkAddressing"
+        },
+        "pod-name": {
+          "description": "Name of the pod which is attached to these networks",
+          "type": "string"
+        },
+        "pod-namespace": {
+          "description": "Namespace of the pod which is attached to these networks",
+          "type": "string"
+        },
+        "pod-uid": {
+          "description": "UID of the pod which is attached to these networks",
+          "type": "string"
+        }
+      }
+    },
     "PrivateNetworksConfiguration": {
       "description": "Private networks configuration",
       "type": "object",
@@ -228,6 +323,13 @@ func init() {
       "type": "string",
       "description": "Kubernetes pod namespace for which to query the network attachment",
       "name": "pod-namespace",
+      "in": "query",
+      "required": true
+    },
+    "network-pod-uid": {
+      "type": "string",
+      "description": "Kubernetes pod uid for which to query the network attachment",
+      "name": "pod-uid",
       "in": "query",
       "required": true
     }
@@ -330,9 +432,73 @@ func init() {
           }
         }
       }
+    },
+    "/network/private/addressing": {
+      "get": {
+        "tags": [
+          "network"
+        ],
+        "summary": "Retrieve the private network for the pod",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Kubernetes pod name for which to query the network attachment",
+            "name": "pod-name",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "Kubernetes pod namespace for which to query the network attachment",
+            "name": "pod-namespace",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "Kubernetes pod uid for which to query the network attachment",
+            "name": "pod-uid",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PrivateNetworkAddressingResponse"
+            }
+          },
+          "500": {
+            "description": "Network attachment error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          },
+          "501": {
+            "description": "Private network feature is disabled",
+            "x-go-name": "Disabled"
+          }
+        }
+      }
     }
   },
   "definitions": {
+    "AddressPair": {
+      "description": "Addressing information of an endpoint",
+      "type": "object",
+      "properties": {
+        "ipv4": {
+          "description": "IPv4 address",
+          "type": "string"
+        },
+        "ipv6": {
+          "description": "IPv6 address",
+          "type": "string"
+        }
+      }
+    },
     "EnterpriseDaemonConfiguration": {
       "description": "The current configuration of any enterprise-only features",
       "type": "object",
@@ -418,6 +584,49 @@ func init() {
         }
       }
     },
+    "PrivateNetworkAddressing": {
+      "description": "Description of a private network",
+      "type": "object",
+      "properties": {
+        "activatedAt": {
+          "description": "Time timestamp when the pod was activated",
+          "type": "string",
+          "format": "date-time"
+        },
+        "address": {
+          "$ref": "#/definitions/AddressPair"
+        },
+        "mac": {
+          "description": "MAC address of the endpoint within the private network",
+          "type": "string"
+        },
+        "network": {
+          "description": "Private network name",
+          "type": "string"
+        }
+      }
+    },
+    "PrivateNetworkAddressingResponse": {
+      "description": "Contains the endpoint's private network specific information",
+      "properties": {
+        "addressing": {
+          "description": "Optional network addressing information. Empty if the endpoint is not attached to a specific private network.\n",
+          "$ref": "#/definitions/PrivateNetworkAddressing"
+        },
+        "pod-name": {
+          "description": "Name of the pod which is attached to these networks",
+          "type": "string"
+        },
+        "pod-namespace": {
+          "description": "Namespace of the pod which is attached to these networks",
+          "type": "string"
+        },
+        "pod-uid": {
+          "description": "UID of the pod which is attached to these networks",
+          "type": "string"
+        }
+      }
+    },
     "PrivateNetworksConfiguration": {
       "description": "Private networks configuration",
       "type": "object",
@@ -445,6 +654,13 @@ func init() {
       "type": "string",
       "description": "Kubernetes pod namespace for which to query the network attachment",
       "name": "pod-namespace",
+      "in": "query",
+      "required": true
+    },
+    "network-pod-uid": {
+      "type": "string",
+      "description": "Kubernetes pod uid for which to query the network attachment",
+      "name": "pod-uid",
       "in": "query",
       "required": true
     }

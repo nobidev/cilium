@@ -72,6 +72,12 @@ func NewCiliumEnterpriseAPIAPI(spec *loads.Document) *CiliumEnterpriseAPIAPI {
 
 			return middleware.NotImplemented("operation network.GetNetworkAttachment has not yet been implemented")
 		}),
+
+		NetworkGetNetworkPrivateAddressingHandler: network.GetNetworkPrivateAddressingHandlerFunc(func(params network.GetNetworkPrivateAddressingParams) middleware.Responder {
+			_ = params
+
+			return middleware.NotImplemented("operation network.GetNetworkPrivateAddressing has not yet been implemented")
+		}),
 	}
 }
 
@@ -114,6 +120,8 @@ type CiliumEnterpriseAPIAPI struct {
 	GetHealthzHandler GetHealthzHandler
 	// NetworkGetNetworkAttachmentHandler sets the operation handler for the get network attachment operation
 	NetworkGetNetworkAttachmentHandler network.GetNetworkAttachmentHandler
+	// NetworkGetNetworkPrivateAddressingHandler sets the operation handler for the get network private addressing operation
+	NetworkGetNetworkPrivateAddressingHandler network.GetNetworkPrivateAddressingHandler
 
 	// ServeError is called when an error is received, there is a default handler
 	// but you can set your own with this
@@ -199,6 +207,9 @@ func (o *CiliumEnterpriseAPIAPI) Validate() error {
 	}
 	if o.NetworkGetNetworkAttachmentHandler == nil {
 		unregistered = append(unregistered, "network.GetNetworkAttachmentHandler")
+	}
+	if o.NetworkGetNetworkPrivateAddressingHandler == nil {
+		unregistered = append(unregistered, "network.GetNetworkPrivateAddressingHandler")
 	}
 
 	if len(unregistered) > 0 {
@@ -302,6 +313,10 @@ func (o *CiliumEnterpriseAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/network/attachment"] = network.NewGetNetworkAttachment(o.context, o.NetworkGetNetworkAttachmentHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/network/private/addressing"] = network.NewGetNetworkPrivateAddressing(o.context, o.NetworkGetNetworkPrivateAddressingHandler)
 }
 
 // Serve creates a http handler to serve the API over HTTP
