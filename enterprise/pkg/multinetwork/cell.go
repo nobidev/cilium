@@ -4,7 +4,6 @@
 package multinetwork
 
 import (
-	"context"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -121,7 +120,7 @@ func newNetworkAPIHandler(m *Manager) network.GetNetworkAttachmentHandler {
 			return network.NewGetNetworkAttachmentDisabled()
 		}
 
-		attachments, err := m.GetNetworksForPod(context.Background(), p.PodNamespace, p.PodName)
+		attachments, err := m.GetNetworksForPod(p.PodNamespace, p.PodName)
 		if err != nil {
 			return network.NewGetNetworkAttachmentFailure().WithPayload(models.Error(err.Error()))
 		}

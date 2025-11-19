@@ -149,7 +149,7 @@ func (m *Manager) Stop(ctx cell.HookContext) error {
 // If the pod or requested network is not yet known, we return an error. This
 // will cause the CNI ADD request to fail, but it will be retried later, at which
 // point the pod and/or network should hopefully be available.
-func (m *Manager) GetNetworksForPod(ctx context.Context, podNamespace, podName string) (*models.NetworkAttachmentList, error) {
+func (m *Manager) GetNetworksForPod(podNamespace, podName string) (*models.NetworkAttachmentList, error) {
 	if m.networkStore == nil {
 		return nil, &ManagerStoppedError{}
 	}

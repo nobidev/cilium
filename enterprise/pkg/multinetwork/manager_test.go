@@ -4,7 +4,6 @@
 package multinetwork
 
 import (
-	"context"
 	"errors"
 	"sort"
 	"testing"
@@ -209,7 +208,7 @@ func TestManager_GetNetworksForPod(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			networks, err := m.GetNetworksForPod(context.TODO(), tt.podNamespace, tt.podName)
+			networks, err := m.GetNetworksForPod(tt.podNamespace, tt.podName)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("GetNetworksForPod() error = %v, want %v", err, tt.wantErr)
 			}
