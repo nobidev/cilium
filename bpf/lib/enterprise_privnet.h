@@ -338,6 +338,22 @@ enum privnet_watchdog_index {
 	PRIVNET_WATCHDOG_TIMEOUT = 1,
 };
 
+static __always_inline bool privnet_agent_alive(void)
+{
+	__u32 liveness_key = PRIVNET_WATCHDOG_LIVENESS;
+	__u32 timeout_key = PRIVNET_WATCHDOG_TIMEOUT;
+	__u64 *last = map_lookup_elem(&cilium_privnet_watchdog, &liveness_key);
+	__u64 *timeout = map_lookup_elem(&cilium_privnet_watchdog, &timeout_key);
+
+	if (unlikely(!last || !timeout))
+		return false;
+
+	if (ktime_get_ns() - (*last) > (*timeout))
+		return false;
+
+	return true;
+}
+
 static __always_inline bool is_privnet_route_entry(const struct privnet_fib_val *val)
 {
 	if (!val)
@@ -885,7 +901,12 @@ handle_privnet_ns(struct __ctx_buff *ctx, const void *map, const __u16 net_id, b
 	}
 
 	val = privnet_fib_lookup6(map, net_id, tip);
-	if (!val || is_privnet_route_entry(val) || !(from_lxc || val->flag_l2_announce))
+
+	/* Don't reply to NDs if the agent is not alive, as the map state may
+	 * be out of sync, and we may conflict with the newly activated INB.
+	 */
+	if (!val || is_privnet_route_entry(val) ||
+	    !(from_lxc || (val->flag_l2_announce && privnet_agent_alive())))
 		return CTX_ACT_OK;
 
 #ifdef IS_BPF_LXC
@@ -925,7 +946,11 @@ handle_privnet_arp(struct __ctx_buff *ctx, const void *map, const __u16 net_id)
 		return CTX_ACT_OK;
 
 	val = privnet_fib_lookup4(map, net_id, tip);
-	if (!val || !val->flag_l2_announce)
+
+	/* Don't reply to ARPs if the agent is not alive, as the map state may
+	 * be out of sync, and we may conflict with the newly activated INB.
+	 */
+	if (!val || !val->flag_l2_announce || !privnet_agent_alive())
 		return CTX_ACT_OK;
 
 	return arp_respond(ctx, &mac, tip, &smac, sip, 0);

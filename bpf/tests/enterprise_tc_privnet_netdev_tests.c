@@ -45,6 +45,19 @@ mock_ext_eps_policy_can_access(struct __ctx_buff __maybe_unused *ctx,
 #include "tests/lib/enterprise_privnet.h"
 #include "tests/lib/ipcache.h"
 
+static __always_inline int privnet_watchdog_set(__u64 last, __u64 timeout)
+{
+	__u32 liveness_key = PRIVNET_WATCHDOG_LIVENESS;
+	__u32 timeout_key = PRIVNET_WATCHDOG_TIMEOUT;
+	int ret;
+
+	ret = map_update_elem(&cilium_privnet_watchdog, &liveness_key, &last, BPF_ANY);
+	if (ret < 0)
+		return ret;
+
+	return map_update_elem(&cilium_privnet_watchdog, &timeout_key, &timeout, BPF_ANY);
+}
+
 /* Enable privnet */
 ASSIGN_CONFIG(bool, privnet_enable, true)
 ASSIGN_CONFIG(__u16, privnet_network_id, NET_ID)
@@ -98,6 +111,7 @@ int privnet_icmp_from_netdev_respond_arp_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_icmp_from_netdev_respond_arp")
 int privnet_icmp_from_netdev_respond_arp_setup(struct __ctx_buff *ctx)
 {
+	privnet_watchdog_set(ktime_get_ns(), 3000000000ULL);
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	return netdev_receive_packet(ctx);
 }
@@ -119,23 +133,52 @@ int privnet_icmp_from_netdev_respond_arp_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "03_icmp6_from_netdev_respond_ns")
+PKTGEN("tc", "03_icmp_from_netdev_respond_arp_agent_down")
+int privnet_icmp_from_netdev_respond_arp_pktgen_agent_down(struct __ctx_buff *ctx)
+{
+	build_privnet_packet(ctx, NETIP_ARP_REQ);
+	return 0;
+}
+
+SETUP("tc", "03_icmp_from_netdev_respond_arp_agent_down")
+int privnet_icmp_from_netdev_respond_arp_setup_agent_down(struct __ctx_buff *ctx)
+{
+	privnet_watchdog_set(ktime_get_ns() - 5000000000ULL, 3000000000ULL);
+	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	return netdev_receive_packet(ctx);
+}
+
+CHECK("tc", "03_icmp_from_netdev_respond_arp_agent_down")
+int privnet_icmp_from_netdev_respond_arp_check_agent_down(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	/* No ARP response should be emitted */
+	assert_status_code(ctx, TC_ACT_OK);
+
+	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+
+	test_finish();
+}
+
+PKTGEN("tc", "04_icmp6_from_netdev_respond_ns")
 int privnet_icmp6_from_netdev_respond_ns_pktgen(struct __ctx_buff *ctx)
 {
 	build_privnet_packet(ctx, NETDEV_ICMP6_NS);
 	return 0;
 }
 
-SETUP("tc", "03_icmp6_from_netdev_respond_ns")
+SETUP("tc", "04_icmp6_from_netdev_respond_ns")
 int privnet_icmp6_from_netdev_respond_ns_setup(struct __ctx_buff *ctx)
 {
+	privnet_watchdog_set(ktime_get_ns(), 3000000000ULL);
 	privnet_v6_add_endpoint_entry(NET_ID,
 				      (const union v6addr *)V6_NET_IP_1,
 				      (const union v6addr *)V6_POD_IP_1);
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "03_icmp6_from_netdev_respond_ns")
+CHECK("tc", "04_icmp6_from_netdev_respond_ns")
 int privnet_icmp6_from_netdev_respond_ns_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -154,14 +197,46 @@ int privnet_icmp6_from_netdev_respond_ns_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "04_icmp_from_netdev_miss_src")
+PKTGEN("tc", "05_icmp6_from_netdev_respond_ns_agent_down")
+int privnet_icmp6_from_netdev_respond_ns_pktgen_agent_down(struct __ctx_buff *ctx)
+{
+	build_privnet_packet(ctx, NETDEV_ICMP6_NS);
+	return 0;
+}
+
+SETUP("tc", "05_icmp6_from_netdev_respond_ns_agent_down")
+int privnet_icmp6_from_netdev_respond_ns_setup_agent_down(struct __ctx_buff *ctx)
+{
+	privnet_watchdog_set(ktime_get_ns() - 5000000000ULL, 3000000000ULL);
+	privnet_v6_add_endpoint_entry(NET_ID,
+				      (const union v6addr *)V6_NET_IP_1,
+				      (const union v6addr *)V6_POD_IP_1);
+	return netdev_receive_packet(ctx);
+}
+
+CHECK("tc", "05_icmp6_from_netdev_respond_ns_agent_down")
+int privnet_icmp6_from_netdev_respond_ns_check_agent_down(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	/* No ARP response should be emitted */
+	assert_status_code(ctx, TC_ACT_OK);
+
+	privnet_v6_del_endpoint_entry(NET_ID,
+				      (const union v6addr *)V6_NET_IP_1,
+				      (const union v6addr *)V6_POD_IP_1);
+
+	test_finish();
+}
+
+PKTGEN("tc", "06_icmp_from_netdev_miss_src")
 int privnet_icmp_from_netdev_miss_src_pktgen(struct __ctx_buff *ctx)
 {
 	build_privnet_packet(ctx, NETIP_ICMP_REQ);
 	return 0;
 }
 
-SETUP("tc", "04_icmp_from_netdev_miss_src")
+SETUP("tc", "06_icmp_from_netdev_miss_src")
 int privnet_icmp_from_netdev_miss_src_setup(struct __ctx_buff *ctx)
 {
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
@@ -170,7 +245,7 @@ int privnet_icmp_from_netdev_miss_src_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "04_icmp_from_netdev_miss_src")
+CHECK("tc", "06_icmp_from_netdev_miss_src")
 int privnet_icmp_from_netdev_miss_src_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -182,14 +257,14 @@ int privnet_icmp_from_netdev_miss_src_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "05_icmp_from_netdev_miss_dst")
+PKTGEN("tc", "07_icmp_from_netdev_miss_dst")
 int privnet_icmp_from_netdev_miss_dst_pktgen(struct __ctx_buff *ctx)
 {
 	build_privnet_packet(ctx, NETIP_ICMP_REQ);
 	return 0;
 }
 
-SETUP("tc", "05_icmp_from_netdev_miss_dst")
+SETUP("tc", "07_icmp_from_netdev_miss_dst")
 int privnet_icmp_from_netdev_miss_dst_setup(struct __ctx_buff *ctx)
 {
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
@@ -198,7 +273,7 @@ int privnet_icmp_from_netdev_miss_dst_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "05_icmp_from_netdev_miss_dst")
+CHECK("tc", "07_icmp_from_netdev_miss_dst")
 int privnet_icmp_from_netdev_miss_dst_check(struct __ctx_buff *ctx)
 {
 	test_init();
