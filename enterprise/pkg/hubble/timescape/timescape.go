@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -28,6 +29,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
+	"github.com/cilium/cilium/pkg/dial"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 	"github.com/cilium/cilium/pkg/hubble/filters"
@@ -307,6 +309,7 @@ func (s *Exporter) streamFlows(stream grpc.ClientStreamingClient[tsv1alphapb.Ing
 func (s *Exporter) buildClient() (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	opts = append(opts, s.options.dialOptions...)
+	opts = append(opts, grpc.WithContextDialer(dial.NewContextDialer(s.log, s.options.resolvers...)))
 	if s.tlsConfigBuilder == nil {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
@@ -323,5 +326,15 @@ func (s *Exporter) buildClient() (*grpc.ClientConn, error) {
 			},
 		))
 	}
-	return grpc.NewClient(s.target, opts...)
+	// We don't want the grpc client to perform DNS resolution when we use
+	// resolvers. As per documentation on `grpc.WithContextDialer`:
+	//  Note that gRPC by default performs name resolution on the target passed to
+	//  NewClient. To bypass name resolution and cause the target string to be
+	//  passed directly to the dialer here instead, use the "passthrough" resolver
+	//  by specifying it in the target string, e.g. "passthrough:target".
+	target := s.target
+	if len(s.options.resolvers) > 0 {
+		target = "passthrough:" + strings.TrimPrefix(target, "passthrough:")
+	}
+	return grpc.NewClient(target, opts...)
 }

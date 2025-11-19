@@ -20,6 +20,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/parser/fieldmask"
 	"github.com/cilium/cilium/pkg/promise"
@@ -40,6 +41,7 @@ type options struct {
 	fieldMaskFlow *flowpb.Flow
 	nodeName      string
 	onExportEvent []OnExportEvent
+	resolvers     []dial.Resolver
 }
 
 // Option customizes the configuration of the Exporter.
@@ -156,4 +158,16 @@ func WithOnExportEvent(onExportEvent OnExportEvent) Option {
 // WithOnExportEventFunc registers an OnExportEventFunc hook on the Exporter.
 func WithOnExportEventFunc(onExportEvent OnExportEventFunc) Option {
 	return WithOnExportEvent(onExportEvent)
+}
+
+// WithResolvers sets the resolvers used to create a custom dialer to connect
+// to Timescape. Resolvers are used to resolve service names to IP addresses,
+// which is useful to resolve service names without depending on the DNS. This
+// prevents the need for setting the DNSPolicy to ClusterFirstWithHostNet when
+// running in host network.
+func WithResolvers(resolvers ...dial.Resolver) Option {
+	return func(o *options) error {
+		o.resolvers = append(o.resolvers, resolvers...)
+		return nil
+	}
 }

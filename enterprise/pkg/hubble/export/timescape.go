@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation/aggregator"
 	"github.com/cilium/cilium/enterprise/pkg/hubble/timescape"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/hubble"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
@@ -65,6 +66,7 @@ type timescapeExporterConfig struct {
 	AggregationTTL               time.Duration `mapstructure:"hubble-export-timescape-aggregation-ttl"`
 	MaxBufferSize                int           `mapstructure:"hubble-export-timescape-max-buffer-size"`
 	ReportDroppedFlowsInterval   time.Duration `mapstructure:"hubble-export-timescape-report-dropped-flows-interval"`
+	UseCiliumServiceResolver     bool          `mapstructure:"hubble-export-timescape-use-cilium-service-resolver"`
 	TLSEnabled                   bool          `mapstructure:"hubble-export-timescape-tls-enabled"`
 	TLSCertFile                  string        `mapstructure:"hubble-export-timescape-tls-cert-file"`
 	TLSKeyFile                   string        `mapstructure:"hubble-export-timescape-tls-key-file"`
@@ -85,6 +87,7 @@ var defaultTimescapeExporterConfig = timescapeExporterConfig{
 	AggregationTTL:               30 * time.Second,
 	MaxBufferSize:                4096,
 	ReportDroppedFlowsInterval:   time.Minute,
+	UseCiliumServiceResolver:     true,
 	TLSEnabled:                   false,
 	TLSCertFile:                  "",
 	TLSKeyFile:                   "",
@@ -94,9 +97,9 @@ var defaultTimescapeExporterConfig = timescapeExporterConfig{
 func (def timescapeExporterConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("hubble-export-timescape-enabled", def.Enabled, "Whether to enable the Hubble timescape exporter")
 	flags.String("hubble-export-timescape-target", def.Target, "Target server to connect to for exporting flows")
-	flags.String("hubble-export-timescape-allowlist", def.Allowlist, "Specify allowlist as JSON encoded FlowFilters.")
-	flags.String("hubble-export-timescape-denylist", def.Denylist, "Specify denylist as JSON encoded FlowFilters.")
-	flags.StringSlice("hubble-export-timescape-fieldmask", def.Fieldmask, "Specify list of fields to use for field mask in Hubble exporter.")
+	flags.String("hubble-export-timescape-allowlist", def.Allowlist, "Specify allowlist as JSON encoded FlowFilters")
+	flags.String("hubble-export-timescape-denylist", def.Denylist, "Specify denylist as JSON encoded FlowFilters")
+	flags.StringSlice("hubble-export-timescape-fieldmask", def.Fieldmask, "Specify list of fields to use for field mask in Hubble exporter")
 	flags.String("hubble-export-timescape-node-name", def.NodeName, "Override the node_name field in exported flows")
 	flags.StringSlice("hubble-export-timescape-aggregation", def.Aggregations, "Perform aggregation pre-storage ('connection', 'identity')")
 	flags.Bool("hubble-export-timescape-aggregation-ignore-source-port", def.AggregationIgnoreSourcePort, "Ignore source port during aggregation")
@@ -104,9 +107,11 @@ func (def timescapeExporterConfig) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice("hubble-export-timescape-aggregation-state-filter", def.AggregationStateChangeFilter,
 		"The state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed')")
 	flags.Duration("hubble-export-timescape-aggregation-ttl", def.AggregationTTL, "TTL for flow aggregation")
-	flags.Int("hubble-export-timescape-max-buffer-size", def.MaxBufferSize, "The maximum number of flows to buffer before dropping them.")
+	flags.Int("hubble-export-timescape-max-buffer-size", def.MaxBufferSize, "The maximum number of flows to buffer before dropping them")
 	flags.Duration("hubble-export-timescape-report-dropped-flows-interval", def.ReportDroppedFlowsInterval,
-		"The interval at which to report dropped flows in logs. Set to 0s to disable reporting.")
+		"The interval at which to report dropped flows in logs. Set to 0s to disable reporting")
+	flags.Bool("hubble-export-timescape-use-cilium-service-resolver", def.UseCiliumServiceResolver,
+		"Whether to use Cilium's service resolver to resolve the target address for the Hubble timescape exporter")
 	flags.Bool("hubble-export-timescape-tls-enabled", def.TLSEnabled, "Whether to enable TLS for the Hubble timescape exporter")
 	flags.String("hubble-export-timescape-tls-cert-file", def.TLSCertFile,
 		"Path to the public cert file for the client certificate to connect to the remote server using mTLS (the file must contain PEM encoded data)")
@@ -121,6 +126,7 @@ type params struct {
 
 	JobGroup         job.Group
 	Lifecycle        cell.Lifecycle
+	SvcResolver      *dial.ServiceResolver
 	Config           timescapeExporterConfig
 	TLSConfigPromise timescapeTLSConfigPromise
 	Metrics          *metricsHandler
@@ -154,6 +160,16 @@ func newHubbleTimescapeExporter(params params) (out, error) {
 				return nil, fmt.Errorf("failed to parse denylist: %w", err)
 			}
 
+			var resolvers []dial.Resolver
+			if params.Config.UseCiliumServiceResolver {
+				if params.SvcResolver != nil {
+					params.Logger.Debug("Using the Cilium service resolver")
+					resolvers = append(resolvers, params.SvcResolver)
+				} else {
+					params.Logger.Warn("Cilium service resolver requested but is not available (Is k8s available?)")
+				}
+			}
+
 			exporterOpts := []timescape.Option{
 				timescape.WithAllowListFilter(params.Logger, allowList),
 				timescape.WithDenyListFilter(params.Logger, denyList),
@@ -162,6 +178,7 @@ func newHubbleTimescapeExporter(params params) (out, error) {
 				timescape.WithMaxBufferSize(params.Config.MaxBufferSize),
 				timescape.WithReportDroppedFlowsInterval(params.Config.ReportDroppedFlowsInterval),
 				timescape.WithTLSConfigPromise(params.TLSConfigPromise),
+				timescape.WithResolvers(resolvers...),
 			}
 
 			// setup aggregator

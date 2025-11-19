@@ -183,18 +183,19 @@ cilium-agent hive [flags]
       --hubble-export-timescape-aggregation-renew-ttl                    Renew flow TTL when a new flow is observed (default true)
       --hubble-export-timescape-aggregation-state-filter strings         The state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed') (default [new,error,closed])
       --hubble-export-timescape-aggregation-ttl duration                 TTL for flow aggregation (default 30s)
-      --hubble-export-timescape-allowlist string                         Specify allowlist as JSON encoded FlowFilters.
-      --hubble-export-timescape-denylist string                          Specify denylist as JSON encoded FlowFilters.
+      --hubble-export-timescape-allowlist string                         Specify allowlist as JSON encoded FlowFilters
+      --hubble-export-timescape-denylist string                          Specify denylist as JSON encoded FlowFilters
       --hubble-export-timescape-enabled                                  Whether to enable the Hubble timescape exporter
-      --hubble-export-timescape-fieldmask strings                        Specify list of fields to use for field mask in Hubble exporter.
-      --hubble-export-timescape-max-buffer-size int                      The maximum number of flows to buffer before dropping them. (default 4096)
+      --hubble-export-timescape-fieldmask strings                        Specify list of fields to use for field mask in Hubble exporter
+      --hubble-export-timescape-max-buffer-size int                      The maximum number of flows to buffer before dropping them (default 4096)
       --hubble-export-timescape-node-name string                         Override the node_name field in exported flows
-      --hubble-export-timescape-report-dropped-flows-interval duration   The interval at which to report dropped flows in logs. Set to 0s to disable reporting. (default 1m0s)
+      --hubble-export-timescape-report-dropped-flows-interval duration   The interval at which to report dropped flows in logs. Set to 0s to disable reporting (default 1m0s)
       --hubble-export-timescape-target string                            Target server to connect to for exporting flows (default "hubble-timescape-export.hubble-timescape.svc.cluster.local:4261")
       --hubble-export-timescape-tls-ca-files strings                     Paths to one or more public CA files which sign certificates for the remote server
       --hubble-export-timescape-tls-cert-file string                     Path to the public cert file for the client certificate to connect to the remote server using mTLS (the file must contain PEM encoded data)
       --hubble-export-timescape-tls-enabled                              Whether to enable TLS for the Hubble timescape exporter
       --hubble-export-timescape-tls-key-file string                      Path to the private key file for the client certificate to connect to the remote server using mTLS (the file must contain PEM encoded data)
+      --hubble-export-timescape-use-cilium-service-resolver              Whether to use Cilium's service resolver to resolve the target address for the Hubble timescape exporter (default true)
       --hubble-flowlogs-config-path string                               Filepath with configuration of hubble flowlogs
       --hubble-listen-address string                                     An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-lost-event-send-interval duration                         Interval at which lost events are sent from the Observer server, if any. (default 1s)
