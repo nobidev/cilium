@@ -29,3 +29,16 @@ func (c *EnterpriseClient) NetworkAttachments(podNamespace, podName string) (*mo
 	}
 	return resp.Payload, nil
 }
+
+func (c *EnterpriseClient) PrivateNetworkAddressing(podNamespace, podName, podUID string) (*models.PrivateNetworkAddressingResponse, error) {
+	params := network.NewGetNetworkPrivateAddressingParams().
+		WithPodNamespace(podNamespace).
+		WithPodName(podName).
+		WithPodUID(podUID).
+		WithTimeout(api.ClientTimeout)
+	resp, err := c.Network.GetNetworkPrivateAddressing(params)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Payload, nil
+}
