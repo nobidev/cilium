@@ -42,7 +42,7 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
       - name: Checkout Cilium
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           persist-credentials: false
           path: cilium
@@ -66,7 +66,7 @@ jobs:
             secret/data/release-mgmt/${{ github.repository_owner }} isovalent_bot_token  | CERTIFIED_OPERATORS_PR_TOKEN;
 
       - name: Checkout certified-operators
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           repository: redhat-openshift-ecosystem/certified-operators
           token: ${{ env.CERTIFIED_OPERATORS_PR_TOKEN }}
@@ -163,7 +163,7 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
       - name: Checkout Cilium
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           persist-credentials: false
           path: cilium
@@ -189,7 +189,7 @@ jobs:
             cilium-enterprise-docs
 
       - name: Checkout Enterprise Docs
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           token: ${{ steps.generate-token.outputs.token }}
           repository: isovalent/cilium-enterprise-docs

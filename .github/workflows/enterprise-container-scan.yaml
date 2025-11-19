@@ -31,7 +31,7 @@ jobs:
             branch: v1.18-ce
     steps:
       - name: Checkout latest VEX data
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           sparse-checkout: |
             .github/enterprise/.openvex.json
@@ -40,7 +40,7 @@ jobs:
           path: vex
       - name: Download Grype
         id: grype
-        uses: anchore/scan-action/download-grype@568b89d27fc18c60e56937bff480c91c772cd993 # v7.1.0
+        uses: anchore/scan-action/download-grype@3aaf50d765cfcceafa51d322ccb790e40f6cd8c5 # v7.2.0
       - name: Scan image
         id: scan
         run: |

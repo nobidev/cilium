@@ -44,7 +44,7 @@ jobs:
           app_id: ${{ secrets.ISOVALENT_MIRROR_UPSTREAM_BOT_APP_ID }}
 
       - name: Checkout default branch (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: true
@@ -54,7 +54,7 @@ jobs:
         uses: ./.github/actions/disk-cleanup
 
       - name: Checkout base branch (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ github.base_ref }}
           persist-credentials: true
@@ -74,7 +74,7 @@ jobs:
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           persist-credentials: true
           ref: ${{ github.event.pull_request.head.sha }}
