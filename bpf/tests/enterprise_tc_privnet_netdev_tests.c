@@ -73,21 +73,10 @@ int privnet_icmp_from_netdev_nat_src_dst_setup(struct __ctx_buff *ctx)
 CHECK("tc", "01_icmp_from_netdev_nat_src_dst")
 int privnet_icmp_from_netdev_nat_src_dst_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-
-	assert(*status_code == TC_ACT_REDIRECT); /* packets are redirected to tunnel device */
+	/* packets are redirected to tunnel device */
+	assert_status_code(ctx, TC_ACT_REDIRECT);
 
 	ASSERT_CTX_BUF_OFF("privnet_icmp_from_netdev_nat_src_dst", "IP", ctx,
 			   sizeof(__u32), PODIP_ICMP_REQ,
@@ -116,20 +105,10 @@ int privnet_icmp_from_netdev_respond_arp_setup(struct __ctx_buff *ctx)
 CHECK("tc", "02_icmp_from_netdev_respond_arp")
 int privnet_icmp_from_netdev_respond_arp_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == TC_ACT_REDIRECT); /* packets are redirected back to device */
+	/* The ARP response should be redirected back */
+	assert_status_code(ctx, TC_ACT_REDIRECT);
 
 	ASSERT_CTX_BUF_OFF("privnet_icmp_from_netdev_respond_arp", "Ether", ctx,
 			   sizeof(__u32), NETIP_ARP_RES,
@@ -159,20 +138,10 @@ int privnet_icmp6_from_netdev_respond_ns_setup(struct __ctx_buff *ctx)
 CHECK("tc", "03_icmp6_from_netdev_respond_ns")
 int privnet_icmp6_from_netdev_respond_ns_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == TC_ACT_REDIRECT); /* packets are redirected back to device */
+	/* packets are redirected back to device */
+	assert_status_code(ctx, TC_ACT_REDIRECT);
 
 	ASSERT_CTX_BUF_OFF("privnet_icmp6_from_netdev_respond_ns", "Ether", ctx,
 			   sizeof(__u32), NETDEV_ICMP6_NA,
@@ -204,20 +173,10 @@ int privnet_icmp_from_netdev_miss_src_setup(struct __ctx_buff *ctx)
 CHECK("tc", "04_icmp_from_netdev_miss_src")
 int privnet_icmp_from_netdev_miss_src_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	int *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == DROP_UNROUTABLE); /* packet should be dropped */
+	/* packet should be dropped */
+	assert_status_code(ctx, DROP_UNROUTABLE);
 
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	test_finish();
@@ -242,20 +201,10 @@ int privnet_icmp_from_netdev_miss_dst_setup(struct __ctx_buff *ctx)
 CHECK("tc", "05_icmp_from_netdev_miss_dst")
 int privnet_icmp_from_netdev_miss_dst_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	int *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == DROP_UNROUTABLE); /* packet should be dropped */
+	/* packet should be dropped */
+	assert_status_code(ctx, DROP_UNROUTABLE);
 
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	test_finish();

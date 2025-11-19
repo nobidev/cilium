@@ -71,20 +71,10 @@ int privnet_icmp_from_overlay_nat_src_dst_setup(struct __ctx_buff *ctx)
 CHECK("tc", "01_icmp_from_overlay_nat_src_dst")
 int privnet_icmp_from_overlay_nat_src_dst_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == TC_ACT_REDIRECT); /* packets are redirected to tunnel device */
+	/* packets are redirected to tunnel device */
+	assert_status_code(ctx, TC_ACT_REDIRECT);
 
 	ASSERT_CTX_BUF_OFF("privnet_icmp_from_overlay_nat_src_dst", "IP", ctx,
 			   sizeof(__u32), NETIP_ICMP_REQ,

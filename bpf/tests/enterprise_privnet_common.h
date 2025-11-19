@@ -47,6 +47,19 @@ BUF_DECL(NETDEV_ICMP6_NA, privnet_netdev_na);
 		pktgen__finish(&builder);		\
 	} while (0)
 
+#define assert_status_code(ctx, expected)				\
+	do {								\
+		void *data = ctx_data(ctx);				\
+		void *data_end = ctx_data_end(ctx);			\
+		__u32 *status_code;					\
+									\
+		if (data + sizeof(__u32) > data_end)			\
+			test_fatal("status code out of bounds");	\
+									\
+		status_code = data;					\
+		assert(*status_code == (__u32)(expected));		\
+	} while (0)
+
 #define skb_get_tunnel_key mock_tunnel_key
 int mock_tunnel_key(struct __ctx_buff *ctx __maybe_unused,
 		    struct bpf_tunnel_key *to,

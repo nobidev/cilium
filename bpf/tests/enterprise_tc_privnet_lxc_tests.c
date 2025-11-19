@@ -53,21 +53,9 @@ int privnet_icmp_from_container_nat_src_dst_setup(struct __ctx_buff *ctx)
 CHECK("tc", "01_icmp_from_container_nat_src_dst")
 int privnet_icmp_from_container_nat_src_dst_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-
-	assert(*status_code == TC_ACT_OK);
+	assert_status_code(ctx, TC_ACT_OK);
 
 	ASSERT_CTX_BUF_OFF("privnet_icmp_from_container_nat_src_dst", "IP", ctx,
 			   sizeof(__u32), PODIP_ICMP_REQ,
@@ -105,21 +93,9 @@ int privnet_tcp_from_container_nat_src_dst_setup(struct __ctx_buff *ctx)
 CHECK("tc", "02_tcp_from_container_nat_src_dst")
 int privnet_tcp_from_container_nat_src_dst_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-
-	assert(*status_code == TC_ACT_OK);
+	assert_status_code(ctx, TC_ACT_OK);
 
 	ASSERT_CTX_BUF_OFF("privnet_tcp_from_container_nat_src_dst", "IP", ctx,
 			   sizeof(__u32), PODIP_TCP_SYN,
@@ -155,21 +131,10 @@ int privnet_icmp_from_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 CHECK("tc", "03_icmp_from_container_nat_src_route_dst")
 int privnet_icmp_from_container_nat_src_route_dst_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-
-	assert(*status_code == TC_ACT_REDIRECT); /* redirected via unknown flow */
+	/* redirected via unknown flow */
+	assert_status_code(ctx, TC_ACT_REDIRECT);
 
 	/* check inner packet headers, dst should remain untranslated */
 	ASSERT_CTX_BUF_OFF("privnet_icmp_from_container_nat_src_route_dst", "IP", ctx,
@@ -210,21 +175,12 @@ int privnet_icmp_from_container_nat_src_miss_dst_setup(struct __ctx_buff *ctx)
 CHECK("tc", "04_icmp_from_container_nat_src_miss_dst")
 int privnet_icmp_from_container_nat_src_miss_dst_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
 	struct metrics_value *entry = NULL;
 	struct metrics_key key = {};
 
 	test_init();
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
 
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_DROP); /* drop check*/
+	assert_status_code(ctx, CTX_ACT_DROP); /* drop check*/
 
 	/* check reason for drop */
 	key.reason = (__u8)-DROP_UNROUTABLE;
@@ -262,21 +218,9 @@ int privnet_icmp_to_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 CHECK("tc", "05_icmp_to_container_nat_src_dst")
 int privnet_icmp_to_container_nat_src_dst_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-
-	assert(*status_code == TC_ACT_OK);
+	assert_status_code(ctx, CTX_ACT_OK);
 
 	BUF_DECL(EXPECTED_NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
 	ASSERT_CTX_BUF_OFF("privnet_icmp_to_container_nat_src_dst", "IP", ctx,
@@ -310,21 +254,9 @@ int privnet_tcp_to_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 CHECK("tc", "06_tcp_to_container_nat_src_dst")
 int privnet_tcp_to_container_nat_src_dst_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-
-	assert(*status_code == TC_ACT_OK);
+	assert_status_code(ctx, CTX_ACT_OK);
 
 	ASSERT_CTX_BUF_OFF("privnet_tcp_to_container_nat_src_dst", "IP", ctx,
 			   sizeof(__u32), NETIP_TCP_SYN,
@@ -357,21 +289,9 @@ int privnet_icmp_to_container_unknown_src_nat_dst_setup(struct __ctx_buff *ctx)
 CHECK("tc", "07_icmp_to_container_unknown_src_nat_dst")
 int privnet_icmp_to_container_unknown_src_nat_dst_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-
-	assert(*status_code == TC_ACT_OK);
+	assert_status_code(ctx, CTX_ACT_OK);
 
 	ASSERT_CTX_BUF_OFF("privnet_icmp_to_container_unknown_src_nat_dst", "IP", ctx,
 			   sizeof(__u32), UNKNOWN_ICMP_REQ,
@@ -402,20 +322,9 @@ int privnet_icmp_to_container_unknown_src_miss_dst_setup(struct __ctx_buff *ctx)
 CHECK("tc", "08_icmp_to_container_unknown_src_miss_dst")
 int privnet_icmp_to_container_unknown_src_miss_dst_check(struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	int *status_code;
-
 	test_init();
 
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == DROP_UNROUTABLE); /* drop check*/
+	assert_status_code(ctx, DROP_UNROUTABLE); /* drop check*/
 
 	test_finish();
 }
@@ -437,21 +346,9 @@ static __always_inline int privnet_icmp6_ns_setup(struct __ctx_buff *ctx)
 
 #define PRIVNET_ICMP6_NS_CHECK(CTX, TEST_NAME, STATUS_CODE, NA_BUF_NAME)	\
 	do {									\
-		void *data;							\
-		void *data_end;							\
-		__u32 *status_code;						\
-										\
 		test_init();							\
 										\
-		data = ctx_data(CTX);						\
-		data_end = ctx_data_end(CTX);					\
-										\
-		if (data + sizeof(__u32) > data_end)				\
-			test_fatal("status code out of bounds");		\
-										\
-		status_code = data;						\
-										\
-		assert(*status_code == (STATUS_CODE));				\
+		assert_status_code(CTX, (STATUS_CODE));				\
 		if (STATUS_CODE == TC_ACT_REDIRECT) {				\
 			ASSERT_CTX_BUF_OFF(TEST_NAME, "Ether", CTX,		\
 				sizeof(__u32), NA_BUF_NAME,			\
