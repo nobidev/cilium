@@ -13,6 +13,7 @@ package privnet
 import (
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/enterprise/pkg/privnet/addressing"
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
 	health "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc"
@@ -27,4 +28,5 @@ var Cell = cell.Module(
 	reconcilers.Cell,
 	endpoints.Cell,
 	health.Cell,
+	addressing.Cell,
 )
