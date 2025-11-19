@@ -3,7 +3,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 22,
+  "id": 29,
   "links": [],
   "panels": [
     {
@@ -38,7 +38,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -357,7 +356,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -777,7 +775,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -904,7 +901,6 @@
             "axisLabel": "Health Checks",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1135,7 +1131,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1456,7 +1451,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1680,7 +1674,7 @@
           "unit": "ms"
         }
       },
-      "pluginVersion": "11.2.0",
+      "pluginVersion": "11.1.0",
       "targets": [
         {
           "datasource": {
@@ -1724,7 +1718,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1929,7 +1922,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2239,7 +2231,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2412,7 +2403,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2443,7 +2433,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2554,7 +2545,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2585,7 +2575,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2681,7 +2672,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2712,7 +2702,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2873,7 +2864,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2904,7 +2894,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3026,7 +3017,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3057,7 +3047,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3168,7 +3159,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3199,7 +3189,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3323,7 +3314,6 @@
             "axisLabel": "Health Checks",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3357,7 +3347,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3549,7 +3540,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -3567,7 +3557,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3602,7 +3591,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -3651,7 +3641,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "100 * max(\n  1 - (rate(node_cpu_seconds_total{mode=~\"idle\"}[$__rate_interval]) or vector(0))\n  ) by (instance)\n* on (instance) group_left(node) (\n  label_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n) or on() clamp_max(absent(node_cpu_seconds_total{node=\"offline\"}),0)",
+          "expr": "100 * max(\n  1 - (rate(node_cpu_seconds_total{mode=~\"idle\"}[$__rate_interval]) or vector(0))\n  ) by (instance)\n* on (instance) group_left(node) (\n  label_replace(\n    max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n    \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n  )\n) or on() clamp_max(absent(node_cpu_seconds_total{node=\"offline\"}),0)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -3665,7 +3655,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -3683,7 +3672,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3718,7 +3706,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -3782,7 +3771,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "100 * ((\n  node_memory_MemTotal_bytes{job=\"node-exporter\"}\n-\n  node_memory_MemFree_bytes{job=\"node-exporter\"}\n-\n  node_memory_Buffers_bytes{job=\"node-exporter\"}\n-\n  node_memory_Cached_bytes{job=\"node-exporter\"}\n) / node_memory_MemTotal_bytes{job=\"node-exporter\"})\n* on (instance) group_left(node) (\n  label_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n) or on() clamp_max(absent(node_memory_Cached_bytes{node=\"offline\"}),0)",
+          "expr": "100 * ((\n  node_memory_MemTotal_bytes{job=\"node-exporter\"}\n-\n  node_memory_MemFree_bytes{job=\"node-exporter\"}\n-\n  node_memory_Buffers_bytes{job=\"node-exporter\"}\n-\n  node_memory_Cached_bytes{job=\"node-exporter\"}\n) / node_memory_MemTotal_bytes{job=\"node-exporter\"})\n* on (instance) group_left(node) (\n  label_replace(\n    max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n    \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n  )\n) or on() clamp_max(absent(node_memory_Cached_bytes{node=\"offline\"}),0)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{node}}",
@@ -3795,7 +3784,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -3813,7 +3801,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3844,7 +3831,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -3894,7 +3882,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "((node_filesystem_size_bytes{mountpoint=\"${mountpoint}\"} - node_filesystem_free_bytes{mountpoint=\"${mountpoint}\"}) \n / node_filesystem_size_bytes{mountpoint=\"${mountpoint}\"} * 100)\n* on (instance) group_left(node, device) (\n  label_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n) or on() clamp_max(absent(node_filesystem_size_bytes{node=\"offline\"}),0)",
+          "expr": "((node_filesystem_size_bytes{mountpoint=\"${mountpoint}\"} - node_filesystem_free_bytes{mountpoint=\"${mountpoint}\"}) \n / node_filesystem_size_bytes{mountpoint=\"${mountpoint}\"} * 100)\n* on (instance) group_left(node, device) (\n  label_replace(\n    max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n    \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n  )\n) or on() clamp_max(absent(node_filesystem_size_bytes{node=\"offline\"}),0)",
           "instant": false,
           "legendFormat": "{{node}}",
           "range": true,
@@ -3906,7 +3894,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -3924,7 +3911,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.5,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3959,7 +3945,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -4008,7 +3995,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "max(\n  rate(node_disk_io_time_seconds_total[$__rate_interval])\n) by (instance)\n* on (instance) group_left(node) (\n  label_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n) or on() clamp_max(absent(node_disk_io_time_seconds_total{node=\"offline\"}),0)",
+          "expr": "max(\n  rate(node_disk_io_time_seconds_total[$__rate_interval])\n) by (instance)\n* on (instance) group_left(node) (\n  label_replace(\n    max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n    \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n  )\n) or on() clamp_max(absent(node_disk_io_time_seconds_total{node=\"offline\"}),0)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -4022,7 +4009,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -4040,7 +4026,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4071,7 +4056,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -4121,7 +4107,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (node) ((rate(node_disk_written_bytes_total[$__rate_interval]))\n* on (instance) group_left(node) (\n  label_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n)) or on() clamp_max(absent(node_filesystem_size_bytes{node=\"offline\"}),0)",
+          "expr": "sum by (node) ((rate(node_disk_written_bytes_total[$__rate_interval]))\n* on (instance) group_left(node) (\n  label_replace(\n    max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n    \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n  )\n)) or on() clamp_max(absent(node_filesystem_size_bytes{node=\"offline\"}),0)",
           "instant": false,
           "legendFormat": "{{node}}",
           "range": true,
@@ -4133,7 +4119,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -4151,7 +4136,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4182,7 +4166,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -4232,7 +4217,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (node) ((rate(node_disk_read_bytes_total[$__rate_interval]))\n* on (instance) group_left(node) (\n  label_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n)) or on() clamp_max(absent(node_filesystem_size_bytes{node=\"offline\"}),0)",
+          "expr": "sum by (node) ((rate(node_disk_read_bytes_total[$__rate_interval]))\n* on (instance) group_left(node) (\n  label_replace(\n    max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n    \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n  )\n)) or on() clamp_max(absent(node_filesystem_size_bytes{node=\"offline\"}),0)",
           "instant": false,
           "legendFormat": "{{node}} {{device}}",
           "range": true,
@@ -4275,7 +4260,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": -1,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4309,7 +4293,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           }
@@ -4507,7 +4492,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4539,7 +4523,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -4647,7 +4632,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4679,7 +4663,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -4770,7 +4755,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -4788,7 +4772,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -4819,7 +4802,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -4903,7 +4887,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(\n    (\n        (\n            sum by (instance) (\n                rate(node_network_receive_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n            )\n            +\n            sum by (instance) (\n                rate(node_network_transmit_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n            )  \n        )\n        * on (instance) group_left(node)\n        label_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n    ) \n    * on (node) (\n        kube_node_labels{label_service_cilium_io_node=\"t1\"}\n    )\n)",
+          "expr": "sum(\n    (\n        (\n            sum by (instance) (\n                rate(node_network_receive_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n            )\n            +\n            sum by (instance) (\n                rate(node_network_transmit_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n            )  \n        )\n        * on (instance) group_left(node)\n        label_replace(\n            max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n            \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n        )\n    ) * on (node) (\n        kube_node_labels{label_service_cilium_io_node=\"t1\"}\n    )\n)",
           "instant": false,
           "legendFormat": "Total",
           "range": true,
@@ -4915,7 +4899,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(\n    (\n        (\n            sum by (instance) (\n                rate(node_network_receive_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n            )  \n        )\n        * on (instance) group_left(node)\n        label_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n    ) \n    * on (node) (\n        kube_node_labels{label_service_cilium_io_node=\"t1\"}\n    )\n)",
+          "expr": "sum(\n    (\n        (\n            sum by (instance) (\n                rate(node_network_receive_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n            )  \n        )\n        * on (instance) group_left(node)\n        label_replace(\n            max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n            \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n        )\n    ) * on (node) (\n        kube_node_labels{label_service_cilium_io_node=\"t1\"}\n    )\n)",
           "hide": false,
           "instant": false,
           "legendFormat": "Receive",
@@ -4928,7 +4912,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(\n    (\n        (\n            sum by (instance) (\n                rate(node_network_transmit_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n            )  \n        )\n        * on (instance) group_left(node)\n        label_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n    ) \n    * on (node) (\n        kube_node_labels{label_service_cilium_io_node=\"t1\"}\n    )\n)",
+          "expr": "sum(\n    (\n        (\n            sum by (instance) (\n                rate(node_network_transmit_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n            )  \n        )\n        * on (instance) group_left(node)\n        label_replace(\n            max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n            \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n        )\n    ) * on (node) (\n        kube_node_labels{label_service_cilium_io_node=\"t1\"}\n    )\n)",
           "hide": false,
           "instant": false,
           "legendFormat": "Transmit",
@@ -4941,7 +4925,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "clamp_max(absent(sum(\n    (\n        (\n            sum by (instance) (\n                rate(node_network_transmit_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n            )  \n        )\n        * on (instance) group_left(node)\n        label_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n    ) \n    * on (node) (\n        kube_node_labels{label_service_cilium_io_node=\"t1\"}\n    )\n)), 0)",
+          "expr": "clamp_max(absent(sum(\n    (\n        (\n            sum by (instance) (\n                rate(node_network_transmit_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n            )  \n        )\n        * on (instance) group_left(node)\n        label_replace(\n            max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n            \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n        )\n    ) * on (node) (\n        kube_node_labels{label_service_cilium_io_node=\"t1\"}\n    )\n)), 0)",
           "hide": false,
           "instant": false,
           "legendFormat": "Offline",
@@ -4954,7 +4938,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -4972,7 +4955,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -5003,7 +4985,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -5057,7 +5040,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(\n    (\n        sum by (instance, device) (\n            rate(node_network_receive_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n        )\n        +\n        sum by (instance, device) (\n            rate(node_network_transmit_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n        )\n        \n    )\n    * on (instance) group_left(node)\n    label_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n) or on() clamp_max(absent(node_network_receive_bytes_total{node=\"offline\"}),0)",
+          "expr": "(\n    (\n        sum by (instance, device) (\n            rate(node_network_receive_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n        )\n        +\n        sum by (instance, device) (\n            rate(node_network_transmit_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n        )\n        \n    )\n    * on (instance) group_left(node)\n    label_replace(\n        max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n        \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n    )\n) or on() clamp_max(absent(node_network_receive_bytes_total{node=\"offline\"}),0)",
           "instant": false,
           "legendFormat": "{{node}} {{device}}",
           "range": true,
@@ -5069,7 +5052,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -5087,7 +5069,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -5118,7 +5099,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -5172,7 +5154,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(\nsum by (instance, device) (\n    rate(node_network_receive_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n)\n* on (instance) group_left(node)\nlabel_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n) or on() clamp_max(absent(node_network_receive_bytes_total{node=\"offline\"}),0)",
+          "expr": "(\nsum by (instance, device) (\n    rate(node_network_receive_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n)\n* on (instance) group_left(node)\nlabel_replace(\n    max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n    \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n)\n) or on() clamp_max(absent(node_network_receive_bytes_total{node=\"offline\"}),0)",
           "instant": false,
           "legendFormat": "{{node}} {{device}}",
           "range": true,
@@ -5184,7 +5166,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -5202,7 +5183,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -5233,7 +5213,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -5287,7 +5268,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(\nsum by (instance, device) (\n    rate(node_network_transmit_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n)\n* on (instance) group_left(node)\nlabel_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n) or on() clamp_max(absent(node_network_transmit_bytes_total{node=\"offline\"}),0)",
+          "expr": "(\nsum by (instance, device) (\n    rate(node_network_transmit_bytes_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n)\n* on (instance) group_left(node)\nlabel_replace(\n    max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n    \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n)\n) or on() clamp_max(absent(node_network_transmit_bytes_total{node=\"offline\"}),0)",
           "instant": false,
           "legendFormat": "{{node}} {{device}}",
           "range": true,
@@ -5299,7 +5280,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -5317,7 +5297,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -5348,7 +5327,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -5402,7 +5382,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(\n    (\n        sum by (instance, device) (\n            rate(node_network_receive_packets_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n        )\n        +\n        sum by (instance, device) (\n            rate(node_network_transmit_packets_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n        )\n        \n    )\n    * on (instance) group_left(node)\n    label_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n) or on() clamp_max(absent(node_network_receive_packets_total{node=\"offline\"}),0)",
+          "expr": "(\n    (\n        sum by (instance, device) (\n            rate(node_network_receive_packets_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n        )\n        +\n        sum by (instance, device) (\n            rate(node_network_transmit_packets_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n        )\n        \n    )\n    * on (instance) group_left(node)\n    label_replace(\n        max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n        \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n    )\n) or on() clamp_max(absent(node_network_receive_packets_total{node=\"offline\"}),0)",
           "instant": false,
           "legendFormat": "{{node}} {{device}}",
           "range": true,
@@ -5414,7 +5394,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -5432,7 +5411,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -5463,7 +5441,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -5517,7 +5496,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(\nsum by (instance, device) (\n    rate(node_network_receive_packets_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n)\n* on (instance) group_left(node)\nlabel_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n) or on() clamp_max(absent(node_network_receive_packets_total{node=\"offline\"}),0)",
+          "expr": "(\nsum by (instance, device) (\n    rate(node_network_receive_packets_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n)\n* on (instance) group_left(node)\nlabel_replace(\n    max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n    \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n)\n) or on() clamp_max(absent(node_network_receive_packets_total{node=\"offline\"}),0)",
           "instant": false,
           "legendFormat": "{{node}} {{device}}",
           "range": true,
@@ -5529,7 +5508,6 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "prometheus",
         "uid": "prometheus"
       },
@@ -5547,7 +5525,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -5578,7 +5555,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -5632,7 +5610,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(\nsum by (instance, device) (\n    rate(node_network_transmit_packets_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n)\n* on (instance) group_left(node)\nlabel_replace(kube_node_status_addresses{node=~\".*\"}, \"instance\", \"$1:9100\", \"address\", \"(.*)\")\n) or on() clamp_max(absent(node_network_transmit_packets_total{node=\"offline\"}),0)",
+          "expr": "(\nsum by (instance, device) (\n    rate(node_network_transmit_packets_total{device!~\"(^cilium.*)|(^lo.*)|(^lxc.*)\"}[$__rate_interval])\n)\n* on (instance) group_left(node)\nlabel_replace(\n    max by (address, node) (kube_node_status_addresses{node=~\".*\", type=\"InternalIP\"}),\n    \"instance\", \"$1:9100\", \"address\", \"(.*)\"\n)\n) or on() clamp_max(absent(node_network_transmit_packets_total{node=\"offline\"}),0)",
           "instant": false,
           "legendFormat": "{{node}} {{device}}",
           "range": true,
@@ -5643,7 +5621,7 @@
       "type": "timeseries"
     }
   ],
-  "refresh": "auto",
+  "refresh": "5s",
   "schemaVersion": 39,
   "tags": [],
   "templating": {
@@ -5791,9 +5769,9 @@
       },
       {
         "current": {
-          "selected": true,
-          "text": "/var",
-          "value": "/var"
+          "selected": false,
+          "text": "/",
+          "value": "/"
         },
         "description": "Enter a valid mount point of a filesystem that represents disk usage %. For example \"/\" or \"/var\"",
         "hide": 2,
@@ -5802,11 +5780,11 @@
         "options": [
           {
             "selected": true,
-            "text": "/var",
-            "value": "/var"
+            "text": "/",
+            "value": "/"
           }
         ],
-        "query": "/var",
+        "query": "/",
         "skipUrlSync": false,
         "type": "textbox"
       }
@@ -5820,6 +5798,6 @@
   "timezone": "browser",
   "title": "Isovalent Load Balancer",
   "uid": "bf0ztvrls2mtcc",
-  "version": 1,
+  "version": 7,
   "weekStart": ""
 }
