@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/hubble/aggregation"
 	"github.com/cilium/cilium/enterprise/pkg/hubble/connectionlog"
 	"github.com/cilium/cilium/enterprise/pkg/hubble/export"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/parser"
 )
 
 var Cell = cell.Module(
@@ -25,4 +26,5 @@ var Cell = cell.Module(
 	aggregation.Cell,
 	export.Cell,
 	connectionlog.Cell,
+	parser.Cell,
 )

@@ -266,6 +266,17 @@ func newMapEntryNetTypeKey(network NetworkName, typ MapEntryType) mapEntryNetTyp
 	return mapEntryNetTypeKey(network) + indexDelimiter + mapEntryNetTypeKey(typ.String())
 }
 
+// mapEntryNetTypeKey is <network-id>|<network-ip> and is only valid for endpoints and external endpoints and intended to lookup PIPs
+type mapEntryIDNetIPKey string
+
+func (key mapEntryIDNetIPKey) Key() index.Key {
+	return index.String(string(key))
+}
+
+func newMapEntryIDNetIPKey(networkID NetworkID, netIP netip.Addr) mapEntryIDNetIPKey {
+	return mapEntryIDNetIPKey(networkID.String()) + indexDelimiter + mapEntryIDNetIPKey(netIP.String())
+}
+
 var (
 	mapEntriesTypeNetCIDRIndex = statedb.Index[*MapEntry, MapEntryKey]{
 		Name: "network-subnet-cidr",
@@ -282,6 +293,21 @@ var (
 			return index.NewKeySet(newMapEntryNetTypeKey(obj.Target.NetworkName, obj.Type).Key())
 		},
 		FromKey:    mapEntryNetTypeKey.Key,
+		FromString: index.FromString,
+		Unique:     false,
+	}
+	mapEntriesIDNetIPIndex = statedb.Index[*MapEntry, mapEntryIDNetIPKey]{
+		Name: "id-netip",
+		FromObject: func(obj *MapEntry) index.KeySet {
+			if obj.Type == MapEntryTypeEndpoint || obj.Type == MapEntryTypeExternalEndpoint {
+				return index.NewKeySet(
+					newMapEntryIDNetIPKey(obj.Target.ID.Network, obj.Target.CIDR.Addr()).Key(),
+				)
+			}
+			// This index is only relevant for (external) endpoints.
+			return index.KeySet{}
+		},
+		FromKey:    mapEntryIDNetIPKey.Key,
 		FromString: index.FromString,
 		Unique:     false,
 	}
@@ -315,11 +341,18 @@ func MapEntryByTypeNetworkSubnetCIDR(network NetworkName, subnet SubnetName, typ
 	return MapEntryByKey(newMapEntryKey(network, subnet, typ, networkCIDR))
 }
 
+// MapEntriesForEndpointsByIDNetIP queries the map entries table by network ID and network IP. It will only return
+// endpoint and external endpoint entries.
+func MapEntriesForEndpointsByIDNetIP(networkID NetworkID, netIP netip.Addr) statedb.Query[*MapEntry] {
+	return mapEntriesIDNetIPIndex.Query(newMapEntryIDNetIPKey(networkID, netIP))
+}
+
 func NewMapEntriesTable(db *statedb.DB) (statedb.RWTable[*MapEntry], error) {
 	return statedb.NewTable(
 		db,
 		"privnet-mapentries",
 		mapEntriesTypeNetCIDRIndex,
 		mapEntriesNetTypeIndex,
+		mapEntriesIDNetIPIndex,
 	)
 }
