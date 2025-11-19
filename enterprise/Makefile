@@ -15,6 +15,7 @@ generate-enterprise-api: api/v1/openapi.yaml ## Generate enterprise client, mode
 	-$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t enterprise/api/v1 \
 		-f enterprise/api/v1/openapi.yaml \
+		-C api/v1/cilium-client.yml \
 		-r enterprise/api/v1/copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/
+	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/client ./api/v1/models ./api/v1/server
