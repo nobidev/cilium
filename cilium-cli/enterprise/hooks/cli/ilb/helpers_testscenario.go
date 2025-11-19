@@ -331,6 +331,7 @@ func (r *lbTestScenario) addBackendApplications(numberOfBackends int, config bac
 			// On the single node all containers are deployed in the host
 			// netns. To avoid port collisions, we keep +1 for each instance.
 			config.listenPort++
+			config.healthCheckPort++
 			// -1 for control listen port
 			config.controlListenPort--
 		}
@@ -543,6 +544,10 @@ func (r *lbTestScenario) getBackendApplicationEnvVars(appName string, config bac
 
 	if config.listenPort != 0 {
 		env = append(env, fmt.Sprintf("LISTEN_ADDRESS=:%d", config.listenPort))
+	}
+
+	if config.healthCheckPort != 0 {
+		env = append(env, fmt.Sprintf("EXTRA_LISTEN_ADDRESSES=:%d", config.healthCheckPort))
 	}
 
 	if config.controlListenPort != 0 {

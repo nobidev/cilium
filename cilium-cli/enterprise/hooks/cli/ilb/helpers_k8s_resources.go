@@ -1457,6 +1457,12 @@ func withBackendTLS() backendPoolOption {
 	}
 }
 
+func withHealthCheckPort(port int32) backendPoolOption {
+	return func(o *isovalentv1alpha1.LBBackendPool) {
+		o.Spec.HealthCheck.Port = &port
+	}
+}
+
 func withHealthCheckTLS() backendPoolOption {
 	return func(o *isovalentv1alpha1.LBBackendPool) {
 		o.Spec.HealthCheck.TLSConfig = &isovalentv1alpha1.LBBackendTLSConfig{}
