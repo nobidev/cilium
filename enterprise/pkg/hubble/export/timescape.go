@@ -73,7 +73,7 @@ type timescapeExporterConfig struct {
 
 var defaultTimescapeExporterConfig = timescapeExporterConfig{
 	Enabled:                      false,
-	Target:                       "",
+	Target:                       "hubble-timescape-export.hubble-timescape.svc.cluster.local:4261",
 	Allowlist:                    "",
 	Denylist:                     "",
 	Fieldmask:                    []string{},
