@@ -321,6 +321,23 @@ privnet_fib_lookup6(const void *map, __u16 net_id, union v6addr addr) {
 	return map_lookup_elem(map, &key);
 }
 
+/*
+ * cilium_privnet_watchdog is used to detect when the Cilium agent is down for
+ * a prolonged period of time.
+ */
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, __u32);
+	__type(value, __u64);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, PRIVNET_WATCHDOG_MAP_SIZE);
+} cilium_privnet_watchdog __section_maps_btf;
+
+enum privnet_watchdog_index {
+	PRIVNET_WATCHDOG_LIVENESS = 0,
+	PRIVNET_WATCHDOG_TIMEOUT = 1,
+};
+
 static __always_inline bool is_privnet_route_entry(const struct privnet_fib_val *val)
 {
 	if (!val)
