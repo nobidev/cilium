@@ -8,34 +8,15 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package maps
+package privnet
 
 import (
 	"github.com/cilium/hive/cell"
-
-	cectnat "github.com/cilium/cilium/enterprise/pkg/maps/ctnat"
-	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
-	"github.com/cilium/cilium/enterprise/pkg/maps/encryptionpolicymap"
-	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
-	"github.com/cilium/cilium/enterprise/pkg/maps/privnet"
 )
 
 var Cell = cell.Module(
-	"enterprise-maps",
-	"Isovalent Enterprise for Cilium BPF Maps",
+	"private-networks-maps",
+	"Private Networks eBPF Maps",
 
-	// CT and NAT per-cluster maps.
-	cectnat.Cell,
-
-	// External endpoints policy maps.
-	extepspolicy.Cell,
-
-	// Egress Gateway HA maps
-	egressmapha.Cell,
-
-	// Encryption policy map
-	encryptionpolicymap.Cell,
-
-	// Private networks maps.
-	privnet.Cell,
+	cell.Provide(newWatchdog),
 )

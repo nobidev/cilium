@@ -492,6 +492,7 @@
 /enterprise/pkg/maps/ctnat/ @isovalent/clustermesh
 /enterprise/pkg/maps/egressmapha/ @isovalent/egress-gateway
 /enterprise/pkg/maps/encryptionpolicymap/ @isovalent/encryption
+/enterprise/pkg/maps/privnet/ @isovalent/private-networking
 /enterprise/pkg/multicast/ @isovalent/traffic-engineering
 /enterprise/pkg/multinetwork/ @isovalent/multi-network
 /enterprise/pkg/mixedrouting/ @isovalent/clustermesh
