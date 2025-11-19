@@ -18,15 +18,21 @@ FROM ${CILIUM_BPFTOOL_IMAGE} AS bpftool-dist
 FROM ${CILIUM_IPTABLES_IMAGE} AS iptables-dist
 
 RUN apt-get update
-RUN apt-get install netbase
-RUN dpkg -i *.deb
+RUN apt-get -y install wget
+RUN wget https://www.netfilter.org/projects/iptables/files/iptables-1.8.8.tar.bz2 && \
+    wget https://www.netfilter.org/projects/iptables/files/iptables-1.8.8.tar.bz2.sha256sum && \
+    sha256sum --check iptables-1.8.8.tar.bz2.sha256sum
 
 FROM ${CILIUM_RUNTIME_BASE_IMAGE}
 
 WORKDIR /go/src/github.com/cilium/cilium/enterprise/images/wolfi/runtime
 
-COPY --from=iptables-dist /sbin/xtables-legacy-multi /usr/sbin
-COPY --from=iptables-dist /sbin/xtables-nft-multi /usr/sbin
+COPY --from=iptables-dist /iptables/iptables-1.8.8.tar.bz2 /iptables/iptables-1.8.8.tar.bz2
+# Needed for iptables configure script to use gcc with no issue 
+RUN ln -s /usr/bin/gcc-11 /usr/bin/gcc
+# Installation of iptables v1.8.8
+RUN cd /iptables && tar -xvf iptables-1.8.8.tar.bz2 
+RUN cd /iptables/iptables-1.8.8 && ./configure --sbindir=/sbin && make && make install
 
 RUN --mount=type=bind,readwrite,source=./images/runtime,target=. ./iptables-wrapper-installer.sh --no-sanity-check
 RUN ln -s /run /var/run #TODO: move to apk package
