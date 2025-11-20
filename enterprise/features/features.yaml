@@ -464,7 +464,7 @@ features:
   ### IPAM
 
   IPAMMultiPool:
-    maturity: Beta
+    maturity: Limited
     description: |
       Multi Pool IPAM allows Cilium to allocate IP addresses from multiple pools of addresses
     flags:
