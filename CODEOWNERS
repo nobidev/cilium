@@ -1023,5 +1023,6 @@ Makefile* @cilium/build
 /pkg/logging/logfields/enterprise_* @isovalent/cilium-agent
 /pkg/maps/ipcache/*enterprise* @isovalent/dns-proxy
 /pkg/option/enterprise_* @isovalent/cilium-agent @isovalent/cli
+/plugins/cilium-cni/cmd/enterprise_* @isovalent/cilium-agent
 /TESTOWNERS.enterprise @isovalent/core-structure
 /vendor/ @isovalent/core-structure

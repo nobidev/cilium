@@ -25,6 +25,7 @@ import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/plugins/cilium-cni/cmd"
 )
 
@@ -290,6 +291,15 @@ func (e *endpointConfiguration) PrepareEndpoint(ipam *models.IPAMResponse) (stat
 	if e.params.Conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
 		// Prevent cilium agent from trying to release the IP when the endpoint is deleted.
 		ep.DatapathConfiguration.ExternalIpam = true
+	}
+
+	if e.params.Conf.IpamMode == ipamOption.IPAMENI {
+		ifindex, err := cmd.IfindexFromMac(ipam.IPV4.MasterMac)
+		if err == nil {
+			ep.ParentInterfaceIndex = ifindex
+		} else {
+			e.params.Log.Error("Unable to get interface index from MAC address", logfields.Error, err)
+		}
 	}
 
 	state = &cmd.CmdState{}
