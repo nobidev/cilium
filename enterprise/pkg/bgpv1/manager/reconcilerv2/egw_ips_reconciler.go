@@ -287,18 +287,18 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(desiredFamilyAdv
 				}
 
 				for egwID, egwIPs := range egwPolicyResult {
-					var v4Prefixes, v6Prefixes types.PolicyPrefixMatchList
+					var v4Prefixes, v6Prefixes types.PolicyPrefixList
 					for _, egwIP := range egwIPs {
 						switch {
 						case agentFamily.Afi == types.AfiIPv4 && egwIP.Is4():
-							v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{
+							v4Prefixes = append(v4Prefixes, types.RoutePolicyPrefix{
 								CIDR:         netip.PrefixFrom(egwIP, egwIP.BitLen()),
 								PrefixLenMin: egwIP.BitLen(),
 								PrefixLenMax: egwIP.BitLen(),
 							})
 
 						case agentFamily.Afi == types.AfiIPv6 && egwIP.Is6():
-							v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{
+							v6Prefixes = append(v6Prefixes, types.RoutePolicyPrefix{
 								CIDR:         netip.PrefixFrom(egwIP, egwIP.BitLen()),
 								PrefixLenMin: egwIP.BitLen(),
 								PrefixLenMax: egwIP.BitLen(),

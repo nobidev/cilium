@@ -45,6 +45,7 @@
     "install/kubernetes/cilium/templates/spire/**",
     "install/kubernetes/cilium/values.yaml.tmpl",
     "install/kubernetes/Makefile.values",
+    "test/k8s/manifests/netpol-cyclonus"
   ],
   "schedule": [
     "on sunday"
@@ -270,17 +271,14 @@
         "github.com/cilium/client-go",
         // We update this dependency manually together with envoy proxy updates
         "github.com/cilium/proxy",
-        // Renovate automatically downgrades this dependency from tracking the
-        // master branch to the latest release. Ignore this dependency until a
-        // v2 release is out which is tracked with the following upstream issue:
-        // https://github.com/google/go-licenses/issues/205
-        "github.com/google/go-licenses",
         // We update this dependency manually together with conformance test changes
         "sigs.k8s.io/gateway-api",
         // Stop updating envoy control plane packages until they pushed the
         // tag to stop go mod from erroring. See https://github.com/cilium/cilium/issues/41574
         "github.com/envoyproxy/go-control-plane/contrib",
-        "github.com/envoyproxy/go-control-plane/envoy"
+        "github.com/envoyproxy/go-control-plane/envoy",
+        // We can't update to helm v4 until https://github.com/helm/helm/issues/31525 is fixed
+        "helm.sh/helm/v4"
       ],
       "matchPackagePatterns": [
         // We can't update these libraries until github.com/shoenig/go-m1cpu
@@ -486,16 +484,6 @@
         "quay.io/lvh-images/kind"
       ],
       "versioning": "regex:^((?<compatibility>[a-z0-9-.]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$"
-    },
-    {
-      // Disable updates for rhel8.6 for both complexity-test and kind
-      // since new versions are making the tests to fail.
-      "enabled": false,
-      "matchPackageNames": [
-        "quay.io/lvh-images/complexity-test",
-        "quay.io/lvh-images/kind"
-      ],
-      "matchCurrentVersion": "/^rhel8\\.6-.*$/"
     },
     {
       "groupName": "stable lvh-images",

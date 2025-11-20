@@ -774,13 +774,13 @@ func (r *ServiceReconciler) getServiceRoutePolicy(p EnterpriseReconcileParams, p
 		return nil, nil
 	}
 
-	var v4Prefixes, v6Prefixes bgptypes.PolicyPrefixMatchList
+	var v4Prefixes, v6Prefixes bgptypes.PolicyPrefixList
 	for _, prefix := range svcPrefixes {
 		if family.Afi == bgptypes.AfiIPv4 && prefix.Addr().Is4() {
-			v4Prefixes = append(v4Prefixes, &bgptypes.RoutePolicyPrefixMatch{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()})
+			v4Prefixes = append(v4Prefixes, bgptypes.RoutePolicyPrefix{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()})
 		}
 		if family.Afi == bgptypes.AfiIPv6 && prefix.Addr().Is6() {
-			v6Prefixes = append(v6Prefixes, &bgptypes.RoutePolicyPrefixMatch{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()})
+			v6Prefixes = append(v6Prefixes, bgptypes.RoutePolicyPrefix{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()})
 		}
 	}
 	if len(v4Prefixes) == 0 && len(v6Prefixes) == 0 {

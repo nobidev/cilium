@@ -188,6 +188,7 @@ cilium-agent [flags]
       --enable-nat46x64-gateway                                          Enable NAT46 and NAT64 gateway
       --enable-no-service-endpoints-routable                             Enable routes when service has 0 endpoints (default true)
       --enable-node-selector-labels                                      Enable use of node label based identity
+      --enable-packetization-layer-pmtud                                 Enables kernel packetization layer path mtu discovery on Pod netns (default true)
       --enable-phantom-services                                          Enable phantom services handling (default true)
       --enable-pmtu-discovery                                            Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                             Enable policy enforcement (default "default")
@@ -205,6 +206,7 @@ cilium-agent [flags]
       --enable-wireguard                                                 Enable WireGuard
       --enable-xdp-prefilter                                             Enable XDP prefiltering
       --enable-xt-socket-fallback                                        Enable fallback for missing xt_socket module (default true)
+      --enable-ztunnel                                                   Use zTunnel as Cilium's encryption infrastructure
       --encrypt-interface string                                         Transparent encryption interface
       --encrypt-node                                                     Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard, beta)
       --encryption-policy-map-max int                                    Maximum number of entries in encryption policy map (default 16384)
@@ -264,18 +266,22 @@ cilium-agent [flags]
       --hubble-connectionlog-export-interval duration                    Interval at which the ConnectionLog events are collected and written. (default 10s)
       --hubble-disable-tls                                               Allow Hubble server to run on the given listen address without TLS. (default true)
       --hubble-drop-events                                               Emit packet drop Events related to pods (alpha)
+      --hubble-drop-events-extended                                      Include L4 network policies in drop event message
       --hubble-drop-events-interval duration                             Minimum time between emitting same events (default 2m0s)
+      --hubble-drop-events-rate-limit int                                Rate limit for the drop event emitter in events per second (0 for no rate limit) (default 1)
       --hubble-drop-events-reasons strings                               Drop reasons to emit events for (default [auth_required,policy_denied])
       --hubble-dynamic-metrics-config-path string                        Filepath with dynamic configuration of hubble metrics.
       --hubble-event-buffer-capacity int                                 Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                                      Buffer size of the channel to receive monitor events.
       --hubble-export-aggregation strings                                Perform aggregation pre-storage ('connection', 'identity')
       --hubble-export-aggregation-ignore-source-port                     Ignore source port during aggregation (default true)
+      --hubble-export-aggregation-interval duration                      Interval at which to aggregate before exporting Hubble flows. 0s disables aggregation.
       --hubble-export-aggregation-renew-ttl                              Renew flow TTL when a new flow is observed (default true)
       --hubble-export-aggregation-state-filter strings                   The state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed') (default [new,error,closed])
       --hubble-export-aggregation-ttl duration                           TTL for flow aggregation (default 30s)
       --hubble-export-allowlist string                                   Specify allowlist as JSON encoded FlowFilters to Hubble exporter.
       --hubble-export-denylist string                                    Specify denylist as JSON encoded FlowFilters to Hubble exporter.
+      --hubble-export-fieldaggregate strings                             Specify list of fields to use for aggregation in Hubble exporter. Empty list disables aggregation.
       --hubble-export-fieldmask strings                                  Specify list of fields to use for field mask in Hubble exporter.
       --hubble-export-file-compress                                      Compress rotated Hubble export files.
       --hubble-export-file-max-backups int                               Number of rotated Hubble export files to keep. (default 5)

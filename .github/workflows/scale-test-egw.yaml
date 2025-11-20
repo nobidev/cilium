@@ -71,18 +71,18 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.25.3
+  go_version: 1.25.4
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.216.0
+  eksctl_version: v0.217.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.34.1
+  kubectl_version: v1.34.2
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 545.0.0
+  gcloud_version: 547.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 28ad818b04552e1252899f22a91fb0938ae94c75
+  egw_utils_ref: 20b75310de0f5b0dc4016163187415afc79b1dcd
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -504,13 +504,14 @@ jobs:
           sudo chmod +r cilium-sysdump-final.zip
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "final-${{ matrix.test_type }}"
           job_status: "${{ job.status }}"
           junits-directory: 'report'
           capture_sysdump: 'false'
+          capture_features_tested: ${{ steps.run-cl2.outcome != 'skipped' }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}

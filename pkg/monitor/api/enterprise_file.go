@@ -10,6 +10,8 @@
 
 package api
 
+import "maps"
+
 func init() {
 	var enterpriseSourceFileNames = map[uint8]string{
 		// @@ source files list begin
@@ -27,7 +29,5 @@ func init() {
 		// @@ source files list end
 	}
 
-	for k, v := range enterpriseSourceFileNames {
-		files[k] = v
-	}
+	maps.Copy(files, enterpriseSourceFileNames)
 }

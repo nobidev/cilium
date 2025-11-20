@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -24,6 +25,14 @@ import (
 // PolicyContext is an interface policy resolution functions use to access the Repository.
 // This way testing code can run without mocking a full Repository.
 type PolicyContext interface {
+	// IsIngress returns 'true' if processing ingress rules, 'false' for egress.
+	IsIngress() bool
+	SetIngress(bool)
+
+	// AllowLocalhost returns true if policy should allow ingress from local host.
+	// Always returns false for egress.
+	AllowLocalhost() bool
+
 	// return the namespace in which the policy rule is being resolved
 	GetNamespace() string
 
@@ -69,6 +78,8 @@ type PolicyContext interface {
 type policyContext struct {
 	repo *Repository
 	ns   string
+	// isIngress is set to true for ingress rule processing, false for egress
+	isIngress bool
 	// isDeny this field is set to true if the given policy computation should
 	// be done for the policy deny.
 	isDeny             bool
@@ -82,6 +93,19 @@ type policyContext struct {
 }
 
 var _ PolicyContext = &policyContext{}
+
+// IsIngress returns 'true' if processing ingress rules, 'false' for egress.
+func (p *policyContext) IsIngress() bool {
+	return p.isIngress
+}
+
+func (p *policyContext) SetIngress(ingress bool) {
+	p.isIngress = ingress
+}
+
+func (p *policyContext) AllowLocalhost() bool {
+	return p.isIngress && option.Config.AlwaysAllowLocalhost()
+}
 
 // GetNamespace() returns the namespace for the policy rule being resolved
 func (p *policyContext) GetNamespace() string {

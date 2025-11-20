@@ -400,7 +400,10 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 				Statements: []*types.RoutePolicyStatement{
 					{
 						Conditions: types.RoutePolicyConditions{
-							MatchNeighbors: routeReflectors,
+							MatchNeighbors: &types.RoutePolicyNeighborMatch{
+								Type:      types.RoutePolicyMatchAny,
+								Neighbors: routeReflectors,
+							},
 						},
 						Actions: types.RoutePolicyActions{
 							RouteAction: types.RoutePolicyActionAccept,
@@ -419,7 +422,10 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 				Statements: []*types.RoutePolicyStatement{
 					{
 						Conditions: types.RoutePolicyConditions{
-							MatchNeighbors: clients,
+							MatchNeighbors: &types.RoutePolicyNeighborMatch{
+								Type:      types.RoutePolicyMatchAny,
+								Neighbors: clients,
+							},
 						},
 						Actions: types.RoutePolicyActions{
 							RouteAction: types.RoutePolicyActionAccept,
@@ -449,7 +455,10 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 				policy.Statements = append(policy.Statements,
 					&types.RoutePolicyStatement{
 						Conditions: types.RoutePolicyConditions{
-							MatchNeighbors: eBGPPeers,
+							MatchNeighbors: &types.RoutePolicyNeighborMatch{
+								Type:      types.RoutePolicyMatchAny,
+								Neighbors: eBGPPeers,
+							},
 						},
 						Actions: types.RoutePolicyActions{
 							RouteAction: types.RoutePolicyActionAccept,
@@ -484,7 +493,10 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 				Statements: []*types.RoutePolicyStatement{
 					{
 						Conditions: types.RoutePolicyConditions{
-							MatchNeighbors: routeReflectors,
+							MatchNeighbors: &types.RoutePolicyNeighborMatch{
+								Type:      types.RoutePolicyMatchAny,
+								Neighbors: routeReflectors,
+							},
 						},
 						Actions: types.RoutePolicyActions{
 							RouteAction: types.RoutePolicyActionAccept,

@@ -211,7 +211,10 @@ func acceptRoutePolicy(policyType types.RoutePolicyType, name string, peerAddr n
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []netip.Addr{peerAddr},
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Type:      types.RoutePolicyMatchAny,
+						Neighbors: []netip.Addr{peerAddr},
+					},
 					MatchFamilies: []types.Family{
 						{
 							Afi:  types.AfiIPv4,

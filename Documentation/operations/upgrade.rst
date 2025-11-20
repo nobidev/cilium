@@ -334,8 +334,13 @@ communicating via the proxy must reconnect to re-establish connections.
   makes it compatible by default with the Helm ``--wait`` option or through ArgoCD.
   You are no longer expected to create a Job manually or as part of your own
   automation when bootstrapping your clusters.
+* Adding ClusterMesh certificates and keys in Helm values is deprecated.
+  You are now expected to pre-create those secrets outside of the Cilium Helm chart
+  when setting ``clustermesh.apiserver.tls.auto.enabled=false``.
 * Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel
   (previously this was a RHEL8.6-compatible kernel).
+* The previously deprecated ``FromRequires`` and ``ToRequires`` fields of the `CiliumNetworkPolicy` and `CiliumClusterwideNetworkPolicy` CRDs have been removed.
+* This release introduces enabling packet layer path MTU discovery by default on CNI Pod endpoints, this is controlled via the ``enable-endpoint-packet-layer-pmtud`` flag.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -350,6 +355,11 @@ Removed Options
 * The previously deprecated custom calls feature (``--enable-custom-calls``) has been removed.
 * The previously deprecated ``--enable-ipv4-egress-gateway`` flag has been removed. To enable the
   corresponding features, users must set ``--enable-egress-gateway=true``.
+* The previously deprecated ``--egress-multi-home-ip-rule-compat`` flag has been removed. If you are running ENI IPAM
+  mode and had this flag explicitly set to ``true``, please unset it and let Cilium v1.18 migrate your rules prior
+  to the upgrade to Cilium v1.19. Azure IPAM users are unaffected by this change, as Cilium continues to use
+  old-style IP rules with Azure IPAM.
+
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~

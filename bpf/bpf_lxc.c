@@ -56,6 +56,7 @@
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
 #include "lib/vtep.h"
+#include "lib/subnet.h"
 
 #include "enterprise_bpf_lxc.h"
 
@@ -480,11 +481,20 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 */
 	if (1) {
 		const union v6addr *daddr = (union v6addr *)&ip6->daddr;
+		bool same_subnet_id = false;
+
+		if (CONFIG(hybrid_routing_enabled)) {
+			const union v6addr *saddr = (union v6addr *)&ip6->saddr;
+			__u32 src_subnet_id = lookup_ip6_subnet_id(saddr);
+			__u32 dst_subnet_id = lookup_ip6_subnet_id(daddr);
+
+			same_subnet_id = (src_subnet_id == dst_subnet_id) && (src_subnet_id != 0);
+		}
 
 		info = lookup_ip6_remote_endpoint(daddr, 0);
 		if (info) {
 			*dst_sec_identity = info->sec_identity;
-			skip_tunnel = info->flag_skip_tunnel;
+			skip_tunnel = (info->flag_skip_tunnel) || same_subnet_id;
 		} else {
 			*dst_sec_identity = WORLD_IPV6_ID;
 		}
@@ -679,6 +689,7 @@ ct_recreate6:
 	 * enabled, jump to the bpf_host program to enforce ingress host policies.
 	 */
 	if (*dst_sec_identity == HOST_ID) {
+		ctx_store_meta(ctx, CB_SRC_LABEL, SECLABEL_IPV6);
 		ctx_store_meta(ctx, CB_FROM_HOST, 0);
 		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
 
@@ -922,11 +933,20 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	hairpin_flow = ct_state_new.loopback;
 #endif /* ENABLE_PER_PACKET_LB */
 
+	bool same_subnet_id = false;
+
+	if (CONFIG(hybrid_routing_enabled)) {
+		__u32 src_subnet_id = lookup_ip4_subnet_id(ip4->saddr);
+		__u32 dst_subnet_id = lookup_ip4_subnet_id(ip4->daddr);
+
+		same_subnet_id = (src_subnet_id == dst_subnet_id) && (src_subnet_id != 0);
+	}
+
 	/* Determine the destination category for policy fallback. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
 	if (info) {
 		*dst_sec_identity = info->sec_identity;
-		skip_tunnel = info->flag_skip_tunnel;
+		skip_tunnel = (info->flag_skip_tunnel) || same_subnet_id;
 	} else {
 		*dst_sec_identity = WORLD_IPV4_ID;
 	}
@@ -1151,6 +1171,7 @@ ct_recreate4:
 	 * program may not yet be present at this time.
 	 */
 	if (*dst_sec_identity == HOST_ID) {
+		ctx_store_meta(ctx, CB_SRC_LABEL, SECLABEL_IPV4);
 		ctx_store_meta(ctx, CB_FROM_HOST, 0);
 		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
 

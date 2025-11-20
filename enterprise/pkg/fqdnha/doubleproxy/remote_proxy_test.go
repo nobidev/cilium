@@ -63,6 +63,10 @@ func (r *mockRestorer) Await(context.Context) (endpointstate.Restorer, error) {
 	return r, nil
 }
 
+func (r *mockRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
+	return nil
+}
+
 func (r *mockRestorer) WaitForEndpointRestore(ctx context.Context) error {
 	select {
 	case <-ctx.Done():

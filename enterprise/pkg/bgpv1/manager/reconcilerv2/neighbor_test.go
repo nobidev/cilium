@@ -492,9 +492,12 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []netip.Addr{
-									netip.MustParseAddr("10.0.0.1"),
-									netip.MustParseAddr("10.0.0.2"),
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type: types.RoutePolicyMatchAny,
+									Neighbors: []netip.Addr{
+										netip.MustParseAddr("10.0.0.1"),
+										netip.MustParseAddr("10.0.0.2"),
+									},
 								},
 							},
 							Actions: types.RoutePolicyActions{
@@ -545,9 +548,12 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []netip.Addr{
-									netip.MustParseAddr("10.0.0.1"),
-									netip.MustParseAddr("10.0.0.2"),
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type: types.RoutePolicyMatchAny,
+									Neighbors: []netip.Addr{
+										netip.MustParseAddr("10.0.0.1"),
+										netip.MustParseAddr("10.0.0.2"),
+									},
 								},
 							},
 							Actions: types.RoutePolicyActions{
@@ -610,9 +616,12 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []netip.Addr{
-									netip.MustParseAddr("10.0.0.1"),
-									netip.MustParseAddr("10.0.0.2"),
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type: types.RoutePolicyMatchAny,
+									Neighbors: []netip.Addr{
+										netip.MustParseAddr("10.0.0.1"),
+										netip.MustParseAddr("10.0.0.2"),
+									},
 								},
 							},
 							Actions: types.RoutePolicyActions{
@@ -627,9 +636,12 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []netip.Addr{
-									netip.MustParseAddr("10.0.0.3"),
-									netip.MustParseAddr("10.0.0.4"),
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type: types.RoutePolicyMatchAny,
+									Neighbors: []netip.Addr{
+										netip.MustParseAddr("10.0.0.3"),
+										netip.MustParseAddr("10.0.0.4"),
+									},
 								},
 							},
 							Actions: types.RoutePolicyActions{
@@ -680,9 +692,12 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []netip.Addr{
-									netip.MustParseAddr("10.0.0.1"),
-									netip.MustParseAddr("10.0.0.2"),
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type: types.RoutePolicyMatchAny,
+									Neighbors: []netip.Addr{
+										netip.MustParseAddr("10.0.0.1"),
+										netip.MustParseAddr("10.0.0.2"),
+									},
 								},
 							},
 							Actions: types.RoutePolicyActions{
@@ -721,8 +736,11 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []netip.Addr{
-									netip.MustParseAddr("10.0.0.1"),
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type: types.RoutePolicyMatchAny,
+									Neighbors: []netip.Addr{
+										netip.MustParseAddr("10.0.0.1"),
+									},
 								},
 							},
 							Actions: types.RoutePolicyActions{
@@ -737,8 +755,11 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []netip.Addr{
-									netip.MustParseAddr("10.0.0.2"),
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type: types.RoutePolicyMatchAny,
+									Neighbors: []netip.Addr{
+										netip.MustParseAddr("10.0.0.2"),
+									},
 								},
 							},
 							Actions: types.RoutePolicyActions{
@@ -1009,12 +1030,18 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.0.0.1")},
-								MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-									{
-										CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
-										PrefixLenMax: 16,
-										PrefixLenMin: 8,
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type:      types.RoutePolicyMatchAny,
+									Neighbors: []netip.Addr{netip.MustParseAddr("10.0.0.1")},
+								},
+								MatchPrefixes: &types.RoutePolicyPrefixMatch{
+									Type: types.RoutePolicyMatchAny,
+									Prefixes: []types.RoutePolicyPrefix{
+										{
+											CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
+											PrefixLenMax: 16,
+											PrefixLenMin: 8,
+										},
 									},
 								},
 								MatchFamilies: []types.Family{
@@ -1048,12 +1075,18 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
-								MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-									{
-										CIDR:         netip.MustParsePrefix("fd00::/64"),
-										PrefixLenMax: 32,
-										PrefixLenMin: 16,
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type:      types.RoutePolicyMatchAny,
+									Neighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
+								},
+								MatchPrefixes: &types.RoutePolicyPrefixMatch{
+									Type: types.RoutePolicyMatchAny,
+									Prefixes: []types.RoutePolicyPrefix{
+										{
+											CIDR:         netip.MustParsePrefix("fd00::/64"),
+											PrefixLenMax: 32,
+											PrefixLenMin: 16,
+										},
 									},
 								},
 								MatchFamilies: []types.Family{
@@ -1087,12 +1120,18 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
-								MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-									{
-										CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
-										PrefixLenMax: 16,
-										PrefixLenMin: 8,
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type:      types.RoutePolicyMatchAny,
+									Neighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
+								},
+								MatchPrefixes: &types.RoutePolicyPrefixMatch{
+									Type: types.RoutePolicyMatchAny,
+									Prefixes: []types.RoutePolicyPrefix{
+										{
+											CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
+											PrefixLenMax: 16,
+											PrefixLenMin: 8,
+										},
 									},
 								},
 								MatchFamilies: []types.Family{
@@ -1114,12 +1153,18 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
-								MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-									{
-										CIDR:         netip.MustParsePrefix("fd00::/64"),
-										PrefixLenMax: 32,
-										PrefixLenMin: 16,
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type:      types.RoutePolicyMatchAny,
+									Neighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
+								},
+								MatchPrefixes: &types.RoutePolicyPrefixMatch{
+									Type: types.RoutePolicyMatchAny,
+									Prefixes: []types.RoutePolicyPrefix{
+										{
+											CIDR:         netip.MustParsePrefix("fd00::/64"),
+											PrefixLenMax: 32,
+											PrefixLenMin: 16,
+										},
 									},
 								},
 								MatchFamilies: []types.Family{
@@ -1153,12 +1198,18 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
-								MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-									{
-										CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
-										PrefixLenMax: 16,
-										PrefixLenMin: 8,
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type:      types.RoutePolicyMatchAny,
+									Neighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
+								},
+								MatchPrefixes: &types.RoutePolicyPrefixMatch{
+									Type: types.RoutePolicyMatchAny,
+									Prefixes: []types.RoutePolicyPrefix{
+										{
+											CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
+											PrefixLenMax: 16,
+											PrefixLenMin: 8,
+										},
 									},
 								},
 								MatchFamilies: []types.Family{

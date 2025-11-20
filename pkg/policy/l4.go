@@ -943,12 +943,11 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
-func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto, ingress bool,
-) (*L4Filter, error) {
+func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 	logger := policyCtx.GetLogger()
 	origin := policyCtx.Origin()
+	ingress := policyCtx.IsIngress()
 
 	portName := ""
 	p := uint64(0)
@@ -961,13 +960,13 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 
 	// already validated via L4Proto.Validate(), never "ANY"
 	// NOTE: "ANY" for wildcarded port/proto!
-	u8p, _ := u8proto.ParseProtocol(string(protocol))
+	u8p, _ := u8proto.ParseProtocol(string(port.Protocol))
 
 	l4 := &L4Filter{
 		Port:                uint16(p),            // 0 for L3-only rules and named ports
 		EndPort:             uint16(port.EndPort), // 0 for a single port, >= 'Port' for a range
 		PortName:            portName,             // non-"" for named ports
-		Protocol:            protocol,
+		Protocol:            port.Protocol,
 		U8Proto:             u8p,
 		PerSelectorPolicies: make(L7DataMap),
 		RuleOrigin:          make(map[CachedSelector]ruleOrigin), // Filled in below.
@@ -1019,7 +1018,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 			// we need this to redirect DNS UDP (or ANY, which is more useful)
 			if len(rules.DNS) > 0 {
 				l7Parser = ParserTypeDNS
-			} else if protocol == api.ProtoTCP { // Other than DNS only support TCP
+			} else if port.Protocol == api.ProtoTCP { // Other than DNS only support TCP
 				switch {
 				case len(rules.HTTP) > 0:
 					l7Parser = ParserTypeHTTP
@@ -1116,10 +1115,34 @@ func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 // attach signifies that the L4Filter is ready and reacheable for updates
 // from SelectorCache. L4Filter (and L4Policy) is read-only after this is called,
 // multiple goroutines will be reading the fields from that point on.
-func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures {
+func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeatures, redirectTypes) {
+	var redirectTypes redirectTypes
 	var features policyFeatures
+
+	allowLocalhost := ctx.AllowLocalhost()
+
+	// Daemon options may induce L3 ingress allows for host. If a filter would apply
+	// proxy redirection for the Host, when we should accept everything from host, then
+	// wildcard Host at L7 (which is taken care of at the mapstate level).
+
 	for cs, sp := range l4.PerSelectorPolicies {
 		if sp != nil {
+			// Allow localhost if requested and this is a redirect that selects the host
+			//
+			// Identities with a reserved:host label are never changed incrementally, so
+			// it is correct to use the latest version here. In case the host identity
+			// is mutated, the whole policy is recomputed.
+			if allowLocalhost && sp.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
+				host := api.ReservedEndpointSelectors[labels.IDNameHost]
+				// Add the cached host selector to the PerSelectorPolicies, if not
+				// already there. Use empty string labels due to this selector being
+				// added due to agent config rather than any specific rule.
+				l4.cacheIdentitySelector(host, EmptyStringLabels, ctx.GetSelectorCache())
+			}
+
+			// collect redirect types (if any)
+			redirectTypes |= sp.redirectType()
+
 			if sp.L7Parser != "" {
 				features.setFeature(redirectRules)
 			}
@@ -1153,48 +1176,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures
 	}
 
 	l4.policy.Store(l4Policy)
-	return features
-}
-
-// createL4IngressFilter creates a filter for L4 policy that applies to the
-// specified endpoints and port/protocol for ingress traffic, with reference
-// to the original rules that the filter is derived from. This filter may be
-// associated with a series of L7 rules via the `rule` parameter.
-//
-// hostWildcardL7 determines if L7 traffic from Host should be
-// wildcarded (in the relevant daemon mode).
-func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints types.PeerSelectorSlice, auth *api.Authentication, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto,
-) (*L4Filter, error) {
-	filter, err := createL4Filter(policyCtx, fromEndpoints, auth, rule, port, protocol, true)
-	if err != nil {
-		return nil, err
-	}
-
-	// If the filter would apply proxy redirection for the Host, when we should accept
-	// everything from host, then wildcard Host at L7.
-	if len(hostWildcardL7) > 0 {
-		for cs, l7 := range filter.PerSelectorPolicies {
-			if l7.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
-				for _, name := range hostWildcardL7 {
-					selector := api.ReservedEndpointSelectors[name]
-					filter.cacheIdentitySelector(selector, policyCtx.Origin().stringLabels(), policyCtx.GetSelectorCache())
-				}
-			}
-		}
-	}
-
-	return filter, nil
-}
-
-// createL4EgressFilter creates a filter for L4 policy that applies to the
-// specified endpoints and port/protocol for egress traffic, with reference
-// to the original rules that the filter is derived from. This filter may be
-// associated with a series of L7 rules via the `rule` parameter.
-func createL4EgressFilter(policyCtx PolicyContext, toEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto,
-) (*L4Filter, error) {
-	return createL4Filter(policyCtx, toEndpoints, auth, rule, port, protocol, false)
+	return features, redirectTypes
 }
 
 // redirectType returns the redirectType for this filter
@@ -1233,52 +1215,25 @@ func (l4 *L4Filter) String() string {
 	return string(b)
 }
 
-// Note: Only used for policy tracing
-func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) (bool, bool) {
-	if l4.wildcard != nil {
-		perSelectorPolicy := l4.PerSelectorPolicies[l4.wildcard]
-		isDeny := perSelectorPolicy.GetDeny()
-		return true, isDeny
-	} else if len(labels) == 0 {
-		return false, false
-	}
-
-	var selected bool
-	for sel, rule := range l4.PerSelectorPolicies {
-		// slow, but OK for tracing
-		idSel := sel.(*identitySelector)
-		if lis, ok := idSel.source.(*labelIdentitySelector); ok && lis.xxxMatches(labels) {
-			selected = true
-			if rule.GetDeny() {
-				return true, true
-			}
-		}
-	}
-	return selected, false
-}
-
 // addL4Filter adds 'filterToMerge' into the 'resMap'. Returns an error if it
 // the 'filterToMerge' can't be merged with an existing filter for the same
 // port and proto.
-func addL4Filter(policyCtx PolicyContext,
-	resMap L4PolicyMap,
-	p api.PortProtocol, proto api.L4Proto,
-	filterToMerge *L4Filter,
+func (resMap *l4PolicyMap) addL4Filter(policyCtx PolicyContext,
+	p api.PortProtocol, filterToMerge *L4Filter,
 ) error {
-	existingFilter := resMap.ExactLookup(p.Port, uint16(p.EndPort), string(proto))
+	existingFilter := resMap.ExactLookup(p.Port, uint16(p.EndPort), string(p.Protocol))
 	if existingFilter == nil {
-		resMap.Upsert(p.Port, uint16(p.EndPort), string(proto), filterToMerge)
+		resMap.Upsert(p.Port, uint16(p.EndPort), string(p.Protocol), filterToMerge)
 		return nil
 	}
 
-	selectorCache := policyCtx.GetSelectorCache()
-	if err := mergePortProto(policyCtx, existingFilter, filterToMerge, selectorCache); err != nil {
-		filterToMerge.detach(selectorCache)
+	if err := existingFilter.mergePortProto(policyCtx, filterToMerge); err != nil {
+		filterToMerge.detach(policyCtx.GetSelectorCache())
 		return err
 	}
 
-	// To keep the rule origin tracking correct, merge the rule label arrays for each CachedSelector
-	// we know about. New CachedSelectors are added.
+	// To keep the rule origin tracking correct, merge the rule label arrays for each
+	// CachedSelector we know about. New CachedSelectors are added.
 	for cs, newLabels := range filterToMerge.RuleOrigin {
 		if existingLabels, ok := existingFilter.RuleOrigin[cs]; ok {
 			existingFilter.RuleOrigin[cs] = existingLabels.Merge(newLabels)
@@ -1287,7 +1242,7 @@ func addL4Filter(policyCtx PolicyContext,
 		}
 	}
 
-	resMap.Upsert(p.Port, uint16(p.EndPort), string(proto), existingFilter)
+	resMap.Upsert(p.Port, uint16(p.EndPort), string(p.Protocol), existingFilter)
 	return nil
 }
 
@@ -1296,14 +1251,13 @@ type L4PolicyMap interface {
 	Upsert(port string, endPort uint16, protocol string, l4 *L4Filter)
 	Delete(port string, endPort uint16, protocol string)
 	ExactLookup(port string, endPort uint16, protocol string) *L4Filter
-	MatchesLabels(port, protocol string, labels labels.LabelArray) (match, isDeny bool)
 	Detach(selectorCache *SelectorCache)
 	ForEach(func(l4 *L4Filter) bool)
 	Len() int
 }
 
 // NewL4PolicyMap creates an new L4PolicMap.
-func NewL4PolicyMap() L4PolicyMap {
+func NewL4PolicyMap() *l4PolicyMap {
 	return &l4PolicyMap{
 		NamedPortMap:   make(map[string]*L4Filter),
 		RangePortMap:   make(map[portProtoKey]*L4Filter),
@@ -1443,37 +1397,6 @@ func (l4M *l4PolicyMap) ExactLookup(port string, endPort uint16, protocol string
 	return l4M.RangePortMap[ppK]
 }
 
-// MatchesLabels checks if a given port, protocol, and labels matches
-// any Rule in the L4PolicyMap.
-func (l4M *l4PolicyMap) MatchesLabels(port, protocol string, labels labels.LabelArray) (match, isDeny bool) {
-	if iana.IsSvcName(port) {
-		l4 := l4M.NamedPortMap[port+"/"+protocol]
-		if l4 != nil {
-			return l4.matchesLabels(labels)
-		}
-		return
-	}
-
-	portU, protoU := parsePortProtocol(port, protocol)
-	l4PortProtoKeys := make(map[portProtoKey]struct{})
-	l4M.RangePortIndex.Ancestors(32, makePolicyMapKey(portU, 0xffff, protoU),
-		func(_ uint, _ uint32, portProtoSet map[portProtoKey]struct{}) bool {
-			for k := range portProtoSet {
-				v, ok := l4M.RangePortMap[k]
-				if ok {
-					if _, ok := l4PortProtoKeys[k]; !ok {
-						match, isDeny = v.matchesLabels(labels)
-						if isDeny {
-							return false
-						}
-					}
-				}
-			}
-			return true
-		})
-	return
-}
-
 // ForEach iterates over all L4Filters in the l4PolicyMap.
 func (l4M *l4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
 	for _, f := range l4M.NamedPortMap {
@@ -1548,11 +1471,11 @@ func (l4M *l4PolicyMap) Detach(selectorCache *SelectorCache) {
 func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redirectTypes {
 	var redirectTypes redirectTypes
 	var features policyFeatures
+
 	l4.PortRules.ForEach(func(f *L4Filter) bool {
-		features |= f.attach(ctx, l4Policy)
-		for _, sp := range f.PerSelectorPolicies {
-			redirectTypes |= sp.redirectType()
-		}
+		feat, redir := f.attach(ctx, l4Policy)
+		features |= feat
+		redirectTypes |= redir
 		return true
 	})
 	l4.features = features
@@ -1782,6 +1705,7 @@ func (l4 *L4Policy) HasProxylibRedirect() bool {
 	return l4 != nil && l4.redirectTypes&redirectTypeProxylib == redirectTypeProxylib
 }
 
+// GetModel returns the API model of the L4 policy.
 func (l4 *L4Policy) GetModel() *models.L4Policy {
 	if l4 == nil {
 		return nil
@@ -1814,6 +1738,44 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 		}
 		egress = append(egress, &models.PolicyRule{
 			Rule:             v.Marshal(),
+			DerivedFromRules: derivedFrom.GetModel(),
+		})
+		return true
+	})
+
+	return &models.L4Policy{
+		Ingress: ingress,
+		Egress:  egress,
+	}
+}
+
+// GetRuleOriginModel returns the API model of the L4 policy with the rule origins only.
+func (l4 *L4Policy) GetRuleOriginModel() *models.L4Policy {
+	if l4 == nil {
+		return nil
+	}
+
+	ingress := []*models.PolicyRule{}
+	l4.Ingress.PortRules.ForEach(func(v *L4Filter) bool {
+		derivedFrom := labels.LabelArrayList{}
+		for _, rules := range v.RuleOrigin {
+			lal := rules.GetLabelArrayList()
+			derivedFrom.MergeSorted(lal)
+		}
+		ingress = append(ingress, &models.PolicyRule{
+			DerivedFromRules: derivedFrom.GetModel(),
+		})
+		return true
+	})
+
+	egress := []*models.PolicyRule{}
+	l4.Egress.PortRules.ForEach(func(v *L4Filter) bool {
+		derivedFrom := labels.LabelArrayList{}
+		for _, rules := range v.RuleOrigin {
+			lal := rules.GetLabelArrayList()
+			derivedFrom.MergeSorted(lal)
+		}
+		egress = append(egress, &models.PolicyRule{
 			DerivedFromRules: derivedFrom.GetModel(),
 		})
 		return true
