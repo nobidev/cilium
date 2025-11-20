@@ -70,6 +70,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/neighbordiscovery"
+	nodesync "github.com/cilium/cilium/pkg/node/sync"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	policy "github.com/cilium/cilium/pkg/policy/cell"
@@ -81,6 +82,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
+	"github.com/cilium/cilium/pkg/ztunnel"
 )
 
 var (
@@ -176,12 +178,7 @@ var (
 		// LocalNodeStore holds onto the information about the local node and allows
 		// observing changes to it.
 		node.LocalNodeStoreCell,
-
-		// Provide a newLocalNodeSynchronizer that is invoked when LocalNodeStore is started.
-		// This fills in the initial state before it is accessed by other sub-systems.
-		// Then, it takes care of keeping selected fields (e.g., labels, annotations)
-		// synchronized with the corresponding kubernetes object.
-		cell.Provide(newLocalNodeSynchronizer),
+		nodesync.LocalNodeSyncCell,
 
 		// Controller provides flags and configuration related
 		// to Controller management, concurrent control loops
@@ -348,6 +345,9 @@ var (
 		debugapi.Cell,
 
 		svcrouteconfig.Cell,
+
+		// Instantiates an xDS server used for zTunnel integration.
+		ztunnel.Cell,
 	)
 )
 

@@ -22,13 +22,13 @@ import (
 func Test_MergePolicies(t *testing.T) {
 	neighbor1 := []netip.Addr{netip.MustParseAddr("192.168.1.1")}
 
-	v4PrefixAExact1 := &types.RoutePolicyPrefixMatch{
+	v4PrefixAExact1 := types.RoutePolicyPrefix{
 		CIDR:         netip.MustParsePrefix("10.100.1.1/32"),
 		PrefixLenMin: 32,
 		PrefixLenMax: 32,
 	}
 
-	v4PrefixALen24 := &types.RoutePolicyPrefixMatch{
+	v4PrefixALen24 := types.RoutePolicyPrefix{
 		CIDR:         netip.MustParsePrefix("10.100.1.0/24"),
 		PrefixLenMin: 24,
 		PrefixLenMax: 24,
@@ -40,15 +40,27 @@ func Test_MergePolicies(t *testing.T) {
 	}
 
 	condition1 := types.RoutePolicyConditions{
-		MatchNeighbors: neighbor1,
-		MatchPrefixes:  []*types.RoutePolicyPrefixMatch{v4PrefixAExact1},
-		MatchFamilies:  []types.Family{ipv4UnicastFamily},
+		MatchNeighbors: &types.RoutePolicyNeighborMatch{
+			Type:      types.RoutePolicyMatchAny,
+			Neighbors: neighbor1,
+		},
+		MatchPrefixes: &types.RoutePolicyPrefixMatch{
+			Type:     types.RoutePolicyMatchAny,
+			Prefixes: []types.RoutePolicyPrefix{v4PrefixAExact1},
+		},
+		MatchFamilies: []types.Family{ipv4UnicastFamily},
 	}
 
 	condition2 := types.RoutePolicyConditions{
-		MatchNeighbors: neighbor1,
-		MatchPrefixes:  []*types.RoutePolicyPrefixMatch{v4PrefixALen24},
-		MatchFamilies:  []types.Family{ipv4UnicastFamily},
+		MatchNeighbors: &types.RoutePolicyNeighborMatch{
+			Type:      types.RoutePolicyMatchAny,
+			Neighbors: neighbor1,
+		},
+		MatchPrefixes: &types.RoutePolicyPrefixMatch{
+			Type:     types.RoutePolicyMatchAny,
+			Prefixes: []types.RoutePolicyPrefix{v4PrefixALen24},
+		},
+		MatchFamilies: []types.Family{ipv4UnicastFamily},
 	}
 
 	action1 := types.RoutePolicyActions{

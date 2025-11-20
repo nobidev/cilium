@@ -67,7 +67,7 @@ func TestToRoutePolicyConditions(t *testing.T) {
 		require.NotNil(t, rpc)
 
 		// Ensure the neighbors and families are copied without modification
-		require.Equal(t, []netip.Addr{netip.MustParseAddr("10.0.0.1")}, rpc.MatchNeighbors)
+		require.Equal(t, []netip.Addr{netip.MustParseAddr("10.0.0.1")}, rpc.MatchNeighbors.Neighbors)
 		require.Equal(t, []types.Family{{Afi: types.AfiIPv4, Safi: types.SafiUnicast}}, rpc.MatchFamilies)
 	})
 
@@ -90,10 +90,11 @@ func TestToRoutePolicyConditions(t *testing.T) {
 			types.Family{Afi: types.AfiIPv4, Safi: types.SafiUnicast},
 		)
 		require.NotNil(t, rpc)
-		require.Len(t, rpc.MatchPrefixes, 1)
-		require.Equal(t, netip.MustParsePrefix("10.0.0.0/24"), rpc.MatchPrefixes[0].CIDR)
-		require.Equal(t, 32, rpc.MatchPrefixes[0].PrefixLenMax)
-		require.Equal(t, 24, rpc.MatchPrefixes[0].PrefixLenMin)
+		require.NotNil(t, rpc.MatchPrefixes)
+		require.Len(t, rpc.MatchPrefixes.Prefixes, 1)
+		require.Equal(t, netip.MustParsePrefix("10.0.0.0/24"), rpc.MatchPrefixes.Prefixes[0].CIDR)
+		require.Equal(t, 32, rpc.MatchPrefixes.Prefixes[0].PrefixLenMax)
+		require.Equal(t, 24, rpc.MatchPrefixes.Prefixes[0].PrefixLenMin)
 	})
 
 	t.Run("PrefixesV6", func(t *testing.T) {
@@ -115,10 +116,11 @@ func TestToRoutePolicyConditions(t *testing.T) {
 			types.Family{Afi: types.AfiIPv6, Safi: types.SafiUnicast},
 		)
 		require.NotNil(t, rpc)
-		require.Len(t, rpc.MatchPrefixes, 1)
-		require.Equal(t, netip.MustParsePrefix("fd00::/64"), rpc.MatchPrefixes[0].CIDR)
-		require.Equal(t, 128, rpc.MatchPrefixes[0].PrefixLenMax)
-		require.Equal(t, 64, rpc.MatchPrefixes[0].PrefixLenMin)
+		require.NotNil(t, rpc.MatchPrefixes)
+		require.Len(t, rpc.MatchPrefixes.Prefixes, 1)
+		require.Equal(t, netip.MustParsePrefix("fd00::/64"), rpc.MatchPrefixes.Prefixes[0].CIDR)
+		require.Equal(t, 128, rpc.MatchPrefixes.Prefixes[0].PrefixLenMax)
+		require.Equal(t, 64, rpc.MatchPrefixes.Prefixes[0].PrefixLenMin)
 	})
 
 	t.Run("DualStackPolicy", func(t *testing.T) {
@@ -152,10 +154,11 @@ func TestToRoutePolicyConditions(t *testing.T) {
 			types.Family{Afi: types.AfiIPv4, Safi: types.SafiUnicast},
 		)
 		require.NotNil(t, rpc)
-		require.Len(t, rpc.MatchPrefixes, 1)
-		require.Equal(t, netip.MustParsePrefix("10.0.0.0/24"), rpc.MatchPrefixes[0].CIDR)
-		require.Equal(t, 32, rpc.MatchPrefixes[0].PrefixLenMax)
-		require.Equal(t, 24, rpc.MatchPrefixes[0].PrefixLenMin)
+		require.NotNil(t, rpc.MatchPrefixes)
+		require.Len(t, rpc.MatchPrefixes.Prefixes, 1)
+		require.Equal(t, netip.MustParsePrefix("10.0.0.0/24"), rpc.MatchPrefixes.Prefixes[0].CIDR)
+		require.Equal(t, 32, rpc.MatchPrefixes.Prefixes[0].PrefixLenMax)
+		require.Equal(t, 24, rpc.MatchPrefixes.Prefixes[0].PrefixLenMin)
 
 		// Test for IPv6 family
 		rpc = ToRoutePolicyConditions(
@@ -164,10 +167,11 @@ func TestToRoutePolicyConditions(t *testing.T) {
 			types.Family{Afi: types.AfiIPv6, Safi: types.SafiUnicast},
 		)
 		require.NotNil(t, rpc)
-		require.Len(t, rpc.MatchPrefixes, 1)
-		require.Equal(t, netip.MustParsePrefix("fd00::/64"), rpc.MatchPrefixes[0].CIDR)
-		require.Equal(t, 128, rpc.MatchPrefixes[0].PrefixLenMax)
-		require.Equal(t, 64, rpc.MatchPrefixes[0].PrefixLenMin)
+		require.NotNil(t, rpc.MatchPrefixes)
+		require.Len(t, rpc.MatchPrefixes.Prefixes, 1)
+		require.Equal(t, netip.MustParsePrefix("fd00::/64"), rpc.MatchPrefixes.Prefixes[0].CIDR)
+		require.Equal(t, 128, rpc.MatchPrefixes.Prefixes[0].PrefixLenMax)
+		require.Equal(t, 64, rpc.MatchPrefixes.Prefixes[0].PrefixLenMin)
 	})
 }
 

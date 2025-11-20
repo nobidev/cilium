@@ -219,6 +219,11 @@ func (f *fakeRestorer) isRestored() bool {
 	}
 }
 
+// WaitForEndpointRestoreWithoutRegeneration implements endpointstate.Restorer.
+func (f *fakeRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
+	return nil
+}
+
 // WaitForEndpointRestore implements endpointstate.Restorer.
 func (f *fakeRestorer) WaitForEndpointRestore(ctx context.Context) error {
 	return f.waitForRestore(ctx)

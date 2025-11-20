@@ -81,6 +81,7 @@ var (
 		"@cilium/sig-servicemesh":    "@isovalent/service-mesh",
 		"@cilium/vendor":             ignore,
 		"@cilium/wireguard":          "@isovalent/encryption",
+		"@cilium/ztunnel":            "@isovalent/encryption",
 	}
 
 	// teams is a map of all of all teams in the Isovalent GitHub

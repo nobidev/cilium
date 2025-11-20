@@ -137,7 +137,7 @@ jobs:
 
       # Setup the cluster
       - name: Create kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0 -C hubble
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0 -C hubble
         with:
           version: ${{ env.KIND_VERSION }}
           node_image: ${{ env.KIND_K8S_IMAGE }}
@@ -177,6 +177,7 @@ jobs:
           kubectl -n kube-system rollout status deployment/hubble-relay
 
       - name: Run Hubble CLI integration test
+        id: run-tests
         timeout-minutes: 5
         run: |
           set -ex
@@ -203,7 +204,7 @@ jobs:
           test "$(./hubble/hubble observe --input-file flows.json -o json | jq -r --slurp 'length')" -eq "$(jq -r --slurp 'length' flows.json)"
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }}"

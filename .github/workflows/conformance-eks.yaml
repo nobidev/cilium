@@ -114,9 +114,9 @@ env:
   test_concurrency: ${{ inputs.test-concurrency || 3 }}
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.216.0
+  eksctl_version: v0.217.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.34.1
+  kubectl_version: v1.34.2
 
 jobs:
   echo-inputs:
@@ -308,7 +308,7 @@ jobs:
           if [[ "$ADV_FEAT" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
               --helm-set enableIPv4Masquerade=true \
-              --helm-set localRedirectPolicy=true \
+              --helm-set localRedirectPolicies.enabled=true \
               --helm-set egressGateway.enabled=true"
           fi
 
@@ -422,6 +422,7 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
+        id: run-tests
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --test-concurrency=${{ env.test_concurrency }} \
@@ -454,7 +455,7 @@ jobs:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ join(matrix.*, '-') }}-${{ inputs.UID }}"

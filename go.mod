@@ -56,7 +56,7 @@ require (
 	github.com/google/cel-go v0.26.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-github/v74 v74.0.0
-	github.com/google/go-licenses v1.6.1-0.20230903011517-706b9c60edd4
+	github.com/google/go-licenses/v2 v2.0.1
 	github.com/google/gops v0.3.28
 	github.com/google/renameio/v2 v2.0.0
 	github.com/google/uuid v1.6.0
@@ -376,7 +376,7 @@ replace github.com/YutaroHayakawa/go-ra => github.com/isovalent/go-ra v0.0.0-202
 
 // Using private fork of gobgp. See commit msg for more context as to why we
 // are using a private fork.
-replace github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20250717193620-26a4abb75464
+replace github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20251113221723-3540251c0674
 
 tool (
 	github.com/AdamKorcz/go-118-fuzz-build/testing

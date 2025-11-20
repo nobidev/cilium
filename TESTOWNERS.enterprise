@@ -275,7 +275,6 @@
 /pkg/l2announcer/ @isovalent/cni
 /pkg/labels @isovalent/policy-identity-networking
 /pkg/labelsfilter @isovalent/policy-identity-networking
-/pkg/launcher @isovalent/cni
 /pkg/loadbalancer @isovalent/isovalent-loadbalancer
 /pkg/loadinfo/ @isovalent/cni
 /pkg/lock @isovalent/cni
@@ -285,6 +284,7 @@
 /pkg/maps/ @isovalent/cni
 /pkg/maps/egressmap @isovalent/egress-gateway
 /pkg/maps/encrypt @isovalent/encryption
+/pkg/maps/policymap @isovalent/policy-identity-networking
 /pkg/mcastmanager @isovalent/cni
 /pkg/monitor @isovalent/cni
 /pkg/monitor/api @isovalent/cni
@@ -302,6 +302,7 @@
 /pkg/option @isovalent/cni @isovalent/ci-structure
 /pkg/pidfile @isovalent/cni
 /pkg/policy @isovalent/policy-identity-networking
+/pkg/policy/api/ @isovalent/policy-identity-networking
 /pkg/policy/groups/aws/ @isovalent/policy-identity-networking @isovalent/infrastructure
 /pkg/policy/k8s @isovalent/policy-identity-networking
 /pkg/pprof @isovalent/ci-structure
@@ -335,6 +336,7 @@
 /pkg/wal/ @isovalent/ci-structure
 /pkg/wireguard @isovalent/encryption
 /pkg/xds/ @isovalent/service-mesh
+/pkg/ztunnel/ @isovalent/encryption
 /plugins/cilium-cni/ @isovalent/sig-k8s
 /standalone-dns-proxy/ @isovalent/dns-proxy
 /test/k8s/services.go @isovalent/isovalent-loadbalancer

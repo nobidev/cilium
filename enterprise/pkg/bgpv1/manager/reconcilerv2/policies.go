@@ -37,11 +37,18 @@ func MergePolicies(policyA, policyB *types.RoutePolicy) (*types.RoutePolicy, err
 		return nil, err
 	}
 
-	// sort statements based on prefix length
+	// Sort statements based on prefix length:
+	// - Statements with greater prefix length should go first, so that longer prefix match has higher priority.
+	//   Main use-case is service route aggregation, where a single svc can have e.g. /32 and /24 match statements,
+	//   and the /32 one should be prioritized.
+	// - For simplicity, we only compare the length of the first prefix, as we never populate different prefix lengths
+	//   in a single condition. PrefixLenMin and PrefixLenMax are always populated equally, so we only compare one of them.
 	sort.SliceStable(merged.Statements, func(i, j int) bool {
-		// sort by first prefix length, greater length first
-		if len(merged.Statements[i].Conditions.MatchPrefixes) > 0 && len(merged.Statements[j].Conditions.MatchPrefixes) > 0 {
-			return merged.Statements[i].Conditions.MatchPrefixes[0].PrefixLenMin > merged.Statements[j].Conditions.MatchPrefixes[0].PrefixLenMin
+		condI := merged.Statements[i].Conditions
+		condJ := merged.Statements[j].Conditions
+		if condI.MatchPrefixes != nil && condJ.MatchPrefixes != nil &&
+			len(condI.MatchPrefixes.Prefixes) > 0 && len(condJ.MatchPrefixes.Prefixes) > 0 {
+			return condI.MatchPrefixes.Prefixes[0].PrefixLenMin > condJ.MatchPrefixes.Prefixes[0].PrefixLenMin
 		}
 		return false
 	})

@@ -372,7 +372,7 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(desiredFamilyAdverts Pee
 					}
 					r.sidAllocatorsLock.RUnlock()
 
-					prefixMatch := &types.RoutePolicyPrefixMatch{
+					prefix := types.RoutePolicyPrefix{
 						CIDR:         allocator.Locator().Prefix,
 						PrefixLenMin: allocator.Locator().Prefix.Bits(),
 						PrefixLenMax: allocator.Locator().Prefix.Bits(),
@@ -380,7 +380,7 @@ func (r *LocatorPoolReconciler) getDesiredRoutePolicies(desiredFamilyAdverts Pee
 
 					policyName := PolicyName(peer.Name, agentFamily.Afi.String(), advert.AdvertisementType, lp.Name)
 					policy, err := reconciler.CreatePolicy(policyName, peerAddr, nil,
-						types.PolicyPrefixMatchList{prefixMatch}, v2.BGPAdvertisement{
+						types.PolicyPrefixList{prefix}, v2.BGPAdvertisement{
 							Attributes: advert.Attributes,
 						})
 					if err != nil {

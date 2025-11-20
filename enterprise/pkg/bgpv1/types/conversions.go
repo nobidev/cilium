@@ -60,7 +60,7 @@ func ValidateAndDefaultPolicyStatement(s *v1.BGPPolicyStatement, family v2.Ciliu
 }
 
 func ToRoutePolicyConditions(c *v1.BGPPolicyConditions, neighbor netip.Addr, family types.Family) types.RoutePolicyConditions {
-	prefixMatches := []*types.RoutePolicyPrefixMatch{}
+	prefixes := []types.RoutePolicyPrefix{}
 
 	// We only render PrefixesV4 for ipv4-unicast
 	if c.PrefixesV4 != nil && (family == types.Family{Afi: types.AfiIPv4, Safi: types.SafiUnicast}) {
@@ -78,7 +78,7 @@ func ToRoutePolicyConditions(c *v1.BGPPolicyConditions, neighbor netip.Addr, fam
 				// Don't render incomplete match. Should call defaulting before conversion.
 				continue
 			}
-			prefixMatches = append(prefixMatches, &types.RoutePolicyPrefixMatch{
+			prefixes = append(prefixes, types.RoutePolicyPrefix{
 				CIDR:         p,
 				PrefixLenMax: int(*match.MaxLen),
 				PrefixLenMin: int(*match.MinLen),
@@ -102,7 +102,7 @@ func ToRoutePolicyConditions(c *v1.BGPPolicyConditions, neighbor netip.Addr, fam
 				// Don't render incomplete match. Should call defaulting before conversion.
 				continue
 			}
-			prefixMatches = append(prefixMatches, &types.RoutePolicyPrefixMatch{
+			prefixes = append(prefixes, types.RoutePolicyPrefix{
 				CIDR:         p,
 				PrefixLenMax: int(*match.MaxLen),
 				PrefixLenMin: int(*match.MinLen),
@@ -111,9 +111,15 @@ func ToRoutePolicyConditions(c *v1.BGPPolicyConditions, neighbor netip.Addr, fam
 	}
 
 	return types.RoutePolicyConditions{
-		MatchNeighbors: []netip.Addr{neighbor},
-		MatchPrefixes:  prefixMatches,
-		MatchFamilies:  []types.Family{family},
+		MatchNeighbors: &types.RoutePolicyNeighborMatch{
+			Type:      types.RoutePolicyMatchAny,
+			Neighbors: []netip.Addr{neighbor},
+		},
+		MatchPrefixes: &types.RoutePolicyPrefixMatch{
+			Type:     types.RoutePolicyMatchAny, // TODO: implement other prefix match types
+			Prefixes: prefixes,
+		},
+		MatchFamilies: []types.Family{family},
 	}
 }
 

@@ -102,8 +102,7 @@ type orchestratorParams struct {
 	DirectRoutingDevice tables.DirectRoutingDevice
 	LocalNodeStore      *node.LocalNodeStore
 	NodeDiscovery       *nodediscovery.NodeDiscovery
-	JobRegistry         job.Registry
-	Health              cell.Health
+	JobGroup            job.Group
 	Lifecycle           cell.Lifecycle
 	EndpointManager     endpointmanager.EndpointManager
 	ConfigPromise       promise.Promise[*option.DaemonConfig]
@@ -148,8 +147,7 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 		},
 	})
 
-	group := params.JobRegistry.NewGroup(params.Health, params.Lifecycle)
-	group.Add(job.OneShot("reinitialize", o.reconciler, job.WithShutdown()))
+	params.JobGroup.Add(job.OneShot("reinitialize", o.reconciler, job.WithShutdown()))
 
 	return o
 }
@@ -332,16 +330,6 @@ func (o *orchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint,
 	}
 
 	return o.params.Loader.ReloadDatapath(ctx, ep, o.latestLocalNodeConfig.Load(), stats)
-}
-
-func (o *orchestrator) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
-	select {
-	case <-o.dpInitialized:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-
-	return o.params.Loader.ReinitializeXDP(ctx, o.latestLocalNodeConfig.Load(), extraCArgs)
 }
 
 func (o *orchestrator) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {

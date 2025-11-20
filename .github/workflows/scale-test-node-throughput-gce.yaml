@@ -36,14 +36,14 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.25.3
+  go_version: 1.25.4
   # Adding k8s.local to the end makes kops happy-
   # has stricter DNS naming requirements.
   test_name: node-throughput
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   GCP_PERF_RESULTS_BUCKET: gs://cilium-scale-results
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 545.0.0
+  gcloud_version: 547.0.0
 
 jobs:
   install-and-scaletest:
@@ -169,6 +169,7 @@ jobs:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
 
       - name: Install Cilium
+        id: install-cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
@@ -209,13 +210,14 @@ jobs:
             2>&1 | tee cl2-output.txt
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           always_capture_sysdump: true
           artifacts_suffix: "final"
           job_status: "${{ job.status }}"
           junits-directory: 'report'
+          capture_features_tested: ${{ steps.run-cl2.outcome != 'skipped' }}
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
