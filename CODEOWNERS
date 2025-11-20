@@ -888,6 +888,8 @@ Makefile* @cilium/build
 /contrib/testing/enterprise-kind.yaml @isovalent/infrastructure
 /contrib/testing/enterprise-kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer
 /contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
+/contrib/scripts/enterprise-gomod-override.sh @isovalent/traffic-engineering
+/contrib/git/enterprise-setup-merge-drivers.sh @isovalent/backporters
 /Documentation/cmdref/
 /Makefile.fqdn-proxy @isovalent/dns-proxy
 /README.enterprise.md @isovalent/core-structure
@@ -966,6 +968,7 @@ Makefile* @cilium/build
 /enterprise/test/hubble-rbac/ @isovalent/hubble
 /enterprise/tools/release-notes/ @isovalent/release-managers
 /enterprise/tools/map-testowners/ @isovalent/core-structure
+/enterprise/tools/gomod-override/ @isovalent/traffic-engineering
 /hubble/Makefile.override @isovalent/hubble
 /install/kubernetes/Makefile.digests-isovalent @isovalent/infrastructure
 /install/kubernetes/Makefile.override @isovalent/infrastructure

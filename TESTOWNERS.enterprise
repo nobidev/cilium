@@ -431,6 +431,7 @@
 /contrib/testing/enterprise-kind.yaml @isovalent/infrastructure
 /contrib/testing/enterprise-kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer
 /contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
+/contrib/scripts/enterprise-gomod-override.sh @isovalent/traffic-engineering
 /Makefile.fqdn-proxy @isovalent/dns-proxy
 /renovate.json5 @isovalent/infrastructure
 *podnetwork* @isovalent/multi-network
@@ -505,6 +506,7 @@
 /enterprise/test/srv6/ @isovalent/traffic-engineering
 /enterprise/test/helpers/hubble.go @isovalent/hubble
 /enterprise/test/hubble-rbac/ @isovalent/hubble
+/enterprise/tools/gomod-override/ @isovalent/traffic-engineering
 /hubble/Makefile.override @isovalent/hubble
 /install/kubernetes/Makefile.digests-isovalent @isovalent/infrastructure
 /install/kubernetes/Makefile.override @isovalent/infrastructure
