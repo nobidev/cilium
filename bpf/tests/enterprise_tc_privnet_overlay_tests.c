@@ -65,8 +65,7 @@ int privnet_icmp_from_overlay_nat_src_dst_setup(struct __ctx_buff *ctx)
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
-	overlay_receive_packet(ctx);
-	return TEST_ERROR;
+	return overlay_receive_packet(ctx);
 }
 
 CHECK("tc", "01_icmp_from_overlay_nat_src_dst")

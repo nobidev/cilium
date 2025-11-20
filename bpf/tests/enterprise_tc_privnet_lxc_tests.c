@@ -47,8 +47,7 @@ int privnet_icmp_from_container_nat_src_dst_setup(struct __ctx_buff *ctx)
 	/* allow traffic from endpoints */
 	policy_add_egress_allow_all_entry();
 
-	pod_send_packet(ctx);
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "01_icmp_from_container_nat_src_dst")
@@ -100,8 +99,7 @@ int privnet_tcp_from_container_nat_src_dst_setup(struct __ctx_buff *ctx)
 	/* allow traffic from endpoints */
 	policy_add_egress_allow_all_entry();
 
-	pod_send_packet(ctx);
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "02_tcp_from_container_nat_src_dst")
@@ -151,8 +149,7 @@ int privnet_icmp_from_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 	/* allow traffic from endpoints */
 	policy_add_egress_allow_all_entry();
 
-	pod_send_packet(ctx);
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "03_icmp_from_container_nat_src_route_dst")
@@ -207,8 +204,7 @@ int privnet_icmp_from_container_nat_src_miss_dst_setup(struct __ctx_buff *ctx)
 	/* allow traffic from endpoints */
 	policy_add_egress_allow_all_entry();
 
-	pod_send_packet(ctx);
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "04_icmp_from_container_nat_src_miss_dst")
@@ -260,8 +256,7 @@ int privnet_icmp_to_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
 	policy_add_ingress_allow_entry(0, 0, 0);
-	pod_receive_packet_by_tailcall(ctx);
-	return TEST_ERROR;
+	return pod_receive_packet_by_tailcall(ctx);
 }
 
 CHECK("tc", "05_icmp_to_container_nat_src_dst")
@@ -309,8 +304,7 @@ int privnet_tcp_to_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
 	policy_add_ingress_allow_entry(0, 0, 0);
-	pod_receive_packet_by_tailcall(ctx);
-	return TEST_ERROR;
+	return pod_receive_packet_by_tailcall(ctx);
 }
 
 CHECK("tc", "06_tcp_to_container_nat_src_dst")
@@ -357,8 +351,7 @@ int privnet_icmp_to_container_unknown_src_nat_dst_setup(struct __ctx_buff *ctx)
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
-	pod_receive_packet_by_tailcall(ctx);
-	return TEST_ERROR;
+	return pod_receive_packet_by_tailcall(ctx);
 }
 
 CHECK("tc", "07_icmp_to_container_unknown_src_nat_dst")
@@ -403,8 +396,7 @@ int privnet_icmp_to_container_unknown_src_miss_dst_setup(struct __ctx_buff *ctx)
 {
 	/* no entry for dst */
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
-	pod_receive_packet_by_tailcall(ctx);
-	return TEST_ERROR;
+	return pod_receive_packet_by_tailcall(ctx);
 }
 
 CHECK("tc", "08_icmp_to_container_unknown_src_miss_dst")
@@ -431,17 +423,17 @@ int privnet_icmp_to_container_unknown_src_miss_dst_check(struct __ctx_buff *ctx)
 /* IPv6 test cases */
 const __u8 *BUF(__UNUSED__) = NULL;
 
-#define PRIVNET_ICMP6_NS_SETUP(CTX)						\
-	do {									\
-		privnet_v6_add_endpoint_entry(NET_ID,				\
-			(const union v6addr *)V6_NET_IP_1,			\
-			(const union v6addr *)V6_POD_IP_1);			\
-		privnet_v6_add_endpoint_entry(NET_ID,				\
-			(const union v6addr *)V6_NET_IP_2,			\
-			(const union v6addr *)V6_POD_IP_2);			\
-										\
-		pod_send_packet(CTX);						\
-	} while (0)
+static __always_inline int privnet_icmp6_ns_setup(struct __ctx_buff *ctx)
+{
+	privnet_v6_add_endpoint_entry(NET_ID,
+				      (const union v6addr *)V6_NET_IP_1,
+				      (const union v6addr *)V6_POD_IP_1);
+	privnet_v6_add_endpoint_entry(NET_ID,
+				      (const union v6addr *)V6_NET_IP_2,
+				      (const union v6addr *)V6_POD_IP_2);
+
+	return pod_send_packet(ctx);
+}
 
 #define PRIVNET_ICMP6_NS_CHECK(CTX, TEST_NAME, STATUS_CODE, NA_BUF_NAME)	\
 	do {									\
@@ -487,8 +479,7 @@ int privnet_icmp6_from_container_neighbor_solicitation_link_local_pktgen(struct 
 SETUP("tc", "09_icmp6_from_container_neighbor_solicitation_link_local")
 int privnet_icmp6_from_container_neighbor_solicitation_link_local_setup(struct __ctx_buff *ctx)
 {
-	PRIVNET_ICMP6_NS_SETUP(CTX);
-	return TEST_ERROR;
+	return privnet_icmp6_ns_setup(ctx);
 }
 
 CHECK("tc", "09_icmp6_from_container_neighbor_solicitation_link_local")
@@ -511,8 +502,7 @@ int privnet_icmp6_from_container_neighbor_solicitation_ep_match_pktgen(struct __
 SETUP("tc", "10_icmp6_from_container_neighbor_solicitation_ep_match")
 int privnet_icmp6_from_container_neighbor_solicitation_ep_match_setup(struct __ctx_buff *ctx)
 {
-	PRIVNET_ICMP6_NS_SETUP(CTX);
-	return TEST_ERROR;
+	return privnet_icmp6_ns_setup(ctx);
 }
 
 CHECK("tc", "10_icmp6_from_container_neighbor_solicitation_ep_match")
@@ -535,8 +525,7 @@ int privnet_icmp6_from_container_neighbor_solicitation_ep_no_match_pktgen(struct
 SETUP("tc", "11_icmp6_from_container_neighbor_solicitation_ep_no_match")
 int privnet_icmp6_from_container_neighbor_solicitation_ep_no_match_setup(struct __ctx_buff *ctx)
 {
-	PRIVNET_ICMP6_NS_SETUP(CTX);
-	return TEST_ERROR;
+	return privnet_icmp6_ns_setup(ctx);
 }
 
 CHECK("tc", "11_icmp6_from_container_neighbor_solicitation_ep_no_match")
@@ -559,8 +548,7 @@ int privnet_icmp6_from_container_neighbor_solicitation_self_pktgen(struct __ctx_
 SETUP("tc", "12_icmp6_from_container_neighbor_solicitation_self")
 int privnet_icmp6_from_container_neighbor_solicitation_self_setup(struct __ctx_buff *ctx)
 {
-	PRIVNET_ICMP6_NS_SETUP(CTX);
-	return TEST_ERROR;
+	return privnet_icmp6_ns_setup(ctx);
 }
 
 CHECK("tc", "12_icmp6_from_container_neighbor_solicitation_self")
