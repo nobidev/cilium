@@ -440,7 +440,7 @@ const __u8 *BUF(__UNUSED__) = NULL;
 			(const union v6addr *)V6_NET_IP_2,			\
 			(const union v6addr *)V6_POD_IP_2);			\
 										\
-		pod_send_packet(ctx);						\
+		pod_send_packet(CTX);						\
 	} while (0)
 
 #define PRIVNET_ICMP6_NS_CHECK(CTX, TEST_NAME, STATUS_CODE, NA_BUF_NAME)	\
@@ -451,8 +451,8 @@ const __u8 *BUF(__UNUSED__) = NULL;
 										\
 		test_init();							\
 										\
-		data = ctx_data(ctx);						\
-		data_end = ctx_data_end(ctx);					\
+		data = ctx_data(CTX);						\
+		data_end = ctx_data_end(CTX);					\
 										\
 		if (data + sizeof(__u32) > data_end)				\
 			test_fatal("status code out of bounds");		\
@@ -461,7 +461,7 @@ const __u8 *BUF(__UNUSED__) = NULL;
 										\
 		assert(*status_code == (STATUS_CODE));				\
 		if (STATUS_CODE == TC_ACT_REDIRECT) {				\
-			ASSERT_CTX_BUF_OFF(TEST_NAME, "Ether", ctx,		\
+			ASSERT_CTX_BUF_OFF(TEST_NAME, "Ether", CTX,		\
 				sizeof(__u32), NA_BUF_NAME,			\
 				sizeof(BUF(NA_BUF_NAME)));			\
 		}								\
