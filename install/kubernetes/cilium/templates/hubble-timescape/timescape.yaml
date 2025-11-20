@@ -89,7 +89,7 @@ spec:
     {{- if .Values.hubble.timescape.ui.enabled }}
     - protocol: TCP
       name: ui
-      port: 8000
+      port: 8080
       targetPort: ui
     {{- end }}
     {{- if .Values.hubble.timescape.metrics.enabled }}
@@ -471,7 +471,7 @@ spec:
     {{- end }}
     - backendRefs:
         - name: hubble-timescape
-          port: 8000
+          port: 8080
       {{- with .Values.hubble.timescape.ui.route.filters }}
       filters:
         {{- toYaml . | nindent 8 }}
