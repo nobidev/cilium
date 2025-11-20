@@ -16,10 +16,13 @@ import (
 )
 
 func init() {
-	registerToCheckSizes(map[string][]any{
+	registerToCheck(map[string][]any{
 		"endpoint_key":            {extepspolicy.Key{}},
-		"__u32":                   {extepspolicy.Value{}},
 		"encryption_policy_key":   {encryptionpolicymap.EncryptionPolicyKey{}},
 		"encryption_policy_entry": {encryptionpolicymap.EncryptionPolicyVal{}},
+	})
+
+	registerToCheckSizes(map[string][]any{
+		"__u32": {extepspolicy.Value{}},
 	})
 }

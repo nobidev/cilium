@@ -47,8 +47,8 @@ const (
 
 type EncryptionPolicyKey struct {
 	Prefixlen       uint32 `align:"lpm_key"`
-	SubjectIdentity uint32 `align:"subject_sec_label"`
-	PeerIdentity    uint32 `align:"peer_sec_label"`
+	SubjectIdentity uint32 `align:"src_sec_identity"`
+	PeerIdentity    uint32 `align:"dst_sec_identity"`
 	Nexthdr         uint16 `align:"protocol"`
 	PeerPortNetwork uint16 `align:"port"` // In network byte-order
 }
