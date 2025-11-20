@@ -252,7 +252,7 @@ WARNING: A Limited feature IPAMAzure was enabled, but it is not an approved feat
     {{- end -}}
   {{- end -}}
 {{- end -}}
-{{- if (and (eq "true" (print .endpointRoutes.enabled)) (eq "multi-pool" (print .ipam.mode)) ) -}}
+{{- if (eq "multi-pool" (print .ipam.mode))  -}}
   {{- if (and (gt (get $featureMaturityLevels "Beta") $minimumMaturityOrder) (not (has "IPAMMultiPool" .enterprise.featureGate.approved))) -}}
     {{- if $strictFeatureGates -}}
       {{- fail "\nBeta feature: IPAMMultiPool was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}

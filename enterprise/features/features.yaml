@@ -468,10 +468,8 @@ features:
     description: |
       Multi Pool IPAM allows Cilium to allocate IP addresses from multiple pools of addresses
     flags:
-      enable-endpoint-routes: true
       ipam: multi-pool
     helm:
-      endpointRoutes.enabled: true
       ipam.mode: multi-pool
 
       
