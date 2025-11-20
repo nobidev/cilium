@@ -172,6 +172,7 @@ struct privnet_fib_val {
 		flag_is_static_route:1,
 		pad:5;
 	__u8 family;
+	__u8 pad0[2];
 	union {
 		struct {
 			__u32		ip4;
