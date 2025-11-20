@@ -99,5 +99,9 @@ generate-enterprise-apis: ## Generate all enterprise-only APIs.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C enterprise/pkg/privnet/health/grpc/api proto
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C enterprise generate-enterprise-api
 
+.PHONY: gomod-override
+gomod-override: ## Override go.mod
+	$(GO) run enterprise/tools/gomod-override/main.go go.mod enterprise/tools/gomod-override/config.yaml
+
 # Cilium FQDN HA proxy specific targets
 -include Makefile.fqdn-proxy
