@@ -1147,7 +1147,7 @@ github.com/ishidawataru/sctp
 github.com/isovalent/hubble-timescape/api/k8sevent/v1
 github.com/isovalent/hubble-timescape/api/timescape/v1
 github.com/isovalent/hubble-timescape/api/timescape/v1alpha
-# github.com/isovalent/ipa v1.18.0-rc.12
+# github.com/isovalent/ipa v1.18.0
 ## explicit; go 1.24.0
 github.com/isovalent/ipa/common/k8s/type/v1alpha
 github.com/isovalent/ipa/common/net/v1alpha
