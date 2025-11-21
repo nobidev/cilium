@@ -218,7 +218,7 @@ struct privnet_pip_val {
 };
 
 static __always_inline int
-nat_v4_addr(struct __ctx_buff *ctx, int l3_off, __be32 *old_addr, __be32 *new_addr)
+nat_v4_addr(struct __ctx_buff *ctx, int l3_off, const __be32 *old_addr, const __be32 *new_addr)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -257,7 +257,7 @@ nat_v4_addr(struct __ctx_buff *ctx, int l3_off, __be32 *old_addr, __be32 *new_ad
 }
 
 static __always_inline int
-nat_v6_addr(struct __ctx_buff *ctx, int l3_off, union v6addr *new_addr)
+nat_v6_addr(struct __ctx_buff *ctx, int l3_off, const union v6addr *new_addr)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -297,7 +297,7 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_privnet_pip __section_maps_btf;
 
-static __always_inline __maybe_unused struct privnet_fib_val *
+static __always_inline __maybe_unused const struct privnet_fib_val *
 privnet_fib_lookup4(const void *map, __u16 net_id, __be32 addr) {
 	struct privnet_fib_key key = {
 		.lpm_key = { PRIVNET_FIB_PREFIX_LEN(V4_PRIVNET_KEY_LEN), {} },
@@ -309,7 +309,7 @@ privnet_fib_lookup4(const void *map, __u16 net_id, __be32 addr) {
 	return map_lookup_elem(map, &key);
 }
 
-static __always_inline __maybe_unused struct privnet_fib_val *
+static __always_inline __maybe_unused const struct privnet_fib_val *
 privnet_fib_lookup6(const void *map, __u16 net_id, union v6addr addr) {
 	struct privnet_fib_key key = {
 		.lpm_key = { PRIVNET_FIB_PREFIX_LEN(V6_PRIVNET_KEY_LEN), {} },
@@ -372,8 +372,8 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx, const voi
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct privnet_fib_val *sip_val = NULL;
-	struct privnet_fib_val *dip_val = NULL;
+	const struct privnet_fib_val *sip_val = NULL;
+	const struct privnet_fib_val *dip_val = NULL;
 	int ret = CTX_ACT_OK;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -428,8 +428,8 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx, const voi
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	struct privnet_fib_val *sip_val = NULL;
-	struct privnet_fib_val *dip_val = NULL;
+	const struct privnet_fib_val *sip_val = NULL;
+	const struct privnet_fib_val *dip_val = NULL;
 	union v6addr orig_sip, orig_dip;
 	int ret = CTX_ACT_OK;
 
@@ -474,7 +474,7 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx, const voi
 - sizeof(union v6addr)))
 #define PRIVNET_PIP_PREFIX_LEN(PREFIX) (PRIVNET_PIP_STATIC_PREFIX + (PREFIX))
 
-static __always_inline __maybe_unused struct privnet_pip_val *
+static __always_inline __maybe_unused const struct privnet_pip_val *
 privnet_pip_lookup4(const void *map, __be32 addr) {
 	struct privnet_pip_key key = {
 		.lpm_key = { PRIVNET_PIP_PREFIX_LEN(V4_PRIVNET_KEY_LEN), {} },
@@ -485,7 +485,7 @@ privnet_pip_lookup4(const void *map, __be32 addr) {
 	return map_lookup_elem(map, &key);
 }
 
-static __always_inline __maybe_unused struct privnet_pip_val *
+static __always_inline __maybe_unused const struct privnet_pip_val *
 privnet_pip_lookup6(const void *map, union v6addr addr) {
 	struct privnet_pip_key key = {
 		.lpm_key = { PRIVNET_PIP_PREFIX_LEN(V6_PRIVNET_KEY_LEN), {} },
@@ -554,8 +554,8 @@ privnet_ingress_ipv4(struct __ctx_buff *ctx, const void *map, __u16 net_id, bool
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct privnet_pip_val *sip_val = NULL;
-	struct privnet_pip_val *dip_val = NULL;
+	const struct privnet_pip_val *sip_val = NULL;
+	const struct privnet_pip_val *dip_val = NULL;
 	int ret = CTX_ACT_OK;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -623,8 +623,8 @@ privnet_ingress_ipv6(struct __ctx_buff *ctx, const void *map, __u16 net_id, bool
 	/* See comments in privnet_pip_ipv4 */
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	struct privnet_pip_val *sip_val = NULL;
-	struct privnet_pip_val *dip_val = NULL;
+	const struct privnet_pip_val *sip_val = NULL;
+	const struct privnet_pip_val *dip_val = NULL;
 	union v6addr orig_sip, orig_dip;
 	int ret = CTX_ACT_OK;
 
@@ -842,9 +842,9 @@ static __always_inline int
 handle_privnet_ns(struct __ctx_buff *ctx, const void *map, const __u16 net_id, bool from_lxc)
 {
 	union macaddr mac = CONFIG(interface_mac);
+	const struct privnet_fib_val *val;
 	union v6addr tip;
 	__u8 type;
-	struct privnet_fib_val *val;
 
 	if (icmp6_load_type(ctx, ETH_HLEN + sizeof(struct ipv6hdr), &type) < 0 ||
 	    type != ICMP6_NS_MSG_TYPE)
@@ -895,7 +895,7 @@ handle_privnet_arp(struct __ctx_buff *ctx, const void *map, const __u16 net_id)
 	union macaddr mac = CONFIG(interface_mac);
 	union macaddr smac;
 	__be32 sip, tip;
-	struct privnet_fib_val *val;
+	const struct privnet_fib_val *val;
 
 	/* Prevent the compiler from making (incorrect) assumptions on the content
 	 * of the mac variable, and in turn optimizing out the eth_addrcmp(dmac, mac)
