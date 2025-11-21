@@ -118,7 +118,7 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 			types.PrivateNetworkInactiveAnnotation, pod.Namespace, pod.Name, err)
 	}
 
-	activatedAt := time.Now()
+	activatedAt := time.Now().UTC()
 	if inactive {
 		activatedAt = time.Time{} // zero value means inactive
 	}
