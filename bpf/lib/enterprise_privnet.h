@@ -4,6 +4,7 @@
 #pragma once
 
 #include "lib/arp.h"
+#include "lib/icmp6.h"
 #include "enterprise_ext_eps_policy.h"
 
 /*
