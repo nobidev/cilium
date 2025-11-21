@@ -58,9 +58,9 @@ spec:
   # This is a temporary workaround.
   envoy:
     image:
-      repository: quay.io/isovalent-dev/cilium-envoy-ubi-ci
-      tag: v1.34.10-1760767433-887ebe7d6ccc2a9dc8c73f6ae4927283283b507e
-      digest: sha256:9c4fe44180278e64354e768d704bc4da0f4f2e3c4cc960077b7669e4ae368079
+      repository: quay.io/cilium/cilium-envoy
+      tag: v1.35.3-1760614940-cb5737105ff9a4ca5d080c0c8f3ea1bfdc08de83
+      digest: sha256:808c986a99e2a1ea9785b49604a1ccd1e1cdc21d4b7a2ff1236cc31788ea9b45
       useDigest: true
   extraEnv:
   # Disabling due to the cache being altered -> panic
