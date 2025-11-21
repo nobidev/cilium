@@ -9,7 +9,7 @@
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #define ENABLE_EGRESS_GATEWAY_HA
-#define ENABLE_MASQUERADE_IPV4
+#define ENABLE_MASQUERADE_IPV4		1
 #define ENCAP_IFINDEX 0
 
 #include "lib/bpf_host.h"
