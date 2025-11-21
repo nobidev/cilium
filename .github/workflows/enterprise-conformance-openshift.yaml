@@ -603,7 +603,7 @@ jobs:
       # This is to work around the fact that relative paths in actions/upload-artifact@v3 are rooted
       # against the workspace, which causes an "Invalid pattern" if the repo dir is ".".
       - name: Prepare upload
-        if: always() && steps.wait-for-co.outcome != 'skipped'
+        if: always() && steps.provisioning.outcome != 'skipped'
         id: upload_dir
         working-directory: ./openshift-ci/aws-ipi
         run: |
@@ -618,7 +618,7 @@ jobs:
           mv cilium-sysdump-*.zip ${GITHUB_WORKSPACE}/. || true
 
       - name: Upload Artifacts
-        if: always() && steps.wait-for-co.outcome != 'skipped'
+        if: always() && steps.provisioning.outcome != 'skipped'
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: test-results
