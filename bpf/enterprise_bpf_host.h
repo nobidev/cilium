@@ -52,7 +52,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 
 		if (is_icmp6_ndp(ctx, ip6, ETH_HLEN)) {
 			/* Reply to the neighbor solicitation messages if necessary */
-			/* (i.e., they target a known IP reachable through this TGW), */
+			/* (i.e., they target a known IP reachable through this INB), */
 			/* and punt all the others up to the stack unmodified, to */
 			/* make sure we don't break local neighbor discovery. */
 			return handle_privnet_ns(ctx, &cilium_privnet_fib,

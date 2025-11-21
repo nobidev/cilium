@@ -71,8 +71,8 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 			};
 
 			/* dip_val is route entry, we can assume that the */
-			/* packet is going to tgw. Encap the packet with IP */
-			/* stored in privnet nat map, it will be node IP of TGW and */
+			/* packet is going to INB. Encap the packet with IP */
+			/* stored in privnet nat map, it will be node IP of INB and */
 			/* with privnet_unknown_sec_id as VNI. */
 
 			struct remote_endpoint_info fake_info = {0};
