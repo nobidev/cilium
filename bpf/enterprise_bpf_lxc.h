@@ -122,14 +122,10 @@ static __always_inline int enterprise_privnet_to_lxc_ipv6_policy(struct __ctx_bu
 }
 #endif /* ENABLE_IPV6 */
 
-static __always_inline bool privnet_skip_policy_enforcement(struct __ctx_buff *ctx)
+static __always_inline bool privnet_skip_policy_enforcement(struct __ctx_buff *ctx __maybe_unused)
 {
-	bool from_tunnel = false;
 #ifdef HAVE_ENCAP
-	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
-#endif
-
-	if (from_tunnel) {
+	if (ctx_load_meta(ctx, CB_FROM_TUNNEL)) {
 		struct bpf_tunnel_key tunnel_key = {};
 
 		if (ctx_get_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP, 0) < 0)
@@ -138,6 +134,7 @@ static __always_inline bool privnet_skip_policy_enforcement(struct __ctx_buff *c
 		if (tunnel_key.tunnel_id == CONFIG(privnet_unknown_sec_id))
 			return true;
 	}
+#endif
 	return false;
 }
 
