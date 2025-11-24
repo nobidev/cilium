@@ -16,6 +16,8 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
+	"github.com/cilium/hive/shell"
+
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
@@ -43,6 +45,9 @@ var (
 		gops.Cell(defaults.EnableGops, DefaultGopsPort),
 		pprof.Cell(pprofConfig),
 		cell.Invoke(runDNSProxy),
+
+		// Cilium DNSProxy debug shell.
+		shell.ServerCell(shellSockPath),
 	)
 
 	Hive = hive.New(

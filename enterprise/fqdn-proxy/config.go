@@ -11,11 +11,20 @@
 package main
 
 import (
+	"path/filepath"
+
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/time"
+)
+
+var (
+	// Path to UNIX socket DNS Proxy listens on.
+	// This is different from the default cilium shell.sock as dnsproxy shares runtime
+	// directory(/var/run/cilium) with cilium-agent.
+	shellSockPath = filepath.Join(defaults.RuntimePath, "dnsproxy-shell.sock")
 )
 
 type Config struct {
