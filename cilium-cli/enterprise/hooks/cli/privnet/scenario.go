@@ -58,6 +58,6 @@ func (s *scenario) Failed() bool {
 }
 
 func (s *scenario) fail(family features.IPFamily, msg string, args ...any) {
-	s.t.log.Error(fmt.Sprintf("Test scenario %q (%s) failed: %s", s.name, family, msg))
+	s.t.log.Error(fmt.Sprintf("Test scenario %q (%s) failed: %s", s.name, family, fmt.Sprintf(msg, args...)))
 	s.failed = true
 }
