@@ -30,6 +30,15 @@ type EnterpriseRouter interface {
 	// implementation. The reply contains extended enterprise-specific
 	// route information.
 	GetRoutesExtended(ctx context.Context, r *GetRoutesExtendedRequest) (*GetRoutesExtendedResponse, error)
+
+	// AddRoutePolicyExtended adds a new enterprise-specific routing policy into the underlying router.
+	AddRoutePolicyExtended(ctx context.Context, p RoutePolicyExtendedRequest) error
+
+	// RemoveRoutePolicyExtended removes an enterprise-specific routing policy from the underlying router.
+	RemoveRoutePolicyExtended(ctx context.Context, p RoutePolicyExtendedRequest) error
+
+	// GetRoutePoliciesExtended retrieves enterprise-specific route policies from the underlying router
+	GetRoutePoliciesExtended(ctx context.Context) (*GetRoutePoliciesExtendedResponse, error)
 }
 
 type GetRoutesExtendedRequest struct {

@@ -21,13 +21,15 @@ import (
 
 type EnterpriseFakeRouter struct {
 	ossTypes.FakeRouter
-	ResetPeersCh chan netip.Addr
+	ResetPeersCh     chan netip.Addr
+	extendedPolicies map[string]*ceeTypes.ExtendedRoutePolicy
 }
 
 func NewEnterpriseFakeRouter() *EnterpriseFakeRouter {
 	return &EnterpriseFakeRouter{
-		FakeRouter:   *ossTypes.NewFakeRouter().(*ossTypes.FakeRouter),
-		ResetPeersCh: make(chan netip.Addr, 10),
+		FakeRouter:       *ossTypes.NewFakeRouter().(*ossTypes.FakeRouter),
+		ResetPeersCh:     make(chan netip.Addr, 10),
+		extendedPolicies: make(map[string]*ceeTypes.ExtendedRoutePolicy),
 	}
 }
 
@@ -61,4 +63,25 @@ func (f *EnterpriseFakeRouter) GetRoutesExtended(ctx context.Context, r *ceeType
 	return &ceeTypes.GetRoutesExtendedResponse{
 		Routes: extendedRoutes,
 	}, errs
+}
+
+// AddRoutePolicyExtended adds a new enterprise-specific routing policy into the underlying router.
+func (f *EnterpriseFakeRouter) AddRoutePolicyExtended(ctx context.Context, p ceeTypes.RoutePolicyExtendedRequest) error {
+	f.extendedPolicies[p.Policy.Name] = p.Policy
+	return nil
+}
+
+// RemoveRoutePolicyExtended removes an enterprise-specific routing policy from the underlying router.
+func (f *EnterpriseFakeRouter) RemoveRoutePolicyExtended(ctx context.Context, p ceeTypes.RoutePolicyExtendedRequest) error {
+	delete(f.extendedPolicies, p.Policy.Name)
+	return nil
+}
+
+// GetRoutePoliciesExtended retrieves enterprise-specific route extendedPolicies from the underlying router
+func (f *EnterpriseFakeRouter) GetRoutePoliciesExtended(ctx context.Context) (*ceeTypes.GetRoutePoliciesExtendedResponse, error) {
+	var policies []*ceeTypes.ExtendedRoutePolicy
+	for _, policy := range f.extendedPolicies {
+		policies = append(policies, policy)
+	}
+	return &ceeTypes.GetRoutePoliciesExtendedResponse{Policies: policies}, nil
 }

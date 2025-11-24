@@ -19,11 +19,11 @@ import (
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 )
 
-func ToRoutePolicy(p *v1.BGPImportPolicy, name string, neighbor netip.Addr, family types.Family) *types.RoutePolicy {
-	ret := &types.RoutePolicy{
+func ToRoutePolicy(p *v1.BGPImportPolicy, name string, neighbor netip.Addr, family types.Family) *ExtendedRoutePolicy {
+	ret := &ExtendedRoutePolicy{
 		Name:       name,
 		Type:       types.RoutePolicyTypeImport,
-		Statements: make([]*types.RoutePolicyStatement, 0, len(p.Statements)),
+		Statements: make([]*ExtendedRoutePolicyStatement, 0, len(p.Statements)),
 	}
 	for _, statement := range p.Statements {
 		ret.Statements = append(ret.Statements, ToRoutePolicyStatement(&statement, neighbor, family))
@@ -44,8 +44,8 @@ func ValidateAndDefaultImportPolicy(p *v1.BGPImportPolicy, family v2.CiliumBGPFa
 	return errs
 }
 
-func ToRoutePolicyStatement(s *v1.BGPPolicyStatement, neighbor netip.Addr, family types.Family) *types.RoutePolicyStatement {
-	return &types.RoutePolicyStatement{
+func ToRoutePolicyStatement(s *v1.BGPPolicyStatement, neighbor netip.Addr, family types.Family) *ExtendedRoutePolicyStatement {
+	return &ExtendedRoutePolicyStatement{
 		Conditions: ToRoutePolicyConditions(&s.Conditions, neighbor, family),
 		Actions:    ToRoutePolicyActions(&s.Actions),
 	}
@@ -59,7 +59,7 @@ func ValidateAndDefaultPolicyStatement(s *v1.BGPPolicyStatement, family v2.Ciliu
 	return errs
 }
 
-func ToRoutePolicyConditions(c *v1.BGPPolicyConditions, neighbor netip.Addr, family types.Family) types.RoutePolicyConditions {
+func ToRoutePolicyConditions(c *v1.BGPPolicyConditions, neighbor netip.Addr, family types.Family) ExtendedRoutePolicyConditions {
 	prefixes := []types.RoutePolicyPrefix{}
 
 	// We only render PrefixesV4 for ipv4-unicast
@@ -110,16 +110,18 @@ func ToRoutePolicyConditions(c *v1.BGPPolicyConditions, neighbor netip.Addr, fam
 		}
 	}
 
-	return types.RoutePolicyConditions{
-		MatchNeighbors: &types.RoutePolicyNeighborMatch{
-			Type:      types.RoutePolicyMatchAny,
-			Neighbors: []netip.Addr{neighbor},
+	return ExtendedRoutePolicyConditions{
+		RoutePolicyConditions: types.RoutePolicyConditions{
+			MatchNeighbors: &types.RoutePolicyNeighborMatch{
+				Type:      types.RoutePolicyMatchAny,
+				Neighbors: []netip.Addr{neighbor},
+			},
+			MatchPrefixes: &types.RoutePolicyPrefixMatch{
+				Type:     types.RoutePolicyMatchAny, // TODO: implement other prefix match types
+				Prefixes: prefixes,
+			},
+			MatchFamilies: []types.Family{family},
 		},
-		MatchPrefixes: &types.RoutePolicyPrefixMatch{
-			Type:     types.RoutePolicyMatchAny, // TODO: implement other prefix match types
-			Prefixes: prefixes,
-		},
-		MatchFamilies: []types.Family{family},
 	}
 }
 

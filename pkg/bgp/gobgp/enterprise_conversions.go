@@ -17,6 +17,7 @@ import (
 	gobgp "github.com/osrg/gobgp/v3/api"
 
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
+	ossTypes "github.com/cilium/cilium/pkg/bgp/types"
 )
 
 func ToAgentPathsExtended(paths []*gobgp.Path) ([]*types.ExtendedPath, error) {
@@ -57,4 +58,110 @@ func ToAgentPathExtended(p *gobgp.Path) (*types.ExtendedPath, error) {
 		Path:         *ossPath,
 		NeighborAddr: neighborAddr,
 	}, nil
+}
+
+func toGoBGPPolicyExtended(apiPolicy *types.ExtendedRoutePolicy) (*gobgp.Policy, []*gobgp.DefinedSet) {
+	var definedSets []*gobgp.DefinedSet
+
+	policy := &gobgp.Policy{
+		Name: apiPolicy.Name,
+	}
+	for i, stmt := range apiPolicy.Statements {
+		statement, dSets := toGoBGPPolicyStatementExtended(stmt, policyStatementName(apiPolicy.Name, i))
+		policy.Statements = append(policy.Statements, statement)
+		definedSets = append(definedSets, dSets...)
+	}
+
+	return policy, definedSets
+}
+
+func toGoBGPPolicyStatementExtended(apiStatement *types.ExtendedRoutePolicyStatement, name string) (*gobgp.Statement, []*gobgp.DefinedSet) {
+	// convert OSS part
+	ossStatement := &ossTypes.RoutePolicyStatement{
+		Conditions: apiStatement.Conditions.RoutePolicyConditions,
+		Actions:    apiStatement.Actions,
+	}
+	s, definedSets := toGoBGPPolicyStatement(ossStatement, name)
+
+	// CEE extensions conversion below
+
+	// defined sets to match communities
+	if apiStatement.Conditions.MatchCommunities != nil && len(apiStatement.Conditions.MatchCommunities.Communities) > 0 {
+		ds := &gobgp.DefinedSet{
+			DefinedType: gobgp.DefinedType_COMMUNITY,
+			Name:        policyCommunityDefinedSetName(name),
+			List:        apiStatement.Conditions.MatchCommunities.Communities,
+		}
+		s.Conditions.CommunitySet = &gobgp.MatchSet{
+			Type: toGoBGPPolicyMatchType(apiStatement.Conditions.MatchCommunities.Type),
+			Name: ds.Name,
+		}
+		definedSets = append(definedSets, ds)
+	}
+
+	// defined sets to match large communities
+	if apiStatement.Conditions.MatchLargeCommunities != nil && len(apiStatement.Conditions.MatchLargeCommunities.Communities) > 0 {
+		ds := &gobgp.DefinedSet{
+			DefinedType: gobgp.DefinedType_LARGE_COMMUNITY,
+			Name:        policyLargeCommunityDefinedSetName(name),
+			List:        apiStatement.Conditions.MatchLargeCommunities.Communities,
+		}
+		s.Conditions.LargeCommunitySet = &gobgp.MatchSet{
+			Type: toGoBGPPolicyMatchType(apiStatement.Conditions.MatchLargeCommunities.Type),
+			Name: ds.Name,
+		}
+		definedSets = append(definedSets, ds)
+	}
+
+	return s, definedSets
+}
+
+func toAgentPolicyExtended(p *gobgp.Policy, definedSets map[string]*gobgp.DefinedSet, assignment *gobgp.PolicyAssignment) *types.ExtendedRoutePolicy {
+	policy := &types.ExtendedRoutePolicy{
+		Name: p.Name,
+		Type: toAgentPolicyType(assignment.Direction),
+	}
+	for _, s := range p.Statements {
+		policy.Statements = append(policy.Statements, toAgentPolicyStatementExtended(s, definedSets))
+	}
+	return policy
+}
+
+func toAgentPolicyStatementExtended(s *gobgp.Statement, definedSets map[string]*gobgp.DefinedSet) *types.ExtendedRoutePolicyStatement {
+
+	// convert OSS part
+	ossStmt := toAgentPolicyStatement(s, definedSets)
+	stmt := &types.ExtendedRoutePolicyStatement{
+		Conditions: types.ExtendedRoutePolicyConditions{
+			RoutePolicyConditions: ossStmt.Conditions,
+		},
+		Actions: ossStmt.Actions,
+	}
+
+	// CEE extensions conversion below
+
+	if s.Conditions != nil {
+		if s.Conditions.CommunitySet != nil && definedSets[s.Conditions.CommunitySet.Name] != nil {
+			stmt.Conditions.MatchCommunities = &types.RoutePolicyCommunityMatch{
+				Type:        toAgentPolicyMatchType(s.Conditions.CommunitySet.Type),
+				Communities: definedSets[s.Conditions.CommunitySet.Name].List,
+			}
+		}
+		if s.Conditions.LargeCommunitySet != nil && definedSets[s.Conditions.LargeCommunitySet.Name] != nil {
+			stmt.Conditions.MatchLargeCommunities = &types.RoutePolicyCommunityMatch{
+				Type:        toAgentPolicyMatchType(s.Conditions.LargeCommunitySet.Type),
+				Communities: definedSets[s.Conditions.LargeCommunitySet.Name].List,
+			}
+		}
+	}
+
+	return stmt
+}
+
+func policyCommunityDefinedSetName(policyStatementName string) string {
+	return policyStatementName + "-community"
+}
+
+func policyLargeCommunityDefinedSetName(policyStatementName string) string {
+	return policyStatementName + "-large-community"
 }
