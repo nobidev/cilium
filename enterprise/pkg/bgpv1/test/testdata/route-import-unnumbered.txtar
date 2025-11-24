@@ -1,0 +1,111 @@
+#!
+
+hive start
+db/initialized
+
+# Add devices and neighbors entries into statedb
+db/insert devices device.yaml
+db/insert neighbors neighbor.yaml
+
+# Configure gobgp server (bind to :: as GoBGP does not support binding to a LL address with zone)
+gobgp/add-server unnumbered --router-id=1.2.3.4 65001 :: 1800
+gobgp/add-peer -s unnumbered fe80::a800:ff:fe00:1%centbgptest2 65000
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-policy.yaml
+bgptest/sync-oss-resources
+
+# Wait for peering to be established
+gobgp/wait-state fe80::a800:ff:fe00:1%centbgptest2 ESTABLISHED
+
+# Add routes
+gobgp/add-route -s unnumbered 10.0.0.0/24
+gobgp/add-route -s unnumbered 2001:db8::/64
+
+# Ensure routes are written into the RIB
+db/cmp desired-routes desired-routes.expected
+
+-- device.yaml --
+index: 1
+name: centbgptest1
+type: veth
+selected: true
+
+-- neighbor.yaml --
+linkindex: 1
+ipaddr: fe80::a800:ff:fe00:2
+type: 1
+state: 0x80
+flags: 0x10
+flagsExt: 0x0
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+
+-- bgp-node-config.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - name: instance0
+    localASN: 65000
+    routerID: 5.6.7.8
+    peers:
+    - name: peer-unnumbered
+      peerASN: 65001
+      autoDiscovery:
+        mode: Unnumbered
+        unnumbered:
+          interface: centbgptest1
+      peerConfigRef:
+        name: peer-config-unnumbered
+
+-- bgp-peer-config.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPeerConfig
+metadata:
+  name: peer-config-unnumbered
+spec:
+  transport:
+    peerPort: 1800
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    importPolicyRef:
+      name: policy0
+  - afi: ipv6
+    safi: unicast
+    importPolicyRef:
+      name: policy0
+
+-- bgp-policy.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPolicy
+metadata:
+  name: policy0
+spec:
+  import:
+    statements:
+    - conditions:
+        prefixesV4:
+          matchType: Or
+          matches:
+          - prefix: 10.0.0.0/24
+        prefixesV6:
+          matchType: Or
+          matches:
+          - prefix: 2001:db8::/64
+      actions:
+        routeAction: Accept
+
+-- desired-routes.expected --
+Owner             Table        Prefix          AD    Selected   Nexthop                             Device
+bgp-instance0     main (254)   10.0.0.0/24     150   true       fe80::a800:ff:fe00:2%centbgptest1   centbgptest1 (1)
+bgp-instance0     main (254)   2001:db8::/64   150   true       fe80::a800:ff:fe00:2%centbgptest1   centbgptest1 (1)
