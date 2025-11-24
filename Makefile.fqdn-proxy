@@ -15,6 +15,11 @@ build-enterprise-fqdn-proxy: ## Build cilium-dnsproxy binary
 ENTERPRISE_FQDN_PROXY_DOCKERFILE=enterprise/fqdn-proxy/images/cilium-dnsproxy/Dockerfile
 LOCAL_IMAGE_TAG=local
 
+DNSPROXY_HELM_INSTALL_EXTRA_ARGS ?=
+ifdef DNSPROXY_ENABLE_OFFLINE_MODE
+	DNSPROXY_HELM_INSTALL_EXTRA_ARGS := $(DNSPROXY_HELM_INSTALL_EXTRA_ARGS) --set offlineMode.enabled=true
+endif
+
 # We cannot use DOCKER_IMAGE_TEMPLATE here because Makefile.override and trasitively this file are
 # included before Makefile.docker where DOCKER_IMAGE_TEMPLATE is defined.
 .PHONY: docker-enterprise-fqdn-proxy-image
@@ -52,7 +57,7 @@ kind-image-enterprise-fqdn-proxy: kind-ready kind-build-image-enterprise-fqdn-pr
 	$(QUIET)kind load docker-image $(LOCAL_FQDN_PROXY_IMAGE) -n $(KIND_CLUSTER_NAME); \
 	[ $$? -eq 0 ] || $(QUIET)kind load docker-image $(LOCAL_FQDN_PROXY_IMAGE) -n $(KIND_CLUSTER_NAME)
 
-.PHONY: kind-fqdnha-install-cilium
+$(eval $(call KIND_FQDN_PROXY_ENV,kind-fqdnha-install-cilium))
 kind-fqdnha-install-cilium: kind-ready ## Install a local Cilium and DNS proxy version into the cluster.
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
@@ -66,12 +71,14 @@ kind-fqdnha-install-cilium: kind-ready ## Install a local Cilium and DNS proxy v
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \
 		--helm-set='enterprise.featureGates={AllAlphaFeatures,AllBetaFeatures,AllLimitedFeatures}' \
-                --helm-set-string=extraConfig.external-dns-proxy=true \
+		--helm-set-string=extraConfig.external-dns-proxy=true \
 		>/dev/null 2>&1 &
 	$(CILIUM_CLI) status --wait
 
 	helm upgrade --install -n kube-system cilium-dnsproxy ./enterprise/fqdn-proxy/installation \
 		--set image.override=$(LOCAL_FQDN_PROXY_IMAGE) \
+		--set image.imagePullPolicy=Never \
 		--set metrics.enabled=true \
-		--set debug=true
+		--set debug=true \
+		$(DNSPROXY_HELM_INSTALL_EXTRA_ARGS)
 	kubectl rollout status -n kube-system ds/cilium-dnsproxy --watch
