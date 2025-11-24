@@ -912,6 +912,7 @@ Makefile* @cilium/build
 /enterprise/clustermesh-apiserver/clustermesh/testdata/privnet*.txtar @isovalent/clustermesh @isovalent/private-networking
 /enterprise/daemon/ @isovalent/cilium-agent
 /enterprise/datapath/tables/egressip.go @isovalent/egress-gateway
+/enterprise/examples/kubernetes/cilium-agent/ @isovalent/isovalent-loadbalancer
 /enterprise/examples/kubernetes/loadbalancer/ @isovalent/isovalent-loadbalancer
 /enterprise/examples/websocket @isovalent/service-mesh
 /enterprise/features/ @isovalent/cilium-agent
