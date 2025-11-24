@@ -20,7 +20,7 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-image="quay.io/isovalent/cilium-runtime-wfi"
+image="quay.io/isovalent-dev/cilium-runtime-wfi"
 
 # shellcheck disable=SC2207
 used_by=($(find . -type f -name runtime-image-enterprise.txt -print0 | xargs -0 git grep -l "${image}"))

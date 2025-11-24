@@ -1,4 +1,4 @@
-name: Enterprise Base Image Release Build
+name: Wolfi Base Image Release Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -91,7 +91,7 @@ jobs:
           base_tag=$(git ls-tree --full-tree --object-only HEAD -- ./enterprise/images/wolfi/runtime-base)
           echo tag="$base_tag" >> $GITHUB_OUTPUT
 
-          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION }}/cilium-runtime-base-wfi:$base_tag &>/dev/null; then
+          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime-base-wfi:$base_tag &>/dev/null; then
             echo exists="true" >> $GITHUB_OUTPUT
           else
             echo exists="false" >> $GITHUB_OUTPUT
@@ -101,8 +101,8 @@ jobs:
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME_BASE_CEE_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD_BASE_CEE_PASSWORD }}
+          username: ${{ secrets.QUAY_USERNAME_CI }}
+          password: ${{ secrets.QUAY_PASSWORD_CI }}
 
       - name: Release enterprise-runtime-base
         if: ${{ steps.runtime-base-tag.outputs.exists == 'false' }}
@@ -110,9 +110,9 @@ jobs:
         uses: chainguard-images/actions/apko-publish@main
         with:
           config: ./enterprise/images/wolfi/runtime-base/image.yaml
-          tag: quay.io/${{ env.QUAY_ORGANIZATION }}/cilium-runtime-base-wfi:${{  steps.runtime-base-tag.outputs.tag }}
-          generic-user: ${{ secrets.QUAY_USERNAME_BASE_CEE_USERNAME }}
-          generic-pass: ${{ secrets.QUAY_PASSWORD_BASE_CEE_PASSWORD }}
+          tag: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime-base-wfi:${{  steps.runtime-base-tag.outputs.tag }}
+          generic-user: ${{ secrets.QUAY_USERNAME_CI }}
+          generic-pass: ${{ secrets.QUAY_PASSWORD_CI }}
 
       - name: Sign Container Image Runtime
         if: ${{ steps.runtime-base-tag.outputs.exists == 'false' }}
@@ -123,8 +123,8 @@ jobs:
         id: update-runtime-base-image
         if: ${{ steps.runtime-base-tag.outputs.exists == 'false' }}
         run: |
-          digest=$(images/scripts/get-image-digest.sh "quay.io/${{ env.QUAY_ORGANIZATION }}/cilium-runtime-base-wfi:${{ steps.runtime-base-tag.outputs.tag }}")
-          enterprise/images/wolfi/runtime-base/update-enterprise-runtime-base-image.sh "quay.io/${{ env.QUAY_ORGANIZATION }}/cilium-runtime-base-wfi:${{ steps.runtime-base-tag.outputs.tag }}@${digest}"
+          digest=$(images/scripts/get-image-digest.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime-base-wfi:${{ steps.runtime-base-tag.outputs.tag }}")
+          enterprise/images/wolfi/runtime-base/update-enterprise-runtime-base-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime-base-wfi:${{ steps.runtime-base-tag.outputs.tag }}@${digest}"
           git commit -sam "images: update CEE cilium-runtime-base-wfi"
           echo committed="true" >> $GITHUB_OUTPUT
 
@@ -139,7 +139,7 @@ jobs:
         id: cilium-enterprise-runtime-tag-in-repositories
         shell: bash
         run: |
-          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION }}/cilium-runtime-wfi:${{  steps.runtime-tag.outputs.tag }} &>/dev/null; then
+          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime-wfi:${{  steps.runtime-tag.outputs.tag }} &>/dev/null; then
             echo exists="true" >> $GITHUB_OUTPUT
           else
             echo exists="false" >> $GITHUB_OUTPUT
@@ -156,14 +156,14 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ env.QUAY_ORGANIZATION }}/cilium-runtime-wfi:${{  steps.runtime-tag.outputs.tag }}
+            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime-wfi:${{  steps.runtime-tag.outputs.tag }}
 
       - name: Update Runtime Image
         id: update-runtime-image
         if: ${{ steps.runtime-base-tag.outputs.exists == 'true' && steps.cilium-enterprise-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          digest=$(images/scripts/get-image-digest.sh "quay.io/${{ env.QUAY_ORGANIZATION }}/cilium-runtime-wfi:${{ steps.runtime-tag.outputs.tag }}")
-          enterprise/images/wolfi/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION }}/cilium-runtime-wfi:${{ steps.runtime-tag.outputs.tag }}@${digest}"
+          digest=$(images/scripts/get-image-digest.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime-wfi:${{ steps.runtime-tag.outputs.tag }}")
+          enterprise/images/wolfi/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime-wfi:${{ steps.runtime-tag.outputs.tag }}@${digest}"
           git commit -sam "images: update CEE cilium-runtime-wfi"
           echo committed="true" >> $GITHUB_OUTPUT
 

@@ -20,7 +20,7 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-image="quay.io/isovalent/cilium-runtime-base-wfi"
+image="quay.io/isovalent-dev/cilium-runtime-base-wfi"
 
 # shellcheck disable=SC2207
 used_by=($(find . -type f -name Dockerfile -print0 | xargs -0 git grep -l CILIUM_RUNTIME_BASE_IMAGE=))
