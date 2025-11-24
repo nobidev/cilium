@@ -59,7 +59,7 @@ type rulesWatcher struct {
 
 func newRulesWatcher(log *slog.Logger, client *fqdnAgentClient, jg job.Group) *rulesWatcher {
 	rw := &rulesWatcher{
-		log:           log,
+		log:           log.With(logfields.LogSubsys, "rules-watcher"),
 		client:        client,
 		rulesReceived: make(chan struct{}),
 		proxySet:      make(chan struct{}),

@@ -67,7 +67,7 @@ func makeClient(log *slog.Logger, socketPath string) (*fqdnAgentClient, error) {
 	return &fqdnAgentClient{
 		FQDNProxyAgentClient: pb.NewFQDNProxyAgentClient(conn),
 		conn:                 conn,
-		log:                  log,
+		log:                  log.With(logfields.LogSubsys, "agent-client"),
 	}, nil
 }
 
@@ -234,31 +234,32 @@ func makeNotifierMetrics(n *notifier, reg *metrics.Registry) *notifierMetrics {
 		ProxyUpdateErrors: metric.NewCounterVec(metric.CounterOpts{
 			Name:      "update_errors_total",
 			Namespace: metricsNamespace,
-			Subsystem: "external_dns_proxy",
+			Subsystem: metricsSubsystem,
 			Help:      "Number of total cilium DNS notification errors during FQDN IP updates",
 		}, []string{"error"}),
+		// TODO: Rename error label to status?
 		ProcessingTime: metric.NewHistogramVec(metric.HistogramOpts{
 			Name:      "processing_duration_seconds",
 			Namespace: metricsNamespace,
-			Subsystem: "external_dns_proxy",
+			Subsystem: metricsSubsystem,
 			Help:      "Seconds spent processing DNS transactions",
-		}, []string{"error"}),
+		}, []string{"status"}),
 		UpstreamTime: metric.NewHistogramVec(metric.HistogramOpts{
 			Name:      "upstream_duration_seconds",
 			Namespace: metricsNamespace,
-			Subsystem: "external_dns_proxy",
+			Subsystem: metricsSubsystem,
 			Help:      "Seconds waited to get a reply from a upstream server",
-		}, []string{"error"}),
+		}, []string{"status"}),
 		PolicyTotal: metric.NewCounterVec(metric.CounterOpts{
 			Name:      "policy_l7_total",
 			Namespace: metricsNamespace,
-			Subsystem: "external_dns_proxy",
+			Subsystem: metricsSubsystem,
 			Help:      "Number of total proxy requests handled",
 		}, []string{"rule"}),
 		ProxyUpdateQueueLen: metric.NewGaugeFunc(metric.GaugeOpts{
 			Name:      "update_queue_size",
 			Namespace: metricsNamespace,
-			Subsystem: "external_dns_proxy",
+			Subsystem: metricsSubsystem,
 			Help:      "Size of the queue for deferred DNS notifications to the cilium-agent",
 		}, func() float64 {
 			return float64(n.pending.Load())
@@ -297,7 +298,7 @@ const (
 	// Metrics labels
 	metricErrorTimeout  = "timeout"
 	metricErrorProxy    = "proxyErr"
-	metricErrorPacking  = "serialization failed"
+	metricErrorPacking  = "serializationFailed"
 	metricErrorNoEP     = "noEndpoint"
 	metricErrorOverflow = "queueOverflow"
 	metricErrorAllow    = "allow"

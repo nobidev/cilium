@@ -67,7 +67,7 @@ type remoteNameManagerParams struct {
 
 func newRemoteNameManager(params remoteNameManagerParams) *remoteNameManager {
 	r := &remoteNameManager{
-		logger:           params.Logger,
+		logger:           params.Logger.With(logfields.LogSubsys, "remote-name-manager"),
 		cfg:              params.Cfg,
 		client:           params.Client,
 		cache:            newAgentDataCache(),
@@ -328,8 +328,7 @@ func (r *remoteNameManager) maybeUpdateIPCache(qname string, responseAddrs []net
 			}
 		}
 
-		log.Debug("writing new identity to BPF ipcache map")
-
+		log.Debug("Writing new address for identity to BPF ipcache map")
 		err = r.ipcache.write(addr, newID)
 		if err != nil {
 			log.Warn("failed to write to BPF ipcache map",

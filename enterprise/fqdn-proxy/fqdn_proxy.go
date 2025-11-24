@@ -41,7 +41,7 @@ type runParams struct {
 }
 
 func run(ctx context.Context, params runParams) error {
-	log := params.Log
+	log := params.Log.With(logfields.LogSubsys, "fqdn-proxy")
 
 	log.Info("     _ _ _")
 	log.Info(" ___|_| |_|_ _ _____")

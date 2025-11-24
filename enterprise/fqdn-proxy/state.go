@@ -60,7 +60,7 @@ type stateManagerParams struct {
 
 func newStateManager(params stateManagerParams) *stateManager {
 	sm := &stateManager{
-		log:    params.Log,
+		log:    params.Log.With(logfields.LogSubsys, "state-manager"),
 		client: params.Client,
 		cfg:    params.Cfg,
 
