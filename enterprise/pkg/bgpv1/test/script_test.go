@@ -17,7 +17,6 @@ import (
 	"net"
 	"net/netip"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/cilium/hive/script"
 	"github.com/cilium/hive/script/scripttest"
 	"github.com/cilium/statedb"
+	"github.com/spf13/afero"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,6 +52,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
@@ -91,6 +92,7 @@ const (
 	probeTCPMD5Flag                  = "probe-tcp-md5"
 	requireIPv6LLAddrsFlag           = "require-ipv6-lladdrs"
 	enableNodeMaintenanceHelpersFlag = "enable-node-maintenance-helpers"
+	useScriptNetFlag                 = "use-script-net"
 
 	// test environment variables
 	link1EnvVar   = "LINK1"
@@ -124,7 +126,6 @@ func TestPrivilegedScript(t *testing.T) {
 		peeringIPs := flags.StringSlice(testPeeringIPsFlag, nil, "List of IPs used for peering in the test")
 		useIPAM := flags.String(ipamFlag, ipamOption.IPAMKubernetes, "IPAM used by the test")
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
-		requireIPv6LLAddrs := flags.Bool(requireIPv6LLAddrsFlag, false, "Require IPv6 link local addresses to be present on the test links")
 		enableNodeMaintenanceHelpers := flags.Bool(enableNodeMaintenanceHelpersFlag, false, "Enable node maintenance helpers")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
 
@@ -133,11 +134,6 @@ func TestPrivilegedScript(t *testing.T) {
 			require.NoError(t, err)
 			if !available {
 				t.Skip("TCP_MD5SIG socket option is not available")
-			}
-		}
-		if *requireIPv6LLAddrs {
-			if !hasIPv6LLAddrs(envVars) {
-				t.Skip("Link-local IPv6 addresses not available on test interfaces")
 			}
 		}
 
@@ -321,6 +317,18 @@ func setupTestLinks(t *testing.T, envVars []string) []string {
 	veth2, err := safenetlink.LinkByName(testLink2Name)
 	require.NoError(t, err)
 
+	// Assign IPv6 link-local addresses with EUI64 with fixed MAC address.
+	// This makes the link-local addresses predictable and makes things a
+	// lot easier.
+	ctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+	ctl.WriteInt([]string{"net", "ipv6", "conf", testLink1Name, "addr_gen_mode"}, 0)
+	ctl.WriteInt([]string{"net", "ipv6", "conf", testLink2Name, "addr_gen_mode"}, 0)
+
+	err = netlink.LinkSetHardwareAddr(veth1, net.HardwareAddr{0xaa, 0x00, 0x00, 0x00, 0x00, 0x01})
+	require.NoError(t, err)
+	err = netlink.LinkSetHardwareAddr(veth2, net.HardwareAddr{0xaa, 0x00, 0x00, 0x00, 0x00, 0x02})
+	require.NoError(t, err)
+
 	err = netlink.LinkSetUp(veth1)
 	require.NoError(t, err)
 	err = netlink.LinkSetUp(veth2)
@@ -378,18 +386,4 @@ func createNetlinkAddr(prefix netip.Prefix) *netlink.Addr {
 		addr.Flags = unix.IFA_F_NODAD // disable duplicate address detection so that we can use the address immediately
 	}
 	return addr
-}
-
-// hasIPv6LLAddrs returns true IPv6 link-local addresses were found on both test links
-func hasIPv6LLAddrs(envVars []string) bool {
-	found := 0
-	for _, v := range envVars {
-		if strings.HasPrefix(v, llAddr1EnvVar) || strings.HasPrefix(v, llAddr2EnvVar) {
-			found++
-			if found == 2 {
-				return true
-			}
-		}
-	}
-	return false
 }

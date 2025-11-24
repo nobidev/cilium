@@ -1,16 +1,13 @@
-#! --require-ipv6-lladdrs
+#!
 
-# Tests unnumbered BGP peering via link-local IPv6 addresses.
-# Relies on env. variables $LLADDR1, $LLADDR2, $LINK1, $LINK2 populated by the test infra.
+# Tests unnumbered BGP peering via link-local IPv6 addresses. The link-local
+# address of the interfaces are always the same, because we generate it based
+# on EUI64 and fixed MAC addresses. That's why we can directly write the
+# address here.
 
 # Start the hive
 hive start
 db/initialized
-
-# Expand variables in the input files
-replace '$IP_ADDR' $LLADDR1 neighbor.yaml
-replace '$IF_NAME' $LINK2 device.yaml
-replace '$IF_NAME' $LINK2 bgp-node-config.yaml
 
 # Add devices and neighbors entries into statedb
 db/insert devices device.yaml
@@ -18,14 +15,14 @@ db/insert neighbors neighbor.yaml
 
 # Configure gobgp server (bind to :: as GoBGP does not support binding to a LL address with zone)
 gobgp/add-server test --router-id=1.2.3.4 65001 :: 1799
-gobgp/add-peer $LLADDR2%$LINK1 65001
+gobgp/add-peer fe80::a800:ff:fe00:2%centbgptest1 65001
 
 # Configure BGP on Cilium
 k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
 bgptest/sync-oss-resources
 
 # Wait for peering to be established
-gobgp/wait-state $LLADDR2 ESTABLISHED
+gobgp/wait-state fe80::a800:ff:fe00:2%centbgptest1 ESTABLISHED
 
 # Validate IPv4 PodCIDR is advertised
 gobgp/routes ipv4 unicast
@@ -39,13 +36,13 @@ gobgp/routes ipv6 unicast
 
 -- device.yaml --
 index: 1
-name: $IF_NAME
+name: centbgptest2
 type: veth
 selected: true
 
 -- neighbor.yaml --
 linkindex: 1
-ipaddr: $IP_ADDR
+ipaddr: fe80::a800:ff:fe00:1
 type: 1
 state: 0x80
 flags: 0x10
@@ -81,7 +78,7 @@ spec:
       autoDiscovery:
         mode: Unnumbered
         unnumbered:
-          interface: $IF_NAME
+          interface: centbgptest2
       peerConfigRef:
         name: gobgp-peer-config
 
