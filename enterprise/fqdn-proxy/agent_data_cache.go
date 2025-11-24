@@ -45,6 +45,15 @@ func (m *lockedMap[K, V]) Store(k K, v V) {
 	m.m[k] = v
 }
 
+func (m *lockedMap[K, V]) ForEach(handle func(K, V)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for k, v := range m.m {
+		handle(k, v)
+	}
+}
+
 // agentDataCache is a cache which stores data retrieved from agent by
 // DNS proxy so that proxy can function when agent is unavailable
 type agentDataCache struct {

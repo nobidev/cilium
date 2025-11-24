@@ -47,6 +47,7 @@ var (
 		cell.Invoke(runDNSProxy),
 
 		// Cilium DNSProxy debug shell.
+		shellCommandsCell,
 		shell.ServerCell(shellSockPath),
 	)
 

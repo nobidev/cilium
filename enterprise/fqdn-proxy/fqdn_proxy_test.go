@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -648,6 +649,10 @@ func (f *fakeIPCache) write(addr netip.Addr, identity identity.NumericIdentity) 
 	f.ipEndpointMap[addr] = identity
 	f.writeCalls = append(f.writeCalls, call)
 	return nil
+}
+
+func (f *fakeIPCache) getInfo() (*ipcache.Map, time.Time, bool) {
+	return nil, time.Time{}, false
 }
 
 func fromLabels(lbls labels.Labels) []*pb.Label {

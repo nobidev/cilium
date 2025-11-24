@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var ErrIPCacheInvalid = fmt.Errorf("agent IPCache map invalid")
@@ -31,6 +32,7 @@ var ErrWriteDisabled = fmt.Errorf("bpf IPCache writes disabled")
 type bpfIPCache interface {
 	lookup(netip.Addr) (identity.NumericIdentity, error)
 	write(netip.Addr, identity.NumericIdentity) error
+	getInfo() (*ipcache.Map, time.Time, bool)
 }
 
 type bpfIPC struct {
@@ -53,7 +55,7 @@ func newBPFIPCache(logger *slog.Logger, sm *stateManager, config Config, reg *me
 	}
 
 	b := &bpfIPC{
-		logger: logger,
+		logger: logger.With(logfields.LogSubsys, "bpf-ipcache"),
 		sm:     sm,
 	}
 
@@ -196,4 +198,11 @@ func (b *bpfIPC) write(addr netip.Addr, identity identity.NumericIdentity) error
 		SecurityIdentity: uint32(identity),
 	}
 	return b.ipc.Update(&key, &val)
+}
+
+func (b *bpfIPC) getInfo() (*ipcache.Map, time.Time, bool) {
+	b.mapsLock.RLock()
+	defer b.mapsLock.RUnlock()
+
+	return b.ipc, time.Unix(b.curStartTime, 0), b.allowWrite
 }
