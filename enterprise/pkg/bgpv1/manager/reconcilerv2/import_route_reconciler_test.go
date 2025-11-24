@@ -15,33 +15,80 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/statedb"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/stretchr/testify/require"
+	"go.yaml.in/yaml/v3"
 
-	"github.com/cilium/cilium/pkg/bgp/types"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
+	ossTypes "github.com/cilium/cilium/pkg/bgp/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 )
 
 func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 	nlri := bgp.NewIPAddrPrefix(24, "10.0.0.0")
+	linkLocalNexthop := net.ParseIP("fe80::1")
+	neighborAddrWithZone := netip.MustParseAddr("fe80::1%if0")
+
+	mpReachNLRI_G := bgp.NewPathAttributeMpReachNLRI(
+		"fd00::1",
+		[]bgp.AddrPrefixInterface{
+			nlri,
+		},
+	)
+
+	mpReachNLRI_L := bgp.NewPathAttributeMpReachNLRI(
+		"fe80::1",
+		[]bgp.AddrPrefixInterface{
+			nlri,
+		},
+	)
+
+	mpReachNLRI_GL := bgp.NewPathAttributeMpReachNLRI(
+		"fd00::1",
+		[]bgp.AddrPrefixInterface{
+			nlri,
+		},
+	)
+	mpReachNLRI_GL.LinkLocalNexthop = linkLocalNexthop
+
+	mpReachNLRI_ZL := bgp.NewPathAttributeMpReachNLRI(
+		"::",
+		[]bgp.AddrPrefixInterface{
+			nlri,
+		},
+	)
+	mpReachNLRI_ZL.LinkLocalNexthop = linkLocalNexthop
+
+	mpReachNLRI_LL := bgp.NewPathAttributeMpReachNLRI(
+		"fe80::1",
+		[]bgp.AddrPrefixInterface{
+			nlri,
+		},
+	)
+	mpReachNLRI_LL.LinkLocalNexthop = linkLocalNexthop
 
 	tests := []struct {
 		name        string
-		inputPath   *types.Path
+		inputPath   *types.ExtendedPath
 		outputPath  *path
 		expectedErr error
 	}{
 		{
 			name: "Valid IPv4 NEXT_HOP",
-			inputPath: &types.Path{
-				NLRI: nlri,
-				PathAttributes: []bgp.PathAttributeInterface{
-					bgp.NewPathAttributeNextHop("192.168.0.1"),
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI: nlri,
+					PathAttributes: []bgp.PathAttributeInterface{
+						bgp.NewPathAttributeNextHop("192.168.0.1"),
+					},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
 				},
-				Family: types.Family{
-					Afi:  types.AfiIPv4,
-					Safi: types.SafiUnicast,
-				},
-				SourceASN: 65000,
 			},
 			outputPath: &path{
 				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
@@ -51,21 +98,23 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 		},
 		{
 			name: "Valid IPv4 MP_REACH_NLRI",
-			inputPath: &types.Path{
-				NLRI: nlri,
-				PathAttributes: []bgp.PathAttributeInterface{
-					bgp.NewPathAttributeMpReachNLRI(
-						"192.168.0.1",
-						[]bgp.AddrPrefixInterface{
-							nlri,
-						},
-					),
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI: nlri,
+					PathAttributes: []bgp.PathAttributeInterface{
+						bgp.NewPathAttributeMpReachNLRI(
+							"192.168.0.1",
+							[]bgp.AddrPrefixInterface{
+								nlri,
+							},
+						),
+					},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
 				},
-				Family: types.Family{
-					Afi:  types.AfiIPv4,
-					Safi: types.SafiUnicast,
-				},
-				SourceASN: 65000,
 			},
 			outputPath: &path{
 				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
@@ -75,49 +124,228 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 		},
 		{
 			name: "Invalid missing required attributes",
-			inputPath: &types.Path{
-				NLRI:           nlri,
-				PathAttributes: []bgp.PathAttributeInterface{},
-				Family: types.Family{
-					Afi:  types.AfiIPv4,
-					Safi: types.SafiUnicast,
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
 				},
-				SourceASN: 65000,
 			},
 			expectedErr: errMalformedPath,
 		},
 		{
 			name: "Unsupported v6 nexthop NEXT_HOP",
-			inputPath: &types.Path{
-				NLRI: nlri,
-				PathAttributes: []bgp.PathAttributeInterface{
-					bgp.NewPathAttributeNextHop("fd00::1"),
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI: nlri,
+					PathAttributes: []bgp.PathAttributeInterface{
+						bgp.NewPathAttributeNextHop("fd00::1"),
+					},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
 				},
-				Family: types.Family{
-					Afi:  types.AfiIPv4,
-					Safi: types.SafiUnicast,
+			},
+			expectedErr: errUnsupportedNexthop,
+		},
+		// For RFC8950 handling, we have 10 possible cases. The
+		// following five nexthop encoding:
+		//
+		// 1. G (Global=True global address, LinkLocal=N/A)
+		// 2. L (Global=Link-local address, LinkLocal=N/A)
+		// 3. G/L (Global=True global address, LinkLocal=Link-local address)
+		// 4. ::/L (Global=::, LinkLocal=Link-local address)
+		// 5. L/L (Global=Link-local address, LinkLocal=Link-local address)
+		//
+		// And with or without zone information derived from the
+		// neighbor. The link-local address is only valid when the
+		// neighbor address contains zone information.
+		{
+			name: "Valid RFC8960 G with zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_G},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
 				},
-				SourceASN: 65000,
+				NeighborAddr: neighborAddrWithZone,
+			},
+			outputPath: &path{
+				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
+				nexthop: netip.MustParseAddr("fd00::1"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name: "Valid RFC8960 L with zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_L},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+				NeighborAddr: neighborAddrWithZone,
+			},
+			outputPath: &path{
+				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
+				nexthop: netip.MustParseAddr("fe80::1%if0"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name: "Valid RFC8960 G/L with zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_GL},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+				NeighborAddr: neighborAddrWithZone,
+			},
+			outputPath: &path{
+				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
+				nexthop: netip.MustParseAddr("fe80::1%if0"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name: "Valid RFC8960 ::/L with zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_ZL},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+				NeighborAddr: neighborAddrWithZone,
+			},
+			outputPath: &path{
+				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
+				nexthop: netip.MustParseAddr("fe80::1%if0"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name: "Valid RFC8960 L/L with zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_LL},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+				NeighborAddr: neighborAddrWithZone,
+			},
+			outputPath: &path{
+				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
+				nexthop: netip.MustParseAddr("fe80::1%if0"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name: "Valid RFC8960 G without zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_G},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+			},
+			outputPath: &path{
+				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
+				nexthop: netip.MustParseAddr("fd00::1"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name: "Invalid RFC8960 L without zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_L},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
 			},
 			expectedErr: errUnsupportedNexthop,
 		},
 		{
-			name: "Unsupported v6 nexthop MP_REACH_NLRI (RFC8960)",
-			inputPath: &types.Path{
-				NLRI: nlri,
-				PathAttributes: []bgp.PathAttributeInterface{
-					bgp.NewPathAttributeMpReachNLRI(
-						"fd00::1",
-						[]bgp.AddrPrefixInterface{
-							nlri,
-						},
-					),
+			name: "Valid RFC8960 G/L without zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_GL},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
 				},
-				Family: types.Family{
-					Afi:  types.AfiIPv4,
-					Safi: types.SafiUnicast,
+			},
+			outputPath: &path{
+				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
+				nexthop: netip.MustParseAddr("fd00::1"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name: "Invalid RFC8960 ::/L without zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_ZL},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
 				},
-				SourceASN: 65000,
+			},
+			expectedErr: errUnsupportedNexthop,
+		},
+		{
+			name: "Invalid RFC8960 L/L without zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_LL},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
 			},
 			expectedErr: errUnsupportedNexthop,
 		},
@@ -136,96 +364,283 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 }
 
 func TestRouteImportReconcilerParseV6Path(t *testing.T) {
-	nlri := bgp.NewIPv6AddrPrefix(64, "fd00::")
-	mpReachNLRIGlobalOnly := bgp.NewPathAttributeMpReachNLRI(
-		"2001:db8::1",
+	nlri := bgp.NewIPv6AddrPrefix(64, "2001:db8::")
+	linkLocalNexthop := net.ParseIP("fe80::1")
+	neighborAddrWithZone := netip.MustParseAddr("fe80::1%if0")
+
+	mpReachNLRI_G := bgp.NewPathAttributeMpReachNLRI(
+		"fd00::1",
 		[]bgp.AddrPrefixInterface{
 			nlri,
 		},
 	)
 
-	mpReachNLRIGlobalAndLinkLocal := bgp.NewPathAttributeMpReachNLRI(
-		"2001:db8::1",
+	mpReachNLRI_L := bgp.NewPathAttributeMpReachNLRI(
+		"fe80::1",
 		[]bgp.AddrPrefixInterface{
 			nlri,
 		},
 	)
-	mpReachNLRIGlobalAndLinkLocal.LinkLocalNexthop = net.ParseIP("fe80::1")
+
+	mpReachNLRI_GL := bgp.NewPathAttributeMpReachNLRI(
+		"fd00::1",
+		[]bgp.AddrPrefixInterface{
+			nlri,
+		},
+	)
+	mpReachNLRI_GL.LinkLocalNexthop = linkLocalNexthop
+
+	mpReachNLRI_ZL := bgp.NewPathAttributeMpReachNLRI(
+		"::",
+		[]bgp.AddrPrefixInterface{
+			nlri,
+		},
+	)
+	mpReachNLRI_ZL.LinkLocalNexthop = linkLocalNexthop
+
+	mpReachNLRI_LL := bgp.NewPathAttributeMpReachNLRI(
+		"fe80::1",
+		[]bgp.AddrPrefixInterface{
+			nlri,
+		},
+	)
+	mpReachNLRI_LL.LinkLocalNexthop = linkLocalNexthop
 
 	tests := []struct {
 		name        string
-		inputPath   *types.Path
+		inputPath   *types.ExtendedPath
 		outputPath  *path
 		expectedErr error
 	}{
+		// For IPv6 nexthop handling, we have 10 possible cases. The
+		// following five nexthop encoding:
+		//
+		// 1. G (Global=True global address, LinkLocal=N/A)
+		// 2. L (Global=Link-local address, LinkLocal=N/A)
+		// 3. G/L (Global=True global address, LinkLocal=Link-local address)
+		// 4. ::/L (Global=::, LinkLocal=Link-local address)
+		// 5. L/L (Global=Link-local address, LinkLocal=Link-local address)
+		//
+		// And with or without zone information derived from the
+		// neighbor. The link-local address is only valid when the
+		// neighbor address contains zone information.
 		{
-			name: "Valid IPv6 MP_REACH_NLRI global only",
-			inputPath: &types.Path{
-				NLRI: nlri,
-				PathAttributes: []bgp.PathAttributeInterface{
-					mpReachNLRIGlobalOnly,
+			name: "Valid G with zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_G},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
 				},
-				Family: types.Family{
-					Afi:  types.AfiIPv6,
-					Safi: types.SafiUnicast,
-				},
-				SourceASN: 65000,
+				NeighborAddr: neighborAddrWithZone,
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("fd00::/64"),
-				nexthop: netip.MustParseAddr("2001:db8::1"),
+				prefix:  netip.MustParsePrefix("2001:db8::/64"),
+				nexthop: netip.MustParseAddr("fd00::1"),
 				isIBGP:  true,
 			},
 		},
 		{
-			name: "Valid IPv6 MP_REACH_NLRI global and link-local",
-			inputPath: &types.Path{
-				NLRI: nlri,
-				PathAttributes: []bgp.PathAttributeInterface{
-					mpReachNLRIGlobalAndLinkLocal,
+			name: "Valid L with zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_L},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
 				},
-				Family: types.Family{
-					Afi:  types.AfiIPv6,
-					Safi: types.SafiUnicast,
-				},
-				SourceASN: 65000,
+				NeighborAddr: neighborAddrWithZone,
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("fd00::/64"),
-				nexthop: netip.MustParseAddr("fe80::1"),
+				prefix:  netip.MustParsePrefix("2001:db8::/64"),
+				nexthop: netip.MustParseAddr("fe80::1%if0"),
 				isIBGP:  true,
 			},
+		},
+		{
+			name: "Valid G/L with zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_GL},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+				NeighborAddr: neighborAddrWithZone,
+			},
+			outputPath: &path{
+				prefix:  netip.MustParsePrefix("2001:db8::/64"),
+				nexthop: netip.MustParseAddr("fe80::1%if0"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name: "Valid ::/L with zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_ZL},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+				NeighborAddr: neighborAddrWithZone,
+			},
+			outputPath: &path{
+				prefix:  netip.MustParsePrefix("2001:db8::/64"),
+				nexthop: netip.MustParseAddr("fe80::1%if0"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name: "Valid L/L with zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_LL},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+				NeighborAddr: neighborAddrWithZone,
+			},
+			outputPath: &path{
+				prefix:  netip.MustParsePrefix("2001:db8::/64"),
+				nexthop: netip.MustParseAddr("fe80::1%if0"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name: "Valid G without zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_G},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+			},
+			outputPath: &path{
+				prefix:  netip.MustParsePrefix("2001:db8::/64"),
+				nexthop: netip.MustParseAddr("fd00::1"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name: "Invalid L without zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_L},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+			},
+			expectedErr: errUnsupportedNexthop,
+		},
+		{
+			name: "Valid G/L without zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_GL},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+			},
+			outputPath: &path{
+				prefix:  netip.MustParsePrefix("2001:db8::/64"),
+				nexthop: netip.MustParseAddr("fd00::1"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name: "Invalid ::/L without zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_ZL},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+			},
+			expectedErr: errUnsupportedNexthop,
+		},
+		{
+			name: "Invalid L/L without zone",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_LL},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+			},
+			expectedErr: errUnsupportedNexthop,
 		},
 		{
 			name: "Invalid missing required attributes",
-			inputPath: &types.Path{
-				NLRI:           nlri,
-				PathAttributes: []bgp.PathAttributeInterface{},
-				Family: types.Family{
-					Afi:  types.AfiIPv6,
-					Safi: types.SafiUnicast,
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
 				},
-				SourceASN: 65000,
 			},
 			expectedErr: errMalformedPath,
 		},
 		{
 			name: "Unsupported v4 nexthop MP_REACH_NLRI (non-standard)",
-			inputPath: &types.Path{
-				NLRI: nlri,
-				PathAttributes: []bgp.PathAttributeInterface{
-					bgp.NewPathAttributeMpReachNLRI(
-						"10.0.0.1",
-						[]bgp.AddrPrefixInterface{
-							nlri,
-						},
-					),
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI: nlri,
+					PathAttributes: []bgp.PathAttributeInterface{
+						bgp.NewPathAttributeMpReachNLRI(
+							"10.0.0.1",
+							[]bgp.AddrPrefixInterface{
+								nlri,
+							},
+						),
+					},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
 				},
-				Family: types.Family{
-					Afi:  types.AfiIPv6,
-					Safi: types.SafiUnicast,
-				},
-				SourceASN: 65000,
 			},
 			expectedErr: errUnsupportedNexthop,
 		},
@@ -239,6 +654,98 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 			} else {
 				require.Equal(t, tt.outputPath, parsedPath, "Unexpected result (error=%s)", err)
 			}
+		})
+	}
+}
+
+// This test ensures that converting the path with toTableRoute and back with
+// toPath ends up with the same path. This is important to correctly calculate
+// the diffs of current and desired routes.
+func TestRouteImportReconcilerToPath(t *testing.T) {
+	var owner reconciler.RouteOwner
+
+	// This is a workaround for the issue that the RouteOwner struct cannot
+	// be directly instantiated due to unexported fields.
+	err := yaml.Unmarshal([]byte("name: test-owner"), &owner)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name  string
+		owner *reconciler.RouteOwner
+		path  *path
+	}{
+		{
+			name:  "Valid IPv4 route iBGP",
+			owner: &owner,
+			path: &path{
+				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
+				nexthop: netip.MustParseAddr("192.168.0.1"),
+				isIBGP:  true,
+			},
+		},
+		{
+			name:  "Valid IPv4 route eBGP",
+			owner: &owner,
+			path: &path{
+				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
+				nexthop: netip.MustParseAddr("192.168.0.1"),
+				isIBGP:  false,
+			},
+		},
+		{
+			name:  "Valid IPv6 route",
+			owner: &owner,
+			path: &path{
+				prefix:  netip.MustParsePrefix("fd00::/64"),
+				nexthop: netip.MustParseAddr("2001:db8::1"),
+				isIBGP:  false,
+			},
+		},
+		{
+			name:  "Valid IPv4 route with link-local nexthop",
+			owner: &owner,
+			path: &path{
+				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
+				nexthop: netip.MustParseAddr("fe80::1%if0"),
+				isIBGP:  false,
+			},
+		},
+		{
+			name:  "Valid IPv6 route with link-local nexthop",
+			owner: &owner,
+			path: &path{
+				prefix:  netip.MustParsePrefix("fd00::/64"),
+				nexthop: netip.MustParseAddr("fe80::1%if0"),
+				isIBGP:  false,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := statedb.New()
+
+			deviceTable, err := tables.NewDeviceTable(db)
+			require.NoError(t, err)
+
+			reconciler := &importRouteReconciler{
+				db:          db,
+				deviceTable: deviceTable,
+			}
+
+			wtxn := db.WriteTxn(deviceTable)
+			deviceTable.Insert(wtxn, &tables.Device{
+				Index: 1,
+				Name:  "if0",
+			})
+			wtxn.Commit()
+
+			tableRoute, err := reconciler.toTableRoute(db.ReadTxn(), tt.owner, tt.path)
+			require.NoError(t, err)
+
+			path, err := reconciler.toPath(tt.owner, &tableRoute)
+			require.NoError(t, err)
+
+			require.Equal(t, tt.path, path, "The converted path does not match the original")
 		})
 	}
 }

@@ -42,8 +42,11 @@ func ToAgentPathExtended(p *gobgp.Path) (*types.ExtendedPath, error) {
 		return nil, err
 	}
 
+	// We need to handle "invalid IP" case as GoBGP has a bug where it
+	// returns string "invalid IP" instead of an empty string for unset
+	// neighbor IPs (most likely in case of locally originated paths).
 	var neighborAddr netip.Addr
-	if p.NeighborIp != "" {
+	if p.NeighborIp != "" && p.NeighborIp != "invalid IP" {
 		neighborAddr, err = netip.ParseAddr(p.NeighborIp)
 		if err != nil {
 			return nil, err
