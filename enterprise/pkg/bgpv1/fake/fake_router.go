@@ -21,6 +21,7 @@ import (
 
 type EnterpriseFakeRouter struct {
 	ossTypes.FakeRouter
+	Resets           map[netip.Addr]ossTypes.SoftResetDirection
 	ResetPeersCh     chan netip.Addr
 	extendedPolicies map[string]*ceeTypes.ExtendedRoutePolicy
 }
@@ -28,13 +29,28 @@ type EnterpriseFakeRouter struct {
 func NewEnterpriseFakeRouter() *EnterpriseFakeRouter {
 	return &EnterpriseFakeRouter{
 		FakeRouter:       *ossTypes.NewFakeRouter().(*ossTypes.FakeRouter),
+		Resets:           make(map[netip.Addr]ossTypes.SoftResetDirection),
 		ResetPeersCh:     make(chan netip.Addr, 10),
 		extendedPolicies: make(map[string]*ceeTypes.ExtendedRoutePolicy),
 	}
 }
 
 func (f *EnterpriseFakeRouter) ResetNeighbor(ctx context.Context, r ossTypes.ResetNeighborRequest) error {
-	f.ResetPeersCh <- r.PeerAddress
+	if r.Soft {
+		f.Resets[r.PeerAddress] = r.SoftResetDirection
+	}
+	select {
+	case f.ResetPeersCh <- r.PeerAddress:
+	default:
+	}
+	return nil
+}
+
+func (f *EnterpriseFakeRouter) ResetAllNeighbors(ctx context.Context, r ossTypes.ResetAllNeighborsRequest) error {
+	if r.Soft {
+		// Use an invalid address to indicate the all reset
+		f.Resets[netip.Addr{}] = r.SoftResetDirection
+	}
 	return nil
 }
 
