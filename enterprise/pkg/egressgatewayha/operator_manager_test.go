@@ -2660,7 +2660,7 @@ func TestEgressCIDRAllocation(t *testing.T) {
 func TestEgressCIDRAllocationFloatingIP(t *testing.T) {
 	k := setupEgressGatewayOperatorTestSuite(t)
 
-	node1 := k.addNode(t, node1Name, node1IP, nodeGroup1Labels)
+	k.addNode(t, node1Name, node1IP, nodeGroup1Labels)
 
 	// Create a non-HA policy (one EgressIP, maxGatewayNodes == 1).
 	// Add one gateway node for the policy.
@@ -2703,8 +2703,8 @@ func TestEgressCIDRAllocationFloatingIP(t *testing.T) {
 		},
 	})
 
-	// Quarantine node1. Node2 should become active, and take over the egressIP.
-	k.makeNodeUnschedulableByTaint(t, node1)
+	// When Node1's health-status is agent-down, Node2 should become active and take over the egressIP.
+	k.makeNodesAgentDown(node1Name)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs:  []string{node2IP},
 		healthyGatewayIPs: []string{node1IP, node2IP},
@@ -2713,20 +2713,19 @@ func TestEgressCIDRAllocationFloatingIP(t *testing.T) {
 		},
 	})
 
-	//	TODO flaky, disable for now
-	//	k.assertIegpStatusConditions(t, []metav1.Condition{
-	//		{
-	//			Type:   egwIPAMRequestSatisfied,
-	//			Status: metav1.ConditionFalse,
-	//		},
-	//		{
-	//			Type:   egwIPAMPoolExhausted,
-	//			Status: metav1.ConditionUnknown,
-	//		},
-	//	})
+	k.assertIegpStatusConditions(t, []metav1.Condition{
+		{
+			Type:   egwIPAMRequestSatisfied,
+			Status: metav1.ConditionFalse,
+		},
+		{
+			Type:   egwIPAMPoolExhausted,
+			Status: metav1.ConditionUnknown,
+		},
+	})
 
-	// Add back node1. Node2 should stay the active gateway node.
-	k.updateNodeTaints(t, node1, nil)
+	// Restore node1. Node2 should stay the active gateway node.
+	k.makeNodesHealthy(node1Name)
 	k.assertIegpGatewayStatus(t, gatewayStatus{
 		activeGatewayIPs:  []string{node2IP},
 		healthyGatewayIPs: []string{node1IP, node2IP},
