@@ -1695,7 +1695,10 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 			ipaddr, _ := net.ResolveIPAddr("ip", laddr)
 			peer.fsm.peerInfo.LocalAddress = ipaddr.IP
 			if peer.fsm.pConf.Transport.Config.LocalAddress != netip.IPv4Unspecified().String() && peer.fsm.pConf.Transport.Config.LocalAddress != netip.IPv6Unspecified().String() {
-				peer.fsm.peerInfo.LocalAddress = net.ParseIP(peer.fsm.pConf.Transport.Config.LocalAddress)
+				ipaddr, err := net.ResolveIPAddr("ip", peer.fsm.pConf.Transport.Config.LocalAddress)
+				if err == nil {
+					peer.fsm.peerInfo.LocalAddress = ipaddr.IP
+				}
 				peer.fsm.pConf.Transport.State.LocalAddress = peer.fsm.pConf.Transport.Config.LocalAddress
 			}
 			neighborAddress := peer.fsm.pConf.State.NeighborAddress
@@ -4470,7 +4473,7 @@ type watchEventUpdate struct {
 	Message      *bgp.BGPMessage
 	PeerAS       uint32
 	LocalAS      uint32
-	PeerAddress  net.IP
+	PeerAddress  netip.Addr
 	LocalAddress net.IP
 	PeerID       net.IP
 	FourBytesAs  bool
@@ -4495,7 +4498,7 @@ type watchEventPeer struct {
 	Type          PeerEventType
 	PeerAS        uint32
 	LocalAS       uint32
-	PeerAddress   net.IP
+	PeerAddress   netip.Addr
 	LocalAddress  net.IP
 	PeerPort      uint16
 	LocalPort     uint16
@@ -4530,7 +4533,7 @@ type watchEventMessage struct {
 	Message      *bgp.BGPMessage
 	PeerAS       uint32
 	LocalAS      uint32
-	PeerAddress  net.IP
+	PeerAddress  netip.Addr
 	LocalAddress net.IP
 	PeerID       net.IP
 	FourBytesAs  bool

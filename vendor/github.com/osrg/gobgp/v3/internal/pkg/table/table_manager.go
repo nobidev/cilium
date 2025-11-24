@@ -22,6 +22,7 @@ import (
 	"time"
 
 	farm "github.com/dgryski/go-farm"
+	"go4.org/netipx"
 
 	"github.com/osrg/gobgp/v3/pkg/log"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
@@ -253,7 +254,8 @@ func (manager *TableManager) handleMacMobility(path *Path) []*Path {
 				break
 			}
 		}
-		return d.ESI, d.ETag, d.MacAddress, seq, p.GetSource().Address
+		ipnet := netipx.AddrIPNet(p.GetSource().Address)
+		return d.ESI, d.ETag, d.MacAddress, seq, ipnet.IP
 	}
 	e1, et1, m1, s1, i1 := f(path)
 

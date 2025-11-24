@@ -31,6 +31,7 @@ import (
 	"github.com/osrg/gobgp/v3/pkg/config/oc"
 	"github.com/osrg/gobgp/v3/pkg/log"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
+	"go4.org/netipx"
 )
 
 type PolicyOptions struct {
@@ -1520,16 +1521,17 @@ func (c *NeighborCondition) Evaluate(path *Path, options *PolicyOptions) bool {
 	}
 
 	neighbor := path.GetSource().Address
-	if options != nil && options.Info != nil && options.Info.Address != nil {
+	if options != nil && options.Info != nil && options.Info.Address.IsValid() {
 		neighbor = options.Info.Address
 	}
 
-	if neighbor == nil {
+	if !neighbor.IsValid() {
 		return false
 	}
 	result := false
 	for _, n := range c.set.list {
-		if n.Contains(neighbor) {
+		neigh := netipx.AddrIPNet(neighbor)
+		if n.Contains(neigh.IP) {
 			result = true
 			break
 		}
@@ -2711,8 +2713,9 @@ func (a *NexthopAction) Apply(path *Path, options *PolicyOptions) (*Path, error)
 		}
 		return path, nil
 	case a.peerAddress:
-		if options != nil && options.Info != nil && options.Info.Address != nil {
-			path.SetNexthop(options.Info.Address)
+		if options != nil && options.Info != nil && options.Info.Address.IsValid() {
+			ipnet := netipx.AddrIPNet(options.Info.Address)
+			path.SetNexthop(ipnet.IP)
 		}
 		return path, nil
 	case a.unchanged:

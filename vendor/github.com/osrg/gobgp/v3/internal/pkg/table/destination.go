@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 
 	"github.com/osrg/gobgp/v3/pkg/config/oc"
@@ -80,7 +81,7 @@ type PeerInfo struct {
 	ID                      net.IP
 	LocalAS                 uint32
 	LocalID                 net.IP
-	Address                 net.IP
+	Address                 netip.Addr
 	LocalAddress            net.IP
 	RouteReflectorClient    bool
 	RouteReflectorClusterID net.IP
@@ -97,14 +98,14 @@ func (lhs *PeerInfo) Equal(rhs *PeerInfo) bool {
 		return false
 	}
 
-	if (lhs.AS == rhs.AS) && lhs.ID.Equal(rhs.ID) && lhs.LocalID.Equal(rhs.LocalID) && lhs.Address.Equal(rhs.Address) {
+	if (lhs.AS == rhs.AS) && lhs.ID.Equal(rhs.ID) && lhs.LocalID.Equal(rhs.LocalID) && (lhs.Address == rhs.Address) {
 		return true
 	}
 	return false
 }
 
 func (i *PeerInfo) String() string {
-	if i.Address == nil {
+	if !i.Address.IsValid() {
 		return "local"
 	}
 	s := bytes.NewBuffer(make([]byte, 0, 64))
@@ -120,14 +121,14 @@ func (i *PeerInfo) String() string {
 
 func NewPeerInfo(g *oc.Global, p *oc.Neighbor) *PeerInfo {
 	clusterID := net.ParseIP(string(p.RouteReflector.State.RouteReflectorClusterId)).To4()
-	// exclude zone info
-	naddr, _ := net.ResolveIPAddr("ip", p.State.NeighborAddress)
+	// include zone info
+	addr, _ := netip.ParseAddr(p.State.NeighborAddress)
 	return &PeerInfo{
 		AS:                      p.Config.PeerAs,
 		LocalAS:                 g.Config.As,
 		LocalID:                 net.ParseIP(g.Config.RouterId).To4(),
 		RouteReflectorClient:    p.RouteReflector.Config.RouteReflectorClient,
-		Address:                 naddr.IP,
+		Address:                 addr,
 		RouteReflectorClusterID: clusterID,
 		MultihopTtl:             p.EbgpMultihop.Config.MultihopTtl,
 		Confederation:           p.IsConfederationMember(g),
@@ -828,15 +829,15 @@ func compareByNeighborAddress(path1, path2 *Path) *Path {
 	// per RFC 4271 9.1.2.2. g
 
 	p1 := path1.GetSource().Address
-	if p1 == nil {
+	if !p1.IsValid() {
 		return path1
 	}
 	p2 := path2.GetSource().Address
-	if p2 == nil {
+	if !p2.IsValid() {
 		return path2
 	}
 
-	cmp := bytes.Compare(p1, p2)
+	cmp := p1.Compare(p2)
 	if cmp < 0 {
 		return path1
 	} else if cmp > 0 {

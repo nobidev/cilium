@@ -2,4 +2,4 @@ replaces:
 - oldPath: github.com/osrg/gobgp/v3
   oldVersion: ""
   newPath: github.com/isovalent/gobgp/v3
-  newVersion: v3.0.0-20251113221723-3540251c0674
+  newVersion: v3.0.0-20251124225527-f7a097923e03

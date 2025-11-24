@@ -1083,7 +1083,7 @@ func (h *fsmHandler) recvMessageWithError() (*fsmMsg, error) {
 				// with the neighbour is both dialed and received on loopback
 				// addresses.
 				var allowLoopback bool
-				if localAddr, peerAddr := h.fsm.peerInfo.LocalAddress, h.fsm.peerInfo.Address; localAddr.To4() != nil && peerAddr.To4() != nil {
+				if localAddr, peerAddr := h.fsm.peerInfo.LocalAddress, h.fsm.peerInfo.Address; localAddr.To4() != nil && peerAddr.Is4() {
 					allowLoopback = localAddr.IsLoopback() && peerAddr.IsLoopback()
 				}
 				ok, err := bgp.ValidateUpdateMsg(body, rfMap, isEBGP, isConfed, allowLoopback)

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/netip"
 	"sort"
 	"time"
 
@@ -342,7 +343,7 @@ func (path *Path) setTimestamp(t time.Time) {
 }
 
 func (path *Path) IsLocal() bool {
-	return path.GetSource().Address == nil
+	return !path.GetSource().Address.IsValid()
 }
 
 func (path *Path) IsIBGP() bool {
@@ -1061,7 +1062,7 @@ func (path *Path) MarshalJSON() ([]byte, error) {
 		Withdrawal bool                         `json:"withdrawal,omitempty"`
 		Validation string                       `json:"validation,omitempty"`
 		SourceID   net.IP                       `json:"source-id,omitempty"`
-		NeighborIP net.IP                       `json:"neighbor-ip,omitempty"`
+		NeighborIP netip.Addr                   `json:"neighbor-ip,omitempty"`
 		Stale      bool                         `json:"stale,omitempty"`
 		UUID       string                       `json:"uuid,omitempty"`
 		ID         uint32                       `json:"id,omitempty"`
