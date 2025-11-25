@@ -147,7 +147,6 @@ jobs:
             --set=azure.resourceGroup=${NAME} \
             --datapath-mode=aks-byocni \
             --set=enterprise.egressGatewayHA.enabled=true \
-            --set=enterprise.featureGate.approved='{EgressGatewayHA,DNSProxyHA,DatapathIPModeDualStack}' \
             --set=enterprise.bgpControlPlane.enabled=true \
             --set-string=extraConfig.external-dns-proxy=true \
             --set=enableIPv4Masquerade=true \
@@ -160,13 +159,19 @@ jobs:
             --nodes-without-cilium
           "
 
+          BASE_FEATURE_GATES="EgressGatewayHA,DNSProxyHA,DatapathIPModeDualStack"
+
           if [ "${{ matrix.ipam }}" == "cluster-pool" ]; then
+            FEATURE_GATES="${BASE_FEATURE_GATES}"
+
             CILIUM_INSTALL_DEFAULTS+=" --set=ipam.mode=cluster-pool \
                                       --set=ipam.operator.clusterPoolIPv4PodCIDRList=192.168.48.0/20 \
                                       --set=ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104 "
           fi
 
           if [ "${{ matrix.ipam }}" == "multi-pool" ]; then
+            FEATURE_GATES="${BASE_FEATURE_GATES},IPAMMultiPool"
+
             CILIUM_INSTALL_DEFAULTS+=" --set=ipam.mode=multi-pool \
                                       --set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{192.168.32.0/20}' \
                                       --set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
@@ -177,6 +182,8 @@ jobs:
                                       --set=ipam.operator.autoCreateCiliumPodIPPools.client2-pool.ipv6.cidrs='{fd00::300/120}' \
                                       --set=ipam.operator.autoCreateCiliumPodIPPools.client2-pool.ipv6.maskSize=122 "
           fi
+
+          CILIUM_INSTALL_DEFAULTS+=" --set=enterprise.featureGate.approved='{${FEATURE_GATES}}' "
 
           CONNECTIVITY_TEST_DEFAULTS=" \
             --hubble=false \
