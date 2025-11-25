@@ -14,7 +14,7 @@ k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config-v4.yaml bgp-peer-c
 bgptest/sync-oss-resources
 
 # Check that the policy is applied as expected
-bgp/route-policies -o bgp-policy.actual
+bgp/route-policies-extended -o bgp-policy.actual
 * cmp bgp-policy.expected bgp-policy.actual
 
 # Wait for peering to be established
@@ -142,10 +142,10 @@ spec:
         routeAction: Accept
 
 -- bgp-policy.expected --
-VRouter   Policy Name                                Type     Match Peers          Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
-65001     allow-local                                import                                                                         accept       
-65001     import-user-defined-peer-v4-ipv4-unicast   import   10.100.100.1         ipv4/unicast     10.0.0.0/24 (24..28)            accept       
-65001     import-user-defined-peer-v6-ipv6-unicast   import   fd00:10:100:100::1   ipv6/unicast     2001:db8::/64 (64..80)          accept       
+Instance    Policy Name                                Type     Match Peers          Match Families   Match Prefixes (Min..Max Len)   Match Communities   RIB Action   Path Actions
+instance0   allow-local                                import                                                                                             accept       
+instance0   import-user-defined-peer-v4-ipv4-unicast   import   10.100.100.1         ipv4/unicast     10.0.0.0/24 (24..28)                                accept       
+instance0   import-user-defined-peer-v6-ipv6-unicast   import   fd00:10:100:100::1   ipv6/unicast     2001:db8::/64 (64..80)                              accept       
 -- bgp-rib-v4.expected --
 VRouter   Prefix        NextHop        Attrs
 65001     10.0.0.0/24   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
