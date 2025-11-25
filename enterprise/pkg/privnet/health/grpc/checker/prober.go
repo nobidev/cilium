@@ -143,14 +143,8 @@ func (p *prober) loop(sender <-chan func(*api.ProbeRequest) error, recv <-chan a
 		timeout = time.NewTimer(p.cfg.Timeout)
 
 		request = &api.ProbeRequest{
-			Self: p.self,
-			Timeout: durationpb.New(
-				// Reduce a bit the timeout advertised to the INB, to account for
-				// possible latency, and speed up the detection on the remote side.
-				// This is intended to reduce the likelihood of ending up with two
-				// INBs thinking that they are both active at the same time.
-				p.cfg.Timeout / 10 * 8,
-			),
+			Self:    p.self,
+			Timeout: durationpb.New(p.cfg.Timeout),
 		}
 	)
 

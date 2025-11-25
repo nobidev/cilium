@@ -133,7 +133,7 @@ func TestProber(t *testing.T) {
 			return func(req *api.ProbeRequest) {
 				require.Equal(t, "foo", req.GetSelf().GetCluster())
 				require.Equal(t, "bar", req.GetSelf().GetName())
-				require.Equal(t, 2*time.Second, req.GetTimeout().AsDuration())
+				require.Equal(t, cfg.Timeout, req.GetTimeout().AsDuration())
 			}
 		}
 	)

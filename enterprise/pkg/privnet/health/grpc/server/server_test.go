@@ -197,7 +197,7 @@ func TestServerProbe(t *testing.T) {
 		wtx.Commit()
 
 		// The timeout has not expired, so both nodes should still be healthy.
-		time.Sleep(timeout - 1*time.Millisecond)
+		time.Sleep(timeout/10*8 - 1*time.Millisecond)
 		synctest.Wait()
 		require.ElementsMatch(t, slices.Collect(maps.Keys(srv.healthy)), []WN{sloth, snail})
 
@@ -223,7 +223,7 @@ func TestServerProbe(t *testing.T) {
 		streamSloth.doSend(nil, context.Canceled)
 		streamSnail.doSend(nil, context.Canceled)
 
-		time.Sleep(timeout - 2*time.Millisecond)
+		time.Sleep(timeout/10*8 - 2*time.Millisecond)
 
 		synctest.Wait()
 		require.ElementsMatch(t, slices.Collect(maps.Keys(srv.healthy)), []WN{sloth, snail})

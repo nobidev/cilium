@@ -295,6 +295,12 @@ func (s *server) Probe(stream grpc.BidiStreamingServer[api.ProbeRequest, api.Pro
 }
 
 func (s *server) onProbe(node tables.WorkloadNode, timeout time.Duration) {
+	// Reduce a bit the timeout advertised by the node, to account for
+	// possible latency, and speed up the detection on the INB side.
+	// This is intended to reduce the likelihood of ending up with two
+	// INBs thinking that they are both active at the same time.
+	timeout = timeout / 10 * 8
+
 	s.hmu.Lock()
 	defer s.hmu.Unlock()
 
