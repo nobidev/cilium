@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	pnmaps "github.com/cilium/cilium/enterprise/pkg/maps/privnet"
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/server"
@@ -67,6 +68,7 @@ func TestScript(t *testing.T) {
 					cell.Provide(
 						tables.NewPrivateNetworksTable,
 						statedb.RWTable[tables.PrivateNetwork].ToTable,
+						func() pnmaps.Watchdog { return watchdog{} },
 					),
 
 					cell.DecorateAll(
@@ -99,3 +101,8 @@ func TestScript(t *testing.T) {
 			}
 		}, []string{}, "testdata/*.txtar")
 }
+
+type watchdog struct{}
+
+func (w watchdog) SetAlive() error                { return nil }
+func (w watchdog) SetTimeout(time.Duration) error { return nil }

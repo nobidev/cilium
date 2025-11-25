@@ -16,12 +16,14 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	pnmaps "github.com/cilium/cilium/enterprise/pkg/maps/privnet"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/checker"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/server"
 	ht "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/tests"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func Health(path string) cell.Cell {
@@ -59,5 +61,12 @@ func Health(path string) cell.Cell {
 				}
 			},
 		),
+
+		cell.Provide(func() pnmaps.Watchdog { return watchdog{} }),
 	)
 }
+
+type watchdog struct{}
+
+func (w watchdog) SetAlive() error                { return nil }
+func (w watchdog) SetTimeout(time.Duration) error { return nil }

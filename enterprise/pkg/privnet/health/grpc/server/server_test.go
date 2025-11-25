@@ -20,6 +20,7 @@ import (
 	"sync"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
@@ -36,11 +37,11 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	notypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/testutils"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 type (
@@ -58,8 +59,28 @@ const (
 	shortTimeout = 100 * time.Millisecond
 )
 
-func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[PN], statedb.RWTable[AN], *server) {
-	var db = statedb.New()
+type fakewd struct {
+	m lock.Map[string, time.Duration]
+}
+
+func (fwd *fakewd) RequestTimeout(id string, timeout time.Duration) {
+	fwd.m.Store(id, timeout)
+}
+
+func (fwd *fakewd) ReleaseTimeout(id string) {
+	fwd.m.Delete(id)
+}
+
+func (fwd *fakewd) get(id string) time.Duration {
+	timeout, _ := fwd.m.Load(id)
+	return timeout
+}
+
+func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[PN], statedb.RWTable[AN], *fakewd, *server) {
+	var (
+		db  = statedb.New()
+		fwd fakewd
+	)
 
 	networks, err := tables.NewPrivateNetworksTable(db)
 	require.NoError(t, err, "tables.NewPrivateNetworksTable")
@@ -67,11 +88,12 @@ func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[PN], statedb.RWTable[AN
 	actnets, err := tables.NewActiveNetworksTable(db)
 	require.NoError(t, err, "tables.NewActiveNetworksTable")
 
-	return db, networks, actnets, newServer(serverParams{
+	return db, networks, actnets, &fwd, newServer(serverParams{
 		Logger:   hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
 		DB:       db,
 		Networks: networks,
 		Table:    actnets,
+		Watchdog: &fwd,
 	})
 }
 
@@ -155,12 +177,12 @@ func TestServerProbe(t *testing.T) {
 		snail    = WN{Cluster: "local", Name: "snail"}
 		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
 		apiSnail = &api.Node{Cluster: string(snail.Cluster), Name: string(snail.Name)}
-		interval = durationpb.New(250 * time.Millisecond)
+		interval = 250 * time.Millisecond
 		timeout  = time.Second
 	)
 
 	synctest.Test(t, func(t *testing.T) {
-		db, _, actnets, srv := fixture(t)
+		db, _, actnets, fwd, srv := fixture(t)
 
 		var (
 			streamSloth = newMockStream[api.ProbeRequest, api.ProbeResponse](t.Context())
@@ -179,8 +201,8 @@ func TestServerProbe(t *testing.T) {
 		go func() { srv.Probe(streamSloth) }()
 		go func() { srv.Probe(streamSnail) }()
 
-		streamSloth.doSend(&api.ProbeRequest{Self: apiSloth, Interval: interval, Timeout: durationpb.New(timeout)}, nil)
-		streamSnail.doSend(&api.ProbeRequest{Self: apiSnail, Interval: interval, Timeout: durationpb.New(timeout)}, nil)
+		streamSloth.doSend(&api.ProbeRequest{Self: apiSloth, Interval: durationpb.New(interval), Timeout: durationpb.New(timeout)}, nil)
+		streamSnail.doSend(&api.ProbeRequest{Self: apiSnail, Interval: durationpb.New(interval), Timeout: durationpb.New(timeout)}, nil)
 
 		// A reply should have been received.
 		require.Equal(t, &api.ProbeResponse{Status: api.ProbeResponse_SERVING}, streamSloth.syncGetSent(t))
@@ -189,6 +211,10 @@ func TestServerProbe(t *testing.T) {
 		// Both nodes should be healthy
 		synctest.Wait()
 		require.ElementsMatch(t, slices.Collect(maps.Keys(srv.healthy)), []WN{sloth, snail})
+
+		// The watchdog methods should have been invoked correctly.
+		require.Equal(t, timeout-interval, fwd.get("__srv/local/sloth"))
+		require.Equal(t, timeout-interval, fwd.get("__srv/local/snail"))
 
 		// Pretend that a few networks have been activated.
 		wtx := db.WriteTxn(actnets)
@@ -202,7 +228,7 @@ func TestServerProbe(t *testing.T) {
 		synctest.Wait()
 		require.ElementsMatch(t, slices.Collect(maps.Keys(srv.healthy)), []WN{sloth, snail})
 
-		streamSloth.doSend(&api.ProbeRequest{Self: apiSloth, Interval: interval, Timeout: durationpb.New(timeout)}, nil)
+		streamSloth.doSend(&api.ProbeRequest{Self: apiSloth, Interval: durationpb.New(interval * 2), Timeout: durationpb.New(timeout)}, nil)
 		require.Equal(t, &api.ProbeResponse{Status: api.ProbeResponse_SERVING}, streamSloth.syncGetSent(t))
 		time.Sleep(1 * time.Millisecond)
 
@@ -210,15 +236,21 @@ func TestServerProbe(t *testing.T) {
 		synctest.Wait()
 		require.ElementsMatch(t, slices.Collect(maps.Keys(srv.healthy)), []WN{sloth})
 
+		// The watchdog methods should have been invoked correctly.
+		require.Equal(t, timeout-2*interval, fwd.get("__srv/local/sloth"))
+		require.Empty(t, fwd.get("__srv/local/snail"))
+
 		// The corresponding active network entries should have been dropped.
 		require.ElementsMatch(t, statedb.Collect(actnets.All(db.ReadTxn())), []AN{{Node: sloth, Network: "green"}})
 
 		// Healthy again.
-		streamSnail.doSend(&api.ProbeRequest{Self: apiSnail, Interval: interval, Timeout: durationpb.New(timeout)}, nil)
+		streamSnail.doSend(&api.ProbeRequest{Self: apiSnail, Interval: durationpb.New(interval), Timeout: durationpb.New(timeout)}, nil)
 		require.Equal(t, &api.ProbeResponse{Status: api.ProbeResponse_SERVING}, streamSnail.syncGetSent(t))
 
 		synctest.Wait()
 		require.ElementsMatch(t, slices.Collect(maps.Keys(srv.healthy)), []WN{sloth, snail})
+		require.Equal(t, timeout-2*interval, fwd.get("__srv/local/sloth"))
+		require.Equal(t, timeout-interval, fwd.get("__srv/local/snail"))
 
 		// Break both streams, the nodes should still be healthy until timeout.
 		streamSloth.doSend(nil, context.Canceled)
@@ -231,7 +263,7 @@ func TestServerProbe(t *testing.T) {
 
 		// Restart only one, and send a new probe.
 		go func() { srv.Probe(streamSloth) }()
-		streamSloth.doSend(&api.ProbeRequest{Self: apiSloth, Interval: interval, Timeout: durationpb.New(timeout)}, nil)
+		streamSloth.doSend(&api.ProbeRequest{Self: apiSloth, Interval: durationpb.New(interval), Timeout: durationpb.New(timeout)}, nil)
 		require.Equal(t, &api.ProbeResponse{Status: api.ProbeResponse_SERVING}, streamSloth.syncGetSent(t))
 
 		// The snail node should no longer be healthy after timeout.
@@ -239,6 +271,8 @@ func TestServerProbe(t *testing.T) {
 
 		synctest.Wait()
 		require.ElementsMatch(t, slices.Collect(maps.Keys(srv.healthy)), []WN{sloth})
+		require.Equal(t, timeout-interval, fwd.get("__srv/local/sloth"))
+		require.Empty(t, fwd.get("__srv/local/snail"))
 	})
 }
 
@@ -289,7 +323,7 @@ func TestServerProbeErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				_, _, _, srv := fixture(t)
+				_, _, _, _, srv := fixture(t)
 				defer close(srv.stop)
 
 				var (
@@ -333,7 +367,7 @@ func TestServerWatch(t *testing.T) {
 		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
 	)
 
-	db, networks, actnets, srv := fixture(t)
+	db, networks, actnets, _, srv := fixture(t)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	stream := newMockStream[struct{}, api.NetworkEvents](ctx)
@@ -409,7 +443,7 @@ func TestServerActivate(t *testing.T) {
 		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
 	)
 
-	db, networks, actnets, srv := fixture(t)
+	db, networks, actnets, _, srv := fixture(t)
 
 	// Configure the initial state.
 	wtx := db.WriteTxn(networks)
@@ -457,7 +491,7 @@ func TestServerDeactivate(t *testing.T) {
 		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
 	)
 
-	db, networks, actnets, srv := fixture(t)
+	db, networks, actnets, _, srv := fixture(t)
 
 	// Configure the initial state.
 	wtx := db.WriteTxn(networks)
@@ -517,7 +551,7 @@ func TestServerGCer(t *testing.T) {
 		health, _ = cell.NewSimpleHealth()
 	)
 
-	db, networks, actnets, srv := fixture(t)
+	db, networks, actnets, _, srv := fixture(t)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer func() { cancel(); wg.Wait() }()

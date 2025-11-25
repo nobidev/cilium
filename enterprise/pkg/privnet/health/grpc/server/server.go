@@ -30,6 +30,7 @@ import (
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	api "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/health/watchdog"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -51,6 +52,10 @@ var settleTime = 100 * time.Millisecond
 
 // netListen is the [net.Listen] function. It can be overridden for testing purposes.
 var netListen = net.Listen
+
+// watchdogIDPrefix is the prefix prepended to watchdog IDs to prevent collisions
+// with other subsystems.
+const watchdogIDPrefix = "__srv/"
 
 func newDefaultListenerFactory(cfg config.Config, lns *node.LocalNodeStore) ListenerFactory {
 	port := strconv.FormatUint(uint64(cfg.Port), 10)
@@ -104,6 +109,8 @@ type server struct {
 	networks statedb.Table[tables.PrivateNetwork]
 	tbl      statedb.RWTable[tables.ActiveNetwork]
 
+	watchdog watchdog.Watchdog
+
 	// hmu protects the access to [healthy]. It must be always acquired first
 	// when acquiring a write transaction as well.
 	hmu     lock.RWMutex
@@ -114,7 +121,8 @@ type server struct {
 }
 
 type wnEntry struct {
-	timeout *time.Timer
+	timeout   *time.Timer
+	wdtimeout time.Duration
 }
 
 type serverParams struct {
@@ -130,6 +138,8 @@ type serverParams struct {
 	DB       *statedb.DB
 	Networks statedb.Table[tables.PrivateNetwork]
 	Table    statedb.RWTable[tables.ActiveNetwork]
+
+	Watchdog watchdog.Watchdog
 }
 
 func newServer(in serverParams) *server {
@@ -142,6 +152,8 @@ func newServer(in serverParams) *server {
 
 		healthy: make(map[tables.WorkloadNode]wnEntry),
 		stop:    make(chan struct{}),
+
+		watchdog: in.Watchdog,
 	}
 
 	// The health server is only started when we are running in bridge mode.
@@ -307,7 +319,21 @@ func (s *server) Probe(stream grpc.BidiStreamingServer[api.ProbeRequest, api.Pro
 	}
 }
 
-func (s *server) onProbe(node tables.WorkloadNode, _, timeout time.Duration) {
+func (s *server) onProbe(node tables.WorkloadNode, interval, timeout time.Duration) {
+	// We are conservative, and compute the watchdog timeout as timeout - interval.
+	// This is to have a reasonable guarantee that it would always expire first,
+	// regardless of the fact that intervals are different, and not synchronized.
+	// The worst case, if we were to use the same timeout, is exemplified by the
+	// following (hpr: health probe, hpt: health probe timeout, alp: agent liveness
+	// probe, alt: agent liveness timeout):
+	//
+	//  alp  alp alp alp               alt
+	//   v    v   v   v                 v
+	// --|--|-|---|---|-|-------|~~~~~~~|
+	//      ^           x down  ^
+	//     hpr         hpr     hpt
+	var wdtimeout = timeout - interval
+
 	// Reduce a bit the timeout advertised by the node, to account for
 	// possible latency, and speed up the detection on the INB side.
 	// This is intended to reduce the likelihood of ending up with two
@@ -319,6 +345,12 @@ func (s *server) onProbe(node tables.WorkloadNode, _, timeout time.Duration) {
 
 	entry, found := s.healthy[node]
 	if found {
+		if entry.wdtimeout != wdtimeout {
+			entry.wdtimeout = wdtimeout
+			s.healthy[node] = entry
+			s.watchdog.RequestTimeout(watchdogIDPrefix+node.String(), wdtimeout)
+		}
+
 		// The node was already healthy: restart the timeout timer.
 		entry.timeout.Reset(timeout)
 		return
@@ -326,8 +358,11 @@ func (s *server) onProbe(node tables.WorkloadNode, _, timeout time.Duration) {
 
 	// The node just became healthy: start the timeout logic.
 	entry = wnEntry{
-		timeout: time.NewTimer(timeout),
+		timeout:   time.NewTimer(timeout),
+		wdtimeout: wdtimeout,
 	}
+
+	s.watchdog.RequestTimeout(watchdogIDPrefix+node.String(), wdtimeout)
 
 	s.wg.Go(func() {
 		select {
@@ -347,6 +382,8 @@ func (s *server) onProbeTimeout(node tables.WorkloadNode) {
 
 	s.log.Info("Workload node is no longer healthy", logfields.Node, node)
 	delete(s.healthy, node)
+
+	s.watchdog.ReleaseTimeout(watchdogIDPrefix + node.String())
 
 	wtx := s.db.WriteTxn(s.tbl)
 
