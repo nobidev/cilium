@@ -14,7 +14,10 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/agent/commands"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/manager/reconcilerv2"
+	ossAgent "github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/k8s"
 )
 
@@ -38,4 +41,14 @@ var Cell = cell.Module(
 
 	// set enterprise BGP config objct in agent
 	cell.Config(config.DefaultConfig),
+
+	// enterprise BGP commands
+	cell.Provide(
+		commands.BGPCommands,
+
+		// provide enterprise router manager (used by the enterprise commands)
+		func(manager ossAgent.BGPRouterManager) agent.EnterpriseBGPRouterManager {
+			return manager.(agent.EnterpriseBGPRouterManager)
+		},
+	),
 )
