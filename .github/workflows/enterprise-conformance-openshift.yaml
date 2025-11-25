@@ -477,6 +477,16 @@ jobs:
           export KUBEVIRT_TEST_RESULTS_DIR=${PWD}/test-results
           ./scripts/kubevirt-tests.sh
 
+      - name: Checkout sail-operator repo for Service Mesh conformance tests
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.ossm == 'true' }}
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: openshift-service-mesh/sail-operator
+          path: ./openshift-ci/aws-ipi/.workdir/${{ env.clusterName }}/sail-operator
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
       - name: OpenShift Service Mesh conformance tests
         # Please create a comment with /ci-openshift {\"ossm\":\"true\"} if you want to run them
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.ossm == 'true' }}
