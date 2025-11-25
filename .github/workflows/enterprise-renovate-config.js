@@ -43,6 +43,10 @@ module.exports = {
       matchDatasources: ['custom.wolfi'],
       matchPackageNames: ['iptables', 'ip6tables'],
       enabled: false
+    },
+    {
+      matchPackagePatterns: ['helm.sh/helm/*'],
+      enabled: false
     }
   ],
   customDatasources: {
