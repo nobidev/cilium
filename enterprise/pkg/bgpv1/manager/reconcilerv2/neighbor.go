@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	enterpriseTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
-	ossreconcilerv2 "github.com/cilium/cilium/pkg/bgp/manager/reconciler"
+	ossReconciler "github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -54,7 +54,7 @@ type NeighborReconciler struct {
 type NeighborReconcilerOut struct {
 	cell.Out
 
-	Reconciler ossreconcilerv2.ConfigReconciler `group:"bgp-config-reconciler"`
+	Reconciler ossReconciler.ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
 type NeighborReconcilerIn struct {
@@ -107,7 +107,7 @@ type PeerData struct {
 // Key is the peer name.
 type NeighborReconcilerMetadata struct {
 	Peers         map[string]*PeerData
-	RoutePolicies ossreconcilerv2.RoutePolicyMap
+	RoutePolicies RoutePolicyMap
 }
 
 func (r *NeighborReconciler) getMetadata(i *EnterpriseBGPInstance) *NeighborReconcilerMetadata {
@@ -129,7 +129,7 @@ func (r *NeighborReconciler) deleteMetadataPeer(i *EnterpriseBGPInstance, d *Pee
 	delete(r.metadata[i.Name].Peers, d.Peer.Name)
 }
 
-func (r *NeighborReconciler) upsertMetadataPolicies(i *EnterpriseBGPInstance, policies ossreconcilerv2.RoutePolicyMap) {
+func (r *NeighborReconciler) upsertMetadataPolicies(i *EnterpriseBGPInstance, policies RoutePolicyMap) {
 	if i == nil || policies == nil {
 		return
 	}
@@ -150,7 +150,7 @@ func (r *NeighborReconciler) Init(i *instance.BGPInstance) error {
 	}
 	r.metadata[i.Name] = &NeighborReconcilerMetadata{
 		Peers:         make(map[string]*PeerData),
-		RoutePolicies: make(ossreconcilerv2.RoutePolicyMap),
+		RoutePolicies: make(RoutePolicyMap),
 	}
 	return nil
 }
@@ -161,7 +161,7 @@ func (r *NeighborReconciler) Cleanup(i *instance.BGPInstance) {
 	}
 }
 
-func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.ReconcileParams) error {
+func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossReconciler.ReconcileParams) error {
 	if _p.DesiredConfig == nil {
 		return fmt.Errorf("attempted neighbor reconciliation with nil IsovalentBGPNodeInstance")
 	}
@@ -344,26 +344,26 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, _p ossreconcilerv2.R
 		r.upsertMetadataPeer(p.BGPInstance, n)
 	}
 
-	if err := r.reconcileRouteReflectorRoutePolicies(ctx, p); err != nil {
-		return fmt.Errorf("failed to reconcile route reflector route policies: %w", err)
+	if err := r.reconcileRoutePolicies(ctx, p); err != nil {
+		return fmt.Errorf("failed to reconcile route policies: %w", err)
 	}
 
 	l.Debug("Done reconciling peers")
 	return nil
 }
 
-func (r *NeighborReconciler) reconcileRouteReflectorRoutePolicies(ctx context.Context, p EnterpriseReconcileParams) error {
+func (r *NeighborReconciler) reconcileRoutePolicies(ctx context.Context, p EnterpriseReconcileParams) error {
 	metadata := r.getMetadata(p.BGPInstance)
 
 	// Route reflector is not compatible with route import
-	var desiredRoutePolicies ossreconcilerv2.RoutePolicyMap
+	var desiredRoutePolicies RoutePolicyMap
 	if p.DesiredConfig.RouteReflector != nil {
 		desiredRoutePolicies = getDesiredRouteReflectorPolicies(p.DesiredConfig)
 	} else {
 		desiredRoutePolicies = r.getDesiredUserDefinedImportPolicy(p.DesiredConfig)
 	}
 
-	updatedPolicies, err := ossreconcilerv2.ReconcileRoutePolicies(&ossreconcilerv2.ReconcileRoutePoliciesParams{
+	updatedPolicies, err := ReconcileRoutePolicies(&ReconcileRoutePoliciesParams{
 		Logger:          r.Logger,
 		Ctx:             ctx,
 		Router:          p.BGPInstance.Router,
@@ -376,8 +376,8 @@ func (r *NeighborReconciler) reconcileRouteReflectorRoutePolicies(ctx context.Co
 	return err
 }
 
-func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) ossreconcilerv2.RoutePolicyMap {
-	desiredRoutePolicies := ossreconcilerv2.RoutePolicyMap{}
+func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) RoutePolicyMap {
+	desiredRoutePolicies := RoutePolicyMap{}
 
 	if instance.RouteReflector == nil {
 		return desiredRoutePolicies
@@ -422,15 +422,17 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 		if len(routeReflectors) > 0 {
 			// RR allows all imports from RR
 			name := "rr-rr-allow-all-imports-from-rr"
-			desiredRoutePolicies[name] = &types.RoutePolicy{
+			desiredRoutePolicies[name] = &enterpriseTypes.ExtendedRoutePolicy{
 				Name: name,
 				Type: types.RoutePolicyTypeImport,
-				Statements: []*types.RoutePolicyStatement{
+				Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 					{
-						Conditions: types.RoutePolicyConditions{
-							MatchNeighbors: &types.RoutePolicyNeighborMatch{
-								Type:      types.RoutePolicyMatchAny,
-								Neighbors: routeReflectors,
+						Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+							RoutePolicyConditions: types.RoutePolicyConditions{
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type:      types.RoutePolicyMatchAny,
+									Neighbors: routeReflectors,
+								},
 							},
 						},
 						Actions: types.RoutePolicyActions{
@@ -444,15 +446,17 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 		if len(clients) > 0 {
 			// RR allows all imports from clients
 			name := "rr-rr-allow-all-imports-from-clients"
-			desiredRoutePolicies[name] = &types.RoutePolicy{
+			desiredRoutePolicies[name] = &enterpriseTypes.ExtendedRoutePolicy{
 				Name: name,
 				Type: types.RoutePolicyTypeImport,
-				Statements: []*types.RoutePolicyStatement{
+				Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 					{
-						Conditions: types.RoutePolicyConditions{
-							MatchNeighbors: &types.RoutePolicyNeighborMatch{
-								Type:      types.RoutePolicyMatchAny,
-								Neighbors: clients,
+						Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+							RoutePolicyConditions: types.RoutePolicyConditions{
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type:      types.RoutePolicyMatchAny,
+									Neighbors: clients,
+								},
 							},
 						},
 						Actions: types.RoutePolicyActions{
@@ -466,10 +470,10 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 		// RR allows all exports to any peers
 		if len(clients) != 0 || len(routeReflectors) != 0 {
 			name := "rr-rr-allow-all-exports"
-			policy := &types.RoutePolicy{
+			policy := &enterpriseTypes.ExtendedRoutePolicy{
 				Name:       name,
 				Type:       types.RoutePolicyTypeExport,
-				Statements: []*types.RoutePolicyStatement{},
+				Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{},
 			}
 
 			if len(eBGPPeers) > 0 {
@@ -481,11 +485,13 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 				// work depending on the network
 				// topology.
 				policy.Statements = append(policy.Statements,
-					&types.RoutePolicyStatement{
-						Conditions: types.RoutePolicyConditions{
-							MatchNeighbors: &types.RoutePolicyNeighborMatch{
-								Type:      types.RoutePolicyMatchAny,
-								Neighbors: eBGPPeers,
+					&enterpriseTypes.ExtendedRoutePolicyStatement{
+						Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+							RoutePolicyConditions: types.RoutePolicyConditions{
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type:      types.RoutePolicyMatchAny,
+									Neighbors: eBGPPeers,
+								},
 							},
 						},
 						Actions: types.RoutePolicyActions{
@@ -499,8 +505,8 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 			}
 
 			policy.Statements = append(policy.Statements,
-				&types.RoutePolicyStatement{
-					Conditions: types.RoutePolicyConditions{},
+				&enterpriseTypes.ExtendedRoutePolicyStatement{
+					Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{},
 					Actions: types.RoutePolicyActions{
 						RouteAction: types.RoutePolicyActionAccept,
 					},
@@ -515,15 +521,17 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 		if len(routeReflectors) > 0 {
 			// Client allows all imports from RR
 			name := "rr-client-allow-all-imports-from-rr"
-			desiredRoutePolicies[name] = &types.RoutePolicy{
+			desiredRoutePolicies[name] = &enterpriseTypes.ExtendedRoutePolicy{
 				Name: name,
 				Type: types.RoutePolicyTypeImport,
-				Statements: []*types.RoutePolicyStatement{
+				Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 					{
-						Conditions: types.RoutePolicyConditions{
-							MatchNeighbors: &types.RoutePolicyNeighborMatch{
-								Type:      types.RoutePolicyMatchAny,
-								Neighbors: routeReflectors,
+						Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+							RoutePolicyConditions: types.RoutePolicyConditions{
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Type:      types.RoutePolicyMatchAny,
+									Neighbors: routeReflectors,
+								},
 							},
 						},
 						Actions: types.RoutePolicyActions{
@@ -538,8 +546,8 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) oss
 	return desiredRoutePolicies
 }
 
-func (r *NeighborReconciler) getDesiredUserDefinedImportPolicy(instance *v1.IsovalentBGPNodeInstance) ossreconcilerv2.RoutePolicyMap {
-	desiredPolicies := ossreconcilerv2.RoutePolicyMap{}
+func (r *NeighborReconciler) getDesiredUserDefinedImportPolicy(instance *v1.IsovalentBGPNodeInstance) RoutePolicyMap {
+	desiredPolicies := RoutePolicyMap{}
 
 	// Feature disabled
 	if !r.EnterpriseConfig.RouteImportEnabled {

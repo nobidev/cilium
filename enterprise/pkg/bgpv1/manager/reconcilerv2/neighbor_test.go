@@ -23,9 +23,9 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	enterpriseTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
-	ossreconcilerv2 "github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -668,12 +668,12 @@ func TestRouteReflectorPolicy(t *testing.T) {
 	tests := []struct {
 		name     string
 		instance *v1.IsovalentBGPNodeInstance
-		expected reconciler.RoutePolicyMap
+		expected RoutePolicyMap
 	}{
 		{
 			name:     "non-route-reflector",
 			instance: &v1.IsovalentBGPNodeInstance{},
-			expected: reconciler.RoutePolicyMap{},
+			expected: RoutePolicyMap{},
 		},
 		{
 			name: "route-reflector no RR peer",
@@ -682,7 +682,7 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Role: v1.RouteReflectorRoleRouteReflector,
 				},
 			},
-			expected: reconciler.RoutePolicyMap{},
+			expected: RoutePolicyMap{},
 		},
 		{
 			name: "client no RR peer",
@@ -691,7 +691,7 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					Role: v1.RouteReflectorRoleClient,
 				},
 			},
-			expected: reconciler.RoutePolicyMap{},
+			expected: RoutePolicyMap{},
 		},
 		{
 			name: "route-reflector to route-reflectors",
@@ -714,18 +714,20 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					},
 				},
 			},
-			expected: reconciler.RoutePolicyMap{
-				"rr-rr-allow-all-imports-from-rr": &types.RoutePolicy{
+			expected: RoutePolicyMap{
+				"rr-rr-allow-all-imports-from-rr": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "rr-rr-allow-all-imports-from-rr",
 					Type: types.RoutePolicyTypeImport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: &types.RoutePolicyNeighborMatch{
-									Type: types.RoutePolicyMatchAny,
-									Neighbors: []netip.Addr{
-										netip.MustParseAddr("10.0.0.1"),
-										netip.MustParseAddr("10.0.0.2"),
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+								RoutePolicyConditions: types.RoutePolicyConditions{
+									MatchNeighbors: &types.RoutePolicyNeighborMatch{
+										Type: types.RoutePolicyMatchAny,
+										Neighbors: []netip.Addr{
+											netip.MustParseAddr("10.0.0.1"),
+											netip.MustParseAddr("10.0.0.2"),
+										},
 									},
 								},
 							},
@@ -735,12 +737,12 @@ func TestRouteReflectorPolicy(t *testing.T) {
 						},
 					},
 				},
-				"rr-rr-allow-all-exports": &types.RoutePolicy{
+				"rr-rr-allow-all-exports": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "rr-rr-allow-all-exports",
 					Type: types.RoutePolicyTypeExport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{},
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{},
 							Actions: types.RoutePolicyActions{
 								RouteAction: types.RoutePolicyActionAccept,
 							},
@@ -770,18 +772,20 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					},
 				},
 			},
-			expected: reconciler.RoutePolicyMap{
-				"rr-rr-allow-all-imports-from-clients": &types.RoutePolicy{
+			expected: RoutePolicyMap{
+				"rr-rr-allow-all-imports-from-clients": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "rr-rr-allow-all-imports-from-clients",
 					Type: types.RoutePolicyTypeImport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: &types.RoutePolicyNeighborMatch{
-									Type: types.RoutePolicyMatchAny,
-									Neighbors: []netip.Addr{
-										netip.MustParseAddr("10.0.0.1"),
-										netip.MustParseAddr("10.0.0.2"),
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+								RoutePolicyConditions: types.RoutePolicyConditions{
+									MatchNeighbors: &types.RoutePolicyNeighborMatch{
+										Type: types.RoutePolicyMatchAny,
+										Neighbors: []netip.Addr{
+											netip.MustParseAddr("10.0.0.1"),
+											netip.MustParseAddr("10.0.0.2"),
+										},
 									},
 								},
 							},
@@ -791,12 +795,12 @@ func TestRouteReflectorPolicy(t *testing.T) {
 						},
 					},
 				},
-				"rr-rr-allow-all-exports": &types.RoutePolicy{
+				"rr-rr-allow-all-exports": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "rr-rr-allow-all-exports",
 					Type: types.RoutePolicyTypeExport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{},
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{},
 							Actions: types.RoutePolicyActions{
 								RouteAction: types.RoutePolicyActionAccept,
 							},
@@ -838,18 +842,20 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					},
 				},
 			},
-			expected: reconciler.RoutePolicyMap{
-				"rr-rr-allow-all-imports-from-clients": &types.RoutePolicy{
+			expected: RoutePolicyMap{
+				"rr-rr-allow-all-imports-from-clients": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "rr-rr-allow-all-imports-from-clients",
 					Type: types.RoutePolicyTypeImport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: &types.RoutePolicyNeighborMatch{
-									Type: types.RoutePolicyMatchAny,
-									Neighbors: []netip.Addr{
-										netip.MustParseAddr("10.0.0.1"),
-										netip.MustParseAddr("10.0.0.2"),
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+								RoutePolicyConditions: types.RoutePolicyConditions{
+									MatchNeighbors: &types.RoutePolicyNeighborMatch{
+										Type: types.RoutePolicyMatchAny,
+										Neighbors: []netip.Addr{
+											netip.MustParseAddr("10.0.0.1"),
+											netip.MustParseAddr("10.0.0.2"),
+										},
 									},
 								},
 							},
@@ -859,17 +865,19 @@ func TestRouteReflectorPolicy(t *testing.T) {
 						},
 					},
 				},
-				"rr-rr-allow-all-imports-from-rr": &types.RoutePolicy{
+				"rr-rr-allow-all-imports-from-rr": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "rr-rr-allow-all-imports-from-rr",
 					Type: types.RoutePolicyTypeImport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: &types.RoutePolicyNeighborMatch{
-									Type: types.RoutePolicyMatchAny,
-									Neighbors: []netip.Addr{
-										netip.MustParseAddr("10.0.0.3"),
-										netip.MustParseAddr("10.0.0.4"),
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+								RoutePolicyConditions: types.RoutePolicyConditions{
+									MatchNeighbors: &types.RoutePolicyNeighborMatch{
+										Type: types.RoutePolicyMatchAny,
+										Neighbors: []netip.Addr{
+											netip.MustParseAddr("10.0.0.3"),
+											netip.MustParseAddr("10.0.0.4"),
+										},
 									},
 								},
 							},
@@ -879,12 +887,12 @@ func TestRouteReflectorPolicy(t *testing.T) {
 						},
 					},
 				},
-				"rr-rr-allow-all-exports": &types.RoutePolicy{
+				"rr-rr-allow-all-exports": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "rr-rr-allow-all-exports",
 					Type: types.RoutePolicyTypeExport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{},
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{},
 							Actions: types.RoutePolicyActions{
 								RouteAction: types.RoutePolicyActionAccept,
 							},
@@ -914,18 +922,20 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					},
 				},
 			},
-			expected: reconciler.RoutePolicyMap{
-				"rr-client-allow-all-imports-from-rr": &types.RoutePolicy{
+			expected: RoutePolicyMap{
+				"rr-client-allow-all-imports-from-rr": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "rr-client-allow-all-imports-from-rr",
 					Type: types.RoutePolicyTypeImport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: &types.RoutePolicyNeighborMatch{
-									Type: types.RoutePolicyMatchAny,
-									Neighbors: []netip.Addr{
-										netip.MustParseAddr("10.0.0.1"),
-										netip.MustParseAddr("10.0.0.2"),
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+								RoutePolicyConditions: types.RoutePolicyConditions{
+									MatchNeighbors: &types.RoutePolicyNeighborMatch{
+										Type: types.RoutePolicyMatchAny,
+										Neighbors: []netip.Addr{
+											netip.MustParseAddr("10.0.0.1"),
+											netip.MustParseAddr("10.0.0.2"),
+										},
 									},
 								},
 							},
@@ -958,17 +968,19 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					},
 				},
 			},
-			expected: reconciler.RoutePolicyMap{
-				"rr-rr-allow-all-imports-from-clients": &types.RoutePolicy{
+			expected: RoutePolicyMap{
+				"rr-rr-allow-all-imports-from-clients": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "rr-rr-allow-all-imports-from-clients",
 					Type: types.RoutePolicyTypeImport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: &types.RoutePolicyNeighborMatch{
-									Type: types.RoutePolicyMatchAny,
-									Neighbors: []netip.Addr{
-										netip.MustParseAddr("10.0.0.1"),
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+								RoutePolicyConditions: types.RoutePolicyConditions{
+									MatchNeighbors: &types.RoutePolicyNeighborMatch{
+										Type: types.RoutePolicyMatchAny,
+										Neighbors: []netip.Addr{
+											netip.MustParseAddr("10.0.0.1"),
+										},
 									},
 								},
 							},
@@ -978,16 +990,18 @@ func TestRouteReflectorPolicy(t *testing.T) {
 						},
 					},
 				},
-				"rr-rr-allow-all-exports": &types.RoutePolicy{
+				"rr-rr-allow-all-exports": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "rr-rr-allow-all-exports",
 					Type: types.RoutePolicyTypeExport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: &types.RoutePolicyNeighborMatch{
-									Type: types.RoutePolicyMatchAny,
-									Neighbors: []netip.Addr{
-										netip.MustParseAddr("10.0.0.2"),
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+								RoutePolicyConditions: types.RoutePolicyConditions{
+									MatchNeighbors: &types.RoutePolicyNeighborMatch{
+										Type: types.RoutePolicyMatchAny,
+										Neighbors: []netip.Addr{
+											netip.MustParseAddr("10.0.0.2"),
+										},
 									},
 								},
 							},
@@ -999,7 +1013,7 @@ func TestRouteReflectorPolicy(t *testing.T) {
 							},
 						},
 						{
-							Conditions: types.RoutePolicyConditions{},
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{},
 							Actions: types.RoutePolicyActions{
 								RouteAction: types.RoutePolicyActionAccept,
 							},
@@ -1241,7 +1255,7 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 	tests := []struct {
 		name             string
 		peer             *v1.IsovalentBGPNodePeer
-		expectedPolicies ossreconcilerv2.RoutePolicyMap
+		expectedPolicies RoutePolicyMap
 	}{
 		{
 			name: "v4 only",
@@ -1252,31 +1266,33 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Name: peerConfigV4Only.Name,
 				},
 			},
-			expectedPolicies: ossreconcilerv2.RoutePolicyMap{
-				"import-user-defined-peer0-ipv4-unicast": &types.RoutePolicy{
+			expectedPolicies: RoutePolicyMap{
+				"import-user-defined-peer0-ipv4-unicast": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "import-user-defined-peer0-ipv4-unicast",
 					Type: types.RoutePolicyTypeImport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: &types.RoutePolicyNeighborMatch{
-									Type:      types.RoutePolicyMatchAny,
-									Neighbors: []netip.Addr{netip.MustParseAddr("10.0.0.1")},
-								},
-								MatchPrefixes: &types.RoutePolicyPrefixMatch{
-									Type: types.RoutePolicyMatchAny,
-									Prefixes: []types.RoutePolicyPrefix{
-										{
-											CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
-											PrefixLenMax: 16,
-											PrefixLenMin: 8,
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+								RoutePolicyConditions: types.RoutePolicyConditions{
+									MatchNeighbors: &types.RoutePolicyNeighborMatch{
+										Type:      types.RoutePolicyMatchAny,
+										Neighbors: []netip.Addr{netip.MustParseAddr("10.0.0.1")},
+									},
+									MatchPrefixes: &types.RoutePolicyPrefixMatch{
+										Type: types.RoutePolicyMatchAny,
+										Prefixes: []types.RoutePolicyPrefix{
+											{
+												CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
+												PrefixLenMax: 16,
+												PrefixLenMin: 8,
+											},
 										},
 									},
-								},
-								MatchFamilies: []types.Family{
-									{
-										Afi:  types.AfiIPv4,
-										Safi: types.SafiUnicast,
+									MatchFamilies: []types.Family{
+										{
+											Afi:  types.AfiIPv4,
+											Safi: types.SafiUnicast,
+										},
 									},
 								},
 							},
@@ -1297,31 +1313,33 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Name: peerConfigV6Only.Name,
 				},
 			},
-			expectedPolicies: ossreconcilerv2.RoutePolicyMap{
-				"import-user-defined-peer0-ipv6-unicast": &types.RoutePolicy{
+			expectedPolicies: RoutePolicyMap{
+				"import-user-defined-peer0-ipv6-unicast": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "import-user-defined-peer0-ipv6-unicast",
 					Type: types.RoutePolicyTypeImport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: &types.RoutePolicyNeighborMatch{
-									Type:      types.RoutePolicyMatchAny,
-									Neighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
-								},
-								MatchPrefixes: &types.RoutePolicyPrefixMatch{
-									Type: types.RoutePolicyMatchAny,
-									Prefixes: []types.RoutePolicyPrefix{
-										{
-											CIDR:         netip.MustParsePrefix("fd00::/64"),
-											PrefixLenMax: 32,
-											PrefixLenMin: 16,
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+								RoutePolicyConditions: types.RoutePolicyConditions{
+									MatchNeighbors: &types.RoutePolicyNeighborMatch{
+										Type:      types.RoutePolicyMatchAny,
+										Neighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
+									},
+									MatchPrefixes: &types.RoutePolicyPrefixMatch{
+										Type: types.RoutePolicyMatchAny,
+										Prefixes: []types.RoutePolicyPrefix{
+											{
+												CIDR:         netip.MustParsePrefix("fd00::/64"),
+												PrefixLenMax: 32,
+												PrefixLenMin: 16,
+											},
 										},
 									},
-								},
-								MatchFamilies: []types.Family{
-									{
-										Afi:  types.AfiIPv6,
-										Safi: types.SafiUnicast,
+									MatchFamilies: []types.Family{
+										{
+											Afi:  types.AfiIPv6,
+											Safi: types.SafiUnicast,
+										},
 									},
 								},
 							},
@@ -1342,31 +1360,33 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Name: peerConfigDual.Name,
 				},
 			},
-			expectedPolicies: ossreconcilerv2.RoutePolicyMap{
-				"import-user-defined-peer0-ipv4-unicast": &types.RoutePolicy{
+			expectedPolicies: RoutePolicyMap{
+				"import-user-defined-peer0-ipv4-unicast": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "import-user-defined-peer0-ipv4-unicast",
 					Type: types.RoutePolicyTypeImport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: &types.RoutePolicyNeighborMatch{
-									Type:      types.RoutePolicyMatchAny,
-									Neighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
-								},
-								MatchPrefixes: &types.RoutePolicyPrefixMatch{
-									Type: types.RoutePolicyMatchAny,
-									Prefixes: []types.RoutePolicyPrefix{
-										{
-											CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
-											PrefixLenMax: 16,
-											PrefixLenMin: 8,
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+								RoutePolicyConditions: types.RoutePolicyConditions{
+									MatchNeighbors: &types.RoutePolicyNeighborMatch{
+										Type:      types.RoutePolicyMatchAny,
+										Neighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
+									},
+									MatchPrefixes: &types.RoutePolicyPrefixMatch{
+										Type: types.RoutePolicyMatchAny,
+										Prefixes: []types.RoutePolicyPrefix{
+											{
+												CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
+												PrefixLenMax: 16,
+												PrefixLenMin: 8,
+											},
 										},
 									},
-								},
-								MatchFamilies: []types.Family{
-									{
-										Afi:  types.AfiIPv4,
-										Safi: types.SafiUnicast,
+									MatchFamilies: []types.Family{
+										{
+											Afi:  types.AfiIPv4,
+											Safi: types.SafiUnicast,
+										},
 									},
 								},
 							},
@@ -1376,30 +1396,32 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 						},
 					},
 				},
-				"import-user-defined-peer0-ipv6-unicast": &types.RoutePolicy{
+				"import-user-defined-peer0-ipv6-unicast": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "import-user-defined-peer0-ipv6-unicast",
 					Type: types.RoutePolicyTypeImport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: &types.RoutePolicyNeighborMatch{
-									Type:      types.RoutePolicyMatchAny,
-									Neighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
-								},
-								MatchPrefixes: &types.RoutePolicyPrefixMatch{
-									Type: types.RoutePolicyMatchAny,
-									Prefixes: []types.RoutePolicyPrefix{
-										{
-											CIDR:         netip.MustParsePrefix("fd00::/64"),
-											PrefixLenMax: 32,
-											PrefixLenMin: 16,
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+								RoutePolicyConditions: types.RoutePolicyConditions{
+									MatchNeighbors: &types.RoutePolicyNeighborMatch{
+										Type:      types.RoutePolicyMatchAny,
+										Neighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
+									},
+									MatchPrefixes: &types.RoutePolicyPrefixMatch{
+										Type: types.RoutePolicyMatchAny,
+										Prefixes: []types.RoutePolicyPrefix{
+											{
+												CIDR:         netip.MustParsePrefix("fd00::/64"),
+												PrefixLenMax: 32,
+												PrefixLenMin: 16,
+											},
 										},
 									},
-								},
-								MatchFamilies: []types.Family{
-									{
-										Afi:  types.AfiIPv6,
-										Safi: types.SafiUnicast,
+									MatchFamilies: []types.Family{
+										{
+											Afi:  types.AfiIPv6,
+											Safi: types.SafiUnicast,
+										},
 									},
 								},
 							},
@@ -1420,31 +1442,33 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Name: peerConfigOneFamily.Name,
 				},
 			},
-			expectedPolicies: ossreconcilerv2.RoutePolicyMap{
-				"import-user-defined-peer0-ipv4-unicast": &types.RoutePolicy{
+			expectedPolicies: RoutePolicyMap{
+				"import-user-defined-peer0-ipv4-unicast": &enterpriseTypes.ExtendedRoutePolicy{
 					Name: "import-user-defined-peer0-ipv4-unicast",
 					Type: types.RoutePolicyTypeImport,
-					Statements: []*types.RoutePolicyStatement{
+					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: &types.RoutePolicyNeighborMatch{
-									Type:      types.RoutePolicyMatchAny,
-									Neighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
-								},
-								MatchPrefixes: &types.RoutePolicyPrefixMatch{
-									Type: types.RoutePolicyMatchAny,
-									Prefixes: []types.RoutePolicyPrefix{
-										{
-											CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
-											PrefixLenMax: 16,
-											PrefixLenMin: 8,
+							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
+								RoutePolicyConditions: types.RoutePolicyConditions{
+									MatchNeighbors: &types.RoutePolicyNeighborMatch{
+										Type:      types.RoutePolicyMatchAny,
+										Neighbors: []netip.Addr{netip.MustParseAddr("2001:db8::1")},
+									},
+									MatchPrefixes: &types.RoutePolicyPrefixMatch{
+										Type: types.RoutePolicyMatchAny,
+										Prefixes: []types.RoutePolicyPrefix{
+											{
+												CIDR:         netip.MustParsePrefix("10.0.0.0/24"),
+												PrefixLenMax: 16,
+												PrefixLenMin: 8,
+											},
 										},
 									},
-								},
-								MatchFamilies: []types.Family{
-									{
-										Afi:  types.AfiIPv4,
-										Safi: types.SafiUnicast,
+									MatchFamilies: []types.Family{
+										{
+											Afi:  types.AfiIPv4,
+											Safi: types.SafiUnicast,
+										},
 									},
 								},
 							},
@@ -1468,7 +1492,7 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Role: v1.RouteReflectorRoleRouteReflector,
 				},
 			},
-			expectedPolicies: ossreconcilerv2.RoutePolicyMap{},
+			expectedPolicies: RoutePolicyMap{},
 		},
 		{
 			name: "route-reflector client peer",
@@ -1482,7 +1506,7 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Role: v1.RouteReflectorRoleClient,
 				},
 			},
-			expectedPolicies: ossreconcilerv2.RoutePolicyMap{},
+			expectedPolicies: RoutePolicyMap{},
 		},
 		{
 			name: "no peerAddress",
@@ -1493,7 +1517,7 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Name: peerConfigV4Only.Name,
 				},
 			},
-			expectedPolicies: ossreconcilerv2.RoutePolicyMap{},
+			expectedPolicies: RoutePolicyMap{},
 		},
 		{
 			name: "no peerConfigRef",
@@ -1502,7 +1526,7 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 				PeerAddress:   ptr.To("10.0.0.1"),
 				PeerConfigRef: nil,
 			},
-			expectedPolicies: ossreconcilerv2.RoutePolicyMap{},
+			expectedPolicies: RoutePolicyMap{},
 		},
 		{
 			name: "no importPolicyRef",
@@ -1513,7 +1537,7 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Name: peerConfigNoRef.Name,
 				},
 			},
-			expectedPolicies: ossreconcilerv2.RoutePolicyMap{},
+			expectedPolicies: RoutePolicyMap{},
 		},
 		{
 			name: "implicit allow all case0",
@@ -1524,7 +1548,7 @@ func TestUserDefinedImportPolicy(t *testing.T) {
 					Name: implicitAllowAllCase0.Name,
 				},
 			},
-			expectedPolicies: ossreconcilerv2.RoutePolicyMap{},
+			expectedPolicies: RoutePolicyMap{},
 		},
 	}
 
