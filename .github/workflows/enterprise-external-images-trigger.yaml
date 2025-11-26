@@ -71,6 +71,14 @@ jobs:
             source-repo: isovalent/hubble-ui-enterprise
             source-path: hubble-ui-frontend
 
+          - component: KUBECTL
+            image-name: kubectl-ubi-ci
+            docker-context: enterprise/images/kubectl
+            dockerfile: enterprise/images/kubectl/Dockerfile
+            # renovate: datasource=docker
+            base-image: registry.redhat.io/ubi9/ubi-minimal:9.6@sha256:8d905a93f1392d4a8f7fb906bd49bf540290674b28d82de3536bb4d0898bf9d7
+            build-from-source: false
+
     uses: ./.github/workflows/enterprise-external-images.yaml
     secrets: inherit
     with:

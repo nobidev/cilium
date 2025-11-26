@@ -131,6 +131,19 @@ get_digest "${registry}/cilium-envoy${suffix}" "${envoy_tag}"
 digest=${get_digest_result}
 echo "digest: ${digest}"
 related_imgs+="{\"name\": \"RELATED_IMAGE_CILIUM-ENVOY\",\"value\":\"${registry}/cilium-envoy${suffix}:${envoy_tag}@${digest}\"},"
+# kubectl
+echo "Process kubectl"
+if [ "${is_ci}" == "true" ]; then
+  yq_get ".kubectl.image.tag"
+  kubectl_tag=${yq_get_result}
+else
+  kubectl_tag=${tag}
+fi
+echo "get digest: ${registry}/kubectl${suffix} ${kubectl_tag}" 
+get_digest "${registry}/kubectl${suffix}" "${kubectl_tag}"
+digest=${get_digest_result}
+echo "digest: ${digest}"
+related_imgs+="{\"name\": \"RELATED_IMAGE_KUBECTL\",\"value\":\"${registry}/kubectl${suffix}:${kubectl_tag}@${digest}\"},"
 # operator
 echo "Process operator"
 echo "get digest: ${registry}/operator-generic${suffix} ${tag}" 

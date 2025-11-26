@@ -66,6 +66,14 @@ jobs:
             source-repo: isovalent/hubble-ui-enterprise
             directory: hubble-ui-frontend
 
+          - component: KUBECTL
+            image-name: kubectl-ubi
+            docker-context: enterprise/images/kubectl
+            dockerfile: enterprise/images/kubectl/Dockerfile
+            # renovate: datasource=docker
+            base-image: registry.redhat.io/ubi9/ubi-minimal:9.6@sha256:8d905a93f1392d4a8f7fb906bd49bf540290674b28d82de3536bb4d0898bf9d7
+            build-from-source: false
+
     steps:
       - name: Checkout code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
