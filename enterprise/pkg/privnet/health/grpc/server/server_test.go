@@ -245,31 +245,35 @@ func TestServerProbeErrors(t *testing.T) {
 	var (
 		apiSloth = &api.Node{Cluster: "local", Name: "sloth"}
 		apiSnail = &api.Node{Cluster: "local", Name: "snail"}
-		timeout  = time.Second
+		timeout  = durationpb.New(time.Second)
 	)
 
 	tests := []struct {
 		name string
 		do   func(mockStream[api.ProbeRequest, api.ProbeResponse])
+		err  string
 	}{
 		{
 			name: "invalid Self",
 			do: func(stream mockStream[api.ProbeRequest, api.ProbeResponse]) {
-				stream.doSend(&api.ProbeRequest{Timeout: durationpb.New(timeout)}, nil)
+				stream.doSend(&api.ProbeRequest{Timeout: timeout}, nil)
 			},
+			err: "invalid [Self] parameter",
 		},
 		{
 			name: "mismatching Self",
 			do: func(stream mockStream[api.ProbeRequest, api.ProbeResponse]) {
-				stream.doSend(&api.ProbeRequest{Self: apiSloth, Timeout: durationpb.New(timeout)}, nil)
-				stream.doSend(&api.ProbeRequest{Self: apiSnail, Timeout: durationpb.New(timeout)}, nil)
+				stream.doSend(&api.ProbeRequest{Self: apiSloth, Timeout: timeout}, nil)
+				stream.doSend(&api.ProbeRequest{Self: apiSnail, Timeout: timeout}, nil)
 			},
+			err: "mismatching [Self] parameter",
 		},
 		{
 			name: "invalid Timeout",
 			do: func(stream mockStream[api.ProbeRequest, api.ProbeResponse]) {
 				stream.doSend(&api.ProbeRequest{Self: apiSloth}, nil)
 			},
+			err: "invalid [Timeout] parameter",
 		},
 	}
 
@@ -287,7 +291,10 @@ func TestServerProbeErrors(t *testing.T) {
 				go func() { errch <- srv.Probe(stream) }()
 
 				tt.do(stream)
-				require.Equal(t, codes.InvalidArgument, status.Code(<-errch))
+
+				err := <-errch
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.ErrorContains(t, err, tt.err)
 			})
 		})
 	}
