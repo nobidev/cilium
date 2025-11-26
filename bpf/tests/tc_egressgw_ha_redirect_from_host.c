@@ -6,10 +6,11 @@
 #include "pktgen.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV4
-#define ENABLE_NODEPORT
-#define ENABLE_EGRESS_GATEWAY_HA
+#define ENABLE_IPV4			1
+#define ENABLE_NODEPORT			1
+#define ENABLE_EGRESS_GATEWAY_HA	1
 #define ENABLE_MASQUERADE_IPV4		1
+#define ENABLE_HOST_FIREWALL		1
 #define ENCAP_IFINDEX 0
 
 #include "lib/bpf_host.h"
@@ -37,6 +38,7 @@ int egressgw_ha_redirect1_setup(struct __ctx_buff *ctx)
 	create_ct_entry(ctx, client_port(TEST_HA_REDIRECT));
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
 				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
+	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
 
 	return netdev_send_packet(ctx);
 }
@@ -105,6 +107,7 @@ int egressgw_ha_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, 1,
 				     { EGRESS_GATEWAY_EXCLUDED_CIDR }, EGRESS_IP, 0);
+	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
 
 	return netdev_send_packet(ctx);
 }

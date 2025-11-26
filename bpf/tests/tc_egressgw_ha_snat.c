@@ -6,10 +6,11 @@
 #include "pktgen.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV4
-#define ENABLE_NODEPORT
-#define ENABLE_EGRESS_GATEWAY_HA
+#define ENABLE_IPV4			1
+#define ENABLE_NODEPORT			1
+#define ENABLE_EGRESS_GATEWAY_HA	1
 #define ENABLE_MASQUERADE_IPV4		1
+#define ENABLE_HOST_FIREWALL		1
 #define ENCAP_IFINDEX		42
 #define SECONDARY_IFACE_IFINDEX	44
 
@@ -69,6 +70,7 @@ int egressgw_ha_snat1_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
 				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
+	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
 
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 
@@ -229,6 +231,7 @@ int egressgw_ha_tuple_collision1_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
 				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
+	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
 
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 
@@ -262,6 +265,7 @@ int egressgw_ha_tuple_collision2_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
 				     { GATEWAY_NODE_IP }, EGRESS_IP3, 0);
+	ipcache_v4_add_entry(EGRESS_IP3, 0, HOST_ID, 0, 0);
 
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 
@@ -410,6 +414,7 @@ int egressgw_fib_redirect_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
 				     { GATEWAY_NODE_IP }, EGRESS_IP2, 0);
+	ipcache_v4_add_entry(EGRESS_IP2, 0, HOST_ID, 0, 0);
 
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 
