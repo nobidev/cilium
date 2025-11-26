@@ -91,9 +91,7 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 				},
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
 				nexthop: netip.MustParseAddr("192.168.0.1"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -117,9 +115,7 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 				},
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
 				nexthop: netip.MustParseAddr("192.168.0.1"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -181,9 +177,7 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 				NeighborAddr: neighborAddrWithZone,
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
 				nexthop: netip.MustParseAddr("fd00::1"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -201,9 +195,7 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 				NeighborAddr: neighborAddrWithZone,
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
 				nexthop: netip.MustParseAddr("fe80::1%if0"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -221,9 +213,7 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 				NeighborAddr: neighborAddrWithZone,
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
 				nexthop: netip.MustParseAddr("fe80::1%if0"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -241,9 +231,7 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 				NeighborAddr: neighborAddrWithZone,
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
 				nexthop: netip.MustParseAddr("fe80::1%if0"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -261,9 +249,7 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 				NeighborAddr: neighborAddrWithZone,
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
 				nexthop: netip.MustParseAddr("fe80::1%if0"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -280,9 +266,7 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 				},
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
 				nexthop: netip.MustParseAddr("fd00::1"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -314,9 +298,7 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 				},
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
 				nexthop: netip.MustParseAddr("fd00::1"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -439,9 +421,7 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 				NeighborAddr: neighborAddrWithZone,
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("2001:db8::/64"),
 				nexthop: netip.MustParseAddr("fd00::1"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -459,9 +439,7 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 				NeighborAddr: neighborAddrWithZone,
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("2001:db8::/64"),
 				nexthop: netip.MustParseAddr("fe80::1%if0"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -479,9 +457,7 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 				NeighborAddr: neighborAddrWithZone,
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("2001:db8::/64"),
 				nexthop: netip.MustParseAddr("fe80::1%if0"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -499,9 +475,7 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 				NeighborAddr: neighborAddrWithZone,
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("2001:db8::/64"),
 				nexthop: netip.MustParseAddr("fe80::1%if0"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -519,9 +493,7 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 				NeighborAddr: neighborAddrWithZone,
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("2001:db8::/64"),
 				nexthop: netip.MustParseAddr("fe80::1%if0"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -538,9 +510,7 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 				},
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("2001:db8::/64"),
 				nexthop: netip.MustParseAddr("fd00::1"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -572,9 +542,7 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 				},
 			},
 			outputPath: &path{
-				prefix:  netip.MustParsePrefix("2001:db8::/64"),
 				nexthop: netip.MustParseAddr("fd00::1"),
-				isIBGP:  true,
 			},
 		},
 		{
@@ -672,51 +640,78 @@ func TestRouteImportReconcilerToPath(t *testing.T) {
 	tests := []struct {
 		name  string
 		owner *reconciler.RouteOwner
-		path  *path
+		dst   *destination
 	}{
 		{
 			name:  "Valid IPv4 route iBGP",
 			owner: &owner,
-			path: &path{
-				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
-				nexthop: netip.MustParseAddr("192.168.0.1"),
-				isIBGP:  true,
+			dst: &destination{
+				paths: []*path{
+					{
+						nexthop: netip.MustParseAddr("192.168.0.1"),
+					},
+				},
 			},
 		},
 		{
 			name:  "Valid IPv4 route eBGP",
 			owner: &owner,
-			path: &path{
-				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
-				nexthop: netip.MustParseAddr("192.168.0.1"),
-				isIBGP:  false,
+			dst: &destination{
+				paths: []*path{
+					{
+						nexthop: netip.MustParseAddr("192.168.0.1"),
+					},
+				},
 			},
 		},
 		{
 			name:  "Valid IPv6 route",
 			owner: &owner,
-			path: &path{
-				prefix:  netip.MustParsePrefix("fd00::/64"),
-				nexthop: netip.MustParseAddr("2001:db8::1"),
-				isIBGP:  false,
+			dst: &destination{
+				paths: []*path{
+					{
+						nexthop: netip.MustParseAddr("2001:db8::1"),
+					},
+				},
 			},
 		},
 		{
 			name:  "Valid IPv4 route with link-local nexthop",
 			owner: &owner,
-			path: &path{
-				prefix:  netip.MustParsePrefix("10.0.0.0/24"),
-				nexthop: netip.MustParseAddr("fe80::1%if0"),
-				isIBGP:  false,
+			dst: &destination{
+				paths: []*path{
+					{
+						nexthop: netip.MustParseAddr("fe80::1%if0"),
+					},
+				},
 			},
 		},
 		{
 			name:  "Valid IPv6 route with link-local nexthop",
 			owner: &owner,
-			path: &path{
-				prefix:  netip.MustParsePrefix("fd00::/64"),
-				nexthop: netip.MustParseAddr("fe80::1%if0"),
-				isIBGP:  false,
+			dst: &destination{
+				paths: []*path{
+					{
+						nexthop: netip.MustParseAddr("fe80::1%if0"),
+					},
+				},
+			},
+		},
+		{
+			name:  "Valid multi path",
+			owner: &owner,
+			dst: &destination{
+				paths: []*path{
+					{
+						nexthop: netip.MustParseAddr("192.168.0.1"),
+					},
+					{
+						nexthop: netip.MustParseAddr("2001:db8::1"),
+					},
+					{
+						nexthop: netip.MustParseAddr("fe80::1%if0"),
+					},
+				},
 			},
 		},
 	}
@@ -739,13 +734,13 @@ func TestRouteImportReconcilerToPath(t *testing.T) {
 			})
 			wtxn.Commit()
 
-			tableRoute, err := reconciler.toTableRoute(db.ReadTxn(), tt.owner, tt.path)
+			tableRoute, err := reconciler.toTableRoute(db.ReadTxn(), tt.owner, tt.dst)
 			require.NoError(t, err)
 
-			path, err := reconciler.toPath(tt.owner, &tableRoute)
+			dst, err := reconciler.toDestination(tt.owner, &tableRoute)
 			require.NoError(t, err)
 
-			require.Equal(t, tt.path, path, "The converted path does not match the original")
+			require.Equal(t, tt.dst, dst, "The converted path does not match the original")
 		})
 	}
 }

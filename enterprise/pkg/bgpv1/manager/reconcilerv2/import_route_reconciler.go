@@ -17,6 +17,7 @@ import (
 	"log/slog"
 	"maps"
 	"net/netip"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -124,30 +125,58 @@ func (r *importRouteReconciler) Reconcile(ctx context.Context, _p reconciler.Sta
 		return err
 	}
 
-	desiredPaths, err := r.desiredPaths(ctx, p.UpdatedInstance.Router)
+	desiredDsts, err := r.desiredDestinations(ctx, p.UpdatedInstance.Router)
 	if err != nil {
 		return err
 	}
 
 	rtxn := r.db.ReadTxn()
 
-	currentPaths, err := r.currentPaths(ctx, rtxn, owner)
+	currentDsts, err := r.currentDestinations(ctx, rtxn, owner)
 	if err != nil {
 		return err
 	}
 
-	toUpsert, toDelete := r.calculateDiff(desiredPaths, currentPaths)
+	toUpsert, toDelete := r.calculateDiff(desiredDsts, currentDsts)
 
 	return r.reconcileDesiredRoutes(ctx, rtxn, owner, toUpsert, toDelete)
 }
 
-type path struct {
-	prefix  netip.Prefix
-	nexthop netip.Addr
-	isIBGP  bool
+type destination struct {
+	prefix netip.Prefix
+	paths  []*path
+	isIBGP bool
 }
 
-func (r *importRouteReconciler) desiredPaths(ctx context.Context, router types.EnterpriseRouter) (map[netip.Prefix]*path, error) {
+func (dst *destination) sortPaths() {
+	slices.SortFunc(dst.paths, func(a, b *path) int {
+		return a.nexthop.Compare(b.nexthop)
+	})
+}
+
+func (dst *destination) equal(other *destination) bool {
+	if dst.prefix != other.prefix {
+		return false
+	}
+	if dst.isIBGP != other.isIBGP {
+		return false
+	}
+	if len(dst.paths) != len(other.paths) {
+		return false
+	}
+	for i := range dst.paths {
+		if dst.paths[i].nexthop != other.paths[i].nexthop {
+			return false
+		}
+	}
+	return true
+}
+
+type path struct {
+	nexthop netip.Addr
+}
+
+func (r *importRouteReconciler) desiredDestinations(ctx context.Context, router types.EnterpriseRouter) (map[netip.Prefix]*destination, error) {
 	global, err := router.GetBGP(ctx)
 	if err != nil {
 		return nil, err
@@ -167,11 +196,11 @@ func (r *importRouteReconciler) desiredPaths(ctx context.Context, router types.E
 		return nil, err
 	}
 
-	v4Paths, err := r.parsePaths(resv4.Routes, true, global.Global.ASN)
+	v4Dsts, err := r.parseRoutes(resv4.Routes, true, global.Global.ASN)
 	if err != nil {
 		// Just generate a log for the parse errors.
 		// TODO: Expose metrics per error type.
-		r.logger.Debug("Error parsing IPv4 paths", logfields.Error, err)
+		r.logger.Debug("Error parsing IPv4 routes", logfields.Error, err)
 	}
 
 	resv6, err := router.GetRoutesExtended(ctx, &types.GetRoutesExtendedRequest{
@@ -188,22 +217,22 @@ func (r *importRouteReconciler) desiredPaths(ctx context.Context, router types.E
 		return nil, err
 	}
 
-	v6Paths, err := r.parsePaths(resv6.Routes, false, global.Global.ASN)
+	v6Dsts, err := r.parseRoutes(resv6.Routes, false, global.Global.ASN)
 	if err != nil {
 		// Just generate a log for the parse errors.
 		// TODO: Expose metrics per error type.
-		r.logger.Debug("Error parsing IPv6 paths", logfields.Error, err)
+		r.logger.Debug("Error parsing IPv6 routes", logfields.Error, err)
 	}
 
-	maps.Copy(v4Paths, v6Paths)
+	maps.Copy(v4Dsts, v6Dsts)
 
-	return v4Paths, nil
+	return v4Dsts, nil
 }
 
-func (r *importRouteReconciler) parsePaths(routes []*types.ExtendedRoute, isV4 bool, selfASN uint32) (map[netip.Prefix]*path, error) {
+func (r *importRouteReconciler) parseRoutes(routes []*types.ExtendedRoute, isV4 bool, selfASN uint32) (map[netip.Prefix]*destination, error) {
 	var errs error
 
-	paths := map[netip.Prefix]*path{}
+	dsts := map[netip.Prefix]*destination{}
 
 	for _, route := range routes {
 		bestPaths := []*types.ExtendedPath{}
@@ -214,39 +243,62 @@ func (r *importRouteReconciler) parsePaths(routes []*types.ExtendedRoute, isV4 b
 			bestPaths = append(bestPaths, p)
 		}
 
-		if len(bestPaths) == 0 || len(bestPaths) > 1 {
-			// We only handle single best path routes for now. ECMP
-			// is not supported.
+		if len(bestPaths) == 0 {
 			continue
 		}
 
-		var (
-			parsed *path
-			err    error
-		)
-		if isV4 {
-			parsed, err = r.parseV4Path(bestPaths[0], selfASN)
-			if err != nil {
-				errs = errors.Join(errs, err)
-				continue
-			}
-		} else {
-			parsed, err = r.parseV6Path(bestPaths[0], selfASN)
-			if err != nil {
-				errs = errors.Join(errs, err)
+		// All best paths must have the same protocol (iBGP or eBGP)
+		firstIsIBGP := bestPaths[0].SourceASN == selfASN
+		for _, p := range bestPaths[1:] {
+			if (p.SourceASN == selfASN) != firstIsIBGP {
+				errs = errors.Join(errs, errMalformedPath)
 				continue
 			}
 		}
 
-		if parsed.nexthop.IsUnspecified() {
-			// Skip self-originated routes
+		p, err := netip.ParsePrefix(route.Prefix)
+		if err != nil {
+			errs = errors.Join(errs, err)
 			continue
 		}
 
-		paths[parsed.prefix] = parsed
+		dst := &destination{
+			prefix: p,
+			isIBGP: firstIsIBGP,
+		}
+
+		for _, bestPath := range bestPaths {
+			var parsed *path
+
+			if isV4 {
+				parsed, err = r.parseV4Path(bestPath, selfASN)
+				if err != nil {
+					errs = errors.Join(errs, err)
+					continue
+				}
+			} else {
+				parsed, err = r.parseV6Path(bestPath, selfASN)
+				if err != nil {
+					errs = errors.Join(errs, err)
+					continue
+				}
+			}
+
+			if parsed.nexthop.IsUnspecified() {
+				// Skip self-originated routes
+				continue
+			}
+
+			dst.paths = append(dst.paths, parsed)
+		}
+
+		// Sort paths to have a deterministic order
+		dst.sortPaths()
+
+		dsts[dst.prefix] = dst
 	}
 
-	return paths, errs
+	return dsts, errs
 }
 
 func (r *importRouteReconciler) parseV4Path(p *types.ExtendedPath, selfASN uint32) (*path, error) {
@@ -271,18 +323,6 @@ func (r *importRouteReconciler) parseV4Path(p *types.ExtendedPath, selfASN uint3
 		return nil, errMalformedPath
 	}
 
-	nlri, ok := p.NLRI.(*bgp.IPAddrPrefix)
-	if !ok {
-		return nil, errMalformedNLRI
-	}
-
-	nlriAddr, ok := netipx.FromStdIP(nlri.Prefix)
-	if !ok {
-		return nil, errMalformedNLRI
-	}
-
-	prefix := netip.PrefixFrom(nlriAddr, int(nlri.Length))
-
 	var (
 		err     error
 		nexthop netip.Addr
@@ -295,6 +335,7 @@ func (r *importRouteReconciler) parseV4Path(p *types.ExtendedPath, selfASN uint3
 			return nil, err
 		}
 	} else {
+		var ok bool
 		nexthop, ok = netipx.FromStdIP(nexthopAttr.Value)
 		if !ok {
 			return nil, errMalformedNexthop
@@ -305,9 +346,7 @@ func (r *importRouteReconciler) parseV4Path(p *types.ExtendedPath, selfASN uint3
 	}
 
 	return &path{
-		prefix:  prefix,
 		nexthop: nexthop,
-		isIBGP:  p.SourceASN == selfASN,
 	}, nil
 }
 
@@ -326,16 +365,6 @@ func (r *importRouteReconciler) parseV6Path(p *types.ExtendedPath, selfASN uint3
 		return nil, errMalformedPath
 	}
 
-	nlri, ok := p.NLRI.(*bgp.IPv6AddrPrefix)
-	if !ok {
-		return nil, errMalformedNLRI
-	}
-
-	nlriAddr, ok := netipx.FromStdIP(nlri.Prefix)
-	if !ok {
-		return nil, errMalformedNLRI
-	}
-
 	nexthop, err := r.parseMPReachNLRINexthop(mpReachNLRIAttr, p.NeighborAddr)
 	if err != nil {
 		return nil, err
@@ -347,9 +376,7 @@ func (r *importRouteReconciler) parseV6Path(p *types.ExtendedPath, selfASN uint3
 	}
 
 	return &path{
-		prefix:  netip.PrefixFrom(nlriAddr, int(nlri.Length)),
 		nexthop: nexthop,
-		isIBGP:  p.SourceASN == selfASN,
 	}, nil
 }
 
@@ -398,33 +425,33 @@ func (r *importRouteReconciler) parseMPReachNLRINexthop(mpReachNLRIAttr *bgp.Pat
 	}
 }
 
-func (r *importRouteReconciler) currentPaths(ctx context.Context, rtxn statedb.ReadTxn, owner *routeReconciler.RouteOwner) (map[netip.Prefix]*path, error) {
-	paths := map[netip.Prefix]*path{}
+func (r *importRouteReconciler) currentDestinations(ctx context.Context, rtxn statedb.ReadTxn, owner *routeReconciler.RouteOwner) (map[netip.Prefix]*destination, error) {
+	dsts := map[netip.Prefix]*destination{}
 
 	// List all routes owned by this BGP instance
 	for rt := range r.desiredRoutetable.Prefix(rtxn, routeReconciler.DesiredRouteIndex.Query(routeReconciler.DesiredRouteKey{Owner: owner})) {
 		if rt.Table != routeReconciler.TableMain {
 			continue
 		}
-		p, err := r.toPath(owner, rt)
+		dst, err := r.toDestination(owner, rt)
 		if err != nil {
 			continue
 		}
-		paths[rt.Prefix] = p
+		dsts[rt.Prefix] = dst
 	}
 
-	return paths, nil
+	return dsts, nil
 }
 
-func (r *importRouteReconciler) calculateDiff(desired, current map[netip.Prefix]*path) ([]*path, []*path) {
+func (r *importRouteReconciler) calculateDiff(desired, current map[netip.Prefix]*destination) ([]*destination, []*destination) {
 	var (
-		toUpsert []*path
-		toDelete []*path
+		toUpsert []*destination
+		toDelete []*destination
 	)
 
 	for prefix, d := range desired {
 		c, exists := current[prefix]
-		if !exists || d != c {
+		if !exists || !d.equal(c) {
 			toUpsert = append(toUpsert, d)
 		}
 	}
@@ -439,35 +466,70 @@ func (r *importRouteReconciler) calculateDiff(desired, current map[netip.Prefix]
 	return toUpsert, toDelete
 }
 
-func (r *importRouteReconciler) toTableRoute(rtxn statedb.ReadTxn, owner *routeReconciler.RouteOwner, p *path) (routeReconciler.DesiredRoute, error) {
+func (r *importRouteReconciler) toTableRoute(rtxn statedb.ReadTxn, owner *routeReconciler.RouteOwner, dst *destination) (routeReconciler.DesiredRoute, error) {
 	ad := AdminDistanceEBGP
-	if p.isIBGP {
+	if dst.isIBGP {
 		ad = AdminDistanceIBGP
 	}
 
-	var device *tables.Device
-	if p.nexthop.Zone() != "" {
-		dev, _, found := r.deviceTable.Get(rtxn, tables.DeviceNameIndex.Query(p.nexthop.Zone()))
-		if !found {
-			return routeReconciler.DesiredRoute{}, fmt.Errorf("device %q not found for nexthop %q", p.nexthop.Zone(), p.nexthop)
-		}
-		device = dev
-	}
-
-	return routeReconciler.DesiredRoute{
+	desiredRoute := routeReconciler.DesiredRoute{
 		Owner:         owner,
-		Prefix:        p.prefix,
-		Nexthop:       p.nexthop,
-		Device:        device,
+		Prefix:        dst.prefix,
 		Table:         routeReconciler.TableMain,
 		AdminDistance: ad,
 		Type:          routeReconciler.RTN_UNICAST,
-	}, nil
+	}
+
+	if len(dst.paths) == 1 {
+		device, err := r.getDevice(rtxn, dst.paths[0].nexthop)
+		if err != nil {
+			// We can immediately return here since there's only
+			// one path. Nothing else to process.
+			return routeReconciler.DesiredRoute{}, err
+		}
+
+		desiredRoute.Nexthop = dst.paths[0].nexthop
+		desiredRoute.Device = device
+	} else {
+		var errs error
+
+		for _, p := range dst.paths {
+			device, err := r.getDevice(rtxn, p.nexthop)
+			if err != nil {
+				// Continue processing other paths to collect
+				// all errors.
+				errs = errors.Join(errs, err)
+				continue
+			}
+			desiredRoute.MultiPath = append(desiredRoute.MultiPath, &routeReconciler.NexthopInfo{
+				Nexthop: p.nexthop,
+				Device:  device,
+			})
+		}
+
+		// If there were errors for any of the paths, return them.
+		if errs != nil {
+			return routeReconciler.DesiredRoute{}, errs
+		}
+	}
+
+	return desiredRoute, nil
+}
+
+func (r *importRouteReconciler) getDevice(rtxn statedb.ReadTxn, nexthop netip.Addr) (*tables.Device, error) {
+	if nexthop.Zone() != "" {
+		dev, _, found := r.deviceTable.Get(rtxn, tables.DeviceNameIndex.Query(nexthop.Zone()))
+		if !found {
+			return nil, fmt.Errorf("device %q not found for nexthop %q", nexthop.Zone(), nexthop)
+		}
+		return dev, nil
+	}
+	return nil, nil
 }
 
 // toPath converts a DesiredRoute to an intermediate path representation. This
 // must be the inverse of toTableRoute.
-func (r *importRouteReconciler) toPath(owner *routeReconciler.RouteOwner, rt *routeReconciler.DesiredRoute) (*path, error) {
+func (r *importRouteReconciler) toDestination(owner *routeReconciler.RouteOwner, rt *routeReconciler.DesiredRoute) (*destination, error) {
 	// Sanity checks for the constant fields.
 	if rt.Owner != owner {
 		return nil, fmt.Errorf("owner mismatch: got %v, want %v", rt.Owner, owner)
@@ -482,24 +544,43 @@ func (r *importRouteReconciler) toPath(owner *routeReconciler.RouteOwner, rt *ro
 		return nil, fmt.Errorf("route type is not unicast: %d", rt.Type)
 	}
 
-	nexthop := rt.Nexthop
-	if nexthop.Is6() && nexthop.IsLinkLocalUnicast() && rt.Device != nil {
-		// If the nexthop is IPv6 link-local address and a
-		// device associated, add the zone to the nexthop.
-		nexthop = rt.Nexthop.WithZone(rt.Device.Name)
+	dst := &destination{
+		prefix: rt.Prefix,
+		isIBGP: rt.AdminDistance == AdminDistanceIBGP,
+	}
+	if rt.Nexthop.IsValid() {
+		nexthop := r.maybeWithZone(rt.Nexthop, rt.Device)
+		dst.paths = append(dst.paths, &path{
+			nexthop: nexthop,
+		})
+	} else {
+		for _, nhi := range rt.MultiPath {
+			nexthop := r.maybeWithZone(nhi.Nexthop, rt.Device)
+			dst.paths = append(dst.paths, &path{
+				nexthop: nexthop,
+			})
+		}
 	}
 
-	return &path{
-		prefix:  rt.Prefix,
-		nexthop: nexthop,
-		isIBGP:  rt.AdminDistance == AdminDistanceIBGP,
-	}, nil
+	// Sort paths to have a deterministic order
+	dst.sortPaths()
+
+	return dst, nil
 }
 
-func (r *importRouteReconciler) reconcileDesiredRoutes(ctx context.Context, rtxn statedb.ReadTxn, owner *routeReconciler.RouteOwner, toUpsert, toDelete []*path) error {
+func (r *importRouteReconciler) maybeWithZone(nexthop netip.Addr, device *tables.Device) netip.Addr {
+	if nexthop.Is6() && nexthop.IsLinkLocalUnicast() && device != nil {
+		// If the nexthop is IPv6 link-local address and a
+		// device associated, add the zone to the nexthop.
+		nexthop = nexthop.WithZone(device.Name)
+	}
+	return nexthop
+}
+
+func (r *importRouteReconciler) reconcileDesiredRoutes(ctx context.Context, rtxn statedb.ReadTxn, owner *routeReconciler.RouteOwner, toUpsert, toDelete []*destination) error {
 	var errs error
-	for _, p := range toUpsert {
-		route, err := r.toTableRoute(rtxn, owner, p)
+	for _, dst := range toUpsert {
+		route, err := r.toTableRoute(rtxn, owner, dst)
 		if err != nil {
 			errs = errors.Join(errs, err)
 			continue
@@ -508,8 +589,8 @@ func (r *importRouteReconciler) reconcileDesiredRoutes(ctx context.Context, rtxn
 			errs = errors.Join(errs, err)
 		}
 	}
-	for _, p := range toDelete {
-		route, err := r.toTableRoute(rtxn, owner, p)
+	for _, dst := range toDelete {
+		route, err := r.toTableRoute(rtxn, owner, dst)
 		if err != nil {
 			errs = errors.Join(errs, err)
 			continue
