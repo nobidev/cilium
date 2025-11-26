@@ -272,6 +272,26 @@ func TestFormatGolden(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:   "empty worker",
+			golden: "empty-worker",
+			status: PrivateNetworkNodeStatus{
+				Name:    "worker-0",
+				Cluster: "cluster-west",
+				Enabled: true,
+				Mode:    "default",
+			},
+		},
+		{
+			name:   "empty inb",
+			golden: "empty-inb",
+			status: PrivateNetworkNodeStatus{
+				Name:    "inb-0",
+				Cluster: "inb-west",
+				Enabled: true,
+				Mode:    "bridge",
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.status.Format()

@@ -30,6 +30,10 @@ func (s PrivateNetworkNodeStatus) formatINBNode() string {
 		sb.WriteString(net.formatINBNetwork(s.ConnectedClusters, s.Cluster, s.Name))
 		sb.WriteString("\n")
 	}
+	if len(s.Networks) == 0 {
+		sb.WriteString(fmtInfo("No Private Networks configured"))
+		sb.WriteString("\n")
+	}
 
 	return sb.String()
 }

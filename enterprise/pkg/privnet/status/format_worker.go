@@ -24,12 +24,16 @@ func (s PrivateNetworkNodeStatus) formatWorkerNode() string {
 	sb := strings.Builder{}
 
 	sb.WriteString(fmtBar("Node", fmtHghlt(s.Name), s.nodeStatus(), 100))
+	sb.WriteString("\n")
 
 	for _, net := range s.Networks {
-		sb.WriteString("\n")
 		sb.WriteString(net.formatWorkerNetwork(s.ConnectedClusters, s.Cluster, s.Name))
+		sb.WriteString("\n")
 	}
-	sb.WriteString("\n")
+	if len(s.Networks) == 0 {
+		sb.WriteString(fmtInfo("No Private Networks configured"))
+		sb.WriteString("\n")
+	}
 	return sb.String()
 }
 
