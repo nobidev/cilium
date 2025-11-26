@@ -143,8 +143,9 @@ func (p *prober) loop(sender <-chan func(*api.ProbeRequest) error, recv <-chan a
 		timeout = time.NewTimer(p.cfg.Timeout)
 
 		request = &api.ProbeRequest{
-			Self:    p.self,
-			Timeout: durationpb.New(p.cfg.Timeout),
+			Self:     p.self,
+			Interval: durationpb.New(p.cfg.Interval),
+			Timeout:  durationpb.New(p.cfg.Timeout),
 		}
 	)
 

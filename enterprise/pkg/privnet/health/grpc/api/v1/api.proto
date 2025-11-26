@@ -38,6 +38,9 @@ message ProbeRequest {
   // Timeout is the amount of time without receiving a new probe before the INB
   // is expected to consider this workload node as unhealthy.
   google.protobuf.Duration timeout = 2;
+
+  // Interval is the interval at which the workload node sends health probes.
+  google.protobuf.Duration interval = 3;
 }
 
 message ProbeResponse {

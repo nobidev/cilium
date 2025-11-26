@@ -285,7 +285,20 @@ func (s *server) Probe(stream grpc.BidiStreamingServer[api.ProbeRequest, api.Pro
 			return status.Error(codes.InvalidArgument, "invalid [Timeout] parameter")
 		}
 
-		s.onProbe(node, timeout)
+		interval := request.GetInterval().AsDuration()
+		if interval == 0 {
+			return status.Error(codes.InvalidArgument, "invalid [Interval] parameter")
+		}
+
+		// [Config.validate] enforces that timeout is at least 50% higher than
+		// interval. We perform a loose validation here, to prevent surprises
+		// in case of misbehaving clients, but without failing hard to avoid
+		// breaking changes if we were to change the constraint in the future.
+		if thresh := timeout * 2 / 3; interval > thresh {
+			interval = timeout * 2 / 3
+		}
+
+		s.onProbe(node, interval, timeout)
 
 		err = stream.Send(&api.ProbeResponse{Status: api.ProbeResponse_SERVING})
 		if err != nil {
@@ -294,7 +307,7 @@ func (s *server) Probe(stream grpc.BidiStreamingServer[api.ProbeRequest, api.Pro
 	}
 }
 
-func (s *server) onProbe(node tables.WorkloadNode, timeout time.Duration) {
+func (s *server) onProbe(node tables.WorkloadNode, _, timeout time.Duration) {
 	// Reduce a bit the timeout advertised by the node, to account for
 	// possible latency, and speed up the detection on the INB side.
 	// This is intended to reduce the likelihood of ending up with two

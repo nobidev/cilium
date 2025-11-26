@@ -137,7 +137,9 @@ type ProbeRequest struct {
 	Self *Node `protobuf:"bytes,1,opt,name=self,proto3" json:"self,omitempty"`
 	// Timeout is the amount of time without receiving a new probe before the INB
 	// is expected to consider this workload node as unhealthy.
-	Timeout       *durationpb.Duration `protobuf:"bytes,2,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	Timeout *durationpb.Duration `protobuf:"bytes,2,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	// Interval is the interval at which the workload node sends health probes.
+	Interval      *durationpb.Duration `protobuf:"bytes,3,opt,name=interval,proto3" json:"interval,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -182,6 +184,13 @@ func (x *ProbeRequest) GetSelf() *Node {
 func (x *ProbeRequest) GetTimeout() *durationpb.Duration {
 	if x != nil {
 		return x.Timeout
+	}
+	return nil
+}
+
+func (x *ProbeRequest) GetInterval() *durationpb.Duration {
+	if x != nil {
+		return x.Interval
 	}
 	return nil
 }
@@ -660,10 +669,11 @@ var File_v1_api_proto protoreflect.FileDescriptor
 
 const file_v1_api_proto_rawDesc = "" +
 	"\n" +
-	"\fv1/api.proto\x12\x03api\x1a\x1egoogle/protobuf/duration.proto\"b\n" +
+	"\fv1/api.proto\x12\x03api\x1a\x1egoogle/protobuf/duration.proto\"\x99\x01\n" +
 	"\fProbeRequest\x12\x1d\n" +
 	"\x04self\x18\x01 \x01(\v2\t.api.NodeR\x04self\x123\n" +
-	"\atimeout\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"t\n" +
+	"\atimeout\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\atimeout\x125\n" +
+	"\binterval\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\binterval\"t\n" +
 	"\rProbeResponse\x128\n" +
 	"\x06status\x18\x01 \x01(\x0e2 .api.ProbeResponse.ServingStatusR\x06status\")\n" +
 	"\rServingStatus\x12\v\n" +
@@ -736,28 +746,29 @@ var file_v1_api_proto_goTypes = []any{
 var file_v1_api_proto_depIdxs = []int32{
 	10, // 0: api.ProbeRequest.self:type_name -> api.Node
 	13, // 1: api.ProbeRequest.timeout:type_name -> google.protobuf.Duration
-	0,  // 2: api.ProbeResponse.status:type_name -> api.ProbeResponse.ServingStatus
-	10, // 3: api.WatchRequest.self:type_name -> api.Node
-	12, // 4: api.NetworkEvents.events:type_name -> api.NetworkEvents.Event
-	10, // 5: api.ActivationRequest.self:type_name -> api.Node
-	11, // 6: api.ActivationRequest.network:type_name -> api.Network
-	10, // 7: api.DeactivationRequest.self:type_name -> api.Node
-	11, // 8: api.DeactivationRequest.network:type_name -> api.Network
-	11, // 9: api.NetworkEvents.Event.network:type_name -> api.Network
-	1,  // 10: api.NetworkEvents.Event.status:type_name -> api.NetworkEvents.Event.ServingStatus
-	2,  // 11: api.Health.Probe:input_type -> api.ProbeRequest
-	4,  // 12: api.Networks.Watch:input_type -> api.WatchRequest
-	6,  // 13: api.Networks.Activate:input_type -> api.ActivationRequest
-	8,  // 14: api.Networks.Deactivate:input_type -> api.DeactivationRequest
-	3,  // 15: api.Health.Probe:output_type -> api.ProbeResponse
-	5,  // 16: api.Networks.Watch:output_type -> api.NetworkEvents
-	7,  // 17: api.Networks.Activate:output_type -> api.ActivationResponse
-	9,  // 18: api.Networks.Deactivate:output_type -> api.DeactivationResponse
-	15, // [15:19] is the sub-list for method output_type
-	11, // [11:15] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	13, // 2: api.ProbeRequest.interval:type_name -> google.protobuf.Duration
+	0,  // 3: api.ProbeResponse.status:type_name -> api.ProbeResponse.ServingStatus
+	10, // 4: api.WatchRequest.self:type_name -> api.Node
+	12, // 5: api.NetworkEvents.events:type_name -> api.NetworkEvents.Event
+	10, // 6: api.ActivationRequest.self:type_name -> api.Node
+	11, // 7: api.ActivationRequest.network:type_name -> api.Network
+	10, // 8: api.DeactivationRequest.self:type_name -> api.Node
+	11, // 9: api.DeactivationRequest.network:type_name -> api.Network
+	11, // 10: api.NetworkEvents.Event.network:type_name -> api.Network
+	1,  // 11: api.NetworkEvents.Event.status:type_name -> api.NetworkEvents.Event.ServingStatus
+	2,  // 12: api.Health.Probe:input_type -> api.ProbeRequest
+	4,  // 13: api.Networks.Watch:input_type -> api.WatchRequest
+	6,  // 14: api.Networks.Activate:input_type -> api.ActivationRequest
+	8,  // 15: api.Networks.Deactivate:input_type -> api.DeactivationRequest
+	3,  // 16: api.Health.Probe:output_type -> api.ProbeResponse
+	5,  // 17: api.Networks.Watch:output_type -> api.NetworkEvents
+	7,  // 18: api.Networks.Activate:output_type -> api.ActivationResponse
+	9,  // 19: api.Networks.Deactivate:output_type -> api.DeactivationResponse
+	16, // [16:20] is the sub-list for method output_type
+	12, // [12:16] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_v1_api_proto_init() }

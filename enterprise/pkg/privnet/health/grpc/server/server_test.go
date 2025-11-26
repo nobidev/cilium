@@ -155,6 +155,7 @@ func TestServerProbe(t *testing.T) {
 		snail    = WN{Cluster: "local", Name: "snail"}
 		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
 		apiSnail = &api.Node{Cluster: string(snail.Cluster), Name: string(snail.Name)}
+		interval = durationpb.New(250 * time.Millisecond)
 		timeout  = time.Second
 	)
 
@@ -178,8 +179,8 @@ func TestServerProbe(t *testing.T) {
 		go func() { srv.Probe(streamSloth) }()
 		go func() { srv.Probe(streamSnail) }()
 
-		streamSloth.doSend(&api.ProbeRequest{Self: apiSloth, Timeout: durationpb.New(timeout)}, nil)
-		streamSnail.doSend(&api.ProbeRequest{Self: apiSnail, Timeout: durationpb.New(timeout)}, nil)
+		streamSloth.doSend(&api.ProbeRequest{Self: apiSloth, Interval: interval, Timeout: durationpb.New(timeout)}, nil)
+		streamSnail.doSend(&api.ProbeRequest{Self: apiSnail, Interval: interval, Timeout: durationpb.New(timeout)}, nil)
 
 		// A reply should have been received.
 		require.Equal(t, &api.ProbeResponse{Status: api.ProbeResponse_SERVING}, streamSloth.syncGetSent(t))
@@ -201,7 +202,7 @@ func TestServerProbe(t *testing.T) {
 		synctest.Wait()
 		require.ElementsMatch(t, slices.Collect(maps.Keys(srv.healthy)), []WN{sloth, snail})
 
-		streamSloth.doSend(&api.ProbeRequest{Self: apiSloth, Timeout: durationpb.New(timeout)}, nil)
+		streamSloth.doSend(&api.ProbeRequest{Self: apiSloth, Interval: interval, Timeout: durationpb.New(timeout)}, nil)
 		require.Equal(t, &api.ProbeResponse{Status: api.ProbeResponse_SERVING}, streamSloth.syncGetSent(t))
 		time.Sleep(1 * time.Millisecond)
 
@@ -213,7 +214,7 @@ func TestServerProbe(t *testing.T) {
 		require.ElementsMatch(t, statedb.Collect(actnets.All(db.ReadTxn())), []AN{{Node: sloth, Network: "green"}})
 
 		// Healthy again.
-		streamSnail.doSend(&api.ProbeRequest{Self: apiSnail, Timeout: durationpb.New(timeout)}, nil)
+		streamSnail.doSend(&api.ProbeRequest{Self: apiSnail, Interval: interval, Timeout: durationpb.New(timeout)}, nil)
 		require.Equal(t, &api.ProbeResponse{Status: api.ProbeResponse_SERVING}, streamSnail.syncGetSent(t))
 
 		synctest.Wait()
@@ -230,7 +231,7 @@ func TestServerProbe(t *testing.T) {
 
 		// Restart only one, and send a new probe.
 		go func() { srv.Probe(streamSloth) }()
-		streamSloth.doSend(&api.ProbeRequest{Self: apiSloth, Timeout: durationpb.New(timeout)}, nil)
+		streamSloth.doSend(&api.ProbeRequest{Self: apiSloth, Interval: interval, Timeout: durationpb.New(timeout)}, nil)
 		require.Equal(t, &api.ProbeResponse{Status: api.ProbeResponse_SERVING}, streamSloth.syncGetSent(t))
 
 		// The snail node should no longer be healthy after timeout.
@@ -245,6 +246,7 @@ func TestServerProbeErrors(t *testing.T) {
 	var (
 		apiSloth = &api.Node{Cluster: "local", Name: "sloth"}
 		apiSnail = &api.Node{Cluster: "local", Name: "snail"}
+		interval = durationpb.New(500 * time.Millisecond)
 		timeout  = durationpb.New(time.Second)
 	)
 
@@ -256,22 +258,29 @@ func TestServerProbeErrors(t *testing.T) {
 		{
 			name: "invalid Self",
 			do: func(stream mockStream[api.ProbeRequest, api.ProbeResponse]) {
-				stream.doSend(&api.ProbeRequest{Timeout: timeout}, nil)
+				stream.doSend(&api.ProbeRequest{Interval: interval, Timeout: timeout}, nil)
 			},
 			err: "invalid [Self] parameter",
 		},
 		{
 			name: "mismatching Self",
 			do: func(stream mockStream[api.ProbeRequest, api.ProbeResponse]) {
-				stream.doSend(&api.ProbeRequest{Self: apiSloth, Timeout: timeout}, nil)
-				stream.doSend(&api.ProbeRequest{Self: apiSnail, Timeout: timeout}, nil)
+				stream.doSend(&api.ProbeRequest{Self: apiSloth, Interval: interval, Timeout: timeout}, nil)
+				stream.doSend(&api.ProbeRequest{Self: apiSnail, Interval: interval, Timeout: timeout}, nil)
 			},
 			err: "mismatching [Self] parameter",
 		},
 		{
+			name: "invalid Interval",
+			do: func(stream mockStream[api.ProbeRequest, api.ProbeResponse]) {
+				stream.doSend(&api.ProbeRequest{Self: apiSloth, Timeout: timeout}, nil)
+			},
+			err: "invalid [Interval] parameter",
+		},
+		{
 			name: "invalid Timeout",
 			do: func(stream mockStream[api.ProbeRequest, api.ProbeResponse]) {
-				stream.doSend(&api.ProbeRequest{Self: apiSloth}, nil)
+				stream.doSend(&api.ProbeRequest{Self: apiSloth, Interval: interval}, nil)
 			},
 			err: "invalid [Timeout] parameter",
 		},
