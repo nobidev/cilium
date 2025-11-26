@@ -90,15 +90,7 @@ const (
 	testPeeringIPsFlag               = "test-peering-ips"
 	ipamFlag                         = "ipam"
 	probeTCPMD5Flag                  = "probe-tcp-md5"
-	requireIPv6LLAddrsFlag           = "require-ipv6-lladdrs"
 	enableNodeMaintenanceHelpersFlag = "enable-node-maintenance-helpers"
-	useScriptNetFlag                 = "use-script-net"
-
-	// test environment variables
-	link1EnvVar   = "LINK1"
-	link2EnvVar   = "LINK2"
-	llAddr1EnvVar = "LLADDR1"
-	llAddr2EnvVar = "LLADDR2"
 )
 
 func TestPrivilegedScript(t *testing.T) {
@@ -295,11 +287,6 @@ func TestPrivilegedScript(t *testing.T) {
 }
 
 func setupTestLinks(t *testing.T, envVars []string) []string {
-	envVars = append(envVars, []string{
-		link1EnvVar + "=" + testLink1Name,
-		link2EnvVar + "=" + testLink2Name,
-	}...)
-
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
 			Name:         testLink1Name,
@@ -335,20 +322,6 @@ func setupTestLinks(t *testing.T, envVars []string) []string {
 	err = netlink.LinkSetUp(veth2)
 	require.NoError(t, err)
 
-	addrs, err := safenetlink.AddrList(veth1, netlink.FAMILY_V6)
-	require.NoError(t, err)
-	for _, addr := range addrs {
-		if addr.IP.IsLinkLocalUnicast() {
-			envVars = append(envVars, llAddr1EnvVar+"="+addr.IP.String())
-		}
-	}
-	addrs, err = safenetlink.AddrList(veth2, netlink.FAMILY_V6)
-	require.NoError(t, err)
-	for _, addr := range addrs {
-		if addr.IP.IsLinkLocalUnicast() {
-			envVars = append(envVars, llAddr2EnvVar+"="+addr.IP.String())
-		}
-	}
 	return envVars
 }
 
