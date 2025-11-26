@@ -1,0 +1,201 @@
+#! --test-peering-ips=10.100.100.2,fd00:10:100:100::2
+
+hive start
+db/initialized
+
+# Add devices and neighbors entries into statedb
+db/insert devices device.yaml
+db/insert neighbors neighbor.yaml
+
+# Configure gobgp server (bind to :: as GoBGP does not support binding to a LL address with zone)
+gobgp/add-server server0 --router-id=10.0.0.0 65001 :: 1801
+gobgp/add-server server1 --router-id=10.0.0.1 65001 10.100.100.2 179
+gobgp/add-server server2 --router-id=10.0.0.2 65001 fd00:10:100:100::2 179
+gobgp/add-peer -s server0 fe80::a800:ff:fe00:1%centbgptest2 65000
+gobgp/add-peer -s server1 10.100.100.2 65000
+gobgp/add-peer -s server2 fd00:10:100:100::2 65000
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config0.yaml bgp-peer-config1.yaml bgp-peer-config2.yaml bgp-policy.yaml
+bgptest/sync-oss-resources
+
+# Wait for peering to be established
+gobgp/wait-state -s server0 fe80::a800:ff:fe00:1%centbgptest2 ESTABLISHED
+gobgp/wait-state -s server1 10.100.100.2 ESTABLISHED
+gobgp/wait-state -s server2 fd00:10:100:100::2 ESTABLISHED
+
+# Add unnumbered routes
+gobgp/add-route -s server0 10.0.0.0/24
+gobgp/add-route -s server0 2001:db8::/64
+
+# Add IPv4 routes. We cannot advertise IPv6 prefix over IPv4 nexthop
+gobgp/add-route -s server1 10.0.0.0/24
+
+# Add IPv6 routes.
+gobgp/add-route -s server2 10.0.0.0/24
+gobgp/add-route -s server2 2001:db8::/64
+
+# Ensure routes are written into the RIB
+db/cmp desired-routes desired-routes0.expected
+
+# Delete one of the server
+gobgp/delete-server server2
+
+# Ensure one of the path is removed
+db/cmp desired-routes desired-routes1.expected
+
+# Delete one of the server
+gobgp/delete-server server1
+
+# Ensure one of the path is removed
+db/cmp desired-routes desired-routes2.expected
+
+# Delete one of the server
+gobgp/delete-server server0
+
+# Ensure all routes are removed
+db/cmp desired-routes desired-routes3.expected
+
+-- device.yaml --
+index: 1
+name: centbgptest1
+type: veth
+selected: true
+
+-- neighbor.yaml --
+linkindex: 1
+ipaddr: fe80::a800:ff:fe00:2
+type: 1
+state: 0x80
+flags: 0x10
+flagsExt: 0x0
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+
+-- bgp-node-config.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - name: instance0
+    localASN: 65000
+    routerID: 10.0.1.0
+    peers:
+    - name: peer0
+      peerASN: 65001
+      autoDiscovery:
+        mode: Unnumbered
+        unnumbered:
+          interface: centbgptest1
+      peerConfigRef:
+        name: peer-config0
+    - name: peer1
+      peerASN: 65001
+      peerAddress: 10.100.100.2
+      peerConfigRef:
+        name: peer-config1
+    - name: peer2
+      peerASN: 65001
+      peerAddress: fd00:10:100:100::2
+      peerConfigRef:
+        name: peer-config2
+
+-- bgp-peer-config0.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPeerConfig
+metadata:
+  name: peer-config0
+spec:
+  transport:
+    peerPort: 1801
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    importPolicyRef:
+      name: policy0
+  - afi: ipv6
+    safi: unicast
+    importPolicyRef:
+      name: policy0
+
+-- bgp-peer-config1.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPeerConfig
+metadata:
+  name: peer-config1
+spec:
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    importPolicyRef:
+      name: policy0
+  - afi: ipv6
+    safi: unicast
+    importPolicyRef:
+      name: policy0
+
+-- bgp-peer-config2.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPeerConfig
+metadata:
+  name: peer-config2
+spec:
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    importPolicyRef:
+      name: policy0
+  - afi: ipv6
+    safi: unicast
+    importPolicyRef:
+      name: policy0
+
+-- bgp-policy.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPolicy
+metadata:
+  name: policy0
+spec:
+  import:
+    statements:
+    - conditions:
+        prefixesV4:
+          matchType: Or
+          matches:
+          - prefix: 10.0.0.0/24
+        prefixesV6:
+          matchType: Or
+          matches:
+          - prefix: 2001:db8::/64
+      actions:
+        routeAction: Accept
+
+-- desired-routes0.expected --
+Owner             Table        Prefix          AD    Selected   Nexthop   Device   Multipath
+bgp-instance0     main (254)   10.0.0.0/24     150   true       none      none     [10.100.100.2, fd00:10:100:100::2, fe80::a800:ff:fe00:2%centbgptest1 centbgptest1 (1)]
+bgp-instance0     main (254)   2001:db8::/64   150   true       none      none     [fd00:10:100:100::2, fe80::a800:ff:fe00:2%centbgptest1 centbgptest1 (1)]
+
+-- desired-routes1.expected --
+Owner             Table        Prefix          AD    Selected   Nexthop                             Device             Multipath
+bgp-instance0     main (254)   10.0.0.0/24     150   true       none                                none               [10.100.100.2, fe80::a800:ff:fe00:2%centbgptest1 centbgptest1 (1)]
+bgp-instance0     main (254)   2001:db8::/64   150   true       fe80::a800:ff:fe00:2%centbgptest1   centbgptest1 (1)   none
+
+-- desired-routes2.expected --
+Owner             Table        Prefix          AD    Selected   Nexthop                             Device
+bgp-instance0     main (254)   10.0.0.0/24     150   true       fe80::a800:ff:fe00:2%centbgptest1   centbgptest1 (1)
+bgp-instance0     main (254)   2001:db8::/64   150   true       fe80::a800:ff:fe00:2%centbgptest1   centbgptest1 (1)
+
+-- desired-routes3.expected --
+Owner             Table        Prefix          AD    Selected   Nexthop                             Device
