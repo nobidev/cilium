@@ -33,6 +33,6 @@ func main() {
 	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-cni")
 	c := cmd.NewCmd(logger, cmd.WithEPConfigurator(multinetwork.NewEndpointConfigurator()))
 	skel.PluginMainFuncs(c.CNIFuncs(),
-		cniVersion.PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "1.0.0"),
+		cniVersion.PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "1.0.0", "1.1.0"),
 		"Cilium CNI plugin (enterprise) "+version.Version)
 }
