@@ -378,8 +378,17 @@ func TestNetworkerActivate(t *testing.T) {
 		require.Equal(t, &self, activation.GetSelf())
 		require.Equal(t, "pelican", activation.GetNetwork().GetName())
 
-		// The activation request is denied, hence the network should transition to denied state.
+		// The activation request is denied, hence the network should transition to denied state after two more retries.
 		mock.actResponse <- newResponse(&api.ActivationResponse{}, status.Error(codes.FailedPrecondition, "on purpose"))
+
+		for range 2 {
+			time.Sleep(cfg.Interval)
+			activation = Get(t, mock.actRequest)
+			require.Equal(t, &self, activation.GetSelf())
+			require.Equal(t, "pelican", activation.GetNetwork().GetName())
+			mock.actResponse <- newResponse(&api.ActivationResponse{}, status.Error(codes.FailedPrecondition, "on purpose"))
+		}
+
 		Expect(t, transitions, networkTransition{network: "pelican", state: D})
 
 		// Send an incremental update. It should have no effect for catfish, as it matches

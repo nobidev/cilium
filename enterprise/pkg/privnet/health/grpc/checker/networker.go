@@ -319,11 +319,12 @@ func (n *networker) queueLoop(ctx context.Context) {
 		}
 
 		retries[name]++
-		if errors.Is(err, errRemoteRejected) || retries[name] >= maxRetries {
+		if retries[name] >= maxRetries {
 			n.log.Warn("Failed to process network",
 				logfields.Error, err,
 				logfields.Network, name,
 				logfields.Operation, op,
+				logfields.Attempt, retries[name],
 			)
 
 			// Something is wrong with this network/INB, let's mark it as denied.
@@ -340,6 +341,7 @@ func (n *networker) queueLoop(ctx context.Context) {
 			logfields.Error, err,
 			logfields.Network, name,
 			logfields.Operation, op,
+			logfields.Attempt, retries[name],
 		)
 
 		// Queue a retry.
