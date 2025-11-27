@@ -192,8 +192,8 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	// Compare the current and desire states and align
-	toApply, toRemove := Compare(desired, current)
+	// Align the current with the desire state
+	toApply, toRemove := Diff(desired, current)
 	for _, a := range toApply {
 		logger.V(3).Info("Applying resource", "kind", a.GetKind(), "namespace", a.GetNamespace(), "name", a.GetName())
 		err = r.Patch(ctx, a, client.Apply, client.ForceOwnership, client.FieldOwner("clife"))
