@@ -129,7 +129,7 @@ func newCmdPrivNetTest() *cobra.Command {
 			if err := t.ApplyExternalEndpointIngressPolicies(ctx, privnet.EchoServerPort); err != nil {
 				return err
 			}
-			for _, net := range []privnet.NetworkName{privnet.NetworkA, privnet.NetworkB, privnet.NetworkC, privnet.NetworkD} {
+			for net := range t.Networks() {
 				for ext := range t.External(net) {
 					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), ext), privnet.ExpectationOK)
 				}
@@ -140,14 +140,14 @@ func newCmdPrivNetTest() *cobra.Command {
 				return err
 			}
 			// connectivity fails
-			for _, net := range []privnet.NetworkName{privnet.NetworkA, privnet.NetworkB, privnet.NetworkC, privnet.NetworkD} {
+			for net := range t.Networks() {
 				for ext := range t.External(net) {
 					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), ext), privnet.ExpectationCurlTimeout)
 				}
 			}
 
 			// Ensure traffic to unknown destinations works (policies don't apply here).
-			for _, net := range []privnet.NetworkName{privnet.NetworkA, privnet.NetworkB, privnet.NetworkC, privnet.NetworkD} {
+			for net := range t.Networks() {
 				for _, dst := range privnet.UnknownDestinations[net] {
 					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), dst), privnet.ExpectationOK)
 				}

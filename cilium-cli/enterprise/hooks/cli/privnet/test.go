@@ -547,6 +547,12 @@ func (t *TestRun) Cleanup(ctx context.Context) {
 	}
 }
 
+var networks = []NetworkName{NetworkA, NetworkB, NetworkC, NetworkD}
+
+func (t *TestRun) Networks() iter.Seq[NetworkName] {
+	return slices.Values(networks)
+}
+
 func (t *TestRun) ApplyExternalEndpointIngressPolicies(ctx context.Context, allowPort int) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("previous test operation failed: %w", err)
