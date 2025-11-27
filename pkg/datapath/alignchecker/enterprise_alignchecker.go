@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	registerToCheck(map[string][]any{
+	for typ, str := range map[string][]any{
 		"egress_gw_ha_ct_entry":        {egressmapha.EgressCtVal4{}},
 		"egress_gw_ha_policy_key":      {egressmapha.EgressPolicyV2Key4{}},
 		"egress_gw_ha_policy_entry_v2": {egressmapha.EgressPolicyV2Val4{}},
@@ -26,9 +26,13 @@ func init() {
 		"endpoint_key":                 {extepspolicy.Key{}},
 		"encryption_policy_key":        {encryptionpolicymap.EncryptionPolicyKey{}},
 		"encryption_policy_entry":      {encryptionpolicymap.EncryptionPolicyVal{}},
-	})
+	} {
+		toCheck[typ] = append(toCheck[typ], str...)
+	}
 
-	registerToCheckSizes(map[string][]any{
+	for size, str := range map[string][]any{
 		"__u32": {extepspolicy.Value{}},
-	})
+	} {
+		toCheckSizes[size] = append(toCheckSizes[size], str...)
+	}
 }
