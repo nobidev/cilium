@@ -153,6 +153,9 @@ func newCmdPrivNetTest() *cobra.Command {
 				}
 			}
 
+			// Remove all policies before proceeding with the INB failover tests.
+			t.Cleanup(ctx)
+
 			if t.Failed() {
 				return errors.New("one or more tests failed")
 			}

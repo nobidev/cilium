@@ -545,6 +545,10 @@ func (t *TestRun) Cleanup(ctx context.Context) {
 			}
 		}
 	}
+
+	// Reset the map, so that a subsequent call to Cleanup doesn't attempt
+	// to remove the same policies again.
+	t.policies = make(map[string]k8s.Object)
 }
 
 var networks = []NetworkName{NetworkA, NetworkB, NetworkC, NetworkD}
