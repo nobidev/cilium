@@ -156,6 +156,18 @@ func newCmdPrivNetTest() *cobra.Command {
 			// Remove all policies before proceeding with the INB failover tests.
 			t.Cleanup(ctx)
 
+			// Trigger a bunch of failovers.
+			for inb := range t.INBNodeNames() {
+				t.Run(ctx, privnet.NewFailover(t, inb), privnet.ExpectationOK)
+			}
+
+			// Check connectivity to external endpoints again.
+			for net := range t.Networks() {
+				for ext := range t.External(net) {
+					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), ext), privnet.ExpectationOK)
+				}
+			}
+
 			if t.Failed() {
 				return errors.New("one or more tests failed")
 			}
