@@ -72,6 +72,8 @@ const (
 	EchoServerPort = 8000
 )
 
+type NodeName string
+
 type TestRun struct {
 	params     Params
 	client     *enterpriseK8s.EnterpriseClient
@@ -81,6 +83,9 @@ type TestRun struct {
 	families       []features.IPFamily
 	webhookEnabled bool
 	webhookPlanID  k8stypes.UID
+
+	ciliumPodsCluster map[NodeName]check.Pod
+	ciliumPodsINBs    map[NodeName]check.Pod
 
 	vms map[NetworkName]map[VMName]VM
 	ext map[NetworkName]map[VMName]VM
@@ -200,6 +205,44 @@ func (t *TestRun) retrieveMTVConfig(ctx context.Context) error {
 	}
 
 	t.webhookPlanID = plan.GetUID()
+	return nil
+}
+
+func (t *TestRun) retrieveCiliumPods(ctx context.Context) error {
+	list := func(client *k8s.Client) (iter.Seq2[NodeName, check.Pod], error) {
+		pods, err := client.ListPods(ctx, t.params.CiliumNamespace, metav1.ListOptions{LabelSelector: t.params.AgentPodSelector})
+		if err != nil {
+			return nil, fmt.Errorf("listing pods: %w", err)
+		}
+
+		if len(pods.Items) == 0 {
+			return nil, fmt.Errorf("no pod found in namespace %s matching selector %q", t.params.CiliumNamespace, t.params.AgentPodSelector)
+		}
+
+		return func(yield func(NodeName, check.Pod) bool) {
+			for _, pod := range pods.Items {
+				if !yield(NodeName(pod.Spec.NodeName), check.Pod{K8sClient: client, Pod: &pod}) {
+					return
+				}
+			}
+		}, nil
+	}
+
+	got, err := list(t.client.Client)
+	if err != nil {
+		return fmt.Errorf("retrieving Cilium pods in %s: %w", t.client.ClusterName(), err)
+	}
+	t.ciliumPodsCluster = maps.Collect(got)
+
+	t.ciliumPodsINBs = make(map[NodeName]check.Pod)
+	for _, client := range t.inbClients {
+		got, err := list(client.Client)
+		if err != nil {
+			return fmt.Errorf("retrieving Cilium pods in %s: %w", client.ClusterName(), err)
+		}
+		maps.Insert(t.ciliumPodsINBs, got)
+	}
+
 	return nil
 }
 
@@ -445,6 +488,9 @@ func (t *TestRun) SetupAndValidate(ctx context.Context) error {
 	if err := t.retrieveMTVConfig(ctx); err != nil {
 		return fmt.Errorf("failed retrieving MTV configuration: %w", err)
 	}
+	if err := t.retrieveCiliumPods(ctx); err != nil {
+		return fmt.Errorf("failed retrieving Cilium pods: %w", err)
+	}
 
 	if err := t.createNamespace(ctx, t.client); err != nil {
 		return err
@@ -555,6 +601,10 @@ var networks = []NetworkName{NetworkA, NetworkB, NetworkC, NetworkD}
 
 func (t *TestRun) Networks() iter.Seq[NetworkName] {
 	return slices.Values(networks)
+}
+
+func (t *TestRun) INBNodeNames() iter.Seq[NodeName] {
+	return maps.Keys(t.ciliumPodsINBs)
 }
 
 func (t *TestRun) ApplyExternalEndpointIngressPolicies(ctx context.Context, allowPort int) error {

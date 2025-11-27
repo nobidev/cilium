@@ -165,6 +165,7 @@ func newCmdPrivNetTest() *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(&params.Debug, "debug", "d", false, "Show debug messages")
 	cmd.Flags().StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity test in")
+	cmd.Flags().StringVar(&params.AgentPodSelector, "agent-pod-selector", defaults.AgentPodSelector, "Label selector for Cilium Agent pods")
 	cmd.Flags().StringVar(&params.ExternalTarget, "external-target", "one.one.one.one.", "External curl target")
 	cmd.Flags().StringVar(&params.ExternalIPTarget, "external-ip-target", "1.1.1.1", "External curl IP target")
 	cmd.Flags().StringSliceVar(&params.INBContexts, "inb-contexts", nil, "List of Kubernetes contexts of the Isovalent Network Bridges")

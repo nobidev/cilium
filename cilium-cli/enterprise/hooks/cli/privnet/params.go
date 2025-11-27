@@ -18,6 +18,7 @@ type Params struct {
 	ExternalIPTarget string
 	CiliumNamespace  string
 	TestNamespace    string
+	AgentPodSelector string
 
 	VMImage          string
 	ForkliftPlanName string
