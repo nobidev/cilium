@@ -1315,7 +1315,7 @@ func (s *LargeCommunitySet) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.ToConfig())
 }
 
-var _regexpCommunityLarge = regexp.MustCompile(`\d+:\d+:\d+`)
+var _regexpCommunityLarge = regexp.MustCompile(`^\d+:\d+:\d+$`)
 
 func ParseLargeCommunityRegexp(arg string) (*regexp.Regexp, error) {
 	if _regexpCommunityLarge.MatchString(arg) {

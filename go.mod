@@ -376,7 +376,7 @@ replace github.com/YutaroHayakawa/go-ra => github.com/isovalent/go-ra v0.0.0-202
 
 // Using private fork of gobgp. See commit msg for more context as to why we
 // are using a private fork.
-replace github.com/osrg/gobgp/v3 => github.com/isovalent/gobgp/v3 v3.0.0-20251124225527-f7a097923e03
+replace github.com/osrg/gobgp/v3 => github.com/isovalent/gobgp/v3 v3.0.0-20251126211423-0eb4057d345f
 
 tool (
 	github.com/AdamKorcz/go-118-fuzz-build/testing
