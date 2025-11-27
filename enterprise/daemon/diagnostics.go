@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/enterprise/pkg/diagnostics"
+	policydiagnostics "github.com/cilium/cilium/enterprise/pkg/policy/diagnostics"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/health"
 	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
@@ -35,6 +36,8 @@ var agentDiagnostics = cell.Group(
 
 	// Register diagnostic conditions for OSS features.
 	cell.Invoke(registerConditions),
+
+	policydiagnostics.Cell,
 )
 
 // The user constants that can be overridden with --diagnostics-constants.
