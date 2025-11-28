@@ -108,6 +108,13 @@ features:
     helm:
       enterprise.bgpControlPlane.enabled: true
 
+  EnvoyHA:
+    maturity: Limited
+    description: |
+      Enables Cilium Envoy graceful restart.
+    helm:
+      envoy.gracefulRestart.enabled: true
+
   BFD:
     maturity: Limited
     description: |
