@@ -92,6 +92,7 @@ rules:
   - gateway.networking.k8s.io
   resources:
   - gatewayclasses
+  - httproutes
   verbs:
   - create
   - delete

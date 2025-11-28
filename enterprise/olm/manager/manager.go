@@ -127,11 +127,6 @@ func Start(ctx context.Context) {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
 
-	// TODO: to be removed
-	// webhookServer := webhook.NewServer(webhook.Options{
-	// 	TLSOpts: tlsOpts,
-	// })
-
 	// Create watchers for metrics certificates
 	var metricsCertWatcher *certwatcher.CertWatcher
 

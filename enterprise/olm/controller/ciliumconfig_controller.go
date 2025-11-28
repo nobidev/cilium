@@ -33,6 +33,7 @@ import (
 	amtypes "k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/rest"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -41,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -65,9 +67,8 @@ type CiliumConfigReconciler struct {
 	Namespace         string
 	StartingCondition metav1.Condition
 	HelmClientGetter  *helm.RESTClientGetter
+	GVKs              []schema.GroupVersionKind
 }
-
-// TODO: Double check that the controller has all the necessary rights and ownership
 
 //+kubebuilder:rbac:groups=cilium.io,resources=ciliumconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cilium.io,resources=ciliumconfigs/status,verbs=get;update;patch
@@ -93,6 +94,7 @@ type CiliumConfigReconciler struct {
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingressclasses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=security.openshift.io,resources=securitycontextconstraints,resourceNames=hostnetwork-v2,verbs=use
@@ -159,7 +161,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	logger.V(3).Info("helm", "values", hv)
 
 	// Get the current state
-	current, err := currentState(ctx, r.Client)
+	current, err := r.currentState(ctx, r.Client)
 	if err != nil {
 		conditions[ciliumiov1alpha1.ProcessingErrorCondition] = metav1.Condition{
 			Type:               ciliumiov1alpha1.ProcessingErrorCondition,
@@ -241,53 +243,9 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *CiliumConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	logger := mgr.GetLogger().WithName("setup")
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&ciliumiov1alpha1.CiliumConfig{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Owns(&appsv1.Deployment{}).
-		Owns(&appsv1.StatefulSet{}).
-		Owns(&appsv1.DaemonSet{}).
-		Owns(&corev1.Namespace{}).
-		Owns(&corev1.Secret{}).
-		Owns(&corev1.ConfigMap{}).
-		Owns(&corev1.Service{}).
-		Owns(&corev1.Endpoints{}).
-		Owns(&corev1.ResourceQuota{}).
-		Owns(&corev1.ServiceAccount{}).
-		Owns(&corev1.PersistentVolumeClaim{}).
-		Owns(&rbacv1.ClusterRole{}).
-		Owns(&rbacv1.ClusterRoleBinding{}).
-		Owns(&rbacv1.Role{}).
-		Owns(&rbacv1.RoleBinding{}).
-		Owns(&batchv1.Job{}).
-		Owns(&batchv1.CronJob{}).
-		Owns(&policyv1.PodDisruptionBudget{}).
-		Owns(&networkingv1.Ingress{}).
-		Owns(&networkingv1.IngressClass{})
-	d := discovery.NewDiscoveryClientForConfigOrDie(mgr.GetConfig())
-	apisMissing := []string{}
-	if _, err := d.ServerResourcesForGroupVersion("gateway.networking.k8s.io/v1"); err == nil {
-		builder = builder.Owns(&gatewayv1.GatewayClass{})
-	} else if !apierrors.IsNotFound(err) {
-		logger.Error(err, "Discovery of Gateway API resource definitions failed")
-	} else {
-		logger.Info("Gateway API resource definitions are not available. Please install the CRDs if you wish to use the Gateway API.")
-		apisMissing = append(apisMissing, "Gateway API resource definitions are not available. Please install the CRDs if you wish to use the Gateway API.")
-	}
-	if _, err := d.ServerResourcesForGroupVersion("monitoring.coreos.com/v1"); err == nil {
-		builder = builder.Owns(&monitoringv1.ServiceMonitor{})
-	} else if !apierrors.IsNotFound(err) {
-		logger.Error(err, "Discovery of Prometheus resource definitions failed")
-	} else {
-		logger.Info("Prometheus resource definitions are not available. Please install the CRDs if you wish to use Cilium endpoints for Prometheus.")
-		apisMissing = append(apisMissing, "Prometheus resource definitions are not available. Please install the CRDs if you wish to use Cilium endpoints for Prometheus.")
-	}
-	if _, err := d.ServerResourcesForGroupVersion("cert-manager.io/v1"); err == nil {
-		builder = builder.Owns(&certmanagerv1.Certificate{})
-	} else if !apierrors.IsNotFound(err) {
-		logger.Error(err, "Discovery of Cert-manager resource definitions failed")
-	} else {
-		logger.Info("Cert-manager resource definitions are not available. Please install the CRDs if you wish to use Cert-manager to automatically generate TLS certificates.")
-		apisMissing = append(apisMissing, "Cert-manager resource definitions are not available. Please install the CRDs if you wish to use Cert-manager to automatically generate TLS certificates.")
-	}
+		For(&ciliumiov1alpha1.CiliumConfig{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}))
+	var apisMissing []string
+	r.GVKs, apisMissing = initGVKs(builder, mgr.GetConfig(), logger)
 	if len(apisMissing) > 0 {
 		r.StartingCondition = metav1.Condition{
 			Type:               ciliumiov1alpha1.APINotAvailableCondition,
@@ -310,12 +268,77 @@ func (r *CiliumConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // currentState retrieve all the resources managed by the operator and populate a map with them
 // the map key is kind/namespace/name
-func currentState(ctx context.Context, crClient client.Client) (map[string]*unstructured.Unstructured, error) {
+func (r *CiliumConfigReconciler) currentState(ctx context.Context, crClient client.Client) (map[string]*unstructured.Unstructured, error) {
 	objects := map[string]*unstructured.Unstructured{}
 	opts := client.MatchingLabels{
 		ManagedByLabelKey: ManagedByLabelValue,
 	}
-	gvks := []schema.GroupVersionKind{
+	for _, gvk := range r.GVKs {
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   gvk.Group,
+			Kind:    gvk.Kind,
+			Version: gvk.Version,
+		})
+		if err := crClient.List(ctx, list, opts); err != nil {
+			return nil, err
+		}
+		for _, item := range list.Items {
+			objects[fmt.Sprintf("%s/%s/%s", item.GetKind(), item.GetNamespace(), item.GetName())] = &item
+		}
+	}
+	return objects, nil
+}
+
+// initConditions generates a map with the conditions initialized at the beginning of the reconciliation
+func initConditions(startingCondition metav1.Condition) map[string]metav1.Condition {
+	conditions := map[string]metav1.Condition{}
+	conditions[startingCondition.Type] = startingCondition
+	conditions[ciliumiov1alpha1.ValuesErrorsCondition] = metav1.Condition{
+		Type:               ciliumiov1alpha1.ValuesErrorsCondition,
+		Status:             metav1.ConditionUnknown,
+		LastTransitionTime: metav1.Now(),
+		Reason:             ciliumiov1alpha1.ValuesNotProcessedReason,
+		Message:            "values not yet processed",
+	}
+	conditions[ciliumiov1alpha1.ProcessingErrorCondition] = metav1.Condition{
+		Type:               ciliumiov1alpha1.ProcessingErrorCondition,
+		Status:             metav1.ConditionFalse,
+		LastTransitionTime: metav1.Now(),
+		Reason:             ciliumiov1alpha1.NoProcessingErrorReason,
+		Message:            "success",
+	}
+
+	return conditions
+}
+
+// initGVKs, adds the owned APIs to the builders and returns the list of matching GVKs and
+// of missing optional APIs.
+func initGVKs(builder *builder.Builder, mgrConfig *rest.Config, logger logr.Logger) (GVKs []schema.GroupVersionKind, apisMissing []string) {
+	// standard APIs
+	builder.Owns(&appsv1.Deployment{}).
+		Owns(&appsv1.StatefulSet{}).
+		Owns(&appsv1.DaemonSet{}).
+		Owns(&corev1.Namespace{}).
+		Owns(&corev1.Secret{}).
+		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.Service{}).
+		Owns(&corev1.Endpoints{}).
+		Owns(&corev1.ResourceQuota{}).
+		Owns(&corev1.ServiceAccount{}).
+		Owns(&corev1.PersistentVolumeClaim{}).
+		Owns(&rbacv1.ClusterRole{}).
+		Owns(&rbacv1.ClusterRoleBinding{}).
+		Owns(&rbacv1.Role{}).
+		Owns(&rbacv1.RoleBinding{}).
+		Owns(&batchv1.Job{}).
+		Owns(&batchv1.CronJob{}).
+		Owns(&policyv1.PodDisruptionBudget{}).
+		Owns(&networkingv1.Ingress{}).
+		Owns(&networkingv1.IngressClass{})
+	d := discovery.NewDiscoveryClientForConfigOrDie(mgrConfig)
+	apisMissing = []string{}
+	GVKs = []schema.GroupVersionKind{
 		{
 			Group:   "",
 			Kind:    "NamespaceList",
@@ -417,43 +440,61 @@ func currentState(ctx context.Context, crClient client.Client) (map[string]*unst
 			Version: "v1",
 		},
 	}
-	// TODO: this does not reconcile optional APIs: Gateway API, Prometheus, cert-manager
-	// Optional APIs should be recorded in the struct and queried here depending on their availability.
-	for _, gvk := range gvks {
-		list := &unstructured.UnstructuredList{}
-		list.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   gvk.Group,
-			Kind:    gvk.Kind,
-			Version: gvk.Version,
-		})
-		if err := crClient.List(ctx, list, opts); err != nil {
-			return nil, err
-		}
-		for _, item := range list.Items {
-			objects[fmt.Sprintf("%s/%s/%s", item.GetKind(), item.GetNamespace(), item.GetName())] = &item
-		}
-	}
-	return objects, nil
-}
 
-// initConditions generates a map with the conditions initialized at the beginning of the reconciliation
-func initConditions(startingCondition metav1.Condition) map[string]metav1.Condition {
-	conditions := map[string]metav1.Condition{}
-	conditions[startingCondition.Type] = startingCondition
-	conditions[ciliumiov1alpha1.ValuesErrorsCondition] = metav1.Condition{
-		Type:               ciliumiov1alpha1.ValuesErrorsCondition,
-		Status:             metav1.ConditionUnknown,
-		LastTransitionTime: metav1.Now(),
-		Reason:             ciliumiov1alpha1.ValuesNotProcessedReason,
-		Message:            "values not yet processed",
+	// Optional APIs
+	type optionalAPI struct {
+		Name         string
+		GroupVersion string
+		Resources    []client.Object
+		GVKs         []schema.GroupVersionKind
+		MissingMsg   string
 	}
-	conditions[ciliumiov1alpha1.ProcessingErrorCondition] = metav1.Condition{
-		Type:               ciliumiov1alpha1.ProcessingErrorCondition,
-		Status:             metav1.ConditionFalse,
-		LastTransitionTime: metav1.Now(),
-		Reason:             ciliumiov1alpha1.NoProcessingErrorReason,
-		Message:            "success",
+	oAPIs := []optionalAPI{
+		{
+			Name:         "Gateway API",
+			GroupVersion: "gateway.networking.k8s.io/v1",
+			Resources:    []client.Object{&gatewayv1.GatewayClass{}, &gatewayv1.HTTPRoute{}},
+			GVKs: []schema.GroupVersionKind{
+				{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "GatewayClassList"},
+				{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRouteList"},
+			},
+			MissingMsg: "Please install the CRDs if you wish to use the Gateway API.",
+		},
+		{
+			Name:         "Prometheus",
+			GroupVersion: "monitoring.coreos.com/v1",
+			Resources:    []client.Object{&monitoringv1.ServiceMonitor{}},
+			GVKs: []schema.GroupVersionKind{
+				{Group: "monitoring.coreos.com", Version: "v1", Kind: "ServiceMonitorList"},
+			},
+			MissingMsg: "Please install the CRDs if you wish to use Cilium endpoints for Prometheus.",
+		},
+		{
+			Name:         "Cert-manager",
+			GroupVersion: "cert-manager.io/v1",
+			Resources:    []client.Object{&certmanagerv1.Certificate{}},
+			GVKs: []schema.GroupVersionKind{
+				{Group: "cert-manager.io", Version: "v1", Kind: "CertificateList"},
+			},
+			MissingMsg: "Please install the CRDs if you wish to use Cert-manager to automatically generate TLS certificates.",
+		},
 	}
-
-	return conditions
+	for _, api := range oAPIs {
+		// Check if the API GroupVersion exists
+		if _, err := d.ServerResourcesForGroupVersion(api.GroupVersion); err == nil {
+			// Register resources with the builder
+			for _, res := range api.Resources {
+				builder = builder.Owns(res)
+			}
+			// Append GVKs to the list
+			GVKs = append(GVKs, api.GVKs...)
+		} else if !apierrors.IsNotFound(err) {
+			logger.Error(err, fmt.Sprintf("Discovery of %s resource definitions failed", api.Name))
+		} else {
+			fullMsg := fmt.Sprintf("%s resource definitions are not available. %s", api.Name, api.MissingMsg)
+			logger.Info(fullMsg)
+			apisMissing = append(apisMissing, fullMsg)
+		}
+	}
+	return
 }
