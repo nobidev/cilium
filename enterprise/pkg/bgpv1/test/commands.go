@@ -20,6 +20,8 @@ import (
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/script"
 	gobgpapi "github.com/osrg/gobgp/v3/api"
+	"github.com/osrg/gobgp/v3/pkg/apiutil"
+	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -33,6 +35,11 @@ import (
 	client "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+)
+
+const (
+	communitiesFlag      = "communities"
+	communitiesFlagShort = "c"
 )
 
 // BGPTestScriptCmds are special purpose script commands for BGP Control Plane tests.
@@ -308,6 +315,12 @@ func AddRoute(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
 					"",
 					"Name of the GoBGP server instance. Can be omitted if only one instance is active.",
 				)
+				fs.StringSliceP(
+					communitiesFlag,
+					communitiesFlagShort,
+					nil,
+					"BGP communities (standard / large) to be associated with the route. Multiple comma-separated values are accepted.",
+				)
 			},
 			Detail: []string{
 				"Adds a route to the GoBGP RIB.",
@@ -333,6 +346,44 @@ func AddRoute(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
 				path, err := gobgp.ToGoBGPPath(types.NewPathForPrefix(prefix))
 				if err != nil {
 					return "", "", fmt.Errorf("failed to convert prefix to GoBGP path: %w", err)
+				}
+
+				commValues, err := s.Flags.GetStringSlice(communitiesFlag)
+				if err != nil {
+					return "", "", err
+				}
+				var (
+					communities      []uint32
+					largeCommunities []*bgp.LargeCommunity
+				)
+				for _, community := range commValues {
+					elems := strings.Split(community, ":")
+					if len(elems) == 2 {
+						fst, _ := strconv.ParseUint(elems[0], 10, 16)
+						snd, _ := strconv.ParseUint(elems[1], 10, 16)
+						communities = append(communities, uint32(fst<<16|snd))
+					} else if len(elems) == 3 {
+						fst, _ := strconv.ParseUint(elems[0], 10, 32)
+						snd, _ := strconv.ParseUint(elems[1], 10, 32)
+						trd, _ := strconv.ParseUint(elems[2], 10, 32)
+						largeCommunities = append(largeCommunities, &bgp.LargeCommunity{ASN: uint32(fst), LocalData1: uint32(snd), LocalData2: uint32(trd)})
+					} else {
+						return "", "", fmt.Errorf("invalid communities value")
+					}
+				}
+				if len(communities) > 0 || len(largeCommunities) > 0 {
+					var pathAttrs []bgp.PathAttributeInterface
+					if len(communities) > 0 {
+						pathAttrs = append(pathAttrs, bgp.NewPathAttributeCommunities(communities))
+					}
+					if len(largeCommunities) > 0 {
+						pathAttrs = append(pathAttrs, bgp.NewPathAttributeLargeCommunities(largeCommunities))
+					}
+					pattrs, err := apiutil.MarshalPathAttributes(pathAttrs)
+					if err != nil {
+						return "", "", fmt.Errorf("failed to convert PathAttribute: %w", err)
+					}
+					path.Pattrs = append(path.Pattrs, pattrs...)
 				}
 
 				if _, err := goBGPServer.AddPath(
