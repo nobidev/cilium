@@ -21,7 +21,7 @@ bgp/route-policies-extended -o bgp-policy.actual
 gobgp/wait-state -s v4 10.100.100.1 ESTABLISHED
 gobgp/wait-state -s v6 fd00:10:100:100::1 ESTABLISHED
 
-# Check edge values and some in-betweens
+# Routes to be imported using prefix match - check edge values and some in-betweens
 gobgp/add-route -s v4 10.0.0.0/24
 gobgp/add-route -s v4 10.0.0.0/26
 gobgp/add-route -s v4 10.0.0.0/28
@@ -29,15 +29,41 @@ gobgp/add-route -s v6 2001:db8::/64
 gobgp/add-route -s v6 2001:db8::/72
 gobgp/add-route -s v6 2001:db8::/80
 
-# These routes shouldn't be imported
+# These routes shouldn't be imported because of invalid prefix lengths
 gobgp/add-route -s v4 10.0.0.0/23
 gobgp/add-route -s v4 10.0.0.0/29
 gobgp/add-route -s v6 2001:db8::/63
 gobgp/add-route -s v6 2001:db8::/81
 
-# Ensure expected routes are imported
+# Routes to be imported using community match
+gobgp/add-route -s v4 -c 65001:100 10.1.0.0/24
+gobgp/add-route -s v6 -c 65001:100 2001:db8:1::/64
+gobgp/add-route -s v4 -c 65001:200,65001:201,65001:200:200 10.2.0.0/24
+gobgp/add-route -s v6 -c 65001:200,65001:201,65001:200:200 2001:db8:2::/64
+
+# These routes shouldn't be imported because of missing / incomplete / invalid community
+gobgp/add-route -s v4 10.3.0.0/24
+gobgp/add-route -s v6 2001:db8:3::/64
+gobgp/add-route -s v4 -c 999:999 10.4.0.0/26
+gobgp/add-route -s v6 -c 999:999 2001:db8:4::/72
+gobgp/add-route -s v4 -c 200:200 10.5.0.0/26
+gobgp/add-route -s v6 -c 200:200 2001:db8:5::/72
+gobgp/add-route -s v4 -c 65001:200:200 10.6.0.0/26
+gobgp/add-route -s v6 -c 65001:200:200 2001:db8:6::/72
+
+# Ensure all routes are in v4 server's RIB
+gobgp/routes -s v4 -o gobgp-rib-v4.actual ipv4 unicast
+* cmp gobgp-rib-v4.expected gobgp-rib-v4.actual
+
+# Ensure all routes are in v6 server's RIB
+gobgp/routes -s v6 -o gobgp-rib-v6.actual ipv6 unicast
+* cmp gobgp-rib-v6.expected gobgp-rib-v6.actual
+
+# Ensure expected v4 routes are imported
 bgp/routes -o bgp-rib-v4.actual available ipv4 unicast
 * cmp bgp-rib-v4.expected bgp-rib-v4.actual
+
+# Ensure expected v6 routes are imported
 bgp/routes -o bgp-rib-v6.actual available ipv6 unicast
 * cmp bgp-rib-v6.expected bgp-rib-v6.actual
 
@@ -125,6 +151,8 @@ metadata:
 spec:
   import:
     statements:
+
+    # accept specific prefixes
     - conditions:
         prefixesV4:
           matchType: Or
@@ -141,29 +169,105 @@ spec:
       actions:
         routeAction: Accept
 
+    # accept any prefixes with 65001:100 community
+    - conditions:
+        communities:
+          matchType: Or
+          matches:
+          - community: 65001:100
+      actions:
+        routeAction: Accept
+
+    # accept any prefixes with 65001:200 + 65001:201 community + 65001:200:200 large community
+    - conditions:
+        communities:
+          matchType: And
+          matches:
+          - community: 65001:200
+          - community: 65001:201
+        largeCommunities:
+          matchType: And
+          matches:
+          - community: 65001:200:200
+      actions:
+        routeAction: Accept
+
+    # should not match any prefix
+    - conditions:
+        communities:
+          matchType: Or
+          matches:
+          - wellKnown: blackhole
+        largeCommunities:
+          matchType: Not
+          matches:
+          - community: 65001:1111:2222
+      actions:
+        routeAction: Accept
+
 -- bgp-policy.expected --
-Instance    Policy Name                                Type     Match Peers          Match Families   Match Prefixes (Min..Max Len)   Match Communities   RIB Action   Path Actions
-instance0   allow-local                                import                                                                                             accept       
-instance0   import-user-defined-peer-v4-ipv4-unicast   import   10.100.100.1         ipv4/unicast     10.0.0.0/24 (24..28)                                accept       
-instance0   import-user-defined-peer-v6-ipv6-unicast   import   fd00:10:100:100::1   ipv6/unicast     2001:db8::/64 (64..80)                              accept       
+Instance    Policy Name                                Type     Match Peers          Match Families   Match Prefixes (Min..Max Len)   Match Communities                                          RIB Action   Path Actions
+instance0   allow-local                                import                                                                                                                                    accept       
+instance0   import-user-defined-peer-v4-ipv4-unicast   import   10.100.100.1         ipv4/unicast     10.0.0.0/24 (24..28)                                                                       accept       
+                                                                10.100.100.1         ipv4/unicast                                     ^65001:100$                                                accept       
+                                                                10.100.100.1         ipv4/unicast                                     (all) {^65001:200$} {^65001:201$} Large: ^65001:200:200$   accept       
+                                                                10.100.100.1         ipv4/unicast                                     ^65535:666$ Large: (invert) ^65001:1111:2222$              accept       
+instance0   import-user-defined-peer-v6-ipv6-unicast   import   fd00:10:100:100::1   ipv6/unicast     2001:db8::/64 (64..80)                                                                     accept       
+                                                                fd00:10:100:100::1   ipv6/unicast                                     ^65001:100$                                                accept       
+                                                                fd00:10:100:100::1   ipv6/unicast                                     (all) {^65001:200$} {^65001:201$} Large: ^65001:200:200$   accept       
+                                                                fd00:10:100:100::1   ipv6/unicast                                     ^65535:666$ Large: (invert) ^65001:1111:2222$              accept       
+-- gobgp-rib-v4.expected --
+Prefix        NextHop   Attrs
+10.0.0.0/23   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
+10.0.0.0/24   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
+10.0.0.0/26   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
+10.0.0.0/28   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
+10.0.0.0/29   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
+10.1.0.0/24   0.0.0.0   [{Origin: i} {Communities: 65001:100} {Nexthop: 0.0.0.0}]
+10.2.0.0/24   0.0.0.0   [{Origin: i} {Communities: 65001:200, 65001:201} {LargeCommunity: [ 65001:200:200]} {Nexthop: 0.0.0.0}]
+10.3.0.0/24   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
+10.4.0.0/26   0.0.0.0   [{Origin: i} {Communities: 999:999} {Nexthop: 0.0.0.0}]
+10.5.0.0/26   0.0.0.0   [{Origin: i} {Communities: 200:200} {Nexthop: 0.0.0.0}]
+10.6.0.0/26   0.0.0.0   [{Origin: i} {LargeCommunity: [ 65001:200:200]} {Nexthop: 0.0.0.0}]
+-- gobgp-rib-v6.expected --
+Prefix            NextHop   Attrs
+2001:db8:1::/64   ::        [{Origin: i} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8:1::/64]}}]
+2001:db8:2::/64   ::        [{Origin: i} {Communities: 65001:200, 65001:201} {LargeCommunity: [ 65001:200:200]} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8:2::/64]}}]
+2001:db8:3::/64   ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8:3::/64]}}]
+2001:db8:4::/72   ::        [{Origin: i} {Communities: 999:999} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8:4::/72]}}]
+2001:db8:5::/72   ::        [{Origin: i} {Communities: 200:200} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8:5::/72]}}]
+2001:db8:6::/72   ::        [{Origin: i} {LargeCommunity: [ 65001:200:200]} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8:6::/72]}}]
+2001:db8::/63     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/63]}}]
+2001:db8::/64     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/64]}}]
+2001:db8::/72     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/72]}}]
+2001:db8::/80     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/80]}}]
+2001:db8::/81     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/81]}}]
 -- bgp-rib-v4.expected --
 VRouter   Prefix        NextHop        Attrs
 65001     10.0.0.0/24   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
 65001     10.0.0.0/26   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
 65001     10.0.0.0/28   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
+65001     10.1.0.0/24   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100} {Communities: 65001:100}]
+65001     10.2.0.0/24   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100} {Communities: 65001:200, 65001:201} {LargeCommunity: [ 65001:200:200]}]
 -- bgp-rib-v6.expected --
-VRouter   Prefix          NextHop              Attrs
-65001     2001:db8::/64   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/64]}}]
-65001     2001:db8::/72   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/72]}}]
-65001     2001:db8::/80   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/80]}}]
+VRouter   Prefix            NextHop              Attrs
+65001     2001:db8:1::/64   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8:1::/64]}}]
+65001     2001:db8:2::/64   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: 65001:200, 65001:201} {LargeCommunity: [ 65001:200:200]} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8:2::/64]}}]
+65001     2001:db8::/64     fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/64]}}]
+65001     2001:db8::/72     fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/72]}}]
+65001     2001:db8::/80     fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/80]}}]
 -- desired-routes.expected --
-Owner             Table        Prefix          Priority   AD    Selected   Nexthop              Src    Device   MTU    Scope      Type   
-bgp-instance0     main (254)   10.0.0.0/24     none       200   true       10.100.100.1         none   none     none   universe   unicast
-bgp-instance0     main (254)   10.0.0.0/26     none       200   true       10.100.100.1         none   none     none   universe   unicast
-bgp-instance0     main (254)   10.0.0.0/28     none       200   true       10.100.100.1         none   none     none   universe   unicast
-bgp-instance0     main (254)   2001:db8::/64   none       200   true       fd00:10:100:100::1   none   none     none   universe   unicast
-bgp-instance0     main (254)   2001:db8::/72   none       200   true       fd00:10:100:100::1   none   none     none   universe   unicast
-bgp-instance0     main (254)   2001:db8::/80   none       200   true       fd00:10:100:100::1   none   none     none   universe   unicast
+Owner           Table        Prefix            Priority   AD    Selected   Nexthop              Src    Device   MultiPath   MTU    Scope      Type
+bgp-instance0   main (254)   10.0.0.0/24       none       200   true       10.100.100.1         none   none     none        none   universe   unicast
+bgp-instance0   main (254)   10.0.0.0/26       none       200   true       10.100.100.1         none   none     none        none   universe   unicast
+bgp-instance0   main (254)   10.0.0.0/28       none       200   true       10.100.100.1         none   none     none        none   universe   unicast
+bgp-instance0   main (254)   10.1.0.0/24       none       200   true       10.100.100.1         none   none     none        none   universe   unicast
+bgp-instance0   main (254)   10.2.0.0/24       none       200   true       10.100.100.1         none   none     none        none   universe   unicast
+bgp-instance0   main (254)   2001:db8::/64     none       200   true       fd00:10:100:100::1   none   none     none        none   universe   unicast
+bgp-instance0   main (254)   2001:db8::/72     none       200   true       fd00:10:100:100::1   none   none     none        none   universe   unicast
+bgp-instance0   main (254)   2001:db8::/80     none       200   true       fd00:10:100:100::1   none   none     none        none   universe   unicast
+bgp-instance0   main (254)   2001:db8:1::/64   none       200   true       fd00:10:100:100::1   none   none     none        none   universe   unicast
+bgp-instance0   main (254)   2001:db8:2::/64   none       200   true       fd00:10:100:100::1   none   none     none        none   universe   unicast
 -- bgp-rib-empty.expected --
 VRouter   Prefix   NextHop   Attrs
 -- desired-routes-empty.expected --
