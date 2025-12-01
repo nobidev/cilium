@@ -5,6 +5,8 @@ package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 // +genclient
@@ -65,17 +67,23 @@ type BGPPolicyStatement struct {
 	Actions BGPPolicyActions `json:"actions"`
 }
 
-// +kubebuilder:validation:Enum=Or
+// +kubebuilder:validation:Enum=Or;And;Not
 type BGPPolicyMatchType string
 
 const (
 	// BGPPolicyMatchTypeOr represents a logical OR match type.
 	BGPPolicyMatchTypeOr BGPPolicyMatchType = "Or"
+
+	// BGPPolicyMatchTypeAnd represents a logical AND match type.
+	BGPPolicyMatchTypeAnd BGPPolicyMatchType = "And"
+
+	// BGPPolicyMatchTypeNot represents a logical NOT match type.
+	BGPPolicyMatchTypeNot BGPPolicyMatchType = "Not"
 )
 
 // BGPPolicyConditions defines the conditions to match routes for a BGP policy statement.
 //
-// +kubebuilder:validation:XValidation:rule="has(self.prefixesV4) || has(self.prefixesV6)", message="At least one of prefixesV4 or prefixesV6 must be specified"
+// +kubebuilder:validation:XValidation:rule="has(self.prefixesV4) || has(self.prefixesV6) || has(self.communities) || has(self.largeCommunities)", message="At least one condition must be specified"
 type BGPPolicyConditions struct {
 	// PrefixesV4 defines conditions to match IPv4 prefixes.
 	//
@@ -86,11 +94,24 @@ type BGPPolicyConditions struct {
 	//
 	// +kubebuilder:validation:Optional
 	PrefixesV6 *PrefixesV6Condition `json:"prefixesV6,omitempty"`
+
+	// Communities defines conditions to match BGP communities.
+	//
+	// +kubebuilder:validation:Optional
+	Communities *CommunitiesCondition `json:"communities,omitempty"`
+
+	// LargeCommunities defines conditions to match BGP large communities.
+	//
+	// +kubebuilder:validation:Optional
+	LargeCommunities *LargeCommunitiesCondition `json:"largeCommunities,omitempty"`
 }
 
 // PrefixesV4Condition defines a condition to match IPv4 prefixes.
+//
+// +kubebuilder:validation:XValidation:rule="self.matchType != 'And'", message="'And' matchType is not supported for prefix matching"
 type PrefixesV4Condition struct {
 	// Type of match to perform.
+	// 'And' matchType is not supported.
 	//
 	// +kubebuilder:validation:Required
 	MatchType BGPPolicyMatchType `json:"matchType"`
@@ -127,8 +148,11 @@ type PrefixV4Match struct {
 }
 
 // PrefixesV6Condition defines a condition to match IPv6 prefixes.
+//
+// +kubebuilder:validation:XValidation:rule="self.matchType != 'And'", message="'And' matchType is not supported for prefix matching"
 type PrefixesV6Condition struct {
 	// Type of match to perform.
+	// 'And' matchType is not supported.
 	//
 	// +kubebuilder:validation:Required
 	MatchType BGPPolicyMatchType `json:"matchType"`
@@ -162,6 +186,56 @@ type PrefixV6Match struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=128
 	MinLen *uint8 `json:"minLen,omitempty"`
+}
+
+// CommunitiesCondition defines a condition to match BGP communities.
+type CommunitiesCondition struct {
+	// Type of match to perform.
+	//
+	// +kubebuilder:validation:Required
+	MatchType BGPPolicyMatchType `json:"matchType"`
+
+	// List of BGP communities to match with.
+	//
+	// +kubebuilder:validation:MinItems=1
+	Matches []CommunityMatch `json:"matches"`
+}
+
+// CommunityMatch defines a single BGP community match.
+//
+// +kubebuilder:validation:XValidation:rule="has(self.community) != has(self.wellKnown)", message="Either community or wellKnown must be specified"
+type CommunityMatch struct {
+	// Community holds a "standard" 32-bit BGP community value defined as
+	// a 4-byte decimal number or two 2-byte decimal numbers separated by a colon (<0-65535>:<0-65535>).
+	//
+	// +kubebuilder:validation:Optional
+	Community *v2.BGPStandardCommunity `json:"community,omitempty"`
+
+	// WellKnown holds a "standard" 32-bit BGP community value defined as well-known string alias to its numeric value.
+	//
+	// +kubebuilder:validation:Optional
+	WellKnown *v2.BGPWellKnownCommunity `json:"wellKnown,omitempty"`
+}
+
+// LargeCommunitiesCondition defines a condition to match BGP large communities.
+type LargeCommunitiesCondition struct {
+	// Type of match to perform.
+	//
+	// +kubebuilder:validation:Required
+	MatchType BGPPolicyMatchType `json:"matchType"`
+
+	// List of BGP large communities to match with.
+	//
+	// +kubebuilder:validation:MinItems=1
+	Matches []LargeCommunityMatch `json:"matches"`
+}
+
+// LargeCommunityMatch defines a single BGP large community match.
+type LargeCommunityMatch struct {
+	// Community holds a BGP large community value as three 4-byte decimal numbers separated by colons.
+	//
+	// +kubebuilder:validation:Required
+	Community v2.BGPLargeCommunity `json:"community,omitempty"`
 }
 
 // BGPPolicyActions defines the actions to take when the conditions are met.

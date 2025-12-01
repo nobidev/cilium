@@ -60,10 +60,17 @@ func ValidateAndDefaultPolicyStatement(s *v1.BGPPolicyStatement, family v2.Ciliu
 }
 
 func ToRoutePolicyConditions(c *v1.BGPPolicyConditions, neighbor netip.Addr, family types.Family) ExtendedRoutePolicyConditions {
-	prefixes := []types.RoutePolicyPrefix{}
+	var (
+		prefixMatch         *types.RoutePolicyPrefixMatch
+		communityMatch      *RoutePolicyCommunityMatch
+		largeCommunityMatch *RoutePolicyCommunityMatch
+	)
 
-	// We only render PrefixesV4 for ipv4-unicast
+	// We render PrefixesV4 only for the ipv4-unicast family. We never render both v4 and v6 at the same time.
 	if c.PrefixesV4 != nil && (family == types.Family{Afi: types.AfiIPv4, Safi: types.SafiUnicast}) {
+		prefixMatch = &types.RoutePolicyPrefixMatch{
+			Type: ToRoutePolicyMatchType(c.PrefixesV4.MatchType),
+		}
 		for _, match := range c.PrefixesV4.Matches {
 			p, err := netip.ParsePrefix(match.Prefix)
 			if err != nil {
@@ -78,7 +85,7 @@ func ToRoutePolicyConditions(c *v1.BGPPolicyConditions, neighbor netip.Addr, fam
 				// Don't render incomplete match. Should call defaulting before conversion.
 				continue
 			}
-			prefixes = append(prefixes, types.RoutePolicyPrefix{
+			prefixMatch.Prefixes = append(prefixMatch.Prefixes, types.RoutePolicyPrefix{
 				CIDR:         p,
 				PrefixLenMax: int(*match.MaxLen),
 				PrefixLenMin: int(*match.MinLen),
@@ -86,8 +93,11 @@ func ToRoutePolicyConditions(c *v1.BGPPolicyConditions, neighbor netip.Addr, fam
 		}
 	}
 
-	// We only render PrefixesV6 if the families include IPv6 unicast
+	// We render PrefixesV6 only for the ipv6-unicast family. We never render both v4 and v6 at the same time.
 	if c.PrefixesV6 != nil && (family == types.Family{Afi: types.AfiIPv6, Safi: types.SafiUnicast}) {
+		prefixMatch = &types.RoutePolicyPrefixMatch{
+			Type: ToRoutePolicyMatchType(c.PrefixesV6.MatchType),
+		}
 		for _, match := range c.PrefixesV6.Matches {
 			p, err := netip.ParsePrefix(match.Prefix)
 			if err != nil {
@@ -102,11 +112,34 @@ func ToRoutePolicyConditions(c *v1.BGPPolicyConditions, neighbor netip.Addr, fam
 				// Don't render incomplete match. Should call defaulting before conversion.
 				continue
 			}
-			prefixes = append(prefixes, types.RoutePolicyPrefix{
+			prefixMatch.Prefixes = append(prefixMatch.Prefixes, types.RoutePolicyPrefix{
 				CIDR:         p,
 				PrefixLenMax: int(*match.MaxLen),
 				PrefixLenMin: int(*match.MinLen),
 			})
+		}
+	}
+
+	if c.Communities != nil {
+		communityMatch = &RoutePolicyCommunityMatch{
+			Type: ToRoutePolicyMatchType(c.Communities.MatchType),
+		}
+		for _, match := range c.Communities.Matches {
+			if match.Community != nil {
+				communityMatch.Communities = append(communityMatch.Communities, (string)(*match.Community))
+			}
+			if match.WellKnown != nil {
+				communityMatch.Communities = append(communityMatch.Communities, (string)(*match.WellKnown))
+			}
+		}
+	}
+
+	if c.LargeCommunities != nil {
+		largeCommunityMatch = &RoutePolicyCommunityMatch{
+			Type: ToRoutePolicyMatchType(c.LargeCommunities.MatchType),
+		}
+		for _, match := range c.LargeCommunities.Matches {
+			largeCommunityMatch.Communities = append(largeCommunityMatch.Communities, (string)(match.Community))
 		}
 	}
 
@@ -116,12 +149,11 @@ func ToRoutePolicyConditions(c *v1.BGPPolicyConditions, neighbor netip.Addr, fam
 				Type:      types.RoutePolicyMatchAny,
 				Neighbors: []netip.Addr{neighbor},
 			},
-			MatchPrefixes: &types.RoutePolicyPrefixMatch{
-				Type:     types.RoutePolicyMatchAny, // TODO: implement other prefix match types
-				Prefixes: prefixes,
-			},
 			MatchFamilies: []types.Family{family},
+			MatchPrefixes: prefixMatch,
 		},
+		MatchCommunities:      communityMatch,
+		MatchLargeCommunities: largeCommunityMatch,
 	}
 }
 
@@ -141,6 +173,9 @@ func ValidateAndDefaultPolicyConditions(c *v1.BGPPolicyConditions, family v2.Cil
 		if err := ValidateAndDefaultPrefixesV6Condition(c.PrefixesV6); err != nil {
 			errs = errors.Join(errs, err)
 		}
+	}
+	if c.Communities != nil || c.LargeCommunities != nil {
+		hasMatch = true
 	}
 	if !hasMatch {
 		errs = errors.Join(errs, errors.New("no usable match in the conditions"))
@@ -220,5 +255,16 @@ func ToRoutePolicyAction(a v1.BGPRouteAction) types.RoutePolicyAction {
 		return types.RoutePolicyActionAccept
 	default:
 		return types.RoutePolicyActionNone
+	}
+}
+
+func ToRoutePolicyMatchType(m v1.BGPPolicyMatchType) types.RoutePolicyMatchType {
+	switch m {
+	case v1.BGPPolicyMatchTypeAnd:
+		return types.RoutePolicyMatchAll
+	case v1.BGPPolicyMatchTypeNot:
+		return types.RoutePolicyMatchInvert
+	default:
+		return types.RoutePolicyMatchAny
 	}
 }

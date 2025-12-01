@@ -91,6 +91,7 @@ func TestToRoutePolicyConditions(t *testing.T) {
 		)
 		require.NotNil(t, rpc)
 		require.NotNil(t, rpc.MatchPrefixes)
+		require.Equal(t, types.RoutePolicyMatchAny, rpc.MatchPrefixes.Type)
 		require.Len(t, rpc.MatchPrefixes.Prefixes, 1)
 		require.Equal(t, netip.MustParsePrefix("10.0.0.0/24"), rpc.MatchPrefixes.Prefixes[0].CIDR)
 		require.Equal(t, 32, rpc.MatchPrefixes.Prefixes[0].PrefixLenMax)
@@ -117,6 +118,7 @@ func TestToRoutePolicyConditions(t *testing.T) {
 		)
 		require.NotNil(t, rpc)
 		require.NotNil(t, rpc.MatchPrefixes)
+		require.Equal(t, types.RoutePolicyMatchAny, rpc.MatchPrefixes.Type)
 		require.Len(t, rpc.MatchPrefixes.Prefixes, 1)
 		require.Equal(t, netip.MustParsePrefix("fd00::/64"), rpc.MatchPrefixes.Prefixes[0].CIDR)
 		require.Equal(t, 128, rpc.MatchPrefixes.Prefixes[0].PrefixLenMax)
@@ -136,7 +138,7 @@ func TestToRoutePolicyConditions(t *testing.T) {
 				},
 			},
 			PrefixesV6: &v1.PrefixesV6Condition{
-				MatchType: v1.BGPPolicyMatchTypeOr,
+				MatchType: v1.BGPPolicyMatchTypeNot,
 				Matches: []v1.PrefixV6Match{
 					{
 						Prefix: "fd00::/64",
@@ -155,6 +157,7 @@ func TestToRoutePolicyConditions(t *testing.T) {
 		)
 		require.NotNil(t, rpc)
 		require.NotNil(t, rpc.MatchPrefixes)
+		require.Equal(t, types.RoutePolicyMatchAny, rpc.MatchPrefixes.Type)
 		require.Len(t, rpc.MatchPrefixes.Prefixes, 1)
 		require.Equal(t, netip.MustParsePrefix("10.0.0.0/24"), rpc.MatchPrefixes.Prefixes[0].CIDR)
 		require.Equal(t, 32, rpc.MatchPrefixes.Prefixes[0].PrefixLenMax)
@@ -168,10 +171,78 @@ func TestToRoutePolicyConditions(t *testing.T) {
 		)
 		require.NotNil(t, rpc)
 		require.NotNil(t, rpc.MatchPrefixes)
+		require.Equal(t, types.RoutePolicyMatchInvert, rpc.MatchPrefixes.Type)
 		require.Len(t, rpc.MatchPrefixes.Prefixes, 1)
 		require.Equal(t, netip.MustParsePrefix("fd00::/64"), rpc.MatchPrefixes.Prefixes[0].CIDR)
 		require.Equal(t, 128, rpc.MatchPrefixes.Prefixes[0].PrefixLenMax)
 		require.Equal(t, 64, rpc.MatchPrefixes.Prefixes[0].PrefixLenMin)
+	})
+
+	t.Run("Communities", func(t *testing.T) {
+		var (
+			comm1      = v2.BGPStandardCommunity("65535:1")
+			comm2      = v2.BGPStandardCommunity("65535:2")
+			wellKnown1 = v2.BGPWellKnownCommunity("no-advertise")
+		)
+		conditions := v1.BGPPolicyConditions{
+			Communities: &v1.CommunitiesCondition{
+				MatchType: v1.BGPPolicyMatchTypeAnd,
+				Matches: []v1.CommunityMatch{
+					{
+						Community: &comm1,
+					},
+					{
+						Community: &comm2,
+					},
+					{
+						WellKnown: &wellKnown1,
+					},
+				},
+			},
+		}
+		rpc := ToRoutePolicyConditions(
+			&conditions,
+			netip.MustParseAddr("10.0.0.1"),
+			types.Family{Afi: types.AfiIPv4, Safi: types.SafiUnicast},
+		)
+		require.NotNil(t, rpc)
+		require.NotNil(t, rpc.MatchCommunities)
+		require.Equal(t, types.RoutePolicyMatchAll, rpc.MatchCommunities.Type)
+		require.Len(t, rpc.MatchCommunities.Communities, 3)
+		require.EqualValues(t, comm1, rpc.MatchCommunities.Communities[0])
+		require.EqualValues(t, comm2, rpc.MatchCommunities.Communities[1])
+		require.EqualValues(t, wellKnown1, rpc.MatchCommunities.Communities[2])
+	})
+
+	t.Run("LargeCommunities", func(t *testing.T) {
+		var (
+			lcomm1 = v2.BGPLargeCommunity("65535:1111:2222")
+			lcomm2 = v2.BGPLargeCommunity("65535:2222:3333")
+		)
+		conditions := v1.BGPPolicyConditions{
+			LargeCommunities: &v1.LargeCommunitiesCondition{
+				MatchType: v1.BGPPolicyMatchTypeOr,
+				Matches: []v1.LargeCommunityMatch{
+					{
+						Community: lcomm1,
+					},
+					{
+						Community: lcomm2,
+					},
+				},
+			},
+		}
+		rpc := ToRoutePolicyConditions(
+			&conditions,
+			netip.MustParseAddr("fd00::1"),
+			types.Family{Afi: types.AfiIPv6, Safi: types.SafiUnicast},
+		)
+		require.NotNil(t, rpc)
+		require.NotNil(t, rpc.MatchLargeCommunities)
+		require.Equal(t, types.RoutePolicyMatchAny, rpc.MatchLargeCommunities.Type)
+		require.Len(t, rpc.MatchLargeCommunities.Communities, 2)
+		require.EqualValues(t, lcomm1, rpc.MatchLargeCommunities.Communities[0])
+		require.EqualValues(t, lcomm2, rpc.MatchLargeCommunities.Communities[1])
 	})
 }
 
