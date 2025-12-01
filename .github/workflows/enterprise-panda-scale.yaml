@@ -213,8 +213,7 @@ jobs:
             --wait=false"
 
           # To be applied by Panda values:
-          CILIUM_INSTALL_DEFAULTS+=" --set=updateStrategy.rollingUpdate.maxUnavailable=5% \
-                        --set-string=extraConfig.kvstore-pod-network-support=false"
+          CILIUM_INSTALL_DEFAULTS+=" --set=updateStrategy.rollingUpdate.maxUnavailable=5%"
           # Additionally, qps for operator below
 
           if [[ -z "$VERSION" ]]; then
@@ -482,7 +481,8 @@ jobs:
           fi
           if (( minor_version < 17 )); then
             VERSION_SPECIFIC_OPTIONS+=" --set=operator.extraArgs[0]=\"--k8s-client-qps=100\" \
-                              --set=operator.extraArgs[1]=\"--k8s-client-burst=100\""
+                              --set=operator.extraArgs[1]=\"--k8s-client-burst=100\" \
+                              --set-string=extraConfig.kvstore-pod-network-support=false"
           fi
 
           cilium_install_args="${{ steps.vars.outputs.cilium_install_defaults }} \
