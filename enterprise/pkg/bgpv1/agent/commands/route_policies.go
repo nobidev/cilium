@@ -132,7 +132,10 @@ func PrintBGPRoutePoliciesTable(w *tabwriter.Writer, instancePolicies map[string
 				fmt.Fprintf(w, "%s\t", formatMatchNeighbors(stmt.Conditions.MatchNeighbors))
 				fmt.Fprintf(w, "%s\t", formatFamilies(stmt.Conditions.MatchFamilies))
 				fmt.Fprintf(w, "%s\t", formatMatchPrefixes(stmt.Conditions.MatchPrefixes))
-				fmt.Fprintf(w, "%s%s\t", formatMatchCommunities(stmt.Conditions.MatchCommunities, ""), formatMatchCommunities(stmt.Conditions.MatchLargeCommunities, "Large: "))
+				fmt.Fprintf(w, "%s\t", strings.Join([]string{
+					formatMatchCommunities(stmt.Conditions.MatchCommunities, ""),
+					formatMatchCommunities(stmt.Conditions.MatchLargeCommunities, "Large: "),
+				}, " "))
 				fmt.Fprintf(w, "%s\t", formatRouteActionType(stmt.Actions.RouteAction))
 				fmt.Fprintf(w, "%s\n", formatPathActions(stmt.Actions))
 			}
@@ -179,7 +182,7 @@ func formatMatchPrefixes(match *ossTypes.RoutePolicyPrefixMatch) string {
 		prefixes = append(prefixes, fmt.Sprintf("%s (%d..%d)", p.CIDR, p.PrefixLenMin, p.PrefixLenMax))
 	}
 	prefixesStr := formatStringArray(prefixes)
-	if len(prefixes) > 1 {
+	if len(prefixes) > 1 || match.Type == ossTypes.RoutePolicyMatchInvert {
 		return fmt.Sprintf("(%s) %s", match.Type, prefixesStr)
 	}
 	return prefixesStr
@@ -190,8 +193,8 @@ func formatMatchCommunities(match *types.RoutePolicyCommunityMatch, prefix strin
 		return ""
 	}
 	commStr := formatStringArray(match.Communities)
-	if len(match.Communities) > 1 {
-		return fmt.Sprintf("(%s) %s", match.Type, commStr)
+	if len(match.Communities) > 1 || match.Type == ossTypes.RoutePolicyMatchInvert {
+		return prefix + fmt.Sprintf("(%s) %s", match.Type, commStr)
 	}
 	return prefix + commStr
 }
