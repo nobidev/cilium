@@ -15,8 +15,10 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -45,14 +47,31 @@ func (r *lbTestRun) ExecuteTestFuncs(ctx context.Context) error {
 		return err
 	}
 
+	wg := sync.WaitGroup{}
+	totalTests := len(testsToExecute)
+	failedTests := 0
 	for i, test := range testsToExecute {
 		select {
 		case <-ctx.Done():
 			fmt.Println("Cancelled - stopping test execution...")
 			return nil
 		default:
-			fmt.Printf("=== [%02d/%02d] %s\n", i+1, len(testsToExecute), test.Name())
-			test.Run()
+			fmt.Printf("=== [%02d/%02d] %s\n", i+1, totalTests, test.Name())
+			var finished bool
+			wg.Go(func() {
+				test.Run()
+				finished = true
+			})
+			wg.Wait()
+
+			if (!finished || test.failed) && !FlagContinueOnFailure {
+				return fmt.Errorf("❌ %s test failed", test.Name())
+			}
+
+			if test.failed {
+				failedTests++
+			}
+
 			if FlagVerbose {
 				// newline to highlight start of new test function in verbose mode
 				fmt.Println()
@@ -60,6 +79,11 @@ func (r *lbTestRun) ExecuteTestFuncs(ctx context.Context) error {
 		}
 	}
 
+	if failedTests > 0 {
+		return fmt.Errorf("❌ %d/%d tests failed", failedTests, totalTests)
+	}
+
+	fmt.Printf("✅ All %d tests successful.\n", totalTests)
 	return nil
 }
 
@@ -69,8 +93,7 @@ func (r *lbTestRun) Failedf(msg string, args ...any) {
 }
 
 func (r *lbTestRun) Failed() {
-	r.RunCleanup()
-	os.Exit(1)
+	runtime.Goexit()
 }
 
 // RegisterCleanup registers a cleanup that gets executed when the testrun ends.

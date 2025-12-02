@@ -148,6 +148,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 	cmd.Flags().BoolVar(&ilbCli.FlagEnsureImages, "ensure-images", true, "Ensure images by checking and pre-pulling images")
 
 	cmd.Flags().BoolVar(&ilbCli.FlagCleanup, "cleanup", true, "Cleanup created resources after each test case run")
+	cmd.Flags().BoolVar(&ilbCli.FlagContinueOnFailure, "continue-on-failure", false, "Continue tests execution on test failure")
 	// maybeSysdump is only effective when this option is specified.
 	cmd.Flags().BoolVar(&ilbCli.FlagSysdumpOnFailure, "sysdump-on-failure", false, "Collect sysdump on test failure")
 	cmd.Flags().StringVar(&ilbCli.FlagSysdumpOutputFilename, "sysdump-output-filename", "ilb-sysdump", "Name of the outputfile for the sysdump sysdump")

@@ -22,7 +22,8 @@ var (
 
 	FlagEnsureImages bool
 
-	FlagCleanup bool
+	FlagCleanup           bool
+	FlagContinueOnFailure bool
 	// maybeSysdump is only effective when this option is specified.
 	FlagSysdumpOnFailure      bool
 	FlagSysdumpOutputFilename string
