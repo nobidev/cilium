@@ -92,7 +92,11 @@ func (r *LbTestFunc) sysdump() error {
 
 	fmt.Printf("Capturing sysdump\n")
 
-	cmd := exec.Command(FlagCiliumCLIPath, "sysdump", "--output-filename", FlagSysdumpOutputFilename)
+	fileName := FlagSysdumpOutputFilename
+	if FlagContinueOnFailure {
+		fileName = fmt.Sprintf("%s-%s", FlagSysdumpOutputFilename, r.Name())
+	}
+	cmd := exec.Command(FlagCiliumCLIPath, "sysdump", "--output-filename", fileName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
