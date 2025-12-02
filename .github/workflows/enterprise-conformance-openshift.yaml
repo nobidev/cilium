@@ -458,6 +458,13 @@ jobs:
             --junit-property github_job_step=\"Cilium connectivity tests\""
           ./scripts/cilium-cli-tests.sh
 
+      # Remove the node without Cilium as it may interfer with other tests, i.e. OSSM
+      - name: Remove nodes without Cilium
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
+        working-directory: ./openshift-ci/aws-ipi
+        run: |
+          ./scripts/destroy-no-cilium-nodes.sh
+
       - name: CNI conformance tests
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
         timeout-minutes: 60
