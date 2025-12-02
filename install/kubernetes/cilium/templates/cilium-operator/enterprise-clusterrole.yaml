@@ -318,4 +318,14 @@ rules:
   # Update the auto-generated INPs and ICNPs status.
   - patch
   - update
+{{- if .Values.enterprise.privateNetworks.enabled }}
+- apiGroups:
+    - isovalent.com
+  resources:
+    - clusterwideprivatenetworks
+  verbs:
+    - list
+    - watch
+    - get
+{{- end }}
 {{- end }}
