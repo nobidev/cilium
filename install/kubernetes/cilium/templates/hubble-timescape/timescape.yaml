@@ -142,15 +142,16 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      k8s-app: hubble-timescape
-      app.kubernetes.io/name: hubble-timescape
-      app.kubernetes.io/part-of: cilium
+      {{- include "hubble.timescape.selectorLabels" . | nindent 6 }}
   serviceName: timescape
   template:
     metadata:
-      labels: {{ include "hubble.timescape.labels" . | nindent 10  }}
       {{- with include "hubble.timescape.podAnnotations" . }}
       annotations:
+        {{- . | nindent 8 }}
+      {{- end }}
+      {{- with include "hubble.timescape.podLabels" . }}
+      labels:
         {{- . | nindent 8 }}
       {{- end }}
     spec:

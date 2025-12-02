@@ -11,6 +11,22 @@ hubble-timescape-clickhouse-volume-size: {{ . }}
 {{- end }}
 {{- end }}
 {{- end }}
+{{- with .Values.hubble.timescape.podAnnotations }}
+{{ toYaml . }}
+{{- end }}
+{{- end }}
+
+{{- define "hubble.timescape.selectorLabels" -}}
+k8s-app: hubble-timescape
+app.kubernetes.io/name: hubble-timescape
+app.kubernetes.io/part-of: cilium
+{{- end }}
+
+{{- define "hubble.timescape.podLabels" -}}
+{{ include "hubble.timescape.selectorLabels" . }}
+{{- with .Values.hubble.timescape.podLabels }}
+{{ toYaml . }}
+{{- end }}
 {{- end }}
 
 {{- define "hubble.timescape.tls.enabled" -}}
