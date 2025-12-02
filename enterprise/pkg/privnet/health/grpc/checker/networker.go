@@ -46,6 +46,9 @@ type networker struct {
 
 	running atomic.Bool
 
+	// serializer ensures that access to accessible methods is serialized.
+	serializer lock.Mutex
+
 	networks networks
 	queue    workqueue.TypedDelayingInterface[tables.NetworkName]
 }
@@ -78,16 +81,20 @@ func (n *networker) Run(ctx context.Context) {
 		logging.Panic(n.log, "Cannot start [networker] while still running")
 	}
 
+	n.serializer.Lock()
 	if n.queue != nil {
+		n.serializer.Unlock()
 		logging.Panic(n.log, "Cannot restart [networker] without resetting it first")
 	}
 
-	// Create a new queue instance. It is not protected by a lock, but it is
-	// safe under the expected conditions, that is (a) Run is only invoked
-	// again once the previous execution terminated, and (b) ResetToUnknown
-	// has been invoked in the meanwhile. Indeed, that guarantees that [queue]
-	// cannot be possibly accessed while we update it here.
+	// Create a new queue instance. It is not protected by a dedicated lock,
+	// but it is safe under the expected conditions, that is (a) [Run] is only
+	// invoked again once the previous execution terminated, (b) ResetToUnknown
+	// has been invoked in the meanwhile and (c) externally accessible methods
+	// (e.g., [Activate]) cannot be invoked in parallel. Indeed, that guarantees
+	// that [queue] cannot be accessed while we update it here.
 	n.queue = workqueue.NewTypedDelayingQueue[tables.NetworkName]()
+	n.serializer.Unlock()
 
 	var wg sync.WaitGroup
 
@@ -105,6 +112,9 @@ func (n *networker) ResetToUnknown() {
 		logging.Panic(n.log, "Cannot reset [networker] while still running")
 	}
 
+	n.serializer.Lock()
+	defer n.serializer.Unlock()
+
 	n.networks.resetToUnknown()
 
 	n.queue = nil
@@ -114,11 +124,17 @@ func (n *networker) ResetToUnknown() {
 // Observe allows to observe network state transitions. Emits synthetic transitions
 // for already registered networks upon subscription.
 func (n *networker) Observe(ctx context.Context, next func(networkTransition), complete func(error)) {
+	n.serializer.Lock()
+	defer n.serializer.Unlock()
+
 	n.networks.Observe(ctx, next, complete)
 }
 
 // Register registers a new locally known private network.
 func (n *networker) Register(name tables.NetworkName) {
+	n.serializer.Lock()
+	defer n.serializer.Unlock()
+
 	n.networks.update(name, func(net *network) { net.registered = true })
 }
 
@@ -126,6 +142,9 @@ func (n *networker) Register(name tables.NetworkName) {
 // triggers its deactivation if it was previously activated. Returns whether
 // there's any remaining registered network.
 func (n *networker) Deregister(name tables.NetworkName) (remaining bool) {
+	n.serializer.Lock()
+	defer n.serializer.Unlock()
+
 	var wasActive bool
 	n.networks.update(name, func(net *network) {
 		net.registered = false
@@ -137,16 +156,15 @@ func (n *networker) Deregister(name tables.NetworkName) (remaining bool) {
 		n.queue.Add(name)
 	}
 
-	// Strictly speaking, this is not fully atomic, because we released the
-	// lock above and we acquire it again here. However, the returned value
-	// is meaningful only if Register and Deregister calls are serialized,
-	// hence, this approach is correct in practice.
 	return n.networks.remaining()
 }
 
 // Activate queues the request to activate the INB for the given network. It
 // returns an error if the network is not registered, or not served by the INB.
 func (n *networker) Activate(name tables.NetworkName) error {
+	n.serializer.Lock()
+	defer n.serializer.Unlock()
+
 	var (
 		activate bool
 		err      error
@@ -176,6 +194,9 @@ func (n *networker) Activate(name tables.NetworkName) error {
 // It is a no-op if the network has been de-registered in the meanwhile. It
 // returns an error if the network is not registered.
 func (n *networker) Deactivate(name tables.NetworkName) error {
+	n.serializer.Lock()
+	defer n.serializer.Unlock()
+
 	var prev network
 	n.networks.update(name, func(net *network) { prev, net.active = *net, false })
 
