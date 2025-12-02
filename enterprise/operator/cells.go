@@ -24,6 +24,7 @@ import (
 	lbmetrics "github.com/cilium/cilium/enterprise/operator/pkg/lb/metrics"
 	"github.com/cilium/cilium/enterprise/operator/pkg/multinetwork"
 	"github.com/cilium/cilium/enterprise/operator/pkg/networkpolicy"
+	"github.com/cilium/cilium/enterprise/operator/pkg/privnet"
 	"github.com/cilium/cilium/enterprise/operator/pkg/srv6/locatorpool"
 	"github.com/cilium/cilium/enterprise/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/enterprise/pkg/clustermesh/phantom"
@@ -78,6 +79,8 @@ var (
 			phantom.Cell,
 
 			metricsFeatures.EnterpriseCell,
+
+			privnet.Cell,
 		),
 	)
 )
