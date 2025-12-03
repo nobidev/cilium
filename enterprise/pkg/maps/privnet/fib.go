@@ -58,10 +58,12 @@ const (
 
 // FIBVal is the FIB map value.
 type FIBVal struct {
-	Flags   FIBFlags   `align:"flag_l2_announce"`
-	Family  uint8      `align:"family"`
-	_       uint16     `align:"pad0"`
-	Address types.IPv6 `align:"$union0"`
+	Address types.IPv6    `align:"$union0"`
+	MAC     types.MACAddr `align:"mac"`
+	_       [2]uint16
+	Flags   FIBFlags `align:"flag_l2_announce"`
+	Family  uint8    `align:"family"`
+	IfIndex uint32   `align:"ifindex"`
 }
 
 // FIB allows to interact with the private network FIB map.
@@ -141,20 +143,24 @@ func (*FIBKey) New() bpf.MapKey {
 }
 
 // NewFIBVal constructs a new FIB map value.
-func NewFIBVal(addr netip.Addr, flags FIBFlags) FIBVal {
+func NewFIBVal(addr netip.Addr, mac types.MACAddr, flags FIBFlags, ifindex uint32) FIBVal {
 	family, address := fromAddr(addr)
 
 	return FIBVal{
 		Flags:   flags,
 		Family:  family,
 		Address: address,
+		MAC:     mac,
+		IfIndex: ifindex,
 	}
 }
 
 func (v FIBVal) String() string {
-	return fmt.Sprintf("%s %#x",
+	return fmt.Sprintf("%s %#x %s %d",
 		v.ToAddr(),
 		v.Flags,
+		v.MAC,
+		v.IfIndex,
 	)
 }
 

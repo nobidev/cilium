@@ -69,15 +69,19 @@ func TestPIPFIBString(t *testing.T) {
 		).String())
 
 	// FIB value
-	assert.Equal(t, "192.168.3.99 0x1",
+	assert.Equal(t, "192.168.3.99 0x1 00:ee:11:22:33:44 10",
 		NewFIBVal(
 			netip.MustParseAddr("192.168.3.99"),
+			types.MACAddr(mac.MustParseMAC("00:ee:11:22:33:44")),
 			FIBFlagL2Announce,
+			10,
 		).String())
-	assert.Equal(t, "fa:ce::1 0x2",
+	assert.Equal(t, "fa:ce::1 0x2 00:ee:11:22:33:44 10",
 		NewFIBVal(
 			netip.MustParseAddr("fa:ce:0:0::1"),
+			types.MACAddr(mac.MustParseMAC("00:ee:11:22:33:44")),
 			FIBFlagSubnetRoute,
+			10,
 		).String())
 }
 

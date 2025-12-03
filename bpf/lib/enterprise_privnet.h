@@ -165,12 +165,6 @@ struct privnet_fib_key {
 };
 
 struct privnet_fib_val {
-	__u8 flag_l2_announce:1,
-		flag_is_subnet_route:1,
-		flag_is_static_route:1,
-		pad:5;
-	__u8 family;
-	__u8 pad0[2];
 	union {
 		struct {
 			__u32		ip4;
@@ -180,6 +174,14 @@ struct privnet_fib_val {
 		};
 		union v6addr	ip6;
 	};
+	union macaddr mac;
+	__u16 pad4;
+	__u8 flag_l2_announce:1,
+		flag_is_subnet_route:1,
+		flag_is_static_route:1,
+		pad:5;
+	__u8 family;
+	__u32 ifindex;
 };
 
 struct privnet_pip_key {
