@@ -120,6 +120,8 @@ func newCmdLoadbalancerTest() *cobra.Command {
 				})
 			}
 
+			defer lbTestRun.RunCleanup()
+
 			// Create IsovalentBGPClusterConfig (each test case will append its peer to it)
 			if err := ciliumCli.EnsureBGPClusterConfig(c.Context()); err != nil {
 				return fmt.Errorf("failed to install BGP peering: %w", err)
@@ -129,13 +131,7 @@ func newCmdLoadbalancerTest() *cobra.Command {
 			})
 
 			// Run tests
-			if err := lbTestRun.ExecuteTestFuncs(c.Context()); err != nil {
-				return err
-			}
-
-			lbTestRun.RunCleanup()
-
-			return nil
+			return lbTestRun.ExecuteTestFuncs(c.Context())
 		},
 	}
 
