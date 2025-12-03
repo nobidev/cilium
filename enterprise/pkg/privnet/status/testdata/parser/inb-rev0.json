@@ -1,0 +1,133 @@
+{
+  "revision": 0,
+  "name": "foobar-worker-1",
+  "cluster": "default",
+  "connectedClusters": [
+    {
+      "name": "default",
+      "nodeNames": [
+        "foobar-worker-1",
+        "foobar-worker-2"
+      ]
+    },
+    {
+      "name": "felidae",
+      "nodeNames": [
+        "cougar",
+        "lion"
+      ]
+    }
+  ],
+  "enabled": true,
+  "mode": "bridge",
+  "networks": [
+    {
+      "name": "firefly",
+      "subnets": [
+        {
+          "cidr": "192.168.251.0/24"
+        }
+      ],
+      "endpoints": [
+        {
+          "name": "moved-racer",
+          "cluster": "default",
+          "node": "foobar-worker-2",
+          "ipv4": "10.245.8.30",
+          "netIPv4": "192.168.251.30",
+          "active": false
+        },
+        {
+          "name": "shining-burro",
+          "cluster": "default",
+          "node": "foobar-worker-1",
+          "ipv4": "10.245.8.39",
+          "netIPv4": "192.168.251.39",
+          "active": false,
+          "external": true
+        },
+        {
+          "name": "eminent-griffon",
+          "cluster": "felidae",
+          "node": "cougar",
+          "ipv4": "10.245.8.31",
+          "netIPv4": "192.168.251.31",
+          "active": false
+        },
+        {
+          "name": "grateful-raccoon",
+          "cluster": "felidae",
+          "node": "lion",
+          "ipv4": "10.245.8.32",
+          "netIPv4": "192.168.251.32",
+          "active": true
+        }
+      ],
+      "inbStatus": {
+        "serving": true,
+        "interface": {
+          "name": "eth2",
+          "index": 11
+        },
+        "activeWorkloadNodes": [
+          {
+            "name": "lion",
+            "cluster": "felidae"
+          }
+        ]
+      }
+    },
+    {
+      "name": "maggot",
+      "error": "Interface \"eth1\" has \"link-layer-down\" operational status",
+      "subnets": [
+        {
+          "cidr": "192.168.250.0/24"
+        }
+      ],
+      "endpoints": [
+        {
+          "name": "destined-bluejay",
+          "cluster": "default",
+          "node": "foobar-worker-2",
+          "ipv4": "10.245.8.40",
+          "netIPv4": "192.168.250.40",
+          "active": false,
+          "external": true
+        },
+        {
+          "name": "optimum-mouse",
+          "cluster": "default",
+          "node": "foobar-worker-1",
+          "ipv4": "10.245.8.20",
+          "netIPv4": "192.168.250.20",
+          "active": false
+        },
+        {
+          "name": "intense-phoenix",
+          "cluster": "felidae",
+          "node": "cougar",
+          "ipv4": "10.245.8.22",
+          "netIPv4": "192.168.250.22",
+          "active": false
+        },
+        {
+          "name": "valid-monkey",
+          "cluster": "felidae",
+          "node": "cougar",
+          "ipv4": "10.245.8.21",
+          "netIPv4": "192.168.250.21",
+          "active": false
+        }
+      ],
+      "inbStatus": {
+        "serving": false,
+        "interface": {
+          "name": "eth1",
+          "index": 0,
+          "error": "Interface \"eth1\" has \"link-layer-down\" operational status"
+        }
+      }
+    }
+  ]
+}

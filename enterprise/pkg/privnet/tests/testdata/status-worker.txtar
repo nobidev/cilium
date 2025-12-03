@@ -268,117 +268,99 @@ Node                                       foobar-worker-1                      
 
 -- status.1.json --
 {
-  "Name": "foobar-worker-1",
-  "Cluster": "default",
-  "ConnectedClusters": [
+  "revision": 0,
+  "name": "foobar-worker-1",
+  "cluster": "default",
+  "connectedClusters": [
     {
-      "Name": "camelidae",
-      "NodeNames": [
+      "name": "camelidae",
+      "nodeNames": [
         "alpaca"
       ]
     },
     {
-      "Name": "felidae",
-      "NodeNames": [
+      "name": "felidae",
+      "nodeNames": [
         "cougar"
       ]
     }
   ],
-  "Enabled": true,
-  "Mode": "default",
-  "Networks": [
+  "enabled": true,
+  "mode": "default",
+  "networks": [
     {
-      "Name": "blue-network",
-      "Error": "",
-      "Routes": [],
-      "Subnets": [
+      "name": "blue-network",
+      "subnets": [
         {
-          "CIDR": "192.168.250.0/24"
+          "cidr": "192.168.250.0/24"
         },
         {
-          "CIDR": "fd10:0:250::/64"
+          "cidr": "fd10:0:250::/64"
         },
         {
-          "CIDR": "192.168.250.24/32"
+          "cidr": "192.168.250.24/32"
         }
       ],
-      "Endpoints": [
+      "endpoints": [
         {
-          "Name": "resolved-monster",
-          "Cluster": "camelidae",
-          "Node": "alpaca",
-          "IPv4": "10.245.9.41",
-          "NetIPv4": "192.168.250.201",
-          "IPv6": "",
-          "NetIPv6": "",
-          "Active": false,
-          "External": true
+          "name": "resolved-monster",
+          "cluster": "camelidae",
+          "node": "alpaca",
+          "ipv4": "10.245.9.41",
+          "netIPv4": "192.168.250.201",
+          "active": false,
+          "external": true
         },
         {
-          "Name": "optimum-mouse",
-          "Cluster": "default",
-          "Node": "crayfish",
-          "IPv4": "10.244.5.108",
-          "NetIPv4": "192.168.250.20",
-          "IPv6": "fd00:10:244:5::108",
-          "NetIPv6": "fd10:0:250::20",
-          "Active": false,
-          "External": false
+          "name": "optimum-mouse",
+          "cluster": "default",
+          "node": "crayfish",
+          "ipv4": "10.244.5.108",
+          "netIPv4": "192.168.250.20",
+          "ipv6": "fd00:10:244:5::108",
+          "netIPv6": "fd10:0:250::20",
+          "active": false
         },
         {
-          "Name": "regular-koi",
-          "Cluster": "default",
-          "Node": "crayfish",
-          "IPv4": "10.244.5.109",
-          "NetIPv4": "192.168.250.21",
-          "IPv6": "fd00:10:244:5::109",
-          "NetIPv6": "fd10:0:250::21",
-          "Active": false,
-          "External": false
+          "name": "regular-koi",
+          "cluster": "default",
+          "node": "crayfish",
+          "ipv4": "10.244.5.109",
+          "netIPv4": "192.168.250.21",
+          "ipv6": "fd00:10:244:5::109",
+          "netIPv6": "fd10:0:250::21",
+          "active": false
         },
         {
-          "Name": "resolved-monster",
-          "Cluster": "felidae",
-          "Node": "cougar",
-          "IPv4": "10.245.8.87",
-          "NetIPv4": "192.168.250.201",
-          "IPv6": "",
-          "NetIPv6": "",
-          "Active": false,
-          "External": true
+          "name": "resolved-monster",
+          "cluster": "felidae",
+          "node": "cougar",
+          "ipv4": "10.245.8.87",
+          "netIPv4": "192.168.250.201",
+          "active": false,
+          "external": true
         },
         {
-          "Name": "valid-monkey",
-          "Cluster": "felidae",
-          "Node": "cougar",
-          "IPv4": "10.245.8.21",
-          "NetIPv4": "192.168.250.200",
-          "IPv6": "",
-          "NetIPv6": "",
-          "Active": false,
-          "External": true
+          "name": "valid-monkey",
+          "cluster": "felidae",
+          "node": "cougar",
+          "ipv4": "10.245.8.21",
+          "netIPv4": "192.168.250.200",
+          "active": false,
+          "external": true
         }
       ],
-      "INBStatus": {
-        "Serving": false,
-        "Interface": {
-          "Name": "",
-          "Index": 0,
-          "Error": ""
-        },
-        "ActiveWorkloadNodes": null
-      },
-      "WorkerStatus": {
-        "ActiveINB": "felidae/cougar",
-        "ConnectedINBCluster": [
+      "workerStatus": {
+        "activeINB": "felidae/cougar",
+        "connectedINBCluster": [
           {
-            "Name": "felidae",
-            "INBs": [
+            "name": "felidae",
+            "inbs": [
               {
-                "Cluster": "felidae",
-                "Name": "cougar",
-                "Active": true,
-                "Healthy": true
+                "name": "cougar",
+                "cluster": "felidae",
+                "active": true,
+                "healthy": true
               }
             ]
           }
@@ -386,61 +368,48 @@ Node                                       foobar-worker-1                      
       }
     },
     {
-      "Name": "green-network",
-      "Error": "",
-      "Routes": [],
-      "Subnets": [
+      "name": "green-network",
+      "subnets": [
         {
-          "CIDR": "10.0.100.0/24"
+          "cidr": "10.0.100.0/24"
         },
         {
-          "CIDR": "fd00:10:100::/64"
+          "cidr": "fd00:10:100::/64"
         }
       ],
-      "Endpoints": [
+      "endpoints": [
         {
-          "Name": "admiring-wombat",
-          "Cluster": "default",
-          "Node": "crayfish",
-          "IPv4": "10.244.5.111",
-          "NetIPv4": "10.0.100.31",
-          "IPv6": "fd00:10:244:5::111",
-          "NetIPv6": "fd00:10:100::31",
-          "Active": false,
-          "External": false
+          "name": "admiring-wombat",
+          "cluster": "default",
+          "node": "crayfish",
+          "ipv4": "10.244.5.111",
+          "netIPv4": "10.0.100.31",
+          "ipv6": "fd00:10:244:5::111",
+          "netIPv6": "fd00:10:100::31",
+          "active": false
         },
         {
-          "Name": "pumped-ocelot",
-          "Cluster": "default",
-          "Node": "crayfish",
-          "IPv4": "10.244.5.110",
-          "NetIPv4": "10.0.100.30",
-          "IPv6": "fd00:10:244:5::110",
-          "NetIPv6": "fd00:10:100::30",
-          "Active": false,
-          "External": false
+          "name": "pumped-ocelot",
+          "cluster": "default",
+          "node": "crayfish",
+          "ipv4": "10.244.5.110",
+          "netIPv4": "10.0.100.30",
+          "ipv6": "fd00:10:244:5::110",
+          "netIPv6": "fd00:10:100::30",
+          "active": false
         }
       ],
-      "INBStatus": {
-        "Serving": false,
-        "Interface": {
-          "Name": "",
-          "Index": 0,
-          "Error": ""
-        },
-        "ActiveWorkloadNodes": null
-      },
-      "WorkerStatus": {
-        "ActiveINB": "camelidae/alpaca",
-        "ConnectedINBCluster": [
+      "workerStatus": {
+        "activeINB": "camelidae/alpaca",
+        "connectedINBCluster": [
           {
-            "Name": "camelidae",
-            "INBs": [
+            "name": "camelidae",
+            "inbs": [
               {
-                "Cluster": "camelidae",
-                "Name": "alpaca",
-                "Active": true,
-                "Healthy": true
+                "name": "alpaca",
+                "cluster": "camelidae",
+                "active": true,
+                "healthy": true
               }
             ]
           }
@@ -474,137 +443,120 @@ Node                                       foobar-worker-1                      
 
 -- status.2.json --
 {
-  "Name": "foobar-worker-1",
-  "Cluster": "default",
-  "ConnectedClusters": [
+  "revision": 0,
+  "name": "foobar-worker-1",
+  "cluster": "default",
+  "connectedClusters": [
     {
-      "Name": "camelidae",
-      "NodeNames": [
+      "name": "camelidae",
+      "nodeNames": [
         "alpaca"
       ]
     },
     {
-      "Name": "felidae",
-      "NodeNames": [
+      "name": "felidae",
+      "nodeNames": [
         "cougar"
       ]
     }
   ],
-  "Enabled": true,
-  "Mode": "default",
-  "Networks": [
+  "enabled": true,
+  "mode": "default",
+  "networks": [
     {
-      "Name": "blue-network",
-      "Error": "",
-      "Routes": [
+      "name": "blue-network",
+      "routes": [
         {
-          "Destination": "192.168.252.0/24",
-          "Gateway": "192.168.250.2"
+          "destination": "192.168.252.0/24",
+          "gateway": "192.168.250.2"
         },
         {
-          "Destination": "0.0.0.0/0",
-          "Gateway": "192.168.250.1"
+          "destination": "0.0.0.0/0",
+          "gateway": "192.168.250.1"
         }
       ],
-      "Subnets": [
+      "subnets": [
         {
-          "CIDR": "192.168.250.0/23"
+          "cidr": "192.168.250.0/23"
         },
         {
-          "CIDR": "fd10:0:250::/64"
+          "cidr": "fd10:0:250::/64"
         },
         {
-          "CIDR": "192.168.250.24/32"
+          "cidr": "192.168.250.24/32"
         }
       ],
-      "Endpoints": [
+      "endpoints": [
         {
-          "Name": "resolved-monster",
-          "Cluster": "camelidae",
-          "Node": "alpaca",
-          "IPv4": "10.245.9.41",
-          "NetIPv4": "192.168.250.201",
-          "IPv6": "",
-          "NetIPv6": "",
-          "Active": false,
-          "External": true
+          "name": "resolved-monster",
+          "cluster": "camelidae",
+          "node": "alpaca",
+          "ipv4": "10.245.9.41",
+          "netIPv4": "192.168.250.201",
+          "active": false,
+          "external": true
         },
         {
-          "Name": "optimum-mouse",
-          "Cluster": "default",
-          "Node": "crayfish",
-          "IPv4": "10.244.5.108",
-          "NetIPv4": "192.168.250.20",
-          "IPv6": "fd00:10:244:5::108",
-          "NetIPv6": "fd10:0:250::20",
-          "Active": false,
-          "External": false
+          "name": "optimum-mouse",
+          "cluster": "default",
+          "node": "crayfish",
+          "ipv4": "10.244.5.108",
+          "netIPv4": "192.168.250.20",
+          "ipv6": "fd00:10:244:5::108",
+          "netIPv6": "fd10:0:250::20",
+          "active": false
         },
         {
-          "Name": "regular-koi",
-          "Cluster": "default",
-          "Node": "crayfish",
-          "IPv4": "10.244.5.109",
-          "NetIPv4": "192.168.250.21",
-          "IPv6": "fd00:10:244:5::109",
-          "NetIPv6": "fd10:0:250::21",
-          "Active": false,
-          "External": false
+          "name": "regular-koi",
+          "cluster": "default",
+          "node": "crayfish",
+          "ipv4": "10.244.5.109",
+          "netIPv4": "192.168.250.21",
+          "ipv6": "fd00:10:244:5::109",
+          "netIPv6": "fd10:0:250::21",
+          "active": false
         },
         {
-          "Name": "resolved-monster",
-          "Cluster": "felidae",
-          "Node": "cougar",
-          "IPv4": "10.245.8.87",
-          "NetIPv4": "192.168.250.201",
-          "IPv6": "",
-          "NetIPv6": "",
-          "Active": false,
-          "External": true
+          "name": "resolved-monster",
+          "cluster": "felidae",
+          "node": "cougar",
+          "ipv4": "10.245.8.87",
+          "netIPv4": "192.168.250.201",
+          "active": false,
+          "external": true
         },
         {
-          "Name": "valid-monkey",
-          "Cluster": "felidae",
-          "Node": "cougar",
-          "IPv4": "10.245.8.21",
-          "NetIPv4": "192.168.250.200",
-          "IPv6": "",
-          "NetIPv6": "",
-          "Active": false,
-          "External": true
+          "name": "valid-monkey",
+          "cluster": "felidae",
+          "node": "cougar",
+          "ipv4": "10.245.8.21",
+          "netIPv4": "192.168.250.200",
+          "active": false,
+          "external": true
         }
       ],
-      "INBStatus": {
-        "Serving": false,
-        "Interface": {
-          "Name": "",
-          "Index": 0,
-          "Error": ""
-        },
-        "ActiveWorkloadNodes": null
-      },
-      "WorkerStatus": {
-        "ActiveINB": "felidae/cougar",
-        "ConnectedINBCluster": [
+      "workerStatus": {
+        "activeINB": "felidae/cougar",
+        "connectedINBCluster": [
           {
-            "Name": "camelidae",
-            "INBs": [
+            "name": "camelidae",
+            "inbs": [
               {
-                "Cluster": "camelidae",
-                "Name": "alpaca",
-                "Active": false,
-                "Healthy": true
+                "name": "alpaca",
+                "cluster": "camelidae",
+                "active": false,
+                "healthy": true
               }
             ]
           },
           {
-            "Name": "felidae",
-            "INBs": [
+            "name": "felidae",
+            "inbs": [
               {
-                "Cluster": "felidae",
-                "Name": "cougar",
-                "Active": true,
-                "Healthy": true
+                "name": "cougar",
+                "cluster": "felidae",
+                "active": true,
+                "healthy": true
               }
             ]
           }
@@ -612,61 +564,48 @@ Node                                       foobar-worker-1                      
       }
     },
     {
-      "Name": "green-network",
-      "Error": "",
-      "Routes": [],
-      "Subnets": [
+      "name": "green-network",
+      "subnets": [
         {
-          "CIDR": "10.0.100.0/24"
+          "cidr": "10.0.100.0/24"
         },
         {
-          "CIDR": "fd00:10:100::/64"
+          "cidr": "fd00:10:100::/64"
         }
       ],
-      "Endpoints": [
+      "endpoints": [
         {
-          "Name": "admiring-wombat",
-          "Cluster": "default",
-          "Node": "crayfish",
-          "IPv4": "10.244.5.111",
-          "NetIPv4": "10.0.100.31",
-          "IPv6": "fd00:10:244:5::111",
-          "NetIPv6": "fd00:10:100::31",
-          "Active": false,
-          "External": false
+          "name": "admiring-wombat",
+          "cluster": "default",
+          "node": "crayfish",
+          "ipv4": "10.244.5.111",
+          "netIPv4": "10.0.100.31",
+          "ipv6": "fd00:10:244:5::111",
+          "netIPv6": "fd00:10:100::31",
+          "active": false
         },
         {
-          "Name": "pumped-ocelot",
-          "Cluster": "default",
-          "Node": "crayfish",
-          "IPv4": "10.244.5.110",
-          "NetIPv4": "10.0.100.30",
-          "IPv6": "fd00:10:244:5::110",
-          "NetIPv6": "fd00:10:100::30",
-          "Active": false,
-          "External": false
+          "name": "pumped-ocelot",
+          "cluster": "default",
+          "node": "crayfish",
+          "ipv4": "10.244.5.110",
+          "netIPv4": "10.0.100.30",
+          "ipv6": "fd00:10:244:5::110",
+          "netIPv6": "fd00:10:100::30",
+          "active": false
         }
       ],
-      "INBStatus": {
-        "Serving": false,
-        "Interface": {
-          "Name": "",
-          "Index": 0,
-          "Error": ""
-        },
-        "ActiveWorkloadNodes": null
-      },
-      "WorkerStatus": {
-        "ActiveINB": "camelidae/alpaca",
-        "ConnectedINBCluster": [
+      "workerStatus": {
+        "activeINB": "camelidae/alpaca",
+        "connectedINBCluster": [
           {
-            "Name": "camelidae",
-            "INBs": [
+            "name": "camelidae",
+            "inbs": [
               {
-                "Cluster": "camelidae",
-                "Name": "alpaca",
-                "Active": true,
-                "Healthy": true
+                "name": "alpaca",
+                "cluster": "camelidae",
+                "active": true,
+                "healthy": true
               }
             ]
           }
@@ -701,137 +640,120 @@ Node                                       foobar-worker-1                      
 
 -- status.3.json --
 {
-  "Name": "foobar-worker-1",
-  "Cluster": "default",
-  "ConnectedClusters": [
+  "revision": 0,
+  "name": "foobar-worker-1",
+  "cluster": "default",
+  "connectedClusters": [
     {
-      "Name": "camelidae",
-      "NodeNames": [
+      "name": "camelidae",
+      "nodeNames": [
         "alpaca"
       ]
     },
     {
-      "Name": "felidae",
-      "NodeNames": [
+      "name": "felidae",
+      "nodeNames": [
         "cougar"
       ]
     }
   ],
-  "Enabled": true,
-  "Mode": "default",
-  "Networks": [
+  "enabled": true,
+  "mode": "default",
+  "networks": [
     {
-      "Name": "blue-network",
-      "Error": "",
-      "Routes": [
+      "name": "blue-network",
+      "routes": [
         {
-          "Destination": "192.168.252.0/24",
-          "Gateway": "192.168.250.2"
+          "destination": "192.168.252.0/24",
+          "gateway": "192.168.250.2"
         },
         {
-          "Destination": "0.0.0.0/0",
-          "Gateway": "192.168.250.1"
+          "destination": "0.0.0.0/0",
+          "gateway": "192.168.250.1"
         }
       ],
-      "Subnets": [
+      "subnets": [
         {
-          "CIDR": "192.168.250.0/23"
+          "cidr": "192.168.250.0/23"
         },
         {
-          "CIDR": "fd10:0:250::/64"
+          "cidr": "fd10:0:250::/64"
         },
         {
-          "CIDR": "192.168.250.24/32"
+          "cidr": "192.168.250.24/32"
         }
       ],
-      "Endpoints": [
+      "endpoints": [
         {
-          "Name": "resolved-monster",
-          "Cluster": "camelidae",
-          "Node": "alpaca",
-          "IPv4": "10.245.9.41",
-          "NetIPv4": "192.168.250.201",
-          "IPv6": "",
-          "NetIPv6": "",
-          "Active": false,
-          "External": true
+          "name": "resolved-monster",
+          "cluster": "camelidae",
+          "node": "alpaca",
+          "ipv4": "10.245.9.41",
+          "netIPv4": "192.168.250.201",
+          "active": false,
+          "external": true
         },
         {
-          "Name": "optimum-mouse",
-          "Cluster": "default",
-          "Node": "crayfish",
-          "IPv4": "10.244.5.108",
-          "NetIPv4": "192.168.250.20",
-          "IPv6": "fd00:10:244:5::108",
-          "NetIPv6": "fd10:0:250::20",
-          "Active": false,
-          "External": false
+          "name": "optimum-mouse",
+          "cluster": "default",
+          "node": "crayfish",
+          "ipv4": "10.244.5.108",
+          "netIPv4": "192.168.250.20",
+          "ipv6": "fd00:10:244:5::108",
+          "netIPv6": "fd10:0:250::20",
+          "active": false
         },
         {
-          "Name": "regular-koi",
-          "Cluster": "default",
-          "Node": "crayfish",
-          "IPv4": "10.244.5.109",
-          "NetIPv4": "192.168.250.21",
-          "IPv6": "fd00:10:244:5::109",
-          "NetIPv6": "fd10:0:250::21",
-          "Active": false,
-          "External": false
+          "name": "regular-koi",
+          "cluster": "default",
+          "node": "crayfish",
+          "ipv4": "10.244.5.109",
+          "netIPv4": "192.168.250.21",
+          "ipv6": "fd00:10:244:5::109",
+          "netIPv6": "fd10:0:250::21",
+          "active": false
         },
         {
-          "Name": "resolved-monster",
-          "Cluster": "felidae",
-          "Node": "cougar",
-          "IPv4": "10.245.8.87",
-          "NetIPv4": "192.168.250.201",
-          "IPv6": "",
-          "NetIPv6": "",
-          "Active": false,
-          "External": true
+          "name": "resolved-monster",
+          "cluster": "felidae",
+          "node": "cougar",
+          "ipv4": "10.245.8.87",
+          "netIPv4": "192.168.250.201",
+          "active": false,
+          "external": true
         },
         {
-          "Name": "valid-monkey",
-          "Cluster": "felidae",
-          "Node": "cougar",
-          "IPv4": "10.245.8.21",
-          "NetIPv4": "192.168.250.200",
-          "IPv6": "",
-          "NetIPv6": "",
-          "Active": false,
-          "External": true
+          "name": "valid-monkey",
+          "cluster": "felidae",
+          "node": "cougar",
+          "ipv4": "10.245.8.21",
+          "netIPv4": "192.168.250.200",
+          "active": false,
+          "external": true
         }
       ],
-      "INBStatus": {
-        "Serving": false,
-        "Interface": {
-          "Name": "",
-          "Index": 0,
-          "Error": ""
-        },
-        "ActiveWorkloadNodes": null
-      },
-      "WorkerStatus": {
-        "ActiveINB": "felidae/cougar",
-        "ConnectedINBCluster": [
+      "workerStatus": {
+        "activeINB": "felidae/cougar",
+        "connectedINBCluster": [
           {
-            "Name": "camelidae",
-            "INBs": [
+            "name": "camelidae",
+            "inbs": [
               {
-                "Cluster": "camelidae",
-                "Name": "alpaca",
-                "Active": false,
-                "Healthy": false
+                "name": "alpaca",
+                "cluster": "camelidae",
+                "active": false,
+                "healthy": false
               }
             ]
           },
           {
-            "Name": "felidae",
-            "INBs": [
+            "name": "felidae",
+            "inbs": [
               {
-                "Cluster": "felidae",
-                "Name": "cougar",
-                "Active": true,
-                "Healthy": true
+                "name": "cougar",
+                "cluster": "felidae",
+                "active": true,
+                "healthy": true
               }
             ]
           }
@@ -839,61 +761,49 @@ Node                                       foobar-worker-1                      
       }
     },
     {
-      "Name": "green-network",
-      "Error": "No Active INB",
-      "Routes": [],
-      "Subnets": [
+      "name": "green-network",
+      "error": "No Active INB",
+      "subnets": [
         {
-          "CIDR": "10.0.100.0/24"
+          "cidr": "10.0.100.0/24"
         },
         {
-          "CIDR": "fd00:10:100::/64"
+          "cidr": "fd00:10:100::/64"
         }
       ],
-      "Endpoints": [
+      "endpoints": [
         {
-          "Name": "admiring-wombat",
-          "Cluster": "default",
-          "Node": "crayfish",
-          "IPv4": "10.244.5.111",
-          "NetIPv4": "10.0.100.31",
-          "IPv6": "fd00:10:244:5::111",
-          "NetIPv6": "fd00:10:100::31",
-          "Active": false,
-          "External": false
+          "name": "admiring-wombat",
+          "cluster": "default",
+          "node": "crayfish",
+          "ipv4": "10.244.5.111",
+          "netIPv4": "10.0.100.31",
+          "ipv6": "fd00:10:244:5::111",
+          "netIPv6": "fd00:10:100::31",
+          "active": false
         },
         {
-          "Name": "pumped-ocelot",
-          "Cluster": "default",
-          "Node": "crayfish",
-          "IPv4": "10.244.5.110",
-          "NetIPv4": "10.0.100.30",
-          "IPv6": "fd00:10:244:5::110",
-          "NetIPv6": "fd00:10:100::30",
-          "Active": false,
-          "External": false
+          "name": "pumped-ocelot",
+          "cluster": "default",
+          "node": "crayfish",
+          "ipv4": "10.244.5.110",
+          "netIPv4": "10.0.100.30",
+          "ipv6": "fd00:10:244:5::110",
+          "netIPv6": "fd00:10:100::30",
+          "active": false
         }
       ],
-      "INBStatus": {
-        "Serving": false,
-        "Interface": {
-          "Name": "",
-          "Index": 0,
-          "Error": ""
-        },
-        "ActiveWorkloadNodes": null
-      },
-      "WorkerStatus": {
-        "ActiveINB": "",
-        "ConnectedINBCluster": [
+      "workerStatus": {
+        "activeINB": "",
+        "connectedINBCluster": [
           {
-            "Name": "camelidae",
-            "INBs": [
+            "name": "camelidae",
+            "inbs": [
               {
-                "Cluster": "camelidae",
-                "Name": "alpaca",
-                "Active": false,
-                "Healthy": false
+                "name": "alpaca",
+                "cluster": "camelidae",
+                "active": false,
+                "healthy": false
               }
             ]
           }

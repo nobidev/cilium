@@ -1,0 +1,167 @@
+{
+  "Name": "foobar-worker-1",
+  "Cluster": "default",
+  "ConnectedClusters": [
+    {
+      "Name": "default",
+      "NodeNames": [
+        "foobar-worker-1",
+        "foobar-worker-2"
+      ]
+    },
+    {
+      "Name": "felidae",
+      "NodeNames": [
+        "cougar",
+        "lion"
+      ]
+    }
+  ],
+  "Enabled": true,
+  "Mode": "bridge",
+  "Networks": [
+    {
+      "Name": "firefly",
+      "Error": "",
+      "Routes": [],
+      "Subnets": [
+        {
+          "CIDR": "192.168.251.0/24"
+        }
+      ],
+      "Endpoints": [
+        {
+          "Name": "moved-racer",
+          "Cluster": "default",
+          "Node": "foobar-worker-2",
+          "IPv4": "10.245.8.30",
+          "NetIPv4": "192.168.251.30",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "shining-burro",
+          "Cluster": "default",
+          "Node": "foobar-worker-1",
+          "IPv4": "10.245.8.39",
+          "NetIPv4": "192.168.251.39",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        },
+        {
+          "Name": "eminent-griffon",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.31",
+          "NetIPv4": "192.168.251.31",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "grateful-raccoon",
+          "Cluster": "felidae",
+          "Node": "lion",
+          "IPv4": "10.245.8.32",
+          "NetIPv4": "192.168.251.32",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": true,
+          "External": false
+        }
+      ],
+      "INBStatus": {
+        "Serving": true,
+        "Interface": {
+          "Name": "eth2",
+          "Index": 11,
+          "Error": ""
+        },
+        "ActiveWorkloadNodes": [
+          {
+            "Cluster": "felidae",
+            "Name": "lion"
+          }
+        ]
+      },
+      "WorkerStatus": {
+        "ActiveINB": "",
+        "ConnectedINBCluster": null
+      }
+    },
+    {
+      "Name": "maggot",
+      "Error": "Interface \"eth1\" has \"link-layer-down\" operational status",
+      "Routes": [],
+      "Subnets": [
+        {
+          "CIDR": "192.168.250.0/24"
+        }
+      ],
+      "Endpoints": [
+        {
+          "Name": "destined-bluejay",
+          "Cluster": "default",
+          "Node": "foobar-worker-2",
+          "IPv4": "10.245.8.40",
+          "NetIPv4": "192.168.250.40",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": true
+        },
+        {
+          "Name": "optimum-mouse",
+          "Cluster": "default",
+          "Node": "foobar-worker-1",
+          "IPv4": "10.245.8.20",
+          "NetIPv4": "192.168.250.20",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "intense-phoenix",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.22",
+          "NetIPv4": "192.168.250.22",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        },
+        {
+          "Name": "valid-monkey",
+          "Cluster": "felidae",
+          "Node": "cougar",
+          "IPv4": "10.245.8.21",
+          "NetIPv4": "192.168.250.21",
+          "IPv6": "",
+          "NetIPv6": "",
+          "Active": false,
+          "External": false
+        }
+      ],
+      "INBStatus": {
+        "Serving": false,
+        "Interface": {
+          "Name": "eth1",
+          "Index": 0,
+          "Error": "Interface \"eth1\" has \"link-layer-down\" operational status"
+        },
+        "ActiveWorkloadNodes": null
+      },
+      "WorkerStatus": {
+        "ActiveINB": "",
+        "ConnectedINBCluster": null
+      }
+    }
+  ]
+}
