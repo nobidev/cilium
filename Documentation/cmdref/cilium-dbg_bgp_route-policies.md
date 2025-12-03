@@ -9,14 +9,16 @@ List configured route policies
 List route policies configured in the underlying routing daemon
 
 ```
-cilium-dbg bgp route-policies [vrouter <asn>] [flags]
+cilium-dbg bgp route-policies [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help            help for route-policies
-  -o, --output string   json| yaml| jsonpath='{}'
+  -f, --format string            Format to write in (table, yaml or json) (default "table")
+  -h, --help                     help for route-policies
+  -i, --instance string          Name of a Cilium router instance. Lists policies of all instances if omitted.
+      --shell-sock-path string   Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
 ```
 
 ### Options inherited from parent commands
