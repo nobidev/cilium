@@ -504,6 +504,7 @@
 /enterprise/pkg/nat/ @isovalent/egress-gateway
 /enterprise/plugins/cilium-cni/ @isovalent/cilium-agent
 /enterprise/plugins/cilium-cni/pkg/multinetwork/ @isovalent/multi-network
+/enterprise/plugins/cilium-cni/pkg/privnet/ @isovalent/private-networking
 /enterprise/test/srv6/ @isovalent/traffic-engineering
 /enterprise/test/helpers/hubble.go @isovalent/hubble
 /enterprise/test/hubble-rbac/ @isovalent/hubble
