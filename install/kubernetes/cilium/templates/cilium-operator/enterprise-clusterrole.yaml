@@ -183,6 +183,14 @@ rules:
   - isovalentbgppeerconfigs/status
   verbs:
   - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
 {{- end }}
 {{- if or .Values.enterprise.bfd.enabled }}
 - apiGroups:
