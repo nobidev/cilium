@@ -924,6 +924,7 @@ Makefile* @cilium/build
 /enterprise/operator/k8s/ @isovalent/sig-k8s
 /enterprise/operator/pkg/bfd/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/bgpv2/ @isovalent/traffic-engineering
+/enterprise/operator/pkg/evpn/ @isovalent/traffic-engineering
 /enterprise/operator/pkg/lb/ @isovalent/isovalent-loadbalancer
 /enterprise/operator/pkg/multinetwork/ @isovalent/multi-network
 /enterprise/operator/pkg/networkpolicy/ @isovalent/policy-identity-networking
@@ -936,6 +937,7 @@ Makefile* @cilium/build
 /enterprise/pkg/client @isovalent/cilium-agent @isovalent/cni
 /enterprise/pkg/clustermesh/ @isovalent/clustermesh
 /enterprise/pkg/egressgatewayha/ @isovalent/egress-gateway
+/enterprise/pkg/evpn/ @isovalent/traffic-engineering
 /enterprise/pkg/datapath/sockets/ @isovalent/egress-gateway
 /enterprise/pkg/diagnostics/ @isovalent/cni
 /enterprise/pkg/encryption/ @isovalent/encryption
