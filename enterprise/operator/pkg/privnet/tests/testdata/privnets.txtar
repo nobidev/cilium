@@ -1,0 +1,40 @@
+#! --private-networks-enabled
+
+hive start
+db/initialized private-networks
+
+# Add two ClusterwidePrivateNetworks
+k8s/add icpn-1.yaml icpn-2.yaml
+
+# Ensure that they are correctly propagated into the table
+db/cmp private-networks privnet.v1.table
+
+# Delete one ClusterwidePrivateNetwork, and assert that the deletion is propagated
+k8s/delete icpn-1.yaml
+db/cmp private-networks privnet.v2.table
+
+# Add it back, and assert that it is present again
+k8s/add icpn-1.yaml
+db/cmp private-networks privnet.v1.table
+
+
+-- icpn-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: direct-maggot
+
+-- icpn-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: united-firefly
+
+-- privnet.v1.table --
+Name
+direct-maggot
+united-firefly
+
+-- privnet.v2.table --
+Name
+united-firefly
