@@ -1,0 +1,23 @@
+apiVersion: forklift.konveyor.io/v1beta1
+kind: Plan
+metadata:
+  name: mock
+spec:
+  description: "A mock plan"
+  map:
+    network:
+      name: vlan
+      namespace: target
+    storage:
+      name: vsan
+      namespace: target
+  provider:
+    destination:
+      name: host
+      namespace: target
+    source:
+      name: mock
+      namespace: ${NAMESPACE}
+  targetNamespace: ${NAMESPACE}
+  vms:
+  - name: the-vm

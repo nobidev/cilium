@@ -16,6 +16,7 @@ GOVC ?= $(CONTAINER_ENGINE) exec privnet-vcsim govc
 PRIVNET_KIND_IMAGE ?=
 PRIVNET_GOVMOMI_IMAGE ?= $(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/govmomi:$(LOCAL_IMAGE_TAG)
 PRIVNET_ENVOY_IMAGE = $(shell yq '.envoy.image | .repository + ":" + .tag' install/kubernetes/cilium/values.yaml)
+PRIVNET_VM_IMAGE ?= $(shell grep -oP '"VMImage": "\K.*(?=@)' cilium-cli/enterprise/defaults/defaults.go)
 
 # renovate: datasource=docker
 PRIVNET_CONTAINER_IMAGE ?= docker.io/nicolaka/netshoot:v0.14@sha256:7f08c4aff13ff61a35d30e30c5c1ea8396eac6ab4ce19fd02d5a4b3b5d0d09a2
@@ -23,13 +24,20 @@ PRIVNET_CONTAINER_IMAGE ?= docker.io/nicolaka/netshoot:v0.14@sha256:7f08c4aff13f
 # renovate: datasource=github-releases depName=cert-manager/cert-manager
 PRIVNET_CERT_MANAGER_VERSION ?= v1.19.1
 
+# renovate: datasource=github-releases depName=kubevirt/kubevirt
+PRIVNET_KUBEVIRT_VERSION ?= v1.7.0
+
+# renovate: datasource=github-tags depName=kubev2v/forklift
+PRIVNET_FORKLIFT_VERSION ?= v2.9.2
+
 PRIVNET_DNS_SERVER ?= 8.8.8.8
 
 .PHONY: kind-privnet-all
-kind-privnet-all:  ## Setup the privnet environment, install Cilium
+kind-privnet-all:  ## Setup the privnet environment, install Cilium and kubevirt
 	$(MAKE) kind-privnet-up
 	$(MAKE) kind-privnet-images
 	$(MAKE) kind-privnet-install-fast
+	$(MAKE) kind-privnet-kubevirt
 
 .PHONY: kind-privnet-govmomi-image
 kind-privnet-govmomi-image:  ## Build the Docker image with the govmomi tools
@@ -186,14 +194,17 @@ kind-privnet-images-fast: kind-image-enterprise-fast  ## Build all binaries and 
 KIND_PRIVNET_VALUES_FILES ?= ""
 
 .PHONY: kind-privnet-install
-kind-privnet-install:  ## Install a local Cilium version into the clusters
+# Forklift CRDs must be deployed before installng Cilium, otherwise it fails
+# when starting the informers, entering a retry loop that can lead to flakes
+# when invoking the webhook for the first times.
+kind-privnet-install: kind-privnet-forklift-crds  ## Install a local Cilium version into the clusters
 	$(MAKE) kind-privnet-uninstall
 	$(MAKE) kind-privnet-install-common
 	$(MAKE) kind-privnet-install-cert-manager
 	$(MAKE) kind-privnet-connect-clustermesh
 
 .PHONY: kind-privnet-install-fast
-kind-privnet-install-fast:  ## Install a local Cilium version into the clusters (fast mode)
+kind-privnet-install-fast: kind-privnet-forklift-crds  ## Install a local Cilium version into the clusters (fast mode)
 	$(MAKE) kind-privnet-uninstall
 
 	$(MAKE) kind-privnet-install-common KIND_PRIVNET_VALUES_FILES="\
@@ -306,3 +317,102 @@ kind-privnet-connect-clustermesh:  ## Mesh the clusters via Cluster Mesh
 	$(CILIUM_CLI) clustermesh status --context kind-privnet-cluster --wait
 	$(CILIUM_CLI) clustermesh status --context kind-privnet-inb0 --wait
 	$(CILIUM_CLI) clustermesh status --context kind-privnet-inb1 --wait
+
+
+.PHONY: kind-privnet-kubevirt
+kind-privnet-kubevirt:  ## Deploy kubevirt in the Cilium cluster
+	$(call privnet_pull_image,"quay.io/kubevirt/virt-api:$(PRIVNET_KUBEVIRT_VERSION)")
+	$(call privnet_pull_image,"quay.io/kubevirt/virt-controller:$(PRIVNET_KUBEVIRT_VERSION)")
+	$(call privnet_pull_image,"quay.io/kubevirt/virt-handler:$(PRIVNET_KUBEVIRT_VERSION)")
+	$(call privnet_pull_image,"quay.io/kubevirt/virt-launcher:$(PRIVNET_KUBEVIRT_VERSION)")
+	$(call privnet_pull_image,"quay.io/kubevirt/virt-operator:$(PRIVNET_KUBEVIRT_VERSION)")
+	$(call privnet_pull_image,"$(PRIVNET_VM_IMAGE)")
+
+	$(QUIET) kind load docker-image --name privnet-cluster \
+		quay.io/kubevirt/virt-launcher:$(PRIVNET_KUBEVIRT_VERSION) quay.io/kubevirt/virt-api:$(PRIVNET_KUBEVIRT_VERSION) \
+		quay.io/kubevirt/virt-operator:$(PRIVNET_KUBEVIRT_VERSION) quay.io/kubevirt/virt-handler:$(PRIVNET_KUBEVIRT_VERSION) \
+		quay.io/kubevirt/virt-controller:$(PRIVNET_KUBEVIRT_VERSION) $(PRIVNET_VM_IMAGE)
+
+	$(QUIET) kubectl --context kind-privnet-cluster apply -f "https://github.com/kubevirt/kubevirt/releases/download/$(PRIVNET_KUBEVIRT_VERSION)/kubevirt-operator.yaml"
+	$(QUIET) kubectl --context kind-privnet-cluster apply -f "https://github.com/kubevirt/kubevirt/releases/download/$(PRIVNET_KUBEVIRT_VERSION)/kubevirt-cr.yaml"
+	$(QUIET) kubectl --context kind-privnet-cluster -n kubevirt wait kubevirt/kubevirt --for condition=Available --timeout=300s
+
+.PHONY: kind-privnet-forklift-crds
+kind-privnet-forklift-crds:  ## Install forklift CRDs
+	$(QUIET) kubectl --context kind-privnet-cluster apply -f https://raw.githubusercontent.com/kubev2v/forklift/refs/tags/$(PRIVNET_FORKLIFT_VERSION)/operator/config/crd/bases/forklift.konveyor.io_plans.yaml
+	$(QUIET) kubectl --context kind-privnet-cluster apply -f https://raw.githubusercontent.com/kubev2v/forklift/refs/tags/$(PRIVNET_FORKLIFT_VERSION)/operator/config/crd/bases/forklift.konveyor.io_providers.yaml
+
+PRIVNET_TEST_NAMESPACE ?= cilium-test
+
+.PHONY: kind-privnet-test-namespace
+kind-privnet-test-namespace:  ## Create the test namespace in all clusters
+	$(QUIET) kubectl --context kind-privnet-cluster get namespace $(PRIVNET_TEST_NAMESPACE) >/dev/null 2>/dev/null || \
+		kubectl --context kind-privnet-cluster create namespace $(PRIVNET_TEST_NAMESPACE)
+	$(QUIET) kubectl --context kind-privnet-inb0 get namespace $(PRIVNET_TEST_NAMESPACE) >/dev/null 2>/dev/null || \
+		kubectl --context kind-privnet-inb0 create namespace $(PRIVNET_TEST_NAMESPACE)
+	$(QUIET) kubectl --context kind-privnet-inb1 get namespace $(PRIVNET_TEST_NAMESPACE) >/dev/null 2>/dev/null || \
+		kubectl --context kind-privnet-inb1 create namespace $(PRIVNET_TEST_NAMESPACE)
+
+.PHONY: kind-privnet-mtv
+kind-privnet-deploy-forklift-resources: kind-privnet-test-namespace  ## Deploy the Forklift Provider and Plan
+	$(QUIET) kubectl --context kind-privnet-cluster apply -f $(ROOT_DIR)/contrib/testing/privnet/forklift-provider.yaml -n $(PRIVNET_TEST_NAMESPACE)
+	$(QUIET) NAMESPACE=$(PRIVNET_TEST_NAMESPACE) envsubst < $(ROOT_DIR)/contrib/testing/privnet/forklift-plan.yaml | \
+		kubectl --context kind-privnet-cluster apply -f - -n $(PRIVNET_TEST_NAMESPACE)
+
+define privnet_inb_extep
+	NAME=$(1) NET=$(2) \
+		IP4=$(shell docker exec $(1) ip -br -4 a sh dev eth0 scope global | awk '{split($$3,out,"/"); print out[1]}') \
+		IP6=$(shell docker exec $(1) ip -br -6 a sh dev eth0 scope global | awk '{split($$3,out,"/"); print out[1]}') \
+		MAC=$(shell docker exec $(1) cat /sys/class/net/eth0/address) \
+		envsubst < $(ROOT_DIR)/contrib/testing/privnet/extep.yaml.tmpl | kubectl --context $(3) apply -f - -n $(PRIVNET_TEST_NAMESPACE)
+endef
+
+.PHONY: kind-privnet-deploy-external-endpoints
+kind-privnet-deploy-external-endpoints: kind-privnet-test-namespace  ## Create the PrivateNetworkExternalEndpoint resources representing fake VMs
+	$(call privnet_inb_extep,"privnet-vm-net-a1","network-a","kind-privnet-inb0")
+	$(call privnet_inb_extep,"privnet-vm-net-a2","network-a","kind-privnet-inb0")
+	$(call privnet_inb_extep,"privnet-vm-net-b1","network-b","kind-privnet-inb0")
+
+	$(call privnet_inb_extep,"privnet-vm-net-a1","network-a","kind-privnet-inb1")
+	$(call privnet_inb_extep,"privnet-vm-net-a2","network-a","kind-privnet-inb1")
+	$(call privnet_inb_extep,"privnet-vm-net-b1","network-b","kind-privnet-inb1")
+	$(call privnet_inb_extep,"privnet-vm-net-c1","network-c","kind-privnet-inb1")
+	$(call privnet_inb_extep,"privnet-vm-net-d1","network-d","kind-privnet-inb1")
+
+.PHONY: kind-privnet-test-run
+kind-privnet-test-run:  ## Run the connectivity tests
+	$(MAKE) -C cilium-cli
+
+	./cilium-cli/cilium --context=kind-privnet-cluster \
+		--inb-contexts=kind-privnet-inb0,kind-privnet-inb1 \
+		--test-namespace=$(PRIVNET_TEST_NAMESPACE) \
+		privnet test
+
+.PHONY: kind-privnet-test
+kind-privnet-test: kind-privnet-deploy-external-endpoints kind-privnet-deploy-forklift-resources kind-privnet-test-run  ## Setup the dependencies and run the connectivity tests
+
+.PHONY: kind-privnet-test-undeploy
+kind-privnet-test-undeploy:  ## Undeploy the test applications from the clusters
+	$(QUIET) kubectl --context kind-privnet-cluster delete namespace $(PRIVNET_TEST_NAMESPACE) --ignore-not-found
+	$(QUIET) kubectl --context kind-privnet-inb0 delete namespace $(PRIVNET_TEST_NAMESPACE) --ignore-not-found
+	$(QUIET) kubectl --context kind-privnet-inb1 delete namespace $(PRIVNET_TEST_NAMESPACE) --ignore-not-found
+
+	$(QUIET) kubectl --context kind-privnet-cluster delete ClusterwidePrivateNetwork -l app.kubernetes.io/part-of=cilium-cli-privnet
+	$(QUIET) kubectl --context kind-privnet-inb0 delete ClusterwidePrivateNetwork -l app.kubernetes.io/part-of=cilium-cli-privnet
+	$(QUIET) kubectl --context kind-privnet-inb1 delete ClusterwidePrivateNetwork -l app.kubernetes.io/part-of=cilium-cli-privnet
+
+.PHONY: kind-privnet-test-block-inb0
+kind-privnet-test-block-inb0:  ## Block traffic towards INB0
+	$(CONTAINER_ENGINE) exec privnet-inb0-control-plane iptables -A INPUT -i eth0 -j DROP
+
+.PHONY: kind-privnet-test-unblock-inb0
+kind-privnet-test-unblock-inb0:  ## Unlock traffic towards INB0
+	-$(CONTAINER_ENGINE) exec privnet-inb0-control-plane iptables -D INPUT -i eth0 -j DROP
+
+.PHONY: kind-privnet-test-block-inb1
+kind-privnet-test-block-inb1:  ## Block traffic towards INB1
+	$(CONTAINER_ENGINE) exec privnet-inb1-control-plane iptables -A INPUT -i eth0 -j DROP
+
+.PHONY: kind-privnet-test-unblock-inb1
+kind-privnet-test-unblock-inb1:  ## Unlock traffic towards INB1
+	-$(CONTAINER_ENGINE) exec privnet-inb1-control-plane iptables -D INPUT -i eth0 -j DROP

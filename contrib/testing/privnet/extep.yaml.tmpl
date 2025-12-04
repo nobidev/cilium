@@ -1,0 +1,14 @@
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkExternalEndpoint
+metadata:
+  name: ${NAME}
+  labels:
+    name: ${NAME}
+    app.kubernetes.io/part-of: privnet-testbed
+spec:
+  interface:
+    network: ${NET}
+    addressing:
+      ipv4: ${IP4}
+      ipv6: ${IP6}
+    mac: ${MAC}
