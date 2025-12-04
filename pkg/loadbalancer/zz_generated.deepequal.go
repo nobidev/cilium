@@ -15,7 +15,7 @@ func (in *BackendParams) deepEqual(other *BackendParams) bool {
 		return false
 	}
 
-	if !in.Address.DeepEqual(&other.Address) {
+	if in.Address != other.Address {
 		return false
 	}
 

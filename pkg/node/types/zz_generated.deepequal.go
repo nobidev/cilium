@@ -41,7 +41,7 @@ func (in *Node) DeepEqual(other *Node) bool {
 	if (in.IPv4AllocCIDR == nil) != (other.IPv4AllocCIDR == nil) {
 		return false
 	} else if in.IPv4AllocCIDR != nil {
-		if !in.IPv4AllocCIDR.DeepEqual(other.IPv4AllocCIDR) {
+		if *in.IPv4AllocCIDR != *other.IPv4AllocCIDR {
 			return false
 		}
 	}
@@ -56,7 +56,7 @@ func (in *Node) DeepEqual(other *Node) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual((*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -66,7 +66,7 @@ func (in *Node) DeepEqual(other *Node) bool {
 	if (in.IPv6AllocCIDR == nil) != (other.IPv6AllocCIDR == nil) {
 		return false
 	} else if in.IPv6AllocCIDR != nil {
-		if !in.IPv6AllocCIDR.DeepEqual(other.IPv6AllocCIDR) {
+		if *in.IPv6AllocCIDR != *other.IPv6AllocCIDR {
 			return false
 		}
 	}
@@ -81,7 +81,7 @@ func (in *Node) DeepEqual(other *Node) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual((*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}

@@ -68,7 +68,7 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}

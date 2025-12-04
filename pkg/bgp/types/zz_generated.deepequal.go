@@ -48,7 +48,7 @@ func (in *RoutePolicy) DeepEqual(other *RoutePolicy) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual((*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -130,7 +130,7 @@ func (in *RoutePolicyActions) DeepEqual(other *RoutePolicyActions) bool {
 	if (in.NextHop == nil) != (other.NextHop == nil) {
 		return false
 	} else if in.NextHop != nil {
-		if !in.NextHop.DeepEqual(other.NextHop) {
+		if *in.NextHop != *other.NextHop {
 			return false
 		}
 	}
@@ -171,7 +171,7 @@ func (in *RoutePolicyConditions) DeepEqual(other *RoutePolicyConditions) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -232,7 +232,7 @@ func (in *RoutePolicyPrefixMatch) DeepEqual(other *RoutePolicyPrefixMatch) bool 
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}

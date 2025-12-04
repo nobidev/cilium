@@ -86,7 +86,7 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if (in.AllocCIDRIPv4 == nil) != (other.AllocCIDRIPv4 == nil) {
 		return false
 	} else if in.AllocCIDRIPv4 != nil {
-		if !in.AllocCIDRIPv4.DeepEqual(other.AllocCIDRIPv4) {
+		if *in.AllocCIDRIPv4 != *other.AllocCIDRIPv4 {
 			return false
 		}
 	}
@@ -94,7 +94,7 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if (in.AllocCIDRIPv6 == nil) != (other.AllocCIDRIPv6 == nil) {
 		return false
 	} else if in.AllocCIDRIPv6 != nil {
-		if !in.AllocCIDRIPv6.DeepEqual(other.AllocCIDRIPv6) {
+		if *in.AllocCIDRIPv6 != *other.AllocCIDRIPv6 {
 			return false
 		}
 	}
@@ -102,7 +102,7 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if (in.NativeRoutingCIDRIPv4 == nil) != (other.NativeRoutingCIDRIPv4 == nil) {
 		return false
 	} else if in.NativeRoutingCIDRIPv4 != nil {
-		if !in.NativeRoutingCIDRIPv4.DeepEqual(other.NativeRoutingCIDRIPv4) {
+		if *in.NativeRoutingCIDRIPv4 != *other.NativeRoutingCIDRIPv4 {
 			return false
 		}
 	}
@@ -110,7 +110,7 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if (in.NativeRoutingCIDRIPv6 == nil) != (other.NativeRoutingCIDRIPv6 == nil) {
 		return false
 	} else if in.NativeRoutingCIDRIPv6 != nil {
-		if !in.NativeRoutingCIDRIPv6.DeepEqual(other.NativeRoutingCIDRIPv6) {
+		if *in.NativeRoutingCIDRIPv6 != *other.NativeRoutingCIDRIPv6 {
 			return false
 		}
 	}
@@ -159,7 +159,7 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual((*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -184,7 +184,7 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -216,7 +216,7 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual((*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -263,7 +263,7 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual((*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -280,7 +280,7 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual((*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}

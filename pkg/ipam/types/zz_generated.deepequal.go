@@ -39,7 +39,7 @@ func (in *AllocationMap) DeepEqual(other *AllocationMap) bool {
 			if otherValue, present := (*other)[key]; !present {
 				return false
 			} else {
-				if !inValue.DeepEqual(&otherValue) {
+				if inValue != otherValue {
 					return false
 				}
 			}
@@ -130,7 +130,7 @@ func (in *IPAMPoolSpec) DeepEqual(other *IPAMPoolSpec) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -370,7 +370,7 @@ func (in *PodCIDRMap) DeepEqual(other *PodCIDRMap) bool {
 			if otherValue, present := (*other)[key]; !present {
 				return false
 			} else {
-				if !inValue.DeepEqual(&otherValue) {
+				if inValue != otherValue {
 					return false
 				}
 			}
@@ -428,7 +428,7 @@ func (in *PoolQuotaMap) DeepEqual(other *PoolQuotaMap) bool {
 			if otherValue, present := (*other)[key]; !present {
 				return false
 			} else {
-				if !inValue.DeepEqual(&otherValue) {
+				if inValue != otherValue {
 					return false
 				}
 			}
@@ -469,7 +469,7 @@ func (in *RouteTableMap) DeepEqual(other *RouteTableMap) bool {
 			if otherValue, present := (*other)[key]; !present {
 				return false
 			} else {
-				if !inValue.DeepEqual(otherValue) {
+				if inValue != otherValue {
 					return false
 				}
 			}
@@ -493,7 +493,7 @@ func (in *SubnetMap) DeepEqual(other *SubnetMap) bool {
 			if otherValue, present := (*other)[key]; !present {
 				return false
 			} else {
-				if !inValue.DeepEqual(otherValue) {
+				if inValue != otherValue {
 					return false
 				}
 			}
@@ -591,7 +591,7 @@ func (in *VirtualNetworkMap) DeepEqual(other *VirtualNetworkMap) bool {
 			if otherValue, present := (*other)[key]; !present {
 				return false
 			} else {
-				if !inValue.DeepEqual(otherValue) {
+				if inValue != otherValue {
 					return false
 				}
 			}

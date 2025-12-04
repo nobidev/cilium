@@ -49,7 +49,7 @@ func (in *LocalNodeInfo) DeepEqual(other *LocalNodeInfo) bool {
 	if (in.IPv4NativeRoutingCIDR == nil) != (other.IPv4NativeRoutingCIDR == nil) {
 		return false
 	} else if in.IPv4NativeRoutingCIDR != nil {
-		if !in.IPv4NativeRoutingCIDR.DeepEqual(other.IPv4NativeRoutingCIDR) {
+		if *in.IPv4NativeRoutingCIDR != *other.IPv4NativeRoutingCIDR {
 			return false
 		}
 	}
@@ -57,7 +57,7 @@ func (in *LocalNodeInfo) DeepEqual(other *LocalNodeInfo) bool {
 	if (in.IPv6NativeRoutingCIDR == nil) != (other.IPv6NativeRoutingCIDR == nil) {
 		return false
 	} else if in.IPv6NativeRoutingCIDR != nil {
-		if !in.IPv6NativeRoutingCIDR.DeepEqual(other.IPv6NativeRoutingCIDR) {
+		if *in.IPv6NativeRoutingCIDR != *other.IPv6NativeRoutingCIDR {
 			return false
 		}
 	}

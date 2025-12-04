@@ -56,7 +56,7 @@ func (in *FQDNSelector) DeepEqual(other *FQDNSelector) bool {
 		return false
 	}
 
-	if !in.label.DeepEqual(&other.label) {
+	if in.label != other.label {
 		return false
 	}
 
@@ -134,7 +134,7 @@ func (in *PolicyEntry) DeepEqual(other *PolicyEntry) bool {
 	if (in.Authentication == nil) != (other.Authentication == nil) {
 		return false
 	} else if in.Authentication != nil {
-		if !in.Authentication.DeepEqual(other.Authentication) {
+		if *in.Authentication != *other.Authentication {
 			return false
 		}
 	}
@@ -195,7 +195,7 @@ func (in *Requirement) DeepEqual(other *Requirement) bool {
 		return false
 	}
 
-	if !in.key.DeepEqual(&other.key) {
+	if in.key != other.key {
 		return false
 	}
 

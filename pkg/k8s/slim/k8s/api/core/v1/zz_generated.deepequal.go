@@ -69,7 +69,7 @@ func (in *Container) DeepEqual(other *Container) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -86,7 +86,7 @@ func (in *Container) DeepEqual(other *Container) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -132,7 +132,7 @@ func (in *ContainerState) DeepEqual(other *ContainerState) bool {
 	if (in.Running == nil) != (other.Running == nil) {
 		return false
 	} else if in.Running != nil {
-		if !in.Running.DeepEqual(other.Running) {
+		if *in.Running != *other.Running {
 			return false
 		}
 	}
@@ -147,7 +147,7 @@ func (in *ContainerStateRunning) DeepEqual(other *ContainerStateRunning) bool {
 		return false
 	}
 
-	if !in.StartedAt.DeepEqual(&other.StartedAt) {
+	if in.StartedAt != other.StartedAt {
 		return false
 	}
 
@@ -161,7 +161,7 @@ func (in *ContainerStatus) DeepEqual(other *ContainerStatus) bool {
 		return false
 	}
 
-	if !in.State.DeepEqual(&other.State) {
+	if in.State != other.State {
 		return false
 	}
 
@@ -240,7 +240,7 @@ func (in *EndpointSubset) DeepEqual(other *EndpointSubset) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -257,7 +257,7 @@ func (in *EndpointSubset) DeepEqual(other *EndpointSubset) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -313,7 +313,7 @@ func (in *EndpointsList) DeepEqual(other *EndpointsList) bool {
 		return false
 	}
 
-	if !in.ListMeta.DeepEqual(&other.ListMeta) {
+	if in.ListMeta != other.ListMeta {
 		return false
 	}
 
@@ -368,7 +368,7 @@ func (in *LoadBalancerIngress) DeepEqual(other *LoadBalancerIngress) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -434,7 +434,7 @@ func (in *NamespaceList) DeepEqual(other *NamespaceList) bool {
 		return false
 	}
 
-	if !in.ListMeta.DeepEqual(&other.ListMeta) {
+	if in.ListMeta != other.ListMeta {
 		return false
 	}
 
@@ -532,7 +532,7 @@ func (in *NodeList) DeepEqual(other *NodeList) bool {
 		return false
 	}
 
-	if !in.ListMeta.DeepEqual(&other.ListMeta) {
+	if in.ListMeta != other.ListMeta {
 		return false
 	}
 
@@ -596,7 +596,7 @@ func (in *NodeSpec) DeepEqual(other *NodeSpec) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -623,7 +623,7 @@ func (in *NodeStatus) DeepEqual(other *NodeStatus) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -640,7 +640,7 @@ func (in *NodeStatus) DeepEqual(other *NodeStatus) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -689,11 +689,11 @@ func (in *PodCondition) DeepEqual(other *PodCondition) bool {
 	if in.Status != other.Status {
 		return false
 	}
-	if !in.LastProbeTime.DeepEqual(&other.LastProbeTime) {
+	if in.LastProbeTime != other.LastProbeTime {
 		return false
 	}
 
-	if !in.LastTransitionTime.DeepEqual(&other.LastTransitionTime) {
+	if in.LastTransitionTime != other.LastTransitionTime {
 		return false
 	}
 
@@ -732,7 +732,7 @@ func (in *PodList) DeepEqual(other *PodList) bool {
 		return false
 	}
 
-	if !in.ListMeta.DeepEqual(&other.ListMeta) {
+	if in.ListMeta != other.ListMeta {
 		return false
 	}
 
@@ -844,7 +844,7 @@ func (in *PodStatus) DeepEqual(other *PodStatus) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -867,7 +867,7 @@ func (in *PodStatus) DeepEqual(other *PodStatus) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -877,7 +877,7 @@ func (in *PodStatus) DeepEqual(other *PodStatus) bool {
 	if (in.StartTime == nil) != (other.StartTime == nil) {
 		return false
 	} else if in.StartTime != nil {
-		if !in.StartTime.DeepEqual(other.StartTime) {
+		if *in.StartTime != *other.StartTime {
 			return false
 		}
 	}
@@ -892,7 +892,7 @@ func (in *PodStatus) DeepEqual(other *PodStatus) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -1013,7 +1013,7 @@ func (in *SecretList) DeepEqual(other *SecretList) bool {
 		return false
 	}
 
-	if !in.ListMeta.DeepEqual(&other.ListMeta) {
+	if in.ListMeta != other.ListMeta {
 		return false
 	}
 
@@ -1074,7 +1074,7 @@ func (in *ServiceList) DeepEqual(other *ServiceList) bool {
 		return false
 	}
 
-	if !in.ListMeta.DeepEqual(&other.ListMeta) {
+	if in.ListMeta != other.ListMeta {
 		return false
 	}
 
@@ -1150,7 +1150,7 @@ func (in *ServiceSpec) DeepEqual(other *ServiceSpec) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -1250,7 +1250,7 @@ func (in *ServiceSpec) DeepEqual(other *ServiceSpec) bool {
 	if (in.SessionAffinityConfig == nil) != (other.SessionAffinityConfig == nil) {
 		return false
 	} else if in.SessionAffinityConfig != nil {
-		if !in.SessionAffinityConfig.DeepEqual(other.SessionAffinityConfig) {
+		if *in.SessionAffinityConfig != *other.SessionAffinityConfig {
 			return false
 		}
 	}
@@ -1328,7 +1328,7 @@ func (in *ServiceStatus) DeepEqual(other *ServiceStatus) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -1348,7 +1348,7 @@ func (in *SessionAffinityConfig) DeepEqual(other *SessionAffinityConfig) bool {
 	if (in.ClientIP == nil) != (other.ClientIP == nil) {
 		return false
 	} else if in.ClientIP != nil {
-		if !in.ClientIP.DeepEqual(other.ClientIP) {
+		if *in.ClientIP != *other.ClientIP {
 			return false
 		}
 	}
@@ -1375,7 +1375,7 @@ func (in *Taint) DeepEqual(other *Taint) bool {
 	if (in.TimeAdded == nil) != (other.TimeAdded == nil) {
 		return false
 	} else if in.TimeAdded != nil {
-		if !in.TimeAdded.DeepEqual(other.TimeAdded) {
+		if *in.TimeAdded != *other.TimeAdded {
 			return false
 		}
 	}

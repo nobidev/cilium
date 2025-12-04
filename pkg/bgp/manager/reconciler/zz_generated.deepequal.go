@@ -18,7 +18,7 @@ func (in *PeerData) DeepEqual(other *PeerData) bool {
 	if (in.Peer == nil) != (other.Peer == nil) {
 		return false
 	} else if in.Peer != nil {
-		if !in.Peer.DeepEqual(other.Peer) {
+		if *in.Peer != *other.Peer {
 			return false
 		}
 	}

@@ -77,7 +77,7 @@ func (in *NetworkPolicyEgressRule) DeepEqual(other *NetworkPolicyEgressRule) boo
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -94,7 +94,7 @@ func (in *NetworkPolicyEgressRule) DeepEqual(other *NetworkPolicyEgressRule) boo
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -121,7 +121,7 @@ func (in *NetworkPolicyIngressRule) DeepEqual(other *NetworkPolicyIngressRule) b
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -138,7 +138,7 @@ func (in *NetworkPolicyIngressRule) DeepEqual(other *NetworkPolicyIngressRule) b
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -159,7 +159,7 @@ func (in *NetworkPolicyList) DeepEqual(other *NetworkPolicyList) bool {
 		return false
 	}
 
-	if !in.ListMeta.DeepEqual(&other.ListMeta) {
+	if in.ListMeta != other.ListMeta {
 		return false
 	}
 
@@ -235,7 +235,7 @@ func (in *NetworkPolicyPort) DeepEqual(other *NetworkPolicyPort) bool {
 	if (in.Port == nil) != (other.Port == nil) {
 		return false
 	} else if in.Port != nil {
-		if !in.Port.DeepEqual(other.Port) {
+		if *in.Port != *other.Port {
 			return false
 		}
 	}

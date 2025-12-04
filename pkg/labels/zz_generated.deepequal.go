@@ -63,7 +63,7 @@ func (in *LabelArray) DeepEqual(other *LabelArray) bool {
 		return false
 	} else {
 		for i, inElement := range *in {
-			if !inElement.DeepEqual(&(*other)[i]) {
+			if inElement != (*other)[i] {
 				return false
 			}
 		}
@@ -106,7 +106,7 @@ func (in *Labels) DeepEqual(other *Labels) bool {
 			if otherValue, present := (*other)[key]; !present {
 				return false
 			} else {
-				if !inValue.DeepEqual(&otherValue) {
+				if inValue != otherValue {
 					return false
 				}
 			}

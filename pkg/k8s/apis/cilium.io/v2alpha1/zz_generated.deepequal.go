@@ -37,7 +37,7 @@ func (in *BGPAdvertisement) DeepEqual(other *BGPAdvertisement) bool {
 	if (in.Attributes == nil) != (other.Attributes == nil) {
 		return false
 	} else if in.Attributes != nil {
-		if !in.Attributes.DeepEqual(other.Attributes) {
+		if *in.Attributes != *other.Attributes {
 			return false
 		}
 	}
@@ -238,7 +238,7 @@ func (in *CiliumBGPAdvertisementSpec) DeepEqual(other *CiliumBGPAdvertisementSpe
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -386,7 +386,7 @@ func (in *CiliumBGPInstance) DeepEqual(other *CiliumBGPInstance) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -471,7 +471,7 @@ func (in *CiliumBGPNodeConfigInstanceOverride) DeepEqual(other *CiliumBGPNodeCon
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -603,7 +603,7 @@ func (in *CiliumBGPNodeInstance) DeepEqual(other *CiliumBGPNodeInstance) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -688,7 +688,7 @@ func (in *CiliumBGPNodePeer) DeepEqual(other *CiliumBGPNodePeer) bool {
 	if (in.PeerConfigRef == nil) != (other.PeerConfigRef == nil) {
 		return false
 	} else if in.PeerConfigRef != nil {
-		if !in.PeerConfigRef.DeepEqual(other.PeerConfigRef) {
+		if *in.PeerConfigRef != *other.PeerConfigRef {
 			return false
 		}
 	}
@@ -728,7 +728,7 @@ func (in *CiliumBGPNodePeerStatus) DeepEqual(other *CiliumBGPNodePeerStatus) boo
 	if (in.Timers == nil) != (other.Timers == nil) {
 		return false
 	} else if in.Timers != nil {
-		if !in.Timers.DeepEqual(other.Timers) {
+		if *in.Timers != *other.Timers {
 			return false
 		}
 	}
@@ -751,7 +751,7 @@ func (in *CiliumBGPNodePeerStatus) DeepEqual(other *CiliumBGPNodePeerStatus) boo
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -844,7 +844,7 @@ func (in *CiliumBGPPeer) DeepEqual(other *CiliumBGPPeer) bool {
 	if (in.PeerConfigRef == nil) != (other.PeerConfigRef == nil) {
 		return false
 	} else if in.PeerConfigRef != nil {
-		if !in.PeerConfigRef.DeepEqual(other.PeerConfigRef) {
+		if *in.PeerConfigRef != *other.PeerConfigRef {
 			return false
 		}
 	}
@@ -880,7 +880,7 @@ func (in *CiliumBGPPeerConfigSpec) DeepEqual(other *CiliumBGPPeerConfigSpec) boo
 	if (in.Transport == nil) != (other.Transport == nil) {
 		return false
 	} else if in.Transport != nil {
-		if !in.Transport.DeepEqual(other.Transport) {
+		if *in.Transport != *other.Transport {
 			return false
 		}
 	}
@@ -888,7 +888,7 @@ func (in *CiliumBGPPeerConfigSpec) DeepEqual(other *CiliumBGPPeerConfigSpec) boo
 	if (in.Timers == nil) != (other.Timers == nil) {
 		return false
 	} else if in.Timers != nil {
-		if !in.Timers.DeepEqual(other.Timers) {
+		if *in.Timers != *other.Timers {
 			return false
 		}
 	}
@@ -904,7 +904,7 @@ func (in *CiliumBGPPeerConfigSpec) DeepEqual(other *CiliumBGPPeerConfigSpec) boo
 	if (in.GracefulRestart == nil) != (other.GracefulRestart == nil) {
 		return false
 	} else if in.GracefulRestart != nil {
-		if !in.GracefulRestart.DeepEqual(other.GracefulRestart) {
+		if *in.GracefulRestart != *other.GracefulRestart {
 			return false
 		}
 	}
@@ -927,7 +927,7 @@ func (in *CiliumBGPPeerConfigSpec) DeepEqual(other *CiliumBGPPeerConfigSpec) boo
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -1097,7 +1097,7 @@ func (in *CiliumGatewayClassConfig) DeepEqual(other *CiliumGatewayClassConfig) b
 		return false
 	}
 
-	if !in.Spec.DeepEqual(&other.Spec) {
+	if in.Spec != other.Spec {
 		return false
 	}
 
@@ -1255,7 +1255,7 @@ func (in *CiliumLoadBalancerIPPoolSpec) DeepEqual(other *CiliumLoadBalancerIPPoo
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -1276,7 +1276,7 @@ func (in *CiliumPodIPPool) DeepEqual(other *CiliumPodIPPool) bool {
 		return false
 	}
 
-	if !in.Spec.DeepEqual(&other.Spec) {
+	if in.Spec != other.Spec {
 		return false
 	}
 

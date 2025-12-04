@@ -55,7 +55,7 @@ func (in *Parser) DeepEqual(other *Parser) bool {
 	if (in.l == nil) != (other.l == nil) {
 		return false
 	} else if in.l != nil {
-		if !in.l.DeepEqual(other.l) {
+		if *in.l != *other.l {
 			return false
 		}
 	}
@@ -70,7 +70,7 @@ func (in *Parser) DeepEqual(other *Parser) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}

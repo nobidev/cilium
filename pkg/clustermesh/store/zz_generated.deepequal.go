@@ -22,7 +22,7 @@ func (in *PortConfiguration) DeepEqual(other *PortConfiguration) bool {
 			if otherValue, present := (*other)[key]; !present {
 				return false
 			} else {
-				if !inValue.DeepEqual(otherValue) {
+				if inValue != otherValue {
 					return false
 				}
 			}

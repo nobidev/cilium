@@ -104,7 +104,7 @@ func (in *CIDRRule) DeepEqual(other *CIDRRule) bool {
 	if in.CIDRGroupRef != other.CIDRGroupRef {
 		return false
 	}
-	if !in.CIDRGroupSelector.DeepEqual(&other.CIDRGroupSelector) {
+	if in.CIDRGroupSelector != other.CIDRGroupSelector {
 		return false
 	}
 
@@ -215,7 +215,7 @@ func (in *EgressCommonRule) deepEqual(other *EgressCommonRule) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -253,7 +253,7 @@ func (in *EgressCommonRule) deepEqual(other *EgressCommonRule) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -270,7 +270,7 @@ func (in *EgressCommonRule) deepEqual(other *EgressCommonRule) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -287,7 +287,7 @@ func (in *EgressCommonRule) deepEqual(other *EgressCommonRule) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -360,7 +360,7 @@ func (in *EgressRule) DeepEqual(other *EgressRule) bool {
 	if (in.Authentication == nil) != (other.Authentication == nil) {
 		return false
 	} else if in.Authentication != nil {
-		if !in.Authentication.DeepEqual(other.Authentication) {
+		if *in.Authentication != *other.Authentication {
 			return false
 		}
 	}
@@ -407,7 +407,7 @@ func (in *EndpointSelectorSlice) DeepEqual(other *EndpointSelectorSlice) bool {
 		return false
 	} else {
 		for i, inElement := range *in {
-			if !inElement.DeepEqual(&(*other)[i]) {
+			if inElement != (*other)[i] {
 				return false
 			}
 		}
@@ -481,7 +481,7 @@ func (in *FQDNSelectorSlice) DeepEqual(other *FQDNSelectorSlice) bool {
 		return false
 	} else {
 		for i, inElement := range *in {
-			if !inElement.DeepEqual(&(*other)[i]) {
+			if inElement != (*other)[i] {
 				return false
 			}
 		}
@@ -524,7 +524,7 @@ func (in *HeaderMatch) DeepEqual(other *HeaderMatch) bool {
 	if (in.Secret == nil) != (other.Secret == nil) {
 		return false
 	} else if in.Secret != nil {
-		if !in.Secret.DeepEqual(other.Secret) {
+		if *in.Secret != *other.Secret {
 			return false
 		}
 	}
@@ -567,7 +567,7 @@ func (in *ICMPRule) DeepEqual(other *ICMPRule) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -614,7 +614,7 @@ func (in *IngressCommonRule) deepEqual(other *IngressCommonRule) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -652,7 +652,7 @@ func (in *IngressCommonRule) deepEqual(other *IngressCommonRule) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -669,7 +669,7 @@ func (in *IngressCommonRule) deepEqual(other *IngressCommonRule) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -735,7 +735,7 @@ func (in *IngressRule) DeepEqual(other *IngressRule) bool {
 	if (in.Authentication == nil) != (other.Authentication == nil) {
 		return false
 	} else if in.Authentication != nil {
-		if !in.Authentication.DeepEqual(other.Authentication) {
+		if *in.Authentication != *other.Authentication {
 			return false
 		}
 	}
@@ -767,7 +767,7 @@ func (in *K8sServiceSelectorNamespace) DeepEqual(other *K8sServiceSelectorNamesp
 		return false
 	}
 
-	if !in.Selector.DeepEqual(&other.Selector) {
+	if in.Selector != other.Selector {
 		return false
 	}
 
@@ -802,7 +802,7 @@ func (in *L7Rules) DeepEqual(other *L7Rules) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -839,7 +839,7 @@ func (in *Listener) DeepEqual(other *Listener) bool {
 	if (in.EnvoyConfig == nil) != (other.EnvoyConfig == nil) {
 		return false
 	} else if in.EnvoyConfig != nil {
-		if !in.EnvoyConfig.DeepEqual(other.EnvoyConfig) {
+		if *in.EnvoyConfig != *other.EnvoyConfig {
 			return false
 		}
 	}
@@ -885,7 +885,7 @@ func (in *PortDenyRule) DeepEqual(other *PortDenyRule) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -952,7 +952,7 @@ func (in *PortRule) DeepEqual(other *PortRule) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -962,7 +962,7 @@ func (in *PortRule) DeepEqual(other *PortRule) bool {
 	if (in.TerminatingTLS == nil) != (other.TerminatingTLS == nil) {
 		return false
 	} else if in.TerminatingTLS != nil {
-		if !in.TerminatingTLS.DeepEqual(other.TerminatingTLS) {
+		if *in.TerminatingTLS != *other.TerminatingTLS {
 			return false
 		}
 	}
@@ -970,7 +970,7 @@ func (in *PortRule) DeepEqual(other *PortRule) bool {
 	if (in.OriginatingTLS == nil) != (other.OriginatingTLS == nil) {
 		return false
 	} else if in.OriginatingTLS != nil {
-		if !in.OriginatingTLS.DeepEqual(other.OriginatingTLS) {
+		if *in.OriginatingTLS != *other.OriginatingTLS {
 			return false
 		}
 	}
@@ -995,7 +995,7 @@ func (in *PortRule) DeepEqual(other *PortRule) bool {
 	if (in.Listener == nil) != (other.Listener == nil) {
 		return false
 	} else if in.Listener != nil {
-		if !in.Listener.DeepEqual(other.Listener) {
+		if *in.Listener != *other.Listener {
 			return false
 		}
 	}
@@ -1071,7 +1071,7 @@ func (in *PortRuleHTTP) DeepEqual(other *PortRuleHTTP) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual((*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -1138,7 +1138,7 @@ func (in *PortRulesDNS) DeepEqual(other *PortRulesDNS) bool {
 		for _, inElement := range *in {
 			found := false
 			for _, otherElement := range *other {
-				if inElement.DeepEqual(&otherElement) {
+				if inElement == otherElement {
 					found = true
 					break
 				}
@@ -1213,11 +1213,11 @@ func (in *Rule) deepEqual(other *Rule) bool {
 		return false
 	}
 
-	if !in.EndpointSelector.DeepEqual(&other.EndpointSelector) {
+	if in.EndpointSelector != other.EndpointSelector {
 		return false
 	}
 
-	if !in.NodeSelector.DeepEqual(&other.NodeSelector) {
+	if in.NodeSelector != other.NodeSelector {
 		return false
 	}
 
@@ -1296,7 +1296,7 @@ func (in *Rule) deepEqual(other *Rule) bool {
 		}
 	}
 
-	if !in.EnableDefaultDeny.DeepEqual(&other.EnableDefaultDeny) {
+	if in.EnableDefaultDeny != other.EnableDefaultDeny {
 		return false
 	}
 
@@ -1321,7 +1321,7 @@ func (in *Rules) deepEqual(other *Rules) bool {
 		return false
 	} else {
 		for i, inElement := range *in {
-			if !inElement.DeepEqual((*other)[i]) {
+			if inElement != (*other)[i] {
 				return false
 			}
 		}
@@ -1357,7 +1357,7 @@ func (in *Service) DeepEqual(other *Service) bool {
 	if (in.K8sServiceSelector == nil) != (other.K8sServiceSelector == nil) {
 		return false
 	} else if in.K8sServiceSelector != nil {
-		if !in.K8sServiceSelector.DeepEqual(other.K8sServiceSelector) {
+		if *in.K8sServiceSelector != *other.K8sServiceSelector {
 			return false
 		}
 	}
@@ -1365,7 +1365,7 @@ func (in *Service) DeepEqual(other *Service) bool {
 	if (in.K8sService == nil) != (other.K8sService == nil) {
 		return false
 	} else if in.K8sService != nil {
-		if !in.K8sService.DeepEqual(other.K8sService) {
+		if *in.K8sService != *other.K8sService {
 			return false
 		}
 	}
@@ -1411,7 +1411,7 @@ func (in *TLSContext) DeepEqual(other *TLSContext) bool {
 	if (in.Secret == nil) != (other.Secret == nil) {
 		return false
 	} else if in.Secret != nil {
-		if !in.Secret.DeepEqual(other.Secret) {
+		if *in.Secret != *other.Secret {
 			return false
 		}
 	}

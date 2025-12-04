@@ -34,7 +34,7 @@ func (in *CiliumEndpoint) deepEqual(other *CiliumEndpoint) bool {
 	if (in.Encryption == nil) != (other.Encryption == nil) {
 		return false
 	} else if in.Encryption != nil {
-		if !in.Encryption.DeepEqual(other.Encryption) {
+		if *in.Encryption != *other.Encryption {
 			return false
 		}
 	}

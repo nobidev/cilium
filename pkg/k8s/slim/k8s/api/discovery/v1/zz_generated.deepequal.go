@@ -32,7 +32,7 @@ func (in *Endpoint) DeepEqual(other *Endpoint) bool {
 		}
 	}
 
-	if !in.Conditions.DeepEqual(&other.Conditions) {
+	if in.Conditions != other.Conditions {
 		return false
 	}
 
@@ -143,7 +143,7 @@ func (in *EndpointHints) DeepEqual(other *EndpointHints) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -240,7 +240,7 @@ func (in *EndpointSlice) DeepEqual(other *EndpointSlice) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -261,7 +261,7 @@ func (in *EndpointSliceList) DeepEqual(other *EndpointSliceList) bool {
 		return false
 	}
 
-	if !in.ListMeta.DeepEqual(&other.ListMeta) {
+	if in.ListMeta != other.ListMeta {
 		return false
 	}
 

@@ -40,7 +40,7 @@ func (in *Endpoints) deepEqual(other *Endpoints) bool {
 				if otherValue, present := (*other)[key]; !present {
 					return false
 				} else {
-					if !inValue.DeepEqual(otherValue) {
+					if inValue != otherValue {
 						return false
 					}
 				}

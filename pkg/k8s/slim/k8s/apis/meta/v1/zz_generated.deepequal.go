@@ -24,7 +24,7 @@ func (in *Condition) DeepEqual(other *Condition) bool {
 	if in.ObservedGeneration != other.ObservedGeneration {
 		return false
 	}
-	if !in.LastTransitionTime.DeepEqual(&other.LastTransitionTime) {
+	if in.LastTransitionTime != other.LastTransitionTime {
 		return false
 	}
 
@@ -168,7 +168,7 @@ func (in *ObjectMeta) DeepEqual(other *ObjectMeta) bool {
 	if (in.DeletionTimestamp == nil) != (other.DeletionTimestamp == nil) {
 		return false
 	} else if in.DeletionTimestamp != nil {
-		if !in.DeletionTimestamp.DeepEqual(other.DeletionTimestamp) {
+		if *in.DeletionTimestamp != *other.DeletionTimestamp {
 			return false
 		}
 	}
@@ -225,7 +225,7 @@ func (in *ObjectMeta) DeepEqual(other *ObjectMeta) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
+				if inElement != (*other)[i] {
 					return false
 				}
 			}
@@ -294,7 +294,7 @@ func (in *PartialObjectMetadataList) DeepEqual(other *PartialObjectMetadataList)
 		return false
 	}
 
-	if !in.ListMeta.DeepEqual(&other.ListMeta) {
+	if in.ListMeta != other.ListMeta {
 		return false
 	}
 
