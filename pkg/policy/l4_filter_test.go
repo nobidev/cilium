@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -44,8 +45,9 @@ var (
 )
 
 type testData struct {
-	sc   *SelectorCache
-	repo *Repository
+	sc              *SelectorCache
+	repo            *Repository
+	identityManager identitymanager.IDManager
 
 	idSet set.Set[identity.NumericIdentity]
 
@@ -71,9 +73,11 @@ type testData struct {
 
 func newTestData(logger *slog.Logger) *testData {
 
+	idMgr := identitymanager.NewIDManager(logger)
 	td := &testData{
+		identityManager:   idMgr,
 		sc:                testNewSelectorCache(logger, nil),
-		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), nil, testpolicy.NewPolicyMetricsNoop()),
+		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), idMgr, testpolicy.NewPolicyMetricsNoop()),
 		idSet:             set.NewSet[identity.NumericIdentity](),
 		testPolicyContext: &testPolicyContextType{logger: logger},
 	}
@@ -101,6 +105,10 @@ func newTestData(logger *slog.Logger) *testData {
 	td.cachedSelectorWorld = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorld][0], identity.ReservedIdentityWorld)
 	td.cachedSelectorWorldV4 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv4][0], identity.ReservedIdentityWorldIPv4)
 	td.cachedSelectorWorldV6 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv6][0], identity.ReservedIdentityWorldIPv6)
+
+	td.repo.policyCache.insert(idA)
+	td.repo.policyCache.insert(idB)
+	td.repo.policyCache.insert(idC)
 
 	return td
 }
@@ -268,7 +276,7 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(utils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
+	td.repo.ReplaceByResource(utils.RulesToPolicyEntries(rules), "dummy-resource")
 
 	// Resolve the Selector policy for test identity
 	td.repo.mutex.RLock()
@@ -307,7 +315,7 @@ func (td *testData) policyInvalid(t *testing.T, errStr string, rules ...*api.Rul
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(utils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
+	td.repo.ReplaceByResource(utils.RulesToPolicyEntries(rules), "dummy-resource")
 
 	_, err := td.repo.resolvePolicyLocked(idA)
 	require.Error(t, err)
@@ -324,7 +332,7 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(utils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
+	td.repo.ReplaceByResource(utils.RulesToPolicyEntries(rules), "dummy-resource")
 
 	_, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)

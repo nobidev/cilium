@@ -58,6 +58,8 @@ Gunawardena
 Holzheu
 Huapeng
 Hypercalls
+ICMP
+ICMPv6
 IPcache
 IPsec
 IPv
@@ -524,6 +526,7 @@ linux
 linuxconf
 listenAddress
 listers
+literalinclude
 liveblog
 liveness
 llc

@@ -108,6 +108,7 @@ jobs:
         CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
           --helm-set=bpf.masquerade=false \
           --helm-set=clustermesh.useAPIServer=true \
+          --helm-set=clustermesh.config.enabled=true \
           --helm-set=enterprise.clustermesh.enableOverlappingPodCIDRSupport=true \
           --helm-set=socketLB.enabled=true \
           --helm-set=socketLB.hostNamespaceOnly=true \

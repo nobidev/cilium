@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
@@ -120,10 +121,10 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 
 	ds.hive = hive.New(
 		cell.Provide(
-			func(log *slog.Logger) k8sClient.Clientset {
+			func(log *slog.Logger) (k8sClient.Clientset, k8sClient.Config) {
 				cs, _ := k8sFakeClient.NewFakeClientset(log)
 				cs.Disable()
-				return cs
+				return cs, cs.Config()
 			},
 			func() kvstore.Config { return kvstore.Config{KVStore: kvstore.EtcdBackendName} },
 			func() kvstore.Client { return client },
@@ -247,7 +248,8 @@ func (ds *DaemonSuite) setupConfigOptions() {
 // convenience wrapper that adds a single policy
 func (ds *DaemonSuite) policyImport(rules policyAPI.Rules) {
 	ds.updatePolicy(&policyTypes.PolicyUpdate{
-		Rules: policyUtils.RulesToPolicyEntries(rules),
+		Rules:    policyUtils.RulesToPolicyEntries(rules),
+		Resource: ipcachetypes.ResourceID("policy"),
 	})
 }
 

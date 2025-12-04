@@ -33,6 +33,7 @@ type IterateCallback func(*Key, *Values)
 // mock maps for unit tests.
 type MetricsMap interface {
 	IterateWithCallback(IterateCallback) error
+	Delete(*Key) error
 }
 
 type metricsMap struct {
@@ -57,7 +58,7 @@ const (
 	MaxEntries = 1024
 	// dirIngress and dirEgress values should match with
 	// METRIC_INGRESS, METRIC_EGRESS and METRIC_SERVICE
-	// in bpf/lib/common.h
+	// in bpf/lib/metrics.h
 	dirUnknown = 0
 	dirIngress = 1
 	dirEgress  = 2
@@ -78,7 +79,7 @@ var direction = map[uint8]string{
 	dirService: "SERVICE",
 }
 
-// Key must be in sync with struct metrics_key in <bpf/lib/common.h>
+// Key must be in sync with struct metrics_key in <bpf/lib/metrics.h>
 type Key struct {
 	Reason uint8 `align:"reason"`
 	Dir    uint8 `align:"dir"`
@@ -89,7 +90,7 @@ type Key struct {
 	Reserved [3]uint8 `align:"reserved"`
 }
 
-// Value must be in sync with struct metrics_value in <bpf/lib/common.h>
+// Value must be in sync with struct metrics_value in <bpf/lib/metrics.h>
 type Value struct {
 	Count uint64 `align:"count"`
 	Bytes uint64 `align:"bytes"`
@@ -106,6 +107,11 @@ func (m metricsMap) IterateWithCallback(cb IterateCallback) error {
 		values := v.(*Values)
 		cb(key, values)
 	})
+}
+
+// Delete removes the provided key from the map
+func (m metricsMap) Delete(key *Key) error {
+	return m.Map.Delete(key)
 }
 
 // MetricDirection gets the direction in human readable string format

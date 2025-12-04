@@ -54,20 +54,22 @@ func DecorateNameManager(pr policy.PolicyRepository, nm namemanager.NameManager,
 	return mw
 }
 
-func (w *namemanagerWrapper) RegisterFQDNSelector(selector api.FQDNSelector) {
-	w.NameManager.RegisterFQDNSelector(selector)
+func (w *namemanagerWrapper) RegisterFQDNSelector(selector api.FQDNSelector) uint64 {
+	val := w.NameManager.RegisterFQDNSelector(selector)
 
 	wtx := w.p.DB.WriteTxn(w.p.Table)
 	defer wtx.Abort()
 	w.p.Table.Insert(wtx, FQDNSelector(selector))
 	wtx.Commit()
+	return val
 }
 
-func (w *namemanagerWrapper) UnregisterFQDNSelector(selector api.FQDNSelector) {
-	w.NameManager.UnregisterFQDNSelector(selector)
+func (w *namemanagerWrapper) UnregisterFQDNSelector(selector api.FQDNSelector) uint64 {
+	val := w.NameManager.UnregisterFQDNSelector(selector)
 
 	wtx := w.p.DB.WriteTxn(w.p.Table)
 	defer wtx.Abort()
 	w.p.Table.Delete(wtx, FQDNSelector(selector))
 	wtx.Commit()
+	return val
 }

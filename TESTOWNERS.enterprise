@@ -114,6 +114,7 @@
 /daemon/cmd/endpoint* @isovalent/policy-identity-networking
 /daemon/cmd/policy* @isovalent/policy-identity-networking
 /daemon/cmd/cells*.go @isovalent/ci-structure
+/daemon/infraendpoints/ @isovalent/cni @isovalent/policy-identity-networking
 /Documentation/api.rst @isovalent/cni
 /Documentation/reference-guides/bpf/ @isovalent/cni
 /Documentation/reference-guides/xfrm/ @isovalent/encryption
@@ -167,11 +168,10 @@
 /images/builder/install-protoc.sh @isovalent/hubble-api
 /images/builder/install-protoplugins.sh @isovalent/hubble-api
 /images/hubble-relay @isovalent/hubble
-/install/kubernetes/ @isovalent/sig-k8s
-/install/kubernetes/cilium/**/cilium-envoy @isovalent/sig-k8s @isovalent/service-mesh @isovalent/service-mesh
-/install/kubernetes/cilium/**/spire @isovalent/sig-k8s @isovalent/service-mesh
-/install/kubernetes/cilium/templates/clustermesh* @isovalent/sig-k8s @isovalent/clustermesh
-/install/kubernetes/cilium/templates/hubble* @isovalent/sig-k8s @isovalent/hubble
+/install/kubernetes/cilium/**/cilium-envoy @isovalent/service-mesh @isovalent/service-mesh
+/install/kubernetes/cilium/**/spire @isovalent/service-mesh
+/install/kubernetes/cilium/templates/clustermesh* @isovalent/clustermesh
+/install/kubernetes/cilium/templates/hubble* @isovalent/hubble
 /operator/pkg/bgp @isovalent/traffic-engineering
 /operator/pkg/ciliumendpointslice @isovalent/scalability-performance
 /operator/pkg/ciliumenvoyconfig @isovalent/service-mesh
@@ -182,6 +182,7 @@
 /operator/pkg/model @isovalent/service-mesh
 /operator/pkg/networkpolicy @isovalent/policy-identity-networking
 /operator/pkg/secretsync @isovalent/service-mesh @isovalent/service-mesh
+/operator/pkg/ztunnel @isovalent/encryption
 /pkg/act/ @isovalent/cni
 /pkg/annotation @isovalent/sig-k8s
 /pkg/alibabacloud/ @isovalent/infrastructure
@@ -345,15 +346,14 @@
 /test/k8s/datapath_configuration.go @isovalent/cni
 /test/k8s/chaos.go @isovalent/policy-identity-networking
 /test/k8s/net_policies.go @isovalent/policy-identity-networking
-/test/runtime/net_policies.go @isovalent/policy-identity-networking
 /test/k8s/hubble.go @isovalent/hubble
 /test/runtime/monitor.go @isovalent/hubble
 /test/k8s/fqdn.go @isovalent/dns-proxy
 /test/k8s/kafka_policies.go @isovalent/service-mesh
-/test/runtime/fqdn.go @isovalent/dns-proxy
 /test/bigtcp @isovalent/cni
 /test/k8s/config.go @isovalent/sig-k8s
 /test/k8s/pod_mac_address.go @isovalent/sig-k8s
+/tools/complexity-diff @isovalent/networking-framework
 /tools/dpgen @isovalent/networking-framework
 /.github/**/*enterprise* @isovalent/infrastructure
 /.github/ISSUE_TEMPLATE/enterprise_hubble_cli_release_template.md @isovalent/hubble

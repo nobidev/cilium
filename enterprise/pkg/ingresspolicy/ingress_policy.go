@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/labels"
@@ -54,6 +55,9 @@ type ingressPolicyManager struct {
 	// policyRepository is used to get/create the selector policy for the Ingress Policy
 	policyRepository policy.PolicyRepository
 
+	// identityManager is used to add the ingress identity for the Ingress Policy.
+	identityManager identitymanager.IDManager
+
 	// xdsServer is used to send the distilled policy to the xDS server
 	xdsServer envoy.XDSServer
 
@@ -74,6 +78,7 @@ type ingressPolicyParam struct {
 	CacheIdentityAllocator cache.IdentityAllocator
 	EndpointPolicyManager  endpointmanager.PolicyUpdateCallbackManager
 	PolicyRepository       policy.PolicyRepository
+	IdentityManager        identitymanager.IDManager
 	XdsServer              envoy.XDSServer
 }
 
@@ -87,6 +92,7 @@ func newIngressPolicyManager(params ingressPolicyParam) Updater {
 		logger:                 params.Logger,
 		cacheIdentityAllocator: params.CacheIdentityAllocator,
 		policyRepository:       params.PolicyRepository,
+		identityManager:        params.IdentityManager,
 		xdsServer:              params.XdsServer,
 		ingressIdentities:      make(map[resource.Key]*identity.Identity),
 		ingressPolicies:        make(map[resource.Key]*IngressPolicy),
@@ -136,6 +142,8 @@ func (m *ingressPolicyManager) EnsureIngressPolicy(ctx context.Context, key reso
 		}
 	}
 
+	m.identityManager.Add(ingressIdentity)
+
 	// make sure the new identity is populated in the selector cache immediately
 	wg := &sync.WaitGroup{}
 	m.policyRepository.GetSelectorCache().UpdateIdentities(identity.IdentityMap{
@@ -170,6 +178,8 @@ func (m *ingressPolicyManager) DeleteIngressPolicy(ctx context.Context, key reso
 			return fmt.Errorf("failed to release identity %s %w", key, err)
 		}
 		delete(m.ingressIdentities, key)
+
+		m.identityManager.Remove(curr)
 	}
 
 	if p, exists := m.ingressPolicies[key]; exists {

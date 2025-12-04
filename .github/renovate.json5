@@ -51,7 +51,8 @@
     "on sunday"
   ],
   postUpdateOptions: [
-    "gomodTidy"
+    // update source import paths on major updates
+    "gomodUpdateImportPaths"
   ],
   // This ignorePaths configuration option overrides the config:base preset and
   // should not be removed.
@@ -207,11 +208,7 @@
         "go.mod",
         "go.sum"
       ],
-      "postUpdateOptions": [
-        // update source import paths on major updates
-        "gomodUpdateImportPaths"
-      ],
-      matchBaseBranches: [
+      "matchBaseBranches": [
         "main"
       ]
     },
@@ -276,9 +273,7 @@
         // Stop updating envoy control plane packages until they pushed the
         // tag to stop go mod from erroring. See https://github.com/cilium/cilium/issues/41574
         "github.com/envoyproxy/go-control-plane/contrib",
-        "github.com/envoyproxy/go-control-plane/envoy",
-        // We can't update to helm v4 until https://github.com/helm/helm/issues/31525 is fixed
-        "helm.sh/helm/v4"
+        "github.com/envoyproxy/go-control-plane/envoy"
       ],
       "matchPackagePatterns": [
         // We can't update these libraries until github.com/shoenig/go-m1cpu
@@ -290,7 +285,9 @@
         // Once we decide to spend cycles on ginkgo v2 we should update the
         // dependency manually.
         "github.com/onsi/ginkgo",
-        "github.com/onsi/gomega/*"
+        "github.com/onsi/gomega/*",
+        // We can't update to helm v4 until https://github.com/helm/helm/issues/31525 is fixed
+        "helm.sh/helm/*"
       ]
     },
     {
@@ -320,10 +317,21 @@
       ],
     },
     {
-      // Do not allow any major and minor updates into stable branches.
-      "enabled": false,
       "groupName": "all external docker images dependencies",
       "groupSlug": "all-external-images-deps-stable",
+      "matchFiles": [
+        "install/kubernetes/Makefile.values"
+      ],
+      "matchBaseBranches": [
+        "!main",
+      ],
+      // This is required as otherwise patch version updates into stable branches
+      // are also skipped if a minor version update is available at the same time.
+      "separateMinorPatch": true
+    },
+    {
+      // Do not allow any major and minor updates into stable branches by default.
+      "enabled": false,
       "matchFiles": [
         "install/kubernetes/Makefile.values"
       ],
@@ -333,6 +341,10 @@
       ],
       matchBaseBranches: [
         "!main",
+      ],
+      "matchDepNames": [
+        // Explicitly allow certgen updates.
+        "!quay.io/cilium/certgen",
       ]
     },
     {
@@ -400,16 +412,6 @@
         "v1.17",
         "v1.16",
       ]
-    },
-    {
-      // Disable major updates for go-github as those require updating import paths
-      "enabled": false,
-      "matchPackageNames": [
-        "github.com/google/go-github/v*",
-      ],
-      "matchUpdateTypes": [
-        "major",
-      ],
     },
     {
       // Avoid updating patch version for statedb as it might contain breaking changes
@@ -581,7 +583,8 @@
           "make -C Documentation update-cmdref"
         ],
         "fileFilters": [
-          "Documentation/cmdref/cilium_connectivity_test.md"
+          "Documentation/cmdref/cilium_connectivity_test.md",
+          "Documentation/cmdref/cilium_connectivity_perf.md"
         ],
         "executionMode": "update"
       }
@@ -669,6 +672,16 @@
       "versioning": "regex:^(?<major>\\d+)-[a-f0-9]{7}$",
     },
     {
+      // Avoid updating minor or major version for github.com/envoyproxy/go-control-plane/envoy
+      // as we need to update cilium-envoy accordingly.
+      "matchPackageNames": [
+        "github.com/envoyproxy/go-control-plane/envoy",
+      ],
+      "matchUpdateTypes": [
+        "patch",
+      ]
+    },
+    {
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
@@ -754,6 +767,14 @@
       ]
     },
     {
+      // Separate patch version updates, so that renovate can update the patch
+      // versions on stable branches.
+      "matchDepNames": [
+        "gcr.io/etcd-development/etcd"
+      ],
+      "separateMinorPatch": true
+    },
+    {
       // Do not allow any major and minor etcd updates into stable branches.
       "enabled": false,
       "matchDepNames": [
@@ -765,6 +786,21 @@
       ],
       "matchBaseBranches": [
         "!main",
+      ]
+    },
+    {
+      // Temporarily disable all etcd updates on v1.16 and v1.17, because newer
+      // versions are compiled with go 1.24.8 or later, which includes a breaking
+      // change in IP addresses parsing affecting the clustermesh-apiserver usage.
+      // See cilium/cilium#42818 for more details and the fix, which is intended
+      // to be backported once we built up sufficient confidence.
+      "enabled": false,
+      "matchDepNames": [
+        "gcr.io/etcd-development/etcd"
+      ],
+      "matchBaseBranches": [
+        "v1.16",
+        "v1.17",
       ]
     }
   ],

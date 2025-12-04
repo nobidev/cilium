@@ -379,6 +379,7 @@ Makefile* @cilium/build
 /daemon/cmd/bootstrap_statistics.go @cilium/metrics
 /daemon/cmd/policy* @cilium/sig-policy
 /daemon/cmd/cells*.go @cilium/sig-foundations
+/daemon/infraendpoints/ @cilium/sig-agent @cilium/endpoint
 /Documentation/ @cilium/docs-structure
 /Documentation/_static/ @cilium/docs-structure
 /Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
@@ -477,11 +478,11 @@ Makefile* @cilium/build
 /images/builder/update-cilium-builder-image.sh @cilium/github-sec
 /images/hubble-relay @cilium/sig-hubble
 /images/runtime/update-cilium-runtime-image.sh @cilium/github-sec
-/install/kubernetes/ @cilium/sig-k8s @cilium/helm
-/install/kubernetes/cilium/**/cilium-envoy @cilium/sig-k8s @cilium/helm @cilium/envoy @cilium/sig-servicemesh
-/install/kubernetes/cilium/**/spire @cilium/sig-k8s @cilium/helm @cilium/sig-servicemesh
-/install/kubernetes/cilium/templates/clustermesh* @cilium/sig-k8s @cilium/helm @cilium/sig-clustermesh
-/install/kubernetes/cilium/templates/hubble* @cilium/sig-k8s @cilium/helm @cilium/sig-hubble
+/install/kubernetes/ @cilium/helm
+/install/kubernetes/cilium/**/cilium-envoy @cilium/helm @cilium/envoy @cilium/sig-servicemesh
+/install/kubernetes/cilium/**/spire @cilium/helm @cilium/sig-servicemesh
+/install/kubernetes/cilium/templates/clustermesh* @cilium/helm @cilium/sig-clustermesh
+/install/kubernetes/cilium/templates/hubble* @cilium/helm @cilium/sig-hubble
 /LICENSE @cilium/contributing
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure
@@ -498,6 +499,7 @@ Makefile* @cilium/build
 /operator/pkg/networkpolicy @cilium/sig-policy
 /operator/pkg/secretsync @cilium/envoy @cilium/sig-servicemesh
 /operator/pkg/workqueuemetrics @cilium/metrics
+/operator/pkg/ztunnel @cilium/ztunnel
 /pkg/act/ @cilium/sig-datapath @cilium/metrics
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
@@ -678,19 +680,18 @@ Makefile* @cilium/build
 # Policy tests
 /test/k8s/chaos.go @cilium/sig-policy
 /test/k8s/net_policies.go @cilium/sig-policy @cilium/ci-structure
-/test/runtime/net_policies.go @cilium/sig-policy @cilium/ci-structure
 # Hubble/monitoring tests
 /test/k8s/hubble.go @cilium/sig-hubble @cilium/ci-structure
 /test/runtime/monitor.go @cilium/sig-hubble @cilium/ci-structure
 # L7 proxy tests
 /test/k8s/fqdn.go @cilium/fqdn @cilium/ci-structure
 /test/k8s/kafka_policies.go @cilium/envoy @cilium/ci-structure
-/test/runtime/fqdn.go @cilium/fqdn @cilium/ci-structure
 # BIG TCP tests
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
 /test/k8s/config.go @cilium/sig-k8s
 /test/k8s/pod_mac_address.go @cilium/sig-k8s
+/tools/complexity-diff @cilium/loader
 /tools/dpgen @cilium/loader
 /tools/metricslint @cilium/metrics
 /tools/ @cilium/contributing

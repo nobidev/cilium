@@ -40,8 +40,6 @@ type BPFOverlay struct {
 	PrivnetNetworkID uint16 `config:"privnet_network_id"`
 	// The security identifier for unknown network traffic.
 	PrivnetUnknownSecID uint32 `config:"privnet_unknown_sec_id"`
-	// Pull security context from IP cache.
-	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 	// VXLAN tunnel endpoint network mask.
 	VtepMask uint32 `config:"vtep_mask"`
 
@@ -52,5 +50,5 @@ func NewBPFOverlay(node Node) *BPFOverlay {
 	return &BPFOverlay{false, 0x5dc, false, false, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, false, 0x0, 0x0, false, 0x0, node}
+		false, false, 0x0, 0x0, 0x0, node}
 }

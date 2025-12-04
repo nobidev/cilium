@@ -1261,7 +1261,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
+	if (ctx_is_decrypt(ctx))
 		return CTX_ACT_OK;
 #endif
 	ret = tcx_early_hook(ctx, proto);
@@ -1351,7 +1351,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
-	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || ctx_mark_is_encrypted(ctx))
+	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || magic == MARK_MAGIC_ENCRYPT)
 		src_sec_identity = HOST_ID;
 	else if (magic == MARK_MAGIC_PROXY_EGRESS)
 		src_sec_identity = get_identity(ctx);
@@ -1471,7 +1471,7 @@ skip_host_firewall:
 #endif
 
 #if defined(ENABLE_IPSEC)
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_ENCRYPT) {
+	if (!ctx_is_encrypt(ctx)) {
 		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto,
 						      src_sec_identity);
 		if (ret == CTX_ACT_REDIRECT)
@@ -1503,7 +1503,7 @@ skip_host_firewall:
 	 * encrypted WireGuard UDP packets), we check whether the mark
 	 * is set before the redirect.
 	 */
-	if (!ctx_mark_is_wireguard(ctx)) {
+	if (!ctx_is_encrypt(ctx)) {
 		ret = host_wg_encrypt_hook(ctx, proto, src_sec_identity);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
@@ -1529,7 +1529,7 @@ skip_host_firewall:
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_mark_is_encrypted(ctx)) {
+	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_is_encrypt(ctx)) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
@@ -1702,7 +1702,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_TO_PROXY)
 		magic = ctx->mark;
 #ifdef ENABLE_IPSEC
-	else if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT)
+	else if (ctx_is_encrypt(ctx))
 		magic = ctx->mark;
 #endif
 
@@ -1769,7 +1769,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 #endif /* !TUNNEL_MODE */
 
 # ifdef ENABLE_NODEPORT
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_ENCRYPT)
+	if (!ctx_is_encrypt(ctx))
 		goto skip_ipsec_nodeport_revdnat;
 
 	if (!validate_ethertype(ctx, &proto))
@@ -1896,8 +1896,7 @@ int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 		src_sec_identity = HOST_ID;
 		dir = METRIC_EGRESS;
 	} else {
-		/* TODO: in a future release, use CB_SRC_LABEL here */
-		src_sec_identity = UNKNOWN_ID;
+		src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 		dir = METRIC_INGRESS;
 	}
 

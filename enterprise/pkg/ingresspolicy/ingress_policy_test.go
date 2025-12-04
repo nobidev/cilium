@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache/types"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -34,10 +35,11 @@ import (
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
-func newMockPolicyRepository(t *testing.T) *policy.Repository {
-	repo := policy.NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+func newMockPolicyRepository(logger *slog.Logger) (identitymanager.IDManager, *policy.Repository) {
+	idMgr := identitymanager.NewIDManager(logger)
+	repo := policy.NewPolicyRepository(logger, nil, nil, nil, idMgr, testpolicy.NewPolicyMetricsNoop())
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
-	return repo
+	return idMgr, repo
 }
 
 var identityMap = map[identity.NumericIdentity]labels.LabelArray{
@@ -49,15 +51,19 @@ var identityMap = map[identity.NumericIdentity]labels.LabelArray{
 }
 
 func Test_ingressPolicyManager_EnsureIngressPolicy(t *testing.T) {
-	err := labelsfilter.ParseLabelPrefixCfg(hivetest.Logger(t), nil, nil, "")
+	logger := hivetest.Logger(t)
+
+	err := labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, "")
 	require.NoError(t, err)
 
 	t.Run("no associated identity", func(t *testing.T) {
 		mockSDSServer := newMockXdsServer()
+		idMgr, policyRepo := newMockPolicyRepository(logger)
 		m := &ingressPolicyManager{
-			logger:                 hivetest.Logger(t),
+			logger:                 logger,
 			cacheIdentityAllocator: testidentity.NewMockIdentityAllocator(map[identity.NumericIdentity]labels.LabelArray{}),
-			policyRepository:       newMockPolicyRepository(t),
+			policyRepository:       policyRepo,
+			identityManager:        idMgr,
 			xdsServer:              mockSDSServer,
 			ingressIdentities:      make(map[resource.Key]*identity.Identity),
 			ingressPolicies:        make(map[resource.Key]*IngressPolicy),
@@ -76,10 +82,12 @@ func Test_ingressPolicyManager_EnsureIngressPolicy(t *testing.T) {
 
 	t.Run("successfully reconcile policy with existing identity", func(t *testing.T) {
 		mockSDSServer := newMockXdsServer()
+		idMgr, policyRepo := newMockPolicyRepository(logger)
 		m := &ingressPolicyManager{
-			logger:                 hivetest.Logger(t),
+			logger:                 logger,
 			cacheIdentityAllocator: testidentity.NewMockIdentityAllocator(identityMap),
-			policyRepository:       newMockPolicyRepository(t),
+			policyRepository:       policyRepo,
+			identityManager:        idMgr,
 			xdsServer:              mockSDSServer,
 
 			ingressIdentities: make(map[resource.Key]*identity.Identity),
@@ -99,10 +107,12 @@ func Test_ingressPolicyManager_EnsureIngressPolicy(t *testing.T) {
 
 	t.Run("successfully reconcile policy with different identity", func(t *testing.T) {
 		mockSDSServer := newMockXdsServer()
+		idMgr, policyRepo := newMockPolicyRepository(logger)
 		m := &ingressPolicyManager{
-			logger:                 hivetest.Logger(t),
+			logger:                 logger,
 			cacheIdentityAllocator: testidentity.NewMockIdentityAllocator(identityMap),
-			policyRepository:       newMockPolicyRepository(t),
+			policyRepository:       policyRepo,
+			identityManager:        idMgr,
 			xdsServer:              mockSDSServer,
 
 			ingressIdentities: make(map[resource.Key]*identity.Identity),
@@ -127,14 +137,18 @@ func Test_ingressPolicyManager_EnsureIngressPolicy(t *testing.T) {
 }
 
 func Test_ingressPolicyManager_DeleteIngressPolicy(t *testing.T) {
-	err := labelsfilter.ParseLabelPrefixCfg(hivetest.Logger(t), nil, nil, "")
+	logger := hivetest.Logger(t)
+
+	err := labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, "")
 	require.NoError(t, err)
 
 	t.Run("no associated identity", func(t *testing.T) {
+		idMgr, policyRepo := newMockPolicyRepository(logger)
 		m := &ingressPolicyManager{
-			logger:                 hivetest.Logger(t),
+			logger:                 logger,
 			cacheIdentityAllocator: testidentity.NewMockIdentityAllocator(map[identity.NumericIdentity]labels.LabelArray{}),
-			policyRepository:       newMockPolicyRepository(t),
+			policyRepository:       policyRepo,
+			identityManager:        idMgr,
 			xdsServer:              newMockXdsServer(),
 			ingressIdentities:      make(map[resource.Key]*identity.Identity),
 			ingressPolicies:        make(map[resource.Key]*IngressPolicy),
@@ -146,10 +160,12 @@ func Test_ingressPolicyManager_DeleteIngressPolicy(t *testing.T) {
 
 	t.Run("successfully remove existing policy", func(t *testing.T) {
 		mockSDSServer := newMockXdsServer()
+		idMgr, policyRepo := newMockPolicyRepository(logger)
 		m := &ingressPolicyManager{
-			logger:                 hivetest.Logger(t),
+			logger:                 logger,
 			cacheIdentityAllocator: testidentity.NewMockIdentityAllocator(identityMap),
-			policyRepository:       newMockPolicyRepository(t),
+			policyRepository:       policyRepo,
+			identityManager:        idMgr,
 			xdsServer:              mockSDSServer,
 
 			ingressIdentities: make(map[resource.Key]*identity.Identity),
@@ -176,15 +192,19 @@ func Test_ingressPolicyManager_DeleteIngressPolicy(t *testing.T) {
 }
 
 func Test_ingressPolicyManager_IncrementalPolicyUpdate(t *testing.T) {
-	err := labelsfilter.ParseLabelPrefixCfg(hivetest.Logger(t), nil, nil, "")
+	logger := hivetest.Logger(t)
+
+	err := labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, "")
 	require.NoError(t, err)
 
 	t.Run("successfully reconcile policy with existing identity", func(t *testing.T) {
 		mockSDSServer := newMockXdsServer()
+		idMgr, policyRepo := newMockPolicyRepository(logger)
 		m := &ingressPolicyManager{
-			logger:                 hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+			logger:                 logger,
 			cacheIdentityAllocator: testidentity.NewMockIdentityAllocator(identityMap),
-			policyRepository:       newMockPolicyRepository(t),
+			policyRepository:       policyRepo,
+			identityManager:        idMgr,
 			xdsServer:              mockSDSServer,
 
 			ingressIdentities: make(map[resource.Key]*identity.Identity),

@@ -3171,6 +3171,9 @@
                     "boolean"
                   ]
                 },
+                "aggregationInterval": {
+                  "type": "string"
+                },
                 "aggregationRenewTTL": {
                   "type": [
                     "null",
@@ -3199,6 +3202,10 @@
                 },
                 "enabled": {
                   "type": "boolean"
+                },
+                "fieldAggregate": {
+                  "items": {},
+                  "type": "array"
                 },
                 "fieldMask": {
                   "items": {},
@@ -6374,6 +6381,14 @@
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "packetizationLayerPMTUD": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"

@@ -29,7 +29,7 @@ type BPFHost struct {
 	// Length of the Ethernet header on this device. May be set to zero on L2-less
 	// devices. (default __ETH_HLEN).
 	EthHeaderLength uint8 `config:"eth_header_length"`
-	// The host endpoint's security ID.
+	// The host endpoint ID.
 	HostEpID uint16 `config:"host_ep_id"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfindex uint32 `config:"interface_ifindex"`
@@ -49,8 +49,6 @@ type BPFHost struct {
 	PrivnetNetworkID uint16 `config:"privnet_network_id"`
 	// The security identifier for unknown network traffic.
 	PrivnetUnknownSecID uint32 `config:"privnet_unknown_sec_id"`
-	// Pull security context from IP cache.
-	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
 	// VXLAN tunnel endpoint network mask.
@@ -68,5 +66,5 @@ func NewBPFHost(node Node) *BPFHost {
 		0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0,
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, false, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, node}
+		false, false, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, node}
 }
