@@ -114,7 +114,7 @@ func TestAPIStability(t *testing.T) {
 					},
 					{
 						Name:   "maggot",
-						Error:  `Interface "eth1" has "link-layer-down" operational status`,
+						Errors: []string{`Interface "eth1" has "link-layer-down" operational status`},
 						Routes: []Route{},
 						Subnets: []Subnet{
 							{
@@ -256,7 +256,7 @@ func TestAPIStability(t *testing.T) {
 						},
 						WorkerStatus: WorkerStatus{
 							ActiveINB: "felidae/cougar",
-							ConnectedINBCluster: []INBCluster{
+							ConnectedINBClusters: []INBCluster{
 								{
 									Name: "camelidae",
 									INBs: []ConnectedINB{
@@ -281,8 +281,8 @@ func TestAPIStability(t *testing.T) {
 						},
 					},
 					{
-						Name:  "green-network",
-						Error: "No Active INB",
+						Name:   "green-network",
+						Errors: []string{"No Active INB"},
 						Subnets: []Subnet{
 							{
 								CIDR: netip.MustParsePrefix("10.0.100.0/24"),
@@ -312,7 +312,7 @@ func TestAPIStability(t *testing.T) {
 							},
 						},
 						WorkerStatus: WorkerStatus{
-							ConnectedINBCluster: []INBCluster{
+							ConnectedINBClusters: []INBCluster{
 								{
 									Name: "camelidae",
 									INBs: []ConnectedINB{
@@ -411,7 +411,7 @@ func TestAPIStability(t *testing.T) {
 					},
 					{
 						Name:   "maggot",
-						Error:  `Interface "eth1" has "link-layer-down" operational status`,
+						Errors: []string{`Interface "eth1" has "link-layer-down" operational status`},
 						Routes: []Route{},
 						Subnets: []Subnet{
 							{
@@ -543,7 +543,272 @@ func TestAPIStability(t *testing.T) {
 					},
 					{
 						Name:   "maggot",
-						Error:  `Interface "eth1" has "link-layer-down" operational status`,
+						Errors: []string{`Interface "eth1" has "link-layer-down" operational status`},
+						Routes: []Route{},
+						Subnets: []Subnet{
+							{
+								CIDR: netip.MustParsePrefix("192.168.250.0/24"),
+							},
+						},
+						Endpoints: []EndpointStatus{
+							{
+								Name:     "destined-bluejay",
+								Cluster:  "default",
+								Node:     "foobar-worker-2",
+								IPv4:     netip.MustParseAddr("10.245.8.40"),
+								NetIPv4:  netip.MustParseAddr("192.168.250.40"),
+								External: true,
+							},
+							{
+								Name:    "optimum-mouse",
+								Cluster: "default",
+								Node:    "foobar-worker-1",
+								IPv4:    netip.MustParseAddr("10.245.8.20"),
+								NetIPv4: netip.MustParseAddr("192.168.250.20"),
+							},
+							{
+								Name:    "intense-phoenix",
+								Cluster: "felidae",
+								Node:    "cougar",
+								IPv4:    netip.MustParseAddr("10.245.8.22"),
+								NetIPv4: netip.MustParseAddr("192.168.250.22"),
+							},
+							{
+								Name:    "valid-monkey",
+								Cluster: "felidae",
+								Node:    "cougar",
+								IPv4:    netip.MustParseAddr("10.245.8.21"),
+								NetIPv4: netip.MustParseAddr("192.168.250.21"),
+							},
+						},
+
+						INBStatus: INBStatus{
+							Serving: false,
+							Interface: Interface{
+								Name:  "eth1",
+								Error: `Interface "eth1" has "link-layer-down" operational status`,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:     "Revision 1 worker node",
+			jsonFile: "worker-rev1.json",
+			status: NodeStatus{
+				Name:    "foobar-worker-1",
+				Cluster: "default",
+				ConnectedClusters: []ConnectedCluster{
+					{
+						Name: "default",
+						NodeNames: []types.NodeName{
+							"foobar-worker-1",
+							"foobar-worker-2",
+						},
+					},
+					{
+						Name: "felidae",
+						NodeNames: []types.NodeName{
+							"cougar",
+							"lion",
+						},
+					},
+				},
+				Enabled: true,
+				Mode:    "bridge",
+				Networks: []NetworkStatus{
+					{
+						Name:   "firefly",
+						Routes: []Route{},
+						Subnets: []Subnet{
+							{
+								CIDR: netip.MustParsePrefix("192.168.251.0/24"),
+							},
+						},
+						Endpoints: []EndpointStatus{
+							{
+								Name:    "moved-racer",
+								Cluster: "default",
+								Node:    "foobar-worker-2",
+								IPv4:    netip.MustParseAddr("10.245.8.30"),
+								NetIPv4: netip.MustParseAddr("192.168.251.30"),
+							},
+							{
+								Name:     "shining-burro",
+								Cluster:  "default",
+								Node:     "foobar-worker-1",
+								IPv4:     netip.MustParseAddr("10.245.8.39"),
+								NetIPv4:  netip.MustParseAddr("192.168.251.39"),
+								External: true,
+							},
+							{
+								Name:    "eminent-griffon",
+								Cluster: "felidae",
+								Node:    "cougar",
+								IPv4:    netip.MustParseAddr("10.245.8.31"),
+								NetIPv4: netip.MustParseAddr("192.168.251.31"),
+							},
+							{
+								Name:    "grateful-raccoon",
+								Cluster: "felidae",
+								Node:    "lion",
+								IPv4:    netip.MustParseAddr("10.245.8.32"),
+								NetIPv4: netip.MustParseAddr("192.168.251.32"),
+								Active:  true,
+							},
+						},
+
+						INBStatus: INBStatus{
+							Serving: true,
+							Interface: Interface{
+								Name:  "eth2",
+								Index: 11,
+							},
+							ActiveWorkloadNodes: []WorkloadNode{
+								{
+									Cluster: "felidae",
+									Name:    "lion",
+								},
+							},
+						},
+					},
+					{
+						Name:   "maggot",
+						Errors: []string{`Interface "eth1" has "link-layer-down" operational status`},
+						Routes: []Route{},
+						Subnets: []Subnet{
+							{
+								CIDR: netip.MustParsePrefix("192.168.250.0/24"),
+							},
+						},
+						Endpoints: []EndpointStatus{
+							{
+								Name:     "destined-bluejay",
+								Cluster:  "default",
+								Node:     "foobar-worker-2",
+								IPv4:     netip.MustParseAddr("10.245.8.40"),
+								NetIPv4:  netip.MustParseAddr("192.168.250.40"),
+								External: true,
+							},
+							{
+								Name:    "optimum-mouse",
+								Cluster: "default",
+								Node:    "foobar-worker-1",
+								IPv4:    netip.MustParseAddr("10.245.8.20"),
+								NetIPv4: netip.MustParseAddr("192.168.250.20"),
+							},
+							{
+								Name:    "intense-phoenix",
+								Cluster: "felidae",
+								Node:    "cougar",
+								IPv4:    netip.MustParseAddr("10.245.8.22"),
+								NetIPv4: netip.MustParseAddr("192.168.250.22"),
+							},
+							{
+								Name:    "valid-monkey",
+								Cluster: "felidae",
+								Node:    "cougar",
+								IPv4:    netip.MustParseAddr("10.245.8.21"),
+								NetIPv4: netip.MustParseAddr("192.168.250.21"),
+							},
+						},
+
+						INBStatus: INBStatus{
+							Serving: false,
+							Interface: Interface{
+								Name:  "eth1",
+								Error: `Interface "eth1" has "link-layer-down" operational status`,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:     "Revision 1 INB",
+			jsonFile: "inb-rev1.json",
+
+			status: NodeStatus{
+				Name:    "foobar-worker-1",
+				Cluster: "default",
+				ConnectedClusters: []ConnectedCluster{
+					{
+						Name: "default",
+						NodeNames: []types.NodeName{
+							"foobar-worker-1",
+							"foobar-worker-2",
+						},
+					},
+					{
+						Name: "felidae",
+						NodeNames: []types.NodeName{
+							"cougar",
+							"lion",
+						},
+					},
+				},
+				Enabled: true,
+				Mode:    "bridge",
+				Networks: []NetworkStatus{
+					{
+						Name:   "firefly",
+						Routes: []Route{},
+						Subnets: []Subnet{
+							{
+								CIDR: netip.MustParsePrefix("192.168.251.0/24"),
+							},
+						},
+						Endpoints: []EndpointStatus{
+							{
+								Name:    "moved-racer",
+								Cluster: "default",
+								Node:    "foobar-worker-2",
+								IPv4:    netip.MustParseAddr("10.245.8.30"),
+								NetIPv4: netip.MustParseAddr("192.168.251.30"),
+							},
+							{
+								Name:     "shining-burro",
+								Cluster:  "default",
+								Node:     "foobar-worker-1",
+								IPv4:     netip.MustParseAddr("10.245.8.39"),
+								NetIPv4:  netip.MustParseAddr("192.168.251.39"),
+								External: true,
+							},
+							{
+								Name:    "eminent-griffon",
+								Cluster: "felidae",
+								Node:    "cougar",
+								IPv4:    netip.MustParseAddr("10.245.8.31"),
+								NetIPv4: netip.MustParseAddr("192.168.251.31"),
+							},
+							{
+								Name:    "grateful-raccoon",
+								Cluster: "felidae",
+								Node:    "lion",
+								IPv4:    netip.MustParseAddr("10.245.8.32"),
+								NetIPv4: netip.MustParseAddr("192.168.251.32"),
+								Active:  true,
+							},
+						},
+
+						INBStatus: INBStatus{
+							Serving: true,
+							Interface: Interface{
+								Name:  "eth2",
+								Index: 11,
+							},
+							ActiveWorkloadNodes: []WorkloadNode{
+								{
+									Cluster: "felidae",
+									Name:    "lion",
+								},
+							},
+						},
+					},
+					{
+						Name:   "maggot",
+						Errors: []string{`Interface "eth1" has "link-layer-down" operational status`},
 						Routes: []Route{},
 						Subnets: []Subnet{
 							{

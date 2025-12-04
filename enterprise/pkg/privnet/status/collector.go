@@ -61,6 +61,10 @@ func (sc *statusCollector) collectNodeStatus() NodeStatus {
 	inbsByNet := sc.collectINBsByNet(tx)
 
 	for pn := range sc.privateNetworks.All(tx) {
+		errs := []string{}
+		if err := pn.Error(); err != "" {
+			errs = []string{err}
+		}
 		pns := NetworkStatus{
 			Name: pn.Name,
 			Routes: cslices.Map(pn.Routes, func(r tables.PrivateNetworkRoute) Route {
@@ -74,20 +78,17 @@ func (sc *statusCollector) collectNodeStatus() NodeStatus {
 					CIDR: s.CIDR,
 				}
 			}),
-			Error: pn.Error(),
+			Errors: errs,
 		}
 
 		var ok bool
 		activeINB, ok := findActiveINB(inbsByNet[pn.Name])
 		pns.WorkerStatus = WorkerStatus{
-			ActiveINB:           activeINB,
-			ConnectedINBCluster: inbsByNet[pn.Name],
+			ActiveINB:            activeINB,
+			ConnectedINBClusters: inbsByNet[pn.Name],
 		}
 		if !ok && len(pn.INBs.Selectors) > 0 {
-			if pns.Error != "" {
-				pns.Error += "\n"
-			}
-			pns.Error += "No Active INB"
+			pns.Errors = append(pns.Errors, "No Active INB")
 		}
 
 		pns.INBStatus = INBStatus{

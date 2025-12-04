@@ -68,8 +68,8 @@ func (pn NetworkStatus) workerNetworkStatusLine(width int) string {
 		activeINBStr = "Active INB  " + fmtOk(pn.WorkerStatus.ActiveINB)
 	}
 	errStr := ""
-	if pn.Error != "" {
-		errStr = fmtIndent(fmtErr(pn.Error)+"\n", 4)
+	if len(pn.Errors) > 0 {
+		errStr = fmtIndent(fmtErr(strings.Join(pn.Errors, "\n"))+"\n", 4)
 	}
 
 	return fmtBar(
@@ -79,7 +79,7 @@ func (pn NetworkStatus) workerNetworkStatusLine(width int) string {
 }
 
 func (pn NetworkStatus) workerNetworkStatus() string {
-	if pn.Error == "" {
+	if len(pn.Errors) == 0 {
 		return fmtOk("OK")
 	} else {
 		return fmtErr("DEGRADED")
@@ -128,7 +128,7 @@ func (ws WorkerStatus) formatWorkerConnectedINBs(localCluster tables.ClusterName
 
 	summary := map[tables.ClusterName]connectedINBSummary{}
 
-	for _, inbCl := range ws.ConnectedINBCluster {
+	for _, inbCl := range ws.ConnectedINBClusters {
 		for _, inb := range inbCl.INBs {
 			info := summary[inbCl.Name]
 			info.name = inbCl.Name

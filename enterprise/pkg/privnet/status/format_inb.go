@@ -56,8 +56,8 @@ func (pn NetworkStatus) formatINBNetwork(connectedClusters []ConnectedCluster, l
 
 func (pn NetworkStatus) inbNetworkStatusLine(width int) string {
 	errStr := ""
-	if pn.Error != "" {
-		errStr = fmtIndent(fmtErr(pn.Error)+"\n", 4)
+	if len(pn.Errors) > 0 {
+		errStr = fmtIndent(fmtErr(strings.Join(pn.Errors, "\n"))+"\n", 4)
 	}
 	return fmtBar(
 		fmt.Sprintf("Network %s", fmtHghlt(pn.Name)), pn.INBStatus.formatInterface(), pn.inbNetworkStatus(),
@@ -67,7 +67,7 @@ func (pn NetworkStatus) inbNetworkStatusLine(width int) string {
 func (pn NetworkStatus) inbNetworkStatus() string {
 	if pn.INBStatus.Serving {
 		return fmtOk("SERVING")
-	} else if pn.Error == "" {
+	} else if len(pn.Errors) == 0 {
 		return fmtWrn("NOT SERVING")
 	} else {
 		return fmtErr("DEGRADED")

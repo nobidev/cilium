@@ -239,7 +239,7 @@ func TestFormatGolden(t *testing.T) {
 						},
 						WorkerStatus: WorkerStatus{
 							ActiveINB: "inb-east/inb-0",
-							ConnectedINBCluster: []INBCluster{
+							ConnectedINBClusters: []INBCluster{
 								{
 									Name: "inb-east",
 									INBs: []ConnectedINB{

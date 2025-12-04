@@ -20,7 +20,7 @@ import (
 
 // The schema version of the node status API. Bump this number whenever making
 // a change to the API
-const NodeStatusSchemaVersion = 0
+const NodeStatusSchemaVersion = 1
 
 // NodeStatus is a summary of the state of the privnet subsystem for one node
 //
@@ -60,8 +60,14 @@ type NetworkStatus struct {
 	// Name of the network
 	Name tables.NetworkName `json:"name"`
 
-	// Error is any critical error related to the network
-	Error string `json:"error,omitzero"`
+	// Errors are any criticals error related to the network
+	Errors []string `json:"errors,omitempty"`
+	// DeprecatedError is any critical error related to the network
+	//
+	// Deprecated: DeprecatedError exists for historical compatibility
+	// and should not be used. Use Errors.
+	// Deprecated in revsion 1.
+	DeprecatedError string `json:"error,omitzero"`
 
 	// The set of routes configured for this private network.
 	Routes []Route `json:"routes,omitempty"`
@@ -153,8 +159,15 @@ type WorkloadNode struct {
 type WorkerStatus struct {
 	// The name of the active INB
 	ActiveINB string `json:"activeINB"`
+
+	// A list of connected INBs for this network.
+	ConnectedINBClusters []INBCluster `json:"connectedINBClusters,omitempty"`
 	// A list of connected INBs for this network. Only applies to workload nodes
-	ConnectedINBCluster []INBCluster `json:"connectedINBCluster,omitempty"`
+	//
+	// Deprecated: DeprecatedConnectedINBCluster exists for historical compatibility
+	// and should not be used. Use ConnectedClusters.
+	// Deprecated in revsion 1.
+	DeprecatedConnectedINBCluster []INBCluster `json:"connectedINBCluster,omitempty"`
 }
 
 // INBCluster represents a cluster containing one or more INBs
@@ -188,7 +201,22 @@ func (s *NodeStatus) UnmarshalJSON(b []byte) error {
 	// Prevent a loop of calling UnmarshalJSON again by retyping the status.
 	// Tags should survive the retype
 	type _NodeStatus *NodeStatus
-	return json.Unmarshal(b, _NodeStatus(s))
+	if err := json.Unmarshal(b, _NodeStatus(s)); err != nil {
+		return err
+	}
+
+	for i := range s.Networks {
+		if err := s.Networks[i].DeprecatedError; err != "" && len(s.Networks[i].Errors) == 0 {
+			s.Networks[i].Errors = []string{err}
+			s.Networks[i].DeprecatedError = ""
+		}
+		inbs := s.Networks[i].WorkerStatus.DeprecatedConnectedINBCluster
+		if len(inbs) > 0 && len(s.Networks[i].WorkerStatus.ConnectedINBClusters) == 0 {
+			s.Networks[i].WorkerStatus.DeprecatedConnectedINBCluster = nil
+			s.Networks[i].WorkerStatus.ConnectedINBClusters = inbs
+		}
+	}
+	return nil
 }
 
 // Format will represent the Privnet Node status in a human readable format

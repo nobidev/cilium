@@ -158,7 +158,7 @@ func fmtBar(left, mid, right string, width int) string {
 func (s NodeStatus) nodeStatus() string {
 
 	if slices.ContainsFunc(s.Networks, func(net NetworkStatus) bool {
-		return net.Error != ""
+		return len(net.Errors) > 0
 	}) {
 		return "Status  " + fmtErr("DEGRADED")
 	}

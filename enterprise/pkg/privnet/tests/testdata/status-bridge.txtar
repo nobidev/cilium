@@ -335,7 +335,7 @@ Network Bridge                             foobar-worker-1                      
 
 -- status-1.json --
 {
-  "revision": 0,
+  "revision": 1,
   "name": "foobar-worker-1",
   "cluster": "default",
   "connectedClusters": [
@@ -491,7 +491,7 @@ Network Bridge                             foobar-worker-1                      
 
 -- status-2.json --
 {
-  "revision": 0,
+  "revision": 1,
   "name": "foobar-worker-1",
   "cluster": "default",
   "connectedClusters": [
@@ -571,7 +571,9 @@ Network Bridge                             foobar-worker-1                      
     },
     {
       "name": "maggot",
-      "error": "Interface \"eth1\" has \"link-layer-down\" operational status",
+      "errors": [
+        "Interface \"eth1\" has \"link-layer-down\" operational status"
+      ],
       "subnets": [
         {
           "cidr": "192.168.250.0/24"
