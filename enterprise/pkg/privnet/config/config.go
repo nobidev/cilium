@@ -33,6 +33,9 @@ const (
 	// ModeDefault configures private networks to operate in default mode.
 	ModeDefault = "default"
 
+	// ModeLocalAccess configures the private network to operate in local access mode.
+	ModeLocalAccess = "local-access"
+
 	// ModeBridge configures private networks to operate in bridge mode,
 	// that is providing connectivity between cilium-managed endpoints and
 	// external endpoints that belong to the same private network.
@@ -79,10 +82,10 @@ type Config struct {
 func (def Config) Flags(flags *pflag.FlagSet) {
 	def.Common.Flags(flags)
 
-	flags.String(FlagMode, def.Mode, fmt.Sprintf("The private networks mode (%q or %q)", ModeDefault, ModeBridge))
+	flags.String(FlagMode, def.Mode, fmt.Sprintf("The private networks mode (%q, %q or %q)", ModeDefault, ModeLocalAccess, ModeBridge))
 
 	flags.Duration(FlagBridgeGneighInterval, def.BridgeGneighInterval,
-		fmt.Sprintf("Interval at which workload cluster endpoints are announced using gratuitous ARP/ND in %s mode. Ignored in %s mode.", ModeBridge, ModeDefault))
+		fmt.Sprintf("Interval at which workload cluster endpoints are announced using gratuitous ARP/ND in %s or %s mode. Ignored in %s mode.", ModeBridge, ModeLocalAccess, ModeDefault))
 }
 
 // EnabledAsBridge returns whether private networking is enabled, and configured in bridge mode.
@@ -90,12 +93,17 @@ func (cfg Config) EnabledAsBridge() bool {
 	return cfg.Enabled && cfg.Mode == ModeBridge
 }
 
+// EnabledAsLocalAccess returns whether private networking is enabled, and configured in local access mode.
+func (cfg Config) EnabledAsLocalAccess() bool {
+	return cfg.Enabled && cfg.Mode == ModeLocalAccess
+}
+
 func (cfg Config) validate() error {
 	switch cfg.Mode {
-	case ModeDefault, ModeBridge:
+	case ModeDefault, ModeBridge, ModeLocalAccess:
 	default:
-		return fmt.Errorf("invalid private networks mode %q, should be either %q or %q",
-			cfg.Mode, ModeDefault, ModeBridge)
+		return fmt.Errorf("invalid private networks mode %q, should be one of: %q, %q, %q",
+			cfg.Mode, ModeDefault, ModeBridge, ModeLocalAccess)
 	}
 
 	return nil

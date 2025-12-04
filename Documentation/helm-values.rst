@@ -1641,7 +1641,7 @@
      - string
      - ``"5s"``
    * - :spelling:ignore:`enterprise.privateNetworks.mode`
-     - The private networks operational mode. The "bridge" mode provides connectivity between cilium-managed endpoints and external endpoints that belong to the same private network.  @schema enum: ["default", "bridge"] @schema
+     - The private networks operational mode. The "bridge" mode provides connectivity between cilium-managed endpoints and external endpoints that belong to the same private network. The "local-access" mode should be selected if private networks should use a dedicated network device (typically a VLAN device) on the Kubernetes node instead of the Cilium underlay.  @schema enum: ["default", "bridge", "local-access"] @schema
      - string
      - ``"default"``
    * - :spelling:ignore:`enterprise.srv6.enabled`

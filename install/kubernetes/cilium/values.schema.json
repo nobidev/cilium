@@ -2304,7 +2304,8 @@
             "mode": {
               "enum": [
                 "default",
-                "bridge"
+                "bridge",
+                "local-access"
               ]
             }
           },
