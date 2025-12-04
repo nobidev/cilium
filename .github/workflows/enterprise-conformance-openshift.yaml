@@ -526,6 +526,15 @@ jobs:
         run: |
           ./hcp/scripts/cli-dowload.sh
 
+      - name: Refresh AWS CLI credentials for getting VPC information for the hosted cluster
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.hcp == 'true' }}
+        id: hcp-creds
+        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ steps.vars.outputs.region }}
+
+      # credentials shared during installation (limited permission)
       - name: Get AWS credentials for hosted control planes
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.hcp == 'true' }}
         uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
@@ -537,20 +546,27 @@ jobs:
             secret/data/devops/${{ github.repository_owner }} aws_pr_hcp_access_key_id | AWS_PR_HCP_ACCESS_KEY_ID;
             secret/data/devops/${{ github.repository_owner }} aws_pr_hcp_secret_access_key | AWS_PR_HCP_SECRET_ACCESS_KEY;
 
+      - name: Generated hosted credentials file
+        working-directory: "./openshift-ci/aws-ipi"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_PR_HCP_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_PR_HCP_SECRET_ACCESS_KEY }}
+        run: |
+          unset AWS_SESSION_TOKEN
+          aws sts get-session-token > credentials.json
+
       - name: Hosted cluster creation
         id: hcp-create
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.hcp == 'true' }}
         timeout-minutes: 120
         working-directory: "./openshift-ci/aws-ipi"
         env:
-          AWS_ACCESS_KEY_ID: ${{ env.AWS_PR_HCP_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_PR_HCP_SECRET_ACCESS_KEY }}
+          HCP_AWS_ACCESS_KEY_ID: ${{ env.AWS_PR_HCP_ACCESS_KEY_ID }}
+          HCP_AWS_SECRET_ACCESS_KEY: ${{ env.AWS_PR_HCP_SECRET_ACCESS_KEY }}
           HCP_DEPLOYER_ROLE_ARN: ${{ vars.AWS_HCP_DEPLOYER_ROLE_ARN }}
           MANIFESTS_DIR: ${{ github.workspace }}/enterprise/olm/dist/manifests
           PULL_SECRET_PATH: ${{ github.workspace }}/openshift-ci/aws-ipi/.pullsecret.json
         run: |
-          unset AWS_SESSION_TOKEN
-          aws sts get-session-token > credentials.json
           export AWS_CREDENTIALS_FILE="${PWD}/credentials.json"
           ./hcp/scripts/create-cluster.sh
           source .workdir/current.properties
