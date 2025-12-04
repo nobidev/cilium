@@ -1,0 +1,401 @@
+name: privnet
+
+mgmt:
+  network: privnet
+  bridge: privnet
+  ipv4-subnet: 172.128.0.0/16
+  ipv6-subnet: fc00:128::/64
+
+prefix: __lab-name
+
+topology:
+  groups:
+    routers:
+      image: ${PRIVNET_CONTAINER_IMAGE}
+      cmd: sleep infinity
+      sysctls:
+        net.ipv4.ip_forward: 1
+        net.ipv4.conf.all.arp_accept: 1
+        net.ipv6.conf.all.forwarding: 1
+        net.ipv6.conf.all.drop_unsolicited_na: 0
+
+    vms:
+      network-mode: none
+      image: ${PRIVNET_CONTAINER_IMAGE}
+      cmd: /usr/bin/env python3 /tmp/script.py
+      env:
+        CILIUM_PRIVNET_PORT: 8000
+      binds:
+      - ${PRIVNET_FAKE_VM_SCRIPT}:/tmp/script.py:ro
+      sysctls:
+        # So that we accept the gratuitous ARP/NA sent by the gateway
+        net.ipv4.conf.all.arp_accept: 1
+        net.ipv6.conf.all.drop_unsolicited_na: 0
+        # So that we can respond to NS for IPs assigned to a loopback iface
+        net.ipv6.conf.all.proxy_ndp: 1
+        # Required for proxy_ndp to work
+        net.ipv6.conf.all.forwarding: 1
+
+  nodes:
+    # Private Networks Bridge
+    # VLANs:
+    # - net-a: 10  --- 192.168.250.0/24, fd10:0:250::0/64
+    # - net-b: 11  --- 192.168.251.0/24, fd10:0:251::0/64
+    # - net-c: 12  --- 192.168.252.0/24, fd10:0:252::0/64
+    # - net-d: 13  --- 192.168.252.0/24, fd10:0:252::0/64
+    ${PRIVNET_BRIDGE:-privnet-sgmnts}:
+      kind: bridge
+
+    # Workload cluster
+    privnet-cluster:
+      kind: k8s-kind
+      image: ${PRIVNET_KIND_IMAGE:-""}
+      startup-config: kind-cluster.yaml
+      extras:
+        k8s_kind:
+          deploy:
+            wait: 0s
+
+    # INB 0 (net-a + net-b)
+    privnet-inb0:
+      kind: k8s-kind
+      image: ${PRIVNET_KIND_IMAGE:-""}
+      startup-config: kind-inb-0.yaml
+      extras:
+        k8s_kind:
+          deploy:
+            wait: 0s
+
+    privnet-inb0-control-plane:
+      kind: ext-container
+      exec:
+        # Simplify testing INB failover by making sure that traffic to the
+        # API server still works correctly.
+        - iptables -A INPUT -p tcp --dport 6443 -j ACCEPT
+      stages:
+        create:
+          # Ensure that the other end of the veth has already been connected
+          # to the bridge, otherwise the VLAN configuration would fail. We need
+          # to block on create, rather than any later step, as otherwise we can
+          # end up in a deadlock as all workers are busy waiting, and the node
+          # that would unblock them (the bridge in this case) cannot be configured.
+          wait-for:
+          - node: ${PRIVNET_BRIDGE:-privnet-sgmnts}
+            stage: create-links
+          - node: privnet-inb0
+            stage: configure
+        configure:
+          exec:
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-a0 vid 10 pvid untagged
+            target: host
+            phase: on-enter
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-b0 vid 11 pvid untagged
+            target: host
+            phase: on-enter
+
+    # INB 1 (net-c + net-d)
+    privnet-inb1:
+      kind: k8s-kind
+      image: ${PRIVNET_KIND_IMAGE:-""}
+      startup-config: kind-inb-1.yaml
+      extras:
+        k8s_kind:
+          deploy:
+            wait: 0s
+
+    privnet-inb1-control-plane:
+      kind: ext-container
+      exec:
+        - ip link add link eth1 name ethA type vlan id 10
+        - ip link add link eth1 name ethB type vlan id 11
+        - ip link add link eth1 name ethC type vlan id 12
+        - ip link add link eth1 name ethD type vlan id 13
+        - ip link set ethA up
+        - ip link set ethB up
+        - ip link set ethC up
+        - ip link set ethD up
+        # Simplify testing INB failover by making sure that traffic to the
+        # API server still works correctly.
+        - iptables -A INPUT -p tcp --dport 6443 -j ACCEPT
+      stages:
+        create:
+          wait-for:
+          - node: ${PRIVNET_BRIDGE:-privnet-sgmnts}
+            stage: create-links
+          - node: privnet-inb1
+            stage: configure
+        configure:
+          exec:
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-abcd0 vid 10
+            target: host
+            phase: on-enter
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-abcd0 vid 11
+            target: host
+            phase: on-enter
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-abcd0 vid 12
+            target: host
+            phase: on-enter
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-abcd0 vid 13
+            target: host
+            phase: on-enter
+
+
+    # Fake VMs --- net-a segment
+    vm-net-a1:
+      kind: linux
+      group: vms
+      env:
+        CILIUM_PRIVNET_NETWORK: network-a
+      exec:
+        - ip addr add 192.168.250.200/24 dev eth0
+        - ip addr add fd10:0:250::200/64 dev eth0
+        - ip -4 route add default via 192.168.250.254
+        - ip -6 route add default via fd10:0:250::fffe
+        # Loopback interface to simulate an extra network
+        - ip link add name lo1 type dummy
+        - ip link set lo1 up
+        - ip addr add 192.168.255.200/24 dev lo1
+        - ip addr add fd10:0:255::200/64 dev lo1
+      dns:
+        servers:
+        - 192.168.250.254
+        # Reset possibly existing search domains
+        search:
+        - "."
+      stages:
+        create:
+          wait-for:
+          - node: ${PRIVNET_BRIDGE:-privnet-sgmnts}
+            stage: create-links
+        configure:
+          exec:
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-a1 vid 10 pvid untagged
+            target: host
+            phase: on-enter
+
+    vm-net-a2:
+      kind: linux
+      group: vms
+      env:
+        CILIUM_PRIVNET_NETWORK: network-a
+      exec:
+        - ip addr add 192.168.250.201/24 dev eth0
+        - ip addr add fd10:0:250::201/64 dev eth0
+        - ip -4 route add default via 192.168.250.254
+        - ip -6 route add default via fd10:0:250::fffe
+        - ip -4 route add 192.168.255.0/24 via 192.168.250.200
+        - ip -6 route add fd10:0:255::/64 via fd10:0:250::200
+      dns:
+        servers:
+        - 192.168.250.254
+        search:
+        - "."
+      stages:
+        create:
+          wait-for:
+          - node: ${PRIVNET_BRIDGE:-privnet-sgmnts}
+            stage: create-links
+        configure:
+          exec:
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-a2 vid 10 pvid untagged
+            target: host
+            phase: on-enter
+
+    # Fake VMs --- net-b segment
+    vm-net-b1:
+      kind: linux
+      group: vms
+      env:
+        CILIUM_PRIVNET_NETWORK: network-b
+      exec:
+        - ip addr add 192.168.251.200/24 dev eth0
+        - ip addr add fd10:0:251::200/64 dev eth0
+        - ip -4 route add default via 192.168.251.254
+        - ip -6 route add default via fd10:0:251::fffe
+      dns:
+        servers:
+        - 192.168.251.254
+        search:
+        - "."
+      stages:
+        create:
+          wait-for:
+          - node: ${PRIVNET_BRIDGE:-privnet-sgmnts}
+            stage: create-links
+        configure:
+          exec:
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-b1 vid 11 pvid untagged
+            target: host
+            phase: on-enter
+
+    # Fake VMs --- net-c segment
+    vm-net-c1:
+      kind: linux
+      group: vms
+      env:
+        CILIUM_PRIVNET_NETWORK: network-c
+      exec:
+        - ip addr add 192.168.252.200/24 dev eth0
+        - ip addr add fd10:0:252::200/64 dev eth0
+        - ip -4 route add default via 192.168.252.254
+        - ip -6 route add default via fd10:0:252::fffe
+        # Loopback interface, to validate DCN routes
+        - ip link add name lo1 type dummy
+        - ip link set lo1 up
+        - ip addr add 192.168.252.210/32 dev lo1
+        - ip addr add fd10:0:252::210/128 dev lo1
+        - ip neigh add proxy fd10:0:252::210 dev eth0
+      dns:
+        servers:
+        - 192.168.252.254
+        search:
+        - "."
+      stages:
+        create:
+          wait-for:
+          - node: ${PRIVNET_BRIDGE:-privnet-sgmnts}
+            stage: create-links
+        configure:
+          exec:
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-c1 vid 12 pvid untagged
+            target: host
+            phase: on-enter
+
+    # Fake VMs --- net-d segment
+    vm-net-d1:
+      kind: linux
+      group: vms
+      env:
+        CILIUM_PRIVNET_NETWORK: network-d
+      exec:
+        - ip addr add 192.168.252.200/24 dev eth0
+        - ip addr add fd10:0:252::200/64 dev eth0
+        - ip -4 route add default via 192.168.252.254
+        - ip -6 route add default via fd10:0:252::fffe
+        # Loopback interface, to validate DCN routes
+        - ip link add name lo1 type dummy
+        - ip link set lo1 up
+        - ip addr add 192.168.252.210/32 dev lo1
+        - ip addr add fd10:0:252::210/128 dev lo1
+        - ip neigh add proxy fd10:0:252::210 dev eth0
+      dns:
+        servers:
+        - 192.168.252.254
+        search:
+        - "."
+      stages:
+        create:
+          wait-for:
+          - node: ${PRIVNET_BRIDGE:-privnet-sgmnts}
+            stage: create-links
+        configure:
+          exec:
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-d1 vid 13 pvid untagged
+            target: host
+            phase: on-enter
+
+
+    # Inventory
+    inventory:
+      kind: linux
+      image: ${PRIVNET_CONTAINER_IMAGE}
+      binds:
+      - ${PRIVNET_INVENTORY_SCRIPT}:/tmp/script.py:ro
+      cmd: /usr/bin/env CILIUM_PRIVNET_DNS_SERVER=${PRIVNET_DNS_SERVER:-8.8.8.8} python3 /tmp/script.py
+      env:
+        CILIUM_PRIVNET_PORT: 8000
+
+    # vSphere API simulator
+    vcsim:
+      kind: linux
+      image: ${PRIVNET_GOVMOMI_IMAGE}
+      cmd: vcsim -l 0.0.0.0:8989 -vm 0 -standalone-host=0 -pg=0 --username user --password pass --tls=false
+      env:
+        GOVC_URL: http://user:pass@localhost:8989/sdk
+
+    # Routers
+    router-net-abc:
+      kind: linux
+      group: routers
+      exec:
+        - ip addr add 192.168.250.254/24 dev ethA
+        - ip addr add fd10:0:250::fffe/64 dev ethA
+        - ip addr add 192.168.251.254/24 dev ethB
+        - ip addr add fd10:0:251::fffe/64 dev ethB
+        - ip addr add 192.168.252.254/24 dev ethC
+        - ip addr add fd10:0:252::fffe/64 dev ethC
+        # Masquerade all traffic to external networks
+        - iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+        # Forward all DNS requests to an external DNS server (e.g., 8.8.8.8)
+        - iptables -t nat -A PREROUTING ! -i eth0 -p tcp --dport 53 -j DNAT --to ${PRIVNET_DNS_SERVER:-8.8.8.8}:53
+        - iptables -t nat -A PREROUTING ! -i eth0 -p udp --dport 53 -j DNAT --to ${PRIVNET_DNS_SERVER:-8.8.8.8}:53
+      stages:
+        create:
+          wait-for:
+          - node: ${PRIVNET_BRIDGE:-privnet-sgmnts}
+            stage: create-links
+        configure:
+          exec:
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-a9 vid 10 pvid untagged
+            target: host
+            phase: on-enter
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-b9 vid 11 pvid untagged
+            target: host
+            phase: on-enter
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-c9 vid 12 pvid untagged
+            target: host
+            phase: on-enter
+
+    router-net-d:
+      kind: linux
+      group: routers
+      exec:
+        - ip addr add 192.168.252.254/24 dev ethD
+        - ip addr add fd10:0:252::fffe/64 dev ethD
+        # Masquerade all traffic to external networks
+        - iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+        # Forward all DNS requests to an external DNS server (e.g., 8.8.8.8)
+        - iptables -t nat -A PREROUTING ! -i eth0 -p tcp --dport 53 -j DNAT --to ${PRIVNET_DNS_SERVER:-8.8.8.8}:53
+        - iptables -t nat -A PREROUTING ! -i eth0 -p udp --dport 53 -j DNAT --to ${PRIVNET_DNS_SERVER:-8.8.8.8}:53
+      stages:
+        create:
+          wait-for:
+          - node: ${PRIVNET_BRIDGE:-privnet-sgmnts}
+            stage: create-links
+        configure:
+          exec:
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-d9 vid 13 pvid untagged
+            target: host
+            phase: on-enter
+
+
+  links:
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-a0", "privnet-inb0-control-plane:ethA"]
+    mtu: 1500
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-a1", "vm-net-a1:eth0"]
+    mtu: 1500
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-a2", "vm-net-a2:eth0"]
+    mtu: 1500
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-a9", "router-net-abc:ethA"]
+    mtu: 1500
+
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-b0", "privnet-inb0-control-plane:ethB"]
+    mtu: 1500
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-b1", "vm-net-b1:eth0"]
+    mtu: 1500
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-b9", "router-net-abc:ethB"]
+    mtu: 1500
+
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-c1", "vm-net-c1:eth0"]
+    mtu: 1500
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-c9", "router-net-abc:ethC"]
+    mtu: 1500
+
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-d1", "vm-net-d1:eth0"]
+    mtu: 1500
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-d9", "router-net-d:ethD"]
+    mtu: 1500
+
+  # Trunk interface
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-abcd0", "privnet-inb1-control-plane:eth1"]
+    mtu: 1500

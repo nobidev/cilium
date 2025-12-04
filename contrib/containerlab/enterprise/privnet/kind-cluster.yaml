@@ -1,0 +1,19 @@
+apiVersion: kind.x-k8s.io/v1alpha4
+kind: Cluster
+name: privnet-cluster
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+    - |
+      apiVersion: kubeadm.k8s.io/v1beta3
+      kind: InitConfiguration
+      nodeRegistration:
+        taints: []
+  - role: worker
+  - role: worker
+networking:
+  disableDefaultCNI: true
+  ipFamily: dual
+  podSubnet: 10.196.0.0/16,fd00:10:196::/56
+  serviceSubnet: 10.128.0.0/16,fd00:10:128::/112
+  kubeProxyMode: none

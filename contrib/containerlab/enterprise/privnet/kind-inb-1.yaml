@@ -1,0 +1,11 @@
+apiVersion: kind.x-k8s.io/v1alpha4
+kind: Cluster
+name: privnet-inb1
+nodes:
+  - role: control-plane
+networking:
+  disableDefaultCNI: true
+  ipFamily: dual
+  podSubnet: 10.201.0.0/16,fd00:10:201::/56
+  serviceSubnet: 10.128.0.0/16,fd00:10:128::/112
+  kubeProxyMode: none
