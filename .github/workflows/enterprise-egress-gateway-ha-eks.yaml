@@ -294,6 +294,7 @@ jobs:
             tags:
               usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
               owner: "${{ steps.vars.outputs.owner }}"
+              svic_osquery_supported: "no"
 
           managedNodeGroups:
           - name: ng-amd64-egw-node
