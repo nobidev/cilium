@@ -110,7 +110,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout Cilium
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.SHA || github.event.pull_request.head.sha }}
           persist-credentials: false
@@ -173,7 +173,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.4
+          go-version: 1.25.5
 
       - name: Build and Push CLife image
         if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
@@ -196,7 +196,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout Cilium
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.SHA || github.event.pull_request.head.sha }}
           persist-credentials: false
@@ -271,7 +271,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.4
+          go-version: 1.25.5
 
       - name: Generate installation manifests
         working-directory: ./enterprise/olm
@@ -293,19 +293,19 @@ jobs:
           touch /home/runner/.kube/config
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.region }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
+        uses: cilium/cilium-cli@e875161a362b9092ff3e1110eccf52a9fdb17c0a # v0.18.9
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Checkout the openshift-ci repository
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: isovalent/openshift-ci
           token: ${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}
@@ -487,7 +487,7 @@ jobs:
 
       - name: Checkout sail-operator repo for Service Mesh conformance tests
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.ossm == 'true' }}
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: openshift-service-mesh/sail-operator
           path: ./openshift-ci/aws-ipi/.workdir/${{ env.clusterName }}/sail-operator
@@ -676,7 +676,7 @@ jobs:
       # refresh credentials
       - name: Set up AWS CLI credentials
         if: always() && steps.provisioning.outcome != 'skipped'
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.region }}
