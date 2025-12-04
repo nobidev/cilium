@@ -13,11 +13,13 @@
     '.github/actions/set-env-variables/enterprise-overrides.sh',
     '.github/workflows/enterprise-*',
     'cilium-cli/enterprise/**',
+    'contrib/testing/privnet/govmomi/Dockerfile',
     'enterprise/images/**',
     'enterprise/olm/Dockerfile',
     'enterprise/**/go.mod',
     'images/cilium/download-hubble-enterprise.sh',
     'install/kubernetes/cilium/zz_enterprise_values.yaml.tmpl',
+    'Makefile.privnet',
   ],
   schedule: [
     'on monday',
@@ -292,6 +294,14 @@
         'pinDigest',
       ],
     },
+    {
+      groupName: 'All test dependencies',
+      groupSlug: 'all-test-dependencies',
+      matchFileNames: [
+        'Makefile*',
+        'contrib/testing/**',
+      ],
+    },
   ],
   customManagers: [
     {
@@ -371,6 +381,15 @@
       "matchStrings": [
         "\/\/ renovate: datasource=(?<datasource>.*?)\\s+\"[^\"]+\": \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
       ]
+    },
+    {
+      customType: 'regex',
+      managerFilePatterns: [
+        '/^Makefile.privnet$/',
+      ],
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>.*?)\\s+.+_IMAGE\\s?\\?=\\s?(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)',
+      ],
     },
   ],
 }

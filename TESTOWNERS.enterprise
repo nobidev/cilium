@@ -432,8 +432,10 @@
 /contrib/testing/enterprise-kind.yaml @isovalent/infrastructure
 /contrib/testing/enterprise-kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer
 /contrib/testing/kind-egressgwha-values.yaml @isovalent/egress-gateway
+/contrib/testing/privnet/ @isovalent/private-networking
 /contrib/scripts/enterprise-gomod-override.sh @isovalent/traffic-engineering
 /Makefile.fqdn-proxy @isovalent/dns-proxy
+/Makefile.privnet @isovalent/private-networking
 /renovate.json5 @isovalent/infrastructure
 *podnetwork* @isovalent/multi-network
 /enterprise/Makefile @isovalent/cni @isovalent/hubble-api

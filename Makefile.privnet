@@ -1,0 +1,130 @@
+# Copyright (C) Isovalent, Inc. - All Rights Reserved.
+#
+# NOTICE: All information contained herein is, and remains the property of
+# Isovalent Inc and its suppliers, if any. The intellectual and technical
+# concepts contained herein are proprietary to Isovalent Inc and its suppliers
+# and may be covered by U.S. and Foreign Patents, patents in process, and are
+# protected by trade secret or copyright law.  Dissemination of this information
+# or reproduction of this material is strictly forbidden unless prior written
+# permission is obtained from Isovalent Inc.
+
+##@ Private Networks
+
+CONTAINERLAB ?= containerlab
+GOVC ?= $(CONTAINER_ENGINE) exec privnet-vcsim govc
+
+PRIVNET_KIND_IMAGE ?=
+PRIVNET_GOVMOMI_IMAGE ?= $(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/govmomi:$(LOCAL_IMAGE_TAG)
+
+# renovate: datasource=docker
+PRIVNET_CONTAINER_IMAGE ?= docker.io/nicolaka/netshoot:v0.14@sha256:7f08c4aff13ff61a35d30e30c5c1ea8396eac6ab4ce19fd02d5a4b3b5d0d09a2
+
+PRIVNET_DNS_SERVER ?= 8.8.8.8
+
+.PHONY: kind-privnet-all
+kind-privnet-all:  ## Setup the privnet environment
+	$(MAKE) kind-privnet-up
+
+.PHONY: kind-privnet-govmomi-image
+kind-privnet-govmomi-image:  ## Build the Docker image with the govmomi tools
+	$(QUIET) $(CONTAINER_ENGINE) buildx build --quiet \
+		./contrib/testing/privnet/govmomi \
+		$(DOCKER_BUILD_FLAGS) $(DOCKER_FLAGS) \
+		-t $(PRIVNET_GOVMOMI_IMAGE)
+
+.PHONY: kind-privnet-up
+kind-privnet-up: kind-privnet-govmomi-image  ## Setup the privnet environment
+	$(QUIET) ip link sh dev privnet-sgmnts >/dev/null 2>/dev/null || \
+		sudo ip link add privnet-sgmnts type bridge vlan_filtering 1 vlan_default_pvid 0
+	$(QUIET) sudo ip link set privnet-sgmnts up
+
+	# Containerlab needs to be run as root, either via sudo, or typically via
+	# being configured as a SUID binary. However, that also means that the
+	# kubeconfig ends up being owned by root, which is undesired. Hence, let's
+	# make sure that the file already exists, so that the owner is preserved.
+	$(QUIET) mkdir -p $$( dirname $$(echo $${KUBECONFIG:-~/.kube/config} | cut -d ":" -f1) )
+	$(QUIET) umask 066; touch $$( echo $${KUBECONFIG:-~/.kube/config} | cut -d ":" -f1 )
+
+	SUDO_UID=$(shell id -u) SUDO_GID=$(shell id -g) \
+		KIND_EXPERIMENTAL_DOCKER_NETWORK=privnet \
+		PRIVNET_BRIDGE=privnet-sgmnts \
+		PRIVNET_KIND_IMAGE=$(PRIVNET_KIND_IMAGE) \
+		PRIVNET_CONTAINER_IMAGE=$(PRIVNET_CONTAINER_IMAGE) \
+		PRIVNET_GOVMOMI_IMAGE=$(PRIVNET_GOVMOMI_IMAGE) \
+		PRIVNET_DNS_SERVER=$(PRIVNET_DNS_SERVER) \
+		PRIVNET_FAKE_VM_SCRIPT=$(ROOT_DIR)/cilium-cli/enterprise/hooks/cli/privnet/manifests/vm-echo-script.py \
+		PRIVNET_INVENTORY_SCRIPT=$(ROOT_DIR)/contrib/testing/privnet/mock-inventory.py \
+			$(CONTAINERLAB) deploy \
+				--network=privnet --ipv4-subnet=172.128.0.0/16 --ipv6-subnet=fc00:128::/64 \
+				--topo ./contrib/containerlab/enterprise/privnet/topo.clab.yaml
+
+	# Make sure that coredns uses IPv4-only upstream DNS servers, to prevent issues
+    # in case IPv6 ones are not reachable, causing spurious failures.
+	NAMESERVER=${PRIVNET_DNS_SERVER} envsubst < contrib/testing/privnet/coredns-patch.yaml.tmpl | \
+		kubectl --context=kind-privnet-cluster patch deployment -n kube-system coredns --patch-file=/dev/stdin
+	NAMESERVER=${PRIVNET_DNS_SERVER} envsubst < contrib/testing/privnet/coredns-patch.yaml.tmpl | \
+		kubectl --context=kind-privnet-inb0 patch deployment -n kube-system coredns --patch-file=/dev/stdin
+	NAMESERVER=${PRIVNET_DNS_SERVER} envsubst < contrib/testing/privnet/coredns-patch.yaml.tmpl | \
+		kubectl --context=kind-privnet-inb1 patch deployment -n kube-system coredns --patch-file=/dev/stdin
+
+	$(MAKE) kind-privnet-populate-vcsim
+
+PRIVNET_VM_FOLDER ?= /DC0/vm/testing
+
+# $(1): name, $(2): network
+define privnet_vcsim_create_vm_auto
+	$(call privnet_vcsim_create_vm,$(1),$(2), \
+		$(shell docker exec $(1) cat /sys/class/net/eth0/address), \
+		$(shell docker exec $(1) ip -br -4 a sh dev eth0 scope global | awk '{split($$3,out,"/"); print out[1]}'), \
+		$(shell docker exec $(1) ip -br -6 a sh dev eth0 scope global | awk '{print $$3}')
+	)
+endef
+
+# $(1): name, $(2): network, $(3): MAC, $(4): IP4, $(5): IP6
+# Note that both the IPv4 netmask and the IP6 address are ignored by vcsim at the moment.
+define privnet_vcsim_create_vm
+	$(GOVC) vm.create -ds LocalDS_0 -cluster DC0_C0 --folder $(PRIVNET_VM_FOLDER) -on=false --net=$(2) --net.address=$(strip $3) $(1)
+	$(GOVC) vm.customize -vm $(1) --name $(1) -ip $(strip $4) --netmask 255.255.255.0 --ip6 $(strip $5)
+	$(GOVC) vm.power -on $(1)
+endef
+
+.PHONY kind-privnet-populate-vcsim:
+kind-privnet-populate-vcsim:  ## Populate the information inside vcsim
+	# Clean stale entries
+	-$(GOVC) find -type m $(PRIVNET_VM_FOLDER) | \
+    	$(SED) 's|$(PRIVNET_VM_FOLDER)/||' | xargs -t -I {} $(GOVC) vm.destroy {};
+	-$(GOVC) object.destroy $(PRIVNET_VM_FOLDER)
+
+	-$(GOVC) find -type g /DC0/network | xargs -t -I {} $(GOVC) object.destroy {};
+	-$(GOVC) object.destroy /DC0/network/privnet-sgmnts
+
+	# Populate the network entries
+	$(GOVC) dvs.create privnet-sgmnts
+	$(GOVC) dvs.add -dvs privnet-sgmnts -pnic vmnic1 DC0_C0_H0 DC0_C0_H1 DC0_C0_H2
+	$(foreach net,network-a network-b network-c network-d,$(GOVC) dvs.portgroup.add -dvs privnet-sgmnts $(net);)
+
+	# Populate the VM entries
+	-$(GOVC) folder.create $(PRIVNET_VM_FOLDER)
+	$(call privnet_vcsim_create_vm_auto,privnet-vm-net-a1,network-a)
+	$(call privnet_vcsim_create_vm_auto,privnet-vm-net-a2,network-a)
+	$(call privnet_vcsim_create_vm_auto,privnet-vm-net-b1,network-b)
+
+	$(call privnet_vcsim_create_vm_auto,privnet-vm-net-c1,network-c)
+	$(call privnet_vcsim_create_vm_auto,privnet-vm-net-d1,network-d)
+
+.PHONY: kind-privnet-down
+kind-privnet-down:  ## Tear down the privnet environment
+	PRIVNET_BRIDGE=privnet-sgmnts \
+		$(CONTAINERLAB) destroy --cleanup \
+			--topo ./contrib/containerlab/enterprise/privnet/topo.clab.yaml
+
+	$(QUIET) ip link sh dev privnet-sgmnts >/dev/null 2>/dev/null && \
+		sudo ip link del privnet-sgmnts type bridge || true
+
+
+.PHONY: kind-privnet-ready
+kind-privnet-ready:  ## Check the readiness of the privnet environment
+	@$(ECHO_CHECK) privnet kind clusters are ready...
+	$(QUIET) kind get clusters --quiet | grep --word-regexp --silent privnet-cluster
+	$(QUIET) kind get clusters --quiet | grep --word-regexp --silent privnet-inb0
+	$(QUIET) kind get clusters --quiet | grep --word-regexp --silent privnet-inb1
