@@ -15,15 +15,21 @@ GOVC ?= $(CONTAINER_ENGINE) exec privnet-vcsim govc
 
 PRIVNET_KIND_IMAGE ?=
 PRIVNET_GOVMOMI_IMAGE ?= $(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/govmomi:$(LOCAL_IMAGE_TAG)
+PRIVNET_ENVOY_IMAGE = $(shell yq '.envoy.image | .repository + ":" + .tag' install/kubernetes/cilium/values.yaml)
 
 # renovate: datasource=docker
 PRIVNET_CONTAINER_IMAGE ?= docker.io/nicolaka/netshoot:v0.14@sha256:7f08c4aff13ff61a35d30e30c5c1ea8396eac6ab4ce19fd02d5a4b3b5d0d09a2
 
+# renovate: datasource=github-releases depName=cert-manager/cert-manager
+PRIVNET_CERT_MANAGER_VERSION ?= v1.19.1
+
 PRIVNET_DNS_SERVER ?= 8.8.8.8
 
 .PHONY: kind-privnet-all
-kind-privnet-all:  ## Setup the privnet environment
+kind-privnet-all:  ## Setup the privnet environment, install Cilium
 	$(MAKE) kind-privnet-up
+	$(MAKE) kind-privnet-images
+	$(MAKE) kind-privnet-install-fast
 
 .PHONY: kind-privnet-govmomi-image
 kind-privnet-govmomi-image:  ## Build the Docker image with the govmomi tools
@@ -128,3 +134,175 @@ kind-privnet-ready:  ## Check the readiness of the privnet environment
 	$(QUIET) kind get clusters --quiet | grep --word-regexp --silent privnet-cluster
 	$(QUIET) kind get clusters --quiet | grep --word-regexp --silent privnet-inb0
 	$(QUIET) kind get clusters --quiet | grep --word-regexp --silent privnet-inb1
+
+
+LOCAL_IMAGE_TAG_PRIVNET ?= privnet
+DOCKER_REGISTRY_PRIVNET ?= localhost:5000
+
+define KIND_PRIVNET_ENV
+.PHONY: $(1)
+$(1): export DOCKER_REGISTRY:=$$(DOCKER_REGISTRY_PRIVNET)
+$(1): export DOCKER_DEV_ACCOUNT:=$$(DOCKER_DEV_ACCOUNT)
+$(1): export LOCAL_IMAGE_TAG:=$$(LOCAL_IMAGE_TAG_PRIVNET)
+$(1): export LOCAL_AGENT_IMAGE=$$(DOCKER_REGISTRY_PRIVNET)/$$(DOCKER_DEV_ACCOUNT)/cilium-dev:$$(LOCAL_IMAGE_TAG)
+$(1): export LOCAL_OPERATOR_IMAGE=$$(DOCKER_REGISTRY_PRIVNET)/$$(DOCKER_DEV_ACCOUNT)/operator-generic:$$(LOCAL_IMAGE_TAG)
+$(1): export LOCAL_CLUSTERMESH_IMAGE=$$(DOCKER_REGISTRY_PRIVNET)/$$(DOCKER_DEV_ACCOUNT)/clustermesh-apiserver:$$(LOCAL_IMAGE_TAG)
+endef
+
+.PHONY: kind-privnet-build-images
+$(eval $(call KIND_PRIVNET_ENV,kind-privnet-build-images))
+kind-privnet-build-images: kind-build-image-agent kind-build-image-operator kind-build-clustermesh-apiserver  ## Build the privnet images
+
+define privnet_pull_image
+    docker image inspect $(1) >/dev/null 2>&1 || docker pull --quiet $(1)
+endef
+
+.PHONY: kind-privnet-load-images  ## Load the privnet images to kind nodes
+$(eval $(call KIND_PRIVNET_ENV,kind-privnet-load-images))
+kind-privnet-load-images: kind-privnet-ready
+	$(call privnet_pull_image,$(PRIVNET_ENVOY_IMAGE))
+	$(call privnet_pull_image,quay.io/jetstack/cert-manager-controller:$(PRIVNET_CERT_MANAGER_VERSION))
+	$(call privnet_pull_image,quay.io/jetstack/cert-manager-cainjector:$(PRIVNET_CERT_MANAGER_VERSION))
+	$(call privnet_pull_image,quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION))
+
+	$(QUIET) kind load docker-image --name privnet-cluster $(LOCAL_AGENT_IMAGE) $(LOCAL_OPERATOR_IMAGE) $(LOCAL_CLUSTERMESH_IMAGE) $(PRIVNET_ENVOY_IMAGE) \
+		quay.io/jetstack/cert-manager-controller:$(PRIVNET_CERT_MANAGER_VERSION) quay.io/jetstack/cert-manager-cainjector:$(PRIVNET_CERT_MANAGER_VERSION) \
+		quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION)
+	$(QUIET) kind load docker-image --name privnet-inb0 $(LOCAL_AGENT_IMAGE) $(LOCAL_OPERATOR_IMAGE) $(LOCAL_CLUSTERMESH_IMAGE) $(PRIVNET_ENVOY_IMAGE) \
+		quay.io/jetstack/cert-manager-controller:$(PRIVNET_CERT_MANAGER_VERSION) quay.io/jetstack/cert-manager-cainjector:$(PRIVNET_CERT_MANAGER_VERSION) \
+		quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION)
+	$(QUIET) kind load docker-image --name privnet-inb1 $(LOCAL_AGENT_IMAGE) $(LOCAL_OPERATOR_IMAGE) $(LOCAL_CLUSTERMESH_IMAGE) $(PRIVNET_ENVOY_IMAGE) \
+		quay.io/jetstack/cert-manager-controller:$(PRIVNET_CERT_MANAGER_VERSION) quay.io/jetstack/cert-manager-cainjector:$(PRIVNET_CERT_MANAGER_VERSION) \
+		quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION)
+
+.PHONY: kind-privnet-images
+$(eval $(call KIND_PRIVNET_ENV,kind-privnet-images))
+kind-privnet-images: kind-privnet-build-images kind-privnet-load-images  ## Build the privnet images, and load them to kind nodes
+
+.PHONY: kind-privnet-images-fast
+kind-privnet-images-fast: kind-image-enterprise-fast  ## Build all binaries and copy them to kind nodes.
+
+
+KIND_PRIVNET_VALUES_FILES ?= ""
+
+.PHONY: kind-privnet-install
+kind-privnet-install:  ## Install a local Cilium version into the clusters
+	$(MAKE) kind-privnet-uninstall
+	$(MAKE) kind-privnet-install-common
+	$(MAKE) kind-privnet-install-cert-manager
+	$(MAKE) kind-privnet-connect-clustermesh
+
+.PHONY: kind-privnet-install-fast
+kind-privnet-install-fast:  ## Install a local Cilium version into the clusters (fast mode)
+	$(MAKE) kind-privnet-uninstall
+
+	$(MAKE) kind-privnet-install-common KIND_PRIVNET_VALUES_FILES="\
+		$(KIND_PRIVNET_VALUES_FILES) \
+		--values=$(ROOT_DIR)/contrib/testing/kind-fast.yaml \
+	"
+
+	$(MAKE) kind-privnet-images-fast
+	$(MAKE) kind-privnet-install-cert-manager
+	$(MAKE) kind-privnet-connect-clustermesh
+
+.PHONY: kind-privnet-jetstack-repo
+kind-privnet-jetstack-repo:
+	$(QUIET) helm repo add jetstack https://charts.jetstack.io --force-update >/dev/null
+	$(QUIET) helm repo update jetstack >/dev/null
+
+define privnet_install_cert_manager_crds
+    helm template cert-manager jetstack/cert-manager --include-crds --set installCRDs=true \
+		| yq 'select(.kind == "CustomResourceDefinition")' \
+     	| kubectl create --context $(1) -f -
+endef
+
+.PHONY: kind-privnet-install-common
+kind-privnet-install-common: kind-privnet-jetstack-repo
+	$(call privnet_install_cert_manager_crds,kind-privnet-cluster)
+	kubectl --context kind-privnet-cluster create -n kube-system -f $(ROOT_DIR)/contrib/testing/privnet/cilium-ca-cert.yaml
+	kubectl --context kind-privnet-cluster create -n kube-system -f $(ROOT_DIR)/contrib/testing/privnet/cilium-issuer.yaml
+
+	$(CILIUM_CLI) install --context kind-privnet-cluster \
+		--chart-directory $(ROOT_DIR)/install/kubernetes/cilium \
+		--values $(ROOT_DIR)/contrib/testing/privnet/kind-privnet.yaml \
+		--set cluster.name=privnet-cluster --set cluster.id=1 \
+		$(KIND_PRIVNET_VALUES_FILES) \
+		--version=
+
+	$(call privnet_install_cert_manager_crds,kind-privnet-inb0)
+	kubectl --context kind-privnet-inb0 create -n kube-system -f $(ROOT_DIR)/contrib/testing/privnet/cilium-issuer.yaml
+	$(CILIUM_CLI) install --context kind-privnet-inb0 \
+		--chart-directory $(ROOT_DIR)/install/kubernetes/cilium \
+		--values $(ROOT_DIR)/contrib/testing/privnet/kind-privnet.yaml \
+		--set cluster.name=privnet-inb0 --set cluster.id=2 \
+		--set enterprise.privateNetworks.mode=bridge \
+		$(KIND_PRIVNET_VALUES_FILES) \
+		--version=
+
+	$(call privnet_install_cert_manager_crds,kind-privnet-inb1)
+	kubectl --context kind-privnet-inb1 create -n kube-system -f $(ROOT_DIR)/contrib/testing/privnet/cilium-issuer.yaml
+	$(CILIUM_CLI) install --context kind-privnet-inb1 \
+		--chart-directory $(ROOT_DIR)/install/kubernetes/cilium \
+		--values $(ROOT_DIR)/contrib/testing/privnet/kind-privnet.yaml \
+		--set cluster.name=privnet-inb1 --set cluster.id=3 \
+		--set enterprise.privateNetworks.mode=bridge \
+		$(KIND_PRIVNET_VALUES_FILES) \
+		--version=
+
+define privnet_install_cert_manager
+	$(QUIET) helm --kube-context $(1) install \
+		cert-manager jetstack/cert-manager \
+		--namespace cert-manager \
+		--create-namespace \
+		--version $(PRIVNET_CERT_MANAGER_VERSION) \
+		--set crds.enabled=false \
+		--set image.pullPolicy=Never \
+		--set webhook.image.pullPolicy=Never \
+		--set cainjector.image.pullPolicy=Never \
+		--set acmesolver.image.pullPolicy=Never \
+		--set startupapicheck.enabled=false \
+		>/dev/null
+endef
+
+.PHONY: kind-privnet-install-cert-manager
+kind-privnet-install-cert-manager:
+	$(call privnet_install_cert_manager,kind-privnet-cluster)
+	$(call privnet_install_cert_manager,kind-privnet-inb0)
+	$(call privnet_install_cert_manager,kind-privnet-inb1)
+
+	$(QUIET) kubectl --context kind-privnet-cluster wait certificate -n kube-system cilium-ca \
+		--for condition=Ready --timeout=300s
+
+	$(QUIET) kubectl --context kind-privnet-cluster get secret -n kube-system cilium-ca -o yaml | \
+		kubectl --context kind-privnet-inb0 create -f -
+	$(QUIET) kubectl --context kind-privnet-cluster get secret -n kube-system cilium-ca -o yaml | \
+		kubectl --context kind-privnet-inb1 create -f -
+
+	$(QUIET) kubectl --context kind-privnet-cluster wait certificate -n kube-system --all --for condition=Ready >/dev/null
+	$(QUIET) kubectl --context kind-privnet-inb0 wait certificate -n kube-system --all --for condition=Ready >/dev/null
+	$(QUIET) kubectl --context kind-privnet-inb1 wait certificate -n kube-system --all --for condition=Ready >/dev/null
+
+define privnet_uninstall
+	-$(QUIET) helm uninstall --kube-context $(1) -n cert-manager cert-manager >/dev/null 2>&1
+	$(QUIET) kubectl --context $(1) delete crds -l app.kubernetes.io/name=cert-manager --ignore-not-found >/dev/null
+	$(QUIET) kubectl --context $(1) delete secret -n kube-system cilium-ca --ignore-not-found
+	$(QUIET) kubectl --context $(1) delete lease -n kube-system cert-manager-controller cert-manager-cainjector-leader-election --ignore-not-found
+	$(QUIET) kubectl --context $(1) delete secret -n kube-system -l controller.cert-manager.io/fao --ignore-not-found >/dev/null
+
+	-$(QUIET)$(CILIUM_CLI) uninstall --context $(1) >/dev/null 2>&1
+	$(QUIET) kubectl --context $(1) wait --for=delete ns/cilium-secrets
+endef
+
+.PHONY: kind-privnet-uninstall
+kind-privnet-uninstall:  ## Uninstall Cilium from the clusters
+	$(call privnet_uninstall,kind-privnet-cluster)
+	$(call privnet_uninstall,kind-privnet-inb0)
+	$(call privnet_uninstall,kind-privnet-inb1)
+
+.PHONY: kind-privnet-connect-clustermesh
+kind-privnet-connect-clustermesh:  ## Mesh the clusters via Cluster Mesh
+	$(CILIUM_CLI) clustermesh connect --context kind-privnet-cluster --destination-context kind-privnet-inb0,kind-privnet-inb1
+
+	$(CILIUM_CLI) clustermesh status --context kind-privnet-cluster --wait
+	$(CILIUM_CLI) clustermesh status --context kind-privnet-inb0 --wait
+	$(CILIUM_CLI) clustermesh status --context kind-privnet-inb1 --wait

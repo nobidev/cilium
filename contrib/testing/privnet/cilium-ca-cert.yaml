@@ -1,0 +1,20 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cilium-ca
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cilium-ca
+spec:
+  commonName: cilium-ca
+  duration: 8760h
+  isCA: true
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: cilium-ca
+  secretName: cilium-ca
