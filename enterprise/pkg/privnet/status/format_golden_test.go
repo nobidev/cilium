@@ -28,15 +28,15 @@ func TestFormatGolden(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		golden string
-		status PrivateNetworkNodeStatus
+		status NodeStatus
 	}{
 		{
 			name:   "simple INB",
 			golden: "simple",
-			status: PrivateNetworkNodeStatus{
+			status: NodeStatus{
 				Name:    "inb-0",
 				Cluster: "inb-west",
-				ConnectedClusters: []PrivateNetworkConnectedCluster{
+				ConnectedClusters: []ConnectedCluster{
 					{
 						Name: "inb-west",
 						NodeNames: []types.NodeName{
@@ -62,7 +62,7 @@ func TestFormatGolden(t *testing.T) {
 				},
 				Enabled: true,
 				Mode:    "bridge",
-				Networks: []PrivateNetworkStatus{
+				Networks: []NetworkStatus{
 					{
 						Name: "blue",
 						Routes: []tables.PrivateNetworkRoute{
@@ -76,7 +76,7 @@ func TestFormatGolden(t *testing.T) {
 								CIDR: netip.MustParsePrefix("192.168.1.1/24"),
 							},
 						},
-						Endpoints: []PrivateNetworkEndpointStatus{
+						Endpoints: []EndpointStatus{
 							{
 								Name:    "ep0",
 								Cluster: "cluster-west",
@@ -118,7 +118,7 @@ func TestFormatGolden(t *testing.T) {
 								External: true,
 							},
 						},
-						INBStatus: PrivateNetworkINBStatus{
+						INBStatus: INBStatus{
 							Serving: true,
 							Interface: tables.PrivateNetworkInterface{
 								Name:  "eth0",
@@ -146,10 +146,10 @@ func TestFormatGolden(t *testing.T) {
 		{
 			name:   "simple worker",
 			golden: "simple-worker",
-			status: PrivateNetworkNodeStatus{
+			status: NodeStatus{
 				Name:    "worker-0",
 				Cluster: "cluster-west",
-				ConnectedClusters: []PrivateNetworkConnectedCluster{
+				ConnectedClusters: []ConnectedCluster{
 					{
 						Name: "inb-west",
 						NodeNames: []types.NodeName{
@@ -174,7 +174,7 @@ func TestFormatGolden(t *testing.T) {
 				},
 				Enabled: true,
 				Mode:    "default",
-				Networks: []PrivateNetworkStatus{
+				Networks: []NetworkStatus{
 					{
 						Name: "blue",
 						Routes: []tables.PrivateNetworkRoute{
@@ -188,7 +188,7 @@ func TestFormatGolden(t *testing.T) {
 								CIDR: netip.MustParsePrefix("192.168.1.1/24"),
 							},
 						},
-						Endpoints: []PrivateNetworkEndpointStatus{
+						Endpoints: []EndpointStatus{
 							{
 								Name:    "ep0",
 								Cluster: "cluster-west",
@@ -238,12 +238,12 @@ func TestFormatGolden(t *testing.T) {
 								External: true,
 							},
 						},
-						WorkerStatus: PrivateNetworkWorkerStatus{
+						WorkerStatus: WorkerStatus{
 							ActiveINB: "inb-east/inb-0",
-							ConnectedINBCluster: []PrivateNetworkINBCluster{
+							ConnectedINBCluster: []INBCluster{
 								{
 									Name: "inb-east",
-									INBs: []PrivateNetworkConnectedINB{
+									INBs: []ConnectedINB{
 										{
 											Cluster: "inb-east",
 											Name:    "inb-0",
@@ -259,7 +259,7 @@ func TestFormatGolden(t *testing.T) {
 								},
 								{
 									Name: "inb-west",
-									INBs: []PrivateNetworkConnectedINB{
+									INBs: []ConnectedINB{
 										{
 											Cluster: "inb-west",
 											Name:    "inb-0",
@@ -275,7 +275,7 @@ func TestFormatGolden(t *testing.T) {
 		{
 			name:   "empty worker",
 			golden: "empty-worker",
-			status: PrivateNetworkNodeStatus{
+			status: NodeStatus{
 				Name:    "worker-0",
 				Cluster: "cluster-west",
 				Enabled: true,
@@ -285,7 +285,7 @@ func TestFormatGolden(t *testing.T) {
 		{
 			name:   "empty inb",
 			golden: "empty-inb",
-			status: PrivateNetworkNodeStatus{
+			status: NodeStatus{
 				Name:    "inb-0",
 				Cluster: "inb-west",
 				Enabled: true,

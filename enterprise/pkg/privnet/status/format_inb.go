@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 )
 
-func (s PrivateNetworkNodeStatus) formatINBNode() string {
+func (s NodeStatus) formatINBNode() string {
 	sb := strings.Builder{}
 
 	sb.WriteString(fmtBar("Network Bridge", fmtHghlt(s.Name), s.nodeStatus(), 100))
@@ -38,7 +38,7 @@ func (s PrivateNetworkNodeStatus) formatINBNode() string {
 	return sb.String()
 }
 
-func (pn PrivateNetworkStatus) formatINBNetwork(connectedClusters []PrivateNetworkConnectedCluster, localCluster tables.ClusterName, localNode tables.NodeName) string {
+func (pn NetworkStatus) formatINBNetwork(connectedClusters []ConnectedCluster, localCluster tables.ClusterName, localNode tables.NodeName) string {
 	sb := strings.Builder{}
 
 	sb.WriteString(fmtIndent(pn.inbNetworkStatusLine(98), 2))
@@ -54,7 +54,7 @@ func (pn PrivateNetworkStatus) formatINBNetwork(connectedClusters []PrivateNetwo
 	return sb.String()
 }
 
-func (pn PrivateNetworkStatus) inbNetworkStatusLine(width int) string {
+func (pn NetworkStatus) inbNetworkStatusLine(width int) string {
 	errStr := ""
 	if pn.Error != "" {
 		errStr = fmtIndent(fmtErr(pn.Error)+"\n", 4)
@@ -64,7 +64,7 @@ func (pn PrivateNetworkStatus) inbNetworkStatusLine(width int) string {
 		width,
 	) + errStr
 }
-func (pn PrivateNetworkStatus) inbNetworkStatus() string {
+func (pn NetworkStatus) inbNetworkStatus() string {
 	if pn.INBStatus.Serving {
 		return fmtOk("SERVING")
 	} else if pn.Error == "" {
@@ -73,7 +73,7 @@ func (pn PrivateNetworkStatus) inbNetworkStatus() string {
 		return fmtErr("DEGRADED")
 	}
 }
-func (inbSt PrivateNetworkINBStatus) formatInterface() string {
+func (inbSt INBStatus) formatInterface() string {
 	ifaceStr := "Interface "
 	if inbSt.Interface.Name != "" {
 		ifaceStr += fmtHghlt(inbSt.Interface.Name) + " state "

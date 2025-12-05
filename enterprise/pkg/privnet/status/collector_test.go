@@ -24,8 +24,8 @@ func TestSummarizeConnectedClusters(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 
-		net       PrivateNetworkStatus
-		connected []PrivateNetworkConnectedCluster
+		net       NetworkStatus
+		connected []ConnectedCluster
 		cluster   tables.ClusterName
 		node      tables.NodeName
 
@@ -35,8 +35,8 @@ func TestSummarizeConnectedClusters(t *testing.T) {
 			name:    "simple",
 			cluster: "cluster-east",
 			node:    "worker-0",
-			net: PrivateNetworkStatus{
-				Endpoints: []PrivateNetworkEndpointStatus{
+			net: NetworkStatus{
+				Endpoints: []EndpointStatus{
 					{
 						Name:    "ew0-1",
 						Cluster: "cluster-east",
@@ -80,7 +80,7 @@ func TestSummarizeConnectedClusters(t *testing.T) {
 					},
 				},
 			},
-			connected: []PrivateNetworkConnectedCluster{
+			connected: []ConnectedCluster{
 				{
 					Name: "cluster-east",
 					NodeNames: []types.NodeName{
@@ -130,8 +130,8 @@ func TestSummarizeConnectedClusters(t *testing.T) {
 			name:    "simple inb",
 			cluster: "inb",
 			node:    "inb-0",
-			net: PrivateNetworkStatus{
-				INBStatus: PrivateNetworkINBStatus{
+			net: NetworkStatus{
+				INBStatus: INBStatus{
 					Serving: true,
 					ActiveWorkloadNodes: []tables.WorkloadNode{
 						{
@@ -152,7 +152,7 @@ func TestSummarizeConnectedClusters(t *testing.T) {
 						},
 					},
 				},
-				Endpoints: []PrivateNetworkEndpointStatus{
+				Endpoints: []EndpointStatus{
 					{
 						Name:    "ew0-1",
 						Cluster: "cluster-east",
@@ -200,7 +200,7 @@ func TestSummarizeConnectedClusters(t *testing.T) {
 					},
 				},
 			},
-			connected: []PrivateNetworkConnectedCluster{
+			connected: []ConnectedCluster{
 				{
 					Name: "cluster-east",
 					NodeNames: []types.NodeName{

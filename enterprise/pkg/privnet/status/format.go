@@ -155,9 +155,9 @@ func fmtBar(left, mid, right string, width int) string {
 	return sb.String()
 }
 
-func (s PrivateNetworkNodeStatus) nodeStatus() string {
+func (s NodeStatus) nodeStatus() string {
 
-	if slices.ContainsFunc(s.Networks, func(net PrivateNetworkStatus) bool {
+	if slices.ContainsFunc(s.Networks, func(net NetworkStatus) bool {
 		return net.Error != ""
 	}) {
 		return "Status  " + fmtErr("DEGRADED")
@@ -165,7 +165,7 @@ func (s PrivateNetworkNodeStatus) nodeStatus() string {
 	return "Status  " + fmtOk("OK")
 }
 
-func (s PrivateNetworkStatus) formatSubnets(width int) string {
+func (s NetworkStatus) formatSubnets(width int) string {
 	if len(s.Subnets) == 0 {
 		return "Subnets    " + fmtErr("No subnets defined for network") + "\n"
 	}
@@ -175,7 +175,7 @@ func (s PrivateNetworkStatus) formatSubnets(width int) string {
 	}
 	return fmtWrapLineItemsTitle("Subnets", subnetStr, 10, width)
 }
-func (s PrivateNetworkStatus) formatRoutes(width int) string {
+func (s NetworkStatus) formatRoutes(width int) string {
 	if len(s.Routes) == 0 {
 		return "Routes    " + fmtInfo("No routes defined for network") + "\n"
 	}

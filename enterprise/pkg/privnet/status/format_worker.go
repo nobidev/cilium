@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 )
 
-func (s PrivateNetworkNodeStatus) formatWorkerNode() string {
+func (s NodeStatus) formatWorkerNode() string {
 	sb := strings.Builder{}
 
 	sb.WriteString(fmtBar("Node", fmtHghlt(s.Name), s.nodeStatus(), 100))
@@ -37,7 +37,7 @@ func (s PrivateNetworkNodeStatus) formatWorkerNode() string {
 	return sb.String()
 }
 
-func (net PrivateNetworkStatus) formatWorkerNetwork(connectedClusters []PrivateNetworkConnectedCluster, localCluster tables.ClusterName, localNode tables.NodeName) string {
+func (net NetworkStatus) formatWorkerNetwork(connectedClusters []ConnectedCluster, localCluster tables.ClusterName, localNode tables.NodeName) string {
 	sb := strings.Builder{}
 
 	sb.WriteString(fmtIndent(net.workerNetworkStatusLine(98), 2))
@@ -61,7 +61,7 @@ func (net PrivateNetworkStatus) formatWorkerNetwork(connectedClusters []PrivateN
 	return sb.String()
 }
 
-func (pn PrivateNetworkStatus) workerNetworkStatusLine(width int) string {
+func (pn NetworkStatus) workerNetworkStatusLine(width int) string {
 
 	activeINBStr := ""
 	if pn.WorkerStatus.ActiveINB != "" {
@@ -78,7 +78,7 @@ func (pn PrivateNetworkStatus) workerNetworkStatusLine(width int) string {
 	) + errStr
 }
 
-func (pn PrivateNetworkStatus) workerNetworkStatus() string {
+func (pn NetworkStatus) workerNetworkStatus() string {
 	if pn.Error == "" {
 		return fmtOk("OK")
 	} else {
@@ -124,7 +124,7 @@ type connectedINBSummary struct {
 	active       bool
 }
 
-func (ws PrivateNetworkWorkerStatus) formatWorkerConnectedINBs(localCluster tables.ClusterName, width int) string {
+func (ws WorkerStatus) formatWorkerConnectedINBs(localCluster tables.ClusterName, width int) string {
 
 	summary := map[tables.ClusterName]connectedINBSummary{}
 

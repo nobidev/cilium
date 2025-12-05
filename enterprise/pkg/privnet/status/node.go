@@ -17,34 +17,34 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 )
 
-// PrivateNetworkNodeStatus is a summary of the state of the privnet subsystem for one node
-type PrivateNetworkNodeStatus struct {
+// NodeStatus is a summary of the state of the privnet subsystem for one node
+type NodeStatus struct {
 	// Name is the name of the node
 	Name tables.NodeName
 	// Cluster is the cluster name
 	Cluster tables.ClusterName
 
 	// ConnectedClusters is a list of connected clusters
-	ConnectedClusters []PrivateNetworkConnectedCluster
+	ConnectedClusters []ConnectedCluster
 
 	// Enabled shows if the privnet feature is enabled
 	Enabled bool
 	// Mode is the mode the node is running in ("default" or "bridge")
 	Mode string
 	// Networks provides the status for every configured private network
-	Networks []PrivateNetworkStatus
+	Networks []NetworkStatus
 }
 
-// PrivateNetworkConnectedCluster represents a cluster connected to the node
-type PrivateNetworkConnectedCluster struct {
+// ConnectedCluster represents a cluster connected to the node
+type ConnectedCluster struct {
 	// Name is the name of the cluster
 	Name tables.ClusterName
 	// NodeNames is a list containing all known nodes in the cluster
 	NodeNames []tables.NodeName
 }
 
-// PrivateNetworkStatus is a summary of the state of a single private network
-type PrivateNetworkStatus struct {
+// NetworkStatus is a summary of the state of a single private network
+type NetworkStatus struct {
 	// Name of the network
 	Name tables.NetworkName
 
@@ -57,16 +57,16 @@ type PrivateNetworkStatus struct {
 	// reachable, from this private network.
 	Subnets []tables.PrivateNetworkSubnet
 	// The list of known endpoint in this network
-	Endpoints []PrivateNetworkEndpointStatus
+	Endpoints []EndpointStatus
 
 	// The status of the INB - empty for non INB nodes
-	INBStatus PrivateNetworkINBStatus
+	INBStatus INBStatus
 
 	// The status of the workload nodes - empty for INB nodes
-	WorkerStatus PrivateNetworkWorkerStatus
+	WorkerStatus WorkerStatus
 }
 
-type PrivateNetworkEndpointStatus struct {
+type EndpointStatus struct {
 	// The name identifying the target endpoint.
 	Name string
 	// In what cluster the endpoint is in
@@ -91,7 +91,7 @@ type PrivateNetworkEndpointStatus struct {
 	External bool
 }
 
-type PrivateNetworkINBStatus struct {
+type INBStatus struct {
 	// Whether the local node is an INB that is able to serve the network
 	Serving bool
 	// The network interface providing external connectivity to this private
@@ -102,22 +102,22 @@ type PrivateNetworkINBStatus struct {
 	ActiveWorkloadNodes []tables.WorkloadNode
 }
 
-type PrivateNetworkWorkerStatus struct {
+type WorkerStatus struct {
 	// The name of the active INB
 	ActiveINB string
 	// A list of connected INBs for this network. Only applies to workload nodes
-	ConnectedINBCluster []PrivateNetworkINBCluster
+	ConnectedINBCluster []INBCluster
 }
 
-// PrivateNetworkINBCluster represents a cluster containing one or more INBs
-type PrivateNetworkINBCluster struct {
+// INBCluster represents a cluster containing one or more INBs
+type INBCluster struct {
 	// The cluster name of the INB cluster
 	Name tables.ClusterName
 	// A list of INBs in the cluster and their status for the network
-	INBs []PrivateNetworkConnectedINB
+	INBs []ConnectedINB
 }
 
-type PrivateNetworkConnectedINB struct {
+type ConnectedINB struct {
 	// Cluster is the name of the cluster hosting the node.
 	Cluster tables.ClusterName
 	// Name is the name of the Kubernetes node.
@@ -130,7 +130,7 @@ type PrivateNetworkConnectedINB struct {
 }
 
 // Format will represent the Privnet Node status in a human readable format
-func (s PrivateNetworkNodeStatus) Format() string {
+func (s NodeStatus) Format() string {
 	if !s.Enabled {
 		return fmtErr("Error: Private Networking not enabled\n")
 	}
