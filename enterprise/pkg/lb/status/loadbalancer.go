@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -142,15 +143,28 @@ func (s *LoadbalancerClient) getLBNodes(ctx context.Context) ([]string, []string
 	t1Selectors = deduplicateSlice(t1Selectors)
 	t2Selectors = deduplicateSlice(t2Selectors)
 
-	t1NodeNames, err := s.getNodeNamesBySelector(ctx, t1Selectors)
-	if err != nil {
-		return nil, nil, err
-	}
-	t2NodeNames, err := s.getNodeNamesBySelector(ctx, t2Selectors)
-	if err != nil {
-		return nil, nil, err
-	}
+	var t1NodeNames, t2NodeNames []string
+	eg := errgroup.Group{}
+	eg.Go(func() error {
+		names, err := s.getNodeNamesBySelector(ctx, t1Selectors)
+		if err != nil {
+			return err
+		}
+		t1NodeNames = names
+		return nil
+	})
+	eg.Go(func() error {
+		names, err := s.getNodeNamesBySelector(ctx, t2Selectors)
+		if err != nil {
+			return err
+		}
+		t2NodeNames = names
+		return nil
+	})
 
+	if err := eg.Wait(); err != nil {
+		return nil, nil, err
+	}
 	return t1NodeNames, t2NodeNames, nil
 }
 
