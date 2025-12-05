@@ -18,7 +18,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/pkg/safeio"
 )
@@ -65,13 +64,13 @@ func TestFormatGolden(t *testing.T) {
 				Networks: []NetworkStatus{
 					{
 						Name: "blue",
-						Routes: []tables.PrivateNetworkRoute{
+						Routes: []Route{
 							{
 								Destination: netip.MustParsePrefix("0.0.0.0/0"),
 								Gateway:     netip.MustParseAddr("192.168.1.1"),
 							},
 						},
-						Subnets: []tables.PrivateNetworkSubnet{
+						Subnets: []Subnet{
 							{
 								CIDR: netip.MustParsePrefix("192.168.1.1/24"),
 							},
@@ -120,11 +119,11 @@ func TestFormatGolden(t *testing.T) {
 						},
 						INBStatus: INBStatus{
 							Serving: true,
-							Interface: tables.PrivateNetworkInterface{
+							Interface: Interface{
 								Name:  "eth0",
 								Index: 45,
 							},
-							ActiveWorkloadNodes: []tables.WorkloadNode{
+							ActiveWorkloadNodes: []WorkloadNode{
 								{
 									Cluster: "cluster-west",
 									Name:    "worker-0",
@@ -177,13 +176,13 @@ func TestFormatGolden(t *testing.T) {
 				Networks: []NetworkStatus{
 					{
 						Name: "blue",
-						Routes: []tables.PrivateNetworkRoute{
+						Routes: []Route{
 							{
 								Destination: netip.MustParsePrefix("0.0.0.0/0"),
 								Gateway:     netip.MustParseAddr("192.168.1.1"),
 							},
 						},
-						Subnets: []tables.PrivateNetworkSubnet{
+						Subnets: []Subnet{
 							{
 								CIDR: netip.MustParsePrefix("192.168.1.1/24"),
 							},

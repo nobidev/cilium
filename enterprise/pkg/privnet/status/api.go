@@ -52,10 +52,10 @@ type NetworkStatus struct {
 	Error string
 
 	// The set of routes configured for this private network.
-	Routes []tables.PrivateNetworkRoute
+	Routes []Route
 	// The set of subnets (that is, L2 domains) associated with, and directly
 	// reachable, from this private network.
-	Subnets []tables.PrivateNetworkSubnet
+	Subnets []Subnet
 	// The list of known endpoint in this network
 	Endpoints []EndpointStatus
 
@@ -64,6 +64,21 @@ type NetworkStatus struct {
 
 	// The status of the workload nodes - empty for INB nodes
 	WorkerStatus WorkerStatus
+}
+
+// Route is a route configured on the private network
+type Route struct {
+	// Destination is the route's destination CIDR.
+	Destination netip.Prefix
+
+	// Gateway is the route's gateway IP address.
+	Gateway netip.Addr
+}
+
+// Subnet is a subnet configured on the private network
+type Subnet struct {
+	// CIDR defines the subnet
+	CIDR netip.Prefix
 }
 
 type EndpointStatus struct {
@@ -96,10 +111,31 @@ type INBStatus struct {
 	Serving bool
 	// The network interface providing external connectivity to this private
 	// network. Applies to the Isovalent Network Bridge cluster only.
-	Interface tables.PrivateNetworkInterface
+	Interface Interface
 	// The list of WorkloadNodes that are being actively served by the local node
 	// as an INB.
-	ActiveWorkloadNodes []tables.WorkloadNode
+	ActiveWorkloadNodes []WorkloadNode
+}
+
+// Interface is the network interface providing external
+// connectivity to a private network.
+type Interface struct {
+	// Name is the name of the interface.
+	Name string
+
+	// Index is the (positive) index of the interface.
+	Index int
+
+	// Error is the possible error occurred mapping the interface name to its index.
+	Error string
+}
+
+// WorkloadNode represents a workload node served by an Isovalent Network Bridge (INB).
+type WorkloadNode struct {
+	// Cluster is the name of the cluster hosting the node.
+	Cluster tables.ClusterName
+	// Name is the name of the workload node.
+	Name tables.NodeName
 }
 
 type WorkerStatus struct {

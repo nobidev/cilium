@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/set"
 	nomgr "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	cslices "github.com/cilium/cilium/pkg/slices"
 
 	"github.com/cilium/statedb"
 )
@@ -61,10 +62,19 @@ func (sc *statusCollector) collectNodeStatus() NodeStatus {
 
 	for pn := range sc.privateNetworks.All(tx) {
 		pns := NetworkStatus{
-			Name:    pn.Name,
-			Routes:  pn.Routes,
-			Subnets: pn.Subnets,
-			Error:   pn.Error(),
+			Name: pn.Name,
+			Routes: cslices.Map(pn.Routes, func(r tables.PrivateNetworkRoute) Route {
+				return Route{
+					Destination: r.Destination,
+					Gateway:     r.Gateway,
+				}
+			}),
+			Subnets: cslices.Map(pn.Subnets, func(s tables.PrivateNetworkSubnet) Subnet {
+				return Subnet{
+					CIDR: s.CIDR,
+				}
+			}),
+			Error: pn.Error(),
 		}
 
 		var ok bool
@@ -81,7 +91,11 @@ func (sc *statusCollector) collectNodeStatus() NodeStatus {
 		}
 
 		pns.INBStatus = INBStatus{
-			Interface:           pn.Interface,
+			Interface: Interface{
+				Name:  pn.Interface.Name,
+				Index: pn.Interface.Index,
+				Error: pn.Interface.Error,
+			},
 			Serving:             pn.CanBeServedByINB(),
 			ActiveWorkloadNodes: activeWorkloadNodesByNet[pn.Name],
 		}
@@ -94,10 +108,13 @@ func (sc *statusCollector) collectNodeStatus() NodeStatus {
 	return status
 }
 
-func (sc *statusCollector) collectActiveWorkloadNodesByNet(tx statedb.ReadTxn) map[tables.NetworkName][]tables.WorkloadNode {
-	activeWorkloadNodesByNet := map[tables.NetworkName][]tables.WorkloadNode{}
+func (sc *statusCollector) collectActiveWorkloadNodesByNet(tx statedb.ReadTxn) map[tables.NetworkName][]WorkloadNode {
+	activeWorkloadNodesByNet := map[tables.NetworkName][]WorkloadNode{}
 	for cnet := range sc.activeNetworks.All(tx) {
-		activeWorkloadNodesByNet[cnet.Network] = append(activeWorkloadNodesByNet[cnet.Network], cnet.Node)
+		activeWorkloadNodesByNet[cnet.Network] = append(activeWorkloadNodesByNet[cnet.Network], WorkloadNode{
+			Name:    cnet.Node.Name,
+			Cluster: cnet.Node.Cluster,
+		})
 	}
 	return activeWorkloadNodesByNet
 }

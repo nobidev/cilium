@@ -133,7 +133,7 @@ func TestSummarizeConnectedClusters(t *testing.T) {
 			net: NetworkStatus{
 				INBStatus: INBStatus{
 					Serving: true,
-					ActiveWorkloadNodes: []tables.WorkloadNode{
+					ActiveWorkloadNodes: []WorkloadNode{
 						{
 							Cluster: "cluster-east",
 							Name:    "worker-0",
