@@ -4,12 +4,14 @@
 package status
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	ciliumMetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func TestExpectedStatus(t *testing.T) {
@@ -205,5 +207,110 @@ func TestGetT2Status(t *testing.T) {
 	lb := &LoadbalancerClient{}
 	for _, tc := range testCases {
 		require.Equal(t, tc.expectedStatus, lb.getT2Status(tc.lbsvc, tc.nodeEnvoyConfig))
+	}
+}
+
+func TestMatchLabelsToLabelSelector(t *testing.T) {
+	testCases := []struct {
+		labelValues map[string]ciliumMetav1.MatchLabelsValue
+		expected    []string
+	}{
+		{
+			labelValues: nil,
+			expected:    []string{},
+		},
+		{
+			labelValues: map[string]ciliumMetav1.MatchLabelsValue{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			expected: []string{
+				"key1 in ( value1 )",
+				"key2 in ( value2 )",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		actual := matchLabelsToLabelSelectors(tc.labelValues)
+
+		slices.Sort(actual)
+		require.Equal(t, tc.expected, actual)
+	}
+}
+
+func TestMatchExpressionsToLabelSelector(t *testing.T) {
+	testCases := []struct {
+		requirements []ciliumMetav1.LabelSelectorRequirement
+		expected     []string
+	}{
+		{
+			requirements: nil,
+			expected:     []string{},
+		},
+		{
+			requirements: []ciliumMetav1.LabelSelectorRequirement{
+				{
+					Key:      "key1",
+					Operator: ciliumMetav1.LabelSelectorOpIn,
+					Values:   []string{"value1"},
+				},
+			},
+			expected: []string{"key1 in ( value1 )"},
+		},
+		{
+			requirements: []ciliumMetav1.LabelSelectorRequirement{
+				{
+					Key:      "key1",
+					Operator: ciliumMetav1.LabelSelectorOpIn,
+					Values:   []string{"value1", "value2"},
+				},
+				{
+					Key:      "key2",
+					Operator: ciliumMetav1.LabelSelectorOpIn,
+					Values:   []string{"value3", "value4"},
+				},
+			},
+			expected: []string{
+				"key1 in ( value1 , value2 )",
+				"key2 in ( value3 , value4 )",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		actual := matchExpressionsToLabelSelectors(tc.requirements)
+
+		require.Equal(t, tc.expected, actual)
+	}
+}
+
+func TestDeduplicateSlice(t *testing.T) {
+	testCases := []struct {
+		actual   []string
+		expected []string
+	}{
+		{
+			actual:   []string{},
+			expected: []string{},
+		},
+		{
+			actual: []string{
+				"key1 in ( value1 , value2 )",
+				"key2 in ( value1 , value2 )",
+				"key1 in ( value1 , value2 )",
+				"key2 in ( value1 , value2 )",
+			},
+			expected: []string{
+				"key1 in ( value1 , value2 )",
+				"key2 in ( value1 , value2 )",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		actual := deduplicateSlice(tc.actual)
+
+		require.Equal(t, tc.expected, actual)
 	}
 }
