@@ -22,6 +22,7 @@ on:
       - reopened
     paths:
         - 'enterprise/olm/**'
+        - 'install/kubernetes/**'
   workflow_dispatch:
     inputs:
       PR-number:
@@ -40,7 +41,7 @@ on:
   # Additionally run once a week at 4am on Monday
   # Scheduled workflows run for the head of main-ce
   schedule:
-    - cron:  '0 4 * * MON'
+    - cron:  '0 4 * * MON,THU'
   # For the purpose of testing the workflow
   # push:
   #   branches:
