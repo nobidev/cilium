@@ -301,8 +301,12 @@ func setupTestLinks(t *testing.T, envVars []string) []string {
 	}...)
 
 	veth := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: testLink1Name},
-		PeerName:  testLink2Name,
+		LinkAttrs: netlink.LinkAttrs{
+			Name:         testLink1Name,
+			HardwareAddr: net.HardwareAddr{0xaa, 0x00, 0x00, 0x00, 0x00, 0x01},
+		},
+		PeerName:         testLink2Name,
+		PeerHardwareAddr: net.HardwareAddr{0xaa, 0x00, 0x00, 0x00, 0x00, 0x02},
 	}
 	netlink.LinkDel(veth) // cleanup from potential interrupted test run
 	err := netlink.LinkAdd(veth)
@@ -321,12 +325,9 @@ func setupTestLinks(t *testing.T, envVars []string) []string {
 	// This makes the link-local addresses predictable and makes things a
 	// lot easier.
 	ctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
-	ctl.WriteInt([]string{"net", "ipv6", "conf", testLink1Name, "addr_gen_mode"}, 0)
-	ctl.WriteInt([]string{"net", "ipv6", "conf", testLink2Name, "addr_gen_mode"}, 0)
-
-	err = netlink.LinkSetHardwareAddr(veth1, net.HardwareAddr{0xaa, 0x00, 0x00, 0x00, 0x00, 0x01})
+	err = ctl.WriteInt([]string{"net", "ipv6", "conf", testLink1Name, "addr_gen_mode"}, 0)
 	require.NoError(t, err)
-	err = netlink.LinkSetHardwareAddr(veth2, net.HardwareAddr{0xaa, 0x00, 0x00, 0x00, 0x00, 0x02})
+	err = ctl.WriteInt([]string{"net", "ipv6", "conf", testLink2Name, "addr_gen_mode"}, 0)
 	require.NoError(t, err)
 
 	err = netlink.LinkSetUp(veth1)
