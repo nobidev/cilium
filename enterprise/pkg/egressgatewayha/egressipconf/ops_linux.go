@@ -72,7 +72,7 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revisio
 		return fmt.Errorf("failed to get device %s by index: %w", entry.Interface, err)
 	}
 
-	err = ops.gneighSender.SendArp(gneighIface, entry.Addr)
+	err = ops.gneighSender.SendArp(gneighIface, entry.Addr, gneighIface.HardwareAddr())
 	if err != nil {
 		ops.logger.Warn("failed to send gratuitous arp reply",
 			logfields.Address, entry.Addr,

@@ -924,11 +924,11 @@ func newMockGNeighSender() gneigh.Sender {
 
 type mockGNeighSender struct{}
 
-func (gs *mockGNeighSender) SendArp(iface gneigh.Interface, ip netip.Addr) error {
+func (gs *mockGNeighSender) SendArp(iface gneigh.Interface, ip netip.Addr, srcHW net.HardwareAddr) error {
 	return nil
 }
 
-func (gs *mockGNeighSender) SendNd(iface gneigh.Interface, ip netip.Addr) error {
+func (gs *mockGNeighSender) SendNd(iface gneigh.Interface, ip netip.Addr, srcHW net.HardwareAddr) error {
 	return nil
 }
 
@@ -941,12 +941,12 @@ func (gs *mockGNeighSender) NewNdSender(iface gneigh.Interface) (gneigh.NdSender
 }
 
 func (gs *mockGNeighSender) InterfaceByIndex(idx int) (gneigh.Interface, error) {
-	return gneigh.Interface{}, nil
+	return gneigh.InterfaceFromNetInterface(&net.Interface{}), nil
 }
 
 type mockArpSender struct{}
 
-func (as *mockArpSender) Send(ip netip.Addr) error {
+func (as *mockArpSender) Send(ip netip.Addr, srcHW net.HardwareAddr) error {
 	return nil
 }
 
@@ -956,7 +956,7 @@ func (as *mockArpSender) Close() error {
 
 type mockNdSender struct{}
 
-func (ns *mockNdSender) Send(ip netip.Addr) error {
+func (ns *mockNdSender) Send(ip netip.Addr, srcHW net.HardwareAddr) error {
 	return nil
 }
 

@@ -118,12 +118,12 @@ func newFakeSender(
 	}
 }
 
-func (f *fakeSender) Send(addr netip.Addr) error {
+func (f *fakeSender) Send(addr netip.Addr, srcHW net.HardwareAddr) error {
 	wtx := f.db.WriteTxn(f.sent)
 	f.sent.Insert(wtx, gNeighSent{
 		Type:          f.typ,
 		InterfaceName: f.iface.Name(),
-		MAC:           f.iface.HardwareAddr(),
+		MAC:           srcHW,
 		IP:            addr,
 	})
 	wtx.Commit()
@@ -163,12 +163,12 @@ func newFakeGneighSender(
 	}
 }
 
-func (fgs *fakeGneighSender) SendArp(iface gneigh.Interface, ip netip.Addr) error {
+func (fgs *fakeGneighSender) SendArp(iface gneigh.Interface, ip netip.Addr, srcHW net.HardwareAddr) error {
 	// Not used.
 	return nil
 }
 
-func (fgs *fakeGneighSender) SendNd(iface gneigh.Interface, ip netip.Addr) error {
+func (fgs *fakeGneighSender) SendNd(iface gneigh.Interface, ip netip.Addr, srcHW net.HardwareAddr) error {
 	// Not used.
 	return nil
 }

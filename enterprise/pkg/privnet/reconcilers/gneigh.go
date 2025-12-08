@@ -140,7 +140,7 @@ func (ops *GneighOps) Update(ctx context.Context, txn statedb.ReadTxn, rev state
 			return fmt.Errorf("failed to initialize ARP sender: %w", err)
 		}
 
-		if err := sender.Send(addr); err != nil {
+		if err := sender.Send(addr, sender.Interface.HardwareAddr()); err != nil {
 			return fmt.Errorf("failed to send gratuitous ARP to %v: %w", addr, err)
 		}
 	} else {
@@ -149,7 +149,7 @@ func (ops *GneighOps) Update(ctx context.Context, txn statedb.ReadTxn, rev state
 			return fmt.Errorf("failed to initialize ND sender: %w", err)
 		}
 
-		if err := sender.Send(addr); err != nil {
+		if err := sender.Send(addr, sender.Interface.HardwareAddr()); err != nil {
 			return fmt.Errorf("failed to send gratuitous ND to %v: %w", addr, err)
 		}
 	}
