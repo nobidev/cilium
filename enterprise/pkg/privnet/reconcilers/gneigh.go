@@ -98,14 +98,24 @@ func registerGneighReconciler(in struct {
 	)
 }
 
+type arpSender struct {
+	gneigh.ArpSender
+	gneigh.Interface
+}
+
+type ndSender struct {
+	gneigh.NdSender
+	gneigh.Interface
+}
+
 type GneighOps struct {
 	clusterInfo cmtypes.ClusterInfo
 	sender      gneigh.Sender
 
 	// arpSenders are the gratuitous ARP senders per interface (indexed by ifindex).
-	arpSenders map[int]gneigh.ArpSender
+	arpSenders map[int]*arpSender
 	// ndSenders are the gratuitous ND senders per interface (indexed by ifindex).
-	ndSenders map[int]gneigh.NdSender
+	ndSenders map[int]*ndSender
 }
 
 func newGneighOps(clusterInfo cmtypes.ClusterInfo, sender gneigh.Sender) *GneighOps {
@@ -113,8 +123,8 @@ func newGneighOps(clusterInfo cmtypes.ClusterInfo, sender gneigh.Sender) *Gneigh
 		clusterInfo: clusterInfo,
 		sender:      sender,
 
-		arpSenders: make(map[int]gneigh.ArpSender),
-		ndSenders:  make(map[int]gneigh.NdSender),
+		arpSenders: make(map[int]*arpSender),
+		ndSenders:  make(map[int]*ndSender),
 	}
 }
 
@@ -179,7 +189,7 @@ func (ops *GneighOps) Prune(_ context.Context, txn statedb.ReadTxn, mes iter.Seq
 	return nil
 }
 
-func (ops *GneighOps) getArpSender(ifindex int) (gneigh.ArpSender, error) {
+func (ops *GneighOps) getArpSender(ifindex int) (*arpSender, error) {
 	if arpSender, ok := ops.arpSenders[ifindex]; ok {
 		return arpSender, nil
 	}
@@ -189,16 +199,17 @@ func (ops *GneighOps) getArpSender(ifindex int) (gneigh.ArpSender, error) {
 		return nil, err
 	}
 
-	arpSender, err := ops.sender.NewArpSender(iface)
+	sender, err := ops.sender.NewArpSender(iface)
 	if err != nil {
 		return nil, err
 	}
 
+	arpSender := &arpSender{sender, iface}
 	ops.arpSenders[ifindex] = arpSender
 	return arpSender, nil
 }
 
-func (ops *GneighOps) getNdSender(ifindex int) (gneigh.NdSender, error) {
+func (ops *GneighOps) getNdSender(ifindex int) (*ndSender, error) {
 	if ndSender, ok := ops.ndSenders[ifindex]; ok {
 		return ndSender, nil
 	}
@@ -208,11 +219,12 @@ func (ops *GneighOps) getNdSender(ifindex int) (gneigh.NdSender, error) {
 		return nil, err
 	}
 
-	ndSender, err := ops.sender.NewNdSender(iface)
+	sender, err := ops.sender.NewNdSender(iface)
 	if err != nil {
 		return nil, err
 	}
 
+	ndSender := &ndSender{sender, iface}
 	ops.ndSenders[ifindex] = ndSender
 	return ndSender, nil
 }
