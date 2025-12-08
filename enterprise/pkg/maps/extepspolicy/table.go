@@ -41,7 +41,7 @@ func (e *entry) TableRow() []string {
 }
 
 func (e *entry) BinaryKey() encoding.BinaryMarshaler {
-	return bpf.StructBinaryMarshaler{Target: &Key{bpf.NewEndpointKey(e.ip.AsSlice(), 0)}}
+	return bpf.StructBinaryMarshaler{Target: &Key{bpf.NewEndpointKey(e.ip, 0)}}
 }
 
 func (e *entry) BinaryValue() encoding.BinaryMarshaler {

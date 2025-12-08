@@ -46,8 +46,6 @@
 #include "lib/arp.h"
 #include "lib/encap.h"
 
-#define overlay_ingress_policy_hook(ctx, ip4, identity, ext_err) CTX_ACT_OK
-
 #include "enterprise_bpf_overlay.h"
 
 #ifdef ENABLE_IPV6
@@ -112,12 +110,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			*identity = info->sec_identity;
 	}
 
-#ifdef ENABLE_IPSEC
-	if (ip6->nexthdr != IPPROTO_ESP)
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_PLAINTEXT);
-#endif
-
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	{
 		__u32 egress_ifindex = 0;
@@ -166,6 +158,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
+	set_identity_mark(ctx, *identity, MARK_MAGIC_IDENTITY);
 	if (1) {
 		union macaddr host_mac = CILIUM_HOST_MAC;
 		union macaddr router_mac = CONFIG(interface_mac);
@@ -294,7 +287,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	const struct endpoint_info *ep;
 	bool __maybe_unused is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
-	int ret;
+	int ret __maybe_unused;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
@@ -389,12 +382,6 @@ skip_vtep:
 			*identity = info->sec_identity;
 	}
 
-#ifdef ENABLE_IPSEC
-	if (ip4->protocol != IPPROTO_ESP)
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_PLAINTEXT);
-#endif
-
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	{
 		__u32 egress_ifindex = 0;
@@ -442,10 +429,6 @@ skip_vtep:
 	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
 		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, MARK_MAGIC_IDENTITY,
 					   ip4, ep, METRIC_INGRESS, false, true, 0);
-
-	ret = overlay_ingress_policy_hook(ctx, ip4, *identity, ext_err);
-	if (ret != CTX_ACT_OK)
-		return ret;
 
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.

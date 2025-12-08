@@ -7,19 +7,17 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/cilium/daemon/infraendpoints"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -107,7 +105,7 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 		return fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
-	if params.Clientset.IsEnabled() {
+	if params.K8sClientConfig.IsEnabled() {
 		// Kubernetes demands that the localhost can always reach local
 		// pods. Therefore unless the AllowLocalhost policy is set to a
 		// specific mode, always allow localhost to reach local
@@ -149,11 +147,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	ctmap.InitMapInfo(params.MetricsRegistry, params.DaemonConfig.EnableIPv4, params.DaemonConfig.EnableIPv6, params.KPRConfig.KubeProxyReplacement || params.DaemonConfig.EnableBPFMasquerade)
 
-	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
-		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
-		metrics.IdentityLabelSources.WithLabelValues(labels.LabelSourceReserved).Inc()
-	})
-
 	// Collect CIDR identities from the "old" bpf ipcache and restore them
 	// in to the metadata layer.
 	if params.DaemonConfig.RestoreState && !params.DaemonConfig.DryMode {
@@ -173,8 +166,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	if err != nil {
 		return fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
-
-	policyAPI.InitEntities(params.ClusterInfo.Name)
 
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
@@ -243,19 +234,14 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		return fmt.Errorf("failed to determine host firewall's external facing device (use --%s to specify)", option.Devices)
 	}
 
+	// Launch the K8s watchers in parallel as we continue to process other
+	// daemon options.
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
 	// are set.
-	if params.Clientset.IsEnabled() {
-		bootstrapStats.k8sInit.Start()
-
-		// Launch the K8s watchers in parallel as we continue to process other
-		// daemon options.
-		params.K8sWatcher.InitK8sSubsystem(ctx, params.CacheStatus)
-		bootstrapStats.k8sInit.End(true)
-	} else {
-		close(params.CacheStatus)
-	}
+	bootstrapStats.k8sInit.Start()
+	params.K8sWatcher.InitK8sSubsystem(ctx)
+	bootstrapStats.k8sInit.End(true)
 
 	bootstrapStats.cleanup.Start()
 	err = clearCiliumVeths(params.Logger)
@@ -268,7 +254,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	// the Kubernetes or CiliumNode resource in the K8s subsystem from call
 	// k8s.WaitForNodeInformation(). These will be used later after starting
 	// IPAM initialization to finish off the `cilium_host` IP restoration.
-	var restoredRouterIPs restoredIPs
+	var restoredRouterIPs infraendpoints.RestoredIPs
 	restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv6FromK8s = node.GetInternalIPv4Router(params.Logger), node.GetIPv6Router(params.Logger)
 	// Fetch the router IPs from the filesystem in case they were set a priori
 	restoredRouterIPs.IPv4FromFS, restoredRouterIPs.IPv6FromFS = node.ExtractCiliumHostIPFromFS(params.Logger)
@@ -388,6 +374,9 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 			return fmt.Errorf("postinit failed: %w", err)
 		}
 	}
+
+	bootstrapStats.overall.End(true)
+	bootstrapStats.updateMetrics()
 
 	return nil
 }

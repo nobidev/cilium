@@ -90,14 +90,14 @@ func TestPrivilegedWriter(t *testing.T) {
 	})
 
 	// Create a couple of pre-existing entries
-	key := &Key{bpf.NewEndpointKey(netip.MustParseAddr("10.0.0.1").AsSlice(), 0)}
+	key := &Key{bpf.NewEndpointKey(netip.MustParseAddr("10.0.0.1"), 0)}
 	require.NoError(t, theMap.m.Update(key, &Value{uint32(pm1.FD())}), "map.Update")
 
 	v, err := theMap.m.Lookup(key)
 	require.NoError(t, err, "map.Lookup")
 	pm1ID := v.(*Value).Fd
 
-	key = &Key{bpf.NewEndpointKey(netip.MustParseAddr("10.0.0.6").AsSlice(), 0)}
+	key = &Key{bpf.NewEndpointKey(netip.MustParseAddr("10.0.0.6"), 0)}
 	require.NoError(t, theMap.m.Update(key, &Value{uint32(pm2.FD())}), "map.Update")
 
 	v, err = theMap.m.Lookup(key)

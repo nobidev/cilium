@@ -141,7 +141,7 @@ github.com/antlr4-go/antlr/v4
 # github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 ## explicit; go 1.13
 github.com/asaskevich/govalidator
-# github.com/aws/aws-sdk-go-v2 v1.39.5
+# github.com/aws/aws-sdk-go-v2 v1.40.0
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/defaults
@@ -168,58 +168,64 @@ github.com/aws/aws-sdk-go-v2/internal/shareddefaults
 github.com/aws/aws-sdk-go-v2/internal/strings
 github.com/aws/aws-sdk-go-v2/internal/sync/singleflight
 github.com/aws/aws-sdk-go-v2/internal/timeconv
-# github.com/aws/aws-sdk-go-v2/config v1.31.16
+# github.com/aws/aws-sdk-go-v2/config v1.32.1
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/config
-# github.com/aws/aws-sdk-go-v2/credentials v1.18.20
+# github.com/aws/aws-sdk-go-v2/credentials v1.19.1
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/credentials
 github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds
 github.com/aws/aws-sdk-go-v2/credentials/endpointcreds
 github.com/aws/aws-sdk-go-v2/credentials/endpointcreds/internal/client
+github.com/aws/aws-sdk-go-v2/credentials/logincreds
 github.com/aws/aws-sdk-go-v2/credentials/processcreds
 github.com/aws/aws-sdk-go-v2/credentials/ssocreds
 github.com/aws/aws-sdk-go-v2/credentials/stscreds
-# github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.12
+# github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.14
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds/internal/config
-# github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.12
+# github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.14
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/internal/configsources
-# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.12
+# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.14
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/internal/ini
-# github.com/aws/aws-sdk-go-v2/service/ec2 v1.260.0
+# github.com/aws/aws-sdk-go-v2/service/ec2 v1.274.0
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ec2/types
-# github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.2
+# github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.3
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding
-# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.12
+# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.14
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url
-# github.com/aws/aws-sdk-go-v2/service/sso v1.30.0
+# github.com/aws/aws-sdk-go-v2/service/signin v1.0.1
+## explicit; go 1.23
+github.com/aws/aws-sdk-go-v2/service/signin
+github.com/aws/aws-sdk-go-v2/service/signin/internal/endpoints
+github.com/aws/aws-sdk-go-v2/service/signin/types
+# github.com/aws/aws-sdk-go-v2/service/sso v1.30.4
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/service/sso
 github.com/aws/aws-sdk-go-v2/service/sso/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/sso/types
-# github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.4
+# github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.9
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/service/ssooidc
 github.com/aws/aws-sdk-go-v2/service/ssooidc/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ssooidc/types
-# github.com/aws/aws-sdk-go-v2/service/sts v1.39.0
+# github.com/aws/aws-sdk-go-v2/service/sts v1.41.1
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/service/sts
 github.com/aws/aws-sdk-go-v2/service/sts/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/sts/types
-# github.com/aws/smithy-go v1.23.1
+# github.com/aws/smithy-go v1.23.2
 ## explicit; go 1.23
 github.com/aws/smithy-go
 github.com/aws/smithy-go/auth
@@ -336,7 +342,7 @@ github.com/cilium/lumberjack/v2
 ## explicit; go 1.23.0
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/pkg/policy/api/kafka
-# github.com/cilium/statedb v0.5.1
+# github.com/cilium/statedb v0.5.6
 ## explicit; go 1.24
 github.com/cilium/statedb
 github.com/cilium/statedb/index
@@ -842,7 +848,7 @@ github.com/go-logr/stdr
 # github.com/go-logr/zapr v1.3.0
 ## explicit; go 1.18
 github.com/go-logr/zapr
-# github.com/go-openapi/analysis v0.24.0
+# github.com/go-openapi/analysis v0.24.1
 ## explicit; go 1.24.0
 github.com/go-openapi/analysis
 github.com/go-openapi/analysis/internal/debug
@@ -851,20 +857,20 @@ github.com/go-openapi/analysis/internal/flatten/operations
 github.com/go-openapi/analysis/internal/flatten/replace
 github.com/go-openapi/analysis/internal/flatten/schutils
 github.com/go-openapi/analysis/internal/flatten/sortref
-# github.com/go-openapi/errors v0.22.3
+# github.com/go-openapi/errors v0.22.4
 ## explicit; go 1.24.0
 github.com/go-openapi/errors
 # github.com/go-openapi/jsonpointer v0.22.1
 ## explicit; go 1.24.0
 github.com/go-openapi/jsonpointer
-# github.com/go-openapi/jsonreference v0.21.2
+# github.com/go-openapi/jsonreference v0.21.3
 ## explicit; go 1.24.0
 github.com/go-openapi/jsonreference
 github.com/go-openapi/jsonreference/internal
-# github.com/go-openapi/loads v0.23.1
+# github.com/go-openapi/loads v0.23.2
 ## explicit; go 1.24.0
 github.com/go-openapi/loads
-# github.com/go-openapi/runtime v0.29.0
+# github.com/go-openapi/runtime v0.29.2
 ## explicit; go 1.24.0
 github.com/go-openapi/runtime
 github.com/go-openapi/runtime/client
@@ -875,52 +881,52 @@ github.com/go-openapi/runtime/middleware/header
 github.com/go-openapi/runtime/middleware/untyped
 github.com/go-openapi/runtime/security
 github.com/go-openapi/runtime/yamlpc
-# github.com/go-openapi/spec v0.22.0
+# github.com/go-openapi/spec v0.22.1
 ## explicit; go 1.24.0
 github.com/go-openapi/spec
-# github.com/go-openapi/strfmt v0.24.0
+# github.com/go-openapi/strfmt v0.25.0
 ## explicit; go 1.24.0
 github.com/go-openapi/strfmt
-# github.com/go-openapi/swag v0.25.1
+# github.com/go-openapi/swag v0.25.3
 ## explicit; go 1.24.0
 github.com/go-openapi/swag
-# github.com/go-openapi/swag/cmdutils v0.25.1
+# github.com/go-openapi/swag/cmdutils v0.25.3
 ## explicit; go 1.24.0
 github.com/go-openapi/swag/cmdutils
-# github.com/go-openapi/swag/conv v0.25.1
+# github.com/go-openapi/swag/conv v0.25.3
 ## explicit; go 1.24.0
 github.com/go-openapi/swag/conv
-# github.com/go-openapi/swag/fileutils v0.25.1
+# github.com/go-openapi/swag/fileutils v0.25.3
 ## explicit; go 1.24.0
 github.com/go-openapi/swag/fileutils
-# github.com/go-openapi/swag/jsonname v0.25.1
+# github.com/go-openapi/swag/jsonname v0.25.3
 ## explicit; go 1.24.0
 github.com/go-openapi/swag/jsonname
-# github.com/go-openapi/swag/jsonutils v0.25.1
+# github.com/go-openapi/swag/jsonutils v0.25.3
 ## explicit; go 1.24.0
 github.com/go-openapi/swag/jsonutils
 github.com/go-openapi/swag/jsonutils/adapters
 github.com/go-openapi/swag/jsonutils/adapters/ifaces
 github.com/go-openapi/swag/jsonutils/adapters/stdlib/json
-# github.com/go-openapi/swag/loading v0.25.1
+# github.com/go-openapi/swag/loading v0.25.3
 ## explicit; go 1.24.0
 github.com/go-openapi/swag/loading
-# github.com/go-openapi/swag/mangling v0.25.1
+# github.com/go-openapi/swag/mangling v0.25.3
 ## explicit; go 1.24.0
 github.com/go-openapi/swag/mangling
-# github.com/go-openapi/swag/netutils v0.25.1
+# github.com/go-openapi/swag/netutils v0.25.3
 ## explicit; go 1.24.0
 github.com/go-openapi/swag/netutils
-# github.com/go-openapi/swag/stringutils v0.25.1
+# github.com/go-openapi/swag/stringutils v0.25.3
 ## explicit; go 1.24.0
 github.com/go-openapi/swag/stringutils
-# github.com/go-openapi/swag/typeutils v0.25.1
+# github.com/go-openapi/swag/typeutils v0.25.3
 ## explicit; go 1.24.0
 github.com/go-openapi/swag/typeutils
-# github.com/go-openapi/swag/yamlutils v0.25.1
+# github.com/go-openapi/swag/yamlutils v0.25.3
 ## explicit; go 1.24.0
 github.com/go-openapi/swag/yamlutils
-# github.com/go-openapi/validate v0.25.0
+# github.com/go-openapi/validate v0.25.1
 ## explicit; go 1.24.0
 github.com/go-openapi/validate
 # github.com/go-playground/locales v0.14.1
@@ -1054,9 +1060,9 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/google/go-github/v74 v74.0.0
-## explicit; go 1.23.0
-github.com/google/go-github/v74/github
+# github.com/google/go-github/v79 v79.0.0
+## explicit; go 1.24.0
+github.com/google/go-github/v79/github
 # github.com/google/go-licenses/v2 v2.0.1
 ## explicit; go 1.23.0
 github.com/google/go-licenses/v2/internal/third_party/pkgsite/derrors
@@ -1689,7 +1695,7 @@ go.etcd.io/etcd/client/v3/credentials
 go.etcd.io/etcd/client/v3/internal/endpoint
 go.etcd.io/etcd/client/v3/internal/resolver
 go.etcd.io/etcd/client/v3/yaml
-# go.mongodb.org/mongo-driver v1.17.4
+# go.mongodb.org/mongo-driver v1.17.6
 ## explicit; go 1.18
 go.mongodb.org/mongo-driver/bson
 go.mongodb.org/mongo-driver/bson/bsoncodec
@@ -1790,7 +1796,7 @@ go.yaml.in/yaml/v3
 # go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 ## explicit; go 1.18
 go4.org/netipx
-# golang.org/x/crypto v0.43.0
+# golang.org/x/crypto v0.45.0
 ## explicit; go 1.24.0
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
@@ -1831,7 +1837,7 @@ golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/modfile
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.46.0
+# golang.org/x/net v0.47.0
 ## explicit; go 1.24.0
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -1856,7 +1862,7 @@ golang.org/x/net/netutil
 golang.org/x/net/proxy
 golang.org/x/net/trace
 golang.org/x/net/websocket
-# golang.org/x/oauth2 v0.32.0
+# golang.org/x/oauth2 v0.33.0
 ## explicit; go 1.24.0
 golang.org/x/oauth2
 golang.org/x/oauth2/authhandler
@@ -1868,12 +1874,12 @@ golang.org/x/oauth2/google/internal/stsexchange
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.17.0
+# golang.org/x/sync v0.18.0
 ## explicit; go 1.24.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.37.0
+# golang.org/x/sys v0.38.0
 ## explicit; go 1.24.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
@@ -1886,10 +1892,10 @@ golang.org/x/telemetry/counter
 golang.org/x/telemetry/internal/counter
 golang.org/x/telemetry/internal/mmap
 golang.org/x/telemetry/internal/telemetry
-# golang.org/x/term v0.36.0
+# golang.org/x/term v0.37.0
 ## explicit; go 1.24.0
 golang.org/x/term
-# golang.org/x/text v0.30.0
+# golang.org/x/text v0.31.0
 ## explicit; go 1.24.0
 golang.org/x/text/cases
 golang.org/x/text/encoding

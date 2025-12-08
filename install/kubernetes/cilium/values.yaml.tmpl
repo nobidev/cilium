@@ -514,6 +514,10 @@ pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
   enabled: false
+  # -- Enable kernel probing path MTU discovery for Pods which uses different message
+  # sizes to search for correct MTU value.
+  packetizationLayerPMTUD:
+    enabled: true
 bpf:
   autoMount:
     # -- Enable automatic mount of BPF filesystem
@@ -1089,7 +1093,7 @@ enableXTSocketFallback: true
 encryption:
   # -- Enable transparent network encryption.
   enabled: false
-  # -- Encryption method. Can be either ipsec or wireguard.
+  # -- Encryption method. Can be one of ipsec, wireguard or ztunnel.
   type: ipsec
   # -- Enable encryption for pure node to node traffic.
   # This option is only effective when encryption.type is set to "wireguard".
@@ -1994,6 +1998,14 @@ hubble:
       # - source
       # - destination
       # - verdict
+      fieldAggregate: []
+      # - time
+      # - source
+      # - destination
+      # - verdict
+      # --- Defines the interval at which to aggregate before exporting Hubble flows.
+      #     Aggregation feature is only enabled when fieldAggregate is specified and aggregationInterval > 0s.
+      aggregationInterval: "0s"
       allowList: []
       # - '{"verdict":["DROPPED","ERROR"]}'
       denyList: []
@@ -2019,6 +2031,8 @@ hubble:
         content:
           - name: all
             fieldMask: []
+            fieldAggregate: []
+            aggregationInterval: "0s"
             includeFilters: []
             excludeFilters: []
             filePath: "/var/run/cilium/hubble/events.log"
@@ -3380,7 +3394,9 @@ enableCriticalPriorityClass: true
 # on AArch64 as the images do not currently ship a version of Envoy.
 #disableEnvoyVersionCheck: false
 clustermesh:
-  # -- Deploy clustermesh-apiserver for clustermesh
+  # -- Deploy clustermesh-apiserver for clustermesh. This option is typically
+  # used with ``clustermesh.config.enabled=true``. Refer to the 
+  # ``clustermesh.config.enabled=true``documentation for more information.
   useAPIServer: false
   # -- The maximum number of clusters to support in a ClusterMesh. This value
   # cannot be changed on running clusters, and all clusters in a ClusterMesh
@@ -3406,6 +3422,14 @@ clustermesh:
   # -- Clustermesh explicit configuration.
   config:
     # -- Enable the Clustermesh explicit configuration.
+    # If set to false, you need to provide the following resources yourself:
+    # - (Secret) cilium-clustermesh (used by cilium-agent/cilium-operator to connect to
+    #   the local etcd instance if KVStoreMesh is enabled or the remote clusters
+    #   if KVStoreMesh is disabled)
+    # - (Secret) cilium-kvstoremesh (used by KVStoreMesh to connect to the remote clusters)
+    # - (ConfigMap) clustermesh-remote-users (used to create one etcd user per remote cluster
+    #   if clustermesh-apiserver is used and `clustermesh.apiserver.tls.authMode` is not
+    #   set to `legacy`)
     enabled: false
     # -- Default dns domain for the Clustermesh API servers
     # This is used in the case cluster addresses are not provided
@@ -3783,8 +3807,8 @@ clustermesh:
       #               The "remote" certificate must be generated with CN=remote-<cluster-name>
       #               if provided manually. Cluster mode is meaningful only when the same
       #               CA is shared across all clusters part of the mesh.
-      authMode: legacy
-      # -- Allow users to provide their own certificates
+      authMode: migration
+      # -- (deprecated) Allow users to provide their own certificates
       # Users may need to provide their certificates using
       # a mechanism that requires they provide their own secrets.
       # This setting does not apply to any of the auto-generated

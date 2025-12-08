@@ -58,6 +58,7 @@ cilium-operator-aws hive dot-graph [flags]
       --enable-multi-network                                           Enable support for multiple pod networks
       --enable-node-ipam                                               Enable Node IPAM
       --enable-policy-secrets-sync                                     Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
+      --enable-ztunnel                                                 Use zTunnel as Cilium's encryption infrastructure
       --enforce-ingress-https                                          Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --feature-gates-approved strings                                 Features approved to be enabled regardless of maturity level
       --feature-gates-minimum-maturity string                          Minimum feature maturity level to approve a feature (default "Stable")

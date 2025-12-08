@@ -483,7 +483,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"cronJob":{"failedJobsHistoryLimit":1,"successfulJobsHistoryLimit":3},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:c6f836b5352adc16a241c5c24ba5576341c23a81b73c9fab4daba07b92d811a8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.3.0","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":null}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"cronJob":{"failedJobsHistoryLimit":1,"successfulJobsHistoryLimit":3},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:2825dbfa6f89cbed882fd1d81e46a56c087e35885825139923aa29eb8aec47a9","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.3.1","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":null}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -875,7 +875,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.tls.authMode`
      - Configure the clustermesh authentication mode. Supported values: - legacy:     All clusters access remote clustermesh instances with the same               username (i.e., remote). The "remote" certificate must be               generated with CN=remote if provided manually. - migration:  Intermediate mode required to upgrade from legacy to cluster               (and vice versa) with no disruption. Specifically, it enables               the creation of the per-cluster usernames, while still using               the common one for authentication. The "remote" certificate must               be generated with CN=remote if provided manually (same as legacy). - cluster:    Each cluster accesses remote etcd instances with a username               depending on the local cluster name (i.e., remote-\ :raw-html-m2r:`<cluster-name>`\ ).               The "remote" certificate must be generated with CN=remote-\ :raw-html-m2r:`<cluster-name>`               if provided manually. Cluster mode is meaningful only when the same               CA is shared across all clusters part of the mesh.
      - string
-     - ``"legacy"``
+     - ``"migration"``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto`
      - Configure automatic TLS certificates generation. A Kubernetes CronJob is used the generate any certificates not provided by the user at installation time.
      - object
@@ -898,7 +898,7 @@
      - ``{"cert":"","key":""}``
    * - :spelling:ignore:`clustermesh.apiserver.tls.enableSecrets`
      - Allow users to provide their own certificates Users may need to provide their certificates using a mechanism that requires they provide their own secrets. This setting does not apply to any of the auto-generated mechanisms below, it only restricts the creation of secrets via the ``tls-provided`` templates.
-     - bool
+     - deprecated
      - ``true``
    * - :spelling:ignore:`clustermesh.apiserver.tls.remote`
      - base64 encoded PEM values for the clustermesh-apiserver remote cluster certificate and private key. Used if 'auto' is not enabled.
@@ -945,7 +945,7 @@
      - string
      - ``"mesh.cilium.io"``
    * - :spelling:ignore:`clustermesh.config.enabled`
-     - Enable the Clustermesh explicit configuration.
+     - Enable the Clustermesh explicit configuration. If set to false, you need to provide the following resources yourself: - (Secret) cilium-clustermesh (used by cilium-agent/cilium-operator to connect to   the local etcd instance if KVStoreMesh is enabled or the remote clusters   if KVStoreMesh is disabled) - (Secret) cilium-kvstoremesh (used by KVStoreMesh to connect to the remote clusters) - (ConfigMap) clustermesh-remote-users (used to create one etcd user per remote cluster   if clustermesh-apiserver is used and ``clustermesh.apiserver.tls.authMode`` is not   set to ``legacy``\ )
      - bool
      - ``false``
    * - :spelling:ignore:`clustermesh.enableEndpointSliceSynchronization`
@@ -1045,7 +1045,7 @@
      - bool
      - ``true``
    * - :spelling:ignore:`clustermesh.useAPIServer`
-     - Deploy clustermesh-apiserver for clustermesh
+     - Deploy clustermesh-apiserver for clustermesh. This option is typically used with ``clustermesh.config.enabled=true``. Refer to the  ``clustermesh.config.enabled=true``\ documentation for more information.
      - bool
      - ``false``
    * - :spelling:ignore:`cni.binPath`
@@ -1333,7 +1333,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.type`
-     - Encryption method. Can be either ipsec or wireguard.
+     - Encryption method. Can be one of ipsec, wireguard or ztunnel.
      - string
      - ``"ipsec"``
    * - :spelling:ignore:`encryption.wireguard.persistentKeepalive`
@@ -1667,7 +1667,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:808c986a99e2a1ea9785b49604a1ccd1e1cdc21d4b7a2ff1236cc31788ea9b45","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1760614940-cb5737105ff9a4ca5d080c0c8f3ea1bfdc08de83","useDigest":true}``
+     - ``{"digest":"sha256:5a5403c2847af60352f2ae0c69642b0484b741a8ca5c15b34737e10553c64e08","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1764238404-a890eb288598920fc146308ef4b05004f2ee7bcf","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -2035,7 +2035,7 @@
    * - :spelling:ignore:`hubble.export`
      - Hubble flows export.
      - object
-     - ``{"connectionlog":{"enabled":false,"exportInterval":"10s","fileCompress":true,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/connectionlog.log"},"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"aggregation":[],"aggregationIgnoreSourcePort":true,"aggregationRenewTTL":true,"aggregationStateFilter":["new","error","closed"],"aggregationTTL":"30s","excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":"0s","formatVersion":"v1","includeFilters":[],"name":"all","nodeName":null,"rateLimit":-1}],"createConfigMap":true},"enabled":false},"static":{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":null,"formatVersion":"v1","overrideNodeName":null,"rateLimit":null},"timescape":{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":null,"denyList":null,"enabled":null,"fieldMask":null,"maxBufferSize":null,"nodeName":null,"reportDroppedFlowsInterval":null,"target":null,"tls":{"ca":{"configMap":{"key":null,"name":null}},"enabled":null,"mtls":{"enabled":null,"secretName":null}},"useCiliumServiceResolver":null}}``
+     - ``{"connectionlog":{"enabled":false,"exportInterval":"10s","fileCompress":true,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/connectionlog.log"},"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"aggregation":[],"aggregationIgnoreSourcePort":true,"aggregationRenewTTL":true,"aggregationStateFilter":["new","error","closed"],"aggregationTTL":"30s","excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":"0s","formatVersion":"v1","includeFilters":[],"name":"all","nodeName":null,"rateLimit":-1}],"createConfigMap":true},"enabled":false},"static":{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationInterval":"0s","aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":[],"denyList":[],"enabled":false,"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":null,"formatVersion":"v1","overrideNodeName":null,"rateLimit":null},"timescape":{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":null,"denyList":null,"enabled":null,"fieldMask":null,"maxBufferSize":null,"nodeName":null,"reportDroppedFlowsInterval":null,"target":null,"tls":{"ca":{"configMap":{"key":null,"name":null}},"enabled":null,"mtls":{"enabled":null,"secretName":null}},"useCiliumServiceResolver":null}}``
    * - :spelling:ignore:`hubble.export.connectionlog.enabled`
      - Enables experimental support for ConnectionLog export. @schema type: [boolean] @schema
      - bool
@@ -2079,7 +2079,7 @@
    * - :spelling:ignore:`hubble.export.static`
      - - Static exporter configuration. Static exporter is bound to agent lifecycle.
      - object
-     - ``{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":null,"formatVersion":"v1","overrideNodeName":null,"rateLimit":null}``
+     - ``{"aggregation":null,"aggregationIgnoreSourcePort":null,"aggregationInterval":"0s","aggregationRenewTTL":null,"aggregationStateFilter":null,"aggregationTTL":null,"allowList":[],"denyList":[],"enabled":false,"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","fileRotationInterval":null,"formatVersion":"v1","overrideNodeName":null,"rateLimit":null}``
    * - :spelling:ignore:`hubble.export.static.aggregation`
      - - Defines the aggregation to perform pre-storage ('connection', 'identity'). Leave empty to disable aggregation. @schema type: [null, array] @schema
      - string
@@ -2088,6 +2088,10 @@
      - - Defines whether to ignore source port during aggregation. @schema type: [null, boolean] @schema
      - string
      - ``true``
+   * - :spelling:ignore:`hubble.export.static.aggregationInterval`
+     - - Defines the interval at which to aggregate before exporting Hubble flows.     Aggregation feature is only enabled when fieldAggregate is specified and aggregationInterval > 0s.
+     - string
+     - ``"0s"``
    * - :spelling:ignore:`hubble.export.static.aggregationRenewTTL`
      - - Defines whether to renew the flow TTL when a new flow is observed. @schema type: [null, boolean] @schema
      - string
@@ -3575,7 +3579,7 @@
    * - :spelling:ignore:`nodeinit.image`
      - node-init image.
      - object
-     - ``{"digest":"sha256:5bdca3c2dec2c79f58d45a7a560bf1098c2126350c901379fe850b7f78d3d757","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}``
+     - ``{"digest":"sha256:50b9cf9c280096b59b80d2fc8ee6638facef79ac18998a22f0cbc40d5d28c16f","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1763560095-8f36c34","useDigest":true}``
    * - :spelling:ignore:`nodeinit.nodeSelector`
      - Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -3848,6 +3852,10 @@
      - Enable path MTU discovery to send ICMP fragmentation-needed replies to the client.
      - bool
      - ``false``
+   * - :spelling:ignore:`pmtuDiscovery.packetizationLayerPMTUD`
+     - Enable kernel probing path MTU discovery for Pods which uses different message sizes to search for correct MTU value.
+     - object
+     - ``{"enabled":true}``
    * - :spelling:ignore:`podAnnotations`
      - Annotations to be added to agent pods
      - object
@@ -3911,7 +3919,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:808c986a99e2a1ea9785b49604a1ccd1e1cdc21d4b7a2ff1236cc31788ea9b45","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1760614940-cb5737105ff9a4ca5d080c0c8f3ea1bfdc08de83","useDigest":true}``
+     - ``{"digest":"sha256:5a5403c2847af60352f2ae0c69642b0484b741a8ca5c15b34737e10553c64e08","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1764238404-a890eb288598920fc146308ef4b05004f2ee7bcf","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list

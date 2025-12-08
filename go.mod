@@ -10,11 +10,11 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7 v7.1.0
 	github.com/YutaroHayakawa/bgplay v0.0.3
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.107
-	github.com/aws/aws-sdk-go-v2 v1.39.5
-	github.com/aws/aws-sdk-go-v2/config v1.31.16
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.12
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.260.0
-	github.com/aws/smithy-go v1.23.1
+	github.com/aws/aws-sdk-go-v2 v1.40.0
+	github.com/aws/aws-sdk-go-v2/config v1.32.1
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.14
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.274.0
+	github.com/aws/smithy-go v1.23.2
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/charts v0.0.0-20251027150016-1f6986478665
@@ -26,7 +26,7 @@ require (
 	github.com/cilium/hive v0.0.0-20251021073839-03494cb6c4de
 	github.com/cilium/lumberjack/v2 v2.4.1
 	github.com/cilium/proxy v0.0.0-20250623105955-2136f59a4ea1
-	github.com/cilium/statedb v0.5.1
+	github.com/cilium/statedb v0.5.6
 	github.com/cilium/stream v0.0.1
 	github.com/cilium/workerpool v1.3.0
 	github.com/cloudflare/cfssl v1.6.5
@@ -44,18 +44,18 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-jose/go-jose/v4 v4.1.2
 	github.com/go-logr/logr v1.4.3
-	github.com/go-openapi/errors v0.22.3
-	github.com/go-openapi/loads v0.23.1
-	github.com/go-openapi/runtime v0.29.0
-	github.com/go-openapi/spec v0.22.0
-	github.com/go-openapi/strfmt v0.24.0
-	github.com/go-openapi/swag v0.25.1
-	github.com/go-openapi/validate v0.25.0
+	github.com/go-openapi/errors v0.22.4
+	github.com/go-openapi/loads v0.23.2
+	github.com/go-openapi/runtime v0.29.2
+	github.com/go-openapi/spec v0.22.1
+	github.com/go-openapi/strfmt v0.25.0
+	github.com/go-openapi/swag v0.25.3
+	github.com/go-openapi/validate v0.25.1
 	github.com/go-playground/validator/v10 v10.23.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/cel-go v0.26.1
 	github.com/google/go-cmp v0.7.0
-	github.com/google/go-github/v74 v74.0.0
+	github.com/google/go-github/v79 v79.0.0
 	github.com/google/go-licenses/v2 v2.0.1
 	github.com/google/gops v0.3.28
 	github.com/google/renameio/v2 v2.0.0
@@ -118,15 +118,15 @@ require (
 	go.uber.org/zap v1.27.0
 	go.yaml.in/yaml/v3 v3.0.4
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
-	golang.org/x/crypto v0.43.0
+	golang.org/x/crypto v0.45.0
 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546
 	golang.org/x/mod v0.29.0
-	golang.org/x/net v0.46.0
-	golang.org/x/oauth2 v0.32.0
-	golang.org/x/sync v0.17.0
-	golang.org/x/sys v0.37.0
-	golang.org/x/term v0.36.0
-	golang.org/x/text v0.30.0
+	golang.org/x/net v0.47.0
+	golang.org/x/oauth2 v0.33.0
+	golang.org/x/sync v0.18.0
+	golang.org/x/sys v0.38.0
+	golang.org/x/term v0.37.0
+	golang.org/x/text v0.31.0
 	golang.org/x/time v0.14.0
 	golang.org/x/tools v0.38.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
@@ -177,15 +177,16 @@ require (
 	github.com/alecthomas/participle/v2 v2.1.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.18.20 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.12 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.12 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.14 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.14 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.12 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.30.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.39.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.14 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.0.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.30.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.41.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62 // indirect
@@ -218,20 +219,20 @@ require (
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
-	github.com/go-openapi/analysis v0.24.0 // indirect
+	github.com/go-openapi/analysis v0.24.1 // indirect
 	github.com/go-openapi/jsonpointer v0.22.1 // indirect
-	github.com/go-openapi/jsonreference v0.21.2 // indirect
-	github.com/go-openapi/swag/cmdutils v0.25.1 // indirect
-	github.com/go-openapi/swag/conv v0.25.1 // indirect
-	github.com/go-openapi/swag/fileutils v0.25.1 // indirect
-	github.com/go-openapi/swag/jsonname v0.25.1 // indirect
-	github.com/go-openapi/swag/jsonutils v0.25.1 // indirect
-	github.com/go-openapi/swag/loading v0.25.1 // indirect
-	github.com/go-openapi/swag/mangling v0.25.1 // indirect
-	github.com/go-openapi/swag/netutils v0.25.1 // indirect
-	github.com/go-openapi/swag/stringutils v0.25.1 // indirect
-	github.com/go-openapi/swag/typeutils v0.25.1 // indirect
-	github.com/go-openapi/swag/yamlutils v0.25.1 // indirect
+	github.com/go-openapi/jsonreference v0.21.3 // indirect
+	github.com/go-openapi/swag/cmdutils v0.25.3 // indirect
+	github.com/go-openapi/swag/conv v0.25.3 // indirect
+	github.com/go-openapi/swag/fileutils v0.25.3 // indirect
+	github.com/go-openapi/swag/jsonname v0.25.3 // indirect
+	github.com/go-openapi/swag/jsonutils v0.25.3 // indirect
+	github.com/go-openapi/swag/loading v0.25.3 // indirect
+	github.com/go-openapi/swag/mangling v0.25.3 // indirect
+	github.com/go-openapi/swag/netutils v0.25.3 // indirect
+	github.com/go-openapi/swag/stringutils v0.25.3 // indirect
+	github.com/go-openapi/swag/typeutils v0.25.3 // indirect
+	github.com/go-openapi/swag/yamlutils v0.25.3 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
@@ -324,7 +325,7 @@ require (
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/zmap/zcrypto v0.0.0-20230310154051-c8b263fd8300 // indirect
 	github.com/zmap/zlint/v3 v3.5.0 // indirect
-	go.mongodb.org/mongo-driver v1.17.4 // indirect
+	go.mongodb.org/mongo-driver v1.17.6 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0 // indirect

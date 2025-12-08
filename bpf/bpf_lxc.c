@@ -60,6 +60,37 @@
 
 #include "enterprise_bpf_lxc.h"
 
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+static __always_inline int
+lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
+{
+	int ret __maybe_unused;
+
+	ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+	ctx_store_meta(ctx, CB_FROM_HOST, 0);
+
+	/* Note that bpf_lxc can be loaded before bpf_host, so bpf_host's policy
+	 * program may not yet be present at this time.
+	 */
+	ret = tail_call_policy(ctx, CONFIG(host_ep_id));
+
+	/* report fine-grained error: */
+	return DROP_HOST_NOT_READY;
+}
+#endif
+
+#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
+static __always_inline int
+lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
+		     __be16 proto, struct trace_ctx *trace)
+{
+	send_trace_notify(ctx, TRACE_TO_HOST, src_sec_identity, HOST_ID,
+			  TRACE_EP_ID_UNKNOWN, CILIUM_NET_IFINDEX,
+			  trace->reason, trace->monitor, proto);
+	return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
+}
+#endif
+
 /* Per-packet LB is needed if all LB cases can not be handled in bpf_sock.
  * Most services with L7 LB flag can not be redirected to their proxy port
  * in bpf_sock, so we must check for those via per packet LB as well.
@@ -686,16 +717,10 @@ ct_recreate6:
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
-	 * enabled, jump to the bpf_host program to enforce ingress host policies.
+	 * enabled, enforce ingress host policies via policy tailcall.
 	 */
-	if (*dst_sec_identity == HOST_ID) {
-		ctx_store_meta(ctx, CB_SRC_LABEL, SECLABEL_IPV6);
-		ctx_store_meta(ctx, CB_FROM_HOST, 0);
-		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
-
-		/* return fine-grained error: */
-		return DROP_HOST_NOT_READY;
-	}
+	if (*dst_sec_identity == HOST_ID)
+		return lxc_deliver_to_host(ctx, SECLABEL_IPV6);
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 #ifdef ENABLE_IDENTITY_MARK
@@ -731,8 +756,12 @@ ct_recreate6:
 		if (ep) {
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
-				if (is_defined(ENABLE_ROUTING))
-					goto to_host;
+				if (is_defined(ENABLE_ROUTING) &&
+				    is_defined(ENABLE_HOST_FIREWALL) &&
+				    *dst_sec_identity == HOST_ID)
+					return lxc_redirect_to_host(ctx, SECLABEL_IPV6,
+								    bpf_htons(ETH_P_IPV6),
+								    &trace);
 
 				goto pass_to_stack;
 			}
@@ -774,20 +803,6 @@ ct_recreate6:
 					  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 		return ret;
 	}
-
-	goto pass_to_stack;
-
-#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
-to_host:
-#endif
-#ifdef ENABLE_ROUTING
-	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_sec_identity == HOST_ID) {
-		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL_IPV6, HOST_ID,
-				  TRACE_EP_ID_UNKNOWN, CILIUM_NET_IFINDEX,
-				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
-		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
-	}
-#endif
 
 pass_to_stack:
 #ifdef ENABLE_ROUTING
@@ -1166,18 +1181,10 @@ ct_recreate4:
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
-	 * enabled, jump to the bpf_host program to enforce ingress host policies.
-	 * Note that bpf_lxc can be loaded before bpf_host, so bpf_host's policy
-	 * program may not yet be present at this time.
+	 * enabled, enforce ingress host policies via policy tailcall.
 	 */
-	if (*dst_sec_identity == HOST_ID) {
-		ctx_store_meta(ctx, CB_SRC_LABEL, SECLABEL_IPV4);
-		ctx_store_meta(ctx, CB_FROM_HOST, 0);
-		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
-
-		/* report fine-grained error: */
-		return DROP_HOST_NOT_READY;
-	}
+	if (*dst_sec_identity == HOST_ID)
+		return lxc_deliver_to_host(ctx, SECLABEL_IPV4);
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 #ifdef ENABLE_IDENTITY_MARK
@@ -1226,8 +1233,12 @@ ct_recreate4:
 		if (ep) {
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
-				if (is_defined(ENABLE_ROUTING))
-					goto to_host;
+				if (is_defined(ENABLE_ROUTING) &&
+				    is_defined(ENABLE_HOST_FIREWALL) &&
+				    *dst_sec_identity == HOST_ID)
+					return lxc_redirect_to_host(ctx, SECLABEL_IPV4,
+								    bpf_htons(ETH_P_IP),
+								    &trace);
 
 				goto pass_to_stack;
 			}
@@ -1340,20 +1351,6 @@ skip_vtep:
 					  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 		return ret;
 	}
-
-	goto pass_to_stack;
-
-#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
-to_host:
-#endif
-#ifdef ENABLE_ROUTING
-	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_sec_identity == HOST_ID) {
-		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL_IPV4, HOST_ID,
-				  TRACE_EP_ID_UNKNOWN, CILIUM_NET_IFINDEX,
-				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
-		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
-	}
-#endif
 
 pass_to_stack:
 #ifdef ENABLE_ROUTING

@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	enterpriseTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/gobgp"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
@@ -246,7 +247,7 @@ func TestNeighborReconciler(t *testing.T) {
 				},
 			}
 
-			testInstance, err := instance.NewBGPInstance(context.Background(), logger, "test-instance", srvParams)
+			testInstance, err := instance.NewBGPInstance(context.Background(), gobgp.NewRouterProvider(), logger, "test-instance", srvParams)
 			req.NoError(err)
 
 			t.Cleanup(func() {
@@ -454,7 +455,7 @@ func TestNeighborReconciler_SourceInterfaceAddress(t *testing.T) {
 			ListenPort: -1,
 		},
 	}
-	testInstance, err := instance.NewBGPInstance(context.Background(), hivetest.Logger(t), "test-instance", srvParams)
+	testInstance, err := instance.NewBGPInstance(context.Background(), gobgp.NewRouterProvider(), hivetest.Logger(t), "test-instance", srvParams)
 	req.NoError(err)
 	t.Cleanup(func() {
 		testInstance.Router.Stop(context.Background(), types.StopRequest{FullDestroy: true})

@@ -32,7 +32,7 @@ type BPFLXC struct {
 	EndpointIPv6 [16]byte `config:"endpoint_ipv6"`
 	// The endpoint's network namespace cookie.
 	EndpointNetNSCookie uint64 `config:"endpoint_netns_cookie"`
-	// The host endpoint's security ID.
+	// The host endpoint ID.
 	HostEpID uint16 `config:"host_ep_id"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfindex uint32 `config:"interface_ifindex"`
@@ -58,8 +58,6 @@ type BPFLXC struct {
 	PrivnetNetworkID uint16 `config:"privnet_network_id"`
 	// The security identifier for unknown network traffic.
 	PrivnetUnknownSecID uint32 `config:"privnet_unknown_sec_id"`
-	// Pull security context from IP cache.
-	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
 	// VXLAN tunnel endpoint network mask.
@@ -77,5 +75,5 @@ func NewBPFLXC(node Node) *BPFLXC {
 		0x0, false, false, 0x0,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0, 0x0,
-		false, 0x0, 0x0, node}
+		0x0, 0x0, node}
 }
