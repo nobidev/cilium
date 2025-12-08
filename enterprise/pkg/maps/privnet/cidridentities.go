@@ -185,7 +185,7 @@ func createCIDRIdentityMap(in struct {
 		&CIDRIdentityKey{},
 		&CIDRIdentityVal{},
 		int(in.MapConfig.CIDRIdentityMapSize),
-		unix.BPF_F_NO_PREALLOC,
+		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
 	)
 
 	in.Lifecycle.Append(cell.Hook{

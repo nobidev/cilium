@@ -65,7 +65,7 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		if (!ipv6_addr_equals(&sip6, &dev_val->ipv6))
 			return DROP_UNROUTABLE;
 
-		ret = privnet_egress_ipv6(ctx, net_id,
+		ret = privnet_egress_ipv6(ctx, SECLABEL_IPV6, net_id,
 					  privnet_subnet_id_lookup6(net_id, sip6),
 					  NULL, &dip_val);
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
@@ -116,7 +116,7 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		if (ip4->saddr != dev_val->ipv4.be32)
 			return DROP_UNROUTABLE;
 
-		ret = privnet_egress_ipv4(ctx, net_id,
+		ret = privnet_egress_ipv4(ctx, SECLABEL_IPV4, net_id,
 					  privnet_subnet_id_lookup4(net_id, ip4->saddr),
 					  NULL, &dip_val);
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
@@ -172,7 +172,7 @@ static __always_inline int enterprise_privnet_to_lxc_ipv4_policy(struct __ctx_bu
 		if (unlikely(!net_id || !(*net_id)))
 			return DROP_UNROUTABLE;
 
-		ret = privnet_ingress_ipv4(ctx, *net_id, false, NULL, NULL);
+		ret = privnet_ingress_ipv4(ctx, SECLABEL_IPV4, *net_id, false, NULL, NULL);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -191,7 +191,7 @@ static __always_inline int enterprise_privnet_to_lxc_ipv6_policy(struct __ctx_bu
 		if (unlikely(!net_id || !(*net_id)))
 			return DROP_UNROUTABLE;
 
-		ret = privnet_ingress_ipv6(ctx, *net_id, false, NULL, NULL);
+		ret = privnet_ingress_ipv6(ctx, SECLABEL_IPV6, *net_id, false, NULL, NULL);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -236,7 +236,7 @@ static __always_inline int tail_handle_ipv4_privnet_unknown_ingress(struct __ctx
 	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 #endif
 
-	ret = privnet_ingress_ipv4(ctx, *net_id, true, NULL, NULL);
+	ret = privnet_ingress_ipv4(ctx, SECLABEL_IPV4, *net_id, true, NULL, NULL);
 	if (IS_ERR(ret))
 		return ret;
 
@@ -267,7 +267,7 @@ static __always_inline int tail_handle_ipv6_privnet_unknown_ingress(struct __ctx
 	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 #endif
 
-	ret = privnet_ingress_ipv6(ctx, *net_id, true, NULL, NULL);
+	ret = privnet_ingress_ipv6(ctx, SECLABEL_IPV6, *net_id, true, NULL, NULL);
 	if (IS_ERR(ret))
 		return ret;
 

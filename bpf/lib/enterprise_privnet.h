@@ -12,6 +12,7 @@
 #include "local_delivery.h"
 
 #include "enterprise_privnet_config.h"
+#include "enterprise_privnet_conntrack.h"
 #include "enterprise_ext_eps_policy.h"
 #include "enterprise_evpn.h"
 #include "lib/drop_reasons.h"
@@ -547,6 +548,61 @@ static __always_inline bool privnet_agent_alive(void)
 	return true;
 }
 
+/*
+ * cilium_privnet_cidr_identity contains a global prefix to identity mapping
+ * used by privnet "unknown flow" policy. It works similar to cilium_ipcache,
+ * but only contains prefixes that are guaranteed to not be managed by Cilium.
+ */
+struct privnet_cidr_identity_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u8 family;
+	__u8 pad[3];
+	union {
+		union v4addr ip4;
+		union v6addr ip6;
+	};
+};
+
+struct privnet_cidr_identity {
+	__u32 sec_identity;
+};
+
+#define PRIVNET_CIDR_IDENTITY_STATIC_PREFIX					\
+(8 * (sizeof(struct privnet_cidr_identity_key) - sizeof(struct bpf_lpm_trie_key)	\
+- sizeof(union v6addr)))
+#define PRIVNET_CIDR_IDENTITY_PREFIX_LEN(PREFIX) (PRIVNET_CIDR_IDENTITY_STATIC_PREFIX + (PREFIX))
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct privnet_cidr_identity_key);
+	__type(value, struct privnet_cidr_identity);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, PRIVNET_CIDR_IDENTITY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
+} cilium_privnet_cidr_identity __section_maps_btf;
+
+static __always_inline __maybe_unused const struct privnet_cidr_identity *
+privnet_cidr_identity_lookup4(const void *map, __be32 addr) {
+	struct privnet_cidr_identity_key key = {
+		.lpm_key = { PRIVNET_CIDR_IDENTITY_PREFIX_LEN(V4_PRIVNET_KEY_LEN), {} },
+		.family = ENDPOINT_KEY_IPV4,
+		.ip4 = { .be32 = addr },
+	};
+
+	return map_lookup_elem(map, &key);
+}
+
+static __always_inline __maybe_unused const struct privnet_cidr_identity *
+privnet_cidr_identity_lookup6(const void *map, union v6addr addr) {
+	struct privnet_cidr_identity_key key = {
+		.lpm_key = { PRIVNET_CIDR_IDENTITY_PREFIX_LEN(V6_PRIVNET_KEY_LEN), {} },
+		.family = ENDPOINT_KEY_IPV6,
+		.ip6 = addr,
+	};
+
+	return map_lookup_elem(map, &key);
+}
+
 static __always_inline int
 enforce_privnet_egress_segmentation(const struct privnet_fib_val *sip_val,
 				    const struct privnet_fib_val *dip_val)
@@ -640,6 +696,121 @@ privnet_evpn_egress_ipv4(struct __ctx_buff *ctx, __u16 net_id,
 	return CTX_ACT_OK;
 }
 
+static __always_inline int
+privnet_unknown_policy_can_access(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id,
+				  __u16 ethertype, __be16 dport, __u8 proto, int off, int dir,
+				  bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
+				  __u16 *proxy_port, __u32 *cookie, __u8 *audited)
+{
+	int verdict = CTX_ACT_OK;
+
+	verdict = policy_can_access(ctx, local_id, remote_id,
+				    ethertype, dport, proto, off, dir,
+				    is_untracked_fragment, match_type, ext_err,
+				    proxy_port, cookie);
+
+	if (audited) {
+		*audited = 0;
+#ifdef POLICY_AUDIT_MODE
+		if (IS_ERR(verdict)) {
+			verdict = CTX_ACT_OK;
+			*audited = 1;
+		}
+#endif
+	}
+
+	if (verdict < 0)
+		cilium_dbg(ctx, DBG_POLICY_DENIED, local_id, remote_id);
+
+	/* unknown flow doesn't support redirect to proxy, so return a policy drop */
+	if (proxy_port && *proxy_port)
+		verdict = DROP_POLICY;
+
+	return verdict;
+}
+
+static __always_inline int
+privnet_unknown_policy_egress4(struct __ctx_buff *ctx,
+			       struct iphdr *ip4,
+			       __u16 net_id,
+			       __u32 sec_label)
+{
+	const struct privnet_cidr_identity *info = NULL;
+	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u32 dst_sec_identity = WORLD_IPV4_ID;
+	fraginfo_t fraginfo __maybe_unused;
+	bool is_untracked_fragment = false;
+	struct ipv4_ct_tuple tuple = {};
+	struct ct_state ct_state = {};
+	void *ct_map, *ct_map_any;
+	int verdict = CTX_ACT_OK;
+	__u16 proxy_port = 0;
+	__s8 *ext_err = NULL;
+	__u32 monitor = 0;
+	__u8 audited = 0;
+	__u32 cookie = 0;
+	int l4_off;
+	int ct_ret;
+	int ret;
+
+	fraginfo = ipfrag_encode_ipv4(ip4);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+#ifndef ENABLE_IPV4_FRAGMENTS
+	/* Indicate that this is a datagram fragment for which we cannot
+	 * retrieve L4 ports. Do not set flag if we support fragmentation.
+	 */
+	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
+#endif
+
+	tuple.nexthdr = ip4->protocol;
+	tuple.saddr = ip4->saddr;
+	tuple.daddr = ip4->daddr;
+
+	ct_map = privnet_get_ct_map4(&tuple, net_id);
+	ct_map_any = privnet_get_ct_any_map4(net_id);
+	if (unlikely(!ct_map || !ct_map_any))
+		return DROP_EP_NOT_READY;
+
+	ct_ret = ct_lookup4(ct_map, &tuple, ctx, ip4, l4_off,
+			    CT_EGRESS, SCOPE_BIDIR, &ct_state, &monitor);
+
+	/* Skip policy enforcement for return traffic. */
+	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
+		return CTX_ACT_OK;
+
+	/* Note: We are looking up by tuple.saddr for the dst here because ct_lookup swapped the order */
+	info = privnet_cidr_identity_lookup4(&cilium_privnet_cidr_identity, tuple.saddr);
+	if (info)
+		dst_sec_identity = info->sec_identity;
+
+	verdict = privnet_unknown_policy_can_access(ctx, sec_label, dst_sec_identity, ETH_P_IP,
+						    tuple.dport, tuple.nexthdr, l4_off, CT_EGRESS,
+						    is_untracked_fragment, &policy_match_type,
+						    ext_err, &proxy_port, &cookie, &audited);
+
+	/* Only create CT entry for accepted connections */
+	if (ct_ret == CT_NEW && verdict == CTX_ACT_OK) {
+		/* Unknown flow doesn't support proxy port, so no need to set any of the ct_state fields */
+		struct ct_state ct_state_new = {};
+
+		ret = ct_create4(ct_map, ct_map_any, &tuple,
+				 ctx, CT_EGRESS, &ct_state_new, ext_err);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	/* Emit verdict if drop or if allow for CT_NEW. */
+	if (verdict != CTX_ACT_OK || ct_ret != CT_ESTABLISHED) {
+		send_policy_verdict_notify(ctx, dst_sec_identity, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, false,
+					   verdict, proxy_port, policy_match_type, audited,
+					   0, cookie);
+	}
+
+	return verdict;
+}
+
 /* privnet_egress_ipv4 can be called as traffic comes from pod to lxc, it should be
  * the first thing to happen before processing the packet further in bpf_lxc.
  *
@@ -653,10 +824,11 @@ privnet_evpn_egress_ipv4(struct __ctx_buff *ctx, __u16 net_id,
  * - In local access mode, the packet may be redirected directly to the network
  *   device given in the FIB map entry ifindex.
  * - Basic segmentation check.
+ * - Egress policy enforcement for unknown flow (when invoked from lxc)
  * - Returns lookup result for source and destination.
  */
 static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
-					       __u16 net_id, __u16 subnet_id,
+					       __u32 sec_label, __u16 net_id, __u16 subnet_id,
 					       const struct privnet_fib_val **src_privnet_entry,
 					       const struct privnet_fib_val **dst_privnet_entry)
 {
@@ -698,6 +870,11 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			}
 			/* Set net id to default network.*/
 			set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
+		} else if (sec_label) {
+			/* enforce egress policy for unknown flow */
+			ret = privnet_unknown_policy_egress4(ctx, ip4, net_id, sec_label);
+			if (ret != CTX_ACT_OK)
+				return ret;
 		}
 	}
 
@@ -729,6 +906,83 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 	}
 
 	return enforce_privnet_egress_segmentation(sip_val, dip_val);
+}
+
+static __always_inline int
+privnet_unknown_policy_egress6(struct __ctx_buff *ctx,
+			       struct ipv6hdr *ip6,
+			       __u16 net_id,
+			       __u32 sec_label)
+{
+	const struct privnet_cidr_identity *info = NULL;
+	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u32 dst_sec_identity = WORLD_IPV6_ID;
+	fraginfo_t fraginfo __maybe_unused;
+	bool is_untracked_fragment = false;
+	struct ipv6_ct_tuple tuple = {};
+	struct ct_state ct_state = {};
+	void *ct_map, *ct_map_any;
+	int verdict = CTX_ACT_OK;
+	__u16 proxy_port = 0;
+	__s8 *ext_err = NULL;
+	__u32 monitor = 0;
+	__u8 audited = 0;
+	__u32 cookie = 0;
+	int hdrlen;
+	int l4_off;
+	int ct_ret;
+	int ret;
+
+	tuple.nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = ETH_HLEN + hdrlen;
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+
+	ct_map = privnet_get_ct_map6(&tuple, net_id);
+	ct_map_any = privnet_get_ct_any_map6(net_id);
+	if (unlikely(!ct_map || !ct_map_any))
+		return DROP_EP_NOT_READY;
+
+	ct_ret = ct_lookup6(ct_map, &tuple, ctx, ip6, fraginfo, l4_off,
+			    CT_INGRESS, SCOPE_BIDIR, &ct_state, &monitor);
+	/* Skip policy enforcement for return traffic. */
+	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
+		return CTX_ACT_OK;
+
+	/* Note: We are looking up by tuple.saddr for the dst here because ct_lookup swapped the order */
+	info = privnet_cidr_identity_lookup6(&cilium_privnet_cidr_identity, tuple.saddr);
+	if (info)
+		dst_sec_identity = info->sec_identity;
+
+	verdict = privnet_unknown_policy_can_access(ctx, sec_label, dst_sec_identity, ETH_P_IP,
+						    tuple.dport, tuple.nexthdr, l4_off, CT_EGRESS,
+						    is_untracked_fragment, &policy_match_type,
+						    ext_err, &proxy_port, &cookie, &audited);
+
+	/* Only create CT entry for accepted connections */
+	if (ct_ret == CT_NEW && verdict == CTX_ACT_OK) {
+		/* Unknown flow doesn't support proxy port, so no need to set any of the ct_state fields */
+		struct ct_state ct_state_new = {};
+
+		ret = ct_create6(ct_map, ct_map_any, &tuple,
+				 ctx, CT_INGRESS, &ct_state_new, ext_err);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	/* Emit verdict if drop or if allow for CT_NEW. */
+	if (verdict != CTX_ACT_OK || ct_ret != CT_ESTABLISHED) {
+		send_policy_verdict_notify(ctx, dst_sec_identity, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, false,
+					   verdict, proxy_port, policy_match_type, audited,
+					   0, cookie);
+	}
+
+	return verdict;
 }
 
 /* See comment for privnet_redirect_neigh_fib_ipv4() */
@@ -783,7 +1037,7 @@ privnet_evpn_egress_ipv6(struct __ctx_buff *ctx, __u16 net_id,
 
 /* see ipv4 comment */
 static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
-					       __u16 net_id, __u16 subnet_id,
+					       __u32 sec_label, __u16 net_id, __u16 subnet_id,
 					       const struct privnet_fib_val **src_privnet_entry,
 					       const struct privnet_fib_val **dst_privnet_entry)
 {
@@ -820,6 +1074,11 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 				return ret;
 			/* Set net id to default network.*/
 			set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
+		} else if (sec_label) {
+			/* enforce egress policy for unknown flow */
+			ret = privnet_unknown_policy_egress6(ctx, ip6, net_id, sec_label);
+			if (ret != CTX_ACT_OK)
+				return ret;
 		}
 	}
 
@@ -910,6 +1169,89 @@ enforce_privnet_ingress_segmentation_at_lxc(bool unknown_flow, __u16 net_id,
 	return DROP_UNROUTABLE;
 }
 
+static __always_inline int
+privnet_unknown_policy_ingress4(struct __ctx_buff *ctx,
+				struct iphdr *ip4,
+				__u16 net_id,
+				__u32 sec_label)
+{
+	const struct privnet_cidr_identity *info = NULL;
+	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u32 src_sec_identity = WORLD_IPV4_ID;
+	fraginfo_t fraginfo __maybe_unused;
+	bool is_untracked_fragment = false;
+	int verdict = CTX_ACT_OK;
+	__u16 proxy_port = 0;
+	__s8 *ext_err = NULL;
+	__u32 monitor = 0;
+	__u8 audited = 0;
+	__u32 cookie = 0;
+	int l4_off;
+	int ct_ret;
+	int ret;
+
+	void *ct_map, *ct_map_any;
+	struct ipv4_ct_tuple tuple = {};
+	struct ct_state ct_state = {};
+
+	fraginfo = ipfrag_encode_ipv4(ip4);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+#ifndef ENABLE_IPV4_FRAGMENTS
+	/* Indicate that this is a datagram fragment for which we cannot
+	 * retrieve L4 ports. Do not set flag if we support fragmentation.
+	 */
+	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
+#endif
+
+	tuple.nexthdr = ip4->protocol;
+	tuple.saddr = ip4->saddr;
+	tuple.daddr = ip4->daddr;
+
+	ct_map = privnet_get_ct_map4(&tuple, net_id);
+	ct_map_any = privnet_get_ct_any_map4(net_id);
+	if (unlikely(!ct_map || !ct_map_any))
+		return DROP_EP_NOT_READY;
+
+	ct_ret = ct_lookup4(ct_map, &tuple, ctx, ip4, l4_off,
+			    CT_INGRESS, SCOPE_BIDIR, &ct_state, &monitor);
+
+	/* Skip policy enforcement for return traffic. */
+	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
+		return CTX_ACT_OK;
+
+	/* Note: We are looking up by tuple.daddr for the src here because ct_lookup swapped the order */
+	info = privnet_cidr_identity_lookup4(&cilium_privnet_cidr_identity, tuple.daddr);
+	if (info)
+		src_sec_identity = info->sec_identity;
+
+	verdict = privnet_unknown_policy_can_access(ctx, sec_label, src_sec_identity, ETH_P_IP,
+						    tuple.dport, tuple.nexthdr, l4_off, CT_INGRESS,
+						    is_untracked_fragment, &policy_match_type,
+						    ext_err, &proxy_port, &cookie, &audited);
+
+	/* Only create CT entry for accepted connections */
+	if (ct_ret == CT_NEW && verdict == CTX_ACT_OK) {
+		/* Unknown flow doesn't support proxy port, so no need to set any of the ct_state fields */
+		struct ct_state ct_state_new = {};
+
+		ret = ct_create4(ct_map, ct_map_any, &tuple,
+				 ctx, CT_INGRESS, &ct_state_new, ext_err);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	/* Emit verdict if drop or if allow for CT_NEW. */
+	if (verdict != CTX_ACT_OK || ct_ret != CT_ESTABLISHED) {
+		send_policy_verdict_notify(ctx, src_sec_identity, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, false,
+					   verdict, proxy_port, policy_match_type, audited,
+					   0, cookie);
+	}
+
+	return verdict;
+}
+
 /* privnet_ingress_ipv4 should be called for privnet enabled endpoints when traffic is going to
  * those endpoints.
  *
@@ -919,7 +1261,7 @@ enforce_privnet_ingress_segmentation_at_lxc(bool unknown_flow, __u16 net_id,
  * - Enforce segmentation to prevent invalid traffic from going to the destination.
  */
 static __always_inline int
-privnet_ingress_ipv4(struct __ctx_buff *ctx, __u16 net_id, bool unknown_flow,
+privnet_ingress_ipv4(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id, bool unknown_flow,
 		     const struct privnet_pip_val **src_privnet_entry,
 		     const struct privnet_pip_val **dst_privnet_entry)
 {
@@ -1004,6 +1346,16 @@ privnet_ingress_ipv4(struct __ctx_buff *ctx, __u16 net_id, bool unknown_flow,
 		}
 	}
 
+	/* revalidate data before accessing ip4, otherwise verifier will not be happy. */
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	/* enforce ingress policy for unknown flow and we are not INB (which has net_id 0) */
+	if (unknown_flow && net_id != 0) {
+		ret = privnet_unknown_policy_ingress4(ctx, ip4, net_id, sec_label);
+		if (ret != CTX_ACT_OK)
+			return ret;
+	}
 out:
 	/* net_id is set to 0 when packet is received in INB via overlay. */
 	return (net_id == 0) ?
@@ -1012,7 +1364,84 @@ out:
 }
 
 static __always_inline int
-privnet_ingress_ipv6(struct __ctx_buff *ctx, __u16 net_id, bool unknown_flow,
+privnet_unknown_policy_ingress6(struct __ctx_buff *ctx,
+				struct ipv6hdr *ip6,
+				__u16 net_id,
+				__u32 sec_label)
+{
+	const struct privnet_cidr_identity *info = NULL;
+	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u32 src_sec_identity = WORLD_IPV6_ID;
+	fraginfo_t fraginfo __maybe_unused;
+	bool is_untracked_fragment = false;
+	struct ipv6_ct_tuple tuple = {};
+	struct ct_state ct_state = {};
+	void *ct_map, *ct_map_any;
+	int verdict = CTX_ACT_OK;
+	__u16 proxy_port = 0;
+	__s8 *ext_err = NULL;
+	__u8 audited = 0;
+	__u32 cookie = 0;
+	__u32 monitor = 0;
+	int hdrlen;
+	int l4_off;
+	int ct_ret;
+	int ret;
+
+	tuple.nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = ETH_HLEN + hdrlen;
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+
+	ct_map = privnet_get_ct_map6(&tuple, net_id);
+	ct_map_any = privnet_get_ct_any_map6(net_id);
+	if (unlikely(!ct_map || !ct_map_any))
+		return DROP_EP_NOT_READY;
+
+	ct_ret = ct_lookup6(ct_map, &tuple, ctx, ip6, fraginfo, l4_off,
+			    CT_INGRESS, SCOPE_BIDIR, &ct_state, &monitor);
+	/* Skip policy enforcement for return traffic. */
+	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
+		return CTX_ACT_OK;
+
+	/* Note: We are looking up by tuple.daddr for the src here because ct_lookup swapped the order */
+	info = privnet_cidr_identity_lookup6(&cilium_privnet_cidr_identity, tuple.daddr);
+	if (info)
+		src_sec_identity = info->sec_identity;
+
+	verdict = privnet_unknown_policy_can_access(ctx, sec_label, src_sec_identity, ETH_P_IP,
+						    tuple.dport, tuple.nexthdr, l4_off, CT_INGRESS,
+						    is_untracked_fragment, &policy_match_type,
+						    ext_err, &proxy_port, &cookie, &audited);
+
+	/* Only create CT entry for accepted connections */
+	if (ct_ret == CT_NEW && verdict == CTX_ACT_OK) {
+		/* Unknown flow doesn't support proxy port, so no need to set any of the ct_state fields */
+		struct ct_state ct_state_new = {};
+
+		ret = ct_create6(ct_map, ct_map_any, &tuple,
+				 ctx, CT_INGRESS, &ct_state_new, ext_err);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	/* Emit verdict if drop or if allow for CT_NEW. */
+	if (verdict != CTX_ACT_OK || ct_ret != CT_ESTABLISHED) {
+		send_policy_verdict_notify(ctx, src_sec_identity, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, false,
+					   verdict, proxy_port, policy_match_type, audited,
+					   0, cookie);
+	}
+
+	return verdict;
+}
+
+static __always_inline int
+privnet_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id, bool unknown_flow,
 		     const struct privnet_pip_val **src_privnet_entry,
 		     const struct privnet_pip_val **dst_privnet_entry)
 {
@@ -1068,6 +1497,17 @@ privnet_ingress_ipv6(struct __ctx_buff *ctx, __u16 net_id, bool unknown_flow,
 				 */
 				set_privnet_net_src_id(dip_val->net_id);
 		}
+	}
+
+	/* revalidate data before accessing ip6, otherwise verifier will not be happy. */
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	/* enforce ingress policy for unknown flow and we are not INB (which has net_id 0) */
+	if (unknown_flow && net_id != 0) {
+		ret = privnet_unknown_policy_ingress6(ctx, ip6, net_id, sec_label);
+		if (ret != CTX_ACT_OK)
+			return ret;
 	}
 
 out:

@@ -116,6 +116,11 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumPercpuTraceIDSpec,
 	newCiliumPolicyV2Spec,
 	newCiliumPolicystatsSpec,
+	newCiliumPrivnetCidrIdentitySpec,
+	newCiliumPrivnetCt4GlobalSpec,
+	newCiliumPrivnetCt6GlobalSpec,
+	newCiliumPrivnetCtAny4GlobalSpec,
+	newCiliumPrivnetCtAny6GlobalSpec,
 	newCiliumPrivnetDevicesSpec,
 	newCiliumPrivnetFIBSpec,
 	newCiliumPrivnetPipSpec,
@@ -1259,6 +1264,136 @@ func newCiliumPolicystatsSpec(btf *btf.Spec) *ebpf.MapSpec {
 		MaxEntries: 200,
 		Flags:      unix.BPF_F_NO_COMMON_LRU,
 		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumPrivnetCidrIdentitySpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       "cilium_privnet_cidr_identity",
+		Type:       ebpf.LPMTrie,
+		KeySize:    24,
+		Key:        anyTypeByName(btf, "privnet_cidr_identity_key"),
+		ValueSize:  4,
+		Value:      anyTypeByName(btf, "privnet_cidr_identity"),
+		MaxEntries: 16384,
+		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumPrivnetCt4GlobalSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       "cilium_privnet_ct4_global",
+		Type:       ebpf.HashOfMaps,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "__u32"),
+		ValueSize:  4,
+		Value:      anyTypeByName(btf, "__u32"),
+		InnerMap:   newCiliumPrivnetCt4GlobalInnerSpec(btf),
+		MaxEntries: 512,
+		Flags:      unix.BPF_F_NO_PREALLOC,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumPrivnetCt4GlobalInnerSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       "cilium_privnet_ct4_global_inner",
+		Type:       ebpf.LRUHash,
+		KeySize:    14,
+		Key:        anyTypeByName(btf, "ipv4_ct_tuple"),
+		ValueSize:  56,
+		Value:      anyTypeByName(btf, "ct_entry"),
+		MaxEntries: 4096,
+		Flags:      0,
+		Pinning:    ebpf.PinNone,
+	}
+}
+
+func newCiliumPrivnetCt6GlobalSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       "cilium_privnet_ct6_global",
+		Type:       ebpf.HashOfMaps,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "__u32"),
+		ValueSize:  4,
+		Value:      anyTypeByName(btf, "__u32"),
+		InnerMap:   newCiliumPrivnetCt6GlobalInnerSpec(btf),
+		MaxEntries: 512,
+		Flags:      unix.BPF_F_NO_PREALLOC,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumPrivnetCt6GlobalInnerSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       "cilium_privnet_ct6_global_inner",
+		Type:       ebpf.LRUHash,
+		KeySize:    38,
+		Key:        anyTypeByName(btf, "ipv6_ct_tuple"),
+		ValueSize:  56,
+		Value:      anyTypeByName(btf, "ct_entry"),
+		MaxEntries: 4096,
+		Flags:      0,
+		Pinning:    ebpf.PinNone,
+	}
+}
+
+func newCiliumPrivnetCtAny4GlobalSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       "cilium_privnet_ct_any4_global",
+		Type:       ebpf.HashOfMaps,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "__u32"),
+		ValueSize:  4,
+		Value:      anyTypeByName(btf, "__u32"),
+		InnerMap:   newCiliumPrivnetCtAny4GlobalInnerSpec(btf),
+		MaxEntries: 512,
+		Flags:      unix.BPF_F_NO_PREALLOC,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumPrivnetCtAny4GlobalInnerSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       "cilium_privnet_ct_any4_global_inner",
+		Type:       ebpf.LRUHash,
+		KeySize:    14,
+		Key:        anyTypeByName(btf, "ipv4_ct_tuple"),
+		ValueSize:  56,
+		Value:      anyTypeByName(btf, "ct_entry"),
+		MaxEntries: 4096,
+		Flags:      0,
+		Pinning:    ebpf.PinNone,
+	}
+}
+
+func newCiliumPrivnetCtAny6GlobalSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       "cilium_privnet_ct_any6_global",
+		Type:       ebpf.HashOfMaps,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "__u32"),
+		ValueSize:  4,
+		Value:      anyTypeByName(btf, "__u32"),
+		InnerMap:   newCiliumPrivnetCtAny6GlobalInnerSpec(btf),
+		MaxEntries: 512,
+		Flags:      unix.BPF_F_NO_PREALLOC,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumPrivnetCtAny6GlobalInnerSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       "cilium_privnet_ct_any6_global_inner",
+		Type:       ebpf.LRUHash,
+		KeySize:    38,
+		Key:        anyTypeByName(btf, "ipv6_ct_tuple"),
+		ValueSize:  56,
+		Value:      anyTypeByName(btf, "ct_entry"),
+		MaxEntries: 4096,
+		Flags:      0,
+		Pinning:    ebpf.PinNone,
 	}
 }
 

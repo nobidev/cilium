@@ -66,7 +66,7 @@ var defaultConfig = Config{
 	CIDRIdentityMapSize: 128000,
 	DevicesMapSize:      16384,
 	SubnetsMapSize:      16384,
-	CTMapsMapSize:       16384,
+	CTMapsMapSize:       512,
 }
 
 func (c Config) nodeDefs() defines.NodeOut {
