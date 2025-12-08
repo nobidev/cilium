@@ -1276,6 +1276,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     __s8 *ext_err)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
+	union v6addr saddr __maybe_unused = tuple->saddr;
 	__u8 flags = tuple->flags;
 	const struct lb6_backend *backend;
 	__u32 backend_id = 0;
@@ -1987,12 +1988,13 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     __s8 *ext_err)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
+	__be32 saddr __maybe_unused = tuple->saddr;
 	__u8 flags = tuple->flags;
 	const struct lb4_backend *backend;
 	__u32 backend_id = 0;
 	int ret;
 	union lb4_affinity_client_id client_id = {
-		.client_ip = tuple->saddr,
+		.client_ip = saddr,
 	};
 
 	state->rev_nat_index = svc->rev_nat_index;
