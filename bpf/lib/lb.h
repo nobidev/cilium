@@ -8,6 +8,7 @@
 #include "conntrack.h"
 #include "ipv4.h"
 #include "hash.h"
+#include "lrp.h"
 #include "eps.h"
 #include "nat_46x64.h"
 #include "ratelimit.h"
@@ -1267,19 +1268,21 @@ lb6_to_lb4(struct __ctx_buff *ctx __maybe_unused,
 }
 
 static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
-				     fraginfo_t fraginfo, int l4_off,
+				     int l3_off, fraginfo_t fraginfo, int l4_off,
 				     struct lb6_key *key,
 				     struct ipv6_ct_tuple *tuple,
 				     const struct lb6_service *svc,
 				     struct ct_state *state,
-				     const struct lb6_backend **selected_backend,
-				     __s8 *ext_err)
+				     const bool skip_xlate,
+				     __s8 *ext_err,
+				     __net_cookie netns_cookie __maybe_unused)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
-	union v6addr saddr __maybe_unused = tuple->saddr;
+	union v6addr saddr = tuple->saddr;
 	__u8 flags = tuple->flags;
 	const struct lb6_backend *backend;
 	__u32 backend_id = 0;
+	union v6addr new_saddr = {};
 	int ret;
 	union lb6_affinity_client_id client_id;
 
@@ -1375,33 +1378,30 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id, backend_id);
 
-	*selected_backend = backend;
+#if defined(USE_LOOPBACK_LB) || defined(ENABLE_LOCAL_REDIRECT_POLICY)
+	if (ipv6_addr_equals(&saddr, &backend->address)) {
+	#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
+		if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
+		    lrp_v6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
+			return CTX_ACT_OK;
+	#endif
 
-	return CTX_ACT_OK;
-
-no_service:
-	ret = DROP_NO_SERVICE;
-drop_err:
-	tuple->flags = flags;
-	return ret;
-}
-
-static __always_inline int
-lb6_dnat_request(struct __ctx_buff *ctx, const struct lb6_backend *backend,
-		 int l3_off, fraginfo_t fraginfo, int l4_off,
-		 struct lb6_key *key, struct ipv6_ct_tuple *tuple,
-		 const struct ct_state *state __maybe_unused)
-{
-	union v6addr saddr = tuple->saddr;
-	union v6addr new_saddr = {};
-
-#ifdef USE_LOOPBACK_LB
-	if (state->loopback) {
+	#ifdef USE_LOOPBACK_LB
 		union v6addr loopback_addr = CONFIG(service_loopback_ipv6);
 
 		ipv6_addr_copy(&new_saddr, &loopback_addr);
+		state->loopback = 1;
+	#endif
 	}
-#endif
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
+
+	if (lb6_svc_is_l7_punt_proxy(svc) &&
+	    __lookup_ip6_endpoint(&backend->address)) {
+		ctx_skip_nodeport_set(ctx);
+		return LB_PUNT_TO_STACK;
+	}
+	if (skip_xlate)
+		return CTX_ACT_OK;
 
 #ifdef USE_LOOPBACK_LB
 	if (!state->loopback)
@@ -1413,6 +1413,11 @@ lb6_dnat_request(struct __ctx_buff *ctx, const struct lb6_backend *backend,
 
 	return lb6_xlate(ctx, &new_saddr, &saddr, tuple->nexthdr, l3_off, l4_off, key,
 			 backend, ipfrag_has_l4_header(fraginfo));
+no_service:
+	ret = DROP_NO_SERVICE;
+drop_err:
+	tuple->flags = flags;
+	return ret;
 }
 
 /* lb6_ctx_store_state() stores per packet load balancing state to be picked
@@ -2026,20 +2031,22 @@ lb4_to_lb6(struct __ctx_buff *ctx __maybe_unused,
 }
 
 static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
-				     fraginfo_t fraginfo, int l4_off,
+				     int l3_off, fraginfo_t fraginfo, int l4_off,
 				     struct lb4_key *key,
 				     struct ipv4_ct_tuple *tuple,
 				     const struct lb4_service *svc,
 				     struct ct_state *state,
-				     const struct lb4_backend **selected_backend,
+				     const bool skip_xlate,
 				     __u32 *cluster_id __maybe_unused,
-				     __s8 *ext_err)
+				     __s8 *ext_err,
+				     __net_cookie netns_cookie __maybe_unused)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
-	__be32 saddr __maybe_unused = tuple->saddr;
+	__be32 saddr = tuple->saddr;
 	__u8 flags = tuple->flags;
 	const struct lb4_backend *backend;
 	__u32 backend_id = 0;
+	__be32 new_saddr = 0;
 	int ret;
 	union lb4_affinity_client_id client_id = {
 		.client_ip = saddr,
@@ -2139,30 +2146,35 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (lb4_svc_is_affinity(svc))
 		lb4_update_affinity_by_addr(svc, &client_id, backend_id);
 
-	*selected_backend = backend;
+#if defined(USE_LOOPBACK_LB) || defined(ENABLE_LOCAL_REDIRECT_POLICY)
+	if (saddr == backend->address) {
+	#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
+		if (netns_cookie > 0 && unlikely(lb4_svc_is_localredirect(svc)) &&
+		    lrp_v4_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
+			return CTX_ACT_OK;
+	#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
-	return CTX_ACT_OK;
-
-no_service:
-	ret = DROP_NO_SERVICE;
-drop_err:
-	tuple->flags = flags;
-	return ret;
-}
-
-static __always_inline int
-lb4_dnat_request(struct __ctx_buff *ctx, const struct lb4_backend *backend,
-		 int l3_off, fraginfo_t fraginfo, int l4_off,
-		 struct lb4_key *key,  struct ipv4_ct_tuple *tuple,
-		 const struct ct_state *state __maybe_unused)
-{
-	__be32 saddr = tuple->saddr;
-	__be32 new_saddr = 0;
-
-#ifdef USE_LOOPBACK_LB
-	if (state->loopback)
+		/* Special loopback case: The origin endpoint has transmitted to a
+		 * service which is being translated back to the source. This would
+		 * result in a packet with identical source and destination address.
+		 * Linux considers such packets as martian source and will drop unless
+		 * received on a loopback device. Perform NAT on the source address
+		 * to make it appear from an outside address.
+		 */
+	#ifdef USE_LOOPBACK_LB
 		new_saddr = CONFIG(service_loopback_ipv4).be32;
+		state->loopback = 1;
+	#endif
+	}
 #endif
+
+	if (lb4_svc_is_l7_punt_proxy(svc) &&
+	    __lookup_ip4_endpoint(backend->address)) {
+		ctx_skip_nodeport_set(ctx);
+		return LB_PUNT_TO_STACK;
+	}
+	if (skip_xlate)
+		return CTX_ACT_OK;
 
 #ifdef USE_LOOPBACK_LB
 	if (!state->loopback)
@@ -2176,6 +2188,11 @@ lb4_dnat_request(struct __ctx_buff *ctx, const struct lb4_backend *backend,
 	return lb4_xlate(ctx, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, key,
 			 backend, ipfrag_has_l4_header(fraginfo));
+no_service:
+	ret = DROP_NO_SERVICE;
+drop_err:
+	tuple->flags = flags;
+	return ret;
 }
 
 /* lb4_ctx_store_state() stores per packet load balancing state to be picked
