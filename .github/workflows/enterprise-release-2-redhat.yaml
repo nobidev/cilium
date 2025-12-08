@@ -157,6 +157,8 @@ jobs:
   publish-to-doc:
     name: Publish to doc site
     runs-on: ubuntu-24.04
+    env:
+      DOC_BRANCH: main # Target branch in the isovalent/cilium-enterprise-docs repository
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
@@ -194,6 +196,7 @@ jobs:
           token: ${{ steps.generate-token.outputs.token }}
           repository: isovalent/cilium-enterprise-docs
           path: enterprise-docs
+          ref: ${{ env.DOC_BRANCH }}
 
       - name: Create docs release archives
         working-directory: cilium/enterprise/olm
@@ -213,7 +216,7 @@ jobs:
           # update doc link
           version="$(echo "${{ env.VERSION }}" | cut -d - -f -1 | cut -d \+ -f -1)"
           version="${version#v}"
-          echo "${version}" > docs/CLIFE_VERSION_"$(tr . _ <<< "$(echo "${version}" | cut -d . -f1,2)")"
+          echo "${version}" > docs/CLIFE_VERSION
           message="Update Enterprise Docs with CLife Release for Isovalent Networking for Kubernetes ${{ env.VERSION }}"
           echo "TITLE=${message}" >> "$GITHUB_ENV"
           git config --global user.email "release-management[bot]@users.noreply.github.com"
@@ -232,7 +235,7 @@ jobs:
               repo: 'cilium-enterprise-docs',
               title: '${{ env.TITLE }}',
               head: '${{ github.repository_owner }}:pr/clife-release/${{ env.VERSION }}',
-              base: 'main',
+              base: '${{ env.DOC_BRANCH }}',
               body: 'CLife Release for Isovalent Networking for Kubernetes ${{ env.VERSION }}',
             });
             console.log(pr.html_url);
