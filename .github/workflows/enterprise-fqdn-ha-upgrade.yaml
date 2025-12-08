@@ -143,8 +143,12 @@ jobs:
             --wait \
             --helm-set=debug.enabled=true \
             --helm-set-string=extraConfig.external-dns-proxy=true \
+            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
             --helm-set=operator.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.useDigest=false \
           "
 
@@ -152,6 +156,9 @@ jobs:
           CILIUM_STABLE_INSTALL=" \
             ${CILIUM_BASE_INSTALL} \
             --chart-directory=./untrusted/cilium-stable/install/kubernetes/cilium \
+            --helm-set=image.tag=${CILIUM_DOWNGRADE_VERSION} \
+            --helm-set=operator.image.tag=${CILIUM_DOWNGRADE_VERSION} \
+            --helm-set=hubble.relay.image.tag=${CILIUM_DOWNGRADE_VERSION} \
           "
           echo "cilium_stable_install=${CILIUM_STABLE_INSTALL}" >> $GITHUB_OUTPUT
 
@@ -160,12 +167,8 @@ jobs:
             ${CILIUM_BASE_INSTALL} \
             --chart-directory=./untrusted/cilium-newest/install/kubernetes/cilium \
             --helm-set=enterprise.featureGate.strict=true \
-            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.tag=${SHA} \
-            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-            --helm-set=operator.image.suffix=-ci \
             --helm-set=operator.image.tag=${SHA} \
-            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
           "
           echo "cilium_newest_install=${CILIUM_NEWEST_INSTALL}" >> $GITHUB_OUTPUT
@@ -184,6 +187,8 @@ jobs:
           DNSPROXY_STABLE_INSTALL=" \
             ${DNSPROXY_BASE_INSTALL} \
             cilium-dnsproxy ./untrusted/cilium-stable/enterprise/fqdn-proxy/installation \
+            --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-dnsproxy-ci \
+            --set image.tag=${CILIUM_DOWNGRADE_VERSION} \
           "
           echo "dnsproxy_stable_install=${DNSPROXY_STABLE_INSTALL}" >> $GITHUB_OUTPUT
 
