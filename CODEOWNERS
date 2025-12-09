@@ -904,6 +904,7 @@ Makefile* @cilium/build
 /enterprise/cilium-dbg/cmd/*bpf_*egress* @isovalent/egress-gateway
 /enterprise/cilium-dbg/cmd/*bfd_* @isovalent/traffic-engineering
 /enterprise/cilium-dbg/cmd/*bgp_* @isovalent/traffic-engineering
+/enterprise/cilium-dbg/cmd/*privnet* @isovalent/private-networking
 /enterprise/clustermesh-apiserver/ @isovalent/clustermesh
 /enterprise/clustermesh-apiserver/clustermesh/testdata/privnet*.txtar @isovalent/clustermesh @isovalent/private-networking
 /enterprise/daemon/ @isovalent/cilium-agent

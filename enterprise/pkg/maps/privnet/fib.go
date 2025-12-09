@@ -12,6 +12,7 @@ package privnet
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"unsafe"
@@ -179,4 +180,15 @@ func toAddr(family uint8, address types.IPv6) netip.Addr {
 	}
 
 	return addr
+}
+
+func OpenPinnedFIBMap(logger *slog.Logger) (*FIB, error) {
+	path := bpf.MapPath(logger, fibMapName)
+
+	m, err := bpf.OpenMap(path, &FIBKey{}, &FIBVal{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &FIB{Map: m}, nil
 }

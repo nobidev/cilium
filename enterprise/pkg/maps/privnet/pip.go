@@ -12,6 +12,7 @@ package privnet
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"unsafe"
 
@@ -153,4 +154,15 @@ func (v *PIPVal) ToAddr() netip.Addr {
 
 func (*PIPVal) New() bpf.MapValue {
 	return &PIPVal{}
+}
+
+func OpenPinnedPIPMap(logger *slog.Logger) (*PIP, error) {
+	path := bpf.MapPath(logger, pipMapName)
+
+	m, err := bpf.OpenMap(path, &PIPKey{}, &PIPVal{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &PIP{Map: m}, nil
 }

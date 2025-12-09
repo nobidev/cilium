@@ -676,6 +676,7 @@ prerequirement
 prestop
 printf
 priori
+privnet
 proc
 profiler
 programmability
