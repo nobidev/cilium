@@ -146,11 +146,6 @@ DECLARE_CONFIG(__u16, privnet_network_id,
 DECLARE_CONFIG(bool, privnet_bridge_enable,
 	       "True if running on network bridge")
 
-/* TODO: Move PRIVNET_MAP_SIZE to enterprise_node_config.h, this is here till we have
- * GO side of map definitions and node defines to set this via config flag.
- */
-#define PRIVNET_MAP_SIZE	65536
-
 struct privnet_fib_key {
 	struct bpf_lpm_trie_key lpm_key;
 	__u16 net_id;
@@ -284,7 +279,7 @@ struct {
 	__type(key, struct privnet_fib_key);
 	__type(value, struct privnet_fib_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, PRIVNET_MAP_SIZE);
+	__uint(max_entries, PRIVNET_PIP_FIB_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_privnet_fib __section_maps_btf;
 
@@ -293,7 +288,7 @@ struct {
 	__type(key, struct privnet_pip_key);
 	__type(value, struct privnet_pip_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, PRIVNET_MAP_SIZE);
+	__uint(max_entries, PRIVNET_PIP_FIB_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_privnet_pip __section_maps_btf;
 
