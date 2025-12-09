@@ -30,6 +30,7 @@ cilium-agent hive [flags]
       --bpf-policy-map-max int                                           Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-policy-map-pressure-metrics-threshold float                  Sets threshold for emitting pressure metrics of policy maps (default 0.1)
       --bpf-policy-stats-map-max int                                     Maximum number of entries in bpf policy stats map (default 65536)
+      --bpf-privnet-pip-fib-map-max uint32                               Maximum number of entries in the private network PIP and FIB BPF maps. (default 512000)
       --bpf-sock-rev-map-max int                                         Maximum number of entries for the SockRevNAT BPF map
       --certificates-directory string                                    Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cluster-id uint32                                                Unique identifier of the cluster
