@@ -237,7 +237,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 		}
 
 		ret = lb4_dnat_request(ctx, backend, ETH_HLEN, fraginfo,
-				       l4_off, &key, &tuple, &ct_state_new);
+				       l4_off, &key, &tuple, ct_state_new.loopback);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -368,7 +368,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		}
 
 		ret = lb6_dnat_request(ctx, backend, ETH_HLEN, fraginfo,
-				       l4_off, &key, &tuple, &ct_state_new);
+				       l4_off, &key, &tuple, ct_state_new.loopback);
 		if (IS_ERR(ret))
 			return ret;
 	}
