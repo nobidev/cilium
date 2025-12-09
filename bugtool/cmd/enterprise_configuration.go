@@ -28,6 +28,8 @@ func enterpriseCommands(confDir string, _ string) []string {
 		"cilium-dbg bpf egress-ha list",
 		"cilium-dbg bpf egress-ha ct list",
 		"cilium-dbg bpf egress-ha standalone list",
+		"cilium-dbg bpf privnet fib list",
+		"cilium-dbg bpf privnet pip list",
 		"cilium-dbg shell -- privnet/status --color=false",
 		"cilium-dbg shell -- privnet/status -o=json",
 	}
