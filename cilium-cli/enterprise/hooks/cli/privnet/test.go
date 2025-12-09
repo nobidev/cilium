@@ -43,7 +43,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -396,38 +395,34 @@ func (t *TestRun) waitForVMToBeReady(ctx context.Context, namespace, name string
 	defer cancel()
 
 	t.log.Info(fmt.Sprintf("⌛ Waiting for VM %s to become ready", name))
-
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	var lastErrMsg string
 	for {
-		err := t.client.ExecInVMWithWriters(ctx, namespace, name, []string{"hostname"}, stdout, stderr)
-		if err == nil {
-			break
+		vm := &unstructured.Unstructured{}
+		vm.SetGroupVersionKind(schema.GroupVersionKind{
+			Group: "kubevirt.io", Version: "v1", Kind: "VirtualMachine",
+		})
+
+		vm, err := t.client.GetGeneric(ctx, namespace, name, vm)
+		if err != nil {
+			// Do not retry the errors here, as deemed to be fatal.
+			return fmt.Errorf("failed retrieving VM object: %w", err)
 		}
 
-		if err.Error() != lastErrMsg {
-			t.log.Debug("VM exec failed",
-				logfields.Name, name,
-				logfields.Error, err,
-				logfields.Stdout, stdout,
-				logfields.Stderr, stderr,
-			)
+		ready, _, err := unstructured.NestedBool(vm.UnstructuredContent(), "status", "ready")
+		if err != nil {
+			// Do not retry the errors here, as deemed to be fatal.
+			return fmt.Errorf("failed checking VM readiness status: %w", err)
 		}
-		lastErrMsg = err.Error()
+
+		if ready {
+			return nil
+		}
 
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timed out waiting for VM to become ready: %w", err)
+			return errors.New("timed out waiting for VM to become ready")
 		case <-time.After(check.PollInterval):
 		}
 	}
-
-	hostname := strings.TrimSpace(stdout.String())
-	if hostname != name {
-		return fmt.Errorf("unexpected hostname. want %q, got %q", name, hostname)
-	}
-	return nil
 }
 
 func (t *TestRun) retrieveExternalVMs(ctx context.Context, client *enterpriseK8s.EnterpriseClient) ([]VM, error) {

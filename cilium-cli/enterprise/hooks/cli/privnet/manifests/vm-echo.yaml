@@ -58,6 +58,14 @@ spec:
       networks:
       - name: default
         pod: {}
+      readinessProbe:
+        exec:
+          command:
+          - /run/scripts/ready.sh
+        failureThreshold: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
       terminationGracePeriodSeconds: 0
       volumes:
       - containerDisk:
@@ -89,6 +97,16 @@ spec:
                 ExecStart=/usr/bin/env python3 /run/scripts/echoserver.py
                 Restart=always
               path: /etc/systemd/system/echoserver.service
+            - content: |
+                #! /bin/sh -e
+
+                # Check whether the hostname has been set correctly.
+                [ $(hostname) = "{{ .Name }}" ]
+
+                # Check whether the echo server is running.
+                curl --fail --max-time 1 localhost:{{ .ServePort }}
+              path: /run/scripts/ready.sh
+              permissions: '0755'
             runcmd:
             - [systemctl, enable, --now, echoserver.service]
           networkData: |

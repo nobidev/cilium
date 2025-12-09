@@ -46,6 +46,14 @@ spec:
       networks:
       - name: default
         pod: {}
+      readinessProbe:
+        exec:
+          command:
+          - /run/scripts/ready.sh
+        failureThreshold: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
       terminationGracePeriodSeconds: 0
       volumes:
       - containerDisk:
@@ -57,6 +65,14 @@ spec:
             password: fedora
             chpasswd: { expire: False }
             manage_etc_hosts: true
+            write_files:
+            - content: |
+                #! /bin/sh -e
+
+                # Check whether the hostname has been set correctly.
+                [ $(hostname) = "{{ .Name }}" ]
+              path: /run/scripts/ready.sh
+              permissions: '0755'
           networkData: |
             version: 2
             ethernets:
