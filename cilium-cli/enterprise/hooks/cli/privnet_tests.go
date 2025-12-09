@@ -153,8 +153,12 @@ func newCmdPrivNetTest() *cobra.Command {
 				}
 			}
 
-			// Remove all policies before proceeding with the INB failover tests.
-			t.Cleanup(ctx)
+			// Remove all policies before proceeding with the INB failover tests,
+			// unless the context got canceled, in which case we let the deferred
+			// function take care of it.
+			if ctx.Err() == nil {
+				t.Cleanup(ctx)
+			}
 
 			// Trigger a bunch of failovers.
 			for inb := range t.INBNodeNames() {

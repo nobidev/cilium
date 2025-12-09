@@ -576,6 +576,8 @@ func (t *TestRun) Failed() bool {
 }
 
 func (t *TestRun) Cleanup(ctx context.Context) {
+	var success = true
+
 	for _, client := range t.inbClients {
 		for _, obj := range t.policies {
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
@@ -588,13 +590,17 @@ func (t *TestRun) Cleanup(ctx context.Context) {
 			err := client.DeleteGeneric(ctx, obj)
 			if err != nil && !k8serrors.IsNotFound(err) {
 				t.log.Warn(fmt.Sprintf("⚠️ Failed removing %s %s: %v", kind, name, err))
+				success = false
 			}
 		}
 	}
 
 	// Reset the map, so that a subsequent call to Cleanup doesn't attempt
-	// to remove the same policies again.
-	t.policies = make(map[string]k8s.Object)
+	// to remove the same policies again. Unless something went wrong in the
+	// cleanup, in which case we keep the map content intact.
+	if success {
+		t.policies = make(map[string]k8s.Object)
+	}
 }
 
 var networks = []NetworkName{NetworkA, NetworkB, NetworkC, NetworkD}
