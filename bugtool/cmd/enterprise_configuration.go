@@ -10,11 +10,21 @@
 
 package cmd
 
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/cilium/cilium/pkg/defaults"
+)
+
 func init() {
 	ExtraCommands = append(ExtraCommands, enterpriseCommands)
 }
 
 func enterpriseCommands(confDir string, _ string) []string {
+	var commands []string
+
 	bpfMapsPath := []string{
 		"tc/globals/cilium_egress_gw_ha_policy_v4",
 		"tc/globals/cilium_egress_gw_ha_policy_v4_v2",
@@ -22,7 +32,6 @@ func enterpriseCommands(confDir string, _ string) []string {
 		"tc/globals/cilium_egress_gw_standalone_v4",
 		"tc/globals/cilium_encryption_policy_map",
 	}
-	bpfCommands := bpfMapDumpCommands(bpfMapsPath)
 
 	infoCommands := []string{
 		"cilium-dbg bpf egress-ha list",
@@ -33,5 +42,30 @@ func enterpriseCommands(confDir string, _ string) []string {
 		"cilium-dbg shell -- privnet/status --color=false",
 		"cilium-dbg shell -- privnet/status -o=json",
 	}
-	return append(bpfCommands, infoCommands...)
+
+	commands = append(commands, bpfMapDumpCommands(bpfMapsPath)...)
+	commands = append(commands, infoCommands...)
+	commands = append(commands, fqdnProxyCommands()...)
+
+	return commands
+}
+
+func fqdnProxyCommands() []string {
+	shellSockPath := filepath.Join(defaults.RuntimePath, "dnsproxy-shell.sock")
+	shellCmd := fmt.Sprintf("cilium-dbg shell --shell-sock-path %s -- ", shellSockPath)
+
+	// Ensure that the fqdn proxy shell server is listening.
+	if _, err := os.Stat(shellSockPath); os.IsNotExist(err) {
+		return nil
+	}
+
+	return []string{
+		shellCmd + "dnsproxy/config -o=json",
+		shellCmd + "dnsproxy/rules -o=json",
+		shellCmd + "dnsproxy/bpfipcache",
+		shellCmd + "dnsproxy/selectors",
+		shellCmd + "dnsproxy/identities",
+		shellCmd + "dnsproxy/endpoints",
+		shellCmd + "dnsproxy/iplist",
+	}
 }

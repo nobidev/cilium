@@ -60,23 +60,23 @@ func dumpConfigCmd(p params) script.Cmd {
 		script.CmdUsage{
 			Summary: "Dumps the active configuration of DNS Proxy.",
 			Flags: func(fs *pflag.FlagSet) {
-				fs.StringP("format", "f", "table", "Format to write in (table, yaml or json)")
+				fs.StringP("output", "o", "table", "Format to write output in (table, yaml or json)")
 			},
 			AutocompleteFlag: func(state *script.State, args []string, flag, cur string) []string {
 				switch flag {
-				case "format":
+				case "output":
 					return []string{"table", "yaml", "json"}
 				}
 				return nil
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			format, err := s.Flags.GetString("format")
+			output, err := s.Flags.GetString("output")
 			if err != nil {
 				return nil, err
 			}
 
-			switch format {
+			switch output {
 			case "json":
 				enc := json.NewEncoder(s.LogWriter())
 				enc.SetIndent("", "  ")
@@ -103,7 +103,7 @@ func dumpConfigCmd(p params) script.Cmd {
 				}
 				return nil, nil
 			default:
-				return nil, fmt.Errorf("unknown format %q", format)
+				return nil, fmt.Errorf("unknown format %s", output)
 			}
 		},
 	)
@@ -170,6 +170,11 @@ func dumpBPFIPCacheStatusCmd(p params) script.Cmd {
 			Summary: "Dump status of BPF IPCache map managed by DNS Proxy for offline mode.",
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if !p.Config.EnableOfflineMode {
+				s.Logf("Offline Mode Disabled\n")
+				return nil, nil
+			}
+
 			ipc, agentStartTime, writesEnabled := p.BPFIPCache.getInfo()
 			if ipc == nil || !ipc.IsOpen() {
 				s.Logf("BPF IPCache map not opened: %s [WritesEnabled: %t]\n", ipcmap.Name, writesEnabled)
@@ -195,13 +200,40 @@ func dumpDNSProxyRulesCmd(p params) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "Dump allowed FQDN rules from DNS Proxy instance.",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP("output", "o", "table", "Format to write output in (table, yaml or json)")
+			},
+			AutocompleteFlag: func(state *script.State, args []string, flag, cur string) []string {
+				switch flag {
+				case "output":
+					return []string{"table", "yaml", "json"}
+				}
+				return nil
+			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
 			if p.Watcher.proxy == nil {
 				return nil, errors.New("dns proxy instance not configured")
 			}
 
+			output, err := s.Flags.GetString("output")
+			if err != nil {
+				return nil, err
+			}
+
 			rulesDump := p.Watcher.proxy.DumpRules()
+			switch output {
+			case "json":
+				enc := json.NewEncoder(s.LogWriter())
+				enc.SetIndent("", "  ")
+				return nil, enc.Encode(rulesDump)
+			case "yaml":
+				enc := yaml.NewEncoder(s.LogWriter())
+				return nil, enc.Encode(rulesDump)
+			case "table":
+			default:
+				return nil, fmt.Errorf("unknown format %s", output)
+			}
 
 			tw := tabwriter.NewWriter(s.LogWriter(), 5, 0, 3, ' ', 0)
 			defer tw.Flush()
