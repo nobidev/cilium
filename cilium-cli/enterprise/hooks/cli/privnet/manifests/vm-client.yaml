@@ -56,6 +56,7 @@ spec:
             #cloud-config
             password: fedora
             chpasswd: { expire: False }
+            manage_etc_hosts: true
           networkData: |
             version: 2
             ethernets:
