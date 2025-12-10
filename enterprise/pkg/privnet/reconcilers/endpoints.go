@@ -48,7 +48,7 @@ var EndpointsCell = cell.Group(
 	),
 
 	cell.Provide(
-		// Provides the ReadOnly PrivateNetworks table.
+		// Provides the ReadOnly Endpoints table.
 		statedb.RWTable[tables.Endpoint].ToTable,
 
 		// Provides the object to observe endpoint events from clustermesh.
