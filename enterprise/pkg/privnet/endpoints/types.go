@@ -120,7 +120,7 @@ func (p *EndpointProperties) PrivateNetwork() string {
 // NetworkIPv4 returns the IPv4 address of the endpoint within the network.
 func (p *EndpointProperties) NetworkIPv4() (netip.Addr, error) {
 	addr, ok := p.ep.GetPropertyValue(PropertyPrivNetIPv4).(string)
-	if !ok {
+	if !ok || addr == "" {
 		return netip.Addr{}, nil
 	}
 
@@ -137,7 +137,7 @@ func (p *EndpointProperties) NetworkIPv4() (netip.Addr, error) {
 // NetworkIPv6 returns the IPv6 address of the endpoint within the network.
 func (p *EndpointProperties) NetworkIPv6() (netip.Addr, error) {
 	addr, ok := p.ep.GetPropertyValue(PropertyPrivNetIPv6).(string)
-	if !ok {
+	if !ok || addr == "" {
 		return netip.Addr{}, nil
 	}
 
