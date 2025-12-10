@@ -39,8 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -110,53 +108,22 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 	if !in.BGPConfig.Enabled {
 		return ServiceReconcilerOut{}
 	}
-
-	r := &ServiceReconciler{
-		logger:             in.Logger.With(bgptypes.ReconcilerLogField, "Service"),
-		cfg:                in.Cfg,
-		db:                 in.DB,
-		frontends:          in.Frontends,
-		jobs:               in.JobGroup,
-		signaler:           in.Signaler,
-		upgrader:           in.Upgrader,
-		nodeStatusProvider: in.NSProvider,
-		peerAdvert:         in.PeerAdvert,
-		metadata:           make(map[string]ServiceReconcilerMetadata),
-	}
-
-	// TODO: once this part of the OSS service reconciler, we can remove this and only rely on the OSS reconciler
-	// to trigger BGP CP reconciliation upon Frontends table events.
-	in.JobGroup.Add(
-		job.OneShot("frontend-events", r.processFrontendEvents),
-	)
-
 	return ServiceReconcilerOut{
-		Reconciler: r,
+		Reconciler: &ServiceReconciler{
+			logger:             in.Logger.With(bgptypes.ReconcilerLogField, "Service"),
+			cfg:                in.Cfg,
+			db:                 in.DB,
+			frontends:          in.Frontends,
+			jobs:               in.JobGroup,
+			signaler:           in.Signaler,
+			upgrader:           in.Upgrader,
+			nodeStatusProvider: in.NSProvider,
+			peerAdvert:         in.PeerAdvert,
+			metadata:           make(map[string]ServiceReconcilerMetadata),
+		},
 	}
-}
-
-// processFrontendEvents triggers BGP reconciliation upon frontend events (including changes in their backends)
-func (r *ServiceReconciler) processFrontendEvents(ctx context.Context, _ cell.Health) error {
-	// rate-limit reconciliation triggers to 100 milliseconds
-	limiter := rate.NewLimiter(100*time.Millisecond, 1)
-	defer limiter.Stop()
-
-	// watch for changes in the frontends table
-	_, watch := r.frontends.AllWatch(r.db.ReadTxn())
-
-	for {
-		select {
-		case <-watch:
-			// re-start the watch and emit reconciliation event
-			_, watch = r.frontends.AllWatch(r.db.ReadTxn())
-			r.signaler.Event(struct{}{})
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-		if err := limiter.Wait(ctx); err != nil {
-			return err
-		}
-	}
+	// NOTE: there is no need to trigger reconciliation upon Frontends table changes,
+	// this is already done by the OSS ServiceReconciler.
 }
 
 func (r *ServiceReconciler) Name() string {
