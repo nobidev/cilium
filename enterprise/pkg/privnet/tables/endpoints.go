@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/slices"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 // Source identifies the resource propagating the endpoint information.
@@ -101,11 +100,6 @@ func (ep Endpoint) TableHeader() []string {
 }
 
 func (ep Endpoint) TableRow() []string {
-	activatedAt := "<inactive>"
-	if !ep.ActivatedAt.IsZero() {
-		activatedAt = ep.ActivatedAt.UTC().Format(time.RFC3339)
-	}
-
 	return []string{
 		ep.Source.String(),
 		ep.Name,
@@ -113,7 +107,7 @@ func (ep Endpoint) TableRow() []string {
 		ep.Network.IP.String(),
 		ep.Network.MAC.String(),
 		ep.IP.String(),
-		activatedAt,
+		formatActivatedAt(ep.ActivatedAt),
 	}
 }
 

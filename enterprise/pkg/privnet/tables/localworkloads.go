@@ -53,11 +53,6 @@ func (lw *LocalWorkload) TableHeader() []string {
 }
 
 func (lw *LocalWorkload) TableRow() []string {
-	activatedAt := "<inactive>"
-	if !lw.ActivatedAt.IsZero() {
-		activatedAt = lw.ActivatedAt.UTC().Format(time.RFC3339)
-	}
-
 	return []string{
 		lw.Namespace + "/" + lw.Endpoint.Name,
 		strconv.FormatUint(uint64(lw.EndpointID), 10),
@@ -66,7 +61,7 @@ func (lw *LocalWorkload) TableRow() []string {
 		cmp.Or(lw.Interface.Addressing.IPv6, "N/A"),
 		cmp.Or(lw.Endpoint.Addressing.IPv4, "N/A"),
 		cmp.Or(lw.Endpoint.Addressing.IPv6, "N/A"),
-		activatedAt,
+		formatActivatedAt(lw.ActivatedAt),
 	}
 }
 
