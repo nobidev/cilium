@@ -79,8 +79,8 @@ func newLocalWorkloads(in struct {
 
 	DB    *statedb.DB
 	Table statedb.RWTable[*tables.LocalWorkload]
-}) (*LocalWorkloads, error) {
-	reconciler := &LocalWorkloads{
+}) *LocalWorkloads {
+	return &LocalWorkloads{
 		log: in.Log,
 		jg:  in.JobGroup,
 
@@ -93,8 +93,6 @@ func newLocalWorkloads(in struct {
 		db:  in.DB,
 		tbl: in.Table,
 	}
-
-	return reconciler, nil
 }
 
 func (l *LocalWorkloads) registerReconciler() {

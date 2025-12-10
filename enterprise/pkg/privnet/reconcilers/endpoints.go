@@ -87,8 +87,8 @@ func newEndpoints(in struct {
 
 	DB    *statedb.DB
 	Table statedb.RWTable[tables.Endpoint]
-}) (*Endpoints, error) {
-	reconciler := &Endpoints{
+}) *Endpoints {
+	return &Endpoints{
 		log:   in.Log,
 		jg:    in.JobGroup,
 		cfg:   in.Config,
@@ -96,12 +96,6 @@ func newEndpoints(in struct {
 		db:    in.DB,
 		tbl:   in.Table,
 	}
-
-	if !in.Config.Enabled {
-		return reconciler, nil
-	}
-
-	return reconciler, nil
 }
 
 func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync], listerWatcher endpointSliceSharedListerWatcher) error {

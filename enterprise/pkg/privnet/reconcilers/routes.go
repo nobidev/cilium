@@ -66,8 +66,8 @@ func newRoutes(in struct {
 	DB       *statedb.DB
 	Networks statedb.Table[tables.PrivateNetwork]
 	Table    statedb.RWTable[tables.Route]
-}) (*Routes, error) {
-	reconciler := &Routes{
+}) *Routes {
+	return &Routes{
 		log: in.Log,
 		jg:  in.JobGroup,
 
@@ -77,8 +77,6 @@ func newRoutes(in struct {
 		networks: in.Networks,
 		tbl:      in.Table,
 	}
-
-	return reconciler, nil
 }
 
 func (r *Routes) registerReconciler() {

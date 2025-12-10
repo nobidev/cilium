@@ -89,8 +89,8 @@ func newMapEntries(in struct {
 	INBs      statedb.Table[tables.INB]
 	ActNets   statedb.Table[tables.ActiveNetwork]
 	Table     statedb.RWTable[*tables.MapEntry]
-}) (*MapEntries, error) {
-	reconciler := &MapEntries{
+}) *MapEntries {
+	return &MapEntries{
 		log: in.Log,
 		jg:  in.JobGroup,
 
@@ -111,8 +111,6 @@ func newMapEntries(in struct {
 		knownNetworks:     make(map[tables.NetworkName]tables.SlimPrivateNetwork),
 		inbWatchesTracker: newWatchesTracker(),
 	}
-
-	return reconciler, nil
 }
 
 func (m *MapEntries) registerReconciler() {

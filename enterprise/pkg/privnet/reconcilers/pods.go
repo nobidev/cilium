@@ -65,8 +65,8 @@ func newPods(in struct {
 
 	DB   *statedb.DB
 	Pods statedb.Table[daemonK8s.LocalPod]
-}) (*Pods, error) {
-	reconciler := &Pods{
+}) *Pods {
+	return &Pods{
 		log: in.Log,
 		jg:  in.JobGroup,
 
@@ -78,8 +78,6 @@ func newPods(in struct {
 		db:   in.DB,
 		pods: in.Pods,
 	}
-
-	return reconciler, nil
 }
 
 func (p *Pods) registerReconciler() {
