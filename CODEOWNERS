@@ -955,11 +955,11 @@ Makefile* @cilium/build
 /enterprise/pkg/lb/flowlogs @isovalent/isovalent-loadbalancer
 /enterprise/pkg/lb/metrics @isovalent/isovalent-loadbalancer
 /enterprise/pkg/lb/status @isovalent/isovalent-loadbalancer
-/enterprise/pkg/maps/ @isovalent/cilium-datapath
-/enterprise/pkg/maps/extepspolicy/ @isovalent/private-networking
+/enterprise/pkg/maps/cells.go @isovalent/cilium-datapath
 /enterprise/pkg/maps/ctnat/ @isovalent/clustermesh
 /enterprise/pkg/maps/egressmapha/ @isovalent/egress-gateway
 /enterprise/pkg/maps/encryptionpolicymap/ @isovalent/encryption
+/enterprise/pkg/maps/extepspolicy/ @isovalent/private-networking
 /enterprise/pkg/maps/privnet/ @isovalent/private-networking
 /enterprise/pkg/multicast/ @isovalent/traffic-engineering
 /enterprise/pkg/multinetwork/ @isovalent/multi-network
