@@ -10,7 +10,7 @@ import jinja2
 
 from scapy.all import *
 from pkt_defs import *
-from enterprise_privnet_pkt_defs import *
+from enterprise_pkt_defs import *
 
 # Match BUF_DECL(name, ...)
 PKT_REGEX = re.compile(
