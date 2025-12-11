@@ -121,12 +121,12 @@ func TestPrivilegedPIPFIB(t *testing.T) {
 
 		cell.Invoke(func(in struct {
 			cell.In
-			PIP              PIP
-			FIB              FIB
+			PIP              Map[*PIPKeyVal]
+			FIB              Map[*FIBKeyVal]
 			NodeExtraDefines []defines.Map `group:"header-node-defines"`
 		}) {
-			pip = in.PIP
-			fib = in.FIB
+			pip = in.PIP.(PIP)
+			fib = in.FIB.(FIB)
 
 			for _, ned := range in.NodeExtraDefines {
 				nd.Merge(ned)
@@ -164,7 +164,7 @@ func TestPrivilegedPIPFIB(t *testing.T) {
 		),
 
 		cell.Invoke(
-			func(PIP, FIB) { /* make sure PIP and FIB maps get constructed */ },
+			func(Map[*PIPKeyVal], Map[*FIBKeyVal]) { /* make sure PIP and FIB maps get constructed */ },
 		),
 	)
 

@@ -14,8 +14,10 @@ import (
 	"fmt"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 )
 
@@ -53,4 +55,25 @@ func (c Config) nodeDefs() defines.NodeOut {
 			"PRIVNET_PIP_FIB_MAP_SIZE": fmt.Sprint(c.MapSize),
 		},
 	}
+}
+
+// Map defines an interface implemented by our map types.
+//
+// This allows script tests to mock the maps provided by this cell
+// without having to rely on real BPF maps.
+//
+// The first three methods are required by RegisterTablePressureMetricsJob,
+// the Ops() method is to be used when registering a BPF map reconciler.
+type Map[T any] interface {
+	IsOpen() bool
+	NonPrefixedName() string
+	MaxEntries() uint32
+
+	Ops() reconciler.Operations[T]
+}
+
+type KeyValue interface {
+	bpf.KeyValue
+	MapKey() bpf.MapKey
+	MapValue() bpf.MapValue
 }

@@ -11,12 +11,14 @@
 package privnet
 
 import (
+	"encoding"
 	"fmt"
 	"log/slog"
 	"net/netip"
 	"unsafe"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb/reconciler"
 	"golang.org/x/sys/unix"
 
 	privnetcfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
@@ -63,7 +65,7 @@ func newPIP(
 	lc cell.Lifecycle,
 	cfg privnetcfg.Config,
 	mapCfg Config,
-) bpf.MapOut[PIP] {
+) bpf.MapOut[Map[*PIPKeyVal]] {
 	pipMap := bpf.NewMap(
 		pipMapName,
 		ebpf.LPMTrie,
@@ -91,7 +93,12 @@ func newPIP(
 		},
 	})
 
-	return bpf.NewMapOut(PIP{pipMap})
+	return bpf.NewMapOut(Map[*PIPKeyVal](PIP{pipMap}))
+}
+
+// Ops implements Map[*PIPKeyVal]
+func (p PIP) Ops() reconciler.Operations[*PIPKeyVal] {
+	return bpf.NewMapOps[*PIPKeyVal](p.Map)
 }
 
 // NewPIPKey constructs a new PIP map key.
@@ -154,6 +161,33 @@ func (v *PIPVal) ToAddr() netip.Addr {
 
 func (*PIPVal) New() bpf.MapValue {
 	return &PIPVal{}
+}
+
+var _ KeyValue = &PIPKeyVal{}
+
+type PIPKeyVal struct {
+	Key PIPKey
+	Val PIPVal
+}
+
+// BinaryKey implements bpf.KeyValue.
+func (p *PIPKeyVal) BinaryKey() encoding.BinaryMarshaler {
+	return bpf.StructBinaryMarshaler{Target: &p.Key}
+}
+
+// BinaryValue implements bpf.KeyValue.
+func (p *PIPKeyVal) BinaryValue() encoding.BinaryMarshaler {
+	return bpf.StructBinaryMarshaler{Target: &p.Val}
+}
+
+// MapKey implements KeyValue
+func (p *PIPKeyVal) MapKey() bpf.MapKey {
+	return &p.Key
+}
+
+// MapValue implements KeyValue
+func (p *PIPKeyVal) MapValue() bpf.MapValue {
+	return &p.Val
 }
 
 func OpenPinnedPIPMap(logger *slog.Logger) (*PIP, error) {

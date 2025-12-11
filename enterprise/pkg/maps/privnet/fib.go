@@ -11,6 +11,7 @@
 package privnet
 
 import (
+	"encoding"
 	"fmt"
 	"log/slog"
 	"net"
@@ -18,6 +19,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb/reconciler"
 	"golang.org/x/sys/unix"
 
 	privnetcfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
@@ -71,7 +73,7 @@ func newFIB(
 	lc cell.Lifecycle,
 	cfg privnetcfg.Config,
 	mapCfg Config,
-) bpf.MapOut[FIB] {
+) bpf.MapOut[Map[*FIBKeyVal]] {
 	fibMap := bpf.NewMap(
 		fibMapName,
 		ebpf.LPMTrie,
@@ -99,7 +101,12 @@ func newFIB(
 		},
 	})
 
-	return bpf.NewMapOut(FIB{fibMap})
+	return bpf.NewMapOut(Map[*FIBKeyVal](FIB{fibMap}))
+}
+
+// Ops implements Map[*FIBKeyVal]
+func (f FIB) Ops() reconciler.Operations[*FIBKeyVal] {
+	return bpf.NewMapOps[*FIBKeyVal](f.Map)
 }
 
 // NewFIBKey constructs a new FIB map key.
@@ -157,6 +164,33 @@ func (v *FIBVal) ToAddr() netip.Addr {
 
 func (*FIBVal) New() bpf.MapValue {
 	return &FIBVal{}
+}
+
+var _ KeyValue = &FIBKeyVal{}
+
+type FIBKeyVal struct {
+	Key FIBKey
+	Val FIBVal
+}
+
+// BinaryKey implements bpf.KeyValue.
+func (f *FIBKeyVal) BinaryKey() encoding.BinaryMarshaler {
+	return bpf.StructBinaryMarshaler{Target: &f.Key}
+}
+
+// BinaryValue implements bpf.KeyValue.
+func (f *FIBKeyVal) BinaryValue() encoding.BinaryMarshaler {
+	return bpf.StructBinaryMarshaler{Target: &f.Val}
+}
+
+// MapKey implements KeyValue
+func (f *FIBKeyVal) MapKey() bpf.MapKey {
+	return &f.Key
+}
+
+// MapValue implements KeyValue
+func (f *FIBKeyVal) MapValue() bpf.MapValue {
+	return &f.Val
 }
 
 func fromAddr(ip netip.Addr) (family uint8, res types.IPv6) {
