@@ -6,7 +6,7 @@
 #include "lib/enterprise_privnet.h"
 
 static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ctx __maybe_unused,
-							   __u16 proto __maybe_unused,
+							   __u16 proto,
 							   __s8 *ext_err __maybe_unused)
 {
 	void __maybe_unused *data_end, *data;

@@ -6,13 +6,13 @@
 #include "lib/enterprise_privnet.h"
 
 static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __maybe_unused,
-						       __u16 proto __maybe_unused)
+						       __u16 proto)
 {
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr *ip6 __maybe_unused;
 	struct iphdr *ip4 __maybe_unused;
 	const struct privnet_fib_val *dip_val __maybe_unused;
-	int ret __maybe_unused = CTX_ACT_OK;
+	int ret = CTX_ACT_OK;
 
 	if (!CONFIG(privnet_enable))
 		return ret;
@@ -192,8 +192,8 @@ static __always_inline int tail_handle_ipv6_privnet_unknown_ingress(struct __ctx
 	return ret;
 }
 
-static __always_inline int enterprise_privnet_lxc_policy(struct __ctx_buff *ctx __maybe_unused,
-							 __u16 proto __maybe_unused,
+static __always_inline int enterprise_privnet_lxc_policy(struct __ctx_buff *ctx,
+							 __u16 proto,
 							 __u32 src_label __maybe_unused,
 							 __s8 *ext_err __maybe_unused)
 {
