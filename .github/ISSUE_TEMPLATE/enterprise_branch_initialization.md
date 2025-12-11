@@ -61,6 +61,8 @@ to do review on a PR.)
       will take care of closing backport tracking issues. This can be done by
       copying the corresponding workflow from a previous `v1.X-ce` branch and
       adjusting the branch name and label. See [this v1.14 PR] for an example.
+- [ ] Update the environment variable DOC_BRANCH in [`enterprise-release-2-redhat.yaml workflow`]
+      to match the relevant branch of isovalent/cilium-enterprise-docs, e.g. v25.11 for v1.18-ce.
 
 ## Forward port Workflows with pull_request targets
 
@@ -89,3 +91,4 @@ Here's a likely not exhaustive list of what needs to come with:
 [this v1.14 PR]: https://github.com/isovalent/cilium/pull/1629
 [GH labels]: https://github.com/isovalent/cilium/issues/labels
 [Backporter Notion page]: https://www.notion.so/isovalent/Backporter-8f44d3e0884b4c67a06499e3fd07df81
+[`enterprise-release-2-redhat.yaml workflow`]: https://github.com/isovalent/cilium/blob/main-ce/.github/workflows/enterprise-release-2-redhat.yaml
