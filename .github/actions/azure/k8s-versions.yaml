@@ -8,9 +8,12 @@ include:
     location: westus2
     index: 2
   - version: "1.32"
-    location: eastus2
+    location: eastus3
     index: 3
   - version: "1.33"
+    location: eastus2
+    index: 3
+  - version: "1.34"
     location: eastus
     default: true
     preview: true
