@@ -239,6 +239,13 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+        with:
+          external-target: 'google.com.'
+          hubble: false
+
       - name: Get Cilium's default values
         id: default_vars
         uses: ./.github/actions/helm-default
@@ -315,12 +322,7 @@ jobs:
           echo cilium_install_cluster1=$CILIUM_INSTALL_CLUSTER1 >> $GITHUB_OUTPUT
           echo cilium_install_cluster2=$CILIUM_INSTALL_CLUSTER2 >> $GITHUB_OUTPUT
 
-          CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
-            --collect-sysdump-on-failure \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --flow-validation=disabled \
-          "
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
@@ -585,7 +587,6 @@ jobs:
             --multi-cluster=${{ env.contextName2 }} \
             --force-deploy \
             ${{ steps.vars.outputs.connectivity_test_defaults }} \
-            --external-target=google.com. \
             --include-unsafe-tests \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
