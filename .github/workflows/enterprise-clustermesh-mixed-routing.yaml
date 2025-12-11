@@ -315,6 +315,15 @@ jobs:
           echo cilium_install_cluster1=$CILIUM_INSTALL_CLUSTER1 >> $GITHUB_OUTPUT
           echo cilium_install_cluster2=$CILIUM_INSTALL_CLUSTER2 >> $GITHUB_OUTPUT
 
+          CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
+            --collect-sysdump-on-failure \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --flow-validation=disabled \
+          "
+
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@e875161a362b9092ff3e1110eccf52a9fdb17c0a # v0.18.9
         with:
@@ -494,12 +503,8 @@ jobs:
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ matrix.routing != 'mixed' && env.contextName2 || '' }} \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --hubble=false \
-            --flow-validation=disabled \
+            ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --test=no-unexpected-packet-drops \
-            --collect-sysdump-on-failure \
             --sysdump-hubble-flows-count=100000 \
             --junit-file "cilium-junits/${{ env.job_name }} - initial sanity check (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Perform an early sanity check for unexpected packet drops (${{ join(matrix.*, ', ') }})"
@@ -548,14 +553,10 @@ jobs:
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ matrix.routing != 'mixed' && env.contextName2 || '' }} \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --hubble=false \
-            --flow-validation=disabled \
+            ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --test=no-interrupted-connections \
             --test=no-unexpected-packet-drops \
             --include-conn-disrupt-test \
-            --collect-sysdump-on-failure \
             --sysdump-hubble-flows-count=100000 \
             --junit-file "cilium-junits/${{ env.job_name }} - connection disruption (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Assert that long running connections were not disrupted (${{ join(matrix.*, ', ') }})"
@@ -583,13 +584,9 @@ jobs:
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
             --force-deploy \
-            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
-            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
-            --hubble=false \
-            --flow-validation=disabled \
+            ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --external-target=google.com. \
             --include-unsafe-tests \
-            --collect-sysdump-on-failure \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
