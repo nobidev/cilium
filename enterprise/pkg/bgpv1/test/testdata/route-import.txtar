@@ -44,6 +44,8 @@ gobgp/add-route -s v4 -c 65001:200,65001:201,65001:200:200 10.2.0.0/24
 gobgp/add-route -s v6 -c 65001:200,65001:201,65001:200:200 2001:db8:2::/64
 
 # These routes shouldn't be imported because of missing / incomplete / invalid community
+gobgp/add-route -s v4 -c 65535:666 10.0.0.0/25    # blackhole community
+gobgp/add-route -s v6 -c 65535:666 2001:db8::/65  # blackhole community
 gobgp/add-route -s v4 10.3.0.0/24
 gobgp/add-route -s v6 2001:db8:3::/64
 gobgp/add-route -s v4 -c 999:999 10.4.0.0/26
@@ -154,6 +156,15 @@ spec:
   import:
     statements:
 
+    # reject any prefixes with blackhole community
+    - conditions:
+        communities:
+          matchType: Or
+          matches:
+          - wellKnown: blackhole
+      actions:
+        routeAction: Reject
+
     # accept specific prefixes
     - conditions:
         prefixesV4:
@@ -196,35 +207,23 @@ spec:
       actions:
         routeAction: Accept
 
-    # should not match any prefix
-    - conditions:
-        communities:
-          matchType: Or
-          matches:
-          - wellKnown: blackhole
-        largeCommunities:
-          matchType: Not
-          matches:
-          - community: 65001:1111:2222
-      actions:
-        routeAction: Accept
-
 -- bgp-policy.expected --
 Instance    Policy Name                                Type     Match Peers          Match Families   Match Prefixes (Min..Max Len)                     Match Communities                                          RIB Action   Path Actions
 instance0   allow-local                                import                                                                                                                                                      accept       
-instance0   import-user-defined-peer-v4-ipv4-unicast   import   10.100.100.1         ipv4/unicast     (any) {0.0.0.0/0 (0..0)} {10.0.0.0/24 (24..28)}                                                              accept       
+instance0   import-user-defined-peer-v4-ipv4-unicast   import   10.100.100.1         ipv4/unicast                                                       ^65535:666$                                                reject       
+                                                                10.100.100.1         ipv4/unicast     (any) {0.0.0.0/0 (0..0)} {10.0.0.0/24 (24..28)}                                                              accept       
                                                                 10.100.100.1         ipv4/unicast                                                       ^65001:100$                                                accept       
                                                                 10.100.100.1         ipv4/unicast                                                       (all) {^65001:200$} {^65001:201$} Large: ^65001:200:200$   accept       
-                                                                10.100.100.1         ipv4/unicast                                                       ^65535:666$ Large: (invert) ^65001:1111:2222$              accept       
-instance0   import-user-defined-peer-v6-ipv6-unicast   import   fd00:10:100:100::1   ipv6/unicast     (any) {::/0 (0..0)} {2001:db8::/64 (64..80)}                                                                 accept       
+instance0   import-user-defined-peer-v6-ipv6-unicast   import   fd00:10:100:100::1   ipv6/unicast                                                       ^65535:666$                                                reject       
+                                                                fd00:10:100:100::1   ipv6/unicast     (any) {::/0 (0..0)} {2001:db8::/64 (64..80)}                                                                 accept       
                                                                 fd00:10:100:100::1   ipv6/unicast                                                       ^65001:100$                                                accept       
                                                                 fd00:10:100:100::1   ipv6/unicast                                                       (all) {^65001:200$} {^65001:201$} Large: ^65001:200:200$   accept       
-                                                                fd00:10:100:100::1   ipv6/unicast                                                       ^65535:666$ Large: (invert) ^65001:1111:2222$              accept       
 -- gobgp-rib-v4.expected --
 Prefix        NextHop   Attrs
 0.0.0.0/0     0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
 10.0.0.0/23   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
 10.0.0.0/24   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
+10.0.0.0/25   0.0.0.0   [{Origin: i} {Communities: blackhole} {Nexthop: 0.0.0.0}]
 10.0.0.0/26   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
 10.0.0.0/28   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
 10.0.0.0/29   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
@@ -244,6 +243,7 @@ Prefix            NextHop   Attrs
 2001:db8:6::/72   ::        [{Origin: i} {LargeCommunity: [ 65001:200:200]} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8:6::/72]}}]
 2001:db8::/63     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/63]}}]
 2001:db8::/64     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/64]}}]
+2001:db8::/65     ::        [{Origin: i} {Communities: blackhole} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/65]}}]
 2001:db8::/72     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/72]}}]
 2001:db8::/80     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/80]}}]
 2001:db8::/81     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/81]}}]
