@@ -456,24 +456,6 @@ jobs:
           name: cilium-sysdumps-${{ matrix.mode }}
           path: cilium-sysdump-*.zip
 
-  merge-upload:
-    if: ${{ always() }}
-    name: Merge and Upload Artifacts
-    runs-on: ubuntu-24.04
-    needs: upgrade-and-downgrade
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-      - name: Merge Sysdumps
-        uses: ./.github/actions/merge-artifacts
-        with:
-          name: cilium-sysdumps
-          pattern: cilium-sysdumps-*
-          token: ${{ secrets.GITHUB_TOKEN }}
-
   commit-status-final:
     name: Commit Status Final
     if: ${{ always() }}
