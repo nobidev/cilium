@@ -68,12 +68,12 @@ env:
   # 'server supports reverse-lookup on wildcard DNS SAN').
   domain: c.${{ secrets.GCP_PERF_PROJECT_ID }}.internal
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 548.0.0
+  gcloud_version: 549.0.0
 
   # renovate: datasource=github-releases depName=cert-manager/cert-manager
-  cert_manager_version: v1.19.1
+  cert_manager_version: v1.19.2
   # renovate: datasource=github-releases depName=cert-manager/trust-manager
-  trust_manager_version: v0.20.2
+  trust_manager_version: v0.20.3
 
 jobs:
   echo-inputs:
