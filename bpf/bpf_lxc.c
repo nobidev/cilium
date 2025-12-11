@@ -2224,7 +2224,7 @@ int cil_lxc_policy(struct __ctx_buff *ctx)
 		goto out;
 	}
 
-	ret = enterprise_privnet_lxc_policy(ctx, proto, src_label, &ext_err);
+	ret = enterprise_privnet_lxc_policy(ctx, proto, &ext_err);
 	if (IS_ERR(ret))
 		goto out;
 
