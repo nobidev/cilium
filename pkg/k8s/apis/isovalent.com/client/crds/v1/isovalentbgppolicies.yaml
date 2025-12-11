@@ -66,6 +66,7 @@ spec:
                                 on the matched routes.
                               enum:
                               - Accept
+                              - Reject
                               type: string
                           required:
                           - routeAction

@@ -246,10 +246,12 @@ type BGPPolicyActions struct {
 	RouteAction BGPRouteAction `json:"routeAction"`
 }
 
-// +kubebuilder:validation:Enum=Accept
+// +kubebuilder:validation:Enum=Accept;Reject
 type BGPRouteAction string
 
 const (
 	// BGPRouteActionAccept represents an action to accept the matched routes.
 	BGPRouteActionAccept BGPRouteAction = "Accept"
+	// BGPRouteActionReject represents an action to reject the matched routes.
+	BGPRouteActionReject BGPRouteAction = "Reject"
 )
