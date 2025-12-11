@@ -253,6 +253,8 @@ func ToRoutePolicyAction(a v1.BGPRouteAction) types.RoutePolicyAction {
 	switch a {
 	case v1.BGPRouteActionAccept:
 		return types.RoutePolicyActionAccept
+	case v1.BGPRouteActionReject:
+		return types.RoutePolicyActionReject
 	default:
 		return types.RoutePolicyActionNone
 	}

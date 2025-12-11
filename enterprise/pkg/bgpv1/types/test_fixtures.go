@@ -105,7 +105,7 @@ var (
 							},
 						},
 						Actions: ossTypes.RoutePolicyActions{
-							RouteAction:        ossTypes.RoutePolicyActionNone,
+							RouteAction:        ossTypes.RoutePolicyActionAccept,
 							AddCommunities:     []string{"65000:100", "65000:101"},
 							SetLocalPreference: ptr.To[int64](150),
 							NextHop: &ossTypes.RoutePolicyActionNextHop{
@@ -144,11 +144,11 @@ var (
 							},
 							MatchLargeCommunities: &RoutePolicyCommunityMatch{
 								Type:        ossTypes.RoutePolicyMatchAll,
-								Communities: []string{"^1111:1111:*", "^2222:2222:*"},
+								Communities: []string{"^1111:1111:1111$", "^2222:2222:*"},
 							},
 						},
 						Actions: ossTypes.RoutePolicyActions{
-							RouteAction:        ossTypes.RoutePolicyActionNone,
+							RouteAction:        ossTypes.RoutePolicyActionReject,
 							AddCommunities:     []string{"65000:100", "65000:101"},
 							SetLocalPreference: ptr.To[int64](150),
 						},
