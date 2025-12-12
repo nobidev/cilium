@@ -22,9 +22,11 @@ gobgp/wait-state -s v4 10.100.100.1 ESTABLISHED
 gobgp/wait-state -s v6 fd00:10:100:100::1 ESTABLISHED
 
 # Routes to be imported using prefix match - check edge values and some in-betweens
+gobgp/add-route -s v4 0.0.0.0/0
 gobgp/add-route -s v4 10.0.0.0/24
 gobgp/add-route -s v4 10.0.0.0/26
 gobgp/add-route -s v4 10.0.0.0/28
+gobgp/add-route -s v6 ::/0
 gobgp/add-route -s v6 2001:db8::/64
 gobgp/add-route -s v6 2001:db8::/72
 gobgp/add-route -s v6 2001:db8::/80
@@ -160,12 +162,14 @@ spec:
           - prefix: 10.0.0.0/24
             minLen: 24
             maxLen: 28
+          - prefix: 0.0.0.0/0
         prefixesV6:
           matchType: Or
           matches:
           - prefix: 2001:db8::/64
             minLen: 64
             maxLen: 80
+          - prefix: ::/0
       actions:
         routeAction: Accept
 
@@ -206,18 +210,19 @@ spec:
         routeAction: Accept
 
 -- bgp-policy.expected --
-Instance    Policy Name                                Type     Match Peers          Match Families   Match Prefixes (Min..Max Len)   Match Communities                                          RIB Action   Path Actions
-instance0   allow-local                                import                                                                                                                                    accept       
-instance0   import-user-defined-peer-v4-ipv4-unicast   import   10.100.100.1         ipv4/unicast     10.0.0.0/24 (24..28)                                                                       accept       
-                                                                10.100.100.1         ipv4/unicast                                     ^65001:100$                                                accept       
-                                                                10.100.100.1         ipv4/unicast                                     (all) {^65001:200$} {^65001:201$} Large: ^65001:200:200$   accept       
-                                                                10.100.100.1         ipv4/unicast                                     ^65535:666$ Large: (invert) ^65001:1111:2222$              accept       
-instance0   import-user-defined-peer-v6-ipv6-unicast   import   fd00:10:100:100::1   ipv6/unicast     2001:db8::/64 (64..80)                                                                     accept       
-                                                                fd00:10:100:100::1   ipv6/unicast                                     ^65001:100$                                                accept       
-                                                                fd00:10:100:100::1   ipv6/unicast                                     (all) {^65001:200$} {^65001:201$} Large: ^65001:200:200$   accept       
-                                                                fd00:10:100:100::1   ipv6/unicast                                     ^65535:666$ Large: (invert) ^65001:1111:2222$              accept       
+Instance    Policy Name                                Type     Match Peers          Match Families   Match Prefixes (Min..Max Len)                     Match Communities                                          RIB Action   Path Actions
+instance0   allow-local                                import                                                                                                                                                      accept       
+instance0   import-user-defined-peer-v4-ipv4-unicast   import   10.100.100.1         ipv4/unicast     (any) {0.0.0.0/0 (0..0)} {10.0.0.0/24 (24..28)}                                                              accept       
+                                                                10.100.100.1         ipv4/unicast                                                       ^65001:100$                                                accept       
+                                                                10.100.100.1         ipv4/unicast                                                       (all) {^65001:200$} {^65001:201$} Large: ^65001:200:200$   accept       
+                                                                10.100.100.1         ipv4/unicast                                                       ^65535:666$ Large: (invert) ^65001:1111:2222$              accept       
+instance0   import-user-defined-peer-v6-ipv6-unicast   import   fd00:10:100:100::1   ipv6/unicast     (any) {::/0 (0..0)} {2001:db8::/64 (64..80)}                                                                 accept       
+                                                                fd00:10:100:100::1   ipv6/unicast                                                       ^65001:100$                                                accept       
+                                                                fd00:10:100:100::1   ipv6/unicast                                                       (all) {^65001:200$} {^65001:201$} Large: ^65001:200:200$   accept       
+                                                                fd00:10:100:100::1   ipv6/unicast                                                       ^65535:666$ Large: (invert) ^65001:1111:2222$              accept       
 -- gobgp-rib-v4.expected --
 Prefix        NextHop   Attrs
+0.0.0.0/0     0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
 10.0.0.0/23   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
 10.0.0.0/24   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
 10.0.0.0/26   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
@@ -242,8 +247,10 @@ Prefix            NextHop   Attrs
 2001:db8::/72     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/72]}}]
 2001:db8::/80     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/80]}}]
 2001:db8::/81     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/81]}}]
+::/0              ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [::/0]}}]
 -- bgp-rib-v4.expected --
 VRouter   Prefix        NextHop        Attrs
+65001     0.0.0.0/0     10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
 65001     10.0.0.0/24   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
 65001     10.0.0.0/26   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
 65001     10.0.0.0/28   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
@@ -256,8 +263,11 @@ VRouter   Prefix            NextHop              Attrs
 65001     2001:db8::/64     fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/64]}}]
 65001     2001:db8::/72     fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/72]}}]
 65001     2001:db8::/80     fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/80]}}]
+65001     ::/0              fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [::/0]}}]
 -- desired-routes.expected --
 Owner           Table        Prefix            Priority   AD    Selected   Nexthop              Src    Device   MultiPath   MTU    Scope      Type
+bgp-instance0   main (254)   ::/0              none       200   true       fd00:10:100:100::1   none   none     none        none   universe   unicast
+bgp-instance0   main (254)   0.0.0.0/0         none       200   true       10.100.100.1         none   none     none        none   universe   unicast
 bgp-instance0   main (254)   10.0.0.0/24       none       200   true       10.100.100.1         none   none     none        none   universe   unicast
 bgp-instance0   main (254)   10.0.0.0/26       none       200   true       10.100.100.1         none   none     none        none   universe   unicast
 bgp-instance0   main (254)   10.0.0.0/28       none       200   true       10.100.100.1         none   none     none        none   universe   unicast
