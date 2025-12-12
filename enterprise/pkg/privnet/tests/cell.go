@@ -11,6 +11,7 @@
 package tests
 
 import (
+	"log/slog"
 	"path"
 	"testing"
 
@@ -67,7 +68,7 @@ func NewTestHive(t testing.TB) *hive.Hive {
 		),
 
 		// Make privnet ID predictable
-		withOverride(reconcilers.NewIDPool(1, tables.NetworkIDMax)),
+		withOverride(reconcilers.NewIDPool(slog.Default(), 1, tables.NetworkIDMax)),
 
 		ClusterMeshObservers,
 		Health(t.TempDir()),
