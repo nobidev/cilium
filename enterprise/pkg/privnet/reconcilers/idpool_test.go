@@ -11,6 +11,7 @@
 package reconcilers
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,14 +22,18 @@ import (
 func TestIDPool(t *testing.T) {
 	pool := NewIDPool(3, 5)
 
+	nameFn := func(id tables.NetworkID) tables.NetworkName {
+		return tables.NetworkName(fmt.Sprintf("net-%d", id))
+	}
+
 	acquireAssertValue := func(expected tables.NetworkID) {
-		actual, err := pool.acquire()
+		actual, err := pool.acquire(nameFn(expected))
 		require.NoError(t, err, "acquire unexpectedly failed")
 		require.Equal(t, expected, actual)
 	}
 
 	acquireAssertError := func() {
-		_, err := pool.acquire()
+		_, err := pool.acquire("error")
 		require.Error(t, err, "acquire should have failed")
 	}
 
@@ -64,4 +69,31 @@ func TestIDPool(t *testing.T) {
 	acquireAssertValue(tables.NetworkIDMax - 1)
 	acquireAssertValue(tables.NetworkIDMax)
 	acquireAssertValue(1)
+
+	// Checking re requesting the ID
+	pool = NewIDPool(0, 5)
+	actual, err := pool.acquire("foobar")
+	require.NoError(t, err, "acquire unexpectedly failed")
+	require.Equal(t, tables.NetworkID(1), actual)
+
+	actual, err = pool.acquire("buzz")
+	require.NoError(t, err, "acquire unexpectedly failed")
+	require.Equal(t, tables.NetworkID(2), actual)
+
+	actual, err = pool.acquire("buzz")
+	require.NoError(t, err, "acquire unexpectedly failed")
+	require.Equal(t, tables.NetworkID(2), actual)
+
+	actual, err = pool.acquire("foobar")
+	require.NoError(t, err, "acquire unexpectedly failed")
+	require.Equal(t, tables.NetworkID(1), actual)
+
+	pool.release(1)
+	// Acquire new id after release
+	actual, err = pool.acquire("foobar")
+	require.NoError(t, err, "acquire unexpectedly failed")
+	require.Equal(t, tables.NetworkID(3), actual)
+	actual, err = pool.acquire("buzz")
+	require.NoError(t, err, "acquire unexpectedly failed")
+	require.Equal(t, tables.NetworkID(2), actual)
 }

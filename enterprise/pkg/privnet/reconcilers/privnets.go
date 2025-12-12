@@ -142,7 +142,7 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *IDPool, sync promise.Pro
 			// Attempt to acquire a new ID, if not already assigned.
 			if id == tables.NetworkIDReserved {
 				var err error
-				id, err = idpool.acquire()
+				id, err = idpool.acquire(tables.NetworkName(privnet.Name))
 				if err != nil {
 					pn.log.Error("Failed to assign network ID to private network",
 						logfields.Error, err,

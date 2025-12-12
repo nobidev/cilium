@@ -14,25 +14,36 @@ import (
 	"errors"
 	"math/rand/v2"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
 // IDPool handles the allocation of IDs for private networks.
 type IDPool struct {
-	mu        lock.Mutex
-	next, max tables.NetworkID
-	used      sets.Set[tables.NetworkID]
+	mu          lock.Mutex
+	next, max   tables.NetworkID
+	allocations map[tables.NetworkName]idAllocation
+	used        map[tables.NetworkID]tables.NetworkName
+}
+
+type idAllocation struct {
+	id tables.NetworkID
 }
 
 // NewIDPool creates and returns a new ID pool with custom settings.
 func NewIDPool(first, max tables.NetworkID) *IDPool {
 	return &IDPool{
+		mu:   lock.Mutex{},
 		next: first,
 		max:  max,
-		used: sets.New(tables.NetworkIDReserved),
+		allocations: map[tables.NetworkName]idAllocation{
+			"": {
+				id: tables.NetworkIDReserved,
+			},
+		},
+		used: map[tables.NetworkID]tables.NetworkName{
+			tables.NetworkIDReserved: "",
+		},
 	}
 }
 
@@ -42,11 +53,20 @@ func newDefaultIDPool() *IDPool {
 	return NewIDPool(tables.NetworkID(rand.Uint64N(uint64(tables.NetworkIDMax))+1), tables.NetworkIDMax)
 }
 
-func (idp *IDPool) acquire() (tables.NetworkID, error) {
+// acquire returns a network ID for the provided network name. If a network ID
+// was already allocated for the provided network name, the previously
+// allocated ID will be returned. acquire will return an error if the ID pool
+// was exhausted.
+func (idp *IDPool) acquire(name tables.NetworkName) (tables.NetworkID, error) {
 	idp.mu.Lock()
 	defer idp.mu.Unlock()
 
-	if idp.used.Len() == int(idp.max)+1 {
+	alloc, ok := idp.allocations[name]
+	if ok {
+		return alloc.id, nil
+	}
+
+	if len(idp.used) == int(idp.max)+1 {
 		return tables.NetworkIDReserved, errors.New("ID pool exhausted")
 	}
 
@@ -55,20 +75,28 @@ func (idp *IDPool) acquire() (tables.NetworkID, error) {
 	}
 
 	cur := idp.next
-	for idp.used.Has(cur) {
+	_, allocated := idp.used[cur]
+	for allocated {
 		cur = advance(cur)
+		_, allocated = idp.used[cur]
 	}
 
-	idp.used.Insert(cur)
+	idp.used[cur] = name
+	idp.allocations[name] = idAllocation{
+		id: cur,
+	}
+
 	idp.next = advance(cur)
 	return cur, nil
 }
 
 func (idp *IDPool) release(id tables.NetworkID) {
+	idp.mu.Lock()
+	defer idp.mu.Unlock()
 	// Cannot release the reserved network ID.
 	if id != tables.NetworkIDReserved {
-		idp.mu.Lock()
-		idp.used.Delete(id)
-		idp.mu.Unlock()
+		name := idp.used[id]
+		delete(idp.allocations, name)
+		delete(idp.used, id)
 	}
 }
