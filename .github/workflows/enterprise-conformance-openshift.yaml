@@ -550,7 +550,8 @@ jobs:
             secret/data/devops/${{ github.repository_owner }} aws_pr_hcp_access_key_id | AWS_PR_HCP_ACCESS_KEY_ID;
             secret/data/devops/${{ github.repository_owner }} aws_pr_hcp_secret_access_key | AWS_PR_HCP_SECRET_ACCESS_KEY;
 
-      - name: Generated hosted credentials file
+      - name: Generate hosted credentials file
+        if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.hcp == 'true' }}
         working-directory: "./openshift-ci/aws-ipi"
         env:
           AWS_ACCESS_KEY_ID: ${{ env.AWS_PR_HCP_ACCESS_KEY_ID }}
