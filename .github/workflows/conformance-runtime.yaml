@@ -180,7 +180,7 @@ jobs:
       job_name: "Runtime Test (${{matrix.focus}})"
     strategy:
       fail-fast: false
-      max-parallel: 3
+      max-parallel: 2
       matrix:
         focus:
           - "datapath"
@@ -195,12 +195,12 @@ jobs:
           # RuntimeDatapathMonitorTest With Sample Containers delivers the same information to multiple monitors
           - focus: "datapath"
             cliFocus: "RuntimeDatapathMonitorTest"
-            # TODO: not updated by by renovate, investigate why the tests fail on newer images
-            lvhImage: "6.12-20241218.004849"
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            lvhImage: "6.12-20251210.020226"
 
           - focus: "privileged"
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            lvhImage: "6.12-20250807.134150"
+            lvhImage: "6.12-20251210.020226"
 
     timeout-minutes: 50
     steps:
