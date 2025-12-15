@@ -1617,8 +1617,9 @@ func configureBGPPeeringV1ForEGW(ctx context.Context, t *check.Test, ipFamily fe
 					LocalASN:  ptr.To[int64](egwBGPCiliumASN),
 					LocalPort: ptr.To[int32](egwBGPRRLocalPort),
 					RouteReflector: &v1.RouteReflector{
-						Role:      v1.RouteReflectorRoleRouteReflector,
-						ClusterID: egwBGPRRClusterID,
+						Role:                 v1.RouteReflectorRoleRouteReflector,
+						ClusterID:            egwBGPRRClusterID,
+						PeeringAddressFamily: ptr.To(v1.RouteReflectorPeeringAddressFamilyIPv4Only),
 					},
 				},
 			},
@@ -1662,8 +1663,9 @@ func configureBGPPeeringV1ForEGW(ctx context.Context, t *check.Test, ipFamily fe
 					Name:     "test-instance",
 					LocalASN: ptr.To[int64](egwBGPCiliumASN),
 					RouteReflector: &v1.RouteReflector{
-						Role:      v1.RouteReflectorRoleClient,
-						ClusterID: egwBGPRRClusterID,
+						Role:                 v1.RouteReflectorRoleClient,
+						ClusterID:            egwBGPRRClusterID,
+						PeeringAddressFamily: ptr.To(v1.RouteReflectorPeeringAddressFamilyIPv4Only),
 					},
 				},
 			},
