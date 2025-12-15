@@ -95,20 +95,30 @@ func registerPeerConfigStatusReconciler(in peerConfigStatusReconcilerIn) {
 }
 
 func (u *peerConfigStatusReconciler) reconcileStatus(ctx context.Context, health cell.Health) error {
-	ss, err := u.secretResource.Store(ctx)
-	if err != nil {
-		return err
-	}
-	u.secretStore = ss
-
 	ps, err := u.peerConfigResource.Store(ctx)
 	if err != nil {
 		return err
 	}
 	u.peerConfigStore = ps
-
-	se := u.secretResource.Events(ctx)
 	pe := u.peerConfigResource.Events(ctx)
+
+	// Secret resource is initialized conditionally, only if bgp-secrets-namespace is provided.
+	// If not provided, do not attempt to initialize the store. Use empty store and stucking events in that case.
+	var se <-chan resource.Event[*slim_core_v1.Secret]
+	if u.secretResource != nil {
+		ss, err := u.secretResource.Store(ctx)
+		if err != nil {
+			return err
+		}
+		u.secretStore = ss
+
+		// Real events
+		se = u.secretResource.Events(ctx)
+	} else {
+		// Dummy event channel. It will never produce any event.
+		stuck := stream.Stuck[resource.Event[*slim_core_v1.Secret]]()
+		se = stream.ToChannel(ctx, stuck)
+	}
 
 	// BFDProfile is initialized conditionally. When BFD is
 	// not enabled, it doesn't make sense to subscribe
@@ -257,7 +267,7 @@ func (u *peerConfigStatusReconciler) reconcilePeerConfig(ctx context.Context, co
 }
 
 func (u *peerConfigStatusReconciler) authSecretMissing(c *v1.IsovalentBGPPeerConfig) bool {
-	if c.Spec.AuthSecretRef == nil {
+	if u.secretStore == nil || c.Spec.AuthSecretRef == nil {
 		return false
 	}
 	if _, exists, _ := u.secretStore.GetByKey(resource.Key{Namespace: u.secretNamespace, Name: *c.Spec.AuthSecretRef}); !exists {
