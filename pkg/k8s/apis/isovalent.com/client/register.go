@@ -113,6 +113,9 @@ const (
 
 	// PrivateNetworkExternalEndpointCRDName is the full name of the PrivateNetworkExternalEndpoint CRD.
 	PrivateNetworkExternalEndpointCRDName = k8sconstv1alpha1.PrivateNetworkExternalEndpointKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+
+	// PrivateNetworkNodeAttachmentCRDName is the full name of the PrivateNetworkNodeAttachment CRD.
+	PrivateNetworkNodeAttachmentCRDName = k8sconstv1alpha1.PrivateNetworkNodeAttachmentKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 )
 
 type CRDList struct {
@@ -239,6 +242,10 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 			Name:     PrivateNetworkExternalEndpointCRDName,
 			FullName: k8sconstv1alpha1.PrivateNetworkExternalEndpointName,
 		},
+		synced.CRDResourceName(k8sconstv1alpha1.PrivateNetworkNodeAttachmentName): {
+			Name:     PrivateNetworkNodeAttachmentCRDName,
+			FullName: k8sconstv1alpha1.PrivateNetworkNodeAttachmentName,
+		},
 	}
 }
 
@@ -348,6 +355,9 @@ var (
 
 	//go:embed crds/v1alpha1/privatenetworkexternalendpoints.yaml
 	crdsv1Alpha1PrivateNetworkExternalEndpoints []byte
+
+	//go:embed crds/v1alpha1/privatenetworknodeattachments.yaml
+	crdsv1Alpha1PrivateNetworkNodeAttachments []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -421,6 +431,8 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes = crdsv1Alpha1PrivateNetworkEndpointSlices
 	case PrivateNetworkExternalEndpointCRDName:
 		crdBytes = crdsv1Alpha1PrivateNetworkExternalEndpoints
+	case PrivateNetworkNodeAttachmentCRDName:
+		crdBytes = crdsv1Alpha1PrivateNetworkNodeAttachments
 	default:
 		logging.Fatal(scopedLog, "Pregenerated CRD does not exist")
 	}

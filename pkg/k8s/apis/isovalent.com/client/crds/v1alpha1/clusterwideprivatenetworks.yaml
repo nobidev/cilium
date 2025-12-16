@@ -165,8 +165,12 @@ spec:
                         private network.
                       format: cidr
                       type: string
+                    name:
+                      description: The name of the subnet.
+                      type: string
                   required:
                   - cidr
+                  - name
                   type: object
                 minItems: 1
                 type: array

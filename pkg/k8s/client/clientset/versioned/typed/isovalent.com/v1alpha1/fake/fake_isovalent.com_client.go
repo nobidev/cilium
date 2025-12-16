@@ -123,6 +123,10 @@ func (c *FakeIsovalentV1alpha1) PrivateNetworkExternalEndpoints(namespace string
 	return newFakePrivateNetworkExternalEndpoints(c, namespace)
 }
 
+func (c *FakeIsovalentV1alpha1) PrivateNetworkNodeAttachments() v1alpha1.PrivateNetworkNodeAttachmentInterface {
+	return newFakePrivateNetworkNodeAttachments(c)
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeIsovalentV1alpha1) RESTClient() rest.Interface {

@@ -70,6 +70,7 @@ func AllIsovalentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v1alpha1.ClusterwidePrivateNetworkName))
 		result = append(result, CRDResourceName(v1alpha1.PrivateNetworkEndpointSliceName))
 		result = append(result, CRDResourceName(v1alpha1.PrivateNetworkExternalEndpointName))
+		result = append(result, CRDResourceName(v1alpha1.PrivateNetworkNodeAttachmentName))
 	}
 
 	return result

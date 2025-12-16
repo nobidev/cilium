@@ -89,6 +89,11 @@ type PrivateNetworkSpec struct {
 }
 
 type SubnetSpec struct {
+	// The name of the subnet.
+	//
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
 	// The CIDR (either v4 or v6) associated with the private network.
 	CIDR NetworkCIDR `json:"cidr"`
 }
@@ -353,4 +358,100 @@ func (in *PrivateNetworkExternalEndpointStatus) DeepEqual(other *PrivateNetworkE
 	}
 
 	return true
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories={cilium,isovalent},singular="privatenetworknodeattachment",path="privatenetworknodeattachments",scope="Cluster",shortName={pnna}
+// +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+// +deepequal-gen=false
+
+// PrivateNetworkNodeAttachment defines a node device management of private networks.
+type PrivateNetworkNodeAttachment struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +deepequal-gen=false
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// The private network specification.
+	//
+	// +kubebuilder:validation:Required
+	Spec PrivateNetworkNodeAttachmentSpec `json:"spec"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
+
+// PrivateNetworkNodeAttachmentList is a list of PrivateNetworkNodeAttachment objects.
+type PrivateNetworkNodeAttachmentList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	// Items is a list of PrivateNetworkNodeAttachment.
+	Items []PrivateNetworkNodeAttachment `json:"items"`
+}
+
+type PrivateNetworkNodeAttachmentSpec struct {
+	// PrivateNetworkRef identifies the private-network resource that this configuration
+	// is linked to.
+	//
+	// +kubebuilder:validation:Required
+	PrivateNetworkRef PrivateNetworkRef `json:"privateNetworkRef"`
+
+	// NodeSelector selects the nodes to which this configuration applies.
+	//
+	// If empty / omitted then this config will apply to all nodes.
+	//
+	// +kubebuilder:validation:Optional
+	NodeSelector slim_metav1.LabelSelector `json:"nodeSelector,omitempty"`
+
+	// Attachments is a list of egress devices to be configured on the selected nodes.
+	//
+	// +kubebuilder:validation:Required
+	// +listType=map
+	// +listMapKey=interface
+	// +kubebuilder:validation:MinItems=1
+	Attachments []PrivateNetworkAttachment `json:"attachments"`
+}
+
+type PrivateNetworkRef struct {
+	// Name of the ClusterwidePrivateNetwork resource.
+	//
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+}
+
+type PrivateNetworkSubnetRef struct {
+	// Name of the Subnet specified in the private-network resource.
+	//
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+}
+
+type PrivateNetworkAttachment struct {
+	// Interface specifies the network interface used for private network
+	// traffic ingress and egress on the selected nodes. This interface must be
+	// present on the node and appropriately connected to underlying network
+	// infrastructure.
+	//
+	// +kubebuilder:validation:Required
+	Interface string `json:"interface"`
+
+	// Subnets is a list of subnets reachable via this attachment.
+	//
+	// If empty / nil means all subnets configured in the private-network resource
+	// are selected.
+	//
+	// +kubebuilder:validation:Optional
+	SubnetRefs []PrivateNetworkSubnetRef `json:"subnetRefs,omitempty"`
+
+	// VlanID, when specified, result in Cilium to create a DOT1Q VLAN subinterface
+	// with parent device specified in Interface.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4094
+	VlanID *int `json:"vlanID,omitempty"`
 }

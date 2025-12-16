@@ -65,6 +65,8 @@ type Interface interface {
 	PrivateNetworkEndpointSlices() PrivateNetworkEndpointSliceInformer
 	// PrivateNetworkExternalEndpoints returns a PrivateNetworkExternalEndpointInformer.
 	PrivateNetworkExternalEndpoints() PrivateNetworkExternalEndpointInformer
+	// PrivateNetworkNodeAttachments returns a PrivateNetworkNodeAttachmentInformer.
+	PrivateNetworkNodeAttachments() PrivateNetworkNodeAttachmentInformer
 }
 
 type version struct {
@@ -211,4 +213,9 @@ func (v *version) PrivateNetworkEndpointSlices() PrivateNetworkEndpointSliceInfo
 // PrivateNetworkExternalEndpoints returns a PrivateNetworkExternalEndpointInformer.
 func (v *version) PrivateNetworkExternalEndpoints() PrivateNetworkExternalEndpointInformer {
 	return &privateNetworkExternalEndpointInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// PrivateNetworkNodeAttachments returns a PrivateNetworkNodeAttachmentInformer.
+func (v *version) PrivateNetworkNodeAttachments() PrivateNetworkNodeAttachmentInformer {
+	return &privateNetworkNodeAttachmentInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
