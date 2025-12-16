@@ -2,7 +2,7 @@ name: Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - synchronize
@@ -41,11 +41,11 @@ jobs:
     name: Wait for lint checks
     uses: ./.github/workflows/wait-for-status-check.yaml
     with:
-      # Only run this job if the event is pull_request_target and if the PR
+      # Only run this job if the event is pull_request and if the PR
       # is not opened from a fork.
       # This is to avoid waiting for base images on push to main or merge_group
       # events as the lint-images-base does not run on those events.
-      if: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name }}
+      if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name }}
       sha: ${{ github.event.pull_request.head.sha || github.sha }}
       lint-workflows: "lint-images-base.yaml"
       timeout-minutes: 2
@@ -106,7 +106,7 @@ jobs:
       - name: Checkout base or default branch (trusted)
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
-          # We first check if base_ref exist, meaning we're in pull_request_target context, and if not we just use default_branch
+          # We first check if base_ref exist, meaning we're in pull_request context, and if not we just use default_branch
           ref: ${{ github.base_ref || github.event.repository.default_branch }}
           persist-credentials: false
 
@@ -421,7 +421,7 @@ jobs:
     needs: build-and-push-prs
     runs-on: ubuntu-24.04
     if: ${{
-         github.event_name == 'pull_request_target' &&
+         github.event_name == 'pull_request' &&
          github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
         }}
     steps:
@@ -436,7 +436,7 @@ jobs:
     needs: pre-comment
     environment: "Trigger CI from renovate PRs"
     if: ${{
-         github.event_name == 'pull_request_target' &&
+         github.event_name == 'pull_request' &&
          github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
         }}
     steps:

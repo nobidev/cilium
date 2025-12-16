@@ -20,6 +20,7 @@ IGNORE_HUNK_REGEXES=(
   -I $'^(.*[Ee]nterprise.*)|(\`\n\\\')|(.*shell: bash.*)|(.*run: .*)$' # Enterprise environment overrides
   -I '^.*git config.*ISOVALENT.*$' # Ignore enterprise GitHub secret configurations
   -I '^.*main(-ce)?.*$' # Ignore main->main-ce branch replacements
+  -I '^.*pull_request(_target)?' # Ignore pull_request_target->pull_request changes
   -I '.*ubuntu-2[24].04-arm64\]$' # https://github.com/isovalent/cilium/issues/6375
   -I '^.*(Version)|(CEE)|(-ce).*$' # Ignore version references for CEE
   -I $'^(.*cee.*)|^(.*enterprise.*)|(\`\n\\\')|^(.*if.*CTX_ACT_).*|^(.*IS_ERR.*)|^(.*return [^;]*;)|^(.*goto [^;]*;)$' # Enterprise BPF hooks
