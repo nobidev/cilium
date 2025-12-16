@@ -346,6 +346,21 @@ func (pn *PrivateNetworks) registerIDsReleaser(idpool *IDPool) {
 				}
 			},
 		),
+		job.OneShot(
+			"private-networks-id-pool-initialized",
+			func(ctx context.Context, health cell.Health) error {
+				// Wait for private networks table initialization
+				_, watch := pn.tbl.Initialized(pn.db.ReadTxn())
+				select {
+				case <-watch:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+
+				idpool.initialized()
+				return nil
+			},
+		),
 	)
 }
 

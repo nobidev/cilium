@@ -12,15 +12,20 @@ package reconcilers
 
 import (
 	"errors"
+	"io/fs"
 	"iter"
 	"log/slog"
 	"math/rand/v2"
+	"path"
 
 	jsoniter "github.com/json-iterator/go"
+
+	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/wal"
 )
 
@@ -60,10 +65,42 @@ func NewIDPool(log *slog.Logger, first, max tables.NetworkID) *IDPool {
 	}
 }
 
-func newDefaultIDPool(log *slog.Logger) *IDPool {
+func newDefaultIDPool(log *slog.Logger, cfg *option.DaemonConfig, lc cell.Lifecycle) *IDPool {
 	// Use a random initial value, to make sure we don't incorrectly rely
 	// on the fact that network IDs are consitent across nodes
 	pool := NewIDPool(log, tables.NetworkID(rand.Uint64N(uint64(tables.NetworkIDMax))+1), tables.NetworkIDMax)
+	lc.Append(
+		cell.Hook{
+			OnStart: func(ctx cell.HookContext) error {
+				filePath := path.Join(cfg.StateDir, PrivnetIDWALFile)
+
+				err := pool.restore(filePath)
+				if err != nil {
+					if errors.Is(err, fs.ErrNotExist) {
+						log.Debug("No IDPool WAL found. " +
+							"Local Network IDs will not be restored. This might be expected",
+						)
+					} else {
+						log.Warn("Cannot read IDPool WAL."+
+							"Local Network IDs will not be restored.",
+							logfields.Error, err,
+						)
+					}
+				}
+
+				walw, err := wal.NewWriter[allocationWALEntry](filePath)
+				if err != nil {
+					log.Warn("Failed to setup IDPool WAL writer."+
+						"Local Network IDs will not be preserved.",
+						logfields.Error, err,
+					)
+				}
+				pool.walWriter = walw
+
+				return nil
+			},
+		},
+	)
 	return pool
 }
 
