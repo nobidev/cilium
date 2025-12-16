@@ -20,7 +20,7 @@ import (
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/pkg/privnet"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers/idpool"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	dptables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -68,7 +68,7 @@ func NewTestHive(t testing.TB) *hive.Hive {
 		),
 
 		// Make privnet ID predictable
-		withOverride(reconcilers.NewIDPool(slog.Default(), 1, tables.NetworkIDMax)),
+		withOverride(idpool.NewIDPool(slog.Default(), 1, tables.NetworkIDMax)),
 
 		ClusterMeshObservers,
 		Health(t.TempDir()),

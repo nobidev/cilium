@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers/idpool"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	dptables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -48,7 +49,7 @@ var PrivateNetworksCell = cell.Group(
 	cell.Provide(
 		// Provide the IDPool via hive, so that it can be overridden for testing
 		// purposes, as we will want stable IDs there.
-		newDefaultIDPool,
+		idpool.NewDefaultIDPool,
 
 		// Provides the ReadOnly PrivateNetworks table.
 		statedb.RWTable[tables.PrivateNetwork].ToTable,
@@ -115,7 +116,7 @@ func newPrivateNetworks(in struct {
 	return reconciler, nil
 }
 
-func (pn *PrivateNetworks) registerK8sReflector(idpool *IDPool, sync promise.Promise[synced.CRDSync]) error {
+func (pn *PrivateNetworks) registerK8sReflector(idpool *idpool.IDPool, sync promise.Promise[synced.CRDSync]) error {
 	if !pn.cfg.Enabled {
 		return nil
 	}
@@ -142,7 +143,7 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *IDPool, sync promise.Pro
 			// Attempt to acquire a new ID, if not already assigned.
 			if id == tables.NetworkIDReserved {
 				var err error
-				id, err = idpool.acquire(tables.NetworkName(privnet.Name))
+				id, err = idpool.Acquire(tables.NetworkName(privnet.Name))
 				if err != nil {
 					pn.log.Error("Failed to assign network ID to private network",
 						logfields.Error, err,
@@ -309,7 +310,7 @@ func (pn *PrivateNetworks) reconcileDeviceChanges(ctx context.Context, health ce
 	}
 }
 
-func (pn *PrivateNetworks) registerIDsReleaser(idpool *IDPool) {
+func (pn *PrivateNetworks) registerIDsReleaser(idpool *idpool.IDPool) {
 	if !pn.cfg.Enabled {
 		return
 	}
@@ -329,7 +330,7 @@ func (pn *PrivateNetworks) registerIDsReleaser(idpool *IDPool) {
 
 					for change := range changes {
 						if change.Deleted && change.Object.ID != tables.NetworkIDReserved {
-							idpool.release(change.Object.ID)
+							idpool.Release(change.Object.ID)
 							count++
 						}
 					}
@@ -357,7 +358,7 @@ func (pn *PrivateNetworks) registerIDsReleaser(idpool *IDPool) {
 					return ctx.Err()
 				}
 
-				idpool.initialized()
+				idpool.Initialized()
 				return nil
 			},
 		),

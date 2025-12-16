@@ -8,7 +8,7 @@
 // or reproduction of this material is strictly forbidden unless prior written
 // permission is obtained from Isovalent Inc.
 
-package reconcilers
+package idpool
 
 import (
 	"errors"
@@ -65,7 +65,7 @@ func NewIDPool(log *slog.Logger, first, max tables.NetworkID) *IDPool {
 	}
 }
 
-func newDefaultIDPool(log *slog.Logger, cfg *option.DaemonConfig, lc cell.Lifecycle) *IDPool {
+func NewDefaultIDPool(log *slog.Logger, cfg *option.DaemonConfig, lc cell.Lifecycle) *IDPool {
 	// Use a random initial value, to make sure we don't incorrectly rely
 	// on the fact that network IDs are consitent across nodes
 	pool := NewIDPool(log, tables.NetworkID(rand.Uint64N(uint64(tables.NetworkIDMax))+1), tables.NetworkIDMax)
@@ -104,11 +104,11 @@ func newDefaultIDPool(log *slog.Logger, cfg *option.DaemonConfig, lc cell.Lifecy
 	return pool
 }
 
-// acquire returns a network ID for the provided network name. If a network ID
+// Acquire returns a network ID for the provided network name. If a network ID
 // was already allocated for the provided network name, the previously
 // allocated ID will be returned. acquire will return an error if the ID pool
 // was exhausted.
-func (idp *IDPool) acquire(name tables.NetworkName) (tables.NetworkID, error) {
+func (idp *IDPool) Acquire(name tables.NetworkName) (tables.NetworkID, error) {
 	idp.mu.Lock()
 	defer idp.mu.Unlock()
 
@@ -155,7 +155,8 @@ func (idp *IDPool) acquire(name tables.NetworkName) (tables.NetworkID, error) {
 	return cur, nil
 }
 
-func (idp *IDPool) release(id tables.NetworkID) {
+// Release will free the provided network ID if it was allocated before.
+func (idp *IDPool) Release(id tables.NetworkID) {
 	idp.mu.Lock()
 	defer idp.mu.Unlock()
 	// Cannot release the reserved network ID.
@@ -239,10 +240,10 @@ func (idp *IDPool) restore(path string) error {
 	return nil
 }
 
-// initialized marks the IDPool as successfully restored and will free any IDs
+// Initialized marks the IDPool as successfully restored and will free any IDs
 // that have not been re-acquired. Should only be called once the IDPool has
 // seen the "state of the world"
-func (idp *IDPool) initialized() {
+func (idp *IDPool) Initialized() {
 	idp.mu.Lock()
 	defer idp.mu.Unlock()
 

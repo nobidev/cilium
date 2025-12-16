@@ -8,7 +8,7 @@
 // or reproduction of this material is strictly forbidden unless prior written
 // permission is obtained from Isovalent Inc.
 
-package reconcilers
+package idpool
 
 import (
 	"fmt"
@@ -32,13 +32,13 @@ func TestIDPool(t *testing.T) {
 	}
 
 	acquireAssertValue := func(expected tables.NetworkID) {
-		actual, err := pool.acquire(nameFn(expected))
+		actual, err := pool.Acquire(nameFn(expected))
 		require.NoError(t, err, "acquire unexpectedly failed")
 		require.Equal(t, expected, actual)
 	}
 
 	acquireAssertError := func() {
-		_, err := pool.acquire("error")
+		_, err := pool.Acquire("error")
 		require.Error(t, err, "acquire should have failed")
 	}
 
@@ -51,9 +51,9 @@ func TestIDPool(t *testing.T) {
 	// No more IDs should be available
 	acquireAssertError()
 
-	pool.release(4)
-	pool.release(0) // No-op
-	pool.release(2)
+	pool.Release(4)
+	pool.Release(0) // No-op
+	pool.Release(2)
 
 	acquireAssertValue(4)
 	acquireAssertValue(2)
@@ -77,28 +77,28 @@ func TestIDPool(t *testing.T) {
 
 	// Checking re requesting the ID
 	pool = NewIDPool(log, 0, 5)
-	actual, err := pool.acquire("foobar")
+	actual, err := pool.Acquire("foobar")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(1), actual)
 
-	actual, err = pool.acquire("buzz")
+	actual, err = pool.Acquire("buzz")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(2), actual)
 
-	actual, err = pool.acquire("buzz")
+	actual, err = pool.Acquire("buzz")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(2), actual)
 
-	actual, err = pool.acquire("foobar")
+	actual, err = pool.Acquire("foobar")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(1), actual)
 
-	pool.release(1)
+	pool.Release(1)
 	// Acquire new id after release
-	actual, err = pool.acquire("foobar")
+	actual, err = pool.Acquire("foobar")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(3), actual)
-	actual, err = pool.acquire("buzz")
+	actual, err = pool.Acquire("buzz")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(2), actual)
 }
@@ -112,48 +112,48 @@ func TestIDPool_restore(t *testing.T) {
 	pool.walWriter, err = wal.NewWriter[allocationWALEntry](walFile)
 	require.NoError(t, err)
 
-	actual, err := pool.acquire("foo")
+	actual, err := pool.Acquire("foo")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(1), actual)
 
-	actual, err = pool.acquire("bar")
+	actual, err = pool.Acquire("bar")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(2), actual)
 
-	actual, err = pool.acquire("buzz")
+	actual, err = pool.Acquire("buzz")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(3), actual)
 
-	actual, err = pool.acquire("other")
+	actual, err = pool.Acquire("other")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(4), actual)
 
-	pool.release(tables.NetworkID(4))
+	pool.Release(tables.NetworkID(4))
 
 	pool = NewIDPool(log, 3, 6)
 	require.NoError(t, pool.restore(walFile))
 	pool.walWriter, err = wal.NewWriter[allocationWALEntry](walFile)
 	require.NoError(t, err)
 
-	actual, err = pool.acquire("buzz")
+	actual, err = pool.Acquire("buzz")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(3), actual)
 
-	actual, err = pool.acquire("foo")
+	actual, err = pool.Acquire("foo")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(1), actual)
 
-	actual, err = pool.acquire("not_other")
+	actual, err = pool.Acquire("not_other")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(4), actual)
 
-	actual, err = pool.acquire("other")
+	actual, err = pool.Acquire("other")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(5), actual)
 
-	pool.initialized()
+	pool.Initialized()
 
-	actual, err = pool.acquire("bar")
+	actual, err = pool.Acquire("bar")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(6), actual)
 }
