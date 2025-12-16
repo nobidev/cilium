@@ -245,9 +245,7 @@ func (m *ingressPolicyManager) syncIngressPolicy(ctx context.Context, p *Ingress
 		logfields.Ingress, p.GetDesiredPolicy().SelectorPolicy.IngressPolicyEnabled,
 		logfields.Egress, p.GetDesiredPolicy().SelectorPolicy.EgressPolicyEnabled)
 
-	if err, rf := m.xdsServer.UpdateNetworkPolicy(p, &p.GetDesiredPolicy().SelectorPolicy.L4Policy,
-		p.GetDesiredPolicy().SelectorPolicy.IngressPolicyEnabled, p.GetDesiredPolicy().SelectorPolicy.EgressPolicyEnabled,
-		completion.NewWaitGroup(ctx)); err != nil {
+	if err, rf := m.xdsServer.UpdateNetworkPolicy(p, p.GetDesiredPolicy(), completion.NewWaitGroup(ctx)); err != nil {
 		m.logger.Error("Failed to update network policy",
 			logfields.Name, p.GetPolicyNames(),
 			logfields.Error, err)

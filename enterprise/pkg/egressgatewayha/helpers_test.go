@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 
 	"github.com/google/uuid"
@@ -325,11 +326,11 @@ func newIEGP(params *policyParams) (*Policy, *PolicyConfig) {
 	parsedGroupConfigs := []groupConfig{}
 	for _, egParams := range params.egressGroups {
 		gc := groupConfig{
-			nodeSelector: api.EndpointSelector{
+			nodeSelector: policyTypes.NewLabelSelector(api.EndpointSelector{
 				LabelSelector: &slimv1.LabelSelector{
 					MatchLabels: egParams.nodeLabels,
 				},
-			},
+			}),
 			iface:           egParams.iface,
 			maxGatewayNodes: egParams.maxGatewayNodes,
 		}
@@ -374,12 +375,12 @@ func newIEGP(params *policyParams) (*Policy, *PolicyConfig) {
 		excludedCIDRs:           parsedExcludedCIDRs,
 		azAffinity:              params.azAffinity,
 		labels:                  params.labels,
-		endpointSelectors: []api.EndpointSelector{
-			{
+		endpointSelectors: []*policyTypes.LabelSelector{
+			policyTypes.NewLabelSelector(api.EndpointSelector{
 				LabelSelector: &slimv1.LabelSelector{
 					MatchLabels: params.endpointLabels,
 				},
-			},
+			}),
 		},
 		groupConfigs:  parsedGroupConfigs,
 		groupStatuses: parsedGroupStatusesConfigs,

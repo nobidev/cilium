@@ -43,7 +43,7 @@ func NewIsovalentBGPAdvertisementInformer(client versioned.Interface, resyncPeri
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredIsovalentBGPAdvertisementInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -68,7 +68,7 @@ func NewFilteredIsovalentBGPAdvertisementInformer(client versioned.Interface, re
 				}
 				return client.IsovalentV1().IsovalentBGPAdvertisements().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisisovalentcomv1.IsovalentBGPAdvertisement{},
 		resyncPeriod,
 		indexers,

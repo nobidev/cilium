@@ -31,8 +31,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 // AgentPolicyConfig is composed of a PolicyConfig but also contains
@@ -106,9 +107,10 @@ type gatewayConfig struct {
 // matchesEndpointLabels determines if the given endpoint is a match for the
 // policy config based on matching labels.
 func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata) bool {
-	labelsToMatch := k8sLabels.Set(endpointInfo.labels)
-	for _, selector := range config.endpointSelectors {
-		if selector.Matches(labelsToMatch) {
+	labelsToMatch := labels.K8sSet(endpointInfo.labels)
+
+	for i := range config.endpointSelectors {
+		if policyTypes.Matches(config.endpointSelectors[i], labelsToMatch) {
 			return true
 		}
 	}

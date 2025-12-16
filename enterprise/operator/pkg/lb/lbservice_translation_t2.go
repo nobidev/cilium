@@ -792,14 +792,14 @@ func (r *lbServiceT2Translator) jwksClusterName(httpType, providerName string) s
 }
 
 func (r *lbServiceT2Translator) toHTPasswdString(auth *lbServiceHTTPBasicAuth) string {
-	htpasswd := ""
+	htpasswd := strings.Builder{}
 	for _, up := range auth.users {
 		// Envoy only supports SHA1 hashed passwords as of today.
 		hashed := sha1.Sum([]byte(up.password))
 		b64Encoded := base64.StdEncoding.EncodeToString(hashed[:])
-		htpasswd += fmt.Sprintf("%s:{SHA}%s\n", up.username, b64Encoded)
+		htpasswd.WriteString(fmt.Sprintf("%s:{SHA}%s\n", up.username, b64Encoded))
 	}
-	return htpasswd
+	return htpasswd.String()
 }
 
 func (r *lbServiceT2Translator) toHTTPSServerNames(model *lbService) []string {

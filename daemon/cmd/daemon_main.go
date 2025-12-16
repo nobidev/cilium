@@ -41,10 +41,8 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
-	identityrestoration "github.com/cilium/cilium/pkg/identity/restoration"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -156,9 +154,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	hive.RegisterFlags(vp, flags)
 
-	flags.Int(option.AgentHealthPort, defaults.AgentHealthPort, "TCP port for agent health status API")
-	option.BindEnv(vp, option.AgentHealthPort)
-
 	flags.Int(option.ClusterHealthPort, defaults.ClusterHealthPort, "TCP port for cluster-wide network connectivity health API")
 	option.BindEnv(vp, option.ClusterHealthPort)
 
@@ -211,9 +206,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
 	option.BindEnv(vp, option.EnableEndpointRoutes)
-
-	flags.Bool(option.AgentHealthRequireK8sConnectivity, true, "Require Kubernetes connectivity in agent health endpoint")
-	option.BindEnv(vp, option.AgentHealthRequireK8sConnectivity)
 
 	flags.Int(option.HealthCheckICMPFailureThreshold, defaults.HealthCheckICMPFailureThreshold, "Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy.")
 	option.BindEnv(vp, option.HealthCheckICMPFailureThreshold)
@@ -1237,13 +1229,11 @@ type daemonParams struct {
 	EndpointManager     endpointmanager.EndpointManager
 	EndpointRestorer    *endpointRestorer
 	IdentityAllocator   identitycell.CachingIdentityAllocator
-	IdentityRestorer    *identityrestoration.LocalIdentityRestorer
 	Policy              policy.PolicyRepository
 	MonitorAgent        monitorAgent.Agent
 	DB                  *statedb.DB
 	Devices             statedb.Table[*datapathTables.Device]
 	DirectRoutingDevice datapathTables.DirectRoutingDevice
-	IPIdentityWatcher   *ipcache.LocalIPIdentityWatcher
 	IPsecAgent          datapath.IPsecAgent
 	SyncHostIPs         *syncHostIPs
 	NodeDiscovery       *nodediscovery.NodeDiscovery
@@ -1254,6 +1244,8 @@ type daemonParams struct {
 	KPRConfig           kpr.KPRConfig
 	KPRInitializer      kprinitializer.KPRInitializer
 	InfraIPAllocator    infraendpoints.InfraIPAllocator
+	NatMap4             nat.NatMap4
+	NatMap6             nat.NatMap6
 }
 
 func daemonConfigInitialization(params daemonConfigParams) legacy.DaemonConfigInitialization {

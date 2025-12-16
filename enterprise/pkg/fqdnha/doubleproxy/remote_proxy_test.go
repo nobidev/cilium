@@ -23,7 +23,6 @@ import (
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	fqdnhaconfig "github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/tables"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
@@ -163,7 +162,7 @@ func TestListenRestoreDone(t *testing.T) {
 }
 
 // boilerplate
-func (m *mockDNSProxy) GetRules(*versioned.VersionHandle, uint16) (restore.DNSRules, error) {
+func (m *mockDNSProxy) GetRules(uint16) (restore.DNSRules, error) {
 	return nil, nil
 }
 

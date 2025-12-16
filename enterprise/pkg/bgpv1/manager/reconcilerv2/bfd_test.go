@@ -118,7 +118,11 @@ func newBFDTestFixture(t *testing.T, ctx context.Context, nodeInstance *v1.Isova
 						w := action.(k8stesting.WatchAction)
 						gvr := w.GetResource()
 						ns := w.GetNamespace()
-						watch, err := clientset.CiliumFakeClientset.Tracker().Watch(gvr, ns)
+						var opts []metav1.ListOptions
+						if watchAction, ok := action.(k8stesting.WatchActionImpl); ok {
+							opts = append(opts, watchAction.ListOptions)
+						}
+						watch, err := clientset.CiliumFakeClientset.Tracker().Watch(gvr, ns, opts...)
 						if err != nil {
 							return false, nil, err
 						}

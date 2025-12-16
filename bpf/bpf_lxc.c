@@ -196,10 +196,10 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 		 * redirect services based on user configured policies. Per packet LB should
 		 * not override LB decisions made for local-redirect services in bpf_sock.
 		 */
-#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(ENABLE_SOCKET_LB_FULL)
-		if (unlikely(lb4_svc_is_localredirect(svc)))
+		if (CONFIG(enable_lrp) && is_defined(ENABLE_SOCKET_LB_FULL) &&
+		    unlikely(lb4_svc_is_localredirect(svc)))
 			goto skip_service_lookup;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
+
 		ret = lb4_local(get_ct_map4(&tuple), ctx, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
 				&backend, ext_err);
@@ -217,14 +217,14 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 		}
 
 		if (tuple.saddr == backend->address) {
-#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
-			__net_cookie netns_cookie = CONFIG(endpoint_netns_cookie);
+			if (CONFIG(enable_lrp)) {
+				__net_cookie netns_cookie = CONFIG(endpoint_netns_cookie);
 
-			if (netns_cookie > 0 && unlikely(lb4_svc_is_localredirect(svc)) &&
-			    lrp_v4_skip_xlate_from_ctx_to_svc(netns_cookie, tuple.daddr,
-							      tuple.sport))
-				goto skip_service_lookup;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
+				if (netns_cookie > 0 && unlikely(lb4_svc_is_localredirect(svc)) &&
+				    lrp_v4_skip_xlate_from_ctx_to_svc(netns_cookie, tuple.daddr,
+								      tuple.sport))
+					goto skip_service_lookup;
+			}
 
 			/* Special loopback case: The origin endpoint has transmitted to a
 			 * service which is being translated back to the source. This would
@@ -338,10 +338,10 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			goto skip_service_lookup;
 #endif /* ENABLE_L7_LB */
 		/* See comment in __per_packet_lb_svc_xlate_4. */
-#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(ENABLE_SOCKET_LB_FULL)
-		if (unlikely(lb6_svc_is_localredirect(svc)))
+		if (CONFIG(enable_lrp) && is_defined(ENABLE_SOCKET_LB_FULL) &&
+		    unlikely(lb6_svc_is_localredirect(svc)))
 			goto skip_service_lookup;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
+
 		ret = lb6_local(get_ct_map6(&tuple), ctx, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
 				&backend, ext_err);
@@ -359,14 +359,15 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		}
 
 		if (ipv6_addr_equals(&tuple.saddr, &backend->address)) {
-#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
-			__net_cookie netns_cookie = CONFIG(endpoint_netns_cookie);
+			if (CONFIG(enable_lrp)) {
+				__net_cookie netns_cookie = CONFIG(endpoint_netns_cookie);
 
-			if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
-			    lrp_v6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple.daddr,
-							      tuple.sport))
-				goto skip_service_lookup;
-#endif
+				if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
+				    lrp_v6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple.daddr,
+								      tuple.sport))
+					goto skip_service_lookup;
+			}
+
 			ct_state_new.loopback = 1;
 		}
 
@@ -606,9 +607,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct ct_state *ct_state, ct_state_new = {};
 	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple;
-#ifdef ENABLE_ROUTING
-	union macaddr router_mac = CONFIG(interface_mac);
-#endif
+	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -971,7 +970,6 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	fraginfo_t fraginfo __maybe_unused;
-	int ret __maybe_unused;
 	bool from_l7lb = false;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
@@ -1039,9 +1037,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	const struct remote_endpoint_info *info;
 	struct remote_endpoint_info __maybe_unused fake_info = {0};
 	struct ipv4_ct_tuple *tuple;
-#ifdef ENABLE_ROUTING
-	union macaddr router_mac = CONFIG(interface_mac);
-#endif
+	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int ret, verdict, l4_off;

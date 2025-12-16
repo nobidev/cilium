@@ -32,9 +32,10 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 const (
@@ -75,7 +76,7 @@ func (gs *groupStatus) filterGWsWithoutEgressIP() {
 }
 
 func (config *groupConfig) selectsNodeAsGateway(node nodeTypes.Node) bool {
-	return config.nodeSelector.Matches(k8sLabels.Set(node.Labels))
+	return policyTypes.Matches(config.nodeSelector, labels.K8sSet(node.Labels))
 }
 
 func getIEGPForStatusUpdate(iegp *Policy, groupStatuses []groupStatus, conditions []meta_v1.Condition) *Policy {

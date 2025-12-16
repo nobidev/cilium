@@ -17,8 +17,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -54,7 +52,7 @@ type collectorParams struct {
 	Logger    *slog.Logger
 	LBMaps    lbmaps.LBMaps
 
-	Services resource.Resource[*slim_corev1.Service]
+	// Services resource.Resource[*slim_corev1.Service]
 }
 
 func registerCollector(params collectorParams) {
@@ -74,7 +72,7 @@ func registerCollector(params collectorParams) {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			params.JobGroup.Add(job.Observer("loadbalancer metrics service cache", mc.lbServiceCacheUpdater, params.Services))
+			// params.JobGroup.Add(job.Observer("loadbalancer metrics service cache", mc.lbServiceCacheUpdater, params.Services))
 			params.JobGroup.Add(job.Timer("loadbalancer metrics collector", mc.fetchMetrics, params.Config.LoadBalancerMetricsCollectionInterval))
 
 			return nil

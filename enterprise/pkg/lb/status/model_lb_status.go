@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"text/tabwriter"
 )
 
@@ -209,13 +210,13 @@ func printSimpleStatusCell(status LoadbalancerStatusModelSimpleStatus, rel strin
 }
 
 func printGroupedStatusCell(status LoadbalancerStatusModelGroupedStatus, rel string) string {
-	statusString := ""
+	statusString := strings.Builder{}
 
 	for _, g := range status.Groups {
-		statusString += relationText(status.Status, g.OK, g.Total, rel)
+		statusString.WriteString(relationText(status.Status, g.OK, g.Total, rel))
 	}
 
-	return fmt.Sprintf("%s %s", statusText(status.Status), statusString)
+	return fmt.Sprintf("%s %s", statusText(status.Status), statusString.String())
 }
 
 func getOverallStatus(bgpRouteStatus LoadbalancerStatusModelSimpleStatus, bgpPeerStatus LoadbalancerStatusModelSimpleStatus) string {

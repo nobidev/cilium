@@ -2538,7 +2538,8 @@ func init() {
           "enum": [
             "Disabled",
             "IPsec",
-            "Wireguard"
+            "Wireguard",
+            "Ztunnel"
           ]
         },
         "msg": {
@@ -2599,6 +2600,10 @@ func init() {
         },
         "container-name": {
           "description": "Name assigned to container",
+          "type": "string"
+        },
+        "container-netns-path": {
+          "description": "Path of Container Netns",
           "type": "string"
         },
         "datapath-configuration": {
@@ -7901,7 +7906,8 @@ func init() {
           "enum": [
             "Disabled",
             "IPsec",
-            "Wireguard"
+            "Wireguard",
+            "Ztunnel"
           ]
         },
         "msg": {
@@ -7962,6 +7968,10 @@ func init() {
         },
         "container-name": {
           "description": "Name assigned to container",
+          "type": "string"
+        },
+        "container-netns-path": {
+          "description": "Path of Container Netns",
           "type": "string"
         },
         "datapath-configuration": {

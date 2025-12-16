@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/job"
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -32,6 +33,9 @@ func proxyForTest(t *testing.T, envoyIntegration *envoyProxyIntegration) *Proxy 
 	var drm *reconciler.DesiredRouteManager
 	hive.New(
 		reconciler.TableCell,
+		cell.Provide(func() (_ statedbReconciler.Reconciler[*reconciler.DesiredRoute]) {
+			return nil
+		}),
 		cell.Invoke(func(m *reconciler.DesiredRouteManager) {
 			drm = m
 		}),
@@ -197,11 +201,11 @@ func (*fakeXdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+func (*fakeXdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
+func (*fakeXdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
 	panic("unimplemented")
 }
 

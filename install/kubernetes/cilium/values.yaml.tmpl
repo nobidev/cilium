@@ -1177,6 +1177,33 @@ eni:
   # -- Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances
   # are going to be used to create new ENIs
   instanceTagsFilter: []
+  # -- NodeSpec configuration for the ENI
+  nodeSpec:
+    # -- First interface index to use for IP allocation
+    # @schema
+    # type: [null, integer]
+    # @schema
+    firstInterfaceIndex: ~
+    # -- Subnet IDs to use for IP allocation
+    subnetIDs: []
+    # -- Subnet tags to use for IP allocation
+    subnetTags: []
+    # -- Security groups to use for IP allocation
+    securityGroups: []
+    # -- Security group tags to use for IP allocation
+    securityGroupTags: []
+    # -- Exclude interface tags to use for IP allocation
+    excludeInterfaceTags: []
+    # -- Use primary address for IP allocation
+    usePrimaryAddress: false
+    # -- Disable prefix delegation for IP allocation
+    disablePrefixDelegation: false
+    # -- Delete ENI on termination
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    deleteOnTermination: ~
+
 # fragmentTracking enables IPv4 fragment tracking support in the datapath.
 # fragmentTracking: true
 gke:
@@ -2126,6 +2153,18 @@ ipam:
     # refill the bucket up to the burst size capacity.
     # @default -- `4.0`
     externalAPILimitQPS: ~
+  # -- NodeSpec configuration for the IPAM
+  nodeSpec:
+    # -- IPAM min allocate
+    # @schema
+    # type: [null, integer]
+    # @schema
+    ipamMinAllocate: ~
+    # -- IPAM pre allocate
+    # @schema
+    # type: [null, integer]
+    # @schema
+    ipamPreAllocate: ~
 # -- defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when
 # no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
 # @schema
@@ -2532,6 +2571,10 @@ envoy:
   initialFetchTimeoutSeconds: 30
   # -- Maximum number of concurrent retries on Envoy clusters
   maxConcurrentRetries: 128
+  # -- Maximum number of connections on Envoy clusters
+  clusterMaxConnections: 1024
+  # -- Maximum number of requests on Envoy clusters
+  clusterMaxRequests: 1024
   # -- Maximum number of retries for each HTTP request
   httpRetryCount: 3
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
@@ -2548,7 +2591,7 @@ envoy:
   xffNumTrustedHopsL7PolicyIngress: 0
   # -- Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
   xffNumTrustedHopsL7PolicyEgress: 0
-  # -- For cases when CiliumEnvoyConfig is not used directly (Ingress, Gateway), configures Cilium BPF Metadata listener filter 
+  # -- For cases when CiliumEnvoyConfig is not used directly (Ingress, Gateway), configures Cilium BPF Metadata listener filter
   # to use the original source address when extracting the metadata for a request.
   useOriginalSourceAddress: true
   # @schema

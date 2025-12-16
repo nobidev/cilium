@@ -43,7 +43,7 @@ func NewIsovalentBFDNodeConfigOverrideInformer(client versioned.Interface, resyn
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredIsovalentBFDNodeConfigOverrideInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -68,7 +68,7 @@ func NewFilteredIsovalentBFDNodeConfigOverrideInformer(client versioned.Interfac
 				}
 				return client.IsovalentV1alpha1().IsovalentBFDNodeConfigOverrides().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisisovalentcomv1alpha1.IsovalentBFDNodeConfigOverride{},
 		resyncPeriod,
 		indexers,

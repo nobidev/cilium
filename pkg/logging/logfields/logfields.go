@@ -1514,8 +1514,6 @@ const (
 
 	EgressAlive = "egressAlive"
 
-	CTMapIPVersion = "ctMapIPVersion"
-
 	ExpectedPrevInterval = "expectedPrevInterval"
 
 	ActualPrevInterval = "actualPrevInterval"
@@ -1534,7 +1532,11 @@ const (
 
 	Cmd = "cmd"
 
+	Maps = "maps"
+
 	Prog = "prog"
+
+	Programs = "programs"
 
 	Table = "table"
 

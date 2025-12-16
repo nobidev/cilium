@@ -23,7 +23,6 @@ import (
 
 	fqdnpb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
 	"github.com/cilium/cilium/enterprise/pkg/fqdnha/config"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/policy"
@@ -125,7 +124,7 @@ func NewProxyConfig(endpointID uint64, destPortProto restore.PortProto, newRules
 		pc.SelectorRegexMapping[selector.String()] = dnsproxy.GeneratePattern(l7rules)
 		// returned nids are not "transactional", i.e., a concurrently added identity may be missing from
 		// the selections of one selector, but appear on the selections of another
-		nids := selector.GetSelections(versioned.Latest()).AsUint32Slice()
+		nids := selector.GetSelections().AsUint32Slice()
 		pc.SelectorIdentitiesMapping[selector.String()] = nids
 	}
 

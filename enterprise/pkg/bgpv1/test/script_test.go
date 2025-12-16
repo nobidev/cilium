@@ -157,7 +157,7 @@ func TestPrivilegedScript(t *testing.T) {
 			rib.NopDataPlaneCell,
 
 			// Route Reconciler cell
-			routeReconciler.TableCell,
+			routeReconciler.Cell,
 
 			// Enterprise BGP dependencies
 			cell.Provide(

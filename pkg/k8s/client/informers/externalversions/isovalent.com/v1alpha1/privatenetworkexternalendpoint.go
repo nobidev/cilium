@@ -44,7 +44,7 @@ func NewPrivateNetworkExternalEndpointInformer(client versioned.Interface, names
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredPrivateNetworkExternalEndpointInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -69,7 +69,7 @@ func NewFilteredPrivateNetworkExternalEndpointInformer(client versioned.Interfac
 				}
 				return client.IsovalentV1alpha1().PrivateNetworkExternalEndpoints(namespace).Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisisovalentcomv1alpha1.PrivateNetworkExternalEndpoint{},
 		resyncPeriod,
 		indexers,

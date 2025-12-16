@@ -18,6 +18,7 @@ import (
 
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 func Test_updateMatchedEndpointIDs(t *testing.T) {
@@ -25,12 +26,12 @@ func Test_updateMatchedEndpointIDs(t *testing.T) {
 	pc := &AgentPolicyConfig{
 		matchedEndpoints: map[endpointID]*endpointMetadata{},
 		PolicyConfig: &PolicyConfig{
-			endpointSelectors: []api.EndpointSelector{
-				{
+			endpointSelectors: []*policyTypes.LabelSelector{
+				policyTypes.NewLabelSelector(api.EndpointSelector{
 					LabelSelector: &slimv1.LabelSelector{
 						MatchLabels: ep1Labels,
 					},
-				},
+				}),
 			},
 		},
 	}

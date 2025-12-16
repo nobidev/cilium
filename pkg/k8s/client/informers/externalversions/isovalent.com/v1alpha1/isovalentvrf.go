@@ -43,7 +43,7 @@ func NewIsovalentVRFInformer(client versioned.Interface, resyncPeriod time.Durat
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredIsovalentVRFInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -68,7 +68,7 @@ func NewFilteredIsovalentVRFInformer(client versioned.Interface, resyncPeriod ti
 				}
 				return client.IsovalentV1alpha1().IsovalentVRFs().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisisovalentcomv1alpha1.IsovalentVRF{},
 		resyncPeriod,
 		indexers,

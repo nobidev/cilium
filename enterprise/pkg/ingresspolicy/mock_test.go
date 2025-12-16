@@ -29,12 +29,12 @@ type mockXDSServer struct {
 	nrOfUpdates   int
 	nrOfUpserts   int
 
-	policies map[string]*policy.L4Policy
+	policies map[string]*policy.EndpointPolicy
 }
 
 func newMockXdsServer() *mockXDSServer {
 	return &mockXDSServer{
-		policies: map[string]*policy.L4Policy{},
+		policies: map[string]*policy.EndpointPolicy{},
 	}
 }
 
@@ -88,16 +88,13 @@ func (s *mockXDSServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	delete(s.policies, ep.GetPolicyNames()[0])
 }
 
-func (s *mockXDSServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced bool, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
-	if !ep.GetPolicyVersionHandle().IsValid() {
-		panic("UpdateNetworkPolicy called with invalid version")
-	}
+func (s *mockXDSServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
 	s.nrOfUpdates++
 	s.policies[ep.GetPolicyNames()[0]] = policy
 	return nil, func() error { return nil }
 }
 
-func (*mockXDSServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
+func (*mockXDSServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
 	panic("unimplemented")
 }
 

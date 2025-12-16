@@ -77,7 +77,8 @@ func Test_ingressPolicyManager_EnsureIngressPolicy(t *testing.T) {
 
 		policy := m.ingressPolicies[resource.Key{Name: "cec", Namespace: "default"}]
 		require.NotNil(t, policy)
-		require.False(t, policy.desiredPolicy.VersionHandle.IsValid())
+		selectors := policy.desiredPolicy.GetPolicySelectors()
+		require.False(t, selectors.IsValid())
 	})
 
 	t.Run("successfully reconcile policy with existing identity", func(t *testing.T) {
@@ -102,7 +103,8 @@ func Test_ingressPolicyManager_EnsureIngressPolicy(t *testing.T) {
 
 		policy := m.ingressPolicies[resource.Key{Name: "cec", Namespace: "default"}]
 		require.NotNil(t, policy)
-		require.False(t, policy.desiredPolicy.VersionHandle.IsValid())
+		selectors := policy.desiredPolicy.GetPolicySelectors()
+		require.False(t, selectors.IsValid())
 	})
 
 	t.Run("successfully reconcile policy with different identity", func(t *testing.T) {
@@ -132,7 +134,8 @@ func Test_ingressPolicyManager_EnsureIngressPolicy(t *testing.T) {
 
 		policy := m.ingressPolicies[resource.Key{Name: "cec", Namespace: "default"}]
 		require.NotNil(t, policy)
-		require.False(t, policy.desiredPolicy.VersionHandle.IsValid())
+		selectors := policy.desiredPolicy.GetPolicySelectors()
+		require.False(t, selectors.IsValid())
 	})
 }
 
@@ -179,7 +182,8 @@ func Test_ingressPolicyManager_DeleteIngressPolicy(t *testing.T) {
 
 		policy := m.ingressPolicies[resource.Key{Name: "cec", Namespace: "default"}]
 		require.NotNil(t, policy)
-		require.False(t, policy.desiredPolicy.VersionHandle.IsValid())
+		selectors := policy.desiredPolicy.GetPolicySelectors()
+		require.False(t, selectors.IsValid())
 
 		err = m.DeleteIngressPolicy(context.Background(), resource.Key{Name: "cec", Namespace: "default"}, nil)
 		require.NoError(t, err)
@@ -231,7 +235,8 @@ func Test_ingressPolicyManager_IncrementalPolicyUpdate(t *testing.T) {
 
 		policy := m.ingressPolicies[resource.Key{Name: "cec", Namespace: "default"}]
 		require.NotNil(t, policy)
-		require.False(t, policy.desiredPolicy.VersionHandle.IsValid())
+		selectors := policy.desiredPolicy.GetPolicySelectors()
+		require.False(t, selectors.IsValid())
 
 		// add a policy applicable to "default/cec"
 		selFoo := api.NewESFromLabels(labels.ParseSelectLabel("k8s:id=foo"))
@@ -284,7 +289,8 @@ func Test_ingressPolicyManager_IncrementalPolicyUpdate(t *testing.T) {
 
 		policy = m.ingressPolicies[resource.Key{Name: "cec", Namespace: "default"}]
 		require.NotNil(t, policy)
-		require.False(t, policy.desiredPolicy.VersionHandle.IsValid())
+		selectors = policy.desiredPolicy.GetPolicySelectors()
+		require.False(t, selectors.IsValid())
 
 		// make sure the to-be-added identity is not found before incremental update
 		found := false
@@ -310,7 +316,8 @@ func Test_ingressPolicyManager_IncrementalPolicyUpdate(t *testing.T) {
 
 		policy = m.ingressPolicies[resource.Key{Name: "cec", Namespace: "default"}]
 		require.NotNil(t, policy)
-		require.False(t, policy.desiredPolicy.VersionHandle.IsValid())
+		selectors = policy.desiredPolicy.GetPolicySelectors()
+		require.False(t, selectors.IsValid())
 
 		found = false
 		for k, v := range policy.desiredPolicy.UpdatedMap(nil) {

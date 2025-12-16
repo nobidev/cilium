@@ -48,8 +48,7 @@ type templateValue struct {
 //  3. Supports only TCP and UDP; one session at a time. SCTP is not supported.
 //  4. UDP needs to send PMTU size packets as per RFC7011. In order to guarantee
 //     this, maxMsgSize should be set correctly. maxMsgSize is the maximum
-//     payload (IPFIX message) size, not the maximum packet size. You need to
-//     compute maxMsgSize based on the desired maximum packet size. If
+//     payload (IPFIX message) size, not the maximum packet size. If
 //     maxMsgSize is not set correctly, the message may be fragmented.
 type ExportingProcess struct {
 	connToCollector net.Conn
@@ -77,6 +76,15 @@ type ExporterTLSClientConfig struct {
 	CertData []byte
 	// KeyData holds PEM-encoded bytes.
 	KeyData []byte
+	// List of supported cipher suites.
+	// From https://pkg.go.dev/crypto/tls#pkg-constants
+	// The order of the list is ignored.Note that TLS 1.3 ciphersuites are not configurable.
+	// For DTLS, cipher suites are from https://pkg.go.dev/github.com/pion/dtls/v2@v2.2.12/internal/ciphersuite#ID.
+	CipherSuites []uint16
+	// Min TLS version.
+	// From https://pkg.go.dev/crypto/tls#pkg-constants
+	// Not configurable for DTLS, as only DTLS 1.2 is supported.
+	MinVersion uint16
 }
 
 type ExporterInput struct {
@@ -94,10 +102,58 @@ type ExporterInput struct {
 	// JSONBufferLen is recommended for sending json records. If not given a
 	// valid value, we use a default of 5000B
 	JSONBufferLen int
-	// For UDP, this should be set by taking into account the PMTU and
-	// header sizes.
-	MaxMsgSize        int
+	// MaxMsgSize can be used to provide a custom maximum IPFIX message
+	// size. If it is omitted, we will use an appropriate default based on
+	// the configured protocol. For UDP, we want to avoid fragmentation, so
+	// the MaxMsgSize should be set by taking into account the PMTU and
+	// header sizes. The recommended approach is to keep MaxMsgSize unset
+	// and provide the correct PMTU value.
+	MaxMsgSize int
+	// PathMTU is used to calculate the maximum message size when the
+	// protocol is UDP. It is ignored for TCP. If both MaxMsgSize and
+	// PathMTU are set, and MaxMsgSize is incompatible with the provided
+	// PathMTU, exporter initialization will fail.
+	PathMTU           int
 	CheckConnInterval time.Duration
+}
+
+func calculateMaxMsgSize(proto string, requestedSize int, pathMTU int, isIPv6 bool) (int, error) {
+	if requestedSize > 0 && (requestedSize < entities.MinSupportedMsgSize || requestedSize > entities.MaxSocketMsgSize) {
+		return 0, fmt.Errorf("requested message size should be between %d and %d", entities.MinSupportedMsgSize, entities.MaxSocketMsgSize)
+	}
+	if proto == "tcp" {
+		if requestedSize == 0 {
+			return entities.MaxSocketMsgSize, nil
+		} else {
+			return requestedSize, nil
+		}
+	}
+	// UDP protocol
+	if pathMTU == 0 {
+		if requestedSize == 0 {
+			klog.InfoS("Neither max IPFIX message size nor PMTU were provided, defaulting to min message size", "messageSize", entities.MinSupportedMsgSize)
+			return entities.MinSupportedMsgSize, nil
+		}
+		klog.InfoS("PMTU was not provided, configured message size may cause fragmentation", "messageSize", requestedSize)
+		return requestedSize, nil
+	}
+	// 20-byte IPv4, 8-byte UDP header
+	mtuDeduction := 28
+	if isIPv6 {
+		// An extra 20 bytes for IPv6
+		mtuDeduction += 20
+	}
+	maxMsgSize := pathMTU - mtuDeduction
+	if maxMsgSize < entities.MinSupportedMsgSize {
+		return 0, fmt.Errorf("provided PMTU %d is not large enough to accommodate min message size %d", pathMTU, entities.MinSupportedMsgSize)
+	}
+	if requestedSize > maxMsgSize {
+		return 0, fmt.Errorf("requested message size %d exceeds max message size %d calculated from provided PMTU", requestedSize, maxMsgSize)
+	}
+	if requestedSize > 0 {
+		return requestedSize, nil
+	}
+	return maxMsgSize, nil
 }
 
 // InitExportingProcess takes in collector address(net.Addr format), obsID(observation ID)
@@ -105,34 +161,46 @@ type ExporterInput struct {
 // for collectors listening over UDP; unit is seconds. For TCP, you can pass any
 // value and it will be ignored. For UDP, if 0 is passed, 600s is used as the default.
 func InitExportingProcess(input ExporterInput) (*ExportingProcess, error) {
+	if input.CollectorProtocol != "tcp" && input.CollectorProtocol != "udp" {
+		return nil, fmt.Errorf("unsupported collector protocol: %s", input.CollectorProtocol)
+	}
 	var conn net.Conn
 	var err error
 	if input.TLSClientConfig != nil {
 		tlsConfig := input.TLSClientConfig
-		if input.CollectorProtocol == "tcp" { // use TLS
+		switch input.CollectorProtocol {
+		case "tcp": // use TLS
 			config, configErr := createClientConfig(tlsConfig)
 			if configErr != nil {
 				return nil, configErr
 			}
 			conn, err = tls.Dial(input.CollectorProtocol, input.CollectorAddress, config)
 			if err != nil {
-				klog.Errorf("Cannot the create the tls connection to the Collector %s: %v", input.CollectorAddress, err)
-				return nil, err
+				return nil, fmt.Errorf("cannot create the TLS connection to the Collector %q: %w", input.CollectorAddress, err)
 			}
-		} else if input.CollectorProtocol == "udp" { // use DTLS
+		case "udp": // use DTLS
 			// TODO: support client authentication
 			if len(tlsConfig.CertData) > 0 || len(tlsConfig.KeyData) > 0 {
-				klog.Error("Client-authentication is not supported yet for DTLS, cert and key data will be ignored")
+				return nil, fmt.Errorf("client-authentication is not supported yet for DTLS")
+			}
+			if tlsConfig.MinVersion != 0 && tlsConfig.MinVersion != tls.VersionTLS12 {
+				return nil, fmt.Errorf("DTLS 1.2 is the only supported version")
 			}
 			roots := x509.NewCertPool()
 			ok := roots.AppendCertsFromPEM(tlsConfig.CAData)
 			if !ok {
 				return nil, fmt.Errorf("failed to parse root certificate")
 			}
+			// If tlsConfig.CipherSuites is nil, cipherSuites should also be nil!
+			var cipherSuites []dtls.CipherSuiteID
+			for _, cipherSuite := range tlsConfig.CipherSuites {
+				cipherSuites = append(cipherSuites, dtls.CipherSuiteID(cipherSuite))
+			}
 			config := &dtls.Config{
 				RootCAs:              roots,
 				ExtendedMasterSecret: dtls.RequireExtendedMasterSecret,
 				ServerName:           tlsConfig.ServerName,
+				CipherSuites:         cipherSuites,
 			}
 			udpAddr, err := net.ResolveUDPAddr(input.CollectorProtocol, input.CollectorAddress)
 			if err != nil {
@@ -140,16 +208,23 @@ func InitExportingProcess(input ExporterInput) (*ExportingProcess, error) {
 			}
 			conn, err = dtls.Dial(udpAddr.Network(), udpAddr, config)
 			if err != nil {
-				klog.Errorf("Cannot the create the dtls connection to the Collector %s: %v", udpAddr.String(), err)
-				return nil, err
+				return nil, fmt.Errorf("cannot create the DTLS connection to the Collector %q: %w", udpAddr.String(), err)
 			}
 		}
 	} else {
 		conn, err = net.Dial(input.CollectorProtocol, input.CollectorAddress)
 		if err != nil {
-			klog.Errorf("Cannot the create the connection to the Collector %s: %v", input.CollectorAddress, err)
-			return nil, err
+			return nil, fmt.Errorf("cannot create the connection to the Collector %q: %w", input.CollectorAddress, err)
 		}
+	}
+	var isIPv6 bool
+	switch addr := conn.RemoteAddr().(type) {
+	case *net.TCPAddr:
+		isIPv6 = addr.IP.To4() == nil
+	case *net.UDPAddr:
+		isIPv6 = addr.IP.To4() == nil
+	default:
+		return nil, fmt.Errorf("unsupported net.Addr type %T", addr)
 	}
 	expProc := &ExportingProcess{
 		connToCollector: conn,
@@ -169,13 +244,12 @@ func InitExportingProcess(input ExporterInput) (*ExportingProcess, error) {
 			expProc.jsonBufferLen = input.JSONBufferLen
 		}
 	} else {
-		if input.MaxMsgSize == 0 {
-			expProc.maxMsgSize = entities.MaxSocketMsgSize
-		} else if input.MaxMsgSize < entities.MinSupportedMsgSize {
-			return nil, fmt.Errorf("maxMsgSize cannot be less than 512B")
-		} else {
-			expProc.maxMsgSize = input.MaxMsgSize
+		maxMsgSize, err := calculateMaxMsgSize(input.CollectorProtocol, input.MaxMsgSize, input.PathMTU, isIPv6)
+		if err != nil {
+			return nil, err
 		}
+		klog.InfoS("Calculated max IPFIX message size", "size", maxMsgSize)
+		expProc.maxMsgSize = maxMsgSize
 	}
 
 	// Start a goroutine to check whether the collector has already closed the TCP connection.
@@ -225,11 +299,10 @@ func InitExportingProcess(input ExporterInput) (*ExportingProcess, error) {
 					klog.V(2).Info("Sending refreshed templates to the collector")
 					err := expProc.sendRefreshedTemplates()
 					if err != nil {
-						klog.Errorf("Error when sending refreshed templates, closing the connection to the collector: %v", err)
-						expProc.closeConnToCollector()
-						return
+						klog.Errorf("Error when sending refreshed templates: %v", err)
+					} else {
+						klog.V(2).Info("Sent refreshed templates to the collector")
 					}
-					klog.V(2).Info("Sent refreshed templates to the collector")
 				}
 			}
 		}()
@@ -393,9 +466,6 @@ func (ep *ExportingProcess) NewTemplateID() uint16 {
 // createAndSendIPFIXMsg takes in a set as input, creates the IPFIX message, and sends it out.
 // TODO: This method will change when we support sending multiple sets.
 func (ep *ExportingProcess) createAndSendIPFIXMsg(set entities.Set, buf *bytes.Buffer) (int, error) {
-	if set.GetSetType() == entities.Data {
-		ep.seqNumber = ep.seqNumber + set.GetNumberOfRecords()
-	}
 	n, err := WriteIPFIXMsgToBuffer(set, ep.obsDomainID, ep.seqNumber, time.Now(), buf)
 	if err != nil {
 		return 0, err
@@ -411,6 +481,10 @@ func (ep *ExportingProcess) createAndSendIPFIXMsg(set entities.Set, buf *bytes.B
 		return bytesSent, fmt.Errorf("error when sending message on the connection: %v", err)
 	} else if bytesSent != n {
 		return bytesSent, fmt.Errorf("could not send the complete message on the connection")
+	}
+
+	if set.GetSetType() == entities.Data {
+		ep.seqNumber = ep.seqNumber + set.GetNumberOfRecords()
 	}
 
 	return bytesSent, nil
@@ -500,7 +574,6 @@ func (ep *ExportingProcess) updateTemplate(id uint16, elements []entities.InfoEl
 	for i, elem := range elements {
 		ep.templatesMap[id].elements[i] = elem.GetInfoElement()
 	}
-	return
 }
 
 //nolint:unused // Keeping this function for reference.
@@ -549,33 +622,43 @@ func (ep *ExportingProcess) dataRecSanityCheck(rec entities.Record) error {
 	if rec.GetFieldCount() != uint16(len(ep.templatesMap[templateID].elements)) {
 		return fmt.Errorf("process: field count of data does not match templateID %d", templateID)
 	}
-	if len(rec.GetBuffer()) < int(ep.templatesMap[templateID].minDataRecLen) {
+
+	if rec.GetRecordLength() < int(ep.templatesMap[templateID].minDataRecLen) {
 		return fmt.Errorf("process: Data Record does not pass the min required length (%d) check for template ID %d", ep.templatesMap[templateID].minDataRecLen, templateID)
 	}
 	return nil
 }
 
 func createClientConfig(config *ExporterTLSClientConfig) (*tls.Config, error) {
-	roots := x509.NewCertPool()
-	ok := roots.AppendCertsFromPEM(config.CAData)
-	if !ok {
-		return nil, fmt.Errorf("failed to parse root certificate")
+	tlsMinVersion := config.MinVersion
+	// This should already be the default value for tls.Config, but we duplicate the earlier
+	// implementation, which was explicitly setting it to 1.2.
+	if tlsMinVersion == 0 {
+		tlsMinVersion = tls.VersionTLS12
 	}
-	if config.CertData == nil {
-		return &tls.Config{
-			RootCAs:    roots,
-			MinVersion: tls.VersionTLS12,
-			ServerName: config.ServerName,
-		}, nil
-	}
-	cert, err := tls.X509KeyPair(config.CertData, config.KeyData)
-	if err != nil {
-		return nil, err
-	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      roots,
-		MinVersion:   tls.VersionTLS12,
+	// #nosec G402: client is in charge of setting the min TLS version. We use 1.2 as the
+	// default, which is secure.
+	tlsConfig := &tls.Config{
 		ServerName:   config.ServerName,
-	}, nil
+		CipherSuites: config.CipherSuites,
+		MinVersion:   tlsMinVersion,
+	}
+	// Use system roots if config.CAData == nil.
+	if config.CAData != nil {
+		roots := x509.NewCertPool()
+		ok := roots.AppendCertsFromPEM(config.CAData)
+		if !ok {
+			return nil, fmt.Errorf("failed to parse root certificate")
+		}
+		tlsConfig.RootCAs = roots
+	}
+	// Don't use a client certificate if config.CertData == nil.
+	if config.CertData != nil {
+		cert, err := tls.X509KeyPair(config.CertData, config.KeyData)
+		if err != nil {
+			return nil, err
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+	return tlsConfig, nil
 }

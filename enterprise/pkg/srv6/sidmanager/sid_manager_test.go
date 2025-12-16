@@ -183,7 +183,11 @@ func newHive(ctx context.Context, t *testing.T, invoke ...any) (*hive.Hive, func
 		w := action.(k8sTesting.WatchAction)
 		gvr := w.GetResource()
 		ns := w.GetNamespace()
-		watch, err := fakeClientSet.CiliumFakeClientset.Tracker().Watch(gvr, ns)
+		var opts []metav1.ListOptions
+		if watchAction, ok := action.(k8sTesting.WatchActionImpl); ok {
+			opts = append(opts, watchAction.ListOptions)
+		}
+		watch, err := fakeClientSet.CiliumFakeClientset.Tracker().Watch(gvr, ns, opts...)
 		if err != nil {
 			return false, nil, err
 		}

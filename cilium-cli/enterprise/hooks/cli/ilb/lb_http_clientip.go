@@ -206,12 +206,12 @@ func generateHeaders(numOfIps int) string {
 		"X-Forwarded-For": strings.Join(xffIPs, ", "),
 	}
 
-	var res string
+	res := strings.Builder{}
 	for k, v := range headers {
-		res += fmt.Sprintf(" -H '%s: %s'", k, v)
+		res.WriteString(fmt.Sprintf(" -H '%s: %s'", k, v))
 	}
 
-	return res
+	return res.String()
 }
 
 func shouldRun(t T, runIfs map[string]runIfFunc) bool {
