@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 const (
@@ -60,6 +61,7 @@ type ServiceReconciler struct {
 
 	jobs       job.Group
 	cfg        Config
+	routesCfg  svcrouteconfig.RoutesConfig
 	signaler   *signaler.BGPCPSignaler
 	upgrader   paramUpgrader
 	peerAdvert *IsovalentAdvertisement
@@ -85,6 +87,7 @@ type ServiceReconcilerIn struct {
 	DB         *statedb.DB
 	Frontends  statedb.Table[*loadbalancer.Frontend]
 	Cfg        Config
+	RoutesCfg  svcrouteconfig.RoutesConfig
 	BGPConfig  config.Config
 	Logger     *slog.Logger
 	Signaler   *signaler.BGPCPSignaler
@@ -112,6 +115,7 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 		Reconciler: &ServiceReconciler{
 			logger:             in.Logger.With(bgptypes.ReconcilerLogField, "Service"),
 			cfg:                in.Cfg,
+			routesCfg:          in.RoutesCfg,
 			db:                 in.DB,
 			frontends:          in.Frontends,
 			jobs:               in.JobGroup,
@@ -424,8 +428,9 @@ func (r *ServiceReconciler) getExternalIPPaths(p EnterpriseReconcileParams, fron
 		if fe.Type != loadbalancer.SVCTypeExternalIPs {
 			continue
 		}
-		// Ignore externalTrafficPolicy == Local && no local EPs.
-		if fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends(p, fe) {
+		hasBackends, hasLocalBackends := hasBackends(p, fe)
+		// Ignore externalTrafficPolicy == Local && no local EPs or ignore when there are no backends and EnableNoServiceEndpointsRoutable == false.
+		if (fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends) || (!r.routesCfg.EnableNoServiceEndpointsRoutable && !hasBackends) {
 			continue
 		}
 
@@ -447,8 +452,9 @@ func (r *ServiceReconciler) getClusterIPPaths(p EnterpriseReconcileParams, front
 		if fe.Type != loadbalancer.SVCTypeClusterIP {
 			continue
 		}
-		// Ignore internalTrafficPolicy == Local && no local EPs.
-		if fe.Service.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends(p, fe) {
+		hasBackends, hasLocalBackends := hasBackends(p, fe)
+		// Ignore internalTrafficPolicy == Local && no local EPs or when there are no backends and EnableNoServiceEndpointsRoutable == false.
+		if (fe.Service.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends) || (!r.routesCfg.EnableNoServiceEndpointsRoutable && !hasBackends) {
 			continue
 		}
 
@@ -483,8 +489,9 @@ func (r *ServiceReconciler) getLoadBalancerIPPaths(p EnterpriseReconcileParams, 
 		if fe.Type != loadbalancer.SVCTypeLoadBalancer {
 			continue
 		}
-		// Ignore externalTrafficPolicy == Local && no local EPs.
-		if fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends(p, fe) {
+		hasBackends, hasLocalBackends := hasBackends(p, fe)
+		// Ignore externalTrafficPolicy == Local && no local EPs or when there are no backends and EnableNoServiceEndpointsRoutable == false.
+		if (fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends) || (!r.routesCfg.EnableNoServiceEndpointsRoutable && !hasBackends) {
 			continue
 		}
 		// Ignore frontend addresses with unhealthy backends.
@@ -503,13 +510,15 @@ func (r *ServiceReconciler) getLoadBalancerIPPaths(p EnterpriseReconcileParams, 
 	return desiredRoutes
 }
 
-func hasLocalBackends(p EnterpriseReconcileParams, fe *loadbalancer.Frontend) bool {
+func hasBackends(p EnterpriseReconcileParams, fe *loadbalancer.Frontend) (hasBackends, hasLocalBackends bool) {
 	for backend := range fe.Backends {
+		hasBackends = true
 		if backend.NodeName == p.CiliumNode.Name && backend.State == loadbalancer.BackendStateActive {
-			return true
+			hasLocalBackends = true
+			return
 		}
 	}
-	return false
+	return
 }
 
 // unhealthyFrontendAddrs returns a set of unhealthy frontend addresses of a service.

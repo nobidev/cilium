@@ -533,7 +533,7 @@ func (r *ServiceVRFReconciler) getETPLocalLBSvcPaths(p EnterpriseReconcileParams
 			continue
 		}
 		// Ignore if there is no local EPs.
-		if !hasLocalBackends(p, fe) {
+		if _, hasLocalBackends := hasBackends(p, fe); !hasLocalBackends {
 			continue
 		}
 		addr := fe.Address.Addr()

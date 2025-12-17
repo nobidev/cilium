@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 // svcTestStep represents one step in the service reconciler test execution.
@@ -3554,6 +3555,8 @@ func newServiceTestFixture(t *testing.T) *svcTestFixture {
 	}
 	f.hive = ciliumhive.New(
 		cell.Module("service-reconciler-test", "Service reconciler test",
+			svcrouteconfig.Cell,
+
 			cell.Provide(
 				signaler.NewBGPCPSignaler,
 
