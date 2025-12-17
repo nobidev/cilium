@@ -26,10 +26,13 @@ import (
 	dptables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 func NewTestHive(t testing.TB) *hive.Hive {
@@ -37,6 +40,7 @@ func NewTestHive(t testing.TB) *hive.Hive {
 		k8sClient.FakeClientCell(),
 
 		cell.Config(cmtypes.DefaultClusterInfo),
+		cell.Config(metrics.RegistryConfig{}),
 
 		daemonk8s.ResourcesCell,
 		daemonk8s.TablesCell,
@@ -45,6 +49,8 @@ func NewTestHive(t testing.TB) *hive.Hive {
 		mockLocalCiliumNodeCell(t),
 		mockGneigh(t),
 		mockBPFMapCell(t),
+		mockK8sCell(t),
+		mockPolicyCell(t),
 
 		cell.Provide(
 			dptables.NewDeviceTable,
@@ -65,6 +71,12 @@ func NewTestHive(t testing.TB) *hive.Hive {
 					// Set StateDir to match the script test directory.
 					StateDir: path.Join(path.Dir(t.TempDir()), "001"),
 				}
+			},
+
+			metrics.NewRegistry,
+
+			func() cache.IdentityAllocator {
+				return testidentity.NewMockIdentityAllocator(nil)
 			},
 		),
 

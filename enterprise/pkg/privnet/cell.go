@@ -17,6 +17,7 @@ import (
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
 	health "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/policy"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
 	statuscollector "github.com/cilium/cilium/enterprise/pkg/privnet/status/collector"
 )
@@ -31,4 +32,5 @@ var Cell = cell.Module(
 	health.Cell,
 	addressing.Cell,
 	statuscollector.Cell,
+	policy.Cell,
 )

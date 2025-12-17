@@ -31,6 +31,7 @@ var Cell = cell.Module(
 		newPIP,
 		newFIB,
 		newWatchdog,
+		createCIDRIdentityMap,
 		Config.nodeDefs,
 	),
 )

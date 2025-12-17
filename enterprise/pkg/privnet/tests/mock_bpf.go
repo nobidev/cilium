@@ -22,12 +22,16 @@ import (
 
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 
 	pnmaps "github.com/cilium/cilium/enterprise/pkg/maps/privnet"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/policy"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -52,7 +56,20 @@ func mockBPFMapCell(t testing.TB) cell.Cell {
 					Val: pnmaps.NewFIBVal(netip.MustParseAddr("172.16.1.1"), types.MACAddr{}, 0x0, 0),
 				},
 			),
+			registerFakeBPFMap[*pnmaps.CIDRIdentityKeyVal](
+				"cilium_privnet_cidr_identity", 128000,
+				&pnmaps.CIDRIdentityKeyVal{
+					Key: pnmaps.NewCIDRIdentityKey(netip.MustParsePrefix("10.0.0.0/24")),
+					Val: pnmaps.NewCIDRIdentityVal(16777230),
+				},
+				&pnmaps.CIDRIdentityKeyVal{
+					Key: pnmaps.NewCIDRIdentityKey(netip.MustParsePrefix("10.1.0.0/24")),
+					Val: pnmaps.NewCIDRIdentityVal(16777231),
+				},
+			),
 		),
+
+		cell.Invoke(restoreCIDRIdentities),
 
 		cell.Provide(func(f *fakeBPFMapRegistry) hive.ScriptCmdsOut {
 			return hive.NewScriptCmds(map[string]script.Cmd{
@@ -186,4 +203,57 @@ func (f *fakeBPFMapRegistry) dumpMaps() script.Cmd {
 			}, nil
 		},
 	)
+}
+
+// restoreCIDRIdentities mocks map restoration of the CIDR identity BPF map
+func restoreCIDRIdentities(lifecycle cell.Lifecycle, jg job.Group, db *statedb.DB,
+	fence regeneration.Fence, m pnmaps.Map[*pnmaps.CIDRIdentityKeyVal], queue policy.CIDRQueuer,
+) {
+	lifecycle.Append(cell.Hook{
+		OnStart: func(hookCtx cell.HookContext) error {
+			// Read in initial key-value pairs
+			var restored []policy.CIDRMetadata
+			bpfMap := m.(*fakeBPFMap[*pnmaps.CIDRIdentityKeyVal])
+			for k, v := range bpfMap.Dump() {
+				key := k.(*pnmaps.CIDRIdentityKey)
+				val := v.(*pnmaps.CIDRIdentityVal)
+				restored = append(restored, policy.CIDRMetadata{
+					Owner:  pnmaps.RestoredCIDROwner,
+					Prefix: key.ToPrefix(),
+					Metadata: policy.CIDRRestored{
+						Identity: identity.NumericIdentity(val.SecIdentity),
+					},
+				})
+			}
+
+			// Emit CIDR metadata for restored prefixes
+			for _, metadata := range restored {
+				queue.Queue(policy.EventUpsert, metadata)
+			}
+			queue.Queue(policy.EventRestored, policy.CIDRMetadata{})
+
+			// Mock map re-creation my pruning all elements in fake map
+			emptyFn := func(yield func(*pnmaps.CIDRIdentityKeyVal, statedb.Revision) bool) {}
+			err := bpfMap.Prune(hookCtx, db.ReadTxn(), emptyFn)
+			if err != nil {
+				return err
+			}
+
+			// Remove restored identities after regeneration
+			jg.Add(job.OneShot("release-restored-cidrs", func(ctx context.Context, _ cell.Health) error {
+				err := fence.Wait(ctx)
+				if err != nil {
+					return err
+				}
+
+				for _, metadata := range restored {
+					queue.Queue(policy.EventDelete, metadata)
+				}
+				restored = nil
+				return nil
+			}))
+
+			return nil
+		},
+	})
 }

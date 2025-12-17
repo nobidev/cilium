@@ -23,6 +23,7 @@ var Cell = cell.Group(
 	INBsCell,
 	GneighCell,
 	PIPFIBMapCell,
+	PolicyCell,
 
 	// Infrastructure shared between some of the reconcilers
 	cell.Provide(
