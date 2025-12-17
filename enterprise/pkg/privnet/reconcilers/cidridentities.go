@@ -12,6 +12,7 @@ package reconcilers
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"maps"
 	"net/netip"
@@ -19,12 +20,15 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/policy"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -44,6 +48,7 @@ var PolicyCell = cell.Group(
 
 	cell.Provide(
 		// Provides the ReadOnly CIDRMetadata and CIDRIdentity table.
+		statedb.RWTable[tables.CIDRIdentity].ToTable,
 		statedb.RWTable[tables.CIDRMetadata].ToTable,
 
 		// Provides the policy.CIDRQueuer queuing interface
@@ -54,6 +59,7 @@ var PolicyCell = cell.Group(
 
 	cell.Invoke(
 		(*CIDRIdentities).registerCIDRMetadataObserver,
+		(*CIDRIdentities).registerCIDRIdentityAllocator,
 	),
 )
 
@@ -66,8 +72,11 @@ type CIDRIdentities struct {
 
 	cfg config.Config
 
-	db       *statedb.DB
-	metadata statedb.RWTable[tables.CIDRMetadata]
+	alloc cache.IdentityAllocator
+
+	db         *statedb.DB
+	metadata   statedb.RWTable[tables.CIDRMetadata]
+	identities statedb.RWTable[tables.CIDRIdentity]
 }
 
 func newCIDRIdentities(in struct {
@@ -78,8 +87,11 @@ func newCIDRIdentities(in struct {
 
 	Config config.Config
 
-	DB       *statedb.DB
-	Metadata statedb.RWTable[tables.CIDRMetadata]
+	IdentityAllocator cache.IdentityAllocator
+
+	DB         *statedb.DB
+	Metadata   statedb.RWTable[tables.CIDRMetadata]
+	Identities statedb.RWTable[tables.CIDRIdentity]
 }) *CIDRIdentities {
 	return &CIDRIdentities{
 		log: in.Log,
@@ -87,8 +99,11 @@ func newCIDRIdentities(in struct {
 
 		cfg: in.Config,
 
-		db:       in.DB,
-		metadata: in.Metadata,
+		alloc: in.IdentityAllocator,
+
+		db:         in.DB,
+		metadata:   in.Metadata,
+		identities: in.Identities,
 	}
 }
 
@@ -233,5 +248,173 @@ func (c *CIDRIdentities) deleteCIDRMetadata(wtx statedb.WriteTxn, owner ipcacheT
 	} else {
 		// Upsert object containing updated owners list
 		c.metadata.Insert(wtx, obj)
+	}
+}
+
+// registerCIDRIdentityAllocator starts a reconciler that allocates identities for CIDRs based on the metadata
+// associated with that CIDR.
+func (c *CIDRIdentities) registerCIDRIdentityAllocator(fence regeneration.Fence) {
+	if !c.cfg.Enabled {
+		return
+	}
+
+	// Block endpoint regeneration until the initialized upstream table has been processed.
+	// Note: Technically speaking, we need to block until the BPF reconciler has finished
+	// populating the BPF map based on our table. See cilium/statedb#58.
+	restored := make(chan struct{})
+	fence.Add("privnet-cidr-identities-restored", func(ctx context.Context) error {
+		select {
+		case <-restored:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	})
+
+	c.jg.Add(job.OneShot("allocate-cidr-identities", func(ctx context.Context, health cell.Health) error {
+		// Delay identity allocation until the upstream table is initialized
+		health.OK("Waiting for cidr metadata to be initialized")
+		_, metadataRestored := c.metadata.Initialized(c.db.ReadTxn())
+		select {
+		case <-metadataRestored:
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for cidr metadata to be initialized: %w", ctx.Err())
+		}
+
+		// Start observing the CIDR metadata table
+		health.OK("Watching cidr metadata changes")
+		wtx := c.db.WriteTxn(c.metadata)
+		changeIter, _ := c.metadata.Changes(wtx)
+		wtx.Commit()
+
+		var initDone bool
+		for {
+			wtx = c.db.WriteTxn(c.identities)
+			changes, watch := changeIter.Next(wtx)
+
+			for change := range changes {
+				c.log.Debug("Processing table event",
+					logfields.Table, c.metadata.Name(),
+					logfields.Event, change,
+				)
+
+				if !change.Deleted {
+					c.upsertCIDRIdentity(wtx, change.Object)
+				} else {
+					c.deleteCIDRIdentity(wtx, change.Object)
+				}
+			}
+
+			wtx.Commit()
+
+			// After we've processed the initial snapshot, endpoint restoration may continue
+			if !initDone {
+				close(restored)
+				initDone = true
+			}
+
+			// Wait until there's new changes to consume
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-watch:
+			}
+		}
+	}))
+}
+
+// resolveLabels returns the labels that are associated with CIDR (based on the provided CIDRMetadata).
+// It also returns a numeric identity that should be passed to the identity allocator, to nudge the allocator
+// to use this numeric identity if possible.
+func (c *CIDRIdentities) resolveLabels(metadata tables.CIDRMetadata) (labels.Labels, identity.NumericIdentity) {
+	lbls := labels.Labels{}
+	restoredIdentity := identity.IdentityUnknown
+	for _, o := range metadata.Owners {
+		if o.CIDRLabel {
+			lbls.MergeLabels(labels.GetCIDRLabels(metadata.Prefix))
+		}
+		if len(o.CIDRGroupLabels) > 0 {
+			lbls.MergeLabels(o.CIDRGroupLabels)
+			lbls.AddWorldLabel(metadata.Prefix.Addr())
+		}
+		if o.RestoredIdentity != identity.IdentityUnknown {
+			if restoredIdentity != identity.IdentityUnknown {
+				c.log.Error("BUG: More than one owner provided a restored identity for a prefix",
+					logfields.Prefix, metadata.Prefix,
+					logfields.Owner, metadata.Owners,
+				)
+			}
+			restoredIdentity = o.RestoredIdentity
+		}
+	}
+	return lbls, restoredIdentity
+}
+
+// upsertCIDRIdentity is called when the metadata for a given CIDR has changed.
+//
+// It will allocate an identity for this CIDR based on the new metadata and upsert that
+// new identity into the CIDRIdentity table.
+func (c *CIDRIdentities) upsertCIDRIdentity(wtx statedb.WriteTxn, metadata tables.CIDRMetadata) {
+	// We always call AllocateLocalIdentity first, and (if it was an update not an insert),
+	// also call ReleaseLocalIdentities later. This ensures that the refcount remains balanced, i.e.
+	// every entry in the CIDRIdentity table acts as one reference to the identity.
+	newLabels, restoredIdentity := c.resolveLabels(metadata)
+	newIdentity, _, err := c.alloc.AllocateLocalIdentity(newLabels, true, restoredIdentity)
+	if err != nil {
+		c.log.Error("Failed to allocate identity",
+			logfields.Prefix, metadata.Prefix,
+			logfields.Labels, newLabels,
+			logfields.Error, err,
+		)
+		return
+	}
+
+	obj := tables.CIDRIdentity{
+		Prefix:   metadata.Prefix,
+		Identity: newIdentity.ID,
+		Status:   reconciler.StatusPending(),
+	}
+
+	old, hadOld, _ := c.identities.Modify(wtx, obj, func(old, new tables.CIDRIdentity) tables.CIDRIdentity {
+		if old.Identity == new.Identity {
+			new.Status = old.Status // retain old BPF reconciler status if nothing has changed
+		}
+		return new
+	})
+
+	if hadOld {
+		// Decrease ref count for previous allocation, to ensure our refcount is balanced
+		_, err := c.alloc.ReleaseLocalIdentities(old.Identity)
+		if err != nil {
+			c.log.Error("Failed to release identity",
+				logfields.Prefix, old.Prefix,
+				logfields.Identity, old.Prefix,
+				logfields.Error, err,
+			)
+			return
+		}
+	}
+}
+
+// deleteCIDRIdentity is called when all metadata for a given CIDR has been removed.
+//
+// If so, we remove the CIDR from our identities table and release the associated identity.
+func (c *CIDRIdentities) deleteCIDRIdentity(wtx statedb.WriteTxn, metadata tables.CIDRMetadata) {
+	obj, found, _ := c.identities.Delete(wtx, tables.CIDRIdentity{Prefix: metadata.Prefix})
+	if !found {
+		c.log.Warn("Observed identity deletion request for unknown prefix",
+			logfields.Prefix, metadata.Prefix,
+		)
+		return
+	}
+
+	_, err := c.alloc.ReleaseLocalIdentities(obj.Identity)
+	if err != nil {
+		c.log.Error("Failed to release identity",
+			logfields.Prefix, obj.Prefix,
+			logfields.Identity, obj.Identity,
+			logfields.Error, err,
+		)
+		return
 	}
 }
