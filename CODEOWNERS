@@ -1083,6 +1083,7 @@ Makefile* @cilium/build
 /pkg/logging/logfields/enterprise_* @isovalent/cilium-agent
 /pkg/maps/ipcache/*enterprise* @isovalent/dns-proxy
 /pkg/option/enterprise_* @isovalent/cilium-agent @isovalent/cli
+/pkg/policy/types/enterprise_selector.go @isovalent/private-networking
 /plugins/cilium-cni/cmd/enterprise_* @isovalent/cilium-agent
 /RELEASE-NOTES* @isovalent/qa @isovalent/release-managers
 /TESTOWNERS.enterprise @isovalent/core-structure

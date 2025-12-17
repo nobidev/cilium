@@ -19,7 +19,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
-// policyImportAdapter intercepts policy updates to collect CIDR prefixes found in imported policies.
+// policyImportAdapter intercepts policy updates to rewrites endpoint selectors
+// for the private network feature and collects CIDR prefixes found in imported policies.
 type policyImportAdapter struct {
 	importer    policycell.PolicyImporter
 	observer    CIDRQueuer
@@ -43,6 +44,11 @@ func overridePolicyImporter(cfg config.Config, observer CIDRQueuer, importer pol
 func (p *policyImportAdapter) UpdatePolicy(update *types.PolicyUpdate) {
 	// Always forward policy to decorated importer
 	defer p.importer.UpdatePolicy(update)
+
+	// Rewrite rule selectors in-place
+	for _, rule := range update.Rules {
+		rewriteRuleSelectors(rule)
+	}
 
 	// Extract CIDR prefixes from policy
 	newPrefixes := sets.New(policy.GetCIDRPrefixes(update.Rules)...)
