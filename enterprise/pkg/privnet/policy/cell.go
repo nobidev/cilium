@@ -28,6 +28,7 @@ import (
 // In addition, this cell also rewrites imported endpoint selectors in policy to implement the
 // label selector behavior expected for private network labels.
 var Cell = cell.Group(
+	cell.DecorateAll(overridePolicyImporter),
 	cell.DecorateAll(overridePolicyIPCacher),
 	cell.Invoke(waitForCacheSync),
 )
