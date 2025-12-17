@@ -91,6 +91,7 @@ const (
 	ipamFlag                         = "ipam"
 	probeTCPMD5Flag                  = "probe-tcp-md5"
 	enableNodeMaintenanceHelpersFlag = "enable-node-maintenance-helpers"
+	enableNoEndpointsRoutableFlag    = "enable-no-service-endpoints-routable"
 )
 
 func TestPrivilegedScript(t *testing.T) {
@@ -119,6 +120,7 @@ func TestPrivilegedScript(t *testing.T) {
 		useIPAM := flags.String(ipamFlag, ipamOption.IPAMKubernetes, "IPAM used by the test")
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
 		enableNodeMaintenanceHelpers := flags.Bool(enableNodeMaintenanceHelpersFlag, false, "Enable node maintenance helpers")
+		enableNoEndpointsRoutable := flags.Bool(enableNoEndpointsRoutableFlag, true, "")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
 
 		if *probeTCPMD5 {
@@ -143,7 +145,7 @@ func TestPrivilegedScript(t *testing.T) {
 				func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg }, // newLBMaps expects *TestConfig
 			),
 			cell.Config(cmtypes.DefaultClusterInfo),
-			cell.Config(svcrouteconfig.DefaultConfig),
+			svcrouteconfig.Cell,
 
 			// OSS BGP cell
 			bgp.Cell,
@@ -250,6 +252,9 @@ func TestPrivilegedScript(t *testing.T) {
 		})
 		hive.AddConfigOverride(h, func(cfg *config.Config) {
 			cfg.Enabled = true
+		})
+		hive.AddConfigOverride(h, func(cfg *svcrouteconfig.RoutesConfig) {
+			cfg.EnableNoServiceEndpointsRoutable = *enableNoEndpointsRoutable
 		})
 
 		hiveLog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
