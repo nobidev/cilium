@@ -13,6 +13,7 @@ package reconcilers
 import (
 	"context"
 	"fmt"
+	"iter"
 	"log/slog"
 	"maps"
 	"net/netip"
@@ -22,16 +23,19 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 
+	privnetmaps "github.com/cilium/cilium/enterprise/pkg/maps/privnet"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/policy"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var PolicyCell = cell.Group(
@@ -60,6 +64,7 @@ var PolicyCell = cell.Group(
 	cell.Invoke(
 		(*CIDRIdentities).registerCIDRMetadataObserver,
 		(*CIDRIdentities).registerCIDRIdentityAllocator,
+		(*CIDRIdentities).registerBPFReconciler,
 	),
 )
 
@@ -416,5 +421,92 @@ func (c *CIDRIdentities) deleteCIDRIdentity(wtx statedb.WriteTxn, metadata table
 			logfields.Error, err,
 		)
 		return
+	}
+}
+
+// cidrIdentitiesMapOps implements reconciler.Operations[tables.CIDRIdentity] (i.e. the type found
+// in the StateDB table) on top of reconciler.Operations[*privnetmaps.CIDRIdentityKeyVal] (i.e. the type
+// used in the BPF map).
+type cidrIdentitiesMapOps struct {
+	bpfOps reconciler.Operations[*privnetmaps.CIDRIdentityKeyVal]
+}
+
+// registerBPFReconciler starts a reconciler that populates the cilium_privnet_cidr_identity BPF map
+// from the CIDRIdentity StateDB table.
+func (c *CIDRIdentities) registerBPFReconciler(params reconciler.Params, bpfMap privnetmaps.Map[*privnetmaps.CIDRIdentityKeyVal], registry *metrics.Registry) error {
+	if !c.cfg.Enabled {
+		return nil
+	}
+
+	bpf.RegisterTablePressureMetricsJob[tables.CIDRIdentity, privnetmaps.Map[*privnetmaps.CIDRIdentityKeyVal]](
+		c.jg,
+		registry,
+		params.DB,
+		c.identities.ToTable(),
+		bpfMap,
+	)
+
+	ops := &cidrIdentitiesMapOps{bpfOps: bpfMap.Ops()}
+	_, err := reconciler.Register[tables.CIDRIdentity](
+		// params
+		params,
+		// table
+		c.identities,
+		// clone
+		func(e tables.CIDRIdentity) tables.CIDRIdentity {
+			return e
+		},
+		// setStatus
+		func(e tables.CIDRIdentity, status reconciler.Status) tables.CIDRIdentity {
+			e.Status = status
+			return e
+		},
+		// getStatus
+		func(e tables.CIDRIdentity) reconciler.Status {
+			return e.Status
+		},
+		// ops
+		ops,
+		// batchOps
+		nil,
+	)
+	return err
+}
+
+// Update implements reconciler.Operations[tables.CIDRIdentity]
+func (i *cidrIdentitiesMapOps) Update(ctx context.Context, txn statedb.ReadTxn, revision statedb.Revision, obj tables.CIDRIdentity) error {
+	return i.bpfOps.Update(ctx, txn, revision, &privnetmaps.CIDRIdentityKeyVal{
+		Key: privnetmaps.NewCIDRIdentityKey(obj.Prefix),
+		Val: privnetmaps.NewCIDRIdentityVal(obj.Identity),
+	})
+}
+
+// Delete implements reconciler.Operations[tables.CIDRIdentity]
+func (i *cidrIdentitiesMapOps) Delete(ctx context.Context, txn statedb.ReadTxn, revision statedb.Revision, obj tables.CIDRIdentity) error {
+	return i.bpfOps.Delete(ctx, txn, revision, &privnetmaps.CIDRIdentityKeyVal{
+		Key: privnetmaps.NewCIDRIdentityKey(obj.Prefix),
+		Val: privnetmaps.NewCIDRIdentityVal(obj.Identity),
+	})
+}
+
+// Prune implements reconciler.Operations[tables.CIDRIdentity]
+func (i *cidrIdentitiesMapOps) Prune(ctx context.Context, txn statedb.ReadTxn, objects iter.Seq2[tables.CIDRIdentity, statedb.Revision]) error {
+	return i.bpfOps.Prune(ctx, txn,
+		mapStateDBSeq(objects, func(obj tables.CIDRIdentity, rev statedb.Revision) (*privnetmaps.CIDRIdentityKeyVal, statedb.Revision) {
+			return &privnetmaps.CIDRIdentityKeyVal{
+				Key: privnetmaps.NewCIDRIdentityKey(obj.Prefix),
+				Val: privnetmaps.NewCIDRIdentityVal(obj.Identity),
+			}, rev
+		}))
+}
+
+// mapStateDBSeq applies fn over all items in sequence s
+func mapStateDBSeq[In1, In2, Out1, Out2 any](s iter.Seq2[In1, In2], fn func(In1, In2) (Out1, Out2)) iter.Seq2[Out1, Out2] {
+	return func(yield func(Out1, Out2) bool) {
+		for obj1, obj2 := range s {
+			if !yield(fn(obj1, obj2)) {
+				return
+			}
+		}
 	}
 }
