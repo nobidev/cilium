@@ -145,11 +145,12 @@ func (u *reconcileParamsUpgrader) upgrade(params reconciler.ReconcileParams) (En
 		if inst.Name != params.DesiredConfig.Name {
 			continue
 		}
-		// copy link-local PeerAddress from OSS DesiredConfig for unnumbered peers
-		// (set there by the LinkLocalReconciler)
+		// copy link-local PeerAddress from OSS DesiredConfig for auto-discovered peers
+		// (set there by the CEE LinkLocalReconciler / OSS DefaultGatewayReconciler)
 		desiredConfig := nc.Spec.BGPInstances[i].DeepCopy()
 		for peerIdx, peer := range desiredConfig.Peers {
-			if peer.AutoDiscovery != nil && peer.AutoDiscovery.Mode == v1.BGPADUnnumbered {
+			if peer.AutoDiscovery != nil &&
+				(peer.AutoDiscovery.Mode == v1.BGPADUnnumbered || peer.AutoDiscovery.Mode == v1.BGPADDefaultGateway) {
 				ossPeer, err := getOSSNodePeerByName(params.DesiredConfig, peer.Name)
 				if err != nil {
 					return EnterpriseReconcileParams{}, err

@@ -309,6 +309,13 @@ func createOSSClusterConfig(entClusterConfig *v1.IsovalentBGPClusterConfig) *v2.
 				PeerAddress: peer.PeerAddress,
 				PeerASN:     peer.PeerASN,
 			}
+			// only the DefaultGateway auto-discovery mode can be mapped into the OSS resource
+			if peer.AutoDiscovery != nil && peer.AutoDiscovery.Mode == v1.BGPADDefaultGateway {
+				p.AutoDiscovery = &v2.BGPAutoDiscovery{
+					Mode:           v2.BGPDefaultGatewayMode,
+					DefaultGateway: peer.AutoDiscovery.DefaultGateway,
+				}
+			}
 			if peer.PeerConfigRef != nil {
 				p.PeerConfigRef = &v2.PeerConfigReference{
 					Name: peer.PeerConfigRef.Name,
