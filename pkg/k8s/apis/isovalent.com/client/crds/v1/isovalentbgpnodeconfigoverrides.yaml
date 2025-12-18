@@ -103,11 +103,26 @@ spec:
                             description: AutoDiscovery allows auto-discovery of peer's
                               IP address.
                             properties:
+                              defaultGateway:
+                                description: DefaultGateway contains configuration
+                                  for the DefaultGateway peer auto-discovery mode.
+                                properties:
+                                  addressFamily:
+                                    description: addressFamily is the address family
+                                      of the default gateway.
+                                    enum:
+                                    - ipv4
+                                    - ipv6
+                                    type: string
+                                required:
+                                - addressFamily
+                                type: object
                               mode:
                                 description: Mode defines the type of BGP peer auto-discovery
                                   mechanism.
                                 enum:
                                 - Unnumbered
+                                - DefaultGateway
                                 type: string
                               unnumbered:
                                 description: Unnumbered contains configuration for
@@ -131,6 +146,9 @@ spec:
                             - message: unnumbered field is required for the 'Unnumbered'
                                 mode
                               rule: self.mode != 'Unnumbered' || has(self.unnumbered)
+                            - message: defaultGateway field is required for the 'DefaultGateway'
+                                mode
+                              rule: self.mode != 'DefaultGateway' || has(self.defaultGateway)
                           localAddress:
                             description: LocalAddress is the IP address to use for
                               connecting to this peer.

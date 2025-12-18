@@ -93,11 +93,26 @@ spec:
                               When a peer auto-discovery mechanism is enabled, the peerAddress field
                               can be empty (and will be ignored if set).
                             properties:
+                              defaultGateway:
+                                description: DefaultGateway contains configuration
+                                  for the DefaultGateway peer auto-discovery mode.
+                                properties:
+                                  addressFamily:
+                                    description: addressFamily is the address family
+                                      of the default gateway.
+                                    enum:
+                                    - ipv4
+                                    - ipv6
+                                    type: string
+                                required:
+                                - addressFamily
+                                type: object
                               mode:
                                 description: Mode defines the type of BGP peer auto-discovery
                                   mechanism.
                                 enum:
                                 - Unnumbered
+                                - DefaultGateway
                                 type: string
                               unnumbered:
                                 description: Unnumbered contains configuration for
@@ -121,6 +136,9 @@ spec:
                             - message: unnumbered field is required for the 'Unnumbered'
                                 mode
                               rule: self.mode != 'Unnumbered' || has(self.unnumbered)
+                            - message: defaultGateway field is required for the 'DefaultGateway'
+                                mode
+                              rule: self.mode != 'DefaultGateway' || has(self.defaultGateway)
                           name:
                             description: Name is the name of the BGP peer. It is a
                               unique identifier for the peer within the BGP instance.

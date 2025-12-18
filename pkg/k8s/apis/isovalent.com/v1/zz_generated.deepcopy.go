@@ -59,6 +59,11 @@ func (in *BGPAutoDiscovery) DeepCopyInto(out *BGPAutoDiscovery) {
 		*out = new(BGPUnnumbered)
 		**out = **in
 	}
+	if in.DefaultGateway != nil {
+		in, out := &in.DefaultGateway, &out.DefaultGateway
+		*out = new(v2.DefaultGateway)
+		**out = **in
+	}
 	return
 }
 

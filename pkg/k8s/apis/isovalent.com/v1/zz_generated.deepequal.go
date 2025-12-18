@@ -71,6 +71,14 @@ func (in *BGPAutoDiscovery) DeepEqual(other *BGPAutoDiscovery) bool {
 		}
 	}
 
+	if (in.DefaultGateway == nil) != (other.DefaultGateway == nil) {
+		return false
+	} else if in.DefaultGateway != nil {
+		if !in.DefaultGateway.DeepEqual(other.DefaultGateway) {
+			return false
+		}
+	}
+
 	return true
 }
 

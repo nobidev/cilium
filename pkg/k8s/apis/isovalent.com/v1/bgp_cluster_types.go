@@ -6,6 +6,7 @@ package v1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
@@ -221,6 +222,7 @@ type IsovalentBGPPeer struct {
 // BGPAutoDiscovery contains configuration for the BGP peer auto-discovery mechanism.
 //
 // +kubebuilder:validation:XValidation:rule="self.mode != 'Unnumbered' || has(self.unnumbered)", message="unnumbered field is required for the 'Unnumbered' mode"
+// +kubebuilder:validation:XValidation:rule="self.mode != 'DefaultGateway' || has(self.defaultGateway)", message="defaultGateway field is required for the 'DefaultGateway' mode"
 type BGPAutoDiscovery struct {
 	// Mode defines the type of BGP peer auto-discovery mechanism.
 	//
@@ -231,16 +233,24 @@ type BGPAutoDiscovery struct {
 	//
 	// +kubebuilder:validation:Optional
 	Unnumbered *BGPUnnumbered `json:"unnumbered,omitempty"`
+
+	// DefaultGateway contains configuration for the DefaultGateway peer auto-discovery mode.
+	//
+	// +kubebuilder:validation:Optional
+	DefaultGateway *v2.DefaultGateway `json:"defaultGateway,omitempty"`
 }
 
 // BGPAutoDiscoveryMode defines the mode of BGP peer auto-discovery.
 //
-// +kubebuilder:validation:Enum=Unnumbered
+// +kubebuilder:validation:Enum=Unnumbered;DefaultGateway
 type BGPAutoDiscoveryMode string
 
 const (
 	// BGPADUnnumbered is "BGP Unnumbered" peer auto-discovery mode.
 	BGPADUnnumbered BGPAutoDiscoveryMode = "Unnumbered"
+
+	// BGPADDefaultGateway is peer auto-discovery mode using default gateway.
+	BGPADDefaultGateway BGPAutoDiscoveryMode = "DefaultGateway"
 )
 
 // BGPUnnumbered contains configuration for the BGP Unnumbered peer auto-discovery mechanism.
