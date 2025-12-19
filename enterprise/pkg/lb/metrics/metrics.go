@@ -12,75 +12,71 @@ package metrics
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
+	"github.com/cilium/statedb"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
-
-type serviceCacheEntry struct {
-	namespace string
-	name      string
-	revNat    uint16
-}
 
 // lbMetricsCollector implements Prometheus Collector interface and store the state of the metrics collector
 type lbMetricsCollector struct {
-	// lbServiceCache maps LB frontend addresses (ip:port/proto) to the related service's name and RevNAT ID
-	lbServiceCache map[string]serviceCacheEntry
-	serviceSync    chan struct{}
-
-	// prevLbCtEntries stores a snapshot of the LB CT entries
-	prevLbCtEntries map[*ctmap.CtKey4Global]*ctmap.CtEntry
-
-	// lbBytes maps frontends -> backends -> bytes count for a given (frontend, backend) tuple
-	lbBytes map[string]map[string]uint64
-	// lbBytes maps frontends -> backends -> packets count for a given (frontend, backend) tuple
-	lbPackets map[string]map[string]uint64
-	// lbOpenConnections is a counter for the number of open connections
-	lbOpenConnections int
-	// lbBytes maps frontends -> backends -> healthcheck status for a given (frontend, backend) tuple
-	lbHealthcheckStatus map[string]map[string]bool
-
-	lock.Mutex
-
-	// services resource.Resource[*slim_corev1.Service]
-	ct4Maps []*ctmap.Map
-
+	db                      *statedb.DB
+	frontends               statedb.Table[*loadbalancer.Frontend]
+	lbmaps                  lbmaps.LBMaps
+	logger                  *slog.Logger
+	ct4Maps                 []ctmap.CtMap
 	lbBytesDesc             *prometheus.Desc
 	lbPacketsDesc           *prometheus.Desc
 	lbOpenConnectionsDesc   *prometheus.Desc
 	lbHealthcheckStatusDesc *prometheus.Desc
 
-	lbmaps lbmaps.LBMaps
+	// Mutex protects the fields below
+	lock.Mutex
 
-	logger *slog.Logger
+	// round number is monotonically increasing.
+	// Used to detect orphaned backend metrics.
+	round uint64
+
+	// prevLbCtEntries stores a snapshot of the LB CT entries
+	prevLbCtEntries map[*ctmap.CtKey4Global]*ctmap.CtEntry
+
+	// backendMetrics stores metrics (bytes, packets, health) for each backend
+	backendMetrics map[backendMetricKey]*backendMetricValue
 }
 
-func newLBMetricsCollector(params collectorParams) *lbMetricsCollector {
-	ct4Maps := ctmap.Maps(true, false)
+type backendMetricKey struct {
+	name loadbalancer.ServiceName
+	addr loadbalancer.L3n4Addr
+}
 
+type backendMetricValue struct {
+	updatedAt uint64
+	bytes     uint64
+	packets   uint64
+	healthy   bool
+}
+
+// entryTimeToLive is how many [fetchMetrics] rounds a [backendMetricValue]
+// stays around even when the associated CT entry is gone.
+const entryTimeToLive = 10
+
+func newLBMetricsCollector(params collectorParams, ct4Maps []ctmap.CtMap) *lbMetricsCollector {
 	return &lbMetricsCollector{
-		lbServiceCache: make(map[string]serviceCacheEntry),
-		serviceSync:    make(chan struct{}),
+		db:        params.DB,
+		frontends: params.Frontends,
 
-		lbBytes:             make(map[string]map[string]uint64),
-		lbPackets:           make(map[string]map[string]uint64),
-		lbOpenConnections:   0,
-		lbHealthcheckStatus: make(map[string]map[string]bool),
+		prevLbCtEntries: make(map[*ctmap.CtKey4Global]*ctmap.CtEntry),
+		backendMetrics:  make(map[backendMetricKey]*backendMetricValue),
 
-		// services: params.Services,
 		ct4Maps: ct4Maps,
 
 		lbBytesDesc: prometheus.NewDesc(
@@ -121,80 +117,34 @@ func (mc *lbMetricsCollector) Collect(ch chan<- prometheus.Metric) {
 	mc.Lock()
 	defer mc.Unlock()
 
-	for frontend, backends := range mc.lbBytes {
-		for backend, bytes := range backends {
-			ch <- prometheus.MustNewConstMetric(mc.lbBytesDesc, prometheus.CounterValue, float64(bytes), frontend, backend)
+	nameAsLabelValue := func(n loadbalancer.ServiceName) string {
+		return n.Namespace() + "_" + n.Name()
+	}
+
+	for key, entry := range mc.backendMetrics {
+		serviceName := nameAsLabelValue(key.name)
+		backend := key.addr.StringWithProtocol()
+		ch <- prometheus.MustNewConstMetric(mc.lbBytesDesc, prometheus.CounterValue, float64(entry.bytes), serviceName, backend)
+		ch <- prometheus.MustNewConstMetric(mc.lbPacketsDesc, prometheus.CounterValue, float64(entry.packets), serviceName, backend)
+		s := 0
+		if entry.healthy {
+			s = 1
 		}
+		ch <- prometheus.MustNewConstMetric(mc.lbHealthcheckStatusDesc, prometheus.GaugeValue, float64(s), serviceName, backend)
 	}
-	for frontend, bes := range mc.lbPackets {
-		for be, packets := range bes {
-			ch <- prometheus.MustNewConstMetric(mc.lbPacketsDesc, prometheus.CounterValue, float64(packets), frontend, be)
-		}
-	}
-	ch <- prometheus.MustNewConstMetric(mc.lbOpenConnectionsDesc, prometheus.GaugeValue, float64(mc.lbOpenConnections))
-	for frontend, backendss := range mc.lbHealthcheckStatus {
-		for backends, status := range backendss {
-			s := 0
-			if status {
-				s = 1
-			}
-			ch <- prometheus.MustNewConstMetric(mc.lbHealthcheckStatusDesc, prometheus.GaugeValue, float64(s), frontend, backends)
-		}
-	}
-}
-
-// lbServiceCacheUpdater listens to service events and updates the LB service cache accordingly
-//
-//lint:ignore U1000 ignoring this while v1.Service will be replaced with statedb
-func (mc *lbMetricsCollector) lbServiceCacheUpdater(ctx context.Context, event resource.Event[*slim_corev1.Service]) error {
-	service := event.Object
-
-	if event.Kind == resource.Sync {
-		close(mc.serviceSync)
-		event.Done(nil)
-		return nil
-	}
-
-	// only add T1 services to the cache
-	if service.Annotations["loadbalancer.isovalent.com/type"] != "t1" {
-		event.Done(nil)
-		return nil
-	}
-
-	mc.Lock()
-	for _, frontendIP := range service.Status.LoadBalancer.Ingress {
-		for _, frontendPort := range service.Spec.Ports {
-			frontendAddr := formatFrontendAddr(frontendIP.IP, uint16(frontendPort.Port), string(frontendPort.Protocol))
-
-			switch event.Kind {
-			case resource.Upsert:
-				if len(service.OwnerReferences) == 0 {
-					mc.logger.Warn("Service is missing reference to LBService owner")
-				} else {
-					mc.lbServiceCache[frontendAddr] = serviceCacheEntry{namespace: service.Namespace, name: service.OwnerReferences[0].Name}
-				}
-			case resource.Delete:
-				delete(mc.lbServiceCache, frontendAddr)
-			}
-		}
-	}
-	mc.Unlock()
-
-	event.Done(nil)
-	return nil
 }
 
 func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
-	select {
-	case <-mc.serviceSync:
-	default:
+	// Skip collection if frontends are not initialized yet
+	if init, _ := mc.frontends.Initialized(mc.db.ReadTxn()); !init {
 		return nil
 	}
 
 	mc.Lock()
 	defer mc.Unlock()
 
-	mc.lbOpenConnections = 0
+	mc.round++
+	round := mc.round
 
 	// Iterate the backend map to collect a list of all backends
 	backends := map[loadbalancer.BackendID]*lbmaps.Backend4ValueV3{}
@@ -218,7 +168,26 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 	}
 
 	// Iterate the service map to collect the health status of all LB services
-	mc.lbHealthcheckStatus = make(map[string]map[string]bool)
+	txn := mc.db.ReadTxn()
+	getService := func(addr loadbalancer.L3n4Addr) (loadbalancer.ServiceName, loadbalancer.ServiceID, bool) {
+		fe, _, found := mc.frontends.Get(txn, loadbalancer.FrontendByAddress(addr))
+		if !found {
+			return loadbalancer.ServiceName{}, 0, false
+		}
+		isT1 := fe.Service.Annotations["loadbalancer.isovalent.com/type"] == "t1"
+		return fe.ServiceName, fe.ID, isT1
+	}
+
+	getEntry := func(svcName loadbalancer.ServiceName, addr loadbalancer.L3n4Addr) *backendMetricValue {
+		key := backendMetricKey{svcName, addr}
+		entry, ok := mc.backendMetrics[key]
+		if !ok {
+			entry = &backendMetricValue{}
+			mc.backendMetrics[key] = entry
+		}
+		entry.updatedAt = round
+		return entry
+	}
 
 	serviceCallback := func(key lbmaps.ServiceKey, value lbmaps.ServiceValue) {
 		serviceKey, ok := key.(*lbmaps.Service4Key)
@@ -231,16 +200,10 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 			return
 		}
 
-		frontendAddr := formatFrontendAddr(serviceKey.Address.String(), serviceKey.Port, u8proto.U8proto(serviceKey.Proto).String())
-
-		// ignore non LB services
-		service, ok := mc.lbServiceCache[frontendAddr]
-		if !ok {
+		svcName, _, isT1 := getService(svcKeyToAddr(serviceKey))
+		if !isT1 {
 			return
 		}
-
-		service.revNat = serviceVal.RevNat
-		mc.lbServiceCache[frontendAddr] = service
 
 		// lookup the service's backend from the cache
 		serviceBackend, ok := backends[loadbalancer.BackendID(serviceVal.BackendID)]
@@ -248,41 +211,28 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 			return
 		}
 
-		frontendFullName := fmt.Sprintf("%s_%s", service.namespace, service.name)
+		backendAddr := beValueToAddr(serviceBackend)
 
 		// and update the health status of the service's backend
-		serviceBackends, ok := mc.lbHealthcheckStatus[frontendFullName]
-		if !ok {
-			serviceBackends = make(map[string]bool)
-		}
-		serviceBackends[serviceBackend.Address.String()] = serviceVal.GetFlags() == 0
-		mc.lbHealthcheckStatus[frontendFullName] = serviceBackends
+		getEntry(svcName, backendAddr).healthy = serviceVal.GetFlags() == 0
 	}
 	if err := mc.lbmaps.DumpService(serviceCallback); err != nil {
 		mc.logger.Error("Cannot dump service map, LB metrics may be incomplete", logfields.Error, err)
 		return err
 	}
 
-	// lbCtEntries collects all the LB related CT entries
-	lbCtEntries := map[*ctmap.CtKey4Global]*ctmap.CtEntry{}
-
 	ctMapCallback := func(key bpf.MapKey, value bpf.MapValue) {
 		ctKey := key.(*ctmap.CtKey4Global).ToHost().(*ctmap.CtKey4Global)
 		ctValue := value.(*ctmap.CtEntry)
 
-		frontendAddr := formatFrontendAddr(ctKey.DestAddr.String(), ctKey.SourcePort, ctKey.NextHeader.String())
-
-		// skip entry if it's not related to an LB service
-		service, ok := mc.lbServiceCache[frontendAddr]
-		if !ok {
+		svcName, svcID, isT1 := getService(ctKeyToAddr(ctKey))
+		if !isT1 {
 			return
 		}
 
-		if ctValue.RevNAT != service.revNat {
+		if ctValue.RevNAT != uint16(svcID) {
 			return
 		}
-
-		lbCtEntries[ctKey] = ctValue
 
 		// lookup the CT entry's backend from the cache
 		backend, ok := backends[loadbalancer.BackendID(ctValue.Union0[1])]
@@ -297,26 +247,12 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 			deltaBytes -= prevCtValue.Bytes
 			deltaPackets -= prevCtValue.Packets
 		}
+		mc.prevLbCtEntries[ctKey] = ctValue
 
-		frontendFullName := fmt.Sprintf("%s_%s", service.namespace, service.name)
-		backendAddr := backend.Address.String()
-
-		// and increment the bytes and packets counters by the related deltas
-		lbBytesBackends, ok := mc.lbBytes[frontendFullName]
-		if !ok {
-			lbBytesBackends = make(map[string]uint64)
-		}
-		lbBytesBackends[backendAddr] += deltaBytes
-		mc.lbBytes[frontendFullName] = lbBytesBackends
-
-		lbPacketsBackends, ok := mc.lbPackets[frontendFullName]
-		if !ok {
-			lbPacketsBackends = make(map[string]uint64)
-		}
-		lbPacketsBackends[backendAddr] += deltaPackets
-		mc.lbPackets[frontendFullName] = lbPacketsBackends
-
-		mc.lbOpenConnections += 1
+		backendAddr := beValueToAddr(backend)
+		entry := getEntry(svcName, backendAddr)
+		entry.bytes += deltaBytes
+		entry.packets += deltaPackets
 	}
 	for _, ctMap := range mc.ct4Maps {
 		if err := ctMap.DumpWithCallback(ctMapCallback); err != nil {
@@ -325,11 +261,36 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 		}
 	}
 
-	mc.prevLbCtEntries = lbCtEntries
+	// Drop metrics for backends that have not had an associated CT entry
+	// for [entryTimeToLive] collection rounds.
+	for key, entry := range mc.backendMetrics {
+		if entry.updatedAt+entryTimeToLive < round {
+			delete(mc.backendMetrics, key)
+		}
+	}
 
 	return nil
 }
 
-func formatFrontendAddr(ip string, port uint16, protocol string) string {
-	return fmt.Sprintf("%s:%d/%s", ip, port, protocol)
+func svcKeyToAddr(svcKey lbmaps.ServiceKey) loadbalancer.L3n4Addr {
+	feIP := svcKey.GetAddress()
+	feAddrCluster := cmtypes.MustAddrClusterFromIP(feIP)
+	proto := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
+	feL3n4Addr := loadbalancer.NewL3n4Addr(proto, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
+	return feL3n4Addr
+}
+
+func ctKeyToAddr(ctKey *ctmap.CtKey4Global) loadbalancer.L3n4Addr {
+	feIP := ctKey.GetDestAddr()
+	feAddrCluster := cmtypes.AddrClusterFrom(feIP, 0)
+	proto := loadbalancer.NewL4TypeFromNumber(uint8(ctKey.NextHeader))
+	feL3n4Addr := loadbalancer.NewL3n4Addr(proto, feAddrCluster, ctKey.SourcePort, loadbalancer.ScopeExternal)
+	return feL3n4Addr
+}
+
+func beValueToAddr(beValue lbmaps.BackendValue) loadbalancer.L3n4Addr {
+	beAddrCluster := beValue.GetAddress()
+	proto := loadbalancer.NewL4TypeFromNumber(beValue.GetProtocol())
+	beL3n4Addr := loadbalancer.NewL3n4Addr(proto, beAddrCluster, beValue.GetPort(), 0)
+	return beL3n4Addr
 }

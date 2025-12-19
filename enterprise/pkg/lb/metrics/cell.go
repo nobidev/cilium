@@ -15,10 +15,13 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -52,7 +55,8 @@ type collectorParams struct {
 	Logger    *slog.Logger
 	LBMaps    lbmaps.LBMaps
 
-	// Services resource.Resource[*slim_corev1.Service]
+	DB        *statedb.DB
+	Frontends statedb.Table[*loadbalancer.Frontend]
 }
 
 func registerCollector(params collectorParams) {
@@ -64,21 +68,22 @@ func registerCollector(params collectorParams) {
 		return
 	}
 
-	mc := newLBMetricsCollector(params)
+	var ctMaps []ctmap.CtMap
+	for _, m := range ctmap.Maps(true, false) {
+		ctMaps = append(ctMaps, m)
+	}
+
+	mc := newLBMetricsCollector(params, ctMaps)
 	if err := metrics.Register(mc); err != nil {
 		params.Logger.Error("Failed to register LB collector to Prometheus registry. LB metrics will not be collected", logfields.Error, err)
 		return
 	}
 
-	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(hc cell.HookContext) error {
-			// params.JobGroup.Add(job.Observer("loadbalancer metrics service cache", mc.lbServiceCacheUpdater, params.Services))
-			params.JobGroup.Add(job.Timer("loadbalancer metrics collector", mc.fetchMetrics, params.Config.LoadBalancerMetricsCollectionInterval))
-
-			return nil
-		},
-		OnStop: func(hc cell.HookContext) error {
-			return nil
-		},
-	})
+	params.JobGroup.Add(
+		job.Timer(
+			"loadbalancer metrics collector",
+			mc.fetchMetrics,
+			params.Config.LoadBalancerMetricsCollectionInterval,
+		),
+	)
 }
