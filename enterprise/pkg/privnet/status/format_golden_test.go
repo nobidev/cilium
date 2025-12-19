@@ -291,6 +291,83 @@ func TestFormatGolden(t *testing.T) {
 				Mode:    "bridge",
 			},
 		},
+		{
+			name:   "worker without inb",
+			golden: "worker-no-connected-inb",
+			status: NodeStatus{
+				Name:    "worker-0",
+				Cluster: "cluster-west",
+				ConnectedClusters: []ConnectedCluster{
+					{
+						Name: "cluster-east",
+						NodeNames: []types.NodeName{
+							"worker-0",
+							"worker-1",
+							"worker-2",
+						},
+					},
+				},
+				Enabled: true,
+				Mode:    "default",
+				Networks: []NetworkStatus{
+					{
+						Name: "blue",
+						Routes: []Route{
+							{
+								Destination: netip.MustParsePrefix("0.0.0.0/0"),
+								Gateway:     netip.MustParseAddr("192.168.1.1"),
+							},
+						},
+						Subnets: []Subnet{
+							{
+								CIDR: netip.MustParsePrefix("192.168.1.1/24"),
+							},
+						},
+						Endpoints: []EndpointStatus{
+							{
+								Name:    "ep0",
+								Cluster: "cluster-west",
+								Node:    "worker-0",
+								IPv4:    netip.MustParseAddr("10.0.0.10"),
+								NetIPv4: netip.MustParseAddr("192.168.1.10"),
+								Active:  true,
+							},
+							{
+								Name:    "ep1",
+								Cluster: "cluster-west",
+								Node:    "worker-1",
+								IPv4:    netip.MustParseAddr("10.0.0.11"),
+								NetIPv4: netip.MustParseAddr("192.168.1.11"),
+								Active:  false,
+							},
+							{
+								Name:    "ep2",
+								Cluster: "cluster-west",
+								Node:    "worker-2",
+								IPv4:    netip.MustParseAddr("10.0.0.12"),
+								NetIPv4: netip.MustParseAddr("192.168.1.12"),
+								Active:  true,
+							},
+							{
+								Name:    "ep2-east",
+								Cluster: "cluster-east",
+								Node:    "worker-2",
+								IPv4:    netip.MustParseAddr("10.0.2.12"),
+								NetIPv4: netip.MustParseAddr("192.168.1.52"),
+								Active:  true,
+							},
+						},
+						WorkerStatus: WorkerStatus{
+							ConnectedINBClusters: []INBCluster{
+								{
+									Name: "inb-not-exists",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.status.Format()

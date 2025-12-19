@@ -65,6 +65,7 @@ metadata:
 spec:
   networkBridges:
   - cluster: felidae
+  - cluster: not-exists
   routes: []
   subnets:
   - cidr: 192.168.250.0/24
@@ -255,7 +256,7 @@ Node                                       foobar-worker-1                      
                         camelidae           1 Endpoints
                         felidae             2 Endpoints
 
-    Connected INBs    felidae 1/1 [active]
+    Connected INBs    felidae 1/1 [active]  not-exists 0/0 [disconnected]
 
   Network green-network              Active INB  camelidae/alpaca                                 OK
     Subnets   10.0.100.0/24  fd00:10:100::/64
@@ -363,6 +364,9 @@ Node                                       foobar-worker-1                      
                 "healthy": true
               }
             ]
+          },
+          {
+            "name": "not-exists"
           }
         ]
       }

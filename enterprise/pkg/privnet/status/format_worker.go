@@ -129,29 +129,33 @@ func (ws WorkerStatus) formatWorkerConnectedINBs(localCluster tables.ClusterName
 	summary := map[tables.ClusterName]connectedINBSummary{}
 
 	for _, inbCl := range ws.ConnectedINBClusters {
+		info := summary[inbCl.Name]
+		info.name = inbCl.Name
+		if inbCl.Name == localCluster {
+			info.name += "(local)"
+		}
 		for _, inb := range inbCl.INBs {
-			info := summary[inbCl.Name]
-			info.name = inbCl.Name
-			if inbCl.Name == localCluster {
-				info.name += "(local)"
-			}
 			if inb.Healthy {
 				info.healthyNodes++
 			}
 			info.totalNodes++
 			info.active = info.active || inb.Active
-			summary[inbCl.Name] = info
 		}
+		summary[inbCl.Name] = info
 	}
 
 	inbsStrings := []string{}
 	for _, cluster := range slices.SortedFunc(maps.Keys(summary), sortWithPin(localCluster)) {
 		inb := summary[cluster]
-		activeStr := ""
+		annotation := ""
 		if inb.active {
-			activeStr = " [active]"
+			annotation = " [active]"
 		}
-		nodesStr := fmt.Sprintf("%s %d/%d%s", inb.name, inb.healthyNodes, inb.totalNodes, activeStr)
+		if inb.totalNodes == 0 {
+			annotation = " [disconnected]"
+		}
+
+		nodesStr := fmt.Sprintf("%s %d/%d%s", inb.name, inb.healthyNodes, inb.totalNodes, annotation)
 		if inb.healthyNodes == 0 {
 			nodesStr = fmtErr(nodesStr)
 		} else if inb.active {

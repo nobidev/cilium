@@ -82,12 +82,14 @@ func (sc *statusCollector) collectNodeStatus() NodeStatus {
 		}
 
 		var ok bool
-		activeINB, ok := findActiveINB(inbsByNet[pn.Name])
+		inbs := inbsByNet[pn.Name]
+		activeINB, ok := findActiveINB(inbs)
+		inbs = addUnknownINBs(inbs, pn.INBs.Selectors)
 		pns.WorkerStatus = WorkerStatus{
 			ActiveINB:            activeINB,
-			ConnectedINBClusters: inbsByNet[pn.Name],
+			ConnectedINBClusters: inbs,
 		}
-		if !ok && len(pn.INBs.Selectors) > 0 {
+		if !ok && len(inbs) > 0 {
 			pns.Errors = append(pns.Errors, "No Active INB")
 		}
 
@@ -162,6 +164,19 @@ func findActiveINB(clusters []INBCluster) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func addUnknownINBs(clusters []INBCluster, selectors map[tables.ClusterName]tables.PrivateNetworkINBNodeSelector) []INBCluster {
+	for _, cluster := range slices.Sorted(maps.Keys(selectors)) {
+		if !slices.ContainsFunc(clusters, func(inb INBCluster) bool {
+			return inb.Name == cluster
+		}) {
+			clusters = append(clusters, INBCluster{
+				Name: cluster,
+			})
+		}
+	}
+	return clusters
 }
 
 func (sc *statusCollector) collectConnectedClusters() []ConnectedCluster {
