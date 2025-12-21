@@ -14,11 +14,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -114,11 +116,17 @@ func newLocalNodeConfig(
 		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("getting ephemeral port range minimun: %w", err)
 	}
 
+	ciliumNetLink, err := safenetlink.LinkByName(defaults.SecondHostDevice)
+	if err != nil {
+		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s': %w", defaults.SecondHostDevice, err)
+	}
+
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
 		NodeIPv6:                     localNode.GetNodeIP(true),
 		CiliumInternalIPv4:           localNode.GetCiliumInternalIP(false),
 		CiliumInternalIPv6:           localNode.GetCiliumInternalIP(true),
+		CiliumNetIfIndex:             uint32(ciliumNetLink.Attrs().Index),
 		AllocCIDRIPv4:                localNode.IPv4AllocCIDR,
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
 		NativeRoutingCIDRIPv4:        datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
