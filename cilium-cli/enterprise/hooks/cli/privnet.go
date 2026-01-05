@@ -21,6 +21,7 @@ func NewCmdPrivNet() *cobra.Command {
 	}
 
 	cmd.AddCommand(newCmdPrivNetTest())
+	cmd.AddCommand(newCmdPrivNetStatus())
 
 	return cmd
 }
