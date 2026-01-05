@@ -2418,6 +2418,13 @@ hubble:
     tolerations: []
     priorityClassName: ""
     resources: {}
+    service:
+      # -- Service type for the hubble-timescape service
+      type: ClusterIP
+      # -- Annotations to be added to the hubble-timescape service
+      annotations: {}
+      # -- Labels to be added to the hubble-timescape service
+      labels: {}
     podAnnotations: {}
     podLabels: {}
     podSecurityContext:

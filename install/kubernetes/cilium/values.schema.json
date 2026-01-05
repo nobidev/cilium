@@ -4567,6 +4567,20 @@
               },
               "type": "object"
             },
+            "service": {
+              "properties": {
+                "annotations": {
+                  "type": "object"
+                },
+                "labels": {
+                  "type": "object"
+                },
+                "type": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
             "tls": {
               "properties": {
                 "client": {

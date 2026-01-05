@@ -29,6 +29,25 @@ app.kubernetes.io/part-of: cilium
 {{- end }}
 {{- end }}
 
+{{- define "hubble.timescape.service.annotations" }}
+{{- if .Values.hubble.timescape.clustermesh.primary.id }}
+service.cilium.io/global: "true"
+{{- if not (eq (int64 .Values.hubble.timescape.clustermesh.primary.id) (int64 .Values.cluster.id)) }}
+service.cilium.io/shared: "false"
+{{- end }}
+{{- end }}
+{{ with .Values.hubble.timescape.service.annotations }}
+{{- toYaml . }}
+{{- end }}
+{{- end }}
+
+{{- define "hubble.timescape.service.labels" }}
+{{ include "hubble.timescape.labels" . }}
+{{ with .Values.hubble.timescape.service.labels }}
+{{- toYaml . }}
+{{- end }}
+{{- end }}
+
 {{- define "hubble.timescape.tls.enabled" -}}
 {{- and .Values.hubble.timescape.enabled
 (or

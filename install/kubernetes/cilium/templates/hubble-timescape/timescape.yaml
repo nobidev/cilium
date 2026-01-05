@@ -63,16 +63,16 @@ metadata:
   {{- else }}
   namespace: {{ include "cilium.namespace" . }}
   {{- end }}
-  labels: {{ include "hubble.timescape.labels" . | nindent 4 }}
-  {{- if .Values.hubble.timescape.clustermesh.primary.id }}
+  {{- with include "hubble.timescape.service.labels" . }}
+  labels:
+    {{- . | nindent 4 }}
+  {{- end }}
+  {{- with include "hubble.timescape.service.annotations" . }}
   annotations:
-    service.cilium.io/global: "true"
-    {{- if not (eq (int64 .Values.hubble.timescape.clustermesh.primary.id) (int64 .Values.cluster.id)) }}
-    service.cilium.io/shared: "false"
-    {{- end }}
+    {{- . | nindent 4 }}
   {{- end }}
 spec:
-  type: ClusterIP
+  type: {{ .Values.hubble.timescape.service.type }}
   ports:
     - protocol: TCP
       name: push
