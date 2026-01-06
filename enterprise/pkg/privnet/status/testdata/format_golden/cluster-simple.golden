@@ -1,0 +1,10 @@
+Cluster                                        [36mfoobar[0m                                     Status  [32mOK[0m
+
+  Network [36mnet-a[0m                                                                                   [32mOK[0m
+    Subnets   10.1.1.1/24
+    Routes    0.0.0.0/0 via 10.1.1.1
+
+    Endpoints           foobar (local)                1 Endpoints
+
+    Connected INBs      [32minb-west[0m                    [32mSERVING 2/2 Nodes[0m
+                        [33m  inb-west-1 unhealthy for foobar-2[0m

@@ -392,3 +392,44 @@ func TestFormatGolden(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatGoldenCluster(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		golden string
+		status ClusterStatus
+	}{
+		{
+			name:   "simple cluster",
+			golden: "cluster-simple",
+			status: simpleClusterStatus,
+		},
+		{
+			name:   "cluster with conflicts",
+			golden: "cluster-conflicts",
+			status: clusterStatusWithConflicts,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.status.Format(true)
+			want := ""
+
+			goldenFile, err := os.OpenFile(fmt.Sprintf("testdata/format_golden/%s.golden", tc.golden), os.O_RDWR|os.O_CREATE, 0644)
+			require.NoError(t, err)
+			defer goldenFile.Close()
+
+			if *update {
+				require.NoError(t, goldenFile.Truncate(0))
+				_, err := goldenFile.WriteString(got)
+				require.NoError(t, err)
+				want = got
+			} else {
+				raw, err := safeio.ReadAllLimit(goldenFile, 10*safeio.KB)
+				require.NoError(t, err)
+				want = string(raw)
+			}
+
+			require.Equalf(t, want, got, "NOTE: If the change is expected, run 'go test -update .' in 'enterprise/pkg/privnet/status'")
+		})
+	}
+}

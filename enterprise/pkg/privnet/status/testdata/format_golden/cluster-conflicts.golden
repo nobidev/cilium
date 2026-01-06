@@ -1,0 +1,32 @@
+Cluster                                        [36mfoobar[0m                               Status  [31mDEGRADED[0m
+
+  Network [36mnet-a[0m                                                                             [31mDEGRADED[0m
+        [31mfoobar-2 has issues on foobar-2[0m
+        [33msubnet 10.2.1.1/24 not configured on foobar-2
+        endpoint app-1 unknown on foobar-2
+        endpoint app-2 unknown on foobar-1[0m
+    Subnets   10.1.1.1/24  [33m10.2.1.1/24[0m
+    Routes    0.0.0.0/0 via 10.1.1.1
+
+    Endpoints           foobar (local)                2 Endpoints
+
+    Connected INBs      [32minb-west[0m                    [32mSERVING 2/2 Nodes[0m
+                        [33m  inb-west-1 unhealthy for foobar-2[0m
+
+  Network [36monly-on-1[0m                                                                         [31mDEGRADED[0m
+        [31mnetwork not configured on foobar-2[0m
+    Subnets    [31mNo subnets defined for network[0m
+    Routes    [34mNo routes defined for network[0m
+
+    [33mNo Endpoints in Network[0m
+
+    [34mNo INBs configured[0m
+
+  Network [36monly-on-2[0m                                                                         [31mDEGRADED[0m
+        [31mnetwork not configured on foobar-1[0m
+    Subnets    [31mNo subnets defined for network[0m
+    Routes    [34mNo routes defined for network[0m
+
+    [33mNo Endpoints in Network[0m
+
+    [34mNo INBs configured[0m

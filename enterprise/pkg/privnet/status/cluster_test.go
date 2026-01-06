@@ -26,120 +26,8 @@ func TestMergeNetworkStatus(t *testing.T) {
 		expectedMerged []mergedNetworkStatus
 	}{
 		{
-			name: "simple",
-			clusterStatus: ClusterStatus{
-				Name: "foobar",
-				Nodes: []NodeStatus{
-					{
-						Name:    "foobar-1",
-						Cluster: "foobar",
-						Enabled: true,
-						Mode:    "default",
-						Networks: []NetworkStatus{
-							{
-								Name: "net-a",
-								Routes: []Route{
-									{
-										Destination: netip.MustParsePrefix("0.0.0.0/0"),
-										Gateway:     netip.MustParseAddr("10.1.1.1"),
-									},
-								},
-								Subnets: []Subnet{
-									{
-										CIDR: netip.MustParsePrefix("10.1.1.1/24"),
-									},
-								},
-								Endpoints: []EndpointStatus{
-									{
-										Name:    "app-1",
-										Cluster: "foobar",
-										Node:    "foobar-1",
-										IPv4:    netip.MustParseAddr("10.233.1.13"),
-										NetIPv4: netip.MustParseAddr("10.1.1.13"),
-										Active:  true,
-									},
-								},
-								WorkerStatus: WorkerStatus{
-									ActiveINB: "inb-west-1",
-									ConnectedINBClusters: []INBCluster{
-										{
-											Name: "inb-west",
-											INBs: []ConnectedINB{
-												{
-													Name:    "inb-west-1",
-													Cluster: "inb-west",
-													Active:  true,
-													Healthy: true,
-												},
-												{
-													Name:    "inb-west-2",
-													Cluster: "inb-west",
-													Active:  false,
-													Healthy: true,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					{
-						Name:    "foobar-2",
-						Cluster: "foobar",
-						Enabled: true,
-						Mode:    "default",
-						Networks: []NetworkStatus{
-							{
-								Name: "net-a",
-								Routes: []Route{
-									{
-										Destination: netip.MustParsePrefix("0.0.0.0/0"),
-										Gateway:     netip.MustParseAddr("10.1.1.1"),
-									},
-								},
-								Subnets: []Subnet{
-									{
-										CIDR: netip.MustParsePrefix("10.1.1.1/24"),
-									},
-								},
-								Endpoints: []EndpointStatus{
-									{
-										Name:    "app-1",
-										Cluster: "foobar",
-										Node:    "foobar-1",
-										IPv4:    netip.MustParseAddr("10.233.1.13"),
-										NetIPv4: netip.MustParseAddr("10.1.1.13"),
-										Active:  true,
-									},
-								},
-								WorkerStatus: WorkerStatus{
-									ActiveINB: "inb-west-1",
-									ConnectedINBClusters: []INBCluster{
-										{
-											Name: "inb-west",
-											INBs: []ConnectedINB{
-												{
-													Name:    "inb-west-1",
-													Cluster: "inb-west",
-													Active:  false,
-													Healthy: false,
-												},
-												{
-													Name:    "inb-west-2",
-													Cluster: "inb-west",
-													Active:  true,
-													Healthy: true,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:          "simple",
+			clusterStatus: simpleClusterStatus,
 			expectedMerged: []mergedNetworkStatus{
 				{
 					Name:   "net-a",
@@ -196,132 +84,8 @@ func TestMergeNetworkStatus(t *testing.T) {
 		},
 
 		{
-			name: "conflicts",
-			clusterStatus: ClusterStatus{
-				Name: "foobar",
-				Nodes: []NodeStatus{
-					{
-						Name:    "foobar-1",
-						Cluster: "foobar",
-						Enabled: true,
-						Mode:    "default",
-						Networks: []NetworkStatus{
-							{
-								Name: "net-a",
-								Routes: []Route{
-									{
-										Destination: netip.MustParsePrefix("0.0.0.0/0"),
-										Gateway:     netip.MustParseAddr("10.1.1.1"),
-									},
-								},
-								Subnets: []Subnet{
-									{
-										CIDR: netip.MustParsePrefix("10.1.1.1/24"),
-									},
-									{
-										CIDR: netip.MustParsePrefix("10.2.1.1/24"),
-									},
-								},
-								Endpoints: []EndpointStatus{
-									{
-										Name:    "app-1",
-										Cluster: "foobar",
-										Node:    "foobar-1",
-										IPv4:    netip.MustParseAddr("10.233.1.16"),
-										NetIPv4: netip.MustParseAddr("10.1.1.15"),
-										Active:  true,
-									},
-								},
-								WorkerStatus: WorkerStatus{
-									ActiveINB: "inb-west-1",
-									ConnectedINBClusters: []INBCluster{
-										{
-											Name: "inb-west",
-											INBs: []ConnectedINB{
-												{
-													Name:    "inb-west-1",
-													Cluster: "inb-west",
-													Active:  true,
-													Healthy: true,
-												},
-												{
-													Name:    "inb-west-2",
-													Cluster: "inb-west",
-													Active:  false,
-													Healthy: true,
-												},
-											},
-										},
-									},
-								},
-							},
-							{
-								Name: "only-on-1",
-							},
-						},
-					},
-					{
-						Name:    "foobar-2",
-						Cluster: "foobar",
-						Enabled: true,
-						Mode:    "default",
-						Networks: []NetworkStatus{
-							{
-								Name: "net-a",
-								Errors: []string{
-									"foobar-2 has issues",
-								},
-								Routes: []Route{
-									{
-										Destination: netip.MustParsePrefix("0.0.0.0/0"),
-										Gateway:     netip.MustParseAddr("10.1.1.1"),
-									},
-								},
-								Subnets: []Subnet{
-									{
-										CIDR: netip.MustParsePrefix("10.1.1.1/24"),
-									},
-								},
-								Endpoints: []EndpointStatus{
-									{
-										Name:    "app-2",
-										Cluster: "foobar",
-										Node:    "foobar-2",
-										IPv4:    netip.MustParseAddr("10.233.1.13"),
-										NetIPv4: netip.MustParseAddr("10.1.1.13"),
-										Active:  true,
-									},
-								},
-								WorkerStatus: WorkerStatus{
-									ActiveINB: "inb-west-1",
-									ConnectedINBClusters: []INBCluster{
-										{
-											Name: "inb-west",
-											INBs: []ConnectedINB{
-												{
-													Name:    "inb-west-1",
-													Cluster: "inb-west",
-													Active:  false,
-													Healthy: false,
-												},
-												{
-													Name:    "inb-west-2",
-													Cluster: "inb-west",
-													Active:  true,
-													Healthy: true,
-												},
-											},
-										},
-									},
-								},
-							},
-							{
-								Name: "only-on-2",
-							},
-						},
-					},
-				},
-			},
+			name:          "conflicts",
+			clusterStatus: clusterStatusWithConflicts,
 			expectedMerged: []mergedNetworkStatus{
 				{
 					Name:  "net-a",
@@ -436,7 +200,245 @@ func TestMergeNetworkStatus(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.expectedMerged, tc.clusterStatus.networks())
 		})
-
 	}
+}
 
+var simpleClusterStatus = ClusterStatus{
+	Name: "foobar",
+	Nodes: []NodeStatus{
+		{
+			Name:    "foobar-1",
+			Cluster: "foobar",
+			Enabled: true,
+			Mode:    "default",
+			Networks: []NetworkStatus{
+				{
+					Name: "net-a",
+					Routes: []Route{
+						{
+							Destination: netip.MustParsePrefix("0.0.0.0/0"),
+							Gateway:     netip.MustParseAddr("10.1.1.1"),
+						},
+					},
+					Subnets: []Subnet{
+						{
+							CIDR: netip.MustParsePrefix("10.1.1.1/24"),
+						},
+					},
+					Endpoints: []EndpointStatus{
+						{
+							Name:    "app-1",
+							Cluster: "foobar",
+							Node:    "foobar-1",
+							IPv4:    netip.MustParseAddr("10.233.1.13"),
+							NetIPv4: netip.MustParseAddr("10.1.1.13"),
+							Active:  true,
+						},
+					},
+					WorkerStatus: WorkerStatus{
+						ActiveINB: "inb-west-1",
+						ConnectedINBClusters: []INBCluster{
+							{
+								Name: "inb-west",
+								INBs: []ConnectedINB{
+									{
+										Name:    "inb-west-1",
+										Cluster: "inb-west",
+										Active:  true,
+										Healthy: true,
+									},
+									{
+										Name:    "inb-west-2",
+										Cluster: "inb-west",
+										Active:  false,
+										Healthy: true,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:    "foobar-2",
+			Cluster: "foobar",
+			Enabled: true,
+			Mode:    "default",
+			Networks: []NetworkStatus{
+				{
+					Name: "net-a",
+					Routes: []Route{
+						{
+							Destination: netip.MustParsePrefix("0.0.0.0/0"),
+							Gateway:     netip.MustParseAddr("10.1.1.1"),
+						},
+					},
+					Subnets: []Subnet{
+						{
+							CIDR: netip.MustParsePrefix("10.1.1.1/24"),
+						},
+					},
+					Endpoints: []EndpointStatus{
+						{
+							Name:    "app-1",
+							Cluster: "foobar",
+							Node:    "foobar-1",
+							IPv4:    netip.MustParseAddr("10.233.1.13"),
+							NetIPv4: netip.MustParseAddr("10.1.1.13"),
+							Active:  true,
+						},
+					},
+					WorkerStatus: WorkerStatus{
+						ActiveINB: "inb-west-1",
+						ConnectedINBClusters: []INBCluster{
+							{
+								Name: "inb-west",
+								INBs: []ConnectedINB{
+									{
+										Name:    "inb-west-1",
+										Cluster: "inb-west",
+										Active:  false,
+										Healthy: false,
+									},
+									{
+										Name:    "inb-west-2",
+										Cluster: "inb-west",
+										Active:  true,
+										Healthy: true,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var clusterStatusWithConflicts = ClusterStatus{
+	Name: "foobar",
+	Nodes: []NodeStatus{
+		{
+			Name:    "foobar-1",
+			Cluster: "foobar",
+			Enabled: true,
+			Mode:    "default",
+			Networks: []NetworkStatus{
+				{
+					Name: "net-a",
+					Routes: []Route{
+						{
+							Destination: netip.MustParsePrefix("0.0.0.0/0"),
+							Gateway:     netip.MustParseAddr("10.1.1.1"),
+						},
+					},
+					Subnets: []Subnet{
+						{
+							CIDR: netip.MustParsePrefix("10.1.1.1/24"),
+						},
+						{
+							CIDR: netip.MustParsePrefix("10.2.1.1/24"),
+						},
+					},
+					Endpoints: []EndpointStatus{
+						{
+							Name:    "app-1",
+							Cluster: "foobar",
+							Node:    "foobar-1",
+							IPv4:    netip.MustParseAddr("10.233.1.16"),
+							NetIPv4: netip.MustParseAddr("10.1.1.15"),
+							Active:  true,
+						},
+					},
+					WorkerStatus: WorkerStatus{
+						ActiveINB: "inb-west-1",
+						ConnectedINBClusters: []INBCluster{
+							{
+								Name: "inb-west",
+								INBs: []ConnectedINB{
+									{
+										Name:    "inb-west-1",
+										Cluster: "inb-west",
+										Active:  true,
+										Healthy: true,
+									},
+									{
+										Name:    "inb-west-2",
+										Cluster: "inb-west",
+										Active:  false,
+										Healthy: true,
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: "only-on-1",
+				},
+			},
+		},
+		{
+			Name:    "foobar-2",
+			Cluster: "foobar",
+			Enabled: true,
+			Mode:    "default",
+			Networks: []NetworkStatus{
+				{
+					Name: "net-a",
+					Errors: []string{
+						"foobar-2 has issues",
+					},
+					Routes: []Route{
+						{
+							Destination: netip.MustParsePrefix("0.0.0.0/0"),
+							Gateway:     netip.MustParseAddr("10.1.1.1"),
+						},
+					},
+					Subnets: []Subnet{
+						{
+							CIDR: netip.MustParsePrefix("10.1.1.1/24"),
+						},
+					},
+					Endpoints: []EndpointStatus{
+						{
+							Name:    "app-2",
+							Cluster: "foobar",
+							Node:    "foobar-2",
+							IPv4:    netip.MustParseAddr("10.233.1.13"),
+							NetIPv4: netip.MustParseAddr("10.1.1.13"),
+							Active:  true,
+						},
+					},
+					WorkerStatus: WorkerStatus{
+						ActiveINB: "inb-west-1",
+						ConnectedINBClusters: []INBCluster{
+							{
+								Name: "inb-west",
+								INBs: []ConnectedINB{
+									{
+										Name:    "inb-west-1",
+										Cluster: "inb-west",
+										Active:  false,
+										Healthy: false,
+									},
+									{
+										Name:    "inb-west-2",
+										Cluster: "inb-west",
+										Active:  true,
+										Healthy: true,
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: "only-on-2",
+				},
+			},
+		},
+	},
 }
