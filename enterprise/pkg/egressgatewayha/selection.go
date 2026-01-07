@@ -11,12 +11,15 @@
 package egressgatewayha
 
 import (
+	"fmt"
 	"net/netip"
 	"slices"
 
 	fn "github.com/cilium/cilium/enterprise/pkg/functional"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
+	"go4.org/netipx"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -61,15 +64,89 @@ type gatewayNodeIP struct {
 	available bool
 }
 
+// preComputePolicyHealthyGateways computes all gateways that are healthy and available
+// for selection by any group in the policy config.
+//
+// Later, these will be filtered down by individual group configs' selectors to determine
+// the actual available and healthy gateway ips for each group.
+func (config *PolicyConfig) preComputePolicyHealthyGateways(operatorManager *OperatorManager, nodeToAZ nodeToZoneFn) (
+	policyHealthyGatewayIPs []gatewayNodeIP, policyHealthyGatewayIPsByAZ map[string][]gatewayNodeIP) {
+	policyHealthyGatewayIPsByAZ = make(map[string][]gatewayNodeIP)
+
+	for _, node := range operatorManager.nodes {
+		// if AZ affinity is enabled for the egress group, track the node's AZ.
+		// Track all node AZs such that our per az availableHealthy set spans all
+		// zones.
+		//
+		// This will be used later on to ensure that even AZs with no gateway nodes selected by the policy
+		// or no healthy gateway nodes can get non-local gateways assigned to
+		// (and because of this tracking needs to happen before ignoring a non-gateway node and unhealthy node)
+		var nodeAZ string
+		var zoneOK bool
+		if nodeAZ, zoneOK = nodeToAZ(node); zoneOK {
+			// as the availableHealthyGatewayIPsByAZ map is used also to keep track of all the available AZs,
+			// always create an empty entry if it doesn't exist yet.
+			// In this way we can ensure all AZs will have a key in the map
+			if _, ok := policyHealthyGatewayIPsByAZ[nodeAZ]; !ok {
+				policyHealthyGatewayIPsByAZ[nodeAZ] = []gatewayNodeIP{}
+			}
+		}
+
+		// If no group config matches the node, ignore it and go to the next one.
+		selectingGroupIndices := config.selectingGroupConfigIndices(node)
+		if len(selectingGroupIndices) == 0 {
+			continue
+		}
+
+		// If the node is not healthy, ignore it and move to the next one.
+		if !operatorManager.nodeIsReachable(node.Name) {
+			continue
+		}
+
+		nodeIP, ok := netipx.FromStdIP(node.GetK8sNodeIP())
+		if !ok {
+			operatorManager.logger.Warn(
+				"Failed to convert NodeIP, skipping this node.",
+				logfields.NodeName, node.Name,
+				logfields.NodeIPv4, node.GetK8sNodeIP(),
+			)
+			continue
+		}
+
+		gn := gatewayNodeIP{
+			ip:                    nodeIP,
+			selectingGroupIndices: selectingGroupIndices,
+			available:             operatorManager.nodeIsAvailable(node),
+			zone:                  zoneOK,
+		}
+
+		// add the node to the list of healthy gateway IPs.
+		// This list is global (i.e. it doesn't take into account the AZ of the node)
+		policyHealthyGatewayIPs = append(policyHealthyGatewayIPs, gn)
+
+		policyHealthyGatewayIPsByAZ[nodeAZ] = append(policyHealthyGatewayIPsByAZ[nodeAZ], gn)
+
+		if !zoneOK {
+			operatorManager.logger.Warn(
+				fmt.Sprintf("AZ affinity is enabled but node is missing %s label. Node will be ignored", core_v1.LabelTopologyZone),
+				logfields.NodeName, node.Name,
+			)
+		}
+	}
+	return
+}
+
 func gwToAddr(gw gatewayNodeIP) netip.Addr {
 	return gw.ip
 }
 
 // computeHealthyGateways takes in a list of policy-wide gatewayNodeIPs and translates it to
 // a per groupConfig list used for the final healthyGatewayIPs groupStatus field.
-func computeHealthyGateways(policyHealthyGatewayIPs []gatewayNodeIP, groupIndex int) []netip.Addr {
+func computeHealthyGateways(policyHealthyGatewayIPs []gatewayNodeIP, requireAvailable bool, groupIndex int) []netip.Addr {
 	return slices.Collect(fn.Map(fn.Filter(slices.Values(policyHealthyGatewayIPs), func(n gatewayNodeIP) bool {
 		return slices.Contains(n.selectingGroupIndices, groupIndex)
+	}, func(n gatewayNodeIP) bool {
+		return !requireAvailable || n.available
 	}), gwToAddr))
 }
 
