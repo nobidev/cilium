@@ -59,6 +59,9 @@ gobgp/add-route -s rr-v6     10.244.5.0/24
 bgp/routes -o cilium-routes.actual
 * cmp cilium-routes.actual cilium-routes.expected
 
+# Ensure the routes are not imported into the Cilium RIB. Route import with RR is not supported yet.
+db/cmp desired-routes desired-routes.expected
+
 # In-cluster clients should see the routes with nexthop unmodified, no AS path appended, and with Originator and ClusterList.
 gobgp/routes -s client-v4   -o client-v4-routes.actual
 * cmp client-v4-routes.actual client-v4-routes.expected
@@ -273,3 +276,5 @@ Prefix          NextHop             Attrs
 10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
 10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.3} {LocalPref: 100}]
 10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]
+-- desired-routes.expected --
+Owner                       Prefix

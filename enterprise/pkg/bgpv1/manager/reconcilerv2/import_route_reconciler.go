@@ -111,9 +111,15 @@ func (r *importRouteReconciler) Reconcile(ctx context.Context, _p reconciler.Sta
 		return err
 	}
 
-	// Clear all desired route entries inserted by the deleted instance
-	if p.DeletedInstance != "" {
-		owner, err := r.drm.GetOwner(r.ownerName(p.DeletedInstance))
+	// Clear all desired route entries inserted by the deleted instance.
+	// Also remove all routes when the instance becomes a part of the route
+	// reflector cluster. Route importing with RR is not supported yet.
+	if p.DeletedInstance != "" || (p.DesiredConfig != nil && p.DesiredConfig.RouteReflector != nil) {
+		instanceName := p.DeletedInstance
+		if p.DeletedInstance == "" {
+			instanceName = p.UpdatedInstance.Name
+		}
+		owner, err := r.drm.GetOwner(r.ownerName(instanceName))
 		if errors.Is(err, routeReconciler.ErrOwnerDoesNotExist) {
 			return nil
 		}
