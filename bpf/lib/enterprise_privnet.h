@@ -441,10 +441,6 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx, const voi
 		}
 	}
 
-	/* revalidate data before accessing ip4, otherwise verifier will not be happy. */
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
 	return enforce_privnet_egress_segmentation(sip_val, dip_val);
 }
 
@@ -490,9 +486,6 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx, const voi
 				return ret;
 		}
 	}
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 
 	return enforce_privnet_egress_segmentation(sip_val, dip_val);
 }
@@ -632,10 +625,6 @@ privnet_ingress_ipv4(struct __ctx_buff *ctx, const void *map, __u16 net_id, bool
 		}
 	}
 
-	/* revalidate data before accessing ip4, otherwise verifier will not be happy. */
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
 out:
 	/* net_id is set to 0 when packet is received in INB via overlay. */
 	return (net_id == 0) ?
@@ -689,9 +678,6 @@ privnet_ingress_ipv6(struct __ctx_buff *ctx, const void *map, __u16 net_id, bool
 				return ret;
 		}
 	}
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 
 out:
 	return (net_id == 0) ?
