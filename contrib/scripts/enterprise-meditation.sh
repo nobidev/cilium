@@ -111,14 +111,14 @@ usage() {
   echo -e 'COMMIT\tCommit to compare with (default: Compare with merge-base of upstream default branch)'
   echo
   echo -e 'Flags:'
-  echo -e '-a | --apply\tApply the diff to the local tree to sync with upstream'
-  echo -e '-d | --debug\tRun the script with debug output (-x)'
+  echo -e '-a | --apply\t\tApply the diff to the local tree to sync with upstream'
+  echo -e '-d | --debug\t\tRun the script with debug output (-x)'
   echo -e '     --exit-code\tBehave like diff(1) when encountering a diff (ie exit status 1 on diff)'
-  echo -e '-f | --fetch\tFetch the latest upstream repo before assessing mindfulness'
-  echo -e '-h | --help\tDisplay this help message'
+  echo -e '-f | --fetch\t\tFetch the latest upstream repo before assessing mindfulness'
+  echo -e '-h | --help\t\tDisplay this help message'
   echo -e '     --merge-base\tUse the merge base between HEAD and the specified COMMIT for diff'
-  echo -e '-n | --noisy\tPrint noisy candidates that often diverge from upstream for trivial reasons'
-  echo -e '-r | --repo\tSpecify the target repository to sync (example: "cilium/cilium")'
+  echo -e '-n | --noisy\t\tPrint noisy candidates that often diverge from upstream for trivial reasons'
+  echo -e '-r | --repo\t\tSpecify the target repository to sync (example: "cilium/cilium")'
 }
 
 # $1 - target commit
