@@ -887,6 +887,7 @@ Makefile* @cilium/build
 /contrib/scripts/enterprise-codeowners.sh @isovalent/core-structure
 /contrib/scripts/enterprise-k8s-manifests-gen.sh @isovalent/sig-k8s
 /contrib/scripts/enterprise-meditation.sh @isovalent/core-structure
+/contrib/scripts/enterprise-mindful-branch.sh @isovalent/core-structure
 /contrib/scripts/enterprise-testowners.sh @isovalent/core-structure
 /contrib/testing/enterprise-kind.yaml @isovalent/infrastructure
 /contrib/testing/enterprise-kind-loadbalancer.yaml @isovalent/isovalent-loadbalancer
