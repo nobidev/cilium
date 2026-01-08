@@ -22,6 +22,9 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: |-
+          IsovalentSRv6SIDManager is used internally by Cilium to manage per-node SRv6 Segment Identifier (SID) allocations
+          (resource name always matches the node name).
         properties:
           apiVersion:
             description: |-

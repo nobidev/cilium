@@ -61,6 +61,8 @@ type MulticastGroupAddr string
 // +kubebuilder:resource:categories={cilium,isovalent},singular="isovalentmulticastnode",path="isovalentmulticastnodes",scope="Cluster",shortName={imcastnode}
 // +kubebuilder:storageversion
 
+// IsovalentMulticastNode is used internally by Cilium to distribute per-node multicast group addresses
+// for which there are multicast subscribers on the given node (resource name always matches the node name).
 type IsovalentMulticastNode struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`

@@ -32,6 +32,8 @@ type IsovalentBGPPeerConfigList struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
+// IsovalentBGPPeerConfig is used to define a BGP peer configuration. Multiple peers can share the same
+// configuration and reference the common IsovalentBGPPeerConfig resource.
 type IsovalentBGPPeerConfig struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`

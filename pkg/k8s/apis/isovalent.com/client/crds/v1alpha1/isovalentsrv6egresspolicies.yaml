@@ -24,6 +24,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: IsovalentSRv6EgressPolicy is used to program the eBPF datapath
+          for SRv6 egress traffic encapsulation.
         properties:
           apiVersion:
             description: |-

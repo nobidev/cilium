@@ -16,6 +16,7 @@ import (
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:storageversion
 
+// IsovalentBGPVRFConfig defines BGP advertisement configuration for a Virtual Routing and Forwarding (VRF) instance.
 type IsovalentBGPVRFConfig struct {
 	// +k8s:openapi-gen=false
 	// +deepequal-gen=false

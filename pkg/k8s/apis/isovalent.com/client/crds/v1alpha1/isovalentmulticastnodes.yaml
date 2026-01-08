@@ -22,6 +22,9 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: |-
+          IsovalentMulticastNode is used internally by Cilium to distribute per-node multicast group addresses
+          for which there are multicast subscribers on the given node (resource name always matches the node name).
         properties:
           apiVersion:
             description: |-

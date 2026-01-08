@@ -24,6 +24,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: IsovalentBGPVRFConfig defines BGP advertisement configuration
+          for a Virtual Routing and Forwarding (VRF) instance.
         properties:
           apiVersion:
             description: |-

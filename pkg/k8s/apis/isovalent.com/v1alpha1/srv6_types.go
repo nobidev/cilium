@@ -16,6 +16,9 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalent},singular="isovalentsrv6sidmanager",path="isovalentsrv6sidmanagers",scope="Cluster",shortName={sidmanager}
 // +kubebuilder:storageversion
+
+// IsovalentSRv6SIDManager is used internally by Cilium to manage per-node SRv6 Segment Identifier (SID) allocations
+// (resource name always matches the node name).
 type IsovalentSRv6SIDManager struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
@@ -269,6 +272,7 @@ type IsovalentSRv6LocatorPoolSpec struct {
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:storageversion
 
+// IsovalentSRv6EgressPolicy is used to program the eBPF datapath for SRv6 egress traffic encapsulation.
 type IsovalentSRv6EgressPolicy struct {
 	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
@@ -318,6 +322,7 @@ type IsovalentSRv6EgressPolicySpec struct {
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:storageversion
 
+// IsovalentVRF defines binding of Pods to a Virtual Routing and Forwarding (VRF) instance for SRv6 L3VPN participation.
 type IsovalentVRF struct {
 	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
