@@ -116,6 +116,7 @@ usage() {
   echo -e '     --exit-code\tBehave like diff(1) when encountering a diff (ie exit status 1 on diff)'
   echo -e '-f | --fetch\tFetch the latest upstream repo before assessing mindfulness'
   echo -e '-h | --help\tDisplay this help message'
+  echo -e '     --merge-base\tUse the merge base between HEAD and the specified COMMIT for diff'
   echo -e '-n | --noisy\tPrint noisy candidates that often diverge from upstream for trivial reasons'
   echo -e '-r | --repo\tSpecify the target repository to sync (example: "cilium/cilium")'
 }
@@ -125,7 +126,7 @@ diff_upstream() {
   commit="$1"
 
   git diff "$commit" "HEAD" "${ARGS[@]}" \
-    --merge-base --diff-filter=BMUX \
+    --diff-filter=BMUX \
     "${IGNORE_HUNK_REGEXES[@]}" \
     -- "${DIFF_EXCL_GLOBS[@]}" \
        "${DIFF_NOISY_GLOBS[@]}" \
@@ -145,9 +146,6 @@ main() {
       -d|--debug)
         debug=1
         ;;
-      --exit-code)
-        ARGS+=('--exit-code')
-        ;;
       -f|--fetch)
         fetch=1
         ;;
@@ -164,8 +162,8 @@ main() {
         UPSTREAM_REPO="$2"
         shift
           ;;
-      -s|--stat)
-        ARGS+=('--stat')
+      --exit-code|--merge-base|--stat)
+        ARGS+=("$1")
         ;;
       -*)
         >&2 echo "unknown option: $1"
