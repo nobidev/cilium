@@ -407,25 +407,6 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx, const voi
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	sip_val = privnet_fib_lookup4(map, net_id, ip4->saddr);
-	if (sip_val) {
-		if (src_privnet_entry)
-			*src_privnet_entry = sip_val;
-
-		if (!is_privnet_route_entry(sip_val)) {
-			/* Only nat if entry is for the endpoint, for route
-			 * entries, skip natting.
-			 */
-			ret = nat_v4_addr(ctx, IPV4_SADDR_OFF, &ip4->saddr, &sip_val->ip4);
-			if (IS_ERR(ret))
-				return ret;
-		}
-	}
-
-	/* revalidate data before accessing ip4, otherwise verifier will not be happy. */
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
 	dip_val = privnet_fib_lookup4(map, net_id, ip4->daddr);
 	if (dip_val) {
 		if (dst_privnet_entry)
@@ -436,6 +417,25 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx, const voi
 			 * entries, skip natting.
 			 */
 			ret = nat_v4_addr(ctx, IPV4_DADDR_OFF, &ip4->daddr, &dip_val->ip4);
+			if (IS_ERR(ret))
+				return ret;
+		}
+	}
+
+	/* revalidate data before accessing ip4, otherwise verifier will not be happy. */
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	sip_val = privnet_fib_lookup4(map, net_id, ip4->saddr);
+	if (sip_val) {
+		if (src_privnet_entry)
+			*src_privnet_entry = sip_val;
+
+		if (!is_privnet_route_entry(sip_val)) {
+			/* Only nat if entry is for the endpoint, for route
+			 * entries, skip natting.
+			 */
+			ret = nat_v4_addr(ctx, IPV4_SADDR_OFF, &ip4->saddr, &sip_val->ip4);
 			if (IS_ERR(ret))
 				return ret;
 		}
@@ -463,18 +463,6 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx, const voi
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
 	ipv6_addr_copy(&orig_dip, (union v6addr *)&ip6->daddr);
 
-	sip_val = privnet_fib_lookup6(map, net_id, orig_sip);
-	if (sip_val) {
-		if (src_privnet_entry)
-			*src_privnet_entry = sip_val;
-
-		if (!is_privnet_route_entry(sip_val)) {
-			ret = nat_v6_addr(ctx, IPV6_SADDR_OFF, &sip_val->ip6);
-			if (IS_ERR(ret))
-				return ret;
-		}
-	}
-
 	dip_val = privnet_fib_lookup6(map, net_id, orig_dip);
 	if (dip_val) {
 		if (dst_privnet_entry)
@@ -482,6 +470,18 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx, const voi
 
 		if (!is_privnet_route_entry(dip_val)) {
 			ret = nat_v6_addr(ctx, IPV6_DADDR_OFF, &dip_val->ip6);
+			if (IS_ERR(ret))
+				return ret;
+		}
+	}
+
+	sip_val = privnet_fib_lookup6(map, net_id, orig_sip);
+	if (sip_val) {
+		if (src_privnet_entry)
+			*src_privnet_entry = sip_val;
+
+		if (!is_privnet_route_entry(sip_val)) {
+			ret = nat_v6_addr(ctx, IPV6_SADDR_OFF, &sip_val->ip6);
 			if (IS_ERR(ret))
 				return ret;
 		}
