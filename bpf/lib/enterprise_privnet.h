@@ -294,7 +294,7 @@ struct {
 
 static __always_inline __maybe_unused const struct privnet_fib_val *
 privnet_fib_lookup4(const void *map, __u16 net_id, __be32 addr) {
-	struct privnet_fib_key key = {
+	const struct privnet_fib_key key = {
 		.lpm_key = { PRIVNET_FIB_PREFIX_LEN(V4_PRIVNET_KEY_LEN), {} },
 		.net_id = net_id,
 		.family = ENDPOINT_KEY_IPV4,
@@ -306,7 +306,7 @@ privnet_fib_lookup4(const void *map, __u16 net_id, __be32 addr) {
 
 static __always_inline __maybe_unused const struct privnet_fib_val *
 privnet_fib_lookup6(const void *map, __u16 net_id, union v6addr addr) {
-	struct privnet_fib_key key = {
+	const struct privnet_fib_key key = {
 		.lpm_key = { PRIVNET_FIB_PREFIX_LEN(V6_PRIVNET_KEY_LEN), {} },
 		.net_id = net_id,
 		.family = ENDPOINT_KEY_IPV6,
@@ -497,7 +497,7 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx, const voi
 
 static __always_inline __maybe_unused const struct privnet_pip_val *
 privnet_pip_lookup4(const void *map, __be32 addr) {
-	struct privnet_pip_key key = {
+	const struct privnet_pip_key key = {
 		.lpm_key = { PRIVNET_PIP_PREFIX_LEN(V4_PRIVNET_KEY_LEN), {} },
 		.family = ENDPOINT_KEY_IPV4,
 		.ip4 = addr,
@@ -508,7 +508,7 @@ privnet_pip_lookup4(const void *map, __be32 addr) {
 
 static __always_inline __maybe_unused const struct privnet_pip_val *
 privnet_pip_lookup6(const void *map, union v6addr addr) {
-	struct privnet_pip_key key = {
+	const struct privnet_pip_key key = {
 		.lpm_key = { PRIVNET_PIP_PREFIX_LEN(V6_PRIVNET_KEY_LEN), {} },
 		.family = ENDPOINT_KEY_IPV6,
 		.ip6 = addr,
