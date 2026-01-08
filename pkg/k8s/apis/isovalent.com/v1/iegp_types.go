@@ -17,6 +17,8 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
+// IsovalentEgressGatewayPolicy defines a policy for redirecting traffic originating in pods
+// and destined to specific CIDRs outside the cluster to be routed through particular gateway nodes.
 type IsovalentEgressGatewayPolicy struct {
 	// +k8s:openapi-gen=false
 	// +deepequal-gen=false

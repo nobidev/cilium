@@ -26,6 +26,9 @@ spec:
     name: v1
     schema:
       openAPIV3Schema:
+        description: |-
+          IsovalentEgressGatewayPolicy defines a policy for redirecting traffic originating in pods
+          and destined to specific CIDRs outside the cluster to be routed through particular gateway nodes.
         properties:
           apiVersion:
             description: |-
