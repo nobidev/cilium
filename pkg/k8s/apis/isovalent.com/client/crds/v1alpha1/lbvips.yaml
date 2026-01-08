@@ -36,6 +36,9 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: |-
+          LBVIP defines a virtual IP of the Isovalent Load Balancer.
+          Multiple LBService's with different ports can reference it.
         properties:
           apiVersion:
             description: |-

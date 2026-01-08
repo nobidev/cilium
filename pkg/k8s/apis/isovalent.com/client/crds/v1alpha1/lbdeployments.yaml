@@ -30,6 +30,10 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: |-
+          LBDeployment defines advanced LBService deployment options that allow
+          to customize the assignment of LBService's to Isovalent Load Balancer nodes
+          (K8s Nodes).
         properties:
           apiVersion:
             description: |-

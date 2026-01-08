@@ -42,6 +42,10 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: |-
+          LBService defines a Service frontend of the Isovalent Load Balancer.
+          It's assigned to a LBVIP and and load balances traffic to one or multiple
+          LBBackendPool's.
         properties:
           apiVersion:
             description: |-

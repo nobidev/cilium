@@ -23,6 +23,9 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
+// LBService defines a Service frontend of the Isovalent Load Balancer.
+// It's assigned to a LBVIP and and load balances traffic to one or multiple
+// LBBackendPool's.
 type LBService struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
@@ -1811,6 +1814,9 @@ type LBServiceList struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
+// LBBackendPool defines a pool of backends of the Isovalent Load Balancer
+// where traffic can be load balanced to.
+// Backends of a pool can either be defined as IPs, hostnames or references to K8s Service's.
 type LBBackendPool struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
@@ -2375,6 +2381,8 @@ func (r *LBBackendPool) UpdateResourceStatus() {
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
+// LBVIP defines a virtual IP of the Isovalent Load Balancer.
+// Multiple LBService's with different ports can reference it.
 type LBVIP struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
@@ -2516,6 +2524,9 @@ func (r *LBVIP) UpdateResourceStatus() {
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
+// LBDeployment defines advanced LBService deployment options that allow
+// to customize the assignment of LBService's to Isovalent Load Balancer nodes
+// (K8s Nodes).
 type LBDeployment struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
