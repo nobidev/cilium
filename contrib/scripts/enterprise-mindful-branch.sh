@@ -62,7 +62,8 @@ function create_branch() {
   git checkout -b "$branch" "$merge_base"
   if [[ -n $ignore_failures ]]; then
     for commit in "${COMMITS[@]}"; do
-        contrib/backporting/cherry-pick "$commit" || git am --abort
+        contrib/backporting/cherry-pick "$commit" \
+        || (git am --show-current-patch=diff && git am --abort)
     done
   else
     contrib/backporting/cherry-pick "${COMMITS[@]}"
