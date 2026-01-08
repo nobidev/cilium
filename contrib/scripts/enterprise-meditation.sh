@@ -119,6 +119,7 @@ usage() {
   echo -e '     --merge-base\tUse the merge base between HEAD and the specified COMMIT for diff'
   echo -e '-n | --noisy\t\tPrint noisy candidates that often diverge from upstream for trivial reasons'
   echo -e '-r | --repo\t\tSpecify the target repository to sync (example: "cilium/cilium")'
+  echo -e '     --stat\t\tGenerate a diffstat'
 }
 
 # $1 - target commit
