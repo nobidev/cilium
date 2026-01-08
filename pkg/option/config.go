@@ -2399,6 +2399,8 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	c.HiveConfig.Populate(vp)
 
+	c.EnterpriseDaemonConfig.Populate(vp)
+
 	c.ClusterHealthPort = vp.GetInt(ClusterHealthPort)
 	c.AllowICMPFragNeeded = vp.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = vp.GetString(AllowLocalhost)
