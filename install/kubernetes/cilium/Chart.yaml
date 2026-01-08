@@ -1,12 +1,12 @@
 apiVersion: v2
 name: cilium
-displayName: Cilium
-home: https://cilium.io/
 version: 1.20.0-dev
 appVersion: 1.20.0-dev
+displayName: Isovalent Networking for Kubernetes
+home: https://isovalent.com
 kubeVersion: ">= 1.21.0-0"
 icon: https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo-solo.svg
-description: eBPF-based Networking, Security, and Observability
+description: Isovalent Enterprise Grade eBPF-based Networking, Security, and Observability
 keywords:
   - BPF
   - eBPF
@@ -15,9 +15,11 @@ keywords:
   - Security
   - Observability
   - Troubleshooting
-sources:
-  - https://github.com/cilium/cilium
 links:
+  - name: Isovalent
+    url: https://isovalent.com/
+  - name: Cilium
+    url: https://cilium.io/
   - name: eBPF.io
     url: https://ebpf.io/
 annotations:
@@ -169,3 +171,206 @@ annotations:
       displayName: Cilium Gateway Class Config
       description: |
         CiliumGatewayClassConfig defines a configuration for Gateway API GatewayClass.
+    - kind: IsovalentBGPPeerConfig
+      version: v1
+      name: isovalentbgppeerconfigs.isovalent.com
+      displayName: Isovalent BGP Peer Config
+      description: |
+        IsovalentBGPPeerConfig is used to define a BGP peer configuration. Multiple peers can share the same
+        configuration and reference the common IsovalentBGPPeerConfig resource.
+    - kind: IsovalentEgressGatewayPolicy
+      version: v1
+      name: isovalentegressgatewaypolicies.isovalent.com
+      displayName: Isovalent Egress Gateway Policy
+      description: |
+        IsovalentEgressGatewayPolicy defines a policy for redirecting traffic originating in pods
+        and destined to specific CIDRs outside the cluster to be routed through particular gateway nodes.
+    - kind: IsovalentBGPNodeConfigOverride
+      version: v1
+      name: isovalentbgpnodeconfigoverrides.isovalent.com
+      displayName: Isovalent BGP Node Config Override
+      description: |
+        IsovalentBGPNodeConfigOverride specifies configuration overrides for a IsovalentBGPNodeConfig.
+        It allows fine-tuning of BGP behavior on a per-node basis. For the override to be effective,
+        the names in IsovalentBGPNodeConfigOverride and IsovalentBGPNodeConfig must match exactly. This
+        matching ensures that specific node configurations are applied correctly and only where intended.
+    - kind: IsovalentBGPPolicy
+      version: v1
+      name: isovalentbgppolicies.isovalent.com
+      displayName: Isovalent BGP Policy
+      description: IsovalentBGPPolicy is the Schema for the isovalentbgppolicies API
+    - kind: IsovalentBGPNodeConfig
+      version: v1
+      name: isovalentbgpnodeconfigs.isovalent.com
+      displayName: Isovalent BGP Node Config
+      description: |
+        IsovalentBGPNodeConfig is node local configuration for BGP agent. Name of the object should be node name.
+        This resource will be created by Cilium operator and is read-only for the users.
+    - kind: IsovalentBGPClusterConfig
+      version: v1
+      name: isovalentbgpclusterconfigs.isovalent.com
+      displayName: Isovalent BGP Cluster Config
+      description: IsovalentBGPClusterConfig is the Schema for the IsovalentBGPClusterConfig API
+    - kind: IsovalentBGPAdvertisement
+      version: v1
+      name: isovalentbgpadvertisements.isovalent.com
+      displayName: Isovalent BGP Advertisement
+      description: IsovalentBGPAdvertisement is the Schema for the isovalentbgpadvertisements API
+    - kind: IsovalentMulticastGroup
+      version: v1alpha1
+      name: isovalentmulticastgroups.isovalent.com
+      displayName: Isovalent Multicast Group
+      description: IsovalentMulticastGroup is the Schema for the isovalentmulticastgroups API
+    - kind: IsovalentClusterwideNetworkPolicy
+      version: v1
+      name: isovalentclusterwidenetworkpolicies.isovalent.com
+      displayName: Isovalent Clusterwide Network Policy
+      description: |
+        IsovalentClusterwideNetworkPolicy is a Kubernetes third-party resource with an
+        modified version of IsovalentNetworkPolicy which is cluster scoped rather than
+        namespace scoped.
+    - kind: PrivateNetworkExternalEndpoint
+      version: v1alpha1
+      name: privatenetworkexternalendpoints.isovalent.com
+      displayName: Private Network External Endpoint
+      description: |
+        PrivateNetworkExternalEndpoint represents an endpoint outside
+        of the cilium-managed mesh and contains its addressing information.
+    - kind: IsovalentBFDProfile
+      version: v1alpha1
+      name: isovalentbfdprofiles.isovalent.com
+      displayName: Isovalent BFD Profile
+      description: IsovalentBFDProfile allows defining BFD configuration profiles, that can be used across multiple BFD peers.
+    - kind: IsovalentSRv6LocatorPool
+      version: v1alpha1
+      name: isovalentsrv6locatorpools.isovalent.com
+      displayName: Isovalent SRv6 Locator Pool
+      description: |
+        IsovalentSRv6LocatorPool is a custom resource which is used to
+        define a SID prefix and format which will be used to allocate
+        SID address blocks per node.
+    - kind: LBBackendPool
+      version: v1alpha1
+      name: lbbackendpools.isovalent.com
+      displayName: LB Backend Pool
+      description: |
+        LBBackendPool defines a pool of backends of the Isovalent Load Balancer
+        where traffic can be load balanced to. Backends of a pool can either be
+        defined as IPs, hostnames or references to K8s Service's.
+    - kind: IsovalentBFDNodeConfig
+      version: v1alpha1
+      name: isovalentbfdnodeconfigs.isovalent.com
+      displayName: Isovalent BFD Node Config
+      description: |
+        IsovalentBFDNodeConfig contains node-specific configuration for the BFD agent.
+        This resource may be created and managed by Cilium operator (e.g. based on BGP config),
+        which is indicated by an owner reference, and in which case it is read-only for the users.
+        It may be also created by users, in which case ot is fully owned by the user.
+    - kind: IsovalentNetworkPolicy
+      version: v1
+      name: isovalentnetworkpolicies.isovalent.com
+      displayName: Isovalent Network Policy
+      description: |
+        IsovalentNetworkPolicy is a Kubernetes third-party resource with an extended
+        version of CiliumNetworkPolicy.
+    - kind: ClusterwidePrivateNetwork
+      version: v1alpha1
+      name: clusterwideprivatenetworks.isovalent.com
+      displayName: Clusterwide Private Network
+      description: ClusterwidePrivateNetwork defines a private network to which workloads can be attached.
+    - kind: IsovalentFQDNGroup
+      version: v1alpha1
+      name: isovalentfqdngroups.isovalent.com
+      displayName: Isovalent FQDN Group
+      description: IsovalentFQDNGroup is a list of FQDNs to be periodically resolved.
+    - kind: IsovalentVRF
+      version: v1alpha1
+      name: isovalentvrfs.isovalent.com
+      displayName: Isovalent VRF
+      description: |
+        IsovalentVRF defines binding of Pods to a Virtual Routing and
+        Forwarding (VRF) instance for SRv6 L3VPN participation.
+    - kind: LBDeployment
+      version: v1alpha1
+      name: lbdeployments.isovalent.com
+      displayName: LB Deployment
+      description: |
+        LBDeployment defines advanced LBService deployment options that allow
+        to customize the assignment of LBService's to Isovalent Load Balancer nodes
+        (K8s Nodes).
+    - kind: LBService
+      version: v1alpha1
+      name: lbservices.isovalent.com
+      displayName: LB Service
+      description: |
+        LBService defines a Service frontend of the Isovalent Load Balancer.
+        It's assigned to a LBVIP and and load balances traffic to one or multiple
+        LBBackendPool's.
+    - kind: IsovalentPodNetwork
+      version: v1alpha1
+      name: isovalentpodnetworks.isovalent.com
+      displayName: Isovalent Pod Network
+      description: IsovalentPodNetwork defines a network to which pods can be attached.
+    - kind: IsovalentSRv6EgressPolicy
+      version: v1alpha1
+      name: isovalentsrv6egresspolicies.isovalent.com
+      displayName: Isovalent SRv6 Egress Policy
+      description: |
+        IsovalentSRv6EgressPolicy is used to program the eBPF datapath
+        for SRv6 egress traffic encapsulation.
+    - kind: IsovalentClusterwideEncryptionPolicy
+      version: v1alpha1
+      name: isovalentclusterwideencryptionpolicies.isovalent.com
+      displayName: Isovalent Clusterwide Encryption Policy
+      description: |
+        IsovalentClusterwideEncryptionPolicy defines the encryption policies for
+        pods and their communication peers
+    - kind: IsovalentBFDNodeConfigOverride
+      version: v1alpha1
+      name: isovalentbfdnodeconfigoverrides.isovalent.com
+      displayName: Isovalent BFD Node Config Override
+      description: |
+        IsovalentBFDNodeConfigOverride specifies node-specific configuration overrides for the BFD agent.
+        It allows configuring node-specific BFD parameters that would be otherwise detected / derived automatically.
+        The content of this resource is consumed by the BFD operator when generating IsovalentBFDNodeConfig resources.
+        The name of the object should be a node name to which this override applies.
+    - kind: LBVIP
+      version: v1alpha1
+      name: lbvips.isovalent.com
+      displayName: LB VIP
+      description: |
+        LBVIP defines a virtual IP of the Isovalent Load Balancer.
+        Multiple LBService's with different ports can reference it.
+    - kind: IsovalentBGPVRFConfig
+      version: v1alpha1
+      name: isovalentbgpvrfconfigs.isovalent.com
+      displayName: Isovalent BGP VRF Config
+      description: |
+        IsovalentBGPVRFConfig defines BGP advertisement configuration
+        for a Virtual Routing and Forwarding (VRF) instance.
+    - kind: IsovalentSRv6SIDManager
+      version: v1alpha1
+      name: isovalentsrv6sidmanagers.isovalent.com
+      displayName: Isovalent SRv6 SID Manager
+      description: |
+        IsovalentSRv6SIDManager is used internally by Cilium to manage per-node SRv6 Segment Identifier (SID) allocations
+        (resource name always matches the node name).
+    - kind: IsovalentMulticastNode
+      version: v1alpha1
+      name: isovalentmulticastnodes.isovalent.com
+      displayName: Isovalent Multicast Node
+      description: |
+        IsovalentMulticastNode is used internally by Cilium to distribute per-node multicast group addresses
+        for which there are multicast subscribers on the given node (resource name always matches the node name).
+    - kind: PrivateNetworkEndpointSlice
+      version: v1alpha1
+      name: privatenetworkendpointslices.isovalent.com
+      displayName: Private Network Endpoint Slice
+      description: PrivateNetworkEndpointSlice contains the list of endpoints and their network mappings.
+    - kind: PrivateNetworkNodeAttachment
+      version: v1alpha1
+      name: privatenetworknodeattachments.isovalent.com
+      displayName: Private Network Node Attachment
+      description: |
+        PrivateNetworkNodeAttachment defines a node device management
+        of private networks.

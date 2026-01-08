@@ -1013,6 +1013,7 @@ Makefile* @cilium/build
 /enterprise/tools/release-notes/ @isovalent/release-managers
 /enterprise/tools/map-testowners/ @isovalent/core-structure
 /enterprise/tools/gomod-override/ @isovalent/traffic-engineering
+/examples/enterprise-crds @isovalent/helm
 /hubble/Makefile.override @isovalent/hubble
 /install/kubernetes/Makefile.digests-isovalent @isovalent/infrastructure
 /install/kubernetes/Makefile.override @isovalent/infrastructure

@@ -26,5 +26,5 @@ WARNINGS:
 
 Your release version is {{ .Chart.Version }}.
 
-For any further help, visit https://docs.isovalent.com/v{{ (semver .Chart.Version).Major }}.{{ (semver .Chart.Version).Minor }}
+For any further help, visit https://docs.isovalent.com/
 {{ template "enterprise.validateFeatures" .Values }}

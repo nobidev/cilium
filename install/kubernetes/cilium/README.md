@@ -39,10 +39,6 @@ $ helm install cilium cilium/cilium --namespace=kube-system
 After Cilium is installed, you can explore the features that Cilium has to
 offer from the [Getting Started Guides page](https://docs.cilium.io/en/stable/gettingstarted/).
 
-## Source Code
-
-* <https://github.com/cilium/cilium>
-
 ## Getting Help
 
 The best way to get help if you get stuck is to ask a question on the

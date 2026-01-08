@@ -544,6 +544,7 @@
 /enterprise/test/helpers/hubble.go @isovalent/hubble
 /enterprise/test/hubble-rbac/ @isovalent/hubble
 /enterprise/tools/gomod-override/ @isovalent/traffic-engineering
+/examples/enterprise-crds @isovalent/helm
 /hubble/Makefile.override @isovalent/hubble
 /install/kubernetes/Makefile.digests-isovalent @isovalent/infrastructure
 /install/kubernetes/Makefile.override @isovalent/infrastructure

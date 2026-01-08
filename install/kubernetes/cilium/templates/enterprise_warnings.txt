@@ -4,12 +4,12 @@
 
 {{- if (eq "true" (print .Values.bgpControlPlane.enabled)) }}
 {{- println "The OSS BGP Control Plane is enabled. Please migrate to the enterprise BGP Control Plane." -}}
-{{- println "See: https://docs.isovalent.com/configuration-guide/networking/bgpv2/index.html#oss-vs-enterprise-bgp-control-plane" -}}
+{{- println "See Isovalent Networking for Kubernetes documentation for more details." -}}
 {{- end }}
 
 {{- if (eq "true" (print .Values.hubble.ui.enabled)) }}
 {{- println "The OSS Hubble UI is enabled. Please migrate to Integrated Timescape UI" -}}
-{{- println "https://docs.isovalent.com/operations-guide/hubble/integrated-timescape/enable.html" -}}
+{{- println "https://docs.isovalent.com/timescape/integrated-timescape/enable.html" -}}
 {{- end }}
 
 {{- end }}
