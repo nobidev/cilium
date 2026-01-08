@@ -53,7 +53,7 @@ jobs:
           BASE_BRANCH: lint-merge-base
         run: |
           contrib/scripts/enterprise-meditation.sh \
-            --repo cilium/cilium --debug $BASE_BRANCH
+            --repo cilium/cilium --debug $BASE_BRANCH || true
           contrib/scripts/enterprise-meditation.sh \
             --repo cilium/cilium --stat --exit-code $BASE_BRANCH
       - name: Compare upstream tree noisily (Never fails, check me for a more unfiltered view of diff)
