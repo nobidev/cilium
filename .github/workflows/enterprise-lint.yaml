@@ -34,23 +34,40 @@ jobs:
         run: |
           git remote add upstream "$UPSTREAM"
           git fetch --no-write-fetch-head upstream "refs/heads/main:refs/remotes/upstream/main"
+      - name: Create branch based on upstream with backported patches
+        if: ${{ always() && steps.checkout.outcome == 'success' && steps.checkout-oss.outcome == 'success' }}
+        env:
+          BASE_BRANCH: lint-merge-base
+        run: |
+          git config --global user.email "isovalent-bot@isovalent.com"
+          git config --global user.name "isovalent-bot"
+          git config set advice.mergeConflict false
+          git config set advice.detachedHead false
+          contrib/scripts/enterprise-mindful-branch.sh --branch "$BASE_BRANCH" \
+            --downstream-branch origin/main-ce --repo cilium/cilium \
+            --ignore-failures --debug
+          # Ignore failures above as the cherry-picking of upstream commits is best-effort.
       - name: Diff against upstream tree for files that should not diverge from OSS
         if: ${{ always() && steps.checkout.outcome == 'success' && steps.checkout-oss.outcome == 'success' }}
+        env:
+          BASE_BRANCH: lint-merge-base
         run: |
           contrib/scripts/enterprise-meditation.sh \
-            --repo cilium/cilium --debug
+            --repo cilium/cilium --debug $BASE_BRANCH
           contrib/scripts/enterprise-meditation.sh \
-            --repo cilium/cilium --stat --exit-code
-      - name: Diff against upstream tree for files that may diverge from OSS
+            --repo cilium/cilium --stat --exit-code $BASE_BRANCH
+      - name: Compare upstream tree noisily (Never fails, check me for a more unfiltered view of diff)
         if: ${{ always() && steps.checkout.outcome == 'success' && steps.checkout-oss.outcome == 'success' }}
+        env:
+          BASE_BRANCH: lint-merge-base
         run: |
           # Note: This does not fail when encountering a diff!
           contrib/scripts/enterprise-meditation.sh \
             --repo cilium/cilium --debug \
-            --noisy
+            --noisy $BASE_BRANCH
           contrib/scripts/enterprise-meditation.sh \
             --repo cilium/cilium --stat \
-            --noisy
+            --noisy $BASE_BRANCH
 
   codeowners:
     name: CODEOWNERS
