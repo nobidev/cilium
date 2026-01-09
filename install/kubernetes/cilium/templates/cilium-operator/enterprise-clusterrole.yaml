@@ -51,6 +51,7 @@ rules:
   - clusterwideprivatenetworks.isovalent.com
   - privatenetworkendpointslices.isovalent.com
   - privatenetworkexternalendpoints.isovalent.com
+  - privatenetworknodeattachments.isovalent.com
 {{- end }}
 {{- if .Values.enterprise.loadbalancer.gatewayAPI.enabled }}
 - apiGroups:
@@ -323,6 +324,7 @@ rules:
     - isovalent.com
   resources:
     - clusterwideprivatenetworks
+    - privatenetworknodeattachments
   verbs:
     - list
     - watch
