@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/tuple"
 )
 
 // lbMetricsCollector implements Prometheus Collector interface and store the state of the metrics collector
@@ -48,7 +49,7 @@ type lbMetricsCollector struct {
 	round uint64
 
 	// prevLbCtEntries stores a snapshot of the LB CT entries
-	prevLbCtEntries map[*ctmap.CtKey4Global]*ctmap.CtEntry
+	prevLbCtEntries map[tuple.TupleKey4]*ctmap.CtEntry
 
 	// backendMetrics stores metrics (bytes, packets, health) for each backend
 	backendMetrics map[backendMetricKey]*backendMetricValue
@@ -75,7 +76,7 @@ func newLBMetricsCollector(params collectorParams, ct4Maps []ctmap.CtMap) *lbMet
 		db:        params.DB,
 		frontends: params.Frontends,
 
-		prevLbCtEntries: make(map[*ctmap.CtKey4Global]*ctmap.CtEntry),
+		prevLbCtEntries: make(map[tuple.TupleKey4]*ctmap.CtEntry),
 		backendMetrics:  make(map[backendMetricKey]*backendMetricValue),
 
 		ct4Maps: ct4Maps,
@@ -257,11 +258,11 @@ func (mc *lbMetricsCollector) updateMetricsEntryWithCTMapInfo(backends map[loadb
 		// calculate the deltas between the current CT entry's counters and the previous one's (if it exists)
 		deltaBytes := ctValue.Bytes
 		deltaPackets := ctValue.Packets
-		if prevCtValue, ok := mc.prevLbCtEntries[ctKey]; ok {
+		if prevCtValue, ok := mc.prevLbCtEntries[ctKey.TupleKey4]; ok {
 			deltaBytes -= prevCtValue.Bytes
 			deltaPackets -= prevCtValue.Packets
 		}
-		mc.prevLbCtEntries[ctKey] = ctValue
+		mc.prevLbCtEntries[ctKey.TupleKey4] = ctValue
 
 		backendAddr := beValueToAddr(backend)
 		entry := mc.getOrAddEntry(svcName, backendAddr)
