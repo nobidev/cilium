@@ -50,7 +50,7 @@ func fmtErr[T ~string](s T) string {
 	return fmtErrColor + string(s) + Reset
 }
 
-func fmtReset[T ~string](s T) string {
+func FmtReset[T ~string](s T) string {
 	return strings.NewReplacer(
 		fmtHighliteColor, "",
 		fmtOkColor, "",
@@ -62,7 +62,7 @@ func fmtReset[T ~string](s T) string {
 }
 
 func ansiLen[T ~string](s T) int {
-	return len([]rune(fmtReset(s)))
+	return len([]rune(FmtReset(s)))
 }
 
 func fmtIndent(s string, indent int) string {

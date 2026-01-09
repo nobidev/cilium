@@ -70,7 +70,7 @@ func (ps ClusterStatus) Format(color bool) string {
 	out := sb.String()
 
 	if !color {
-		out = fmtReset(out)
+		out = FmtReset(out)
 	}
 	return out
 }

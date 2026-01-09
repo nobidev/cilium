@@ -8,7 +8,7 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package status
+package collector
 
 import (
 	"cmp"
@@ -18,6 +18,7 @@ import (
 	"slices"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/status"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
@@ -42,10 +43,10 @@ type statusCollector struct {
 	nm nomgr.NodeManager
 }
 
-func (sc *statusCollector) collectNodeStatus() NodeStatus {
+func (sc *statusCollector) collectNodeStatus() status.NodeStatus {
 	tx := sc.db.ReadTxn()
 
-	status := NodeStatus{
+	stat := status.NodeStatus{
 		Name:              tables.NodeName(nodeTypes.GetName()),
 		Cluster:           tables.ClusterName(sc.clusterInfo.Name),
 		Enabled:           sc.config.Enabled,
@@ -54,7 +55,7 @@ func (sc *statusCollector) collectNodeStatus() NodeStatus {
 	}
 
 	if !sc.config.Enabled {
-		return status
+		return stat
 	}
 
 	activeWorkloadNodesByNet := sc.collectActiveWorkloadNodesByNet(tx)
@@ -65,16 +66,16 @@ func (sc *statusCollector) collectNodeStatus() NodeStatus {
 		if err := pn.Error(); err != "" {
 			errs = []string{err}
 		}
-		pns := NetworkStatus{
+		pns := status.NetworkStatus{
 			Name: pn.Name,
-			Routes: cslices.Map(pn.Routes, func(r tables.PrivateNetworkRoute) Route {
-				return Route{
+			Routes: cslices.Map(pn.Routes, func(r tables.PrivateNetworkRoute) status.Route {
+				return status.Route{
 					Destination: r.Destination,
 					Gateway:     r.Gateway,
 				}
 			}),
-			Subnets: cslices.Map(pn.Subnets, func(s tables.PrivateNetworkSubnet) Subnet {
-				return Subnet{
+			Subnets: cslices.Map(pn.Subnets, func(s tables.PrivateNetworkSubnet) status.Subnet {
+				return status.Subnet{
 					CIDR: s.CIDR,
 				}
 			}),
@@ -85,7 +86,7 @@ func (sc *statusCollector) collectNodeStatus() NodeStatus {
 		inbs := inbsByNet[pn.Name]
 		activeINB, ok := findActiveINB(inbs)
 		inbs = addUnknownINBs(inbs, pn.INBs.Selectors)
-		pns.WorkerStatus = WorkerStatus{
+		pns.WorkerStatus = status.WorkerStatus{
 			ActiveINB:            activeINB,
 			ConnectedINBClusters: inbs,
 		}
@@ -93,8 +94,8 @@ func (sc *statusCollector) collectNodeStatus() NodeStatus {
 			pns.Errors = append(pns.Errors, "No Active INB")
 		}
 
-		pns.INBStatus = INBStatus{
-			Interface: Interface{
+		pns.INBStatus = status.INBStatus{
+			Interface: status.Interface{
 				Name:  pn.Interface.Name,
 				Index: pn.Interface.Index,
 				Error: pn.Interface.Error,
@@ -105,16 +106,16 @@ func (sc *statusCollector) collectNodeStatus() NodeStatus {
 
 		pns.Endpoints = sc.collectEndpointsForNet(tx, pns.Name)
 
-		status.Networks = append(status.Networks, pns)
+		stat.Networks = append(stat.Networks, pns)
 	}
 
-	return status
+	return stat
 }
 
-func (sc *statusCollector) collectActiveWorkloadNodesByNet(tx statedb.ReadTxn) map[tables.NetworkName][]WorkloadNode {
-	activeWorkloadNodesByNet := map[tables.NetworkName][]WorkloadNode{}
+func (sc *statusCollector) collectActiveWorkloadNodesByNet(tx statedb.ReadTxn) map[tables.NetworkName][]status.WorkloadNode {
+	activeWorkloadNodesByNet := map[tables.NetworkName][]status.WorkloadNode{}
 	for cnet := range sc.activeNetworks.All(tx) {
-		activeWorkloadNodesByNet[cnet.Network] = append(activeWorkloadNodesByNet[cnet.Network], WorkloadNode{
+		activeWorkloadNodesByNet[cnet.Network] = append(activeWorkloadNodesByNet[cnet.Network], status.WorkloadNode{
 			Name:    cnet.Node.Name,
 			Cluster: cnet.Node.Cluster,
 		})
@@ -122,17 +123,17 @@ func (sc *statusCollector) collectActiveWorkloadNodesByNet(tx statedb.ReadTxn) m
 	return activeWorkloadNodesByNet
 }
 
-func (sc *statusCollector) collectINBsByNet(tx statedb.ReadTxn) map[tables.NetworkName][]INBCluster {
-	inbsByNetAndCluster := map[tables.NetworkName]map[tables.ClusterName]INBCluster{}
+func (sc *statusCollector) collectINBsByNet(tx statedb.ReadTxn) map[tables.NetworkName][]status.INBCluster {
+	inbsByNetAndCluster := map[tables.NetworkName]map[tables.ClusterName]status.INBCluster{}
 
 	for inb := range sc.inbs.All(tx) {
 		inbsByCluster, ok := inbsByNetAndCluster[inb.Network]
 		if !ok {
-			inbsByCluster = map[tables.ClusterName]INBCluster{}
+			inbsByCluster = map[tables.ClusterName]status.INBCluster{}
 		}
 		inbs := inbsByCluster[inb.Node.Cluster]
 		inbs.Name = inb.Node.Cluster
-		inbs.INBs = append(inbs.INBs, ConnectedINB{
+		inbs.INBs = append(inbs.INBs, status.ConnectedINB{
 			Cluster: inb.Node.Cluster,
 			Name:    inb.Node.Name,
 			Active:  inb.Role == tables.INBRoleActive,
@@ -144,9 +145,9 @@ func (sc *statusCollector) collectINBsByNet(tx statedb.ReadTxn) map[tables.Netwo
 
 	}
 
-	inbByNet := map[tables.NetworkName][]INBCluster{}
+	inbByNet := map[tables.NetworkName][]status.INBCluster{}
 	for net, clusters := range inbsByNetAndCluster {
-		inbs := slices.SortedFunc(maps.Values(clusters), func(a, b INBCluster) int {
+		inbs := slices.SortedFunc(maps.Values(clusters), func(a, b status.INBCluster) int {
 			return cmp.Compare(a.Name, b.Name)
 		})
 		inbByNet[net] = inbs
@@ -155,7 +156,7 @@ func (sc *statusCollector) collectINBsByNet(tx statedb.ReadTxn) map[tables.Netwo
 	return inbByNet
 }
 
-func findActiveINB(clusters []INBCluster) (string, bool) {
+func findActiveINB(clusters []status.INBCluster) (string, bool) {
 	for _, cl := range clusters {
 		for _, inb := range cl.INBs {
 			if inb.Active {
@@ -166,12 +167,12 @@ func findActiveINB(clusters []INBCluster) (string, bool) {
 	return "", false
 }
 
-func addUnknownINBs(clusters []INBCluster, selectors map[tables.ClusterName]tables.PrivateNetworkINBNodeSelector) []INBCluster {
+func addUnknownINBs(clusters []status.INBCluster, selectors map[tables.ClusterName]tables.PrivateNetworkINBNodeSelector) []status.INBCluster {
 	for _, cluster := range slices.Sorted(maps.Keys(selectors)) {
-		if !slices.ContainsFunc(clusters, func(inb INBCluster) bool {
+		if !slices.ContainsFunc(clusters, func(inb status.INBCluster) bool {
 			return inb.Name == cluster
 		}) {
-			clusters = append(clusters, INBCluster{
+			clusters = append(clusters, status.INBCluster{
 				Name: cluster,
 			})
 		}
@@ -179,18 +180,18 @@ func addUnknownINBs(clusters []INBCluster, selectors map[tables.ClusterName]tabl
 	return clusters
 }
 
-func (sc *statusCollector) collectConnectedClusters() []ConnectedCluster {
+func (sc *statusCollector) collectConnectedClusters() []status.ConnectedCluster {
 	knownNodesByCluster := map[string][]tables.NodeName{}
 	for _, node := range sc.nm.GetNodes() {
 		knownNodesByCluster[node.Cluster] = append(knownNodesByCluster[node.Cluster], tables.NodeName(node.Name))
 	}
 
-	cc := []ConnectedCluster{}
+	cc := []status.ConnectedCluster{}
 
 	for _, cluster := range slices.Sorted(maps.Keys(knownNodesByCluster)) {
 		nodes := knownNodesByCluster[cluster]
 		slices.Sort(nodes)
-		cc = append(cc, ConnectedCluster{
+		cc = append(cc, status.ConnectedCluster{
 			Name:      tables.ClusterName(cluster),
 			NodeNames: nodes,
 		})
@@ -198,8 +199,8 @@ func (sc *statusCollector) collectConnectedClusters() []ConnectedCluster {
 	return cc
 }
 
-func (sc *statusCollector) collectEndpointsForNet(tx statedb.ReadTxn, net tables.NetworkName) []EndpointStatus {
-	epsByName := map[string]EndpointStatus{}
+func (sc *statusCollector) collectEndpointsForNet(tx statedb.ReadTxn, net tables.NetworkName) []status.EndpointStatus {
+	epsByName := map[string]status.EndpointStatus{}
 
 	activePIPs := set.Set[netip.Addr]{}
 	for activeEP := range sc.mapEntries.Prefix(tx, tables.MapEntriesByNetworkAndType(net, tables.MapEntryTypeEndpoint)) {
@@ -227,80 +228,7 @@ func (sc *statusCollector) collectEndpointsForNet(tx statedb.ReadTxn, net tables
 		epsByName[ep.Source.String()+"|"+ep.Name] = epStatus
 	}
 
-	return slices.SortedFunc(maps.Values(epsByName), func(a, b EndpointStatus) int {
+	return slices.SortedFunc(maps.Values(epsByName), func(a, b status.EndpointStatus) int {
 		return cmp.Or(cmp.Compare(a.Cluster, b.Cluster), cmp.Compare(a.Name, b.Name))
 	})
-}
-
-type connectedEndpointsSummary struct {
-	clusters map[tables.ClusterName]connectedClusterSummary
-
-	localEPs    int
-	localExtEPs int
-
-	activeEps int
-	totalEps  int
-}
-
-type connectedClusterSummary struct {
-	activeNodes int
-	totalNodes  int
-	activeEps   int
-	totalEps    int
-	extEps      int
-}
-
-func summarizeConnectedCluster(net NetworkStatus, clusters []ConnectedCluster, localCluster tables.ClusterName, localNode tables.NodeName) connectedEndpointsSummary {
-	infoByCluster := map[tables.ClusterName]connectedClusterSummary{}
-
-	localExtEPs := 0
-	localEPs := 0
-	activeEps := 0
-	totalEps := 0
-
-	for _, cluster := range clusters {
-		info := infoByCluster[cluster.Name]
-		info.totalNodes += len(cluster.NodeNames)
-		infoByCluster[cluster.Name] = info
-	}
-
-	for _, ep := range net.Endpoints {
-
-		counters := infoByCluster[ep.Cluster]
-
-		if ep.Cluster == localCluster && ep.Node == localNode {
-			if ep.External {
-				localExtEPs++
-			} else {
-				localEPs++
-			}
-		}
-
-		if ep.External {
-			counters.extEps++
-		}
-		if ep.Active {
-			counters.activeEps++
-			activeEps++
-		}
-
-		counters.totalEps++
-		totalEps++
-
-		infoByCluster[ep.Cluster] = counters
-	}
-
-	for _, node := range net.INBStatus.ActiveWorkloadNodes {
-		info := infoByCluster[node.Cluster]
-		info.activeNodes += 1
-		infoByCluster[node.Cluster] = info
-	}
-
-	return connectedEndpointsSummary{
-		clusters:    infoByCluster,
-		localEPs:    localEPs,
-		localExtEPs: localExtEPs,
-		activeEps:   activeEps,
-		totalEps:    totalEps,
-	}
 }

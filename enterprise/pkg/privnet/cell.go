@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
 	health "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/status"
+	statuscollector "github.com/cilium/cilium/enterprise/pkg/privnet/status/collector"
 )
 
 var Cell = cell.Module(
@@ -30,5 +30,5 @@ var Cell = cell.Module(
 	endpoints.Cell,
 	health.Cell,
 	addressing.Cell,
-	status.Cell,
+	statuscollector.Cell,
 )

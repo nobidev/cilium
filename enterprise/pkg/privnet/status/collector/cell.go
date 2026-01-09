@@ -8,7 +8,7 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package status
+package collector
 
 import (
 	"encoding/json"
@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/status"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	nomgr "github.com/cilium/cilium/pkg/node/manager"
@@ -74,7 +75,7 @@ func statusCmd(sc *statusCollector) script.Cmd {
 	}, func(s *script.State, args ...string) (script.WaitFunc, error) {
 
 		return func(*script.State) (stdout, stderr string, err error) {
-			status := sc.collectNodeStatus()
+			stat := sc.collectNodeStatus()
 
 			format, err := s.Flags.GetString("output")
 			if err != nil {
@@ -87,15 +88,15 @@ func statusCmd(sc *statusCollector) script.Cmd {
 
 			switch format {
 			case "json":
-				out, err := json.MarshalIndent(status, "", "  ")
+				out, err := json.MarshalIndent(stat, "", "  ")
 				if err != nil {
 					return "", "", fmt.Errorf("json.Marshal: %w", err)
 				}
 				return string(out) + "\n", "", nil
 			case "plain":
-				out := status.Format()
+				out := stat.Format()
 				if !color {
-					out = fmtReset(out)
+					out = status.FmtReset(out)
 				}
 				return out, "", nil
 			default:

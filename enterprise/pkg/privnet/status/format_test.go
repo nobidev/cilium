@@ -214,7 +214,7 @@ func TestFmtBar(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, fmtReset(tc.expected+"\n"), fmtReset(fmtBar(tc.left, tc.center, tc.right, tc.width)))
+			require.Equal(t, FmtReset(tc.expected+"\n"), FmtReset(fmtBar(tc.left, tc.center, tc.right, tc.width)))
 		})
 
 	}
