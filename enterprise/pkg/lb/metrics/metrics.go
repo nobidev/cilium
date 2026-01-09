@@ -55,8 +55,8 @@ type lbMetricsCollector struct {
 
 	lock.Mutex
 
-	services resource.Resource[*slim_corev1.Service]
-	ct4Maps  []*ctmap.Map
+	// services resource.Resource[*slim_corev1.Service]
+	ct4Maps []*ctmap.Map
 
 	lbBytesDesc             *prometheus.Desc
 	lbPacketsDesc           *prometheus.Desc
@@ -69,7 +69,7 @@ type lbMetricsCollector struct {
 }
 
 func newLBMetricsCollector(params collectorParams) *lbMetricsCollector {
-	ct4Maps := ctmap.GlobalMaps(true, false)
+	ct4Maps := ctmap.Maps(true, false)
 
 	return &lbMetricsCollector{
 		lbServiceCache: make(map[string]serviceCacheEntry),
@@ -80,8 +80,8 @@ func newLBMetricsCollector(params collectorParams) *lbMetricsCollector {
 		lbOpenConnections:   0,
 		lbHealthcheckStatus: make(map[string]map[string]bool),
 
-		services: params.Services,
-		ct4Maps:  ct4Maps,
+		// services: params.Services,
+		ct4Maps: ct4Maps,
 
 		lbBytesDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "lb_bytes_total"),
@@ -144,6 +144,8 @@ func (mc *lbMetricsCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 // lbServiceCacheUpdater listens to service events and updates the LB service cache accordingly
+//
+//lint:ignore U1000 ignoring this while v1.Service will be replaced with statedb
 func (mc *lbMetricsCollector) lbServiceCacheUpdater(ctx context.Context, event resource.Event[*slim_corev1.Service]) error {
 	service := event.Object
 

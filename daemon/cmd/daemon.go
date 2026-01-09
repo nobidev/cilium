@@ -145,17 +145,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	bootstrapStats.daemonInit.Start()
 
-	ctmap.InitMapInfo(params.MetricsRegistry, params.DaemonConfig.EnableIPv4, params.DaemonConfig.EnableIPv6, params.KPRConfig.KubeProxyReplacement || params.DaemonConfig.EnableBPFMasquerade)
-
-	// Collect CIDR identities from the "old" bpf ipcache and restore them
-	// in to the metadata layer.
-	if params.DaemonConfig.RestoreState && !params.DaemonConfig.DryMode {
-		// this *must* be called before initMaps(), which will "hide"
-		// the "old" ipcache.
-		if err := params.IdentityRestorer.RestoreLocalIdentities(); err != nil {
-			params.Logger.Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.", logfields.Error, err)
-		}
-	}
+	ctmap.InitMapInfo(params.MetricsRegistry, params.DaemonConfig.EnableIPv4, params.DaemonConfig.EnableIPv6, params.NatMap4, params.NatMap6)
 
 	bootstrapStats.daemonInit.End(true)
 
@@ -354,16 +344,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		return err
 	}
 
-	// Start watcher for endpoint IP --> identity mappings in key-value store.
-	// this needs to be done *after* that the ipcache map has been recreated
-	// by initMaps.
-	if params.IPIdentityWatcher.IsEnabled() {
-		go func() {
-			params.Logger.Info("Starting IP identity watcher")
-			params.IPIdentityWatcher.Watch(ctx)
-		}()
-	}
-
 	if err := params.IPsecAgent.StartBackgroundJobs(params.NodeHandler); err != nil {
 		params.Logger.Error("Unable to start IPsec key watcher", logfields.Error, err)
 	}
@@ -383,10 +363,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 func unloadDNSPolicies(params daemonParams) {
 	if params.DaemonConfig.DNSPolicyUnloadOnShutdown {
-		// Stop k8s watchers
-		params.Logger.Info("Stopping k8s watcher")
-		params.K8sWatcher.StopWatcher()
-
 		params.Logger.Info("Unload DNS policies")
 
 		// Iterate over the policy repository and remove L7 DNS part

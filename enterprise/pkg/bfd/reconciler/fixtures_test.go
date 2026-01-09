@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -108,7 +109,11 @@ func newTestFixture(t *testing.T, ctx context.Context) (*testFixture, func()) {
 					w := action.(k8stesting.WatchAction)
 					gvr := w.GetResource()
 					ns := w.GetNamespace()
-					watch, err := clientset.CiliumFakeClientset.Tracker().Watch(gvr, ns)
+					var opts []metav1.ListOptions
+					if watchAction, ok := action.(k8stesting.WatchActionImpl); ok {
+						opts = append(opts, watchAction.ListOptions)
+					}
+					watch, err := clientset.CiliumFakeClientset.Tracker().Watch(gvr, ns, opts...)
 					if err != nil {
 						return false, nil, err
 					}

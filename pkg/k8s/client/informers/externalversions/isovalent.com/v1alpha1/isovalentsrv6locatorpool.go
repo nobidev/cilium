@@ -43,7 +43,7 @@ func NewIsovalentSRv6LocatorPoolInformer(client versioned.Interface, resyncPerio
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredIsovalentSRv6LocatorPoolInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -68,7 +68,7 @@ func NewFilteredIsovalentSRv6LocatorPoolInformer(client versioned.Interface, res
 				}
 				return client.IsovalentV1alpha1().IsovalentSRv6LocatorPools().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisisovalentcomv1alpha1.IsovalentSRv6LocatorPool{},
 		resyncPeriod,
 		indexers,

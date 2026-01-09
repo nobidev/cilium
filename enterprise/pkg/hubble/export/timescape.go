@@ -126,7 +126,7 @@ type params struct {
 
 	JobGroup         job.Group
 	Lifecycle        cell.Lifecycle
-	SvcResolver      *dial.ServiceResolver
+	SvcResolver      dial.Resolver
 	Config           timescapeExporterConfig
 	TLSConfigPromise timescapeTLSConfigPromise
 	Metrics          *metricsHandler

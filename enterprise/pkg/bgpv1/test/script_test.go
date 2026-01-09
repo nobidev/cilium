@@ -165,7 +165,7 @@ func TestPrivilegedScript(t *testing.T) {
 			privnetConfig.Cell,
 
 			// Route Reconciler cell
-			routeReconciler.TableCell,
+			routeReconciler.Cell,
 
 			// Enterprise BGP dependencies
 			cell.Provide(

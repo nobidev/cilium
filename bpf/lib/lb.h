@@ -8,7 +8,6 @@
 #include "conntrack.h"
 #include "ipv4.h"
 #include "hash.h"
-#include "lrp.h"
 #include "eps.h"
 #include "nat_46x64.h"
 #include "ratelimit.h"
@@ -525,7 +524,6 @@ bool lb6_svc_is_routable(const struct lb6_service *svc)
 	return __lb_svc_is_routable(svc->flags);
 }
 
-#ifdef ENABLE_LOCAL_REDIRECT_POLICY
 static __always_inline
 bool lb4_svc_is_localredirect(const struct lb4_service *svc)
 {
@@ -537,7 +535,6 @@ bool lb6_svc_is_localredirect(const struct lb6_service *svc)
 {
 	return svc->flags2 & SVC_FLAG_LOCALREDIRECT;
 }
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 static __always_inline
 bool __lb4_svc_is_l7_loadbalancer(const struct lb4_service *svc __maybe_unused)
@@ -1268,21 +1265,18 @@ lb6_to_lb4(struct __ctx_buff *ctx __maybe_unused,
 }
 
 static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
-				     int l3_off, fraginfo_t fraginfo, int l4_off,
+				     fraginfo_t fraginfo, int l4_off,
 				     struct lb6_key *key,
 				     struct ipv6_ct_tuple *tuple,
 				     const struct lb6_service *svc,
 				     struct ct_state *state,
-				     const bool skip_xlate,
-				     __s8 *ext_err,
-				     __net_cookie netns_cookie __maybe_unused)
+				     const struct lb6_backend **selected_backend,
+				     __s8 *ext_err)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
-	union v6addr saddr = tuple->saddr;
 	__u8 flags = tuple->flags;
 	const struct lb6_backend *backend;
 	__u32 backend_id = 0;
-	union v6addr new_saddr = {};
 	int ret;
 	union lb6_affinity_client_id client_id;
 
@@ -1378,41 +1372,10 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id, backend_id);
 
-#if defined(USE_LOOPBACK_LB) || defined(ENABLE_LOCAL_REDIRECT_POLICY)
-	if (ipv6_addr_equals(&saddr, &backend->address)) {
-	#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
-		if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
-		    lrp_v6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
-			return CTX_ACT_OK;
-	#endif
+	*selected_backend = backend;
 
-	#ifdef USE_LOOPBACK_LB
-		union v6addr loopback_addr = CONFIG(service_loopback_ipv6);
+	return CTX_ACT_OK;
 
-		ipv6_addr_copy(&new_saddr, &loopback_addr);
-		state->loopback = 1;
-	#endif
-	}
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
-
-#ifdef USE_LOOPBACK_LB
-	if (!state->loopback)
-#endif
-		ipv6_addr_copy(&tuple->daddr, &backend->address);
-
-	if (lb6_svc_is_l7_punt_proxy(svc) &&
-	    __lookup_ip6_endpoint(&backend->address)) {
-		ctx_skip_nodeport_set(ctx);
-		return LB_PUNT_TO_STACK;
-	}
-	if (skip_xlate)
-		return CTX_ACT_OK;
-
-	if (likely(backend->port))
-		tuple->sport = backend->port;
-
-	return lb6_xlate(ctx, &new_saddr, &saddr, tuple->nexthdr, l3_off, l4_off, key,
-			 backend, ipfrag_has_l4_header(fraginfo));
 no_service:
 	ret = DROP_NO_SERVICE;
 drop_err:
@@ -1420,47 +1383,29 @@ drop_err:
 	return ret;
 }
 
-/* lb6_ctx_store_state() stores per packet load balancing state to be picked
- * up on the continuation tail call.
- * Note that the IP headers are already xlated and the tuple is re-initialized
- * from the xlated headers before restoring state.
- * NOTE: if lb_skip_l4_dnat() this is not the case as xlate is skipped. We
- * lose the updated tuple daddr in that case.
- */
-static __always_inline void lb6_ctx_store_state(struct __ctx_buff *ctx,
-						const struct ct_state *state,
-					       __u16 proxy_port)
+static __always_inline int
+lb6_dnat_request(struct __ctx_buff *ctx, const struct lb6_backend *backend,
+		 int l3_off, fraginfo_t fraginfo, int l4_off,
+		 struct lb6_key *key, struct ipv6_ct_tuple *tuple,
+		 bool loopback)
 {
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
-	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
-#ifdef USE_LOOPBACK_LB
-		state->loopback);
-#else
-		0);
-#endif /* USE_LOOPBACK_LB */
-}
+	union v6addr saddr = tuple->saddr;
+	union v6addr new_saddr = {};
 
-/* lb6_ctx_restore_state() restores per packet load balancing state from the
- * previous tail call.
- * tuple->flags does not need to be restored, as it will be reinitialized from
- * the packet.
- */
-static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
-						  struct ct_state *state,
-						 __u16 *proxy_port,
-						 bool clear)
-{
-	__u32 meta = clear ? ctx_load_and_clear_meta(ctx, CB_CT_STATE) :
-				       ctx_load_meta(ctx, CB_CT_STATE);
+	if (loopback) {
+		union v6addr loopback_addr = CONFIG(service_loopback_ipv6);
 
-#ifdef USE_LOOPBACK_LB
-	if (meta & 1)
-		state->loopback = 1;
-#endif
-	state->rev_nat_index = meta >> 16;
+		ipv6_addr_copy(&new_saddr, &loopback_addr);
+	}
 
-	*proxy_port = clear ? (ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16) :
-			      (ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16);
+	if (!loopback)
+		ipv6_addr_copy(&tuple->daddr, &backend->address);
+
+	if (likely(backend->port))
+		tuple->sport = backend->port;
+
+	return lb6_xlate(ctx, &new_saddr, &saddr, tuple->nexthdr, l3_off, l4_off, key,
+			 backend, ipfrag_has_l4_header(fraginfo));
 }
 
 #else
@@ -2031,25 +1976,21 @@ lb4_to_lb6(struct __ctx_buff *ctx __maybe_unused,
 }
 
 static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
-				     int l3_off, fraginfo_t fraginfo, int l4_off,
+				     fraginfo_t fraginfo, int l4_off,
 				     struct lb4_key *key,
 				     struct ipv4_ct_tuple *tuple,
 				     const struct lb4_service *svc,
 				     struct ct_state *state,
-				     const bool skip_xlate,
-				     __u32 *cluster_id __maybe_unused,
-				     __s8 *ext_err,
-				     __net_cookie netns_cookie __maybe_unused)
+				     const struct lb4_backend **selected_backend,
+				     __s8 *ext_err)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
-	__be32 saddr = tuple->saddr;
 	__u8 flags = tuple->flags;
 	const struct lb4_backend *backend;
 	__u32 backend_id = 0;
-	__be32 new_saddr = 0;
 	int ret;
 	union lb4_affinity_client_id client_id = {
-		.client_ip = saddr,
+		.client_ip = tuple->saddr,
 	};
 
 	state->rev_nat_index = svc->rev_nat_index;
@@ -2135,10 +2076,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		goto drop_err;
 	}
 
-#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
-	*cluster_id = backend->cluster_id;
-#endif
-
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
@@ -2146,40 +2083,31 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (lb4_svc_is_affinity(svc))
 		lb4_update_affinity_by_addr(svc, &client_id, backend_id);
 
-#if defined(USE_LOOPBACK_LB) || defined(ENABLE_LOCAL_REDIRECT_POLICY)
-	if (saddr == backend->address) {
-	#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
-		if (netns_cookie > 0 && unlikely(lb4_svc_is_localredirect(svc)) &&
-		    lrp_v4_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
-			return CTX_ACT_OK;
-	#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
+	*selected_backend = backend;
 
-		/* Special loopback case: The origin endpoint has transmitted to a
-		 * service which is being translated back to the source. This would
-		 * result in a packet with identical source and destination address.
-		 * Linux considers such packets as martian source and will drop unless
-		 * received on a loopback device. Perform NAT on the source address
-		 * to make it appear from an outside address.
-		 */
-	#ifdef USE_LOOPBACK_LB
+	return CTX_ACT_OK;
+
+no_service:
+	ret = DROP_NO_SERVICE;
+drop_err:
+	tuple->flags = flags;
+	return ret;
+}
+
+static __always_inline int
+lb4_dnat_request(struct __ctx_buff *ctx, const struct lb4_backend *backend,
+		 int l3_off, fraginfo_t fraginfo, int l4_off,
+		 struct lb4_key *key,  struct ipv4_ct_tuple *tuple,
+		 bool loopback)
+{
+	__be32 saddr = tuple->saddr;
+	__be32 new_saddr = 0;
+
+	if (loopback)
 		new_saddr = CONFIG(service_loopback_ipv4).be32;
-		state->loopback = 1;
-	#endif
-	}
-#endif
 
-#ifdef USE_LOOPBACK_LB
-	if (!state->loopback)
-#endif
+	if (!loopback)
 		tuple->daddr = backend->address;
-
-	if (lb4_svc_is_l7_punt_proxy(svc) &&
-	    __lookup_ip4_endpoint(backend->address)) {
-		ctx_skip_nodeport_set(ctx);
-		return LB_PUNT_TO_STACK;
-	}
-	if (skip_xlate)
-		return CTX_ACT_OK;
 
 	/* CT tuple contains ports in reverse order: */
 	if (likely(backend->port))
@@ -2188,59 +2116,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	return lb4_xlate(ctx, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, key,
 			 backend, ipfrag_has_l4_header(fraginfo));
-no_service:
-	ret = DROP_NO_SERVICE;
-drop_err:
-	tuple->flags = flags;
-	return ret;
-}
-
-/* lb4_ctx_store_state() stores per packet load balancing state to be picked
- * up on the continuation tail call.
- * Note that the IP headers are already xlated and the tuple is re-initialized
- * from the xlated headers before restoring state.
- * NOTE: if lb_skip_l4_dnat() this is not the case as xlate is skipped. We
- * lose the updated tuple daddr in that case.
- */
-static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
-						const struct ct_state *state,
-					       __u16 proxy_port, __u32 cluster_id)
-{
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
-	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
-#ifdef USE_LOOPBACK_LB
-		       state->loopback);
-#else
-		       0);
-#endif
-	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
-}
-
-/* lb4_ctx_restore_state() restores per packet load balancing state from the
- * previous tail call.
- * tuple->flags does not need to be restored, as it will be reinitialized from
- * the packet.
- */
-static __always_inline void
-lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
-		       __u16 *proxy_port, __u32 *cluster_id __maybe_unused,
-		       bool clear)
-{
-	__u32 meta = clear ? ctx_load_and_clear_meta(ctx, CB_CT_STATE) :
-			     ctx_load_meta(ctx, CB_CT_STATE);
-#ifdef USE_LOOPBACK_LB
-	if (meta & 1)
-		state->loopback = 1;
-#endif
-	state->rev_nat_index = meta >> 16;
-
-	*proxy_port = clear ? (ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16) :
-			      (ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16);
-
-#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
-	*cluster_id = clear ? ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS) :
-			      ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
-#endif
 }
 
 /* Because we use tail calls and this file is included in bpf_sock.h */

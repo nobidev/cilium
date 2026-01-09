@@ -235,20 +235,20 @@ func formatIPAddrArray(arr []netip.Addr) string {
 	if len(arr) == 1 {
 		return arr[0].String()
 	}
-	res := ""
+	res := strings.Builder{}
 	for _, ip := range arr {
-		res += "{" + ip.String() + "}" + "} "
+		res.WriteString("{" + ip.String() + "}" + "} ")
 	}
-	return strings.TrimSpace(res)
+	return strings.TrimSpace(res.String())
 }
 
 func formatStringArray(arr []string) string {
 	if len(arr) == 1 {
 		return arr[0]
 	}
-	res := ""
+	res := strings.Builder{}
 	for _, str := range arr {
-		res += "{" + str + "} "
+		res.WriteString("{" + str + "} ")
 	}
-	return strings.TrimSpace(res)
+	return strings.TrimSpace(res.String())
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	networkPolicy "github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -42,8 +43,8 @@ type portProto struct {
 // parsedSelectorRule is a parsed IsovalentClusterwideEncryptionPolicy rule
 // where selectors and ports have been converted into Cilium-native types.
 type parsedSelectorRule struct {
-	subject   api.EndpointSelector
-	peer      api.EndpointSelector
+	subject   *policyTypes.LabelSelector
+	peer      *policyTypes.LabelSelector
 	peerPorts []portProto
 }
 
@@ -197,8 +198,8 @@ func parseEncryptionPolicy(resourceKey resource.Key, spec iso_v1alpha1.Clusterwi
 		}
 
 		tuples = append(tuples, parsedSelectorRule{
-			subject:   subjectEndpointSelector,
-			peer:      peerEndpointSelector,
+			subject:   policyTypes.NewLabelSelector(subjectEndpointSelector),
+			peer:      policyTypes.NewLabelSelector(peerEndpointSelector),
 			peerPorts: peerPorts,
 		})
 	}

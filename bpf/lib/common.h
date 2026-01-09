@@ -104,9 +104,9 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 }
 
 static __always_inline __maybe_unused bool
-____revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
-			 void **l3, const __u32 l3_len, const bool pull,
-			 __u32 l3_off)
+__revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
+		       void **l3, const __u32 l3_off, const __u32 l3_len,
+		       const bool pull)
 {
 	const __u64 tot_len = l3_off + l3_len;
 	void *data_end;
@@ -126,15 +126,6 @@ ____revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
 
 	*l3 = data + l3_off;
 	return true;
-}
-
-static __always_inline __maybe_unused bool
-__revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
-		       void **l3, const __u32 l3_off, const __u32 l3_len,
-		       const bool pull)
-{
-	return ____revalidate_data_pull(ctx, data, data_end, l3, l3_len, pull,
-					l3_off);
 }
 
 static __always_inline __u32 get_tunnel_id(__u32 identity)
@@ -235,7 +226,6 @@ struct srv6_policy_key6 {
 #define POLICY_ACT_PROXY_REDIRECT (1 << 16)
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
-#define LB_PUNT_TO_STACK	DROP_PUNT_PROXY
 
 #define NAT_NEEDED		CTX_ACT_OK
 #define NAT_46X64_RECIRC	100

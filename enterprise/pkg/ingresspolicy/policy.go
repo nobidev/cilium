@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
@@ -98,7 +97,8 @@ func (i *IngressPolicy) updateSelectorPolicyLocked(sp policy.SelectorPolicy, rev
 	// The reason for this is that the selector policy is not shared with other is
 	// due to unique security labels e.g. ingress:name=<name>.
 	if i.desiredPolicy != nil {
-		if i.desiredPolicy.VersionHandle.IsValid() {
+		selectors := i.desiredPolicy.GetPolicySelectors()
+		if selectors.IsValid() {
 			// This should never happen, so log something so there is a chance to see if this
 			// does happen.
 			i.logger.Debug("ingresspolicy closed old version handle when distilling new one")
@@ -203,14 +203,6 @@ func (i *IngressPolicy) UpdateProxyStatistics(proxyType, l4Protocol string, port
 		stats.Error++
 		metrics.ProxyPolicyL7Total.WithLabelValues("parse_errors", proxyType).Inc()
 	}
-}
-
-// GetPolicyVersionHandle is to satisfy the EndpointUpdater interface.
-func (i *IngressPolicy) GetPolicyVersionHandle() *versioned.VersionHandle {
-	if i.desiredPolicy != nil {
-		return i.desiredPolicy.VersionHandle
-	}
-	return nil
 }
 
 func (i *IngressPolicy) GetRev() uint64 {

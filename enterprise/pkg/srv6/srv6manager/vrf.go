@@ -19,12 +19,13 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 // VRF is the internal representation of IsovalentVRF.
@@ -150,9 +151,10 @@ type vrfID = types.NamespacedName
 // selectsEndpoint determines if the given endpoint is selected by the VRFRule
 // based on matching labels of policy and endpoint.
 func (rule *VRFRule) selectsEndpoint(endpointLabels map[string]string) bool {
-	labelsToMatch := k8sLabels.Set(endpointLabels)
-	for _, selector := range rule.endpointSelectors {
-		if selector.Matches(labelsToMatch) {
+	labelsToMatch := labels.K8sSet(endpointLabels)
+
+	for i := range rule.endpointSelectors {
+		if policyTypes.Matches(policyTypes.NewLabelSelector(rule.endpointSelectors[i]), labelsToMatch) {
 			return true
 		}
 	}

@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "github.com/cilium/cilium/enterprise/fqdn-proxy/api/v1/dnsproxy"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
@@ -231,11 +230,15 @@ type SimpleSelector struct {
 	name       string
 }
 
-func (s *SimpleSelector) GetSelections(v *versioned.VersionHandle) identity.NumericIdentitySlice {
+func (s *SimpleSelector) GetSelections() identity.NumericIdentitySlice {
 	return s.identities
 }
 
-func (s *SimpleSelector) Selects(v *versioned.VersionHandle, nid identity.NumericIdentity) bool {
+func (s *SimpleSelector) GetSelectionsAt(_ policy.SelectorSnapshot) identity.NumericIdentitySlice {
+	return s.identities
+}
+
+func (s *SimpleSelector) Selects(nid identity.NumericIdentity) bool {
 	return slices.Contains(s.identities, nid)
 }
 

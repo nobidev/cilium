@@ -43,7 +43,7 @@ func NewIsovalentBGPVRFConfigInformer(client versioned.Interface, resyncPeriod t
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredIsovalentBGPVRFConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -68,7 +68,7 @@ func NewFilteredIsovalentBGPVRFConfigInformer(client versioned.Interface, resync
 				}
 				return client.IsovalentV1alpha1().IsovalentBGPVRFConfigs().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisisovalentcomv1alpha1.IsovalentBGPVRFConfig{},
 		resyncPeriod,
 		indexers,

@@ -11,13 +11,13 @@
 package policy
 
 import (
+	"fmt"
 	"log/slog"
 	"slices"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -42,22 +42,22 @@ type encryptionRule struct {
 
 // subjectIdentities returns the list of numeric identities selected by the
 // subject selector of this rule r
-func (r *encryptionRule) subjectIdentities(version *versioned.VersionHandle) []identity.NumericIdentity {
+func (r *encryptionRule) subjectIdentities() []identity.NumericIdentity {
 	if r.subjectSelector.IsWildcard() {
 		return []identity.NumericIdentity{0} // ANY
 	}
 
-	return r.subjectSelector.GetSelections(version)
+	return r.subjectSelector.GetSelections()
 }
 
 // peerIdentities returns the list of numeric identities selected by the
 // peer selector of this rule r
-func (r *encryptionRule) peerIdentities(version *versioned.VersionHandle) []identity.NumericIdentity {
+func (r *encryptionRule) peerIdentities() []identity.NumericIdentity {
 	if r.peerSelector.IsWildcard() {
 		return []identity.NumericIdentity{0} // ANY
 	}
 
-	return r.peerSelector.GetSelections(version)
+	return r.peerSelector.GetSelections()
 }
 
 // cartesianProduct generates the encryption tuples needed to implement this rule
@@ -119,22 +119,19 @@ func (n *identityNotifier) IdentitySelectionUpdated(_ *slog.Logger, selector typ
 // IdentitySelectionCommit is called all identities of an identity change batch
 // have been added to the SelectorCache.
 // We want to incrementally update the affected tuples in the policy StateDB table.
-func (n *identityNotifier) IdentitySelectionCommit(_ *slog.Logger, tx *versioned.Tx) {
+func (n *identityNotifier) IdentitySelectionCommit(_ *slog.Logger, tx types.SelectorSnapshot) {
 	if len(n.queuedAdds)+len(n.queuedDels) == 0 {
 		return // skip update if no-op
 	}
 
-	version := tx.GetVersionHandle()
-	defer version.Close()
-
 	if n.isSubject {
-		unchangedPeers := n.rule.peerIdentities(version)
+		unchangedPeers := n.rule.peerIdentities()
 		n.e.incrementalIdentityChange(n.rule,
 			n.queuedDels, unchangedPeers,
 			n.queuedAdds, unchangedPeers,
 		)
 	} else {
-		unchangedSubjects := n.rule.subjectIdentities(version)
+		unchangedSubjects := n.rule.subjectIdentities()
 		n.e.incrementalIdentityChange(n.rule,
 			unchangedSubjects, n.queuedDels,
 			unchangedSubjects, n.queuedAdds)
@@ -164,10 +161,18 @@ func (e *Engine) newRule(key RuleKey, rule parsedSelectorRule) *encryptionRule {
 	}
 
 	r.subjectNotifier = e.newIdentityNotifier(r, true)
-	r.subjectSelector, _ = e.selectorCache.AddIdentitySelector(r.subjectNotifier, networkPolicy.EmptyStringLabels, rule.subject)
+	css, _ := e.selectorCache.AddSelectors(r.subjectNotifier, networkPolicy.EmptyStringLabels, rule.subject)
+	if css.Len() != 1 {
+		panic(fmt.Sprintf("unexpected length of selectors for subjectNotifier 1 != %d", css.Len()))
+	}
+	r.subjectSelector = css[0]
 
 	r.peerNotifier = e.newIdentityNotifier(r, false)
-	r.peerSelector, _ = e.selectorCache.AddIdentitySelector(r.peerNotifier, networkPolicy.EmptyStringLabels, rule.peer)
+	css, _ = e.selectorCache.AddSelectors(r.peerNotifier, networkPolicy.EmptyStringLabels, rule.peer)
+	if css.Len() != 1 {
+		panic(fmt.Sprintf("unexpected length of selectors for peerNotifier 1 != %d", css.Len()))
+	}
+	r.peerSelector = css[0]
 
 	return r
 }
@@ -241,9 +246,8 @@ func (e *Engine) upsertEncryptionPolicy(resourceKey resource.Key, spec iso_v1alp
 	// We first insert new tuples and then remove old ones. Because oldRuleKeys and newRules
 	// have distinct RuleKeys, this ensures that we don't unnecessarily delete and re-create
 	// the same tuple
-	v := versioned.Latest()
 	for _, newRule := range newRules {
-		tupleIter := newRule.cartesianProduct(newRule.subjectIdentities(v), newRule.peerIdentities(v))
+		tupleIter := newRule.cartesianProduct(newRule.subjectIdentities(), newRule.peerIdentities())
 		for key, tuple := range tupleIter {
 			e.insertTuple(txn, key, tuple)
 		}

@@ -1969,6 +1969,49 @@
           "items": {},
           "type": "array"
         },
+        "nodeSpec": {
+          "properties": {
+            "deleteOnTermination": {
+              "type": [
+                "null",
+                "boolean"
+              ]
+            },
+            "disablePrefixDelegation": {
+              "type": "boolean"
+            },
+            "excludeInterfaceTags": {
+              "items": {},
+              "type": "array"
+            },
+            "firstInterfaceIndex": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
+            "securityGroupTags": {
+              "items": {},
+              "type": "array"
+            },
+            "securityGroups": {
+              "items": {},
+              "type": "array"
+            },
+            "subnetIDs": {
+              "items": {},
+              "type": "array"
+            },
+            "subnetTags": {
+              "items": {},
+              "type": "array"
+            },
+            "usePrimaryAddress": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "subnetIDsFilter": {
           "items": {},
           "type": "array"
@@ -2414,6 +2457,12 @@
             "null",
             "string"
           ]
+        },
+        "clusterMaxConnections": {
+          "type": "integer"
+        },
+        "clusterMaxRequests": {
+          "type": "integer"
         },
         "connectTimeoutSeconds": {
           "type": "integer"
@@ -5378,6 +5427,23 @@
         },
         "multiPoolPreAllocation": {
           "type": "string"
+        },
+        "nodeSpec": {
+          "properties": {
+            "ipamMinAllocate": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
+            "ipamPreAllocate": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            }
+          },
+          "type": "object"
         },
         "operator": {
           "properties": {

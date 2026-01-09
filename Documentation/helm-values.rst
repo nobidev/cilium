@@ -1412,6 +1412,46 @@
      - Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances are going to be used to create new ENIs
      - list
      - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec`
+     - NodeSpec configuration for the ENI
+     - object
+     - ``{"deleteOnTermination":null,"disablePrefixDelegation":false,"excludeInterfaceTags":[],"firstInterfaceIndex":null,"securityGroupTags":[],"securityGroups":[],"subnetIDs":[],"subnetTags":[],"usePrimaryAddress":false}``
+   * - :spelling:ignore:`eni.nodeSpec.deleteOnTermination`
+     - Delete ENI on termination @schema type: [null, boolean] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`eni.nodeSpec.disablePrefixDelegation`
+     - Disable prefix delegation for IP allocation
+     - bool
+     - ``false``
+   * - :spelling:ignore:`eni.nodeSpec.excludeInterfaceTags`
+     - Exclude interface tags to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.firstInterfaceIndex`
+     - First interface index to use for IP allocation @schema type: [null, integer] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`eni.nodeSpec.securityGroupTags`
+     - Security group tags to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.securityGroups`
+     - Security groups to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.subnetIDs`
+     - Subnet IDs to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.subnetTags`
+     - Subnet tags to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.usePrimaryAddress`
+     - Use primary address for IP allocation
+     - bool
+     - ``false``
    * - :spelling:ignore:`eni.subnetIDsFilter`
      - Filter via subnet IDs which will dictate which subnets are going to be used to create new ENIs Important note: This requires that each instance has an ENI with a matching subnet attached when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium, use the CNI configuration file settings (cni.customConf) instead.
      - list
@@ -1632,6 +1672,14 @@
      - ADVANCED OPTION: Bring your own custom Envoy bootstrap ConfigMap. Provide the name of a ConfigMap with a ``bootstrap-config.json`` key. When specified, Envoy will use this ConfigMap instead of the default provided by the chart. WARNING: Use of this setting has the potential to prevent cilium-envoy from starting up, and can cause unexpected behavior (e.g. due to syntax error or semantically incorrect configuration). Before submitting an issue, please ensure you have disabled this feature, as support cannot be provided for custom Envoy bootstrap configs. @schema type: [null, string] @schema
      - string
      - ``nil``
+   * - :spelling:ignore:`envoy.clusterMaxConnections`
+     - Maximum number of connections on Envoy clusters
+     - int
+     - ``1024``
+   * - :spelling:ignore:`envoy.clusterMaxRequests`
+     - Maximum number of requests on Envoy clusters
+     - int
+     - ``1024``
    * - :spelling:ignore:`envoy.connectTimeoutSeconds`
      - Time in seconds after which a TCP connection attempt times out
      - int
@@ -1703,7 +1751,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:5a5403c2847af60352f2ae0c69642b0484b741a8ca5c15b34737e10553c64e08","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1764238404-a890eb288598920fc146308ef4b05004f2ee7bcf","useDigest":true}``
+     - ``{"digest":"sha256:2a821c32b668952bc4c41abf35a278f6ae37079785f229c24c2b47d6e861c341","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1764736996-e3dbcd7cf576759ae331f0e30e195be3347be58f","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -1885,7 +1933,7 @@
      - object
      - ``{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}``
    * - :spelling:ignore:`envoy.useOriginalSourceAddress`
-     - For cases when CiliumEnvoyConfig is not used directly (Ingress, Gateway), configures Cilium BPF Metadata listener filter  to use the original source address when extracting the metadata for a request.
+     - For cases when CiliumEnvoyConfig is not used directly (Ingress, Gateway), configures Cilium BPF Metadata listener filter to use the original source address when extracting the metadata for a request.
      - bool
      - ``true``
    * - :spelling:ignore:`envoy.xffNumTrustedHopsL7PolicyEgress`
@@ -3280,6 +3328,18 @@
      - Pre-allocation settings for IPAM in Multi-Pool mode
      - string
      - ``""``
+   * - :spelling:ignore:`ipam.nodeSpec`
+     - NodeSpec configuration for the IPAM
+     - object
+     - ``{"ipamMinAllocate":null,"ipamPreAllocate":null}``
+   * - :spelling:ignore:`ipam.nodeSpec.ipamMinAllocate`
+     - IPAM min allocate @schema type: [null, integer] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`ipam.nodeSpec.ipamPreAllocate`
+     - IPAM pre allocate @schema type: [null, integer] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`ipam.operator.autoCreateCiliumPodIPPools`
      - IP pools to auto-create in multi-pool IPAM mode.
      - object
@@ -3955,7 +4015,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:5a5403c2847af60352f2ae0c69642b0484b741a8ca5c15b34737e10553c64e08","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1764238404-a890eb288598920fc146308ef4b05004f2ee7bcf","useDigest":true}``
+     - ``{"digest":"sha256:2a821c32b668952bc4c41abf35a278f6ae37079785f229c24c2b47d6e861c341","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1764736996-e3dbcd7cf576759ae331f0e30e195be3347be58f","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list

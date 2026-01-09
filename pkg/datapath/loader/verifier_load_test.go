@@ -11,12 +11,13 @@ import (
 
 func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 	return func(yield func(*config.BPFLXC) bool) {
-		for permutation := range permute(3) {
+		for permutation := range permute(4) {
 			cfg := config.NewBPFLXC(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.PolicyDenyResponseEnabled = permutation[0]
 			cfg.AllowIcmpFragNeeded = permutation[1]
 			cfg.EnableIcmpRule = permutation[2]
+			cfg.EnableLRP = permutation[3]
 
 			if !yield(cfg) {
 				return
@@ -69,12 +70,16 @@ func overlayLoadPermutations() iter.Seq[*config.BPFOverlay] {
 	}
 }
 
-type sockConfig struct {
-}
+func sockLoadPermutations() iter.Seq[*config.BPFSock] {
+	return func(yield func(*config.BPFSock) bool) {
+		for permutation := range permute(1) {
+			cfg := config.NewBPFSock(*config.NewNode())
+			cfg.EnableLRP = permutation[0]
 
-func sockLoadPermutations() iter.Seq[*sockConfig] {
-	return func(yield func(*sockConfig) bool) {
-		yield(&sockConfig{}) // No load time config for sock programs
+			if !yield(cfg) {
+				return
+			}
+		}
 	}
 }
 
@@ -105,8 +110,8 @@ func xdpLoadPermutations() iter.Seq[*config.BPFXDP] {
 func permute(n int) iter.Seq[[]bool] {
 	permutation := make([]bool, n)
 	return func(yield func([]bool) bool) {
-		for i := uint64(0); i < (1 << n); i++ {
-			for j := 0; j < n; j++ {
+		for i := range uint64(1 << n) {
+			for j := range n {
 				permutation[j] = (i & (1 << j)) != 0
 			}
 			if !yield(permutation) {

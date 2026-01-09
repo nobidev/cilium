@@ -255,7 +255,6 @@
 /pkg/hubble/metrics @isovalent/hubble
 /pkg/iana/ @isovalent/cni
 /pkg/identity @isovalent/policy-identity-networking
-/pkg/identity/restoration @isovalent/policy-identity-networking @isovalent/policy-identity-networking
 /pkg/idpool/ @isovalent/policy-identity-networking
 /pkg/ip/ @isovalent/cni
 /pkg/ipalloc/ @isovalent/networking-framework
@@ -265,6 +264,7 @@
 /pkg/ipam/allocator/azure/ @isovalent/networking-framework @isovalent/infrastructure
 /pkg/ipam/allocator/clusterpool/ @isovalent/networking-framework
 /pkg/ipcache/ @isovalent/policy-identity-networking
+/pkg/ipcache/restore @isovalent/policy-identity-networking @isovalent/policy-identity-networking
 /pkg/ipmasq @isovalent/cni
 /pkg/k8s/ @isovalent/sig-k8s
 /pkg/k8s/apis/cilium.io/client/crds/v2/ @isovalent/sig-k8s

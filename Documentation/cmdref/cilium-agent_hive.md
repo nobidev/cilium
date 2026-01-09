@@ -11,6 +11,8 @@ cilium-agent hive [flags]
 ### Options
 
 ```
+      --agent-health-port int                                            TCP port for agent health status API (default 9879)
+      --agent-health-require-k8s-connectivity                            Require Kubernetes connectivity in agent health endpoint (default true)
       --agent-labels strings                                             Additional labels to identify this agent in monitor events
       --agent-liveness-update-interval duration                          Interval at which the agent updates liveness time for the datapath (default 1s)
       --api-rate-limit string                                            API rate limiting configuration (example: --api-rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)
@@ -118,6 +120,15 @@ cilium-agent hive [flags]
       --encryption-policy-map-max int                                    Maximum number of entries in encryption policy map (default 16384)
       --endpoint-bpf-prog-watchdog-interval duration                     Interval to trigger endpoint BPF programs load check watchdog (default 30s)
       --endpoint-regen-interval duration                                 Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable (default 2m0s)
+      --eni-delete-on-termination                                        Whether the ENI should be deleted when the associated instance is terminated at the node level (default true)
+      --eni-disable-prefix-delegation                                    Whether ENI prefix delegation should be disabled on this node at the node level
+      --eni-exclude-interface-tags stringToString                        List of tags to use when excluding ENIs for Cilium IP allocation (default [])
+      --eni-first-interface-index int                                    Index of the first ENI to use for IP allocation at the node level
+      --eni-security-group-tags stringToString                           List of tags to use when evaluating what AWS security groups to use for the ENI at the node level (default [])
+      --eni-security-groups strings                                      List of security groups to attach to any ENI that is created and attached to the instance at the node level
+      --eni-subnet-ids strings                                           List of subnet ids to use when evaluating what AWS subnets to use for ENI and IP allocation at the node level
+      --eni-subnet-tags stringToString                                   List of tags to use when evaluating what AWS subnets to use for ENI and IP allocation at the node level (default [])
+      --eni-use-primary-address                                          Whether an ENI's primary address should be available for allocations on the node at the node level
       --envoy-access-log-buffer-size uint                                Envoy access log buffer size in bytes (default 4096)
       --envoy-base-id uint                                               Envoy base ID
       --envoy-config-policy-mode string                                  Enable a dedicated identity for each CiliumEnvoyConfig instead of using the global reserved:ingress identity
@@ -234,6 +245,8 @@ cilium-agent hive [flags]
       --ignore-flags-drift-checker strings                               Ignores specified flags during drift checking
       --ingress-secrets-namespace string                                 IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
       --ip-masq-agent-config-path string                                 ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
+      --ipam-min-allocate int                                            Minimum number of IPs that must be allocated when the node is first bootstrapped at the node level
+      --ipam-pre-allocate int                                            Number of IP addresses that must be available for allocation in the IPAMspec at the node level
       --ipsec-key-file string                                            Path to IPsec key file
       --ipsec-key-rotation-duration duration                             Maximum duration of the IPsec key rotation. The previous key will be removed after that delay. (default 5m0s)
       --iptables-lock-timeout duration                                   Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
@@ -306,6 +319,8 @@ cilium-agent hive [flags]
       --procfs string                                                    Path to the host's proc filesystem mount (default "/proc")
       --prometheus-serve-addr string                                     IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --proxy-admin-port int                                             Port to serve Envoy admin interface on.
+      --proxy-cluster-max-connections uint32                             Maximum number of connections on Envoy clusters (default 1024)
+      --proxy-cluster-max-requests uint32                                Maximum number of requests on Envoy clusters (default 1024)
       --proxy-connect-timeout uint                                       Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 2)
       --proxy-gid uint                                                   Group ID for proxy control plane sockets. (default 1337)
       --proxy-idle-timeout-seconds int                                   Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s (default 60)
@@ -345,6 +360,7 @@ cilium-agent hive [flags]
       --vtep-sync-interval duration                                      Interval for VTEP sync (default 1m0s)
       --wireguard-persistent-keepalive duration                          The Wireguard keepalive interval as a Go duration string
       --write-cni-conf-when-ready string                                 Write the CNI configuration to the specified path when agent is ready
+      --ztunnel-zds-unix-addr string                                     Unix address for zds server (default "/var/run/cilium/ztunnel.sock")
 ```
 
 ### SEE ALSO

@@ -21,7 +21,8 @@ import (
 )
 
 func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
 	oldPolicyEnable := GetPolicyEnabled()
@@ -51,10 +52,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		Ingress:     true,
 		DefaultDeny: true,
 		Deny:        true,
-		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: types.PeerSelectorSlice{
-			api.NewESFromLabels(fooSelectLabel),
-		},
+		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
 			fooIngressDenyRule1Label,
 		},
@@ -64,10 +63,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		Ingress:     true,
 		DefaultDeny: true,
 		Deny:        true,
-		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: types.PeerSelectorSlice{
-			api.NewESFromLabels(fooSelectLabel),
-		},
+		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
 			fooIngressDenyRule2Label,
 		},
@@ -77,10 +74,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		Ingress:     false,
 		DefaultDeny: true,
 		Deny:        true,
-		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: types.PeerSelectorSlice{
-			api.NewESFromLabels(fooSelectLabel),
-		},
+		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
 			fooEgressDenyRule1Label,
 		},
@@ -90,10 +85,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		Ingress:     false,
 		DefaultDeny: true,
 		Deny:        true,
-		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: types.PeerSelectorSlice{
-			api.NewESFromLabels(fooSelectLabel),
-		},
+		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
 			fooEgressDenyRule2Label,
 		},
@@ -104,10 +97,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 			Ingress:     true,
 			DefaultDeny: true,
 			Deny:        true,
-			Subject:     api.NewESFromLabels(fooSelectLabel),
-			L3: types.PeerSelectorSlice{
-				api.NewESFromLabels(fooSelectLabel),
-			},
+			Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+			L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 			Labels: labels.LabelArray{
 				combinedLabel,
 			},
@@ -115,10 +106,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 			Ingress:     false,
 			DefaultDeny: true,
 			Deny:        true,
-			Subject:     api.NewESFromLabels(fooSelectLabel),
-			L3: types.PeerSelectorSlice{
-				api.NewESFromLabels(fooSelectLabel),
-			},
+			Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+			L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 			Labels: labels.LabelArray{
 				combinedLabel,
 			},
@@ -141,74 +130,93 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 			direction, acceptStr, acceptStr2, direction)
 	}
 
-	ing, egr, _, _, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE := repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, genCommentf(true, false))
 	require.False(t, egr, genCommentf(false, false))
-	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	repo.ReplaceByResource([]*types.PolicyEntry{fooIngressDenyRule1}, fooIngressDenyRule1Resource)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.False(t, egr, genCommentf(false, false))
-	require.Equal(t, *fooIngressDenyRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooIngressDenyRule1, matchingRulesI[0].PolicyEntry, "returned matching rules did not match")
+	require.Len(t, matchingRulesI, 1, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	repo.ReplaceByResource([]*types.PolicyEntry{fooIngressDenyRule2}, fooIngressDenyRule2Resource)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.False(t, egr, genCommentf(false, false))
-	require.ElementsMatch(t, matchingRules.AsPolicyEntries(), types.PolicyEntries{fooIngressDenyRule1, fooIngressDenyRule2}, "returned matching rules did not match")
+	require.ElementsMatch(t, matchingRulesI.AsPolicyEntries(), types.PolicyEntries{fooIngressDenyRule1, fooIngressDenyRule2}, "returned matching rules did not match")
+	require.Len(t, matchingRulesI, 2, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	_, _, numDeleted := repo.ReplaceByResource(nil, fooIngressDenyRule1Resource)
 	require.Equal(t, 1, numDeleted)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.False(t, egr, genCommentf(false, false))
-	require.Equal(t, *fooIngressDenyRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooIngressDenyRule2, matchingRulesI[0].PolicyEntry, "returned matching rules did not match")
+	require.Len(t, matchingRulesI, 1, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	_, _, numDeleted = repo.ReplaceByResource(nil, fooIngressDenyRule2Resource)
 	require.Equal(t, 1, numDeleted)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, genCommentf(true, false))
 	require.False(t, egr, genCommentf(false, false))
-	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	repo.ReplaceByResource([]*types.PolicyEntry{fooEgressDenyRule1}, fooEgressDenyRule1Resource)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, genCommentf(true, false))
 	require.True(t, egr, genCommentf(false, true))
-	require.Equal(t, *fooEgressDenyRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooEgressDenyRule1, matchingRulesE[0].PolicyEntry, "returned matching rules did not match")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Len(t, matchingRulesE, 1, "returned matching rules did not match")
+
 	_, _, numDeleted = repo.ReplaceByResource(nil, fooEgressDenyRule1Resource)
 	require.Equal(t, 1, numDeleted)
 
 	repo.ReplaceByResource([]*types.PolicyEntry{fooEgressDenyRule2}, fooEgressDenyRule2Resource)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, genCommentf(true, false))
 	require.True(t, egr, genCommentf(false, true))
-	require.Equal(t, *fooEgressDenyRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooEgressDenyRule2, matchingRulesE[0].PolicyEntry, "returned matching rules did not match")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Len(t, matchingRulesE, 1, "returned matching rules did not match")
 
 	_, _, numDeleted = repo.ReplaceByResource(nil, fooEgressDenyRule2Resource)
 	require.Equal(t, 1, numDeleted)
 
 	repo.ReplaceByResource(combinedRule, combinedResource)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.True(t, egr, genCommentf(false, true))
-	require.ElementsMatch(t, matchingRules.AsPolicyEntries(), combinedRule, "returned matching rules did not match")
+	require.Len(t, matchingRulesI, 1, "returned matching rules did not match")
+	require.Len(t, matchingRulesE, 1, "returned matching rules did not match")
+	require.ElementsMatch(t, matchingRulesI.AsPolicyEntries(), combinedRule[0:1], "returned matching rules did not match")
+	require.ElementsMatch(t, matchingRulesE.AsPolicyEntries(), combinedRule[1:2], "returned matching rules did not match")
+
 	_, _, numDeleted = repo.ReplaceByResource(nil, combinedResource)
 	require.Equal(t, 2, numDeleted)
 
 	SetPolicyEnabled(option.AlwaysEnforce)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.True(t, egr, genCommentf(false, true))
-	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	SetPolicyEnabled(option.NeverEnforce)
 	_, _ = repo.MustAddPolicyEntries(combinedRule)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, genCommentf(true, false))
 	require.False(t, egr, genCommentf(false, false))
-	require.Nil(t, matchingRules, "no rules should be returned since policy enforcement is disabled")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	// Test init identity.
 
@@ -216,26 +224,27 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	// If the mode is "default", check that the policy is always enforced for
 	// endpoints with the reserved:init label. If no policy rules match
 	// reserved:init, this drops all ingress and egress traffic.
-	ingress, egress, _, _, matchingRules := repo.computePolicyEnforcementAndRules(initIdentity)
+	ingress, egress, _, _, matchingRulesI, matchingRulesE := repo.computePolicyEnforcementAndRules(initIdentity)
 	require.True(t, ingress)
 	require.True(t, egress)
-	require.Equal(t, ruleSlice{}, matchingRules, "no rules should be returned since policy enforcement is disabled")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	// Check that the "always" and "never" modes are not affected.
 	SetPolicyEnabled(option.AlwaysEnforce)
-	ingress, egress, _, _, _ = repo.computePolicyEnforcementAndRules(initIdentity)
+	ingress, egress, _, _, _, _ = repo.computePolicyEnforcementAndRules(initIdentity)
 	require.True(t, ingress)
 	require.True(t, egress)
 
 	SetPolicyEnabled(option.NeverEnforce)
-	ingress, egress, _, _, _ = repo.computePolicyEnforcementAndRules(initIdentity)
+	ingress, egress, _, _, _, _ = repo.computePolicyEnforcementAndRules(initIdentity)
 	require.False(t, ingress)
 	require.False(t, egress)
 
 }
 
 func TestDeniesIngress(t *testing.T) {
-	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
+	td := newTestData(t, hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
 	allowAll := api.Rule{
 		EndpointSelector: endpointSelectorB,
@@ -269,7 +278,7 @@ func TestDeniesIngress(t *testing.T) {
 }
 
 func TestDeniesEgress(t *testing.T) {
-	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs, identity.ListReservedIdentities())
+	td := newTestData(t, hivetest.Logger(t)).withIDs(ruleTestIDs, identity.ListReservedIdentities())
 	repo := td.repo
 
 	allowAll := api.Rule{
@@ -302,7 +311,7 @@ func TestDeniesEgress(t *testing.T) {
 }
 
 func TestWildcardL3RulesIngressDeny(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	l3Rule := api.Rule{
@@ -332,7 +341,7 @@ func TestWildcardL3RulesIngressDeny(t *testing.T) {
 }
 
 func TestWildcardL4RulesIngressDeny(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL4Kafka := labels.LabelArray{labels.ParseLabel("L4-kafka")}
 	labelsL4HTTP := labels.LabelArray{labels.ParseLabel("L4-http")}
@@ -395,7 +404,7 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 }
 
 func TestWildcardL3RulesEgressDeny(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL4 := labels.LabelArray{labels.ParseLabel("L4")}
 	labelsICMP := labels.LabelArray{labels.ParseLabel("icmp")}
@@ -486,7 +495,7 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 }
 
 func TestWildcardL4RulesEgressDeny(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL3DNS := labels.LabelArray{labels.ParseLabel("L3-dns")}
 	labelsL3HTTP := labels.LabelArray{labels.ParseLabel("L3-http")}
@@ -552,19 +561,14 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 }
 
 func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
 
-	cidrSlice := api.CIDRSlice{"192.0.0.0/3"}
-	cidrSelectors := cidrSlice.GetAsEndpointSelectors()
-	var cachedSelectors CachedSelectorSlice
-	for i := range cidrSelectors {
-		c, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, cidrSelectors[i])
-		cachedSelectors = append(cachedSelectors, c)
-		defer td.sc.RemoveSelector(c, dummySelectorCacheUser)
-	}
+	cachedSelectors, _ := td.sc.AddSelectors(dummySelectorCacheUser, EmptyStringLabels,
+		types.ToSelector(api.CIDR("192.0.0.0/3")))
+	defer td.sc.RemoveSelectors(cachedSelectors, dummySelectorCacheUser)
 
 	l480Get := api.Rule{
 		EgressDeny: []api.EgressDenyRule{
@@ -623,7 +627,7 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 }
 
 func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 
@@ -661,7 +665,7 @@ func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
 }
 
 func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 
@@ -701,7 +705,7 @@ func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
 }
 
 func TestMinikubeGettingStartedDeny(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	deny80FromB := api.Rule{
 		IngressDeny: []api.IngressDenyRule{{

@@ -21,6 +21,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -340,8 +341,8 @@ func Test_parseEncryptionPolicy(t *testing.T) {
 			},
 			want: []parsedSelectorRule{
 				{
-					subject: parseSelector("", subjectNamespaceSelector, subjectPodSelector),
-					peer:    parseSelector("", peer1NamespaceSelector, peer1PodSelector),
+					subject: policyTypes.NewLabelSelector(parseSelector("", subjectNamespaceSelector, subjectPodSelector)),
+					peer:    policyTypes.NewLabelSelector(parseSelector("", peer1NamespaceSelector, peer1PodSelector)),
 					peerPorts: []portProto{
 						{
 							port:  8080,
@@ -350,8 +351,8 @@ func Test_parseEncryptionPolicy(t *testing.T) {
 					},
 				},
 				{
-					subject: parseSelector("", subjectNamespaceSelector, subjectPodSelector),
-					peer:    parseSelector("", peer2NamespaceSelector, peer2PodSelector),
+					subject: policyTypes.NewLabelSelector(parseSelector("", subjectNamespaceSelector, subjectPodSelector)),
+					peer:    policyTypes.NewLabelSelector(parseSelector("", peer2NamespaceSelector, peer2PodSelector)),
 					peerPorts: []portProto{
 						{
 							port:  53,

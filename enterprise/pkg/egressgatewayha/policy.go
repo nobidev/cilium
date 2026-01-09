@@ -22,16 +22,18 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 // groupConfig is the internal representation of an egress group, describing
 // which nodes should act as egress gateway for a given policy
 type groupConfig struct {
-	nodeSelector    api.EndpointSelector
+	nodeSelector    *policyTypes.LabelSelector
 	iface           string
 	egressIP        netip.Addr
 	maxGatewayNodes int
@@ -116,7 +118,7 @@ type PolicyConfig struct {
 	generation int64
 	labels     map[string]string
 
-	endpointSelectors []api.EndpointSelector
+	endpointSelectors []*policyTypes.LabelSelector
 	dstCIDRs          []netip.Prefix
 	excludedCIDRs     []netip.Prefix
 	egressCIDRs       []netip.Prefix
@@ -146,7 +148,7 @@ type gwEgressIPConfig struct {
 // ParseIEGP takes a IsovalentEgressGatewayPolicy CR and converts to PolicyConfig,
 // the internal representation of the egress gateway policy
 func ParseIEGP(logger *slog.Logger, iegp *v1.IsovalentEgressGatewayPolicy) (*PolicyConfig, error) {
-	var endpointSelectorList []api.EndpointSelector
+	var endpointSelectorList []*policyTypes.LabelSelector
 	var dstCidrList []netip.Prefix
 	var excludedCIDRs []netip.Prefix
 	var egressCIDRs []netip.Prefix
@@ -183,7 +185,7 @@ func ParseIEGP(logger *slog.Logger, iegp *v1.IsovalentEgressGatewayPolicy) (*Pol
 		}
 
 		gc := groupConfig{
-			nodeSelector:    api.NewESFromK8sLabelSelector("", gcSpec.NodeSelector),
+			nodeSelector:    policyTypes.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, gcSpec.NodeSelector)),
 			iface:           gcSpec.Interface,
 			maxGatewayNodes: gcSpec.MaxGatewayNodes,
 		}
@@ -251,11 +253,11 @@ func ParseIEGP(logger *slog.Logger, iegp *v1.IsovalentEgressGatewayPolicy) (*Pol
 
 			endpointSelectorList = append(
 				endpointSelectorList,
-				api.NewESFromK8sLabelSelector("", prefixedNsSelector, egressRule.PodSelector))
+				policyTypes.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, prefixedNsSelector, egressRule.PodSelector)))
 		} else if egressRule.PodSelector != nil {
 			endpointSelectorList = append(
 				endpointSelectorList,
-				api.NewESFromK8sLabelSelector("", egressRule.PodSelector))
+				policyTypes.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, egressRule.PodSelector)))
 		} else {
 			return nil, fmt.Errorf("cannot have both nil namespace selector and nil pod selector")
 		}
