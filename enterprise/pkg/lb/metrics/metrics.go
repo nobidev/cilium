@@ -12,6 +12,7 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/statedb"
@@ -144,9 +145,35 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 	defer mc.Unlock()
 
 	mc.round++
-	round := mc.round
 
 	// Iterate the backend map to collect a list of all backends
+	backends, err := mc.getBackends()
+	if err != nil {
+		return fmt.Errorf("failed to get backends: %w", err)
+	}
+
+	// Iterate the service map to collect the health status of all LB services
+	if err := mc.updateMetricsEntryWithServiceHealth(backends); err != nil {
+		return fmt.Errorf("failed to update metrics entry with service health: %w", err)
+	}
+
+	// calculate the deltas between the current CT entry's counters and the previous one's (if it exists)
+	if err := mc.updateMetricsEntryWithCTMapInfo(backends); err != nil {
+		return fmt.Errorf("failed to update metrics entry with CT map info: %w", err)
+	}
+
+	// Drop metrics for backends that have not had an associated CT entry
+	// for [entryTimeToLive] collection rounds.
+	for key, entry := range mc.backendMetrics {
+		if entry.updatedAt+entryTimeToLive < mc.round {
+			delete(mc.backendMetrics, key)
+		}
+	}
+
+	return nil
+}
+
+func (mc *lbMetricsCollector) getBackends() (map[loadbalancer.BackendID]*lbmaps.Backend4ValueV3, error) {
 	backends := map[loadbalancer.BackendID]*lbmaps.Backend4ValueV3{}
 
 	backendsCallback := func(key lbmaps.BackendKey, value lbmaps.BackendValue) {
@@ -162,33 +189,16 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 
 		backends[backendKey.ID] = backendVal
 	}
+
 	if err := mc.lbmaps.DumpBackend(backendsCallback); err != nil {
 		mc.logger.Error("Cannot dump backend map, LB metrics may be incomplete", logfields.Error, err)
-		return err
+		return nil, err
 	}
 
-	// Iterate the service map to collect the health status of all LB services
-	txn := mc.db.ReadTxn()
-	getService := func(addr loadbalancer.L3n4Addr) (loadbalancer.ServiceName, loadbalancer.ServiceID, bool) {
-		fe, _, found := mc.frontends.Get(txn, loadbalancer.FrontendByAddress(addr))
-		if !found {
-			return loadbalancer.ServiceName{}, 0, false
-		}
-		isT1 := fe.Service.Annotations["loadbalancer.isovalent.com/type"] == "t1"
-		return fe.ServiceName, fe.ID, isT1
-	}
+	return backends, nil
+}
 
-	getEntry := func(svcName loadbalancer.ServiceName, addr loadbalancer.L3n4Addr) *backendMetricValue {
-		key := backendMetricKey{svcName, addr}
-		entry, ok := mc.backendMetrics[key]
-		if !ok {
-			entry = &backendMetricValue{}
-			mc.backendMetrics[key] = entry
-		}
-		entry.updatedAt = round
-		return entry
-	}
-
+func (mc *lbMetricsCollector) updateMetricsEntryWithServiceHealth(backends map[loadbalancer.BackendID]*lbmaps.Backend4ValueV3) error {
 	serviceCallback := func(key lbmaps.ServiceKey, value lbmaps.ServiceValue) {
 		serviceKey, ok := key.(*lbmaps.Service4Key)
 		if !ok {
@@ -200,7 +210,7 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 			return
 		}
 
-		svcName, _, isT1 := getService(svcKeyToAddr(serviceKey))
+		svcName, _, isT1 := mc.getService(svcKeyToAddr(serviceKey))
 		if !isT1 {
 			return
 		}
@@ -214,18 +224,22 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 		backendAddr := beValueToAddr(serviceBackend)
 
 		// and update the health status of the service's backend
-		getEntry(svcName, backendAddr).healthy = serviceVal.GetFlags() == 0
+		mc.getOrAddEntry(svcName, backendAddr).healthy = serviceVal.GetFlags() == 0
 	}
 	if err := mc.lbmaps.DumpService(serviceCallback); err != nil {
 		mc.logger.Error("Cannot dump service map, LB metrics may be incomplete", logfields.Error, err)
 		return err
 	}
 
+	return nil
+}
+
+func (mc *lbMetricsCollector) updateMetricsEntryWithCTMapInfo(backends map[loadbalancer.BackendID]*lbmaps.Backend4ValueV3) error {
 	ctMapCallback := func(key bpf.MapKey, value bpf.MapValue) {
 		ctKey := key.(*ctmap.CtKey4Global).ToHost().(*ctmap.CtKey4Global)
 		ctValue := value.(*ctmap.CtEntry)
 
-		svcName, svcID, isT1 := getService(ctKeyToAddr(ctKey))
+		svcName, svcID, isT1 := mc.getService(ctKeyToAddr(ctKey))
 		if !isT1 {
 			return
 		}
@@ -250,10 +264,11 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 		mc.prevLbCtEntries[ctKey] = ctValue
 
 		backendAddr := beValueToAddr(backend)
-		entry := getEntry(svcName, backendAddr)
+		entry := mc.getOrAddEntry(svcName, backendAddr)
 		entry.bytes += deltaBytes
 		entry.packets += deltaPackets
 	}
+
 	for _, ctMap := range mc.ct4Maps {
 		if err := ctMap.DumpWithCallback(ctMapCallback); err != nil {
 			mc.logger.Error("Cannot dump CT map, LB metrics may be incomplete", logfields.Error, err)
@@ -261,15 +276,29 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 		}
 	}
 
-	// Drop metrics for backends that have not had an associated CT entry
-	// for [entryTimeToLive] collection rounds.
-	for key, entry := range mc.backendMetrics {
-		if entry.updatedAt+entryTimeToLive < round {
-			delete(mc.backendMetrics, key)
-		}
-	}
-
 	return nil
+}
+
+func (mc *lbMetricsCollector) getService(addr loadbalancer.L3n4Addr) (loadbalancer.ServiceName, loadbalancer.ServiceID, bool) {
+	txn := mc.db.ReadTxn()
+	fe, _, found := mc.frontends.Get(txn, loadbalancer.FrontendByAddress(addr))
+	if !found {
+		return loadbalancer.ServiceName{}, 0, false
+	}
+	isT1 := fe.Service.Annotations["loadbalancer.isovalent.com/type"] == "t1"
+	return fe.ServiceName, fe.ID, isT1
+}
+
+func (mc *lbMetricsCollector) getOrAddEntry(svcName loadbalancer.ServiceName, addr loadbalancer.L3n4Addr) *backendMetricValue {
+	key := backendMetricKey{svcName, addr}
+	entry, ok := mc.backendMetrics[key]
+	if !ok {
+		entry = &backendMetricValue{}
+		mc.backendMetrics[key] = entry
+	}
+	entry.updatedAt = mc.round
+
+	return entry
 }
 
 func svcKeyToAddr(svcKey lbmaps.ServiceKey) loadbalancer.L3n4Addr {
