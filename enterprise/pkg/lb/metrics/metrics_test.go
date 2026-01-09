@@ -87,7 +87,7 @@ func TestMetrics(t *testing.T) {
 					Packets: 100,
 					Bytes:   100,
 					Flags:   0,
-					RevNAT:  serviceID,
+					RevNAT:  byteorder.HostToNetwork16(serviceID),
 					Union0: [2]uint64{
 						0,
 						backend1ID,
@@ -159,7 +159,7 @@ func TestMetrics(t *testing.T) {
 					Packets: 100,
 					Bytes:   100,
 					Flags:   0,
-					RevNAT:  serviceID,
+					RevNAT:  byteorder.HostToNetwork16(serviceID),
 					Union0: [2]uint64{
 						0,
 						backend2ID,

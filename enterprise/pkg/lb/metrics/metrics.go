@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -250,7 +251,7 @@ func (mc *lbMetricsCollector) updateMetricsEntryWithCTMapInfo(backends map[loadb
 			return
 		}
 
-		if ctValue.RevNAT != uint16(svcID) {
+		if byteorder.NetworkToHost16(ctValue.RevNAT) != uint16(svcID) {
 			return
 		}
 
