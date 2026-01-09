@@ -53,6 +53,9 @@ type lbMetricsCollector struct {
 
 	// backendMetrics stores metrics (bytes, packets, health) for each backend
 	backendMetrics map[backendMetricKey]*backendMetricValue
+
+	// lbOpenConnections is a counter for the number of open connections
+	lbOpenConnections int
 }
 
 type backendMetricKey struct {
@@ -123,6 +126,7 @@ func (mc *lbMetricsCollector) Collect(ch chan<- prometheus.Metric) {
 		return n.Namespace() + "_" + n.Name()
 	}
 
+	ch <- prometheus.MustNewConstMetric(mc.lbOpenConnectionsDesc, prometheus.GaugeValue, float64(mc.lbOpenConnections))
 	for key, entry := range mc.backendMetrics {
 		serviceName := nameAsLabelValue(key.name)
 		backend := key.addr.StringWithProtocol()
@@ -146,6 +150,7 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 	defer mc.Unlock()
 
 	mc.round++
+	mc.lbOpenConnections = 0
 
 	// Iterate the backend map to collect a list of all backends
 	backends, err := mc.getBackends()
@@ -268,6 +273,8 @@ func (mc *lbMetricsCollector) updateMetricsEntryWithCTMapInfo(backends map[loadb
 		entry := mc.getOrAddEntry(svcName, backendAddr)
 		entry.bytes += deltaBytes
 		entry.packets += deltaPackets
+
+		mc.lbOpenConnections++
 	}
 
 	for _, ctMap := range mc.ct4Maps {
