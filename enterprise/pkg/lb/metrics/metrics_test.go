@@ -12,10 +12,17 @@ package metrics
 
 import (
 	"fmt"
+	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
+	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -27,26 +34,39 @@ import (
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/statedb"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/stretchr/testify/require"
 )
 
 func TestMetrics(t *testing.T) {
 	const (
-		serviceID = 1
-		backendID = 2
+		serviceID  = 1
+		backend1ID = 2
+		backend2ID = 3
 	)
 
 	var feAddr loadbalancer.L3n4Addr
-	feAddr.ParseFromString("10.0.0.1:80/TCP")
+	feAddr.ParseFromString("100.64.0.1:443/TCP")
+	var feIPv4 types.IPv4
+	feIPv4.FromAddr(feAddr.Addr())
 
-	var beAddr loadbalancer.L3n4Addr
-	beAddr.ParseFromString("10.0.0.2:8080/TCP")
-	var beIPv4 types.IPv4
-	beIPv4.FromAddr(beAddr.Addr())
+	var be1Addr loadbalancer.L3n4Addr
+	be1Addr.ParseFromString("10.0.0.1:80/TCP")
+	var be1IPv4 types.IPv4
+	be1IPv4.FromAddr(be1Addr.Addr())
+
+	var be2Addr loadbalancer.L3n4Addr
+	be2Addr.ParseFromString("10.0.0.2:80/TCP")
+	var be2IPv4 types.IPv4
+	be2IPv4.FromAddr(be2Addr.Addr())
+
+	var client1IPv4 types.IPv4
+	clientAddr1, err := netip.ParseAddr("20.0.0.1")
+	require.NoError(t, err)
+	client1IPv4.FromAddr(clientAddr1)
+
+	var client2IPv4 types.IPv4
+	clientAddr2, err := netip.ParseAddr("20.0.0.2")
+	require.NoError(t, err)
+	client2IPv4.FromAddr(clientAddr2)
 
 	var (
 		ctRecords = []ctmap.CtMapRecord{
@@ -54,18 +74,96 @@ func TestMetrics(t *testing.T) {
 				Key: &ctmap.CtKey4Global{
 					TupleKey4Global: tuple.TupleKey4Global{
 						TupleKey4: tuple.TupleKey4{
-							DestAddr:   beIPv4,
-							DestPort:   8080,
+							DestAddr:   feIPv4,                                   // VIP is destination address
+							SourcePort: byteorder.HostToNetwork16(feAddr.Port()), // actual dest port is in SourcePort of the CTMap, the destination is the frontend (ILB IPIP forwarding) and network byte order
+							SourceAddr: client1IPv4,
+							DestPort:   5553,
 							NextHeader: u8proto.TCP,
 							Flags:      0,
 						},
 					},
 				},
 				Value: ctmap.CtEntry{
-					Packets: 111,
-					Bytes:   222,
+					Packets: 100,
+					Bytes:   100,
 					Flags:   0,
 					RevNAT:  serviceID,
+					Union0: [2]uint64{
+						0,
+						backend1ID,
+					},
+				},
+			},
+			{
+				Key: &ctmap.CtKey4Global{
+					TupleKey4Global: tuple.TupleKey4Global{
+						TupleKey4: tuple.TupleKey4{
+							DestAddr:   feIPv4,                                   // VIP is destination address
+							SourcePort: byteorder.HostToNetwork16(feAddr.Port()), // actual dest port is in SourcePort of the CTMap, the destination is the frontend (ILB IPIP forwarding) and network byte order
+							SourceAddr: client2IPv4,
+							DestPort:   5554,
+							NextHeader: u8proto.TCP,
+							Flags:      0,
+						},
+					},
+				},
+				Value: ctmap.CtEntry{
+					Packets: 100,
+					Bytes:   100,
+					Flags:   0,
+					RevNAT:  byteorder.HostToNetwork16(serviceID),
+					Union0: [2]uint64{
+						0,
+						backend1ID,
+					},
+				},
+			},
+			{
+				Key: &ctmap.CtKey4Global{
+					TupleKey4Global: tuple.TupleKey4Global{
+						TupleKey4: tuple.TupleKey4{
+							DestAddr:   feIPv4,                                   // VIP is destination address
+							SourcePort: byteorder.HostToNetwork16(feAddr.Port()), // actual dest port is in SourcePort of the CTMap, the destination is the frontend (ILB IPIP forwarding) and network byte order
+							SourceAddr: client2IPv4,
+							DestPort:   5555,
+							NextHeader: u8proto.TCP,
+							Flags:      0,
+						},
+					},
+				},
+				Value: ctmap.CtEntry{
+					Packets: 100,
+					Bytes:   100,
+					Flags:   0,
+					RevNAT:  byteorder.HostToNetwork16(serviceID),
+					Union0: [2]uint64{
+						0,
+						backend2ID,
+					},
+				},
+			},
+			{
+				Key: &ctmap.CtKey4Global{
+					TupleKey4Global: tuple.TupleKey4Global{
+						TupleKey4: tuple.TupleKey4{
+							DestAddr:   feIPv4,                                   // VIP is destination address
+							SourcePort: byteorder.HostToNetwork16(feAddr.Port()), // actual dest port is in SourcePort of the CTMap, the destination is the frontend (ILB IPIP forwarding) and network byte order
+							SourceAddr: client1IPv4,
+							DestPort:   5556,
+							NextHeader: u8proto.TCP,
+							Flags:      0,
+						},
+					},
+				},
+				Value: ctmap.CtEntry{
+					Packets: 100,
+					Bytes:   100,
+					Flags:   0,
+					RevNAT:  serviceID,
+					Union0: [2]uint64{
+						0,
+						backend2ID,
+					},
 				},
 			},
 		}
@@ -114,7 +212,7 @@ func TestMetrics(t *testing.T) {
 	require.NoError(t, h.Start(log, t.Context()))
 
 	// Fetch metrics with no frontends
-	err := lmc.fetchMetrics(t.Context())
+	err = lmc.fetchMetrics(t.Context())
 	require.NoError(t, err, "fetchMetrics empty")
 
 	// Insert a frontend
@@ -146,7 +244,24 @@ func TestMetrics(t *testing.T) {
 			1,
 		).ToNetwork(),
 		&lbmaps.Service4Value{
-			BackendID: backendID,
+			BackendID: backend1ID,
+			Count:     1,
+			RevNat:    serviceID,
+			Flags:     0,
+			Flags2:    0,
+			QCount:    0,
+		},
+	)
+	lbm.UpdateService(
+		lbmaps.NewService4Key(
+			feAddr.Addr().AsSlice(),
+			feAddr.Port(),
+			loadbalancer.L4TypeAsProtocolNumber(feAddr.Protocol()),
+			feAddr.Scope(),
+			2,
+		).ToNetwork(),
+		&lbmaps.Service4Value{
+			BackendID: backend2ID,
 			Count:     1,
 			RevNat:    serviceID,
 			Flags:     0,
@@ -155,10 +270,22 @@ func TestMetrics(t *testing.T) {
 		},
 	)
 	lbm.UpdateBackend(
-		lbmaps.NewBackend4KeyV3(2),
+		lbmaps.NewBackend4KeyV3(backend1ID),
 		&lbmaps.Backend4ValueV3{
-			Address:   beIPv4,
-			Port:      8080,
+			Address:   be1IPv4,
+			Port:      byteorder.HostToNetwork16(be1Addr.Port()),
+			Proto:     u8proto.TCP,
+			Flags:     0,
+			ClusterID: 0,
+			Zone:      0,
+			Pad:       0,
+		},
+	)
+	lbm.UpdateBackend(
+		lbmaps.NewBackend4KeyV3(backend2ID),
+		&lbmaps.Backend4ValueV3{
+			Address:   be2IPv4,
+			Port:      byteorder.HostToNetwork16(be2Addr.Port()),
 			Proto:     u8proto.TCP,
 			Flags:     0,
 			ClusterID: 0,
@@ -168,6 +295,16 @@ func TestMetrics(t *testing.T) {
 	)
 
 	// Fetch metrics with a frontend
+	err = lmc.fetchMetrics(t.Context())
+	require.NoError(t, err, "fetchMetrics empty")
+
+	ctRecords[0].Value.Packets = 10000
+
+	err = lmc.fetchMetrics(t.Context())
+	require.NoError(t, err, "fetchMetrics empty")
+
+	ctRecords[0].Value.Packets = 20000
+
 	err = lmc.fetchMetrics(t.Context())
 	require.NoError(t, err, "fetchMetrics empty")
 
@@ -182,5 +319,4 @@ func TestMetrics(t *testing.T) {
 		m.Write(&dto)
 		fmt.Printf("%v -> %v\n", m.Desc(), &dto)
 	}
-
 }
