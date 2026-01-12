@@ -54,6 +54,7 @@ type collectorParams struct {
 	Lifecycle cell.Lifecycle
 	Logger    *slog.Logger
 	LBMaps    lbmaps.LBMaps
+	CTGC      ctmap.GCRunner
 
 	DB        *statedb.DB
 	Frontends statedb.Table[*loadbalancer.Frontend]
@@ -85,5 +86,6 @@ func registerCollector(params collectorParams) {
 			mc.fetchMetrics,
 			params.Config.LoadBalancerMetricsCollectionInterval,
 		),
+		job.Observer("ctmap-gc", mc.handleCTGCEvent, params.CTGC.Observe4()),
 	)
 }

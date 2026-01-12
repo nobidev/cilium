@@ -332,3 +332,17 @@ func beValueToAddr(beValue lbmaps.BackendValue) loadbalancer.L3n4Addr {
 	beL3n4Addr := loadbalancer.NewL3n4Addr(proto, beAddrCluster, beValue.GetPort(), 0)
 	return beL3n4Addr
 }
+
+func (mc *lbMetricsCollector) handleCTGCEvent(ctx context.Context, event ctmap.GCEvent) error {
+	ctKey := event.Key.(*ctmap.CtKey4Global).ToHost().(*ctmap.CtKey4Global)
+
+	mc.Lock()
+	defer mc.Unlock()
+
+	if _, ok := mc.prevLbCtEntries[ctKey.TupleKey4]; ok {
+		mc.logger.Debug("Cleanup CT entry in prevLbCtEntries", logfields.Key, ctKey.TupleKey4)
+		delete(mc.prevLbCtEntries, ctKey.TupleKey4)
+	}
+
+	return nil
+}
