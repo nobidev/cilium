@@ -269,7 +269,7 @@ func (mc *lbMetricsCollector) updateMetricsEntryWithServiceHealth(backends map[l
 		backendAddr := beValueToAddr(serviceBackend)
 
 		// and update the health status of the service's backend
-		mc.getOrAddEntry(svcName, backendAddr).healthy = serviceVal.GetFlags() == 0
+		mc.getOrAddEntry(svcName, backendAddr).healthy = !loadbalancer.ServiceFlags(serviceVal.GetFlags()).SVCSlotQuarantined()
 	}
 	if err := mc.lbmaps.DumpService(serviceCallback); err != nil {
 		mc.logger.Error("Cannot dump service map, LB metrics may be incomplete", logfields.Error, err)
