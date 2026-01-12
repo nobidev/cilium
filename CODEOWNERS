@@ -1036,6 +1036,9 @@ Makefile* @cilium/build
 /pkg/k8s/apis/isovalent.com/v1/inp_types.go @isovalent/policy-identity-networking
 /pkg/k8s/apis/isovalent.com/*/zz_generated.deepcopy.go @isovalent/ignore-k8s-crd
 /pkg/k8s/apis/isovalent.com/*/zz_generated.deepequal.go @isovalent/ignore-k8s-crd
+/pkg/k8s/client/clientset/ @isovalent/ignore-k8s-crd
+/pkg/k8s/client/informers/ @isovalent/ignore-k8s-crd
+/pkg/k8s/client/listers/ @isovalent/ignore-k8s-crd
 /pkg/k8s/synced/enterprise_* @isovalent/sig-k8s
 /pkg/logging/logfields/enterprise_* @isovalent/cilium-agent
 /pkg/maps/ipcache/*enterprise* @isovalent/dns-proxy
