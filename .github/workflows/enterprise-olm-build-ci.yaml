@@ -55,7 +55,7 @@ jobs:
           password: ${{ secrets.QUAY_PASSWORD_CI }}
 
       - name: Login to registry.redhat.io for pulling images
-        uses: docker/login-action@6862ffc5ab2cdb4405cf318a62a6f4c066e2298b
+        uses: docker/login-action@916386b00027d425839f8da46d302dab33f5875b
         with:
           registry: registry.redhat.io
           username: ${{ secrets.REDHAT_USERNAME_CI }}
@@ -106,7 +106,7 @@ jobs:
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci@${{ steps.docker_digest.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@a930d0ac434e3182448fe678398ba5713717112a # v0.21.0
+        uses: anchore/sbom-action@0b82b0b1a22399a1c542d4d656f70cd903571b5c # v0.21.1
         with:
           artifact-name: sbom_ci_clife_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_clife_${{ steps.tag.outputs.tag }}.spdx.json
