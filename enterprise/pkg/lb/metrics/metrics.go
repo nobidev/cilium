@@ -16,7 +16,6 @@ import (
 	"log/slog"
 
 	"github.com/cilium/statedb"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -27,20 +26,63 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/tuple"
 )
 
+const (
+	ilbT1Subsystem = "ilb_t1"
+)
+
+const (
+	labelService = "service"
+	labelBackend = "backend"
+)
+
+type lbMetrics struct {
+	LBBytes             metric.DeletableVec[metric.Gauge]
+	LBPackets           metric.DeletableVec[metric.Gauge]
+	LBHealthCheckStatus metric.DeletableVec[metric.Gauge]
+	LBOpenConnections   metric.DeletableVec[metric.Gauge]
+}
+
+func newLBMetrics() *lbMetrics {
+	return &lbMetrics{
+		LBBytes: metric.NewGaugeVec(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: ilbT1Subsystem,
+			Name:      "lb_bytes_total",
+			Help:      "Total received bytes, tagged by LB service and backend",
+		}, []string{labelService, labelBackend}),
+		LBPackets: metric.NewGaugeVec(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: ilbT1Subsystem,
+			Name:      "lb_packets_total",
+			Help:      "Total received packets, tagged by LB service and backend",
+		}, []string{labelService, labelBackend}),
+		LBHealthCheckStatus: metric.NewGaugeVec(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: ilbT1Subsystem,
+			Name:      "lb_healthcheck_status",
+			Help:      "Healthcheck status for a given service and backend tuple",
+		}, []string{labelService, labelBackend}),
+		LBOpenConnections: metric.NewGaugeVec(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: ilbT1Subsystem,
+			Name:      "lb_open_connections_metric",
+			Help:      "Number of open LB connections",
+		}, []string{}),
+	}
+}
+
 // lbMetricsCollector implements Prometheus Collector interface and store the state of the metrics collector
 type lbMetricsCollector struct {
-	db                      *statedb.DB
-	frontends               statedb.Table[*loadbalancer.Frontend]
-	lbmaps                  lbmaps.LBMaps
-	logger                  *slog.Logger
-	ct4Maps                 []ctmap.CtMap
-	lbBytesDesc             *prometheus.Desc
-	lbPacketsDesc           *prometheus.Desc
-	lbOpenConnectionsDesc   *prometheus.Desc
-	lbHealthcheckStatusDesc *prometheus.Desc
+	metrics   *lbMetrics
+	db        *statedb.DB
+	frontends statedb.Table[*loadbalancer.Frontend]
+	lbmaps    lbmaps.LBMaps
+	logger    *slog.Logger
+	ct4Maps   []ctmap.CtMap
 
 	// Mutex protects the fields below
 	lock.Mutex
@@ -64,11 +106,23 @@ type backendMetricKey struct {
 	addr loadbalancer.L3n4Addr
 }
 
+func (r *backendMetricKey) nameAsLabelValue() string {
+	return r.name.Namespace() + "_" + r.name.Name()
+}
+
 type backendMetricValue struct {
 	updatedAt uint64
 	bytes     uint64
 	packets   uint64
 	healthy   bool
+}
+
+func (b *backendMetricValue) healthyAsFloat() float64 {
+	if b.healthy {
+		return 1
+	}
+
+	return 0
 }
 
 // entryTimeToLive is how many [fetchMetrics] rounds a [backendMetricValue]
@@ -77,67 +131,28 @@ const entryTimeToLive = 10
 
 func newLBMetricsCollector(params collectorParams, ct4Maps []ctmap.CtMap) *lbMetricsCollector {
 	return &lbMetricsCollector{
+		logger:    params.Logger,
+		metrics:   params.Metrics,
 		db:        params.DB,
 		frontends: params.Frontends,
+		ct4Maps:   ct4Maps,
+		lbmaps:    params.LBMaps,
 
 		prevLbCtEntries: make(map[tuple.TupleKey4]*ctmap.CtEntry),
 		backendMetrics:  make(map[backendMetricKey]*backendMetricValue),
-
-		ct4Maps: ct4Maps,
-
-		lbBytesDesc: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, "", "lb_bytes_total"),
-			"Total received bytes, tagged by LB service and backend",
-			[]string{"service", "backend"}, nil,
-		),
-		lbPacketsDesc: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, "", "lb_packets_total"),
-			"Total received packets, tagged by LB service and backend",
-			[]string{"service", "backend"}, nil,
-		),
-		lbOpenConnectionsDesc: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, "", "lb_open_connections_metric"),
-			"Number of open LB connections",
-			[]string{}, nil,
-		),
-		lbHealthcheckStatusDesc: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, "", "lb_healthcheck_status"),
-			"Healthcheck status for a given service and backend tuple",
-			[]string{"service", "backend"}, nil,
-		),
-
-		lbmaps: params.LBMaps,
-
-		logger: params.Logger,
 	}
 }
 
-func (mc *lbMetricsCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- mc.lbBytesDesc
-	ch <- mc.lbPacketsDesc
-	ch <- mc.lbOpenConnectionsDesc
-	ch <- mc.lbHealthcheckStatusDesc
-}
+func (mc *lbMetricsCollector) updateMetrics() {
+	mc.metrics.LBOpenConnections.WithLabelValues().Set(float64(mc.lbOpenConnections))
 
-func (mc *lbMetricsCollector) Collect(ch chan<- prometheus.Metric) {
-	mc.Lock()
-	defer mc.Unlock()
-
-	nameAsLabelValue := func(n loadbalancer.ServiceName) string {
-		return n.Namespace() + "_" + n.Name()
-	}
-
-	ch <- prometheus.MustNewConstMetric(mc.lbOpenConnectionsDesc, prometheus.GaugeValue, float64(mc.lbOpenConnections))
 	for key, entry := range mc.backendMetrics {
-		serviceName := nameAsLabelValue(key.name)
+		serviceName := key.nameAsLabelValue()
 		backend := key.addr.StringWithProtocol()
-		ch <- prometheus.MustNewConstMetric(mc.lbBytesDesc, prometheus.CounterValue, float64(entry.bytes), serviceName, backend)
-		ch <- prometheus.MustNewConstMetric(mc.lbPacketsDesc, prometheus.CounterValue, float64(entry.packets), serviceName, backend)
-		s := 0
-		if entry.healthy {
-			s = 1
-		}
-		ch <- prometheus.MustNewConstMetric(mc.lbHealthcheckStatusDesc, prometheus.GaugeValue, float64(s), serviceName, backend)
+
+		mc.metrics.LBBytes.WithLabelValues(serviceName, backend).Set(float64(entry.bytes))
+		mc.metrics.LBPackets.WithLabelValues(serviceName, backend).Set(float64(entry.packets))
+		mc.metrics.LBHealthCheckStatus.WithLabelValues(serviceName, backend).Set(entry.healthyAsFloat())
 	}
 }
 
@@ -173,9 +188,23 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 	// for [entryTimeToLive] collection rounds.
 	for key, entry := range mc.backendMetrics {
 		if entry.updatedAt+entryTimeToLive < mc.round {
+			serviceName := key.nameAsLabelValue()
+			backend := key.addr.StringWithProtocol()
+
+			mc.logger.Debug("Cleaning up metrics",
+				logfields.Service, serviceName,
+				logfields.Backend, backend,
+			)
+
+			mc.metrics.LBBytes.DeleteLabelValues(serviceName, backend)
+			mc.metrics.LBPackets.DeleteLabelValues(serviceName, backend)
+			mc.metrics.LBHealthCheckStatus.DeleteLabelValues(serviceName, backend)
+
 			delete(mc.backendMetrics, key)
 		}
 	}
+
+	mc.updateMetrics()
 
 	return nil
 }

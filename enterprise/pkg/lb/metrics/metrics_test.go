@@ -11,15 +11,12 @@
 package metrics
 
 import (
-	"fmt"
 	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -168,11 +165,12 @@ func TestMetrics(t *testing.T) {
 			},
 		}
 
-		lmc       *lbMetricsCollector
-		lbm       lbmaps.LBMaps
-		ctmockMap = mockmaps.NewCtMockMap(ctRecords)
-		db        *statedb.DB
-		frontends statedb.RWTable[*loadbalancer.Frontend]
+		lmc        *lbMetricsCollector
+		lbm        lbmaps.LBMaps
+		ctmockMap  = mockmaps.NewCtMockMap(ctRecords)
+		db         *statedb.DB
+		frontends  statedb.RWTable[*loadbalancer.Frontend]
+		ilbMetrics *lbMetrics
 	)
 
 	h := hive.New(
@@ -205,6 +203,7 @@ func TestMetrics(t *testing.T) {
 				lbm = lbm_
 				db = p.DB
 				frontends = p.Frontends.(statedb.RWTable[*loadbalancer.Frontend])
+				ilbMetrics = p.Metrics
 			},
 		),
 	)
@@ -308,15 +307,9 @@ func TestMetrics(t *testing.T) {
 	err = lmc.fetchMetrics(t.Context())
 	require.NoError(t, err, "fetchMetrics empty")
 
-	ch := make(chan prometheus.Metric)
-	go func() {
-		lmc.Collect(ch)
-		close(ch)
-	}()
-
-	for m := range ch {
-		var dto dto.Metric
-		m.Write(&dto)
-		fmt.Printf("%v -> %v\n", m.Desc(), &dto)
-	}
+	// for m := range ch {
+	// 	var dto dto.Metric
+	// 	m.Write(&dto)
+	// 	fmt.Printf("%v -> %v\n", m.Desc(), &dto)
+	// }
 }

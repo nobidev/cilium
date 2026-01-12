@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -34,6 +33,7 @@ var Cell = cell.Module(
 	//exhaustruct:ignore
 	cell.Config(Config{}),
 	cell.Invoke(registerCollector),
+	metrics.Metric(newLBMetrics),
 )
 
 type Config struct {
@@ -49,6 +49,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 type collectorParams struct {
 	cell.In
 
+	Metrics   *lbMetrics
 	Config    Config
 	JobGroup  job.Group
 	Lifecycle cell.Lifecycle
@@ -75,10 +76,6 @@ func registerCollector(params collectorParams) {
 	}
 
 	mc := newLBMetricsCollector(params, ctMaps)
-	if err := metrics.Register(mc); err != nil {
-		params.Logger.Error("Failed to register LB collector to Prometheus registry. LB metrics will not be collected", logfields.Error, err)
-		return
-	}
 
 	params.JobGroup.Add(
 		job.Timer(
