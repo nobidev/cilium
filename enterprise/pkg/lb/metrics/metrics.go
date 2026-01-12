@@ -40,10 +40,11 @@ const (
 )
 
 type lbMetrics struct {
-	LBBytes             metric.DeletableVec[metric.Gauge]
-	LBPackets           metric.DeletableVec[metric.Gauge]
-	LBHealthCheckStatus metric.DeletableVec[metric.Gauge]
-	LBOpenConnections   metric.DeletableVec[metric.Gauge]
+	LBBytes                metric.DeletableVec[metric.Gauge]
+	LBPackets              metric.DeletableVec[metric.Gauge]
+	LBHealthCheckStatus    metric.DeletableVec[metric.Gauge]
+	LBOpenConnections      metric.DeletableVec[metric.Gauge]
+	LBOpenConnectionsTotal metric.DeletableVec[metric.Gauge]
 }
 
 func newLBMetrics() *lbMetrics {
@@ -60,17 +61,23 @@ func newLBMetrics() *lbMetrics {
 			Name:      "lb_packets_total",
 			Help:      "Total received packets, tagged by LB service and backend",
 		}, []string{labelService, labelBackend}),
+		LBOpenConnections: metric.NewGaugeVec(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: ilbT1Subsystem,
+			Name:      "lb_open_connections",
+			Help:      "Number of open LB connections, tagged by LB service and backend",
+		}, []string{labelService, labelBackend}),
 		LBHealthCheckStatus: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.Namespace,
 			Subsystem: ilbT1Subsystem,
 			Name:      "lb_healthcheck_status",
 			Help:      "Healthcheck status for a given service and backend tuple",
 		}, []string{labelService, labelBackend}),
-		LBOpenConnections: metric.NewGaugeVec(metric.GaugeOpts{
+		LBOpenConnectionsTotal: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.Namespace,
 			Subsystem: ilbT1Subsystem,
-			Name:      "lb_open_connections_metric",
-			Help:      "Number of open LB connections",
+			Name:      "lb_open_connections_total",
+			Help:      "Total number of open LB connections",
 		}, []string{}),
 	}
 }
@@ -97,8 +104,8 @@ type lbMetricsCollector struct {
 	// backendMetrics stores metrics (bytes, packets, health) for each backend
 	backendMetrics map[backendMetricKey]*backendMetricValue
 
-	// lbOpenConnections is a counter for the number of open connections
-	lbOpenConnections int
+	// lbOpenConnectionsTotal is a counter for the number of open connections
+	lbOpenConnectionsTotal int
 }
 
 type backendMetricKey struct {
@@ -111,10 +118,11 @@ func (r *backendMetricKey) nameAsLabelValue() string {
 }
 
 type backendMetricValue struct {
-	updatedAt uint64
-	bytes     uint64
-	packets   uint64
-	healthy   bool
+	updatedAt       uint64
+	bytes           uint64
+	packets         uint64
+	openConnections uint64
+	healthy         bool
 }
 
 func (b *backendMetricValue) healthyAsFloat() float64 {
@@ -144,7 +152,7 @@ func newLBMetricsCollector(params collectorParams, ct4Maps []ctmap.CtMap) *lbMet
 }
 
 func (mc *lbMetricsCollector) updateMetrics() {
-	mc.metrics.LBOpenConnections.WithLabelValues().Set(float64(mc.lbOpenConnections))
+	mc.metrics.LBOpenConnectionsTotal.WithLabelValues().Set(float64(mc.lbOpenConnectionsTotal))
 
 	for key, entry := range mc.backendMetrics {
 		serviceName := key.nameAsLabelValue()
@@ -152,6 +160,7 @@ func (mc *lbMetricsCollector) updateMetrics() {
 
 		mc.metrics.LBBytes.WithLabelValues(serviceName, backend).Set(float64(entry.bytes))
 		mc.metrics.LBPackets.WithLabelValues(serviceName, backend).Set(float64(entry.packets))
+		mc.metrics.LBOpenConnections.WithLabelValues(serviceName, backend).Set(float64(entry.openConnections))
 		mc.metrics.LBHealthCheckStatus.WithLabelValues(serviceName, backend).Set(entry.healthyAsFloat())
 	}
 }
@@ -166,7 +175,6 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 	defer mc.Unlock()
 
 	mc.round++
-	mc.lbOpenConnections = 0
 
 	// Iterate the backend map to collect a list of all backends
 	backends, err := mc.getBackends()
@@ -198,6 +206,7 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 
 			mc.metrics.LBBytes.DeleteLabelValues(serviceName, backend)
 			mc.metrics.LBPackets.DeleteLabelValues(serviceName, backend)
+			mc.metrics.LBOpenConnections.DeleteLabelValues(serviceName, backend)
 			mc.metrics.LBHealthCheckStatus.DeleteLabelValues(serviceName, backend)
 
 			delete(mc.backendMetrics, key)
@@ -271,6 +280,12 @@ func (mc *lbMetricsCollector) updateMetricsEntryWithServiceHealth(backends map[l
 }
 
 func (mc *lbMetricsCollector) updateMetricsEntryWithCTMapInfo(backends map[loadbalancer.BackendID]*lbmaps.Backend4ValueV3) error {
+	// Reset all open connection counters
+	mc.lbOpenConnectionsTotal = 0
+	for _, bmv := range mc.backendMetrics {
+		bmv.openConnections = 0
+	}
+
 	ctMapCallback := func(key bpf.MapKey, value bpf.MapValue) {
 		ctKey := key.(*ctmap.CtKey4Global).ToHost().(*ctmap.CtKey4Global)
 		ctValue := value.(*ctmap.CtEntry)
@@ -303,8 +318,9 @@ func (mc *lbMetricsCollector) updateMetricsEntryWithCTMapInfo(backends map[loadb
 		entry := mc.getOrAddEntry(svcName, backendAddr)
 		entry.bytes += deltaBytes
 		entry.packets += deltaPackets
+		entry.openConnections++
 
-		mc.lbOpenConnections++
+		mc.lbOpenConnectionsTotal++
 	}
 
 	for _, ctMap := range mc.ct4Maps {
