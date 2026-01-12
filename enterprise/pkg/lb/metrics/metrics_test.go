@@ -153,8 +153,8 @@ func TestMetrics(t *testing.T) {
 					},
 				},
 				Value: ctmap.CtEntry{
-					Packets: 100,
-					Bytes:   100,
+					Packets: 200,
+					Bytes:   200,
 					Flags:   0,
 					RevNAT:  byteorder.HostToNetwork16(serviceID),
 					Union0: [2]uint64{
@@ -190,6 +190,8 @@ func TestMetrics(t *testing.T) {
 			),
 			maglev.Cell,
 			lbmaps.Cell,
+			cell.Provide(ctmap.NewFakeGCRunner),
+			cell.Provide(newLBMetrics),
 		),
 
 		cell.Provide(
@@ -295,21 +297,130 @@ func TestMetrics(t *testing.T) {
 
 	// Fetch metrics with a frontend
 	err = lmc.fetchMetrics(t.Context())
-	require.NoError(t, err, "fetchMetrics empty")
+	require.NoError(t, err)
 
-	ctRecords[0].Value.Packets = 10000
+	require.Len(t, ctmockMap.Entries, 4)
+	require.Len(t, lmc.prevLbCtEntries, 4)
+
+	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.1:80/TCP", 200.0, 200.0, 2, 1)
+	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.2:80/TCP", 300.0, 300.0, 2, 1)
+
+	ctRecords[0].Value.Packets = 10000 // modify one CTmap entry for service foobar - backend 1
+	ctRecords[1].Value.Bytes = 30000   // modify one CTmap entry for service foobar - backend 1
 
 	err = lmc.fetchMetrics(t.Context())
-	require.NoError(t, err, "fetchMetrics empty")
+	require.NoError(t, err)
 
-	ctRecords[0].Value.Packets = 20000
+	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.1:80/TCP", 10100.0, 30100.0, 2, 1)
+	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.2:80/TCP", 300.0, 300.0, 2, 1)
+
+	ctRecords[2].Value.Packets = 500 // modify one CTmap entry for service foobar - backend 2
+	ctRecords[2].Value.Bytes = 1000  // modify one CTmap entry for service foobar - backend 2
 
 	err = lmc.fetchMetrics(t.Context())
-	require.NoError(t, err, "fetchMetrics empty")
+	require.NoError(t, err)
 
-	// for m := range ch {
-	// 	var dto dto.Metric
-	// 	m.Write(&dto)
-	// 	fmt.Printf("%v -> %v\n", m.Desc(), &dto)
-	// }
+	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.1:80/TCP", 10100.0, 30100.0, 2, 1)
+	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.2:80/TCP", 700.0, 1200.0, 2, 1)
+
+	totalConns, err := ilbMetrics.LBOpenConnectionsTotal.GetMetricWithLabelValues()
+	require.NoError(t, err)
+	require.Equal(t, float64(4), totalConns.Get())
+
+	// Delete one ctmap entry and trigger GC event handling
+
+	ctmockMap.Entries = ctmockMap.Entries[1:]
+
+	require.Len(t, ctmockMap.Entries, 3)
+
+	lmc.handleCTGCEvent(t.Context(), ctmap.GCEvent{
+		Key: &ctmap.CtKey4Global{
+			TupleKey4Global: tuple.TupleKey4Global{
+				TupleKey4: tuple.TupleKey4{
+					DestAddr:   feIPv4,                                   // VIP is destination address
+					SourcePort: byteorder.HostToNetwork16(feAddr.Port()), // actual dest port is in SourcePort of the CTMap, the destination is the frontend (ILB IPIP forwarding) and network byte order
+					SourceAddr: client1IPv4,
+					DestPort:   5553,
+					NextHeader: u8proto.TCP,
+					Flags:      0,
+				},
+			},
+		},
+	})
+	require.Len(t, lmc.prevLbCtEntries, 3, "CTGCEvent needs to cleanup prevLbCtEntries map")
+
+	err = lmc.fetchMetrics(t.Context())
+	require.NoError(t, err)
+
+	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.1:80/TCP", 10100.0, 30100.0, 1, 1)
+	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.2:80/TCP", 700.0, 1200.0, 2, 1)
+
+	totalConns, err = ilbMetrics.LBOpenConnectionsTotal.GetMetricWithLabelValues()
+	require.NoError(t, err)
+	require.Equal(t, float64(3), totalConns.Get())
+
+	// Delete next ctmap entry for service & backend
+
+	ctmockMap.Entries = ctmockMap.Entries[1:]
+
+	lmc.handleCTGCEvent(t.Context(), ctmap.GCEvent{
+		Key: &ctmap.CtKey4Global{
+			TupleKey4Global: tuple.TupleKey4Global{
+				TupleKey4: tuple.TupleKey4{
+					DestAddr:   feIPv4,                                   // VIP is destination address
+					SourcePort: byteorder.HostToNetwork16(feAddr.Port()), // actual dest port is in SourcePort of the CTMap, the destination is the frontend (ILB IPIP forwarding) and network byte order
+					SourceAddr: client2IPv4,
+					DestPort:   5554,
+					NextHeader: u8proto.TCP,
+					Flags:      0,
+				},
+			},
+		},
+	})
+
+	err = lmc.fetchMetrics(t.Context())
+	require.NoError(t, err)
+
+	// removal of CTMap entries doesn't affect the total packets and bytes for a service and backend
+	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.1:80/TCP", 10100.0, 30100.0, 0, 1)
+	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.2:80/TCP", 700.0, 1200.0, 2, 1)
+
+	totalConns, err = ilbMetrics.LBOpenConnectionsTotal.GetMetricWithLabelValues()
+	require.NoError(t, err)
+	require.Equal(t, float64(2), totalConns.Get())
+
+	// remove backend (and fetch until metrics entry is EOL)
+	err = lbm.DeleteBackend(lbmaps.NewBackend4KeyV3(backend1ID))
+	require.NoError(t, err)
+
+	for range entryTimeToLive + 1 {
+		err = lmc.fetchMetrics(t.Context())
+		require.NoError(t, err)
+	}
+
+	// removal of backend cleans the metrics
+	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.1:80/TCP", 0, 0, 0, 0) // actually deleted
+	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.2:80/TCP", 700.0, 1200.0, 2, 1)
+
+	totalConns, err = ilbMetrics.LBOpenConnectionsTotal.GetMetricWithLabelValues()
+	require.NoError(t, err)
+	require.Equal(t, float64(2), totalConns.Get())
+}
+
+func assertServiceBackendMetric(t *testing.T, metrics *lbMetrics, service string, backend string, expectedPackets float64, expectedBytes float64, expectedConns float64, expectedHealth float64) {
+	actualPackets, err := metrics.LBPackets.GetMetricWithLabelValues(service, backend)
+	require.NoError(t, err)
+	require.Equal(t, expectedPackets, actualPackets.Get())
+
+	actualBytes, err := metrics.LBBytes.GetMetricWithLabelValues(service, backend)
+	require.NoError(t, err)
+	require.Equal(t, expectedBytes, actualBytes.Get())
+
+	actualConns, err := metrics.LBOpenConnections.GetMetricWithLabelValues(service, backend)
+	require.NoError(t, err)
+	require.Equal(t, expectedConns, actualConns.Get())
+
+	actualHealth, err := metrics.LBHealthCheckStatus.GetMetricWithLabelValues(service, backend)
+	require.NoError(t, err)
+	require.Equal(t, expectedHealth, actualHealth.Get())
 }
