@@ -692,17 +692,15 @@ out:
 }
 
 static __always_inline int
-privnet_policy_egress4(struct __ctx_buff *ctx __maybe_unused,
-		       struct iphdr *ip4 __maybe_unused,
-		       __u32 dst_sec_identity __maybe_unused,
-		       __s8 *ext_err __maybe_unused)
+privnet_policy_egress4(struct __ctx_buff *ctx,
+		       struct iphdr *ip4,
+		       __u32 dst_sec_identity,
+		       __s8 *ext_err)
 {
 	__u8 policy_match_type = POLICY_MATCH_NONE;
-	int verdict = CTX_ACT_OK;
 	__u16 proxy_port = 0;
 	__u8 audited = 0;
 	__u32 cookie = 0;
-
 	struct ipv4_ct_tuple tuple = {};
 	int l4_off;
 	int ret;
@@ -718,10 +716,9 @@ privnet_policy_egress4(struct __ctx_buff *ctx __maybe_unused,
 		return ret;
 	ipv4_ct_tuple_swap_ports(&tuple);
 
-	verdict = ext_eps_policy_can_egress4(ctx, ip4->saddr, dst_sec_identity, tuple.dport,
-					     ip4->protocol, l4_off, &policy_match_type, &audited,
-					     ext_err, &proxy_port, &cookie);
-	return verdict;
+	return ext_eps_policy_can_egress4(ctx, ip4->saddr, dst_sec_identity, tuple.dport,
+					  ip4->protocol, l4_off, &policy_match_type, &audited,
+					  ext_err, &proxy_port, &cookie);
 }
 
 static __always_inline int
