@@ -370,8 +370,8 @@ enforce_privnet_egress_segmentation(const struct privnet_fib_val *sip_val,
 		 *
 		 * In netdev, this would mean packet came in from connected L2 segment. Src
 		 * for some reason believe that destination is in kubernetes cluster. However,
-		 * absence of dip_val suggests there is no ep present with that dst ip ( within
-		 * private network ). It is better to drop the packet as we have no way to route
+		 * absence of dip_val suggests there is no ep present with that dst ip (within
+		 * private network). It is better to drop the packet as we have no way to route
 		 * to the destination and do not want this packet to leave via INB underlay.
 		 */
 		return DROP_UNROUTABLE;
@@ -381,7 +381,7 @@ enforce_privnet_egress_segmentation(const struct privnet_fib_val *sip_val,
 }
 
 /* privnet_egress_ipv4 can be called as traffic comes from pod to lxc, it should be
- * first thing to happen before processing the packet further in bfp_lxc.
+ * the first thing to happen before processing the packet further in bpf_lxc.
  *
  * It can also be called from connected L2 segment on INB(network bridge), traffic coming
  * from external endpoints or unknown sources which are destined to kubernetes
@@ -583,8 +583,10 @@ privnet_ingress_ipv4(struct __ctx_buff *ctx, const void *map, __u16 net_id, bool
 		return DROP_INVALID;
 
 	sip_val = privnet_pip_lookup4(map, ip4->saddr);
-	/* Perform translation only if either (a) the network ID matches the expected one, or */
-	/* (b) no network ID was configured (i.e., for traffic received from the tunnel). */
+	/* Perform source NAT only if either:
+	 * (a) the network ID matches the expected one, or
+	 * (b) no network ID was configured (i.e., for traffic received from the tunnel).
+	 */
 	if (sip_val) {
 		if (src_privnet_entry)
 			*src_privnet_entry = sip_val;
@@ -613,10 +615,12 @@ privnet_ingress_ipv4(struct __ctx_buff *ctx, const void *map, __u16 net_id, bool
 		if (dst_privnet_entry)
 			*dst_privnet_entry = dip_val;
 
-		/* Perform dip only if either (a) the network ID matches the expected one, or */
-		/* (b) it matches the one of the sip entry. The latter is to ensure that we   */
-		/* don't incorrectly dip to an entry that belongs to a different network for  */
-		/* traffic received from the tunnel.                                           */
+		/* Perform destination NAT only if either:
+		 * (a) the network ID matches the expected one, or
+		 * (b) it matches the one of the sip entry. The latter is to ensure that we
+		 * don't incorrectly dDNAT to an entry that belongs to a different network for
+		 * traffic received from the tunnel.
+		 */
 		if (net_id == dip_val->net_id ||
 		    (sip_val && sip_val->net_id == dip_val->net_id)) {
 			ret = nat_v4_addr(ctx, IPV4_DADDR_OFF, &ip4->daddr, &dip_val->ip4);
