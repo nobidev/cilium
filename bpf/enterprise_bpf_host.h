@@ -173,3 +173,15 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 
 	return ret;
 }
+
+static __always_inline int enterprise_privnet_from_netdev(struct __ctx_buff *ctx __maybe_unused,
+							  __be16 __maybe_unused proto)
+{
+	return CTX_ACT_OK;
+}
+
+static __always_inline int enterprise_privnet_to_netdev(struct __ctx_buff *ctx __maybe_unused,
+							__be16 __maybe_unused proto)
+{
+	return CTX_ACT_OK;
+}

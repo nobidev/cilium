@@ -210,3 +210,9 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 
 	return ret;
 }
+
+static __always_inline int enterprise_privnet_to_overlay(struct __ctx_buff *ctx __maybe_unused,
+							 __be16 __maybe_unused proto)
+{
+	return CTX_ACT_OK;
+}

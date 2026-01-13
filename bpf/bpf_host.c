@@ -1245,6 +1245,10 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif /* ENABLE_HOST_FIREWALL */
 	}
 
+	ret = enterprise_privnet_from_netdev(ctx, proto);
+	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+		return ret;
+
 #ifdef ENABLE_IPSEC
 	/* If the packet needs decryption, we want to send it straight to the
 	 * stack. There's no need to run service handling logic, host firewall,
@@ -1362,6 +1366,10 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 
 	/* Load the ethertype just once: */
 	validate_ethertype(ctx, &proto);
+
+	ret = enterprise_privnet_to_netdev(ctx, proto);
+	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+		return ret;
 
 #ifdef ENABLE_IPSEC
 	if (magic == MARK_MAGIC_ENCRYPT)

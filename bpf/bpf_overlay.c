@@ -635,6 +635,10 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	/* Load the ethertype just once: */
 	validate_ethertype(ctx, &proto);
 
+	ret = enterprise_privnet_to_overlay(ctx, proto);
+	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+		return ret;
+
 #ifdef ENABLE_BANDWIDTH_MANAGER
 	/* In tunneling mode, we should do this as close as possible to the
 	 * phys dev where FQ runs, but the issue is that the aggregate state
