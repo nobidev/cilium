@@ -29,7 +29,7 @@ WORKDIR /go/src/github.com/cilium/cilium/enterprise/images/wolfi/runtime
 
 COPY --from=iptables-dist /iptables/iptables-1.8.8.tar.bz2 /iptables/iptables-1.8.8.tar.bz2
 # Needed for iptables configure script to use gcc with no issue 
-RUN ln -s /usr/bin/gcc-11 /usr/bin/gcc
+RUN ln -s /usr/bin/gcc-14 /usr/bin/gcc
 # Installation of iptables v1.8.8
 RUN cd /iptables && tar -xvf iptables-1.8.8.tar.bz2 
 RUN cd /iptables/iptables-1.8.8 && ./configure --sbindir=/sbin && make && make install

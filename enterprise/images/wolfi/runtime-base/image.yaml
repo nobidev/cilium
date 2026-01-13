@@ -17,7 +17,7 @@ contents:
     - kmod=34.2-r43
     - shadow=4.19.2-r0 # Needed for groupadd
     - curl=8.18.0-r0  # temporary, for getting prometheus metrics in CI
-    - gcc-11=11.5.0-r9 # for some header files
+    - gcc-14=14.3.0-r9 # for some header files
     - libatomic=15.2.0-r6 # Needed for embedded envoy
     - openssl=3.6.0-r6
     - cni-plugins-loopback=1.9.0-r0
