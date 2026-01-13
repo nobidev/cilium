@@ -23,13 +23,6 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
-	policyv1 "k8s.io/api/policy/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -190,25 +183,9 @@ func Start(ctx context.Context) {
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
 		Cache: cache.Options{
+			DefaultLabelSelector: labelsSelector,
 			ByObject: map[client.Object]cache.ByObject{
-				&corev1.Secret{}:                {Label: labelsSelector},
-				&corev1.ConfigMap{}:             {Label: labelsSelector},
-				&corev1.Namespace{}:             {Label: labelsSelector},
-				&corev1.Service{}:               {Label: labelsSelector},
-				&corev1.Endpoints{}:             {Label: labelsSelector},
-				&corev1.ResourceQuota{}:         {Label: labelsSelector},
-				&corev1.ServiceAccount{}:        {Label: labelsSelector},
-				&appsv1.Deployment{}:            {Label: labelsSelector},
-				&appsv1.StatefulSet{}:           {Label: labelsSelector},
-				&appsv1.DaemonSet{}:             {Label: labelsSelector},
-				&rbacv1.ClusterRole{}:           {Label: labelsSelector},
-				&rbacv1.ClusterRoleBinding{}:    {Label: labelsSelector},
-				&rbacv1.Role{}:                  {Label: labelsSelector},
-				&rbacv1.RoleBinding{}:           {Label: labelsSelector},
-				&batchv1.Job{}:                  {Label: labelsSelector},
-				&batchv1.CronJob{}:              {Label: labelsSelector},
-				&policyv1.PodDisruptionBudget{}: {Label: labelsSelector},
-				&networkingv1.IngressClass{}:    {Label: labelsSelector},
+				&ciliumiov1alpha1.CiliumConfig{}: {Label: labels.Everything()},
 			},
 		},
 	})
