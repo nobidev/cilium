@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "lib/encap.h"
+#include "lib/trace.h"
+
 #include "lib/enterprise_privnet.h"
 
 static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __maybe_unused,

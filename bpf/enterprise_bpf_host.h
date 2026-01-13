@@ -3,6 +3,12 @@
 
 #pragma once
 
+#include "lib/drop.h"
+#include "lib/drop_reasons.h"
+#include "lib/encap.h"
+#include "lib/icmp6.h"
+#include "lib/trace.h"
+
 #include "lib/enterprise_privnet.h"
 
 #undef host_egress_policy_hook
