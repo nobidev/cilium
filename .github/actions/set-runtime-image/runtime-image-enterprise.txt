@@ -1,1 +1,1 @@
-quay.io/isovalent-dev/cilium-runtime-wfi:9f21a9bae2e1d0fdf72dd76f745ab650250b79a9@sha256:13520cd30e908d6fe20f6008bba3f0cb1bd333fbc87b0b2613bc296d1640ce68
+quay.io/isovalent-dev/cilium-runtime-wfi:55f588cc4534987a4a03f063dd7d4d050630e640@sha256:1079d3d790dcaec4ab2d24926d47594fb7a224aa4828caf10dede0010ae369be
