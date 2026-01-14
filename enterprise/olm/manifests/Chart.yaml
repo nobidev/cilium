@@ -2,8 +2,8 @@ apiVersion: v2
 name: cilium
 displayName: Cilium
 home: https://cilium.io/
-version: 1.18.0-dev
-appVersion: 1.18.0-dev
+version: 1.19.0-dev
+appVersion: 1.19.0-dev
 kubeVersion: ">= 1.21.0-0"
 icon: https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo-solo.svg
 description: eBPF-based Networking, Security, and Observability
@@ -43,7 +43,7 @@ annotations:
       displayName: Cilium Local Redirect Policy
       description: |
         Cilium Local Redirect Policy allows local redirects to be configured
-        within a node to support use cases like Node-Local DNS or KIAM.
+        within a node to support use cases like Node-Local DNS.
     - kind: CiliumNode
       version: v2
       name: ciliumnodes.cilium.io
@@ -104,13 +104,6 @@ annotations:
       description: |
         CiliumNodeConfig is a list of configuration key-value pairs. It is applied to
         nodes indicated by a label selector.
-    - kind: CiliumBGPPeeringPolicy
-      version: v2alpha1
-      name: ciliumbgppeeringpolicies.cilium.io
-      displayName: Cilium BGP Peering Policy
-      description: |
-        Cilium BGP Peering Policy instructs Cilium to create specific BGP peering
-        configurations.
     - kind: CiliumBGPClusterConfig
       version: v2alpha1
       name: ciliumbgpclusterconfigs.cilium.io
@@ -146,7 +139,7 @@ annotations:
       description: |
         CiliumBGPNodeConfigOverride can be used to override node specific BGP configuration.
     - kind: CiliumLoadBalancerIPPool
-      version: v2alpha1
+      version: v2
       name: ciliumloadbalancerippools.cilium.io
       displayName: Cilium Load Balancer IP Pool
       description: |
@@ -176,9 +169,3 @@ annotations:
       displayName: Cilium Gateway Class Config
       description: |
         CiliumGatewayClassConfig defines a configuration for Gateway API GatewayClass.
-    - kind: IsovalentMeshEndpoint
-      version: v2alpha1
-      name: isovalentmeshendpoints.cilium.io
-      displayName: Cilium CiliumMesh Endpoint
-      description: |
-        IsovalentMeshEndpoint defines a CiliumMesh endpoint

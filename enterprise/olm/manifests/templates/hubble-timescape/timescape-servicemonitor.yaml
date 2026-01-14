@@ -5,6 +5,10 @@
     .Values.hubble.timescape.metrics.enabled
     .Values.hubble.timescape.metrics.clickhouse.enabled
   )
+  (or
+    (not .Values.hubble.timescape.clustermesh.primary.id)
+    (eq (int64 .Values.hubble.timescape.clustermesh.primary.id) (int64 .Values.cluster.id))
+  )
 }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -18,7 +22,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- with .Values.hubble.timescape.metrics.serviceMonitor.annotations }}
-  annotations:    
+  annotations:
       {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:

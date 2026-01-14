@@ -14,6 +14,12 @@ enable-srv6:               {{ .Values.enterprise.srv6.enabled            | defau
 srv6-encap-mode:           {{ .Values.enterprise.srv6.encapMode          | default "reduced" | quote }}
 srv6-locator-pool-enabled: {{ .Values.enterprise.srv6.locatorPoolEnabled | default "false"   | quote }}
 
+{{- if .Values.enterprise.evpn.enabled }}
+enable-evpn: "true"
+evpn-vxlan-device: {{ .Values.enterprise.evpn.vxlanDevice | quote }}
+evpn-vxlan-port: {{ .Values.enterprise.evpn.vxlanPort | quote }}
+{{- end }}
+
 {{- if .Values.enterprise.bgpControlPlane.enabled }}
 enable-enterprise-bgp-control-plane: "true"
 enable-bgp-control-plane: "true"
@@ -27,6 +33,20 @@ enable-bgp-svc-health-checking: {{ .Values.enterprise.bgpControlPlane.enableServ
 enable-statedb-neighbor-sync: "true"
 router-advertisement-interval: {{ .Values.enterprise.bgpControlPlane.routerAdvertisementInterval | quote }}
 bgp-router-id-allocation-mode: {{ .Values.enterprise.bgpControlPlane.routerIDAllocation.mode | quote }}
+enable-bgp-maintenance-graceful-shutdown-community: {{ .Values.enterprise.bgpControlPlane.nodeMaintenance.gracefulShutdownCommunity.enabled | default "false" | quote }}
+bgp-maintenance-withdraw-time: {{ .Values.enterprise.bgpControlPlane.nodeMaintenance.withdrawTime | default "0s" | quote }}
+enable-bgp-route-import: {{ .Values.enterprise.bgpControlPlane.routeImport.enabled | default "false" | quote }}
+{{- end }}
+
+{{/*
+FQDN-ha proxy. Docs previously configured these directly with
+extraConfig, so we can't set these values unless explicitly enabled.
+*/}}
+{{- if .Values.enterprise.dnsProxyHA.enabled }}
+external-dns-proxy: "true"
+{{- end }}
+{{- if .Values.enterprise.dnsProxyHA.offlineMode.enabled }}
+tofqdns-enable-offline-mode: "true"
 {{- end }}
 
 # BFD subsystem
@@ -35,9 +55,6 @@ enable-bfd: {{ .Values.enterprise.bfd.enabled | default "false" | quote }}
 # Configuration options to enable multicast support
 multicast-enabled: {{ .Values.enterprise.multicast.enabled | default "false" | quote }}
 
-{{- if .Values.enterprise.ciliummesh.enabled }}
-enable-cilium-mesh: "true"
-{{- end }}
 {{- if .Values.enterprise.egressGatewayHA.enabled }}
 enable-ipv4-egress-gateway-ha: "true"
 {{- end }}
@@ -54,6 +71,11 @@ egress-gateway-ha-policy-map-max: {{ .Values.enterprise.egressGatewayHA.maxPolic
 egress-gateway-ha-healthcheck-timeout: {{ .Values.enterprise.egressGatewayHA.healthcheckTimeout | quote }}
 {{- else if hasKey .Values.egressGateway "healthcheckTimeout" }}
 egress-gateway-ha-healthcheck-timeout: {{ .Values.egressGateway.healthcheckTimeout | quote }}
+{{- end }}
+{{- if hasKey .Values.enterprise.egressGatewayHA "icmpHealthProbe" }}
+enable-egress-gateway-ha-icmp-health-probe: {{ .Values.enterprise.egressGatewayHA.icmpHealthProbe.enabled | default "true" | quote }}
+egress-gateway-ha-icmp-health-probe-interval: {{ .Values.enterprise.egressGatewayHA.icmpHealthProbe.interval | quote }}
+egress-gateway-ha-icmp-health-probe-failure-threshold: {{ .Values.enterprise.egressGatewayHA.icmpHealthProbe.failureThreshold | quote }}
 {{- end }}
 
 {{- if .Values.enterprise.clustermesh.mixedRoutingMode.enabled }}
@@ -76,39 +98,6 @@ multi-network-auto-direct-node-routes: {{ .Values.enterprise.multiNetwork.autoDi
 {{- if hasKey .Values.enterprise.multiNetwork "autoCreateDefaultPodNetwork" }}
 auto-create-default-pod-network: {{ .Values.enterprise.multiNetwork.autoCreateDefaultPodNetwork | quote }}
 {{- end }}
-{{- end }}
-
-
-# If user did not provide any extraConfig or didn't provide export-file-path,
-# use the default value for export and aggregation.
-
-{{- $defaultExportFilePath := "" }}
-{{- $defaultExportAggregation := "" }}
-{{- $defaultExportAggregationStateFilter := "" }}
-
-# For cilium version <1.16 we enable export to /var/run/cilium/hubble by
-# default.
-{{- if semverCompare "<1.16" (default "1.16" .Values.upgradeCompatibility)}}
-{{- $defaultExportFilePath = "/var/run/cilium/hubble/hubble.log"}}
-{{- end }}
-
-# If integrated Timescape is enabled we enable export and export aggregation by
-# default. If the export-file-path is set by the user we do not enable export
-# aggregation by default to not change the existing behavior.
-{{- if and .Values.hubble.timescape.enabled (or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-file-path")))}}
-{{- $defaultExportFilePath = "/var/run/cilium/hubble/hubble.log"}}
-{{- $defaultExportAggregation = "connection" }}
-{{- $defaultExportAggregationStateFilter = "new error" }}
-{{- end }}
-
-{{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-file-path"))}}
-export-file-path: {{ $defaultExportFilePath | quote }}
-{{- end }}
-{{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-aggregation"))}}
-export-aggregation: {{ $defaultExportAggregation | quote }}
-{{- end }}
-{{- if or (not .Values.extraConfig) (not (hasKey .Values.extraConfig "export-aggregation-state-filter"))}}
-export-aggregation-state-filter: {{ $defaultExportAggregationStateFilter | quote }}
 {{- end }}
 
 {{- if .Values.hubble.export }}
@@ -141,6 +130,100 @@ hubble-export-aggregation-ttl: {{ . | quote }}
 {{- end }}
 {{- end }}
 
+{{- $defaultExportTimescapeEnabled := .Values.hubble.export.timescape.enabled }}
+{{- $defaultExportTimescapeTarget := .Values.hubble.export.timescape.target }}
+{{- $defaultExportTimescapeAggregation := .Values.hubble.export.timescape.aggregation }}
+{{- $defaultExportTimescapeAggregationStateFilter := .Values.hubble.export.timescape.aggregationStateFilter }}
+{{- $defaultExportTimescapeAggregationRenewTTL := .Values.hubble.export.timescape.aggregationRenewTTL }}
+{{- $defaultExportTimescapeUseCiliumServiceResolver := .Values.hubble.export.timescape.useCiliumServiceResolver }}
+{{- $defaultExportTimescapeTLSEnabled := .Values.hubble.export.timescape.tls.enabled }}
+{{- $defaultExportTimescapeTLSmTLSEnabled := .Values.hubble.export.timescape.tls.mtls.enabled }}
+{{- $defaultExportTimescapeTLSCAOverriden := not (.Values.hubble.export.timescape.tls.ca.configMap.name | empty) }}
+
+# If integrated Timescape is enabled, we enable the Hubble timescape exporter
+# and export aggregation by default.
+{{- if .Values.hubble.timescape.enabled }}
+{{- $targetNamespace := (include "cilium.namespace" .) }}
+{{- if .Values.hubble.timescape.clustermesh.primary.namespace }}
+{{- $targetNamespace = .Values.hubble.timescape.clustermesh.primary.namespace }}
+{{- end }}
+{{- $defaultExportTimescapeEnabled = true }}
+{{- $defaultExportTimescapeTarget = printf "hubble-timescape.%s.svc.cluster.local:4261" $targetNamespace }}
+{{- $defaultExportTimescapeAggregation = list "connection" }}
+{{- $defaultExportTimescapeAggregationStateFilter = list "new" "error" }}
+{{- $defaultExportTimescapeAggregationRenewTTL = "false" }}
+{{- $defaultExportTimescapeUseCiliumServiceResolver = "true" }}
+{{- if eq (include "hubble.timescape.tls.enabled" .) "true" }}
+{{- $defaultExportTimescapeTLSEnabled = "true" }}
+{{- $defaultExportTimescapeTLSmTLSEnabled = "true" }}
+{{- $defaultExportTimescapeTLSCAOverriden = "true" }}
+{{- end }}
+{{- end }}
+
+{{- if $defaultExportTimescapeEnabled }}
+hubble-export-timescape-enabled: "true"
+{{- with $defaultExportTimescapeTarget }}
+hubble-export-timescape-target: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.allowList }}
+hubble-export-timescape-allowlist: {{ . | join " " | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.denyList }}
+hubble-export-timescape-denylist: {{ . | join " " | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.fieldMask }}
+hubble-export-timescape-fieldmask: {{ . | join " " | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.nodeName }}
+hubble-export-timescape-node-name: {{ . | quote }}
+{{- end }}
+{{- with $defaultExportTimescapeAggregation }}
+hubble-export-timescape-aggregation: {{ . | join " " | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.aggregationIgnoreSourcePort }}
+hubble-export-timescape-aggregation-ignore-source-port: {{ . | quote }}
+{{- end }}
+{{- with $defaultExportTimescapeAggregationRenewTTL }}
+hubble-export-timescape-aggregation-renew-ttl: {{ . | quote }}
+{{- end }}
+{{- with $defaultExportTimescapeAggregationStateFilter }}
+hubble-export-timescape-aggregation-state-filter: {{ . | join " " | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.aggregationTTL }}
+hubble-export-timescape-aggregation-ttl: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.maxBufferSize }}
+hubble-export-timescape-max-buffer-size: {{ . | quote }}
+{{- end }}
+{{- with .Values.hubble.export.timescape.reportDroppedFlowsInterval }}
+hubble-export-timescape-report-dropped-flows-interval: {{ . | quote }}
+{{- end }}
+{{- with $defaultExportTimescapeUseCiliumServiceResolver }}
+hubble-export-timescape-use-cilium-service-resolver: {{ . | quote }}
+{{- end }}
+{{- with $defaultExportTimescapeTLSEnabled }}
+hubble-export-timescape-tls-enabled: {{ . | quote }}
+{{- end }}
+{{- if $defaultExportTimescapeTLSmTLSEnabled }}
+hubble-export-timescape-tls-cert-file: /var/lib/cilium/tls/hubble-export-timescape/client.crt
+hubble-export-timescape-tls-key-file: /var/lib/cilium/tls/hubble-export-timescape/client.key
+{{- end }}
+{{- if $defaultExportTimescapeTLSCAOverriden }}
+hubble-export-timescape-tls-ca-files: /var/lib/cilium/tls/hubble-export-timescape/client-ca.crt
+{{- end }}
+{{- end }}
+
+# XXX: At some point we might want to have it enabled by default when
+# .Values.hubble.timescape.enabled is true.
+hubble-connectionlog-export-enabled: {{ .Values.hubble.export.connectionlog.enabled | quote }}
+{{- if .Values.hubble.export.connectionlog.enabled }}
+hubble-connectionlog-export-interval: {{ .Values.hubble.export.connectionlog.exportInterval | quote }}
+hubble-connectionlog-export-file-path: {{ .Values.hubble.export.connectionlog.filePath | quote }}
+hubble-connectionlog-export-file-max-size-mb: {{ .Values.hubble.export.connectionlog.fileMaxSizeMb | quote }}
+hubble-connectionlog-export-file-max-backups: {{ .Values.hubble.export.connectionlog.fileMaxBackups | quote }}
+hubble-connectionlog-export-file-compress: {{ .Values.hubble.export.connectionlog.fileCompress | quote }}
+{{- end }}
+
 enable-phantom-services: {{ .Values.enterprise.clustermesh.phantomServices.enabled | quote}}
 
 {{- if .Values.enterprise.encryption.policy.enabled }}
@@ -151,15 +234,32 @@ enable-encryption-policy: {{ .Values.enterprise.encryption.policy.enabled | quot
 loadbalancer-cp-enabled: "true"
 loadbalancer-cp-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
 loadbalancer-metrics-enabled: "true"
+loadbalancer-envoy-health-state-sync-enabled: "true"
+loadbalancer-cp-t2-hc-event-logging-enabled: "true"
+loadbalancer-cp-t2-hc-event-logging-state-dir: "{{ .Values.daemon.runPath }}"
+envoy-health-check-event-server-enabled: "true"
 enable-active-lb-health-checking: "true"
 enable-ipip-termination: "true"
 bpf-lb-ipip-sock-mark: "true"
+loadbalancer-gateway-api-enabled: {{ .Values.enterprise.loadbalancer.gatewayAPI.enabled | quote }}
 {{- end }}
 
-{{- if .Values.enterprise.healthServerWithoutActiveChecks.enabled }}
-  enable-health-server-without-active-checks: "true"
-{{- else }}
-  enable-health-server-without-active-checks: "false"
+{{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}
+envoy-config-policy-mode: {{ .Values.envoyConfig.policy.mode | quote }}
+envoy-config-policy-regen-interval: {{ include "validateDuration" .Values.envoyConfig.policy.regenerationInterval | quote }}
 {{- end }}
+
+diagnostics-export-file: {{ .Values.enterprise.diagnostics.exportFilePath | quote }}
+diagnostics-interval: {{ .Values.enterprise.diagnostics.interval | quote }}
+diagnostics-constants: {{ .Values.enterprise.diagnostics.constants | join "," | quote }}
+
+# Private networks
+private-networks-enabled: {{ .Values.enterprise.privateNetworks.enabled | quote }}
+private-networks-mode: {{ .Values.enterprise.privateNetworks.mode | quote }}
+private-networks-health-check-port: {{ .Values.enterprise.privateNetworks.healthcheck.port | quote }}
+private-networks-health-check-interval: {{ .Values.enterprise.privateNetworks.healthcheck.interval | quote }}
+private-networks-health-check-timeout: {{ .Values.enterprise.privateNetworks.healthcheck.timeout | quote }}
+
+enable-health-server-without-active-checks: {{ .Values.enterprise.healthServerWithoutActiveChecks.enabled | quote }}
 
 {{- end }}

@@ -42,6 +42,13 @@ enterprise:
     # forwarded to a egress gateway node when the node is no longer available.
     socketTermination:
       enabled: false
+    # -- Enables ICMP health probing of egress gateway nodes.
+    # When enabled, the cilium-operator periodically sends ICMP echo requests
+    # to gateway nodes to verify their availability.
+    icmpHealthProbe:
+      enabled: true
+      interval: 100ms
+      failureThreshold: 3
 
   srv6:
     # -- Enable SRv6 encapsulation support.
@@ -50,6 +57,14 @@ enterprise:
     encapMode: reduced
     # -- Enables custom SRv6 SID locator pool operator support.
     locatorPoolEnabled: false
+
+  evpn:
+    # -- Enables support for EVPN
+    enabled: false
+    # -- EVPN Vxlan device name
+    vxlanDevice: "cilium_evpn"
+    # -- EVPN Vxlan port number
+    vxlanPort: 4789
 
   bgpControlPlane:
     # -- Enables enterprise BGP control plane
@@ -79,6 +94,15 @@ enterprise:
       # It is recommended to enable status reporting in general, but if you have any issue
       # such as high API server load, you can disable it by setting this to false.
       enabled: true
+    nodeMaintenance:
+      gracefulShutdownCommunity:
+        # -- Enables sending of GRACEFUL_SHUTDOWN community when node is in maintenance mode (cordoned).
+        enabled: false
+      # -- Withdraws routes after configured timeout post going into maintenance mode. Does not withdraw if 0 / not configured.
+      withdrawTime: 0s
+    routeImport:
+      # -- Enables importing routes from BGP peers.
+      enabled: false
 
   bfd:
     # -- Enables Bidirectional Forwarding Detection (BFD) feature.
@@ -97,10 +121,6 @@ enterprise:
     # -- Enables multicast in cilium, multicast replication works only in tunnel mode.
     enabled: false
 
-  ciliummesh:
-    # -- Enables Cilium Mesh
-    enabled: false
-
   # -- Transparent encryption
   encryption:
     policy:
@@ -117,22 +137,111 @@ enterprise:
   loadbalancer:
     # -- Enables Loadbalancer mode (Control Plane)
     enabled: false
+    gatewayAPI:
+      # -- Enable support for Gateway API in ILB
+      enabled: false
+
+  # -- Diagnostics
+  diagnostics:
+    # -- Path to the file to which diagnostics status updates are appended.
+    # For example "/var/run/cilium/hubble/status.log"
+    # If not set the diagnostics evaluation and exporting is disabled.
+    # @schema
+    # type: [null, string]
+    # @schema
+    exportFilePath: "/var/run/cilium/hubble/status.log"
+
+    # -- Evaluation interval
+    # @schema
+    # type: [string]
+    # @schema
+    interval: 5m
+
+    # -- Constants as a list of key-value pairs (e.g. "foo=1.2").
+    # @schema
+    # type: [array]
+    # @schema
+    constants: []
+
+  # Private Networks
+  privateNetworks:
+    # -- Enable private networks.
+    #
+    # Private networks enable network-level isolation between Cilium-managed
+    # endpoints. Endpoints within the same private network can communicate
+    # with each other, but are isolated from endpoints in other private networks.
+    enabled: false
+
+    # -- The private networks operational mode. The "bridge" mode provides
+    # connectivity between cilium-managed endpoints and external endpoints
+    # that belong to the same private network.
+    # The "local-access" mode should be selected if private networks should use
+    # a dedicated network device (typically a VLAN device) on the Kubernetes
+    # node instead of the Cilium underlay.
+    #
+    # @schema
+    # enum: ["default", "bridge", "local-access"]
+    # @schema
+    mode: default
+
+    # Configure health checks between workload nodes and INBs.
+    healthcheck:
+      # -- The TCP port the health checks server listens to, in "bridge" mode.
+      # Otherwise, it represents the fallback port to connect to a candidate
+      # INB, if not explicitly advertised by the candidate INB itself.
+      port: 4239
+
+      # -- The interval for performing health checks against candidate INBs.
+      # Ignored in "bridge" mode.
+      interval: 2s
+
+      # -- The timeout after which a candidate INB is considered unhealthy if
+      # no health check response is received. Must be at least 50% higher than
+      # the configured interval. Ignored in "bridge" mode.
+      timeout: 5s
 
   healthServerWithoutActiveChecks:
     # -- Enable health server without active health checks.
     enabled: false
 
-serviceAccounts:
-  hubbleK8sExporter:
-    create: true
-    name: hubble-k8s-exporter
-    automount: true
-    annotations: {}
+  dnsProxyHA:
+    # -- Enable agent support for DNS proxy HA.
+    #
+    # This enables support for DNS proxy HA, but does not actually deploy
+    # the HA proxy. For lifecycle reasons, the HA proxy is deployed as a separate
+    # Helm chart. See the documentation for how to deploy the HA proxy.
+    enabled: false
+
+    offlineMode:
+      # -- Enable agent support for DNS HA proxy offline updates
+      #
+      # This enables support for the DNS HA proxy to write updates directly to
+      # BPF when the agent is down. This must also be enabled in the HA proxy;
+      # this setting only enables necessary support APIs in the agent.
+      enabled: false
 
 hubble:
   # -- Enables support for integrated Hubble Timescape.
   timescape:
     enabled: false
+    # -- Configure the log level.
+    # Valid values are: trace, debug, info, warn and error.
+    logLevel: info
+    # -- Experimental support for using Hubble Timescape with clustermesh.
+    # If enabled, all flow log will be sent to the `primary` Timescape instance.
+    clustermesh:
+      primary:
+        # The cluster ID of the cluster running the primary Hubble Timescape
+        # instance. All flows will be sent to that cluster.
+        # If the id is 0, the Timescape clustermesh feature is disabled.
+        id: 0
+        # The namespace in which the primary Timescape instance is running.
+        # Only relevant if Cilium is not installed into the same namespace on
+        # every cluster.
+        namespace: ""
+        # Whether to create the namespace the primary Timescape instance is
+        # running in.
+        createNamespace: false
     persistence:
       # -- Enables persistent storage for Hubble Timescape using a PVC. If
       # disabled, timescape will run on an ephemeral disk and all flows will be
@@ -143,6 +252,8 @@ hubble:
       # type: [null, string]
       # @schema
       storageClassName: ~
+    # -- Roll out Timescape pods automatically when configmap is updated.
+    rollOutPods: false
     # -- Configures the time-to-live for flows. Flows older than the TTL are
     # automatically pruned. This is the main method to limit storage usage
     # under normal operation. Defaults to 6 hours or 1 hour if Timescape runs
@@ -169,25 +280,35 @@ hubble:
       # type: [null, string]
       # @schema
       timout: ~
+    ingester:
+      k8sImporter:
+        # -- The interval at which the K8s Importer should flush k8s events to the database.
+        flushInterval: "5s"
+      streamAPI:
+        # -- The interval at which the Stream API should flush flows to the database.
+        flushInterval: "5s"
     image:
       # @schema
       # type: [null, string]
       # @schema
       override: ~
-      repository: quay.io/isovalent/hubble-timescape
-      tag: v1.6.0
-      digest: ""
-      useDigest: false
+      repository: quay.io/isovalent/hubble-timescape-lite
+      tag: v1.18.0
+      digest: sha256:301316c99962eb6eef6ae5a5a8d8c24e907c303cd1fc6337e96bd0e56000a6e9
+      useDigest: true
       pullPolicy: "Always"
     clickhouse:
+      # -- Roll out hubble-timescape pod when the clickhouse configmap is updated
+      # (hubble.timescape.rollOutPods must also be true).
+      rollOutPods: true
       image:
         # @schema
         # type: [null, string]
         # @schema
         override: ~
-        repository: docker.io/clickhouse/clickhouse-server
-        tag: 24.8.12.28-alpine
-        digest: "sha256:7347456e171a6ec64650eb53000d682b8484192b9adeae1f9642699963b5879f"
+        repository: quay.io/isovalent/clickhouse-server
+        tag: 25.8.11.66-alpine
+        digest: sha256:32a477a44e92a37347e6df7684a1e6cce01f5af73d356e03ca13383da0bdf8b3
         useDigest: true
         pullPolicy: "Always"
       resources: {}
@@ -211,6 +332,15 @@ hubble:
     tolerations: []
     priorityClassName: ""
     resources: {}
+    service:
+      # -- Service type for the hubble-timescape service
+      type: ClusterIP
+      # -- Annotations to be added to the hubble-timescape service
+      annotations: {}
+      # -- Labels to be added to the hubble-timescape service
+      labels: {}
+    podAnnotations: {}
+    podLabels: {}
     podSecurityContext:
       fsGroup: 65532
     securityContext:
@@ -298,92 +428,8 @@ hubble:
           # @schema
           # -- Metrics relabeling configs for the ServiceMonitor (Clickhouse metrics)
           metricRelabelings: ~
-    vector:
-      image:
-        # @schema
-        # type: [null, string]
-        # @schema
-        override: ~
-        repository: quay.io/isovalent/vector
-        tag: 0.44.0-distroless-libc
-        digest: ""
-        useDigest: false
-        pullPolicy: "Always"
-      resources: {}
-      affinity: {}
-      # -- Node labels for pod assignment
-      # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-      nodeSelector:
-        kubernetes.io/os: linux
-      # -- Node tolerations for pod assignment on nodes with taints
-      # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-      tolerations: []
-      priorityClassName: ""
-      podSecurityContext:
-        fsGroup: 0
-      securityContext:
-        privileged: false
-        allowPrivilegeEscalation: false
-        runAsNonRoot: false
-        runAsUser: 0
-        runAsGroup: 0
-        capabilities:
-          drop:
-            - ALL
-      # Vector metrics configuration
-      metrics:
-        # -- Enables exporting vector metrics in OpenMetrics format.
-        enabled: true
-        serviceMonitor:
-          # -- Enable service monitor.
-          # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
-          enabled: false
-          # -- Labels to add to ServiceMonitor
-          labels: {}
-          # -- Annotations to add to ServiceMonitor
-          annotations: {}
-          # -- Specify the Kubernetes namespace where Prometheus expects to find
-          # service monitors configured.
-          # namespace: ""
-
-          # -- Interval for scrape metrics
-          interval: "10s"
-          # @schema
-          # type: [null, string]
-          # @schema
-          # -- Timeout after which scrape is considered to be failed.
-          scrapeTimeout: ~
-          # @schema
-          # type: [null, array]
-          # @schema
-          # -- Relabeling configs for the ServiceMonitor
-          relabelings: ~
-          # @schema
-          # type: [null, array]
-          # @schema
-          # -- Metrics relabeling configs for the ServiceMonitor
-          metricRelabelings: ~
     ui:
       enabled: true
-      image:
-        # @schema
-        # type: [null, string]
-        # @schema
-        override: ~
-        repository: quay.io/isovalent/hubble-timescape-ui
-        tag: "v1.6.0"
-        pullPolicy: IfNotPresent
-      securityContext:
-        # readOnlyRootFilesystem: true
-        privileged: false
-        allowPrivilegeEscalation: false
-        runAsNonRoot: true
-        runAsUser: 65532
-        runAsGroup: 65532
-        capabilities:
-          drop:
-            - ALL
-      resources: {}
       ingress:
         enabled: false
         annotations: {}
@@ -397,6 +443,26 @@ hubble:
         #  - secretName: chart-example-tls
         #    hosts:
         #      - chart-example.local
+      route:
+        # -- Whether to create a Gateway API 'HTTPRoute' resource.
+        enabled: false
+        # -- Labels to add to the route.
+        labels: {}
+        # -- Annotations to add to the route.
+        annotations: {}
+        # -- Parent references for the route.
+        parentRefs: []
+        # -- Hostnames for the route.
+        hostnames: []
+        # -- Additional rules for the route.
+        additionalRules: []
+        # -- Filters to apply to the route.
+        filters: []
+        # -- Path matches for the route.
+        matches:
+          - path:
+              type: PathPrefix
+              value: /
       auth:
         # @schema
         # type: [null, boolean]
@@ -437,62 +503,43 @@ hubble:
           # @schema
           # type: [null, string]
           # @schema
-          ClientID: ~
+          clientID: ~
           # -- OIDC application client secret
           clientSecret:
             secretName: hubble-timescape-ui
             secretKey: client-secret
-  # -- Enables experimental support for using the Hubble Kubernetes Events Exporter.
-  # The exporter is enabled by default when using integrated Hubble Timescape
-  k8sExporter:
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    enabled: ~
-    image:
-      # @schema
-      # type: [null, string]
-      # @schema
-      override: ~
-      repository: quay.io/isovalent/hubble-k8s-exporter
-      tag: "v1.6.1"
-      digest: ""
-      useDigest: false
-      pullPolicy: "Always"
-    # -- Specifies the resources for the hubble-k8s-exporter pods
-    resources: {}
-    # -- Affinity for hubble-k8s-exporter
-    affinity: {}
-    # -- Node labels for pod assignment
-    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-    nodeSelector:
-      kubernetes.io/os: linux
-    # -- Node tolerations for pod assignment on nodes with taints
-    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-    tolerations: []
-    priorityClassName: ""
-    # -- Annotations to be added to hubble-k8s-exporter pods
-    podAnnotations: {}
-    podSecurityContext:
-      fsGroup: 65532
-    # -- hubble-k8s-exporter container security context
-    securityContext:
-      # readOnlyRootFilesystem: true
-      runAsUser: 0
-      capabilities:
-        drop:
-          - ALL
-    export:
-      # Absolute path of the export file location
-      filePath: "/var/run/cilium/hubble/k8s-events.log"
-      # Compress rotated files
-      fileCompression: true
-      # Interval at which to rotate JSON export files in addition to rotating them by size
-      fileRotationInterval: 0s
-      # Maximum size of the file in megabytes
-      maxFileSize: 50
-      # Number of rotated files to keep
-      maxFileBackups: 3
+          # -- Client assertion type. Set to urn:ietf:params:oauth:client-assertion-type:jwt-bearer to use a JWT.
+          # @schema
+          # type: [null, string]
+          # @schema
+          clientAssertionType: ~
+          # -- The file containing the client assertion to use if clientAssertionType is set.
+          # @schema
+          # type: [null, string]
+          # @schema
+          clientAssertionFile: ~
+          # -- The OAuth2 scopes to send to the OIDC provider.
+          scopes: ["openid", "email", "offline_access"]
+          # -- OIDC user claim to extract from the id_token.
+          # The extracted value is used to uniquely identifier the user and perform
+          # authorization when RBAC is enabled.
+          idTokenUserClaim: email
+          # -- OIDC auth code redirect URL extra fields.
+          # Enrich the auth code redirect URL with extra fields in the query section.
+          # Such fields are sometimes required in environments that are using a non
+          # standard OIDC implementation.
+          extraFields: []
+          # extraFields:
+          #   - key: resource
+          #     value: example
+    analyzer:
+      # -- Enables the Hubble Timescape analyzer responsible for generating
+      # Network Security assessment reports.
+      enabled: true
+      # -- The interval at which the analyzer will run and generate a new assessment report.
+      # When a run goes beyond this interval, the next one will start as soon as the running
+      # one is completed.
+      scheduleInterval: "24h"
   # -- Enables experimental support for using Hubble RBAC with Hubble Relay.
   # This is incompatible with Hubble RBAC installed via the Hubble Enterprise chart.
   rbac:
@@ -504,9 +551,9 @@ hubble:
       # @schema
       override: ~
       repository: quay.io/isovalent/hubble-rbac
-      tag: v1.8.1
-      digest: ""
-      useDigest: false
+      tag: v1.10.5
+      digest: sha256:30b13744a41efbe2849e0a7e47bade03f18a61c58ef9394f5b0ea785ac19e17f
+      useDigest: true
       pullPolicy: "Always"
     extraArgs: {}
     extraEnv: []
@@ -525,6 +572,11 @@ hubble:
           - ALL
 
     loggingLevel: info
+
+    # -- Whether to use native Kubernetes gRPC-based probes (startup, liveness, readiness)
+    # which are stable since Kubernetes 1.27. If false, fallback to tcpSocket probes.
+    useKubernetesGrpcProbes: true
+    healthCheckPort: 8079
 
     listenPort: 4245
 
@@ -628,3 +680,233 @@ hubble:
       # @schema
       # @default -- `30s`
       aggregationTTL: ~
+    dynamic:
+      config:
+        content:
+          - name: all
+            fieldMask: []
+            includeFilters: []
+            excludeFilters: []
+            filePath: "/var/run/cilium/hubble/events.log"
+            fileMaxSizeMb: 10
+            fileMaxBackups: 5
+            fileCompress: false
+            fileRotationInterval: 0s
+            formatVersion: v1
+            rateLimit: -1
+            nodeName: null
+            aggregation: []
+            aggregationIgnoreSourcePort: true
+            aggregationRenewTTL: true
+            aggregationStateFilter: ["new", "error", "closed"]
+            aggregationTTL: 30s
+            #   - name: "test002"
+            #     filePath: "/var/log/network/flow-log/pa/test002.log"
+            #     fieldMask: ["source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"]
+            #     includeFilters:
+            #     - source_pod: ["default/"]
+            #       event_type:
+            #       - type: 1
+            #     - destination_pod: ["frontend/nginx-975996d4c-7hhgt"]
+            #     excludeFilters: []
+            #     fileMaxSizeMb: 1
+            #     fileMaxBackups: 10
+            #     fileCompress: true
+            #     end: "2023-10-09T23:59:59-07:00"
+            #     fileRotationInterval: 1m
+            #     formatVersion: ''
+            #     rateLimit: 100
+            #     nodeName: my-node
+            #     aggregation: ["connection", "identity"]
+            #     aggregationIgnoreSourcePort: false
+            #     aggregationRenewTTL: false
+            #     aggregationStateFilter: ["established", "first_error"]
+            #     aggregationTTL: 1m
+    timescape:
+      # -- Enable the Hubble timescape exporter.
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      enabled: ~
+      # -- The target server to connect to for exporting flows.
+      # @schema
+      # type: [null, string]
+      # @schema
+      # @default -- `hubble-timescape-export.hubble-timescape.svc.cluster.local:4261`
+      target: ~
+      # -- Whether to enable the Cilium service resolver to resolve the IP
+      # address of the Hubble Timescape service.
+      # This is enabled by default and is required when Timescape is running in
+      # the same cluster as the Cilium agent. Disable this option if Hubble
+      # Timescape is running in a different cluster not using clustermesh and
+      # fallback to host DNS resolution.
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # @default -- `true`
+      useCiliumServiceResolver: ~
+      # -- The list of fields to include in exported events.
+      # Leave empty to include all fields.
+      # @schema
+      # type: [null, array]
+      # @schema
+      fieldMask: ~
+      # --- The list of allow filters to apply to exported events.
+      # Leave empty to not apply any filters.
+      #
+      # Each filter is a JSON object with the field to filter on as key and the
+      # values to match as value. The filter is applied as an AND operation.
+      #
+      # @schema
+      # type: [null, array]
+      # @schema
+      allowList: ~
+      # --- The list of deny filters to apply to exported events.
+      # Leave empty to not apply any filters.
+      #
+      # Each filter is a JSON object with the field to filter on as key and the
+      # values to match as value. The filter is applied as an AND operation.
+      #
+      # @schema
+      # type: [null, array]
+      # @schema
+      denyList: ~
+      # --- The name used to override the node_name field in exported events.
+      # Leave empty to not override the node_name field.
+      # @schema
+      # type: [null, string]
+      # @schema
+      nodeName: ~
+      # --- Defines the aggregation to perform pre-storage ('connection', 'identity').
+      # Leave empty to disable aggregation.
+      # @schema
+      # type: [null, array]
+      # @schema
+      aggregation: ~
+      # --- Defines whether to ignore source port during aggregation.
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # @default -- `true`
+      aggregationIgnoreSourcePort: ~
+      # --- Defines whether to renew the flow TTL when a new flow is observed.
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # @default -- `true`
+      aggregationRenewTTL: ~
+      # --- Defines the state changes to include while aggregating
+      # ('new', 'established', 'first_error', 'error', 'closed').
+      # @schema
+      # type: [null, array]
+      # @schema
+      # @default -- `["new", "error", "closed"]`
+      aggregationStateFilter: ~
+      # --- Defines the TTL for flow aggregation.
+      # @schema
+      # type: [null, string]
+      # @schema
+      # @default -- `30s`
+      aggregationTTL: ~
+      # -- The maximum number of flows to buffer before dropping them.
+      # @schema
+      # type: [null, integer]
+      # @schema
+      # @default -- `4096`
+      maxBufferSize: ~
+      # -- The interval at which to report dropped flows in logs.
+      # Set to 0s to disable reporting.
+      # @schema
+      # type: [null, string]
+      # @schema
+      # @default -- `1m`
+      reportDroppedFlowsInterval: ~
+      tls:
+        # -- Enable client TLS for the Hubble timescape exporter.
+        # @schema
+        # type: [null, boolean]
+        # @schema
+        enabled: ~
+        mtls:
+          # -- Enable mTLS for the Hubble timescape exporter.
+          # @schema
+          # type: [null, boolean]
+          # @schema
+          enabled: ~
+          # -- The name of the Secret containing the TLS material to enable mTLS.
+          # The secret must be of type `kubernetes.io/tls`.
+          # @schema
+          # type: [null, string]
+          # @schema
+          secretName: ~
+        ca:
+          # -- The configmap containing the CA to validate the server certificate.
+          configMap:
+            # -- The name of the configmap containing the CA certificate.
+            # @schema
+            # type: [null, string]
+            # @schema
+            name: ~
+            # -- The key in the configmap containing the CA certificate.
+            # @schema
+            # type: [null, string]
+            # @schema
+            # @default -- `ca.crt`
+            key: ~
+    connectionlog:
+      # -- Enables experimental support for ConnectionLog export.
+      # @schema
+      # type: [boolean]
+      # @schema
+      enabled: false
+      # --- Interval at which ConnectionLog are collected and written on disk.
+      # @schema
+      # type: [string]
+      # @schema
+      exportInterval: "10s"
+      # --- Absolute path of the ConnectionLog export file location.
+      # @schema
+      # type: [string]
+      # @schema
+      filePath: "/var/run/cilium/hubble/connectionlog.log"
+      # --- The maximum size in megabytes of the log file before it gets
+      # rotated.
+      # @schema
+      # type: [integer]
+      # @schema
+      fileMaxSizeMb: 10
+      # --- The maximum number of exported files to retain.
+      # @schema
+      # type: [integer]
+      # @schema
+      fileMaxBackups: 5
+      # --- determines if the rotated files should be compressed.
+      # using gzip.
+      # @schema
+      # type: [boolean]
+      # @schema
+      fileCompress: true
+
+envoyConfig:
+  policy:
+    # @schema
+    # oneOf:
+    # - type: [null]
+    # - enum: [global,dedicated]
+    # @schema
+    # -- Enable a dedicated policy enforcement for each CiliumEnvoyConfig instead of using the ClusterwideCiliumNetworkPolicy.
+    mode: "global"
+    # -- Interval in which the related policy will be regenerated.
+    # Applies to the dedicated mode only
+    regenerationInterval: 30s
+
+envoy:
+  # -- Configure Cilium Envoy graceful shutdown.
+  gracefulRestart:
+    # -- Enables graceful shutdown and draining of traffic for Envoy pods in a standalone DaemonSet.
+    # During rolling update 2 pods of Cilium Envoy will exist per node (new and old). All new connections will go to the new pod
+    # and traffic will be gracefully drained on the old pod. Proxy will send “Connection: close” for HTTP1 requests
+    # or HTTP2 GOAWAY for HTTP2 requests and terminate connections on request completion. When enabling `gracefulRestart` for
+    # cilium-envoy daemonset make sure to configure `envoy.terminationGracePeriodSeconds` to a sufficiently large value to allow
+    # traffic to drain (e.g. 60 seconds).
+    enabled: false

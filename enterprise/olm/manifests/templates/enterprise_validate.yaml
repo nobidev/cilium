@@ -4,3 +4,33 @@
 {{- if and .Values.enterprise.encryption.policy.enabled (ne .Values.enterprise.encryption.policy.fallbackBehavior "plaintext") }}
   {{- fail "enterprise.encryption.policy.fallbackBehavior needs to be set explicitly set to 'plaintext' for forward-compatibility" }}
 {{- end }}
+
+{{/*validate deprecated and no longer supported Hubble exporter flags*/}}
+{{- $deprecatedHubbleFlags := dict
+  "export-file-path"                      "hubble.export.static.filePath"
+  "export-file-max-size"                  "hubble.export.static.fileMaxSizeMb"
+  "export-file-rotation-interval"         "hubble.export.static.fileRotationInterval"
+  "export-file-max-backups"               "hubble.export.static.fileMaxBackups"
+  "export-file-compress"                  "hubble.export.static.fileCompress"
+  "export-flow-whitelist"                 "hubble.export.static.allowList"
+  "export-flow-blacklist"                 "hubble.export.static.denyList"
+  "export-flow-allowlist"                 "hubble.export.static.allowList"
+  "export-flow-denylist"                  "hubble.export.static.denyList"
+  "export-format-version"                 "hubble.export.static.formatVersion"
+  "export-rate-limit"                     "hubble.export.static.rateLimit"
+  "export-node-name"                      "hubble.export.static.overrideNodeName"
+  "export-aggregation"                    "hubble.export.static.aggregation"
+  "export-aggregation-ignore-source-port" "hubble.export.static.aggregationIgnoreSourcePort"
+  "export-aggregation-renew-ttl"          "hubble.export.static.aggregationRenewTTL"
+  "export-aggregation-state-filter"       "hubble.export.static.aggregationStateFilter"
+  "export-aggregation-ttl"                "hubble.export.static.aggregationTTL"
+}}
+{{- $deprecatedHubbleFlagsErrors := list }}
+{{- range $oldFlag, $newFlag := $deprecatedHubbleFlags }}
+  {{- if not (empty (get $.Values.extraConfig $oldFlag)) }}
+    {{- $deprecatedHubbleFlagsErrors = append $deprecatedHubbleFlagsErrors (printf "- extraConfig.%s -> use '%s' instead" $oldFlag $newFlag) }}
+  {{- end }}
+{{- end }}
+{{- if $deprecatedHubbleFlagsErrors }}
+  {{- fail (printf "The following Hubble exporter deprecated flags were found and are no longer supported starting in v1.19:\n%s" (join "\n" $deprecatedHubbleFlagsErrors)) }}
+{{- end }}

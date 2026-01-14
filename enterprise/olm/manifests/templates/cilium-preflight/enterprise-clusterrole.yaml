@@ -16,7 +16,6 @@ rules:
   - isovalent.com
   resources:
   - isovalentegressgatewaypolicies
-  - isovalentmeshendpoints
   - isovalentsrv6sidmanagers
   - isovalentsrv6locatorpools
   - isovalentsrv6egresspolicies
@@ -90,5 +89,27 @@ rules:
     - list
     - watch
     - get
+{{- end }}
+{{- if .Values.enterprise.privateNetworks.enabled }}
+- apiGroups:
+    - isovalent.com
+  resources:
+    - clusterwideprivatenetworks
+    - privatenetworknodeattachments
+  verbs:
+    - list
+    - watch
+    - get
+- apiGroups:
+    - isovalent.com
+  resources:
+    - privatenetworkendpointslices
+  verbs:
+    - list
+    - watch
+    - get
+    - create
+    - update
+    - delete
 {{- end }}
 {{- end }}

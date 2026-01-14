@@ -1,4 +1,12 @@
-{{- if and .Values.agent (eq (include "hubble.timescape.tls.enabled" .) "true") (eq .Values.hubble.tls.auto.method "certmanager") }}
+{{- if and
+  .Values.agent
+  (eq (include "hubble.timescape.tls.enabled" .) "true")
+  (eq .Values.hubble.tls.auto.method "certmanager")
+  (or
+    (not .Values.hubble.timescape.clustermesh.primary.id)
+    (eq (int64 .Values.hubble.timescape.clustermesh.primary.id) (int64 .Values.cluster.id))
+  )
+}}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -17,9 +25,7 @@ spec:
   dnsNames:
   - "hubble-timescape"
   - "hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local"
-  - "hubble-timescape.{{ .Release.Namespace }}.svc.cluster.local."
   - "hubble-timescape.{{ .Release.Namespace }}.svc"
-  - "hubble-timescape.{{ .Release.Namespace }}.svc."
   - "localhost"
   {{- range $dns := .Values.hubble.timescape.tls.server.extraDnsNames }}
   - {{ $dns | quote }}

@@ -9,8 +9,13 @@ kind: Secret
 metadata:
   name: hubble-timescape-client-certs
   namespace: {{ include "cilium.namespace" . }}
-  {{- with .Values.hubble.annotations }}
+  labels:
+    cilium.io/helm-template-non-idempotent: "true"
   annotations:
+  {{- with .Values.hubble.annotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.nonIdempotentAnnotations }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
 type: kubernetes.io/tls

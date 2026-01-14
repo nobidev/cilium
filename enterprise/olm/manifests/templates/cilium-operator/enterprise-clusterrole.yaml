@@ -39,15 +39,61 @@ rules:
   - isovalentbgpnodeconfigoverrides.isovalent.com
   - isovalentbgpvrfconfigs.isovalent.com
   - isovalentvrfs.isovalent.com
-{{- end }}
-{{- if .Values.enterprise.ciliummesh.enabled }}
-  - isovalentmeshendpoints.isovalent.com
+  - isovalentbgppolicies.isovalent.com
 {{- end }}
 {{- if .Values.enterprise.loadbalancer.enabled }}
   - lbservices.isovalent.com
   - lbbackendpools.isovalent.com
   - lbvips.isovalent.com
   - lbdeployments.isovalent.com
+{{- end }}
+{{- if .Values.enterprise.privateNetworks.enabled }}
+  - clusterwideprivatenetworks.isovalent.com
+  - privatenetworkendpointslices.isovalent.com
+  - privatenetworkexternalendpoints.isovalent.com
+  - privatenetworknodeattachments.isovalent.com
+{{- end }}
+{{- if .Values.enterprise.loadbalancer.gatewayAPI.enabled }}
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses
+  - gateways
+  - httproutes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses
+  verbs:
+  - patch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses/status
+  - gateways/status
+  - httproutes/status
+  verbs:
+  - update
+  - patch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumgatewayclassconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumgatewayclassconfigs/status
+  verbs:
+  - update
+  - patch
 {{- end }}
 - apiGroups:
   - isovalent.com
@@ -138,6 +184,14 @@ rules:
   - isovalentbgppeerconfigs/status
   verbs:
   - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
 {{- end }}
 {{- if or .Values.enterprise.bfd.enabled }}
 - apiGroups:
@@ -191,29 +245,6 @@ rules:
     - isovalentpodnetworks
   verbs:
     - create
-{{- end }}
-{{- if .Values.enterprise.ciliummesh.enabled }}
-- apiGroups:
-  - isovalent.com
-  resources:
-  - isovalentmeshendpoints
-  verbs:
-  # To perform garbage collection of such resources
-  - delete
-  - list
-  - watch
-- apiGroups:
-  - discovery.k8s.io
-  resources:
-  - endpointslices
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - delete
-  - patch
 {{- end }}
 # TODO: Wrap within Helm value for L7LB CRD and LBFrontend
 {{- if .Values.enterprise.loadbalancer.enabled }}
@@ -288,12 +319,15 @@ rules:
   # Update the auto-generated INPs and ICNPs status.
   - patch
   - update
-{{- if eq (lower (index .Values.extraConfig "enable-kubevirt-vm-migration" | default "false")) "true" }}
+{{- if .Values.enterprise.privateNetworks.enabled }}
 - apiGroups:
-    - ""
+    - isovalent.com
   resources:
-    - pods
+    - clusterwideprivatenetworks
+    - privatenetworknodeattachments
   verbs:
-    - patch
+    - list
+    - watch
+    - get
 {{- end }}
 {{- end }}

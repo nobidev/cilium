@@ -42,6 +42,9 @@ rules:
   - pods
   - endpoints
   - nodes
+{{- if not $readSecretsOnlyFromSecretsNamespace }}
+  - secrets
+{{- end }}
   verbs:
   - get
   - list
@@ -87,19 +90,10 @@ rules:
   # until we figure out how to avoid "get" inside the preflight, and then
   # should be removed ideally.
   - get
-{{- if not $readSecretsOnlyFromSecretsNamespace }}
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-{{- end }}
 - apiGroups:
   - cilium.io
   resources:
   - ciliumloadbalancerippools
-  - ciliumbgppeeringpolicies
   - ciliumbgpnodeconfigs
   - ciliumbgpadvertisements
   - ciliumbgppeerconfigs

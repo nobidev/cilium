@@ -1,13 +1,19 @@
-{{- if and .Values.agent (eq (include "hubble.timescape.tls.enabled" .) "true") (eq .Values.hubble.tls.auto.method "helm") }}
+{{- if and
+  .Values.agent
+  (eq (include "hubble.timescape.tls.enabled" .) "true")
+  (eq .Values.hubble.tls.auto.method "helm")
+  (or
+    (not .Values.hubble.timescape.clustermesh.primary.id)
+    (eq (int64 .Values.hubble.timescape.clustermesh.primary.id) (int64 .Values.cluster.id))
+  )
+}}
 {{- $_ := include "cilium.ca.setup" . -}}
 {{- $cn := "hubble-timescape" | join "." }}
 {{- $ip := .Values.hubble.timescape.tls.server.extraIpAddresses }}
 {{- $dns := list
   $cn
   (printf "hubble-timescape.%s.svc.cluster.local" .Release.Namespace)
-  (printf "hubble-timescape.%s.svc.cluster.local." .Release.Namespace)
   (printf "hubble-timescape.%s.svc" .Release.Namespace)
-  (printf "hubble-timescape.%s.svc." .Release.Namespace)
   "localhost"
 -}}
 {{- if .Values.hubble.timescape.tls.server.extraDnsNames }}
@@ -20,8 +26,13 @@ kind: Secret
 metadata:
   name: hubble-timescape-server-certs
   namespace: {{ include "cilium.namespace" . }}
-  {{- with .Values.hubble.annotations }}
+  labels:
+    cilium.io/helm-template-non-idempotent: "true"
   annotations:
+  {{- with .Values.hubble.annotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.nonIdempotentAnnotations }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
 type: kubernetes.io/tls

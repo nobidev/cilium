@@ -21,7 +21,6 @@ rules:
   - isovalentsrv6egresspolicies
   - isovalentvrfs
   - isovalentmulticastgroups
-  - isovalentmeshendpoints
   - isovalentbfdprofiles
   - isovalentnetworkpolicies
   - isovalentclusterwidenetworkpolicies
@@ -59,6 +58,7 @@ rules:
   - isovalentbgppeerconfigs
   - isovalentbgpadvertisements
   - isovalentbgpvrfconfigs
+  - isovalentbgppolicies
   verbs:
   - list
   - watch
@@ -90,5 +90,27 @@ rules:
     - list
     - watch
     - get
+{{- end }}
+{{- if .Values.enterprise.privateNetworks.enabled }}
+- apiGroups:
+    - isovalent.com
+  resources:
+    - clusterwideprivatenetworks
+    - privatenetworknodeattachments
+  verbs:
+    - list
+    - watch
+    - get
+- apiGroups:
+    - isovalent.com
+  resources:
+    - privatenetworkendpointslices
+  verbs:
+    - list
+    - watch
+    - get
+    - create
+    - update
+    - delete
 {{- end }}
 {{- end }}

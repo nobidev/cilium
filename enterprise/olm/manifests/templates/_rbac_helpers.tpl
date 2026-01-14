@@ -3,14 +3,8 @@
 {{- end }}
 
 {{- define "container.rbac" -}}
-{{- if .isTimescape }}
-  {{- if not (eq (include "hubble.timescape.tls.enabled" .) "true") }}
-  {{- fail "Hubble Timescape RBAC requires TLS (.Values.hubble.tls.enabled=true or .Values.hubble.timescape.tls.enabled=true)" }}
-  {{- end }}
-{{- else }}
-  {{- if or (not .Values.hubble.tls.enabled) (not .Values.hubble.relay.tls.server.enabled) }}
-  {{- fail "Hubble RBAC requires Hubble TLS (.Values.hubble.tls.enabled=true and .Values.hubble.relay.tls.server.enabled=true)" }}
-  {{- end }}
+{{- if or (not .Values.hubble.tls.enabled) (not .Values.hubble.relay.tls.server.enabled) }}
+{{- fail "Hubble RBAC requires Hubble TLS (.Values.hubble.tls.enabled=true and .Values.hubble.relay.tls.server.enabled=true)" }}
 {{- end }}
 name: {{ include "container.rbac.name" . }}
 image: {{ include "cilium.image" .Values.hubble.rbac.image | quote }}
@@ -23,19 +17,13 @@ resources:
 command:
   - /usr/bin/hubble-rbac
 args:
+  - --health-listen-address=:{{ .Values.hubble.rbac.healthCheckPort }}
   - --logging-level={{ .Values.hubble.rbac.loggingLevel }}
   - --hubble-policy-mode=config
   - --hubble-policy-file=/etc/hubble-rbac/policy/{{ .Values.hubble.rbac.policy.configMap.key }}
   - --hubble-policy-log-roles={{ .Values.hubble.rbac.policy.logRoles }}
   - --hubble-listen-address=0.0.0.0:{{ .Values.hubble.rbac.listenPort }}
-  {{- if .isTimescape }}
-  - --hubble-local-server=localhost:4244
-  - --hubble-timescape-k8s-events-api
-  - --hubble-timescape-flow-api
-  - --hubble-timescape-conn-map-api
-  {{- else }}
   - --hubble-local-server={{ include "hubble-relay.config.listenAddress" . }}
-  {{- end }}
   - --hubble-auth=oidc
   - --hubble-oidc-url={{ .Values.hubble.rbac.auth.oidc.issuerUrl | required "hubble.rbac.auth.oidc.issuerUrl is required" }}
   - --hubble-oidc-client-id={{ .Values.hubble.rbac.auth.oidc.clientID | required "hubble.rbac.auth.oidc.clientID is required" }}
@@ -64,10 +52,11 @@ readinessProbe:
 {{- end -}}
 
 {{- define "container.rbac.probe" -}}
-exec:
-  command:
-  - /usr/bin/grpc_health_probe
-  - -addr=localhost:{{ .Values.hubble.rbac.listenPort }}
-  - -tls
-  - -tls-no-verify
+{{- if .Values.hubble.rbac.useKubernetesGrpcProbes }}
+grpc:
+  port: {{ .Values.hubble.rbac.healthCheckPort }}
+{{- else }}
+tcpSocket:
+  port: {{ .Values.hubble.rbac.healthCheckPort }}
+{{- end }}
 {{- end }}
