@@ -136,39 +136,16 @@ type fakeIPAMAllocator struct {
 	sid net.IP
 }
 
-var _ ipam.Allocator = (*fakeIPAMAllocator)(nil)
+var _ sidIPAllocator = (*fakeIPAMAllocator)(nil)
 
-func (fa *fakeIPAMAllocator) Allocate(ip net.IP, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
-	return nil, nil
-}
-
-func (fa *fakeIPAMAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
-	return nil, nil
-}
-
-func (fa *fakeIPAMAllocator) Release(ip net.IP, pool ipam.Pool) error {
+func (fa *fakeIPAMAllocator) Release(ip net.IP) error {
 	return nil
 }
 
-func (fa *fakeIPAMAllocator) AllocateNext(owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+func (fa *fakeIPAMAllocator) AllocateNext() (*ipam.AllocationResult, error) {
 	return &ipam.AllocationResult{
 		IP: fa.sid,
 	}, nil
-}
-
-func (fa *fakeIPAMAllocator) AllocateNextWithoutSyncUpstream(owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
-	return nil, nil
-}
-
-func (fa *fakeIPAMAllocator) Dump() (map[ipam.Pool]map[string]string, string) {
-	return nil, ""
-}
-
-func (fa *fakeIPAMAllocator) RestoreFinished() {
-}
-
-func (fa *fakeIPAMAllocator) Capacity() uint64 {
-	return 0
 }
 
 type comparableObject[T any] interface {
@@ -295,10 +272,9 @@ func newFixture(t *testing.T, useRealSIDManager bool, invokeFn any) *fixture {
 						EnableSRv6: true,
 					}
 				},
-				func() (legacy.DaemonInitialization, *ipam.IPAM, *fakeIPAMAllocator) {
+				func() (legacy.DaemonInitialization, sidIPAllocator, *fakeIPAMAllocator) {
 					fia := &fakeIPAMAllocator{}
-					ipam := &ipam.IPAM{IPv6Allocator: fia}
-					return legacy.DaemonInitialization{}, ipam, fia
+					return legacy.DaemonInitialization{}, fia, fia
 				},
 				func() cache.IdentityAllocator {
 					return testidentity.NewMockIdentityAllocator(nil)

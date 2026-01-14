@@ -73,16 +73,16 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.25.5
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.220.0
+  eksctl_version: v0.221.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.34.2
+  kubectl_version: v1.35.0
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 548.0.0
+  gcloud_version: 550.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: c57010f02aee601b7e7dd628b5d3e1bce079d166
+  egw_utils_ref: 83571ca02eec85d89807d6482be3f3129cb87d2c
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -131,6 +131,8 @@ jobs:
       id-token: write
       # To allow retrieving information from the PR API
       pull-requests: read
+      # To be able to set commit status
+      statuses: write
     runs-on: ubuntu-24.04
     name: Install and Scale Test
     needs: wait-for-images
@@ -142,6 +144,12 @@ jobs:
           - baseline
           - egw
     steps:
+      - name: Set commit status to pending
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: pending
+
       - name: Checkout context ref (trusted)
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:

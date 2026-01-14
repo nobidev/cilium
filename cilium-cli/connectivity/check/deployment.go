@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"net"
 	"net/netip"
 	"slices"
 	"sort"
@@ -840,12 +839,12 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 			for _, serverPod := range serverPods.Items {
 				for _, podIPAddr := range serverPod.Status.PodIPs {
-					podIP := net.ParseIP(podIPAddr.IP)
-					if podIP == nil {
+					podIP, err := netip.ParseAddr(podIPAddr.IP)
+					if err != nil {
 						continue
 					}
 
-					if podIP.To4() != nil {
+					if podIP.Unmap().Is4() {
 						allTargets["ep-v4"] = podIPAddr.IP
 					} else {
 						allTargets["ep-v6"] = podIPAddr.IP
@@ -1525,7 +1524,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 		_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, loadbalancerL7DeploymentName, metav1.GetOptions{})
 		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), echoOtherNodeDeploymentName)
+			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), loadbalancerL7DeploymentName)
 			svc := newService(
 				loadbalancerL7DeploymentName,
 				map[string]string{"name": loadbalancerL7DeploymentName},
@@ -1855,10 +1854,10 @@ func (ct *ConnectivityTest) getGatewayAndNonGatewayNodes() (string, string, erro
 
 }
 
-func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, ipv6 bool) net.IP {
+func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, ipv6 bool) netip.Addr {
 	gatewayNode, ok := ct.Nodes()[egressGatewayNode]
 	if !ok {
-		return nil
+		return netip.Addr{}
 	}
 
 	for _, addr := range gatewayNode.Status.Addresses {
@@ -1866,18 +1865,18 @@ func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, i
 			continue
 		}
 
-		ip := net.ParseIP(addr.Address)
-		if ip == nil {
+		ip, err := netip.ParseAddr(addr.Address)
+		if err != nil {
 			continue
 		}
 
-		isIPv6 := ip.To4() == nil
-		if isIPv6 == ipv6 {
-			return ip
+		unMappedIp := ip.Unmap()
+		if unMappedIp.Is6() == ipv6 {
+			return unMappedIp
 		}
 	}
 
-	return nil
+	return netip.Addr{}
 }
 
 func (ct *ConnectivityTest) getConnDisruptClientEgressGatewayPodIPs(ctx context.Context) ([]string, error) {
@@ -1914,7 +1913,7 @@ func (ct *ConnectivityTest) GetConnDisruptEgressPolicyEntries(ctx context.Contex
 	}
 
 	gatewayIP := ct.GetGatewayNodeInternalIP(gatewayNode, false)
-	if gatewayIP == nil {
+	if !gatewayIP.IsValid() {
 		return nil, nil
 	}
 
@@ -2722,11 +2721,21 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			return fmt.Errorf("no client pod available")
 		}
 
-		for _, ciliumPod := range ct.ciliumPods {
-			hostIP := ciliumPod.Pod.Status.HostIP
-			for _, s := range ct.echoServices {
-				if err := WaitForNodePorts(ctx, ct, *client, hostIP, s); err != nil {
-					return err
+		// Wait for NodePorts to be ready on all node IP addresses.
+		// Tests iterate through all addresses in node.Status.Addresses[], which can include
+		// both IPv4 and IPv6 in dual-stack clusters. Validating only HostIP (typically IPv4)
+		// would leave IPv6 addresses unchecked, causing timeouts when tests try them.
+		for _, node := range ct.Nodes() {
+			for _, addr := range node.Status.Addresses {
+				// Only check IP addresses (skip DNS names, hostnames)
+				if addr.Type != slimcorev1.NodeInternalIP && addr.Type != slimcorev1.NodeExternalIP {
+					continue
+				}
+
+				for _, s := range ct.echoServices {
+					if err := WaitForNodePorts(ctx, ct, *client, addr.Address, s); err != nil {
+						return err
+					}
 				}
 			}
 		}

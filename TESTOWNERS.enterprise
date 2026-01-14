@@ -1,5 +1,8 @@
 /.github/actions/bpftrace/ @isovalent/encryption
+/.github/actions/cl2-modules/egw/ @isovalent/egress-gateway @isovalent/scalability-performance
 /.github/actions/e2e/*ipsec* @isovalent/encryption
+/.github/actions/e2e/*lb* @isovalent/isovalent-loadbalancer
+/.github/actions/e2e/*netkit* @isovalent/cni
 /.github/actions/e2e/*wireguard* @isovalent/encryption
 /.github/actions/kvstore/ @isovalent/clustermesh
 /.github/workflows/*cilium-cli*.yaml @isovalent/ci-structure
@@ -19,6 +22,7 @@
 /.github/workflows/conformance-eks.yaml @isovalent/infrastructure @isovalent/encryption
 /.github/workflows/conformance-gke.yaml @isovalent/infrastructure @isovalent/encryption
 /.github/workflows/conformance-kind-proxy-embedded.yaml @isovalent/service-mesh
+/.github/workflows/scale-test-egw.yaml @isovalent/egress-gateway @isovalent/scalability-performance
 /.github/workflows/tests-ces-migrate.yaml @isovalent/scalability-performance
 /api/v1/Makefile @isovalent/hubble-api
 /api/v1/Makefile.protoc @isovalent/hubble-api
@@ -28,16 +32,24 @@
 /api/v1/peer/ @isovalent/hubble-api
 /api/v1/relay/ @isovalent/hubble-api
 /bpf/ @isovalent/cni
+/bpf/bpf_sock* @isovalent/isovalent-loadbalancer
 /bpf/bpf_wireguard.c @isovalent/encryption @isovalent/cni
 /bpf/include/bpf/tailcall.h @isovalent/networking-framework
 /bpf/include/bpf/config @isovalent/networking-framework
 /bpf/lib/auth.h @isovalent/cni @isovalent/service-mesh
+/bpf/lib/clustermesh.h @isovalent/cni @isovalent/clustermesh
 /bpf/lib/drop_reasons.h @isovalent/hubble
 /bpf/lib/egress_gateway.h @isovalent/egress-gateway
 /bpf/lib/encrypt.h @isovalent/encryption @isovalent/encryption @isovalent/encryption
+/bpf/lib/eps.h @isovalent/cni @isovalent/policy-identity-networking @isovalent/policy-identity-networking
 /bpf/lib/ipsec.h @isovalent/encryption
-/bpf/lib/policy.h @isovalent/cni @isovalent/policy-identity-networking
-/bpf/lib/proxy.h @isovalent/service-mesh @isovalent/cni
+/bpf/lib/lb.h @isovalent/isovalent-loadbalancer
+/bpf/lib/lrp.h @isovalent/isovalent-loadbalancer
+/bpf/lib/nodeport* @isovalent/cni @isovalent/isovalent-loadbalancer
+/bpf/lib/policy* @isovalent/cni @isovalent/policy-identity-networking
+/bpf/lib/proxy* @isovalent/service-mesh @isovalent/cni
+/bpf/lib/sock* @isovalent/isovalent-loadbalancer
+/bpf/lib/tailcall.h @isovalent/cni @isovalent/networking-framework
 /bpf/lib/wireguard.h @isovalent/encryption @isovalent/cni
 /bpf/Makefile* @isovalent/networking-framework
 /bpf/node_config.h @isovalent/networking-framework
@@ -110,7 +122,6 @@
 /contrib/scripts/check-datapathconfig.sh @isovalent/networking-framework
 /contrib/scripts/verifier_diff.py @isovalent/cni
 /daemon/ @isovalent/cni
-/daemon/cmd/datapath.go @isovalent/cni
 /daemon/cmd/endpoint* @isovalent/policy-identity-networking
 /daemon/cmd/policy* @isovalent/policy-identity-networking
 /daemon/cmd/cells*.go @isovalent/ci-structure
@@ -157,6 +168,7 @@
 /Documentation/security/network/proxy/ @isovalent/service-mesh
 /Documentation/security/policy-creation.rst @isovalent/policy-identity-networking
 /Documentation/security/policy/ @isovalent/policy-identity-networking
+/Documentation/security/standalone-dns-proxy.rst @isovalent/dns-proxy
 /examples/hubble/ @isovalent/hubble
 /examples/kubernetes-egress-gateway/ @isovalent/egress-gateway
 /examples/kubernetes/ @isovalent/sig-k8s
@@ -172,6 +184,7 @@
 /install/kubernetes/cilium/**/spire @isovalent/service-mesh
 /install/kubernetes/cilium/templates/clustermesh* @isovalent/clustermesh
 /install/kubernetes/cilium/templates/hubble* @isovalent/hubble
+/install/kubernetes/cilium/templates/standalone-dns-proxy* @isovalent/dns-proxy
 /operator/pkg/bgp @isovalent/traffic-engineering
 /operator/pkg/ciliumendpointslice @isovalent/scalability-performance
 /operator/pkg/ciliumenvoyconfig @isovalent/service-mesh
@@ -235,7 +248,7 @@
 /pkg/dial @isovalent/cni
 /pkg/driftchecker @isovalent/ci-structure
 /pkg/dynamicconfig @isovalent/ci-structure
-/pkg/ebpf @isovalent/cni
+/pkg/ebpf @isovalent/cni @isovalent/networking-framework
 /pkg/egressgateway/ @isovalent/egress-gateway
 /pkg/endpoint/ @isovalent/policy-identity-networking
 /pkg/endpointcleanup/ @isovalent/policy-identity-networking
@@ -283,8 +296,11 @@
 /pkg/mac @isovalent/cni
 /pkg/maglev @isovalent/isovalent-loadbalancer
 /pkg/maps/ @isovalent/cni
+/pkg/maps/authmap @isovalent/service-mesh
 /pkg/maps/egressmap @isovalent/egress-gateway
 /pkg/maps/encrypt @isovalent/encryption
+/pkg/maps/ipcache @isovalent/policy-identity-networking
+/pkg/maps/lxcmap @isovalent/policy-identity-networking
 /pkg/maps/policymap @isovalent/policy-identity-networking
 /pkg/mcastmanager @isovalent/cni
 /pkg/monitor @isovalent/cni

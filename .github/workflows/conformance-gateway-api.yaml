@@ -121,6 +121,12 @@ jobs:
             conformance-profile: false
             encryption: ipsec
     steps:
+      - name: Set commit status to pending
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: pending
+
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
         with:
@@ -330,7 +336,7 @@ jobs:
             --test 'allow-all-except-world,encryption,packet-drops'
 
       - name: Upload report artifacts
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: report-${{ matrix.conformance-profile }}-${{ matrix.crd-channel }}.yaml
           path: operator/pkg/gateway-api/report.yaml

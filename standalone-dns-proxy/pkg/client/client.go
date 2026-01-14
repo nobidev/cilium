@@ -113,6 +113,17 @@ var (
 			return index.NetIPPrefix(key)
 		},
 		FromString: index.NetIPPrefixString,
+		Unique:     false,
+	}
+	IdentityToPrefixIndex = statedb.Index[PrefixToIdentity, identity.NumericIdentity]{
+		Name: "id",
+		FromObject: func(p PrefixToIdentity) index.KeySet {
+			return index.NewKeySet(index.Uint32(p.Identity.Uint32()))
+		},
+		FromKey: func(key identity.NumericIdentity) index.Key {
+			return index.Uint32(key.Uint32())
+		},
+		FromString: index.Uint32String,
 		Unique:     true,
 	}
 )
@@ -389,6 +400,7 @@ func NewPrefixToIdentityTable(db *statedb.DB) (statedb.RWTable[PrefixToIdentity]
 	return statedb.NewTable(
 		db,
 		PrefixToIdentityTableName,
+		IdentityToPrefixIndex,
 		PrefixToIdentityIndex,
 	)
 }
@@ -445,6 +457,7 @@ func (c *GRPCClient) updateDNSRules(rules []*pb.DNSPolicy) error {
 
 			} else {
 				cs[&DNSServerIdentity{Identities: identities}] = &policy.PerSelectorPolicy{
+					Verdict: types.Allow,
 					L7Rules: api.L7Rules{
 						DNS: dnsRulesSlice,
 					},

@@ -285,7 +285,7 @@ func (mc *lbMetricsCollector) fetchMetrics(ctx context.Context) error {
 		lbCtEntries[ctKey] = ctValue
 
 		// lookup the CT entry's backend from the cache
-		backend, ok := backends[loadbalancer.BackendID(ctValue.BackendID)]
+		backend, ok := backends[loadbalancer.BackendID(ctValue.Union0[1])]
 		if !ok {
 			return
 		}

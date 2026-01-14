@@ -27,7 +27,6 @@ func datapathNodeHeaderConfigProvider(cfg cecmcfg.Config, dcfg *option.DaemonCon
 		output := make(dpcfgdef.Map)
 
 		if cfg.EnableClusterAwareAddressing {
-			output["CLUSTER_ID"] = fmt.Sprintf("%d", dcfg.ClusterID)
 			output["ENABLE_CLUSTER_AWARE_ADDRESSING"] = "1"
 		}
 

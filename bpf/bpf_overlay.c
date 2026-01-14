@@ -6,6 +6,7 @@
 
 #include <bpf/config/node.h>
 #include <bpf/config/global.h>
+#include <bpf/config/overlay.h>
 #include <netdev_config.h>
 
 #define IS_BPF_OVERLAY 1
@@ -336,7 +337,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 #ifdef ENABLE_VTEP
 	{
 		struct vtep_key vkey = {};
-		struct vtep_value *vtep;
+		const struct vtep_value *vtep;
 
 		vkey.vtep_ip = ip4->saddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
@@ -362,7 +363,7 @@ skip_vtep:
 		 * logic in-line.
 		 */
 		if (cluster_id_from_identity != 0 &&
-		    cluster_id_from_identity != CLUSTER_ID &&
+		    cluster_id_from_identity != CONFIG(cluster_id) &&
 		    ip4->daddr == IPV4_INTER_CLUSTER_SNAT) {
 			ctx_store_meta(ctx, CB_SRC_LABEL, *identity);
 			return tail_call_internal(ctx,
@@ -471,7 +472,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	int ret;
 	struct bpf_tunnel_key key = {};
 	struct vtep_key vkey = {};
-	struct vtep_value *info;
+	const struct vtep_value *info;
 	__u32 key_size;
 
 	key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
@@ -539,6 +540,21 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	ret = enterprise_privnet_from_overlay(ctx, proto, &ext_err);
 	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 		goto out;
+
+#if defined(ENABLE_WIREGUARD) && defined(ENABLE_IDENTITY_MARK)
+	/* When wireguard is enabled we should drop any traffic coming through the tunnel
+	 * that previously wasn't marked as decrypted by cilium.
+	 */
+	if (CONFIG(encryption_strict_ingress) && !ctx_is_decrypt(ctx)) {
+		ret = DROP_UNENCRYPTED_TRAFFIC;
+		goto out;
+	}
+	/* We only needed the mark to decide if we need to drop the packet here.
+	 * To not cause any further collision with the `decrypted` variable,
+	 * clear the decrypted bit.
+	 */
+	ctx->mark &= ~MARK_MAGIC_HOST_MASK;
+#endif
 
 	switch (proto) {
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)

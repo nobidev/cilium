@@ -52,7 +52,6 @@ func TestDatapathNodeHeaderConfigProvider(t *testing.T) {
 			},
 			dcfg: &option.DaemonConfig{ClusterID: 10},
 			expected: dpcfgdef.Map{
-				"CLUSTER_ID":                      "10",
 				"ENABLE_CLUSTER_AWARE_ADDRESSING": "1",
 			},
 		},
@@ -65,7 +64,6 @@ func TestDatapathNodeHeaderConfigProvider(t *testing.T) {
 			},
 			dcfg: &option.DaemonConfig{ClusterID: 10},
 			expected: dpcfgdef.Map{
-				"CLUSTER_ID":                      "10",
 				"ENABLE_CLUSTER_AWARE_ADDRESSING": "1",
 				"ENABLE_INTER_CLUSTER_SNAT":       "1",
 			},
@@ -79,7 +77,6 @@ func TestDatapathNodeHeaderConfigProvider(t *testing.T) {
 			},
 			dcfg: &option.DaemonConfig{ClusterID: 10, EnableIPv4: true},
 			expected: dpcfgdef.Map{
-				"CLUSTER_ID":                      "10",
 				"ENABLE_CLUSTER_AWARE_ADDRESSING": "1",
 				"ENABLE_INTER_CLUSTER_SNAT":       "1",
 				"IPV4_INTER_CLUSTER_SNAT":         "0x04030201",

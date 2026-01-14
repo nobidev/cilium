@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/vishvananda/netlink"
-	"go4.org/netipx"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
@@ -55,7 +54,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/monitor/notifications"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -98,6 +96,11 @@ const (
 
 	// PropertyCEPName contains the CEP name for this endpoint.
 	PropertyCEPName = "property-cep-name"
+
+	// PropertySkipMasqueradeV4 will mark the endpoint to skip IPv4 masquerade.
+	PropertySkipMasqueradeV4 = "property-skip-masquerade-v4"
+	// PropertySkipMasqueradeV6 will mark the endpoint to skip IPv6 masquerade.
+	PropertySkipMasqueradeV6 = "property-skip-masquerade-v6"
 )
 
 var (
@@ -576,6 +579,14 @@ func (e *Endpoint) IsHost() bool {
 	return e.isHost
 }
 
+func (e *Endpoint) SkipMasqueradeV4() bool {
+	return e.isProperty(PropertySkipMasqueradeV4)
+}
+
+func (e *Endpoint) SkipMasqueradeV6() bool {
+	return e.isProperty(PropertySkipMasqueradeV6)
+}
+
 // SetIsHost is a convenient method to create host endpoints for testing.
 func (ep *Endpoint) SetIsHost(isHost bool) {
 	ep.isHost = isHost
@@ -698,7 +709,7 @@ func (e *Endpoint) initDNSHistoryTrigger() {
 }
 
 // CreateIngressEndpoint creates the endpoint corresponding to Cilium Ingress.
-func CreateIngressEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map) (*Endpoint, error) {
+func CreateIngressEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map, ipv4 netip.Addr, ipv6 netip.Addr) (*Endpoint, error) {
 	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, 0, "", wgCfg, ipsecCfg, policyDebugLog, lxcMap)
 	ep.DatapathConfiguration = NewDatapathConfiguration()
 
@@ -718,10 +729,8 @@ func CreateIngressEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuild
 	// Ingress endpoint has no bpf programs
 	ep.properties[PropertyWithouteBPFDatapath] = true
 
-	// node.GetIngressIPv4 has been parsed with net.ParseIP() and may be in IPv4 mapped IPv6
-	// address format. Use netipx.FromStdIP() to make sure we get a plain IPv4 address.
-	ep.IPv4, _ = netipx.FromStdIP(node.GetIngressIPv4(logger))
-	ep.IPv6, _ = netip.AddrFromSlice(node.GetIngressIPv6(logger))
+	ep.IPv4 = ipv4
+	ep.IPv6 = ipv6
 
 	ep.setState(StateWaitingForIdentity, "Ingress Endpoint creation")
 

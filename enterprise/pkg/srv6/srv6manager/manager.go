@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/ipam"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
@@ -43,10 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
-)
-
-const (
-	ownerName = "srv6-manager"
 )
 
 var legacySIDStructure = srv6Types.MustNewSIDStructure(128, 0, 0, 0)
@@ -101,9 +96,9 @@ type Manager struct {
 	// BGP Control Plane signaler
 	bgp *signaler.BGPCPSignaler
 
-	// sidAlloc is an IPv6Allocator used to allocate L3VPN service SID's on VRF
+	// sidAlloc is used to allocate L3VPN service SID's on VRF
 	// creation.
-	sidAlloc ipam.Allocator
+	sidAlloc sidIPAllocator
 
 	// sidManager is an interface to interact with SIDManager
 	sidManagerPromise promise.Promise[sidmanager.SIDManager]
@@ -135,7 +130,7 @@ type Params struct {
 	IsovalentSRv6EgressPolicy resource.Resource[*iso_v1alpha1.IsovalentSRv6EgressPolicy]
 	VRF4Map                   *srv6map.VRFMap4
 	VRF6Map                   *srv6map.VRFMap6
-	IPAM                      *ipam.IPAM
+	IPAllocator               sidIPAllocator
 	RIB                       *rib.RIB
 
 	// This dependency is solely present to wait for the IPAM initialization.
@@ -172,7 +167,7 @@ func NewSRv6Manager(p Params) *Manager {
 
 	p.JobGroup.Add(
 		job.OneShot("init", func(ctx context.Context, health cell.Health) error {
-			manager.setSIDAllocator(p.IPAM.IPv6Allocator)
+			manager.setSIDAllocator(p.IPAllocator)
 
 			// Create Endpoints store and watch for Endpoints events
 			var err error
@@ -561,7 +556,7 @@ func (manager *Manager) onDeleteLocator(pool string, allocator sidmanager.SIDAll
 	}
 }
 
-func (manager *Manager) setSIDAllocator(a ipam.Allocator) {
+func (manager *Manager) setSIDAllocator(a sidIPAllocator) {
 	manager.Lock()
 	defer manager.Unlock()
 	manager.sidAlloc = a
@@ -996,7 +991,7 @@ func (m *Manager) selectBehavior(behaviorType srv6Types.BehaviorType) srv6Types.
 // otherwise, it allocates SID from SIDManager.
 func (m *Manager) allocateSID(pool, metadata string) (*sidmanager.SIDInfo, error) {
 	if pool == "" {
-		res, err := m.sidAlloc.AllocateNext(ownerName, "")
+		res, err := m.sidAlloc.AllocateNext()
 		if err != nil {
 			return nil, err
 		}
@@ -1004,7 +999,7 @@ func (m *Manager) allocateSID(pool, metadata string) (*sidmanager.SIDInfo, error
 		addr, ok := netipx.FromStdIP(res.IP)
 		if !ok {
 			err := fmt.Errorf("failed to convert IP to Addr")
-			if releaseErr := m.sidAlloc.Release(res.IP, ""); releaseErr != nil {
+			if releaseErr := m.sidAlloc.Release(res.IP); releaseErr != nil {
 				err = errors.Join(err, fmt.Errorf("failed to release SID: %w", releaseErr))
 			}
 			return nil, err
@@ -1012,7 +1007,7 @@ func (m *Manager) allocateSID(pool, metadata string) (*sidmanager.SIDInfo, error
 
 		sid, err := srv6Types.NewSID(addr)
 		if err != nil {
-			m.sidAlloc.Release(res.IP, "")
+			m.sidAlloc.Release(res.IP)
 			return nil, fmt.Errorf("failed to create SID: %w", err)
 		}
 
@@ -1051,7 +1046,7 @@ func (m *Manager) allocateSID(pool, metadata string) (*sidmanager.SIDInfo, error
 // otherwise, it releases SID with SIDManager.
 func (m *Manager) releaseSID(pool string, sid srv6Types.SID) error {
 	if pool == "" {
-		if err := m.sidAlloc.Release(net.IP(sid.Addr.AsSlice()), ""); err != nil {
+		if err := m.sidAlloc.Release(net.IP(sid.Addr.AsSlice())); err != nil {
 			return err
 		}
 		return nil

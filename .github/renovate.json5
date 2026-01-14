@@ -46,6 +46,7 @@
     ".github/actions/ipsec/configs.yaml",
     ".github/workflows/**",
     ".github/ISSUE_TEMPLATE/bug_report.yaml",
+    "Documentation/requirements-min/requirements.txt",
     "cilium-cli/**",
     "images/**",
     "enterprise/**",
@@ -59,7 +60,8 @@
     "install/kubernetes/cilium/templates/spire/**",
     "install/kubernetes/cilium/values.yaml.tmpl",
     "install/kubernetes/Makefile.values",
-    "test/k8s/manifests/netpol-cyclonus"
+    "test/k8s/manifests/netpol-cyclonus",
+    ".custom-gcl.yaml",
   ],
   "schedule": [
     "on sunday"
@@ -109,6 +111,7 @@
     "^make -C install/kubernetes$",
     "^make -C Documentation update-helm-values$",
     "^make -C Documentation update-cmdref$",
+    "^make -C Documentation update-requirements$",
     "^make generate-k8s-api$",
     "^make manifests$",
     "^make GO='contrib/scripts/builder.sh go' generate-apis$"
@@ -188,7 +191,10 @@
       ],
       "groupName": "all-dependencies",
       "matchPackageNames": [
-        "!quay.io/goswagger/swagger"
+        "!quay.io/goswagger/swagger",
+        // cilium-envoy is excluded because it has its own grouping rule that
+        // combines updates from both dockerfile and regex managers into a single PR.
+        "!quay.io/cilium/cilium-envoy"
       ]
     },
     {
@@ -227,16 +233,6 @@
       "matchBaseBranches": [
         "main"
       ]
-    },
-    {
-      // Disabling updating quay.io/lvh-images/kind until issue https://github.com/cilium/cilium/issues/38058 is fixed.
-      "matchDepNames": [
-        "quay.io/lvh-images/kind"
-      ],
-      "matchFileNames": [
-        ".github/workflows/conformance-runtime.yaml"
-      ],
-      "enabled": false
     },
     {
       // Avoid updating patch releases of golang in go.mod
@@ -286,10 +282,6 @@
         "github.com/cilium/proxy",
         // We update this dependency manually together with conformance test changes
         "sigs.k8s.io/gateway-api",
-        // Stop updating envoy control plane packages until they pushed the
-        // tag to stop go mod from erroring. See https://github.com/cilium/cilium/issues/41574
-        "github.com/envoyproxy/go-control-plane/contrib",
-        "github.com/envoyproxy/go-control-plane/envoy",
         // We can't update these libraries until github.com/shoenig/go-m1cpu
         // is added as an exception to the list of licenses into CNCF.
         "/.*google/gops/*/",
@@ -336,6 +328,11 @@
       "matchFileNames": [
         "install/kubernetes/Makefile.values"
       ],
+      "matchPackageNames": [
+        // cilium-envoy is excluded because it has its own grouping rule that
+        // combines updates from both dockerfile and regex managers into a single PR.
+        "!quay.io/cilium/cilium-envoy"
+      ],
       // This is required as otherwise patch version updates into stable branches
       // are also skipped if a minor version update is available at the same time.
       "separateMinorPatch": true,
@@ -357,8 +354,9 @@
         "!main",
       ],
       "matchDepNames": [
-        // Explicitly allow certgen updates.
+        // Explicitly allow certgen and cilium-envoy updates.
         "!quay.io/cilium/certgen",
+        "!quay.io/cilium/cilium-envoy"
       ]
     },
     {
@@ -621,6 +619,30 @@
       }
     },
     {
+      "matchFileNames": [
+        "Documentation/requirements-min/requirements.txt"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C Documentation update-requirements"
+        ],
+        "fileFilters": [
+          "Documentation/requirements.txt"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      // Only allow minor and patch updates for Documentation dependencies, no major updates
+      "enabled": false,
+      "matchFileNames": [
+        "Documentation/requirements-min/requirements.txt"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ]
+    },
+    {
       // k8s dependencies will be updated manually along with tests
       "enabled": false,
       "matchUpdateTypes": [
@@ -631,6 +653,19 @@
         "/k8s.io/*/",
         "/sigs.k8s.io/*/"
       ]
+    },
+    {
+      // Allow k8s.io patch updates on all branches
+      // (overrides the "all go dependencies stable" rule)
+      "groupName": "auto-merge-trusted-deps",
+      "matchDepNames": [
+        "/k8s.io/*/",
+        "/sigs.k8s.io/*/"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "enabled": true
     },
     {
       "matchDepNames": [
@@ -717,27 +752,39 @@
       ]
     },
     {
+      // cilium-envoy is referenced in both images/cilium/Dockerfile and
+      // install/kubernetes/Makefile.values. Without explicit grouping,
+      // Renovate creates separate PRs for each manager. The groupSlug ensures
+      // both updates use the same branch name and get combined into a single
+      // PR.
       "groupName": "cilium-envoy",
+      "groupSlug": "cilium-envoy",
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
       "allowedVersions": "/^v1\\.34\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
-        "v1.18",
         "v1.17",
         "v1.16"
       ]
     },
     {
+      // cilium-envoy is referenced in both images/cilium/Dockerfile and
+      // install/kubernetes/Makefile.values. Without explicit grouping,
+      // Renovate creates separate PRs for each manager. The groupSlug ensures
+      // both updates use the same branch name and get combined into a single
+      // PR.
       "groupName": "cilium-envoy",
+      "groupSlug": "cilium-envoy",
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
       "allowedVersions": "/^v1\\.35\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
-        "main"
+        "main",
+        "v1.18"
       ]
     },
     {
@@ -902,6 +949,7 @@
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+kernel: '(?<currentValue>.*)'",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+kernel: \"(?<currentValue>.*)\"",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: \"(?<currentValue>.*)\"",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+lvhImage: \"(?<currentValue>.*)\"",
         "# renovate: datasource=(?<datasource>.*?)\\s+.+kube-image: \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) branch=(?<currentValue>.*?)\\s+.+_ref: (?<currentDigest>.*)"
       ]
@@ -1003,6 +1051,14 @@
       "datasourceTemplate": "github-runners",
       "depNameTemplate": "ubuntu",
       "packageNameTemplate": "ubuntu"
-    }
+    },
+    {
+      "fileMatch": [
+        "^\\.custom-gcl\\.yaml$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+version:\\s+'?(?<currentValue>[^'\"\\s]+)'?"
+      ]
+    },
   ]
 }

@@ -11,10 +11,12 @@ import (
 	"net/netip"
 	"os"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/vishvananda/netlink"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
@@ -36,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -72,8 +73,11 @@ func registerEndpointRestoreFinishJob(jobGroup job.Group, endpointRestorer *endp
 type endpointRestorerParams struct {
 	cell.In
 
-	Resolver promise.Resolver[endpointstate.Restorer]
+	Resolver             promise.Resolver[endpointstate.Restorer]
+	RestorationNotifiers []endpointstate.RestorationNotifier `group:"endpointRestorationNotifiers"`
 
+	Lifecycle           cell.Lifecycle
+	DaemonConfig        *option.DaemonConfig
 	Logger              *slog.Logger
 	K8sWatcher          *watchers.K8sWatcher
 	Clientset           k8sClient.Clientset
@@ -92,6 +96,7 @@ type endpointRestorerParams struct {
 
 type endpointRestorer struct {
 	logger              *slog.Logger
+	stateDir            string
 	k8sWatcher          *watchers.K8sWatcher
 	clientset           k8sClient.Clientset
 	endpointCreator     endpointcreator.EndpointCreator
@@ -116,6 +121,7 @@ type endpointRestorer struct {
 func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 	restorer := &endpointRestorer{
 		logger:              params.Logger,
+		stateDir:            params.DaemonConfig.StateDir,
 		k8sWatcher:          params.K8sWatcher,
 		clientset:           params.Clientset,
 		endpointCreator:     params.EndpointCreator,
@@ -144,6 +150,29 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 	// Restorer promise is still required to avoid circular dependencies -
 	// but we can immediately resolve it.
 	params.Resolver.Resolve(restorer)
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
+			if err := restorer.clearStaleCiliumEndpointVeths(); err != nil {
+				// log and continue
+				params.Logger.Warn("Unable to clean stale endpoint interfaces", logfields.Error, err)
+			}
+
+			// read old endpoints from disk before k8s is configured
+			if err := restorer.readOldEndpointsFromDisk(ctx); err != nil {
+				params.Logger.Error("Unable to read existing endpoints", logfields.Error, err)
+			}
+
+			params.Logger.Debug("Notify endpoint restoration notifiers about restored endpoints", logfields.Registrations, len(params.RestorationNotifiers))
+			for _, r := range params.RestorationNotifiers {
+				if r != nil {
+					r.RestorationNotify(restorer.restoreState.possible)
+				}
+			}
+
+			return nil
+		},
+	})
 
 	return restorer
 }
@@ -336,13 +365,13 @@ func (r *endpointRestorer) getPodForEndpoint(ep *endpoint.Endpoint) error {
 	return nil
 }
 
-// fetchOldEndpoints reads the list of existing endpoints previously managed by Cilium when it was
+// readOldEndpointsFromDisk reads the list of existing endpoints previously managed by Cilium when it was
 // last run and associated it with container workloads. This function performs the first step in
 // restoring the endpoint structure.  It needs to be followed by a call to restoreOldEndpoints()
 // once k8s has been initialized and regenerateRestoredEndpoints() once the endpoint builder is
 // ready. In summary:
 //
-// 1. fetchOldEndpoints(): Unmarshal old endpoints
+// 1. readOldEndpointFromDisk(): read old endpoints from disk
 //   - used to start DNS proxy with restored DNS history and rules
 //
 // 2. restoreOldEndpoints(): validate endpoint data after k8s has been configured
@@ -351,7 +380,7 @@ func (r *endpointRestorer) getPodForEndpoint(ep *endpoint.Endpoint) error {
 //
 // 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
 //   - recreate endpoint's policy, as well as bpf programs and maps
-func (r *endpointRestorer) FetchOldEndpoints(ctx context.Context, dir string) error {
+func (r *endpointRestorer) readOldEndpointsFromDisk(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		r.logger.Info("Endpoint restore is disabled, skipping restore step")
 		return nil
@@ -359,22 +388,18 @@ func (r *endpointRestorer) FetchOldEndpoints(ctx context.Context, dir string) er
 
 	r.logger.Info("Reading old endpoints...")
 
-	dirFiles, err := os.ReadDir(dir)
+	dirFiles, err := os.ReadDir(r.stateDir)
 	if err != nil {
 		return err
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
-	r.restoreState.possible = endpoint.ReadEPsFromDirNames(ctx, r.logger, r.endpointCreator, dir, eptsID)
+	r.restoreState.possible = endpoint.ReadEPsFromDirNames(ctx, r.logger, r.endpointCreator, r.stateDir, eptsID)
 
 	if len(r.restoreState.possible) == 0 {
 		r.logger.Info("No old endpoints found.")
 	}
 	return nil
-}
-
-func (r *endpointRestorer) GetState() *endpointRestoreState {
-	return r.restoreState
 }
 
 // restoreOldEndpoints performs the second step in restoring the endpoint structure,
@@ -476,10 +501,6 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 		"Regenerating restored endpoints",
 		logfields.Restored, len(state.restored),
 	)
-
-	// Before regenerating, check whether the CT map has properties that
-	// match this Cilium userspace instance. If not, it must be removed
-	ctmap.DeleteIfUpgradeNeeded()
 
 	// Insert all endpoints into the endpoint list first before starting
 	// the regeneration. This is required to ensure that if an individual
@@ -717,4 +738,65 @@ func (r *endpointRestorer) InitRestore(ctx context.Context, health cell.Health) 
 	close(r.endpointRestoreComplete)
 
 	return nil
+}
+
+// clearStaleCiliumEndpointVeths checks all veths created by cilium and removes all that
+// are considered a leftover from failed attempts to connect the container.
+func (r *endpointRestorer) clearStaleCiliumEndpointVeths() error {
+	r.logger.Info("Removing stale endpoint interfaces")
+
+	vethIfaces, err := r.listVethIfaces()
+	if err != nil {
+		return fmt.Errorf("unable to retrieve veth interfaces on host: %w", err)
+	}
+
+	for _, v := range vethIfaces {
+		peerIndex := v.Attrs().ParentIndex
+		peerVeth, peerFoundInHostNamespace := vethIfaces[peerIndex]
+
+		// In addition to name matching, double check whether the parent of the
+		// parent is the interface itself, to avoid removing the interface in
+		// case we hit an index clash, and the actual parent of the interface is
+		// in a different network namespace. Notably, this can happen in the
+		// context of Kind nodes, as eth0 is a veth interface itself; if an
+		// lxcxxxxxx interface ends up having the same ifindex of the eth0 parent
+		// (which is actually located in the root network namespace), we would
+		// otherwise end up deleting the eth0 interface, with the obvious
+		// ill-fated consequences.
+		if peerFoundInHostNamespace &&
+			peerIndex != 0 &&
+			strings.HasPrefix(peerVeth.Attrs().Name, "lxc") &&
+			peerVeth.Attrs().ParentIndex == v.Attrs().Index {
+
+			scopedLog := r.logger.With(
+				logfields.Index, v.Attrs().Index,
+				logfields.Device, v.Attrs().Name,
+			)
+
+			scopedLog.Debug("Deleting stale veth device")
+
+			if err := netlink.LinkDel(v); err != nil {
+				scopedLog.Warn("Unable to delete stale veth device", logfields.Error, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// listVethIfaces returns a map of VETH interfaces with the index as key.
+func (*endpointRestorer) listVethIfaces() (map[int]netlink.Link, error) {
+	ifs, err := safenetlink.LinkList()
+	if err != nil {
+		return nil, err
+	}
+
+	vethLXCIdxs := map[int]netlink.Link{}
+	for _, intf := range ifs {
+		if intf.Type() == "veth" {
+			vethLXCIdxs[intf.Attrs().Index] = intf
+		}
+	}
+
+	return vethLXCIdxs, nil
 }
