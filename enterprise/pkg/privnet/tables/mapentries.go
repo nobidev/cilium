@@ -11,6 +11,7 @@
 package tables
 
 import (
+	"encoding"
 	"fmt"
 	"net/netip"
 	"slices"
@@ -115,6 +116,32 @@ func (typ MapEntryType) String() string {
 	default:
 		return "?"
 	}
+}
+
+var _ encoding.TextMarshaler = MapEntryType(0)
+var _ encoding.TextUnmarshaler = (*MapEntryType)(nil)
+
+// MarshalText implements the [encoding.TextMarshaler] interface.
+func (typ MapEntryType) MarshalText() ([]byte, error) {
+	return []byte(typ.String()), nil
+}
+
+// UnmarshalText implements the [encoding.TextUnmarshaler] interface.
+func (typ *MapEntryType) UnmarshalText(in []byte) error {
+	switch string(in) {
+	case "E":
+		*typ = MapEntryTypeEndpoint
+	case "X":
+		*typ = MapEntryTypeExternalEndpoint
+	case "D":
+		*typ = MapEntryTypeDCNRoute
+	case "S":
+		*typ = MapEntryTypeStaticRoute
+	default:
+		return fmt.Errorf("invalid MapEntryType %q", string(in))
+	}
+
+	return nil
 }
 
 // MapEntryTarget represents the target network CIDR reachable via this entry.
