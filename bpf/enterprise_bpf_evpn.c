@@ -7,9 +7,8 @@
 #include <bpf/config/global.h>
 #include <bpf/config/node.h>
 
-#include "lib/eps.h"
 #include "lib/common.h"
-#include "lib/clustermesh.h" /* contains some required node config declarations */
+#include "lib/clustermesh.h" /* required to load cluster_id & cluster_id_max in node config (temporarily) */
 #include "lib/enterprise_privnet.h"
 #include "lib/enterprise_evpn.h"
 

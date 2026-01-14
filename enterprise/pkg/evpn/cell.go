@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/pkg/evpn/config"
+	"github.com/cilium/cilium/enterprise/pkg/evpn/datapath"
 )
 
 var Cell = cell.Module(
@@ -21,4 +22,6 @@ var Cell = cell.Module(
 	"EVPN",
 
 	config.Cell,
+
+	cell.Invoke(datapath.RegisterManager),
 )
