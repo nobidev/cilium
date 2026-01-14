@@ -507,14 +507,49 @@ func getInactiveHealthyGateways(activeGatewayIPsByAZ map[string][]netip.Addr, he
 }
 
 func allocateEgressIPsForGroup(logger *slog.Logger, egressPool *pool, activeGatewayIPsByAZ map[string][]netip.Addr, prevEgressIPs map[netip.Addr]netip.Addr, healthyGatewayIPs []netip.Addr) (map[netip.Addr]netip.Addr, error) {
+	// In both stages of retaining inactive healthy gateways and re-selecting from
+	// activeGatewayIPsByAZ we store these mappings across all zones in egressIPToGatewayIP
+	// such that we can avoid duplicate selections.
+	egressIPToGatewayIP := map[netip.Addr]netip.Addr{}
+
+	// It's possible that a gatewayIP can be shared among different availability zones
+	// in the case of gateway selection with AZ affinity performing backfill.
+	// In such case, we want to avoid attempting to allocate() from the pool again as that
+	// will lead to a failure to allocate due to it already being taken by the previous AZ.
+	wasPreviouslyAllocated := func(gatewayIP, egressIP netip.Addr) bool {
+		if gwip, ok := egressIPToGatewayIP[egressIP]; ok {
+			// Validate that previous reallocation was for the same gatewayIP. Otherwise we
+			// warn as this is an invalid status input.
+			if gwip != gatewayIP {
+				logger.Warn(
+					"Unexpected groupStatus.egressIPByGatewayIP mapping. "+
+						"Previous egressIP was already reallocated to different gatewayIP. "+
+						"Will allocate gatewayIP new egressIP",
+					logfields.EgressIP, egressIP,
+					logfields.GatewayIP, gatewayIP)
+				// Will fall through and try to allocate from egressPool but will fail
+				// and re-allocation will be skipped.
+				return false
+			}
+			return true
+		}
+		return false
+	}
+
 	// First, retain the egress IPs of gateways that are healthy but not currently active.
 	// Releasing these IPs could disrupt existing connections that still depend on them.
 	egressIPsOfInactiveGateways := make(map[netip.Addr]netip.Addr)
 	for _, inActiveHealthyGateway := range getInactiveHealthyGateways(activeGatewayIPsByAZ, healthyGatewayIPs) {
 		if egressIP, found := prevEgressIPs[inActiveHealthyGateway]; found {
+			if wasPreviouslyAllocated(inActiveHealthyGateway, egressIP) {
+				egressIPsOfInactiveGateways[inActiveHealthyGateway] = egressIP
+				continue
+			}
+
 			err := egressPool.allocate(egressIP)
 			if err == nil {
 				egressIPsOfInactiveGateways[inActiveHealthyGateway] = egressIP
+				egressIPToGatewayIP[egressIP] = inActiveHealthyGateway
 				continue
 			}
 			logger.Debug(
@@ -534,13 +569,17 @@ func allocateEgressIPsForGroup(logger *slog.Logger, egressPool *pool, activeGate
 
 	newActiveGatewayIPsByAZ := make(map[string][]netip.Addr)
 
-	// for each affinity zone, try to reserve the same egress IPs previously allocated
 	for az, gatewayIPs := range activeGatewayIPsByAZ {
 		for _, gatewayIP := range gatewayIPs {
 			if egressIP, found := prevEgressIPs[gatewayIP]; found {
+				if wasPreviouslyAllocated(gatewayIP, egressIP) {
+					egressIPsByAZ[az][gatewayIP] = egressIP
+					continue
+				}
 				err := egressPool.allocate(egressIP)
 				if err == nil {
 					egressIPsByAZ[az][gatewayIP] = egressIP
+					egressIPToGatewayIP[egressIP] = gatewayIP
 					continue
 				}
 				// in case of failure, just log the error from the allocation attempt
@@ -565,23 +604,36 @@ func allocateEgressIPsForGroup(logger *slog.Logger, egressPool *pool, activeGate
 	}
 
 	// finally, back-fill as needed in a round-robin fashion, prioritizing affinity zones with fewer allocations.
+	egressIPs := map[netip.Addr]netip.Addr{}
+	for eip, gwip := range egressIPToGatewayIP {
+		egressIPs[gwip] = eip
+	}
+
 	for allocationRequests(newActiveGatewayIPsByAZ) > 0 {
 		zones := nextAffinityZonesToSatisfy(newActiveGatewayIPsByAZ, egressIPsByAZ)
 
 		for _, zone := range zones {
 			// allocate an egress IP for the first gateway of the zone
 			gw := newActiveGatewayIPsByAZ[zone][0]
-			egressIP, err := egressPool.allocateNext()
-			if err != nil {
-				// No more available addresses to allocate. If there were previously allocated addresses,
-				// including IPs assigned to inactive but healthy gateways, an imbalance might occur,
-				// potentially leaving one or more zones without an allocated IP.
-				// Attempt to rebalance the allocations to ensure that each zone has at least one allocated
-				// address, if possible. Prioritize allocating IPs from inactive gateways first.
-				egressIPsByAZ, egressIPsOfInactiveGateways = ensureZonesCoverage(activeGatewayIPsByAZ, egressIPsByAZ, egressIPsOfInactiveGateways)
-				return mergeEgressIPs(foldAllocations(egressIPsByAZ), egressIPsOfInactiveGateways), err
+
+			// If has already been allocated in another AZ, then use that.
+			if eip, prevAlloc := egressIPs[gw]; prevAlloc {
+				egressIPsByAZ[zone][gw] = eip
+			} else {
+				egressIP, err := egressPool.allocateNext()
+				if err != nil {
+					// No more available addresses to allocate. If there were previously allocated addresses,
+					// including IPs assigned to inactive but healthy gateways, an imbalance might occur,
+					// potentially leaving one or more zones without an allocated IP.
+					// Attempt to rebalance the allocations to ensure that each zone has at least one allocated
+					// address, if possible. Prioritize allocating IPs from inactive gateways first.
+					egressIPsByAZ, egressIPsOfInactiveGateways = ensureZonesCoverage(
+						activeGatewayIPsByAZ, egressIPsByAZ, egressIPsOfInactiveGateways)
+					return mergeEgressIPs(foldAllocations(egressIPsByAZ), egressIPsOfInactiveGateways), err
+				}
+				egressIPsByAZ[zone][gw] = egressIP
+				egressIPs[gw] = egressIP
 			}
-			egressIPsByAZ[zone][gw] = egressIP
 
 			// remove that gateway from the zone allocation requests
 			newActiveGatewayIPsByAZ[zone] = newActiveGatewayIPsByAZ[zone][1:]
