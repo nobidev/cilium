@@ -33,9 +33,13 @@ function find_commits() {
   upstream_commit="$2"
   ignore_missing="$3"
 
+  # Support the following syntaxes for upstream commit shas:
   #   [ upstream commit xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx ]
+  # (cherry picked from commit xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)
   for commit in $(git log --reverse "$merge_commit"..."$DOWNSTREAM_BRANCH" \
-                | awk '/\[ upstream commit/{ print $4 }' ); do
+                  | awk '/\[ upstream commit/ { print $4 } ; /\(cherry picked from commit/ { print $5 }' \
+                  | cut -d')' -f1);
+  do
     if ! git cat-file -e "$commit^{commit}"; then
         >&2 echo "Unknown commit: $commit"
         if [[ -z "$ignore_missing" ]]; then
