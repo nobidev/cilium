@@ -19,8 +19,8 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/enterprise/pkg/evpn"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	evpnCfg "github.com/cilium/cilium/enterprise/pkg/evpn/config"
+	privnetcfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -47,8 +47,8 @@ func TestPrivilegedMapPinning(t *testing.T) {
 	newHive := func() *hive.Hive {
 		return hive.New(
 			cell.Config(defaultConfig),
-			cell.Config(config.Config{}),
-			cell.Config(evpn.Config{}),
+			cell.Config(privnetcfg.Config{}),
+			cell.Config(evpnCfg.Config{}),
 
 			cell.Provide(
 				newVNI,
@@ -71,10 +71,10 @@ func TestPrivilegedMapPinning(t *testing.T) {
 	// Enabled
 	h := newHive()
 
-	hive.AddConfigOverride(h, func(cfg *config.Config) {
+	hive.AddConfigOverride(h, func(cfg *privnetcfg.Config) {
 		cfg.Enabled = true
 	})
-	hive.AddConfigOverride(h, func(cfg *evpn.Config) {
+	hive.AddConfigOverride(h, func(cfg *evpnCfg.Config) {
 		cfg.Enabled = true
 	})
 
@@ -94,7 +94,7 @@ func TestPrivilegedMapPinning(t *testing.T) {
 	// Disable Privnet
 	h = newHive()
 
-	hive.AddConfigOverride(h, func(cfg *evpn.Config) {
+	hive.AddConfigOverride(h, func(cfg *evpnCfg.Config) {
 		cfg.Enabled = true
 	})
 

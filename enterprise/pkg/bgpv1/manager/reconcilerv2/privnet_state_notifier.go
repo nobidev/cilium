@@ -19,8 +19,8 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/enterprise/pkg/evpn"
-	pnCfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
+	privnetConfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/bgp/manager"
@@ -32,8 +32,8 @@ type privnetStatusNotifierIn struct {
 	Logger *slog.Logger
 
 	Config        config.Config
-	EVPNConfig    evpn.Config
-	PrivnetConfig pnCfg.Config
+	EVPNConfig    evpnConfig.Config
+	PrivnetConfig privnetConfig.Config
 
 	JG            job.Group
 	DB            *statedb.DB

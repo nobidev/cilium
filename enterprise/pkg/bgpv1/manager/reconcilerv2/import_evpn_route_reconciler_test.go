@@ -29,7 +29,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	enterpriseConfig "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/enterprise/pkg/evpn"
+	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
 	privnetConfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
@@ -439,7 +439,7 @@ func TestEVPNRouteImport(t *testing.T) {
 		"test module",
 		rib.Cell,
 		rib.NopDataPlaneCell,
-		evpn.Cell,
+		evpnConfig.Cell,
 		privnetConfig.Cell,
 		cell.Config(enterpriseConfig.DefaultConfig),
 		cell.Provide(
@@ -536,7 +536,7 @@ func TestEVPNRouteImport(t *testing.T) {
 	hive.AddConfigOverride(h, func(c *enterpriseConfig.Config) {
 		c.Enabled = true
 	})
-	hive.AddConfigOverride(h, func(c *evpn.Config) {
+	hive.AddConfigOverride(h, func(c *evpnConfig.Config) {
 		c.Enabled = true
 	})
 	hive.AddConfigOverride(h, func(c *privnetConfig.Config) {

@@ -24,8 +24,8 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/utils"
-	"github.com/cilium/cilium/enterprise/pkg/evpn"
-	pnConfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
+	privnetConfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
@@ -47,8 +47,8 @@ type PrivateNetworkReconcilerIn struct {
 
 	Cfg           Config
 	BGPConfig     config.Config
-	EVPNConfig    evpn.Config
-	PrivNetConfig pnConfig.Config
+	EVPNConfig    evpnConfig.Config
+	PrivNetConfig privnetConfig.Config
 
 	Signaler  *signaler.BGPCPSignaler
 	Upgrader  paramUpgrader

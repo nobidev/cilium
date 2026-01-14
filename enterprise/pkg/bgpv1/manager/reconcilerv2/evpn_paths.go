@@ -24,7 +24,7 @@ import (
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/enterprise/pkg/evpn"
+	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/types"
@@ -53,7 +53,7 @@ type evpnPathsIn struct {
 	Signaler *signaler.BGPCPSignaler
 
 	BGPConfig  config.Config
-	EVPNConfig evpn.Config
+	EVPNConfig evpnConfig.Config
 
 	DB          *statedb.DB
 	DeviceTable statedb.Table[*tables.Device]
@@ -65,7 +65,7 @@ type evpnPaths struct {
 
 	logger     *slog.Logger
 	signaler   *signaler.BGPCPSignaler
-	evpnConfig evpn.Config
+	evpnConfig evpnConfig.Config
 
 	db          *statedb.DB
 	deviceTable statedb.Table[*tables.Device]

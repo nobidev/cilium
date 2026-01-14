@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/enterprise/pkg/evpn"
+	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/types"
@@ -175,9 +175,9 @@ func TestEVPNPathsType5(t *testing.T) {
 				tables.NewDeviceTable,
 				statedb.RWTable[*tables.Device].ToTable,
 
-				func() evpn.Config {
-					return evpn.Config{
-						CommonConfig: evpn.CommonConfig{
+				func() evpnConfig.Config {
+					return evpnConfig.Config{
+						CommonConfig: evpnConfig.CommonConfig{
 							Enabled: true,
 						},
 						VxlanDevice: testEVPNDeviceName,

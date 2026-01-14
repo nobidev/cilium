@@ -40,7 +40,7 @@ import (
 	enterprisebgpv1 "github.com/cilium/cilium/enterprise/pkg/bgpv1"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
-	"github.com/cilium/cilium/enterprise/pkg/evpn"
+	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
 	privnetConfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	privnetTables "github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
@@ -166,7 +166,7 @@ func TestPrivilegedScript(t *testing.T) {
 			srv6map.Cell,
 			rib.Cell,
 			rib.NopDataPlaneCell,
-			evpn.Cell,
+			evpnConfig.Cell,
 			privnetConfig.Cell,
 
 			// Route Reconciler cell
@@ -278,7 +278,7 @@ func TestPrivilegedScript(t *testing.T) {
 		hive.AddConfigOverride(h, func(cfg *svcrouteconfig.RoutesConfig) {
 			cfg.EnableNoServiceEndpointsRoutable = *enableNoEndpointsRoutable
 		})
-		hive.AddConfigOverride(h, func(cfg *evpn.Config) {
+		hive.AddConfigOverride(h, func(cfg *evpnConfig.Config) {
 			cfg.Enabled = true
 		})
 		hive.AddConfigOverride(h, func(cfg *privnetConfig.Config) {

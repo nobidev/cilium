@@ -8,17 +8,13 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package evpn
+package config
 
-import (
-	"github.com/cilium/hive/cell"
+import "github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/enterprise/pkg/evpn/config"
-)
-
-var Cell = cell.Module(
-	"evpn",
-	"EVPN",
-
-	config.Cell,
+var (
+	Cell = cell.Group(
+		cell.Config(defaultConfig),
+		cell.Invoke(Config.validate),
+	)
 )

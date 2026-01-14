@@ -24,8 +24,8 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/enterprise/pkg/evpn"
-	pnCfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
+	privnetConfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
@@ -40,8 +40,8 @@ type importEVPNRouteReconcilerIn struct {
 	cell.In
 
 	Config        config.Config
-	EVPNConfig    evpn.Config
-	PrivnetConfig pnCfg.Config
+	EVPNConfig    evpnConfig.Config
+	PrivnetConfig privnetConfig.Config
 
 	Logger   *slog.Logger
 	RIB      *rib.RIB

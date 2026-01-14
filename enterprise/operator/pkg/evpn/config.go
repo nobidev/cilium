@@ -11,17 +11,17 @@
 package evpn
 
 import (
-	"github.com/cilium/cilium/enterprise/pkg/evpn"
+	"github.com/cilium/cilium/enterprise/pkg/evpn/config"
 )
 
 // Config is the configuration specific to the agent
 type Config struct {
-	evpn.CommonConfig `mapstructure:",squash"`
+	config.CommonConfig `mapstructure:",squash"`
 }
 
 // defaultConfig is the default configuration of the operator
 var defaultConfig = Config{
-	CommonConfig: evpn.CommonConfig{
-		Enabled: evpn.DefaultEVPNEnabled,
+	CommonConfig: config.CommonConfig{
+		Enabled: config.DefaultEVPNEnabled,
 	},
 }

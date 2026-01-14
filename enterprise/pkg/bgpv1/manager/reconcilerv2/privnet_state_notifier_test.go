@@ -23,8 +23,8 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/enterprise/pkg/evpn"
-	pnCfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
+	privnetConfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	privnetTables "github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/bgp/manager"
@@ -49,8 +49,8 @@ func TestPrivnetStateNotifier(t *testing.T) {
 		cell.Module(
 			"test",
 			"test module",
-			evpn.Cell,
-			pnCfg.Cell,
+			evpnConfig.Cell,
+			privnetConfig.Cell,
 			cell.Config(config.DefaultConfig),
 			cell.Provide(
 				tunnel.NewTestConfig,
@@ -87,13 +87,13 @@ func TestPrivnetStateNotifier(t *testing.T) {
 		),
 	)
 
-	hive.AddConfigOverride(h, func(c *evpn.Config) {
+	hive.AddConfigOverride(h, func(c *evpnConfig.Config) {
 		c.Enabled = true
 	})
 	hive.AddConfigOverride(h, func(c *config.Config) {
 		c.Enabled = true
 	})
-	hive.AddConfigOverride(h, func(c *pnCfg.Config) {
+	hive.AddConfigOverride(h, func(c *privnetConfig.Config) {
 		c.Enabled = true
 	})
 

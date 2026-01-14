@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
-	"github.com/cilium/cilium/enterprise/pkg/evpn"
+	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/types"
@@ -41,7 +41,7 @@ type VPNRoutePolicyReconcilerIn struct {
 	cell.In
 
 	Config       config.Config
-	EVPNConfig   evpn.Config
+	EVPNConfig   evpnConfig.Config
 	DaemonConfig *option.DaemonConfig
 
 	Logger          *slog.Logger

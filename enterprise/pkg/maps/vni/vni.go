@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/enterprise/pkg/evpn"
+	evpnCfg "github.com/cilium/cilium/enterprise/pkg/evpn/config"
 	privnetcfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -58,7 +58,7 @@ type VNI struct {
 func newVNI(
 	lc cell.Lifecycle,
 	privnetCfg privnetcfg.Config,
-	evpnCfg evpn.Config,
+	evpnCfg evpnCfg.Config,
 	mapCfg Config,
 ) bpf.MapOut[VNI] {
 	vniMap := bpf.NewMap(
