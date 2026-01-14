@@ -65,6 +65,7 @@ yq_replace ".preflight.image.tag = \"${tag}\""
 yq_replace ".operator.image.tag = \"${tag}\""
 yq_replace ".hubble.relay.image.tag = \"${tag}\""
 yq_replace ".clustermesh.apiserver.image.tag = \"${tag}\""
+yq_replace ".kubectl.image.tag = \"${tag}\""
 if [ "${is_ci}" != "true" ]; then
   yq_replace ".nodeinit.image.tag = \"${tag}\""
   yq_replace ".certgen.image.tag = \"${tag}\""
