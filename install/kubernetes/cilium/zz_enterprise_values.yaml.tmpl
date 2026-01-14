@@ -901,6 +901,14 @@ envoyConfig:
     regenerationInterval: 30s
 
 envoy:
+  kubectl:
+    image:
+      # @schema
+      # type: [null, string]
+      # @schema
+      override: ~
+      repository: quay.io/isovalent/kubectl
+      tag: 1.0.1
   # -- Configure Cilium Envoy graceful shutdown.
   gracefulRestart:
     # -- Enables graceful shutdown and draining of traffic for Envoy pods in a standalone DaemonSet.
