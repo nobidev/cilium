@@ -193,7 +193,7 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	logger.Debug("Loading Collection into kernel",
 		logfields.MapRenames, opts.MapRenames,
-		logfields.Constants, fmt.Sprintf("%#v", opts.Constants),
+		logfields.Constants, printConstants(opts.Constants),
 	)
 
 	// Copy spec so the modifications below don't affect the input parameter,
@@ -315,6 +315,25 @@ func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
 	}
 
 	return nil
+}
+
+// printConstants returns a string representation of a given consts object for
+// logging purposes. Since the input can be a slice of objects, they need to be
+// printed separately for struct field names to show up using %#v.
+func printConstants(consts any) string {
+	if consts == nil {
+		return ""
+	}
+	switch v := consts.(type) {
+	case []any:
+		var parts []string
+		for _, c := range v {
+			parts = append(parts, fmt.Sprintf("%#v", c))
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	default:
+		return fmt.Sprintf("%#v", consts)
+	}
 }
 
 // logFreedMaps checks that no maps were freed by the kernel after loading

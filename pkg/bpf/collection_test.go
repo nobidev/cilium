@@ -53,3 +53,16 @@ func TestPrivilegedUpgradeMap(t *testing.T) {
 	assert.True(t, obj.UpgradedMap.IsPinned())
 	assert.EqualValues(t, 10, obj.UpgradedMap.MaxEntries())
 }
+
+func TestPrintConstants(t *testing.T) {
+	consts := []any{
+		struct{ Foo int }{Foo: 42},
+		map[string]any{"baz": true},
+		uint32(123),
+	}
+	assert.Equal(t, "", printConstants(nil))
+	assert.Equal(t, "[]", printConstants([]any{}))
+	assert.Equal(t, `42`, printConstants(42))
+
+	assert.Equal(t, `[struct { Foo int }{Foo:42}, map[string]interface {}{"baz":true}, 0x7b]`, printConstants(consts))
+}
