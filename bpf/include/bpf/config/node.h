@@ -54,3 +54,5 @@ NODE_CONFIG(__u16, nodeport_port_max, "Nodeport maximum port value.")
 
 NODE_CONFIG(__u32, hash_init4_seed, "Cluster-wide IPv4 tuple hash seed sourced")
 NODE_CONFIG(__u32, hash_init6_seed, "Cluster-wide IPv6 tuple hash seed sourced")
+
+NODE_CONFIG(union v4addr, nat_46x64_prefix, "NAT 46x64 prefix")
