@@ -1796,6 +1796,18 @@
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
      - ``30``
+   * - :spelling:ignore:`envoy.kubectl.image.override`
+     - 
+     - string
+     - ``nil``
+   * - :spelling:ignore:`envoy.kubectl.image.repository`
+     - 
+     - string
+     - ``"quay.io/isovalent/kubectl"``
+   * - :spelling:ignore:`envoy.kubectl.image.tag`
+     - 
+     - string
+     - ``"1.0.1"``
    * - :spelling:ignore:`envoy.livenessProbe.enabled`
      - Enable liveness probe for cilium-envoy
      - bool

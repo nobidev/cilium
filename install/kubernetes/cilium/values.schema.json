@@ -2635,6 +2635,28 @@
         "initialFetchTimeoutSeconds": {
           "type": "integer"
         },
+        "kubectl": {
+          "properties": {
+            "image": {
+              "properties": {
+                "override": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "repository": {
+                  "type": "string"
+                },
+                "tag": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
         "livenessProbe": {
           "properties": {
             "enabled": {
