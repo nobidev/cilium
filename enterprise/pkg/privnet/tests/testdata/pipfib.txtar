@@ -1,0 +1,154 @@
+#! --cluster-name=foobar --private-networks-enabled
+
+hive start
+
+db/insert privnet-mapentries mapentries.v1.yaml
+
+# The mapentries table is not initialized yet
+! db/initialized --timeout 0 privnet-mapentries
+
+# Ensure that the FIB map is populated
+privnet/maps-dump privnet_fib fib-actual.map
+* cmp fib.v0.map fib-actual.map
+
+# Ensure that the PIB map is populated
+privnet/maps-dump privnet_pip pip-actual.map
+* cmp pip.v0.map pip-actual.map
+
+# Let the mapentries table be marked as initialized
+clustermesh/endpoints/sync
+clustermesh/nodes/sync
+db/initialized privnet-mapentries
+
+# Ensure that the stale FIB map entries are pruned
+privnet/maps-dump privnet_fib fib-actual.map
+* cmp fib.v1.map fib-actual.map
+
+# Ensure that the stale PIP map entries are pruned
+privnet/maps-dump privnet_pip pip-actual.map
+* cmp pip.v1.map pip-actual.map
+
+db/delete privnet-mapentries mapentries.v1.delete.yaml
+
+# Ensure that the deleted FIB map entry is removed
+privnet/maps-dump privnet_fib fib-actual.map
+* cmp fib.v2.map fib-actual.map
+
+# Ensure that the delete PIP map entry is removed 
+privnet/maps-dump privnet_pip pip-actual.map
+* cmp pip.v2.map pip-actual.map
+
+-- mapentries.v1.yaml --
+type: D
+target:
+  networkname: blue-network
+  networkid: 1
+  cidr: 192.168.250.0/24
+  mac: []
+routing:
+  nexthop: 172.128.0.6
+  egressifindex: 0
+  l2announce: false
+status:
+  kind: Pending
+---
+type: D
+target:
+  networkname: blue-network
+  networkid: 1
+  cidr: 192.168.250.24/32
+  mac: []
+routing:
+  nexthop: 172.128.0.6
+  egressifindex: 0
+  l2announce: false
+status:
+  kind: Pending
+---
+type: E
+target:
+  networkname: blue-network
+  networkid: 1
+  cidr: 192.168.250.20/32
+  mac:
+   - 0x00
+   - 0x50
+   - 0x56
+   - 0xad
+   - 0x45
+   - 0xec
+routing:
+  nexthop: 10.244.5.108
+  egressifindex: 0
+  l2announce: false
+status:
+  kind: Pending
+---
+type: S
+target:
+  networkname: blue-network
+  networkid: 1
+  cidr: 10.10.0.0/16
+  mac: []
+routing:
+  nexthop: 10.255.1.1
+  egressifindex: 0
+  l2announce: false
+status:
+  kind: Pending
+---
+type: X
+target:
+  networkname: blue-network
+  networkid: 1
+  cidr: 10.30.0.0/16
+  mac:
+   - 0x00
+   - 0x90
+   - 0x7a
+   - 0x1b
+   - 0x34
+   - 0x08
+routing:
+  nexthop: 10.233.3.1
+  egressifindex: 2
+  l2announce: true
+status:
+  kind: Pending
+
+-- mapentries.v1.delete.yaml --
+type: E
+target:
+  networkname: blue-network
+  networkid: 1
+  cidr: 192.168.250.20/32
+routing:
+  nexthop: 10.244.5.108
+
+-- fib.v0.map --
+0x1 10.10.0.0/16 -> 10.255.1.1 0x4
+0x1 10.30.0.0/16 -> 10.233.3.1 0x1
+0x1 192.168.250.0/24 -> 172.128.0.6 0x2
+0x1 192.168.250.20/32 -> 10.244.5.108 0x0
+0x1 192.168.250.24/32 -> 172.128.0.6 0x2
+0x5 172.16.2.1/32 -> 172.16.1.1 0x0
+-- pip.v0.map --
+10.233.3.1/32 -> 0x1 10.30.0.0 2 00:90:7a:1b:34:08 0x0
+10.244.5.108/32 -> 0x1 192.168.250.20 0 00:50:56:ad:45:ec 0x0
+172.16.1.1/32 -> 0xff 172.16.2.1 31 00:00:00:00:00:00 0x0
+-- fib.v1.map --
+0x1 10.10.0.0/16 -> 10.255.1.1 0x4
+0x1 10.30.0.0/16 -> 10.233.3.1 0x1
+0x1 192.168.250.0/24 -> 172.128.0.6 0x2
+0x1 192.168.250.20/32 -> 10.244.5.108 0x0
+0x1 192.168.250.24/32 -> 172.128.0.6 0x2
+-- pip.v1.map --
+10.233.3.1/32 -> 0x1 10.30.0.0 2 00:90:7a:1b:34:08 0x0
+10.244.5.108/32 -> 0x1 192.168.250.20 0 00:50:56:ad:45:ec 0x0
+-- fib.v2.map --
+0x1 10.10.0.0/16 -> 10.255.1.1 0x4
+0x1 10.30.0.0/16 -> 10.233.3.1 0x1
+0x1 192.168.250.0/24 -> 172.128.0.6 0x2
+0x1 192.168.250.24/32 -> 172.128.0.6 0x2
+-- pip.v2.map --
+10.233.3.1/32 -> 0x1 10.30.0.0 2 00:90:7a:1b:34:08 0x0

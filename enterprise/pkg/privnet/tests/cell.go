@@ -44,6 +44,7 @@ func NewTestHive(t testing.TB) *hive.Hive {
 		mockEndpointCell(t),
 		mockLocalCiliumNodeCell(t),
 		mockGneigh(t),
+		mockBPFMapCell(t),
 
 		cell.Provide(
 			dptables.NewDeviceTable,

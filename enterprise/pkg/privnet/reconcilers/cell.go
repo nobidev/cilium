@@ -22,6 +22,7 @@ var Cell = cell.Group(
 	LocalEndpointSlicesCell,
 	INBsCell,
 	GneighCell,
+	PIPFIBMapCell,
 
 	// Infrastructure shared between some of the reconcilers
 	cell.Provide(
