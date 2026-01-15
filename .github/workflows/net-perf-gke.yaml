@@ -25,9 +25,9 @@ on:
         default: '{}'
 
 # For testing uncomment following lines:
-#  push:
-#    branches:
-#      - your_branch_name
+  push:
+    branches:
+      - pr/artyop/v1.16-setup-gke-cluster
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
