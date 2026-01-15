@@ -69,7 +69,7 @@ function create_branch() {
         contrib/backporting/cherry-pick "$commit" \
         || (git am --show-current-patch=diff && git am --abort)
     done
-  else
+  elif [ ${#COMMITS[@]} -gt 0 ]; then
     contrib/backporting/cherry-pick "${COMMITS[@]}"
   fi
   git checkout -
