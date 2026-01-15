@@ -1,0 +1,395 @@
+#! --private-networks-enabled
+
+# Delay the K8s sync event (otherwise hive/start) will automatically emit a K8s sync event
+privnet/k8s-block-sync
+hive start
+
+## Step 1: Test initialization
+
+# Insert a policy - we expect the metadata table to contain those,
+# but we don't want identities to be allocated before the sync event
+k8s/add cnp-default.v1.yaml
+! db/initialized privnet-cidr-metadata --timeout 0
+db/empty privnet-cidr-identities
+
+# Ensure policy has created CIDR metadata (we use db/show instead of db/cmp to include the owner names)
+db/show --format json privnet-cidr-metadata
+* cmp stdout cidr-metadata.v1.json
+
+# Unblock K8s sync, this should lead to CIDR identities being allocated
+privnet/k8s-unblock-sync
+clustermesh/endpoints/sync
+clustermesh/nodes/sync
+
+# Wait for cidr identities to be assigned
+db/initialized privnet-cidr-metadata
+db/cmp privnet-cidr-identities cidr-identities.v1.table
+
+# Wait for BPF reconciler to push identities
+privnet/maps-dump privnet_cidr_identity
+* cmp stdout cilium-privnet-cidr-identity.v1.txt
+
+# Ensure identities are as expected
+privnet/list-identities
+cmp stdout list-identities.v1.txt
+
+## Step 2: Test overlapping ownership
+
+# Pre-allocate identities for the next step (to ensure determinism)
+privnet/allocate-identity --nid 16777218 cidr:10.1.0.0/24 reserved:world-ipv4 cidrgroup:io.cilium.policy.cidrgroupname/red-group
+privnet/allocate-identity --nid 16777219 reserved:world-ipv4 cidrgroup:io.cilium.policy.cidrgroupname/red-group
+privnet/allocate-identity --nid 16777220 cidr:192.168.0.0/16 reserved:world-ipv4
+privnet/allocate-identity --nid 16777221 cidr:192.168.0.0/24 reserved:world-ipv4
+
+# Add partially overlapping CiliumCIDRGroup and CiliumNetworkPolicy
+k8s/add ccg-red.v2.yaml
+k8s/add cnp-blue.v2.yaml
+
+# Wait for cidr metadata to be populated
+db/show --format json privnet-cidr-metadata
+* cmp stdout cidr-metadata.v2.json
+
+# Wait for cidr identities to be assigned
+db/cmp privnet-cidr-identities cidr-identities.v2.table
+
+# Wait for BPF reconciler to push identities
+privnet/maps-dump privnet_cidr_identity
+* cmp stdout cilium-privnet-cidr-identity.v2.txt
+
+# Release the script test's ownership of identities
+privnet/release-identity 16777218
+privnet/release-identity 16777219
+privnet/release-identity 16777220
+privnet/release-identity 16777221
+
+# Ensure identities are still kept alive by the cidr-identities subsystem
+privnet/list-identities
+cmp stdout list-identities.v2.txt
+
+## Step 3: Test policy and CIDR group update
+
+# Pre-allocate identities for the next step (to ensure determinism)
+privnet/allocate-identity --nid 16777222 cidr:10.1.0.0/24 reserved:world-ipv4
+privnet/allocate-identity --nid 16777223 cidr:10.2.0.0/24 reserved:world-ipv4
+
+# Update CCG and CNP
+k8s/add ccg-red.v3.yaml
+k8s/add cnp-blue.v3.yaml
+
+# Wait for cidr metadata to be populated
+db/show --format json privnet-cidr-metadata
+* cmp stdout cidr-metadata.v3.json
+
+# Wait for cidr identities to be assigned
+db/cmp privnet-cidr-identities cidr-identities.v3.table
+
+# Wait for BPF reconciler to push identities
+privnet/maps-dump privnet_cidr_identity
+* cmp stdout cilium-privnet-cidr-identity.v3.txt
+
+# Release the script test's ownership of identities
+privnet/release-identity 16777222
+privnet/release-identity 16777223
+
+# Ensure identities are still kept alive by the cidr-identities subsystem
+privnet/list-identities
+cmp stdout list-identities.v3.txt
+
+## Step 4: Remove all resources
+
+# Delete CCG and CNPs
+k8s/delete ccg-red.v3.yaml
+k8s/delete cnp-blue.v3.yaml
+k8s/delete cnp-default.v1.yaml
+
+# Ensure empty tables
+* db/empty privnet-cidr-metadata
+* db/empty privnet-cidr-identities
+
+# Ensure empty BPF map
+privnet/maps-dump privnet_cidr_identity
+empty stdout
+
+# Ensure no identities
+privnet/list-identities
+cmp stdout list-identities.v4.txt
+
+-- cnp-default.v1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: cidr-policy
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      name: something
+  egress:
+  - toCIDRSet:
+    - cidr: 10.0.0.0/24
+    - cidr: 10.1.0.0/24
+-- cnp-blue.v2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: blue-policy
+  namespace: blue
+spec:
+  endpointSelector:
+    matchLabels:
+      name: blue
+  egress:
+  - toCIDRSet:
+    - cidr: 192.168.0.0/16
+      except:
+        - 192.168.0.0/24
+  - toCIDR:
+    - 10.0.0.0/24
+-- cnp-blue.v3.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: blue-policy
+  namespace: blue
+spec:
+  endpointSelector:
+    matchLabels:
+      name: blue
+  egress:
+  - toCIDR:
+    - 10.0.0.0/24
+    - 10.2.0.0/24
+-- ccg-red.v2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumCIDRGroup
+metadata:
+  name: red-group
+  namespace: red
+spec:
+  externalCIDRs:
+    - 10.1.0.0/24
+    - 10.2.0.0/24
+-- ccg-red.v3.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumCIDRGroup
+metadata:
+  name: red-group
+  namespace: red
+spec:
+  externalCIDRs:
+    - 10.3.0.0/24
+-- cidr-metadata.v1.json --
+{
+  "Prefix": "10.0.0.0/24",
+  "Owners": {
+    "cnp/default/cidr-policy": {
+      "CIDRLabel": true,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 0
+    },
+    "daemon//isovalent-privnet-cidr-restored": {
+      "CIDRLabel": false,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 16777230
+    }
+  }
+}
+{
+  "Prefix": "10.1.0.0/24",
+  "Owners": {
+    "cnp/default/cidr-policy": {
+      "CIDRLabel": true,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 0
+    },
+    "daemon//isovalent-privnet-cidr-restored": {
+      "CIDRLabel": false,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 16777231
+    }
+  }
+}
+-- cidr-metadata.v2.json --
+{
+  "Prefix": "10.0.0.0/24",
+  "Owners": {
+    "cnp/blue/blue-policy": {
+      "CIDRLabel": true,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 0
+    },
+    "cnp/default/cidr-policy": {
+      "CIDRLabel": true,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 0
+    }
+  }
+}
+{
+  "Prefix": "10.1.0.0/24",
+  "Owners": {
+    "cidrgroup/red/red-group": {
+      "CIDRLabel": false,
+      "CIDRGroupLabels": {
+        "io.cilium.policy.cidrgroupname/red-group": {
+          "key": "io.cilium.policy.cidrgroupname/red-group",
+          "source": "cidrgroup"
+        }
+      },
+      "RestoredIdentity": 0
+    },
+    "cnp/default/cidr-policy": {
+      "CIDRLabel": true,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 0
+    }
+  }
+}
+{
+  "Prefix": "10.2.0.0/24",
+  "Owners": {
+    "cidrgroup/red/red-group": {
+      "CIDRLabel": false,
+      "CIDRGroupLabels": {
+        "io.cilium.policy.cidrgroupname/red-group": {
+          "key": "io.cilium.policy.cidrgroupname/red-group",
+          "source": "cidrgroup"
+        }
+      },
+      "RestoredIdentity": 0
+    }
+  }
+}
+{
+  "Prefix": "192.168.0.0/16",
+  "Owners": {
+    "cnp/blue/blue-policy": {
+      "CIDRLabel": true,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 0
+    }
+  }
+}
+{
+  "Prefix": "192.168.0.0/24",
+  "Owners": {
+    "cnp/blue/blue-policy": {
+      "CIDRLabel": true,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 0
+    }
+  }
+}
+-- cidr-metadata.v3.json --
+{
+  "Prefix": "10.0.0.0/24",
+  "Owners": {
+    "cnp/blue/blue-policy": {
+      "CIDRLabel": true,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 0
+    },
+    "cnp/default/cidr-policy": {
+      "CIDRLabel": true,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 0
+    }
+  }
+}
+{
+  "Prefix": "10.1.0.0/24",
+  "Owners": {
+    "cnp/default/cidr-policy": {
+      "CIDRLabel": true,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 0
+    }
+  }
+}
+{
+  "Prefix": "10.2.0.0/24",
+  "Owners": {
+    "cnp/blue/blue-policy": {
+      "CIDRLabel": true,
+      "CIDRGroupLabels": null,
+      "RestoredIdentity": 0
+    }
+  }
+}
+{
+  "Prefix": "10.3.0.0/24",
+  "Owners": {
+    "cidrgroup/red/red-group": {
+      "CIDRLabel": false,
+      "CIDRGroupLabels": {
+        "io.cilium.policy.cidrgroupname/red-group": {
+          "key": "io.cilium.policy.cidrgroupname/red-group",
+          "source": "cidrgroup"
+        }
+      },
+      "RestoredIdentity": 0
+    }
+  }
+}
+-- cidr-identities.v1.table --
+CIDR          Identity
+10.0.0.0/24   16777230
+10.1.0.0/24   16777231
+-- cidr-identities.v2.table --
+CIDR            Identity
+10.0.0.0/24     16777230
+10.1.0.0/24     16777218
+10.2.0.0/24     16777219
+192.168.0.0/16  16777220
+192.168.0.0/24  16777221
+-- cidr-identities.v3.table --
+CIDR            Identity
+10.0.0.0/24     16777230
+10.1.0.0/24     16777222
+10.2.0.0/24     16777223
+10.3.0.0/24     16777219
+-- cilium-privnet-cidr-identity.v1.txt --
+10.0.0.0/24 -> 16777230
+10.1.0.0/24 -> 16777231
+-- cilium-privnet-cidr-identity.v2.txt --
+10.0.0.0/24 -> 16777230
+10.1.0.0/24 -> 16777218
+10.2.0.0/24 -> 16777219
+192.168.0.0/16 -> 16777220
+192.168.0.0/24 -> 16777221
+-- cilium-privnet-cidr-identity.v3.txt --
+10.0.0.0/24 -> 16777230
+10.1.0.0/24 -> 16777222
+10.2.0.0/24 -> 16777223
+10.3.0.0/24 -> 16777219
+-- list-identities.v1.txt --
+ID         LABELS
+16777230   cidr:10.0.0.0/24
+           reserved:world-ipv4
+16777231   cidr:10.1.0.0/24
+           reserved:world-ipv4
+-- list-identities.v2.txt --
+ID         LABELS
+16777218   cidr:10.1.0.0/24
+           cidrgroup:io.cilium.policy.cidrgroupname/red-group
+           reserved:world-ipv4
+16777219   cidrgroup:io.cilium.policy.cidrgroupname/red-group
+           reserved:world-ipv4
+16777220   cidr:192.168.0.0/16
+           reserved:world-ipv4
+16777221   cidr:192.168.0.0/24
+           reserved:world-ipv4
+16777230   cidr:10.0.0.0/24
+           reserved:world-ipv4
+-- list-identities.v3.txt --
+ID         LABELS
+16777219   cidrgroup:io.cilium.policy.cidrgroupname/red-group
+           reserved:world-ipv4
+16777222   cidr:10.1.0.0/24
+           reserved:world-ipv4
+16777223   cidr:10.2.0.0/24
+           reserved:world-ipv4
+16777230   cidr:10.0.0.0/24
+           reserved:world-ipv4
+-- list-identities.v4.txt --
+ID   LABELS
