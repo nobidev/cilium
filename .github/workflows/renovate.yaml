@@ -55,4 +55,5 @@ jobs:
           env-regex: '^(?:RENOVATE_\w+|RH_REGISTRY_USERNAME|RH_REGISTRY_PASSWORD|LOG_LEVEL)$'
           mount-docker-socket: true
           docker-volumes: |
-            /tmp/wolfi-packages:/tmp/renovate/wolfi-packages
+            /tmp/wolfi-packages:/tmp/renovate/wolfi-packages ;
+            /tmp:/tmp

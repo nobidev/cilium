@@ -22,6 +22,8 @@ fi
 
 usermod -aG "$GROUP_NAME" ubuntu
 
+chown -R ubuntu:ubuntu /tmp
+
 sed "s/{{ process.env.RH_REGISTRY_USERNAME }}/$RH_REGISTRY_USERNAME/g" "$RENOVATE_CONFIG_FILE" > /tmp/new-renovate.js
 REPL=$(sed -e 's/[&\\/]/\\&/g; s/$/\\/' -e '$s/\\$//' <<< "$RH_REGISTRY_PASSWORD")
 sed -i "s/{{ process.env.RH_REGISTRY_PASSWORD }}/${REPL}/g" /tmp/new-renovate.js
