@@ -37,7 +37,7 @@ function find_commits() {
   #   [ upstream commit xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx ]
   # (cherry picked from commit xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)
   for commit in $(git log --reverse "$merge_commit"..."$DOWNSTREAM_BRANCH" \
-                  | awk '/\[ upstream commit/ { print $4 } ; /\(cherry picked from commit/ { print $5 }' \
+                  | awk '/^\s*\[ upstream commit/ { print $4 } ; /^\s*\(cherry picked from commit/ { print $5 }' \
                   | cut -d')' -f1);
   do
     if ! git cat-file -e "$commit^{commit}"; then
