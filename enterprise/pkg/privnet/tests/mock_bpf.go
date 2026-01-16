@@ -49,7 +49,7 @@ func mockBPFMapCell(t testing.TB) cell.Cell {
 				"cilium_privnet_fib", 512000,
 				&pnmaps.FIBKeyVal{
 					Key: pnmaps.NewFIBKey(5, netip.MustParsePrefix("172.16.2.1/32")),
-					Val: pnmaps.NewFIBVal(netip.MustParseAddr("172.16.1.1"), 0x0),
+					Val: pnmaps.NewFIBVal(netip.MustParseAddr("172.16.1.1"), types.MACAddr{}, 0x0, 0),
 				},
 			),
 		),

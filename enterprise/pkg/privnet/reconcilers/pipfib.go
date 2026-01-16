@@ -127,9 +127,13 @@ type pipFIBMapOps struct {
 }
 
 func (pmo *pipFIBMapOps) FIBKeyVal(me *tables.MapEntry) *pnmaps.FIBKeyVal {
+	mac := types.MACAddr{}
+	if me.Type == tables.MapEntryTypeEndpoint {
+		mac = types.MACAddr(me.Target.MAC)
+	}
 	return &pnmaps.FIBKeyVal{
 		Key: pnmaps.NewFIBKey(me.Target.NetworkID, me.Target.CIDR),
-		Val: pnmaps.NewFIBVal(me.Routing.NextHop, pmo.FIBFlags(me.Type, me.Routing.L2Announce)),
+		Val: pnmaps.NewFIBVal(me.Routing.NextHop, mac, pmo.FIBFlags(me.Type, me.Routing.L2Announce), uint32(me.Routing.EgressIfIndex)),
 	}
 }
 
