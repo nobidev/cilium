@@ -108,9 +108,15 @@ type PrivateNetworkINBs struct {
 // pretty-printed when outputting the statedb table in json/yaml format.
 type PrivateNetworkINBNodeSelector struct{ labels.Selector }
 
-// MarshalText implements the [TextMarshaler] interface.
+// MarshalText implements the [encoding.TextMarshaler] interface.
 func (sel PrivateNetworkINBNodeSelector) MarshalText() ([]byte, error) {
 	return []byte(sel.Selector.String()), nil
+}
+
+// UnmarshalText implements the [encoding.TextUnmarshaler] interface.
+func (sel *PrivateNetworkINBNodeSelector) UnmarshalText(in []byte) (err error) {
+	sel.Selector, err = labels.Parse(string(in))
+	return err
 }
 
 // PrivateNetworkRoute is a route configured on the private network
