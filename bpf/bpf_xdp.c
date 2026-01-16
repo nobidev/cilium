@@ -37,6 +37,8 @@
  */
 #undef ENABLE_HEALTH_CHECK
 
+#define	NODEPORT_USE_NAT_46x64		1
+
 #include "lib/common.h"
 #include "lib/drop.h"
 #include "lib/eps.h"
@@ -50,7 +52,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_HMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_cidr_v4_fix __section_maps_btf;
 
 struct {
@@ -59,7 +61,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_LMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_cidr_v4_dyn __section_maps_btf;
 
 struct {
@@ -68,7 +70,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_HMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_cidr_v6_fix __section_maps_btf;
 
 struct {
@@ -77,7 +79,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_LMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_cidr_v6_dyn __section_maps_btf;
 
 static __always_inline __maybe_unused int
@@ -184,9 +186,6 @@ no_encap:
 #endif /* ENABLE_DSR && !ENABLE_DSR_BYUSER && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
 
 		ret = nodeport_lb4(ctx, ip4, l3_off, UNKNOWN_ID, &punt_to_stack, &ext_err, &is_dsr);
-		if (ret == NAT_46X64_RECIRC)
-			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
-						 &ext_err);
 	}
 
 out:

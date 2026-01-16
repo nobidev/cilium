@@ -46,9 +46,7 @@ const (
 	backoffDuration = 500 * time.Millisecond
 )
 
-var (
-	localNodeToKVStoreControllerGroup = controller.NewGroup("local-node-to-kv-store")
-)
+var localNodeToKVStoreControllerGroup = controller.NewGroup("local-node-to-kv-store")
 
 type k8sGetters interface {
 	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
@@ -61,9 +59,9 @@ type GetNodeAddresses interface {
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
 	logger           *slog.Logger
-	Manager          nodemanager.NodeManager
-	Registrar        nodestore.NodeRegistrar
-	Registered       chan struct{}
+	manager          nodemanager.NodeManager
+	registrar        nodestore.NodeRegistrar
+	registered       chan struct{}
 	cniConfigManager cni.CNIConfigManager
 	k8sGetters       k8sGetters
 	localNodeStore   *node.LocalNodeStore
@@ -91,9 +89,9 @@ func NewNodeDiscovery(
 
 	return &NodeDiscovery{
 		logger:           logger,
-		Manager:          manager,
+		manager:          manager,
 		localNodeStore:   lns,
-		Registered:       make(chan struct{}),
+		registered:       make(chan struct{}),
 		cniConfigManager: cniConfigManager,
 		clientset:        clientset,
 		kvstoreClient:    kvstoreClient,
@@ -128,25 +126,25 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 			logfields.Node, localNode.Name,
 		)
 		for {
-			if err := n.Registrar.RegisterNode(ctx, n.logger, n.kvstoreClient, &localNode.Node, n.Manager); err != nil {
+			if err := n.registrar.RegisterNode(ctx, n.logger, n.kvstoreClient, &localNode.Node, n.manager); err != nil {
 				n.logger.Error("Unable to initialize local node. Retrying...", logfields.Error, err)
 				time.Sleep(time.Second)
 			} else {
 				break
 			}
 		}
-		close(n.Registered)
+		close(n.registered)
 	}()
 
 	go func() {
 		select {
-		case <-n.Registered:
+		case <-n.registered:
 		case <-time.After(defaults.NodeInitTimeout):
 			logging.Fatal(n.logger, "Unable to initialize local node due to timeout")
 		}
 	}()
 
-	n.Manager.NodeUpdated(localNode.Node)
+	n.manager.NodeUpdated(localNode.Node)
 
 	n.updateLocalNode(ctx, &localNode)
 
@@ -157,7 +155,7 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 			// This is particularly helpful when an IPSec key rotation occurs
 			// and the manager needs to evaluate the local node's EncryptionKey
 			// field.
-			n.Manager.NodeUpdated(ln.Node)
+			n.manager.NodeUpdated(ln.Node)
 			n.updateLocalNode(ctx, &ln)
 		}
 	}()
@@ -171,7 +169,7 @@ func (n *NodeDiscovery) WaitForKVStoreSync(ctx context.Context) error {
 	}
 
 	select {
-	case <-n.Registered:
+	case <-n.registered:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -188,12 +186,12 @@ func (n *NodeDiscovery) updateLocalNode(ctx context.Context, ln *node.LocalNode)
 				CancelDoFuncOnUpdate: true,
 				DoFunc: func(ctx context.Context) error {
 					select {
-					case <-n.Registered:
+					case <-n.registered:
 					case <-ctx.Done():
 						return nil
 					}
 
-					err := n.Registrar.UpdateLocalKeySync(ctx, &ln.Node)
+					err := n.registrar.UpdateLocalKeySync(ctx, &ln.Node)
 					if err != nil && !errors.Is(err, context.Canceled) {
 						n.logger.Error("Unable to propagate local node change to kvstore", logfields.Error, err)
 					}
@@ -387,6 +385,12 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 
 	nodeResource.Spec.BootID = ln.BootID
 
+	if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
+		if len(c.IPAM.StaticIPTags) > 0 {
+			nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
+		}
+	}
+
 	switch option.Config.IPAM {
 	case ipamOption.IPAMENI:
 		// set ENI field in the node only when the ENI ipam is specified
@@ -425,6 +429,8 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 
 		nodeResource.Spec.IPAM.MinAllocate = n.config.IPAMMinAllocate
 		nodeResource.Spec.IPAM.PreAllocate = n.config.IPAMPreAllocate
+		nodeResource.Spec.IPAM.MaxAllocate = n.config.IPAMMaxAllocate
+		nodeResource.Spec.IPAM.StaticIPTags = n.config.IPAMStaticIPTags
 
 		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
 			if c.IPAM.MinAllocate != 0 {
@@ -433,10 +439,6 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
-			}
-
-			if len(c.IPAM.StaticIPTags) > 0 {
-				nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
 			}
 
 			if c.ENI.FirstInterfaceIndex != nil {
@@ -497,15 +499,18 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		// consistent results.
 		nodeResource.Spec.InstanceID = strings.ToLower(strings.TrimPrefix(ln.Local.ProviderID, azureTypes.ProviderPrefix))
 
+		nodeResource.Spec.IPAM.MinAllocate = n.config.IPAMMinAllocate
+		nodeResource.Spec.IPAM.PreAllocate = n.config.IPAMPreAllocate
+		nodeResource.Spec.IPAM.MaxAllocate = n.config.IPAMMaxAllocate
+		nodeResource.Spec.IPAM.StaticIPTags = n.config.IPAMStaticIPTags
+		nodeResource.Spec.Azure.InterfaceName = n.config.AzureInterfaceName
+
 		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
 			if c.IPAM.MinAllocate != 0 {
 				nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate
 			}
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
-			}
-			if len(c.IPAM.StaticIPTags) > 0 {
-				nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
 			}
 			if c.Azure.InterfaceName != "" {
 				nodeResource.Spec.Azure.InterfaceName = c.Azure.InterfaceName
@@ -546,6 +551,15 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		nodeResource.Spec.AlibabaCloud.CIDRBlock = vpcCidrBlock
 		nodeResource.Spec.AlibabaCloud.AvailabilityZone = zoneID
 
+		nodeResource.Spec.IPAM.PreAllocate = n.config.IPAMPreAllocate
+		nodeResource.Spec.IPAM.MinAllocate = n.config.IPAMMinAllocate
+		nodeResource.Spec.IPAM.MaxAllocate = n.config.IPAMMaxAllocate
+		nodeResource.Spec.IPAM.StaticIPTags = n.config.IPAMStaticIPTags
+		nodeResource.Spec.AlibabaCloud.VSwitches = n.config.AlibabaCloudVSwitches
+		nodeResource.Spec.AlibabaCloud.VSwitchTags = n.config.AlibabaCloudVSwitchTags
+		nodeResource.Spec.AlibabaCloud.SecurityGroups = n.config.AlibabaCloudSecurityGroups
+		nodeResource.Spec.AlibabaCloud.SecurityGroupTags = n.config.AlibabaCloudSecurityGroupTags
+
 		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
 			if c.AlibabaCloud.VPCID != "" {
 				nodeResource.Spec.AlibabaCloud.VPCID = c.AlibabaCloud.VPCID
@@ -572,10 +586,6 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
-			}
-
-			if len(c.IPAM.StaticIPTags) > 0 {
-				nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
 			}
 		}
 	}

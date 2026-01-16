@@ -45,10 +45,6 @@
 /* Import map definitions and some default values */
 #include <bpf/config/node.h>
 
-/* Overwrite (local) CLUSTER_ID defined in node_config.h */
-#undef CLUSTER_ID
-#define CLUSTER_ID 1
-
 /* Need to undef EVENT_SOURCE here since it is defined in
  * both of common.h and bpf_lxc.c.
  */
@@ -56,6 +52,9 @@
 
 /* Include an actual datapath code */
 #include "lib/bpf_lxc.h"
+
+/* Overwrite (local) cluster_id defined in clustermesh.h */
+ASSIGN_CONFIG(__u32, cluster_id, 1)
 
 /* Set the LXC source address to be the address of pod one */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = CLIENT_IP})
@@ -145,7 +144,8 @@ int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(BACKEND_IP, BACKEND_CLUSTER_ID, BACKEND_IDENTITY,
 			     BACKEND_NODE_IP, 0);
 
-	policy_add_egress_allow_entry(BACKEND_IDENTITY, IPPROTO_TCP, BACKEND_PORT);
+	policy_add_egress_allow_l3_l4_entry(BACKEND_IDENTITY, IPPROTO_TCP,
+					    BACKEND_PORT, 0);
 
 	return pod_send_packet(ctx);
 }

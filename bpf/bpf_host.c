@@ -24,6 +24,8 @@
 # define VLAN_FILTER(ifindex, vlan_id) return false;
 #endif
 
+#define	NODEPORT_USE_NAT_46x64		1
+
 #include "lib/common.h"
 #include "lib/config_map.h"
 #include "lib/edt.h"
@@ -626,13 +628,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 
 			int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, secctx, punt_to_stack,
 					       ext_err, &is_dsr);
-#ifdef ENABLE_IPV6
-			if (ret == NAT_46X64_RECIRC) {
-				ctx_store_meta(ctx, CB_SRC_LABEL, secctx);
-				return tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
-							  ext_err);
-			}
-#endif
+
 			/* nodeport_lb4() returns with TC_ACT_REDIRECT for
 			 * traffic to L7 LB. Policy enforcement needs to take
 			 * place after L7 LB has processed the packet, so we
@@ -807,7 +803,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	{
 		struct remote_endpoint_info fake_info = {0};
 		struct vtep_key vkey = {};
-		struct vtep_value *vtep;
+		const struct vtep_value *vtep;
 
 		vkey.vtep_ip = ip4->daddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
@@ -1519,12 +1515,12 @@ skip_host_firewall:
 #endif /* ENABLE_WIREGUARD */
 
 #if (defined(ENABLE_IPSEC) || defined(ENABLE_WIREGUARD)) &&		\
-     defined(ENCRYPTION_STRICT_MODE)
+     defined(ENCRYPTION_STRICT_MODE_EGRESS)
 	if (!strict_allow(ctx, proto)) {
 		ret = DROP_UNENCRYPTED_TRAFFIC;
 		goto drop_err;
 	}
-#endif /* ENCRYPTION_STRICT_MODE */
+#endif /* ENCRYPTION_STRICT_MODE_EGRESS */
 
 #ifdef ENABLE_HEALTH_CHECK
 	ret = lb_handle_health(ctx, proto);

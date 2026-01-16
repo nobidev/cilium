@@ -9,7 +9,7 @@
 #define CILIUM_LB_FLOW_LOG_MAP_SIZE 200000
 #endif
 
-#include <lib/time.h>
+#include <lib/enterprise_time.h>
 
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);

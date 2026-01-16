@@ -211,7 +211,7 @@ int privnet_icmp_to_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
-	policy_add_ingress_allow_entry(0, 0, 0);
+	policy_add_ingress_allow_l3_l4_entry(0, 0, 0, 0);
 	return pod_receive_packet_by_tailcall(ctx);
 }
 
@@ -247,7 +247,7 @@ int privnet_tcp_to_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
-	policy_add_ingress_allow_entry(0, 0, 0);
+	policy_add_ingress_allow_l3_l4_entry(0, 0, 0, 0);
 	return pod_receive_packet_by_tailcall(ctx);
 }
 

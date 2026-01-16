@@ -11,10 +11,13 @@
 package srv6manager
 
 import (
+	"net"
+
 	"github.com/cilium/hive/cell"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/cilium/cilium/pkg/ipam"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -25,6 +28,11 @@ import (
 var Cell = cell.Module(
 	"srv6-manager",
 	"SRv6 DataPath Manager",
+
+	cell.ProvidePrivate(
+		// Decouple IP allocator from IPAM implementation for tests
+		newIPAllocator,
+	),
 
 	// The Controller which is the entry point of the module
 	cell.Provide(
@@ -67,4 +75,38 @@ func newIsovalentSRv6EgressPolicyResource(lc cell.Lifecycle, dc *option.DaemonCo
 		opts...,
 	)
 	return resource.New[*iso_v1alpha1.IsovalentSRv6EgressPolicy](lc, lw, mp, resource.WithMetric("IsovalentSRv6EgressPolicyResource")), nil
+}
+
+func newIPAllocator(ipam *ipam.IPAM) sidIPAllocator {
+	return &sidIPAMWrapper{
+		ipam: ipam,
+	}
+}
+
+const (
+	ownerName = "srv6-manager"
+)
+
+type sidIPAMWrapper struct {
+	ipam *ipam.IPAM
+}
+
+// AllocateNext implements sidIPAllocator.
+func (s *sidIPAMWrapper) AllocateNext() (*ipam.AllocationResult, error) {
+	_, ipv6Result, err := s.ipam.AllocateNext("ipv6", ownerName, "")
+	return ipv6Result, err
+}
+
+// Release implements sidIPAllocator.
+func (s *sidIPAMWrapper) Release(ip net.IP) error {
+	return s.ipam.ReleaseIP(ip, "")
+}
+
+type sidIPAllocator interface {
+	// Release releases a previously allocated IP or fails
+	Release(ip net.IP) error
+
+	// AllocateNext allocates the next available IP or fails if no more IPs
+	// are available
+	AllocateNext() (*ipam.AllocationResult, error)
 }

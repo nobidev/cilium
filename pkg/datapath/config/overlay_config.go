@@ -10,22 +10,26 @@ package config
 // values configured in the ELF are honored.
 type BPFOverlay struct {
 	// Allow ICMP_FRAG_NEEDED messages when applying Network Policy.
-	AllowIcmpFragNeeded bool `config:"allow_icmp_frag_needed"`
+	AllowICMPFragNeeded bool `config:"allow_icmp_frag_needed"`
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Apply Network Policy for ICMP packets.
-	EnableIcmpRule bool `config:"enable_icmp_rule"`
+	EnableICMPRule bool `config:"enable_icmp_rule"`
 	// Use netkit devices for pods.
 	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
+	// Enable strict encryption for ingress traffic.
+	EncryptionStrictIngress bool `config:"encryption_strict_ingress"`
+	// Ephemeral port range minimun.
+	EphemeralMin uint16 `config:"ephemeral_min"`
 	// Ifindex of the interface the bpf program is attached to.
-	InterfaceIfindex uint32 `config:"interface_ifindex"`
+	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
 	// Masquerade address for IPv4 traffic.
@@ -41,14 +45,14 @@ type BPFOverlay struct {
 	// The security identifier for unknown network traffic.
 	PrivnetUnknownSecID uint32 `config:"privnet_unknown_sec_id"`
 	// VXLAN tunnel endpoint network mask.
-	VtepMask uint32 `config:"vtep_mask"`
+	VTEPMask uint32 `config:"vtep_mask"`
 
 	Node
 }
 
 func NewBPFOverlay(node Node) *BPFOverlay {
-	return &BPFOverlay{false, 0x5dc, false, false, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		[4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFOverlay{false, 0x5dc, false, false, false, false, false, false, 0x0, 0x0,
+		[8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		false, false, 0x0, 0x0, 0x0, node}
 }

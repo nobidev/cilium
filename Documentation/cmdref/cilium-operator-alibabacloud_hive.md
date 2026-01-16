@@ -165,6 +165,7 @@ cilium-operator-alibabacloud hive [flags]
       --skip-crd-creation                                              When true, Kubernetes Custom Resource Definitions will not be created
       --srv6-locator-pool-enabled                                      Enable SRv6 locator pool in Cilium
       --synchronize-k8s-nodes                                          Perform GC of stale node entries from the KVStore (default true)
+      --unmanaged-pod-watcher-interval duration                        Interval to check for unmanaged kube-dns pods (0 to disable) (default 15s)
       --validate-network-policy                                        Whether to enable or disable the informational network policy validator (default true)
 ```
 

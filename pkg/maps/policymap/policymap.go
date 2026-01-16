@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/ebpf"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -400,7 +401,7 @@ func (pm *PolicyMap) DumpToMapStateMap() (policyTypes.MapStateMap, error) {
 		// if policymapEntry has invalid prefix length, force update by storing as an
 		// invalid MapStateEntry
 		if !val.IsValid(key) {
-			policyVal.Invalid = true
+			policyVal.Invalidate()
 		}
 		out[policyKey] = policyVal
 	}
@@ -428,6 +429,7 @@ func newPolicyMap(logger *slog.Logger, id uint16, maxEntries int, stats *StatsMa
 	path := bpf.LocalMapPath(logger, MapName, id)
 	mapType := ebpf.LPMTrie
 	flags := bpf.GetMapMemoryFlags(mapType)
+	flags |= unix.BPF_F_RDONLY_PROG
 
 	return &PolicyMap{
 		Map: bpf.NewMap(

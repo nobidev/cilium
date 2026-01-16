@@ -66,14 +66,14 @@ func (cfg Config) Validate(dcfg *option.DaemonConfig, cmcfg cecmcfg.Config, cnic
 	}
 
 	for cfgname, enabled := range map[string]bool{
-		option.EnableEncryptionStrictMode: dcfg.EnableEncryptionStrictMode,
-		dpTypes.EnableIPSec:               ipsecCfg.Enabled(),
-		option.EnableEgressGateway:        dcfg.EnableEgressGateway,
-		option.EnableIPv4EgressGatewayHA:  dcfg.EnableIPv4EgressGatewayHA,
-		option.EnableNat46X64Gateway:      dcfg.EnableNat46X64Gateway,
-		option.EnableVTEP:                 dcfg.EnableVTEP,
-		option.EncryptNode:                dcfg.EncryptNode,
-		option.InstallNoConntrackIptRules: dcfg.InstallNoConntrackIptRules,
+		option.EnableEncryptionStrictModeEgress: dcfg.EnableEncryptionStrictModeEgress,
+		dpTypes.EnableIPSec:                     ipsecCfg.Enabled(),
+		option.EnableEgressGateway:              dcfg.EnableEgressGateway,
+		option.EnableIPv4EgressGatewayHA:        dcfg.EnableIPv4EgressGatewayHA,
+		option.EnableNat46X64Gateway:            dcfg.EnableNat46X64Gateway,
+		option.EnableVTEP:                       dcfg.EnableVTEP,
+		option.EncryptNode:                      dcfg.EncryptNode,
+		option.InstallNoConntrackIptRules:       dcfg.InstallNoConntrackIptRules,
 
 		cecmcfg.EnableClusterAwareAddressing: cmcfg.EnableClusterAwareAddressing,
 		cecmcfg.EnableInterClusterSNAT:       cmcfg.EnableInterClusterSNAT,

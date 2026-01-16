@@ -16,7 +16,6 @@
 #include "eth.h"
 #include "ipv6_core.h"
 #include "map_defs.h"
-#include "mono.h"
 #include "config.h"
 #include "socket.h"
 #include "tunnel.h"
@@ -228,7 +227,6 @@ struct srv6_policy_key6 {
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 
 #define NAT_NEEDED		CTX_ACT_OK
-#define NAT_46X64_RECIRC	100
 
 /* Cilium metrics reasons for forwarding packets and other stats.
  * If reason is larger than below then this is a drop reason and
