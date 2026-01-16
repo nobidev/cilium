@@ -12,6 +12,7 @@ package tables
 
 import (
 	"errors"
+	"fmt"
 	"net/netip"
 	"strconv"
 
@@ -161,6 +162,27 @@ func (state INBNodeState) String() string {
 	}
 }
 
+// MarshalText implements the [encoding.TextMarshaler] interface.
+func (state INBNodeState) MarshalText() ([]byte, error) {
+	return []byte(state.String()), nil
+}
+
+// UnmarshalText implements the [encoding.TextUnmarshaler] interface.
+func (state *INBNodeState) UnmarshalText(in []byte) error {
+	switch string(in) {
+	case "Unknown":
+		*state = INBNodeStateUnknown
+	case "Unhealthy":
+		*state = INBNodeStateUnhealthy
+	case "Healthy":
+		*state = INBNodeStateHealthy
+	default:
+		return fmt.Errorf("invalid INBNodeState %q", string(in))
+	}
+
+	return nil
+}
+
 // INBNetworkState represents the state of the target network as reported by the INB.
 type INBNetworkState uint8
 
@@ -182,6 +204,27 @@ func (state INBNetworkState) String() string {
 	default:
 		return "Unknown"
 	}
+}
+
+// MarshalText implements the [encoding.TextMarshaler] interface.
+func (state INBNetworkState) MarshalText() ([]byte, error) {
+	return []byte(state.String()), nil
+}
+
+// UnmarshalText implements the [encoding.TextUnmarshaler] interface.
+func (state *INBNetworkState) UnmarshalText(in []byte) error {
+	switch string(in) {
+	case "Unknown":
+		*state = INBNetworkStateUnknown
+	case "Denied":
+		*state = INBNetworkStateDenied
+	case "Confirmed":
+		*state = INBNetworkStateConfirmed
+	default:
+		return fmt.Errorf("invalid INBNetworkState %q", string(in))
+	}
+
+	return nil
 }
 
 // INBRole represents the role of the INB for this private network.
@@ -207,6 +250,27 @@ func (role INBRole) String() string {
 	default:
 		return "Unknown"
 	}
+}
+
+// MarshalText implements the [encoding.TextMarshaler] interface.
+func (role INBRole) MarshalText() ([]byte, error) {
+	return []byte(role.String()), nil
+}
+
+// UnmarshalText implements the [encoding.TextUnmarshaler] interface.
+func (role *INBRole) UnmarshalText(in []byte) error {
+	switch string(in) {
+	case "None":
+		*role = INBRoleNone
+	case "Standby":
+		*role = INBRoleStandby
+	case "Active":
+		*role = INBRoleActive
+	default:
+		return fmt.Errorf("invalid INBRole %q", string(in))
+	}
+
+	return nil
 }
 
 func (role INBRole) Key() uint8 {
