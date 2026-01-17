@@ -45,7 +45,7 @@ cilium-operator [flags]
       --clustermesh-sync-timeout duration                              Timeout waiting for the initial synchronization of information from remote clusters (default 1m0s)
       --config string                                                  Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                                              Configuration directory that contains a file for each option
-      --controller-group-metrics strings                               List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
+      --controller-group-metrics strings                               List of controller group names for which to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
   -D, --debug                                                          Enable debugging mode
       --default-lb-service-ipam string                                 Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set.Applicable values: lbipam, nodeipam, none (default "lbipam")
       --dns-server-addresses strings                                   A list of DNS server addresses to be used by the operator DNS client for resolution of FQDNs in IsovalentFQDNGroup CRDs. Each address should be in the form "<ip>:<port>". When resolving an FQDN, the operator will try to query the first server. If it fails, it will try the next one and so on, following the order specified by the user.
