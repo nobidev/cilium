@@ -4,22 +4,22 @@ contents:
   repositories:
     - https://packages.wolfi.dev/os
   packages:
-    - gops=0.3.28-r23
-    - grep=3.12-r3 #Needed by the mount-bpf-fs init container
+    - gops=0.3.29-r0
+    - grep=3.12-r4 #Needed by the mount-bpf-fs init container
     - jq=1.8.1-r3 #Needed for cilium connectivity test to work
-    - mount=2.41.2-r2 #Needed by the mount-bpf-fs init container
-    - util-linux-misc=2.41.2-r2 #nsenter, used by the init script that calls cilium-tools-mount, but not that package itself
+    - mount=2.41.3-r0 #Needed by the mount-bpf-fs init container
+    - util-linux-misc=2.41.3-r0 #nsenter, used by the init script that calls cilium-tools-mount, but not that package itself
     - bash=5.3-r3
     - busybox=1.37.0-r50
-    - ca-certificates=20251003-r0
-    - iproute2=6.17.0-r2
+    - ca-certificates=20251003-r2
+    - iproute2=6.18.0-r0
     - ipset=7.24-r2
-    - kmod=34.2-r42
-    - shadow=4.18.0-r6 # Needed for groupadd
-    - curl=8.17.0-r0  # temporary, for getting prometheus metrics in CI
+    - kmod=34.2-r43
+    - shadow=4.19.0-r0 # Needed for groupadd
+    - curl=8.18.0-r0  # temporary, for getting prometheus metrics in CI
     - gcc-11=11.5.0-r9 # for some header files
-    - libatomic=14.2.0-r13 # Needed for embedded envoy
-    - openssl=3.6.0-r5
+    - libatomic=15.2.0-r6 # Needed for embedded envoy
+    - openssl=3.6.0-r6
     - cni-plugins-loopback=1.9.0-r0
     - make=4.4.1-r8
     - libmnl-dev=1.0.5-r6
