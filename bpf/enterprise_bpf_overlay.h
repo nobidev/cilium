@@ -22,12 +22,30 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 	struct bpf_redir_neigh nh_params __maybe_unused = {};
 	int ret __maybe_unused = CTX_ACT_OK;
 
-	if (!CONFIG(privnet_enable))
+	if (!CONFIG(privnet_enable)) {
+		/* privnet isn't enabled, so we're always in PIP space */
+		set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
 		return ret;
+	}
 
 	/* From overlay privnet code is only required in INB */
-	if (!CONFIG(privnet_bridge_enable))
+	if (!CONFIG(privnet_bridge_enable)) {
+		/* We're not on the bridge. That means in from_overlay, the destination
+		 * is always in PIP space, as it points to a local endpoint.
+		 * The source, however, is unknown. It might also be in the PIP space
+		 * for pod to pod flows, or it might be a netIP for the unknown flow.
+		 * Set the source NetID to UNKNOWN.
+		 */
+		set_privnet_net_ids(PRIVNET_UNKNOWN_NET_ID, PRIVNET_PIP_NET_ID);
 		return ret;
+	}
+
+	/* On INB, the source must be in PIP space, as it comes from a worker node.
+	 * The destination unknown. It might also be in PIP space for pod to extEP flow,
+	 * or it might be in a netIP space for the unknown flow.
+	 * Set the destination NetID to UNKNOWN.
+	 */
+	set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_UNKNOWN_NET_ID);
 
 	switch (proto) {
 #ifdef ENABLE_IPV6
@@ -44,6 +62,8 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		src_sec_identity = get_id_from_tunnel_id(tunnel_key.tunnel_id, proto);
 
 		if (!unknown_flow) {
+			/* Not unknown flow, so we're in PIP space */
+			set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
 			ret = privnet_policy_ingress6(ctx, ip6, src_sec_identity, ext_err);
 			if (IS_ERR(ret))
 				return ret;
@@ -130,6 +150,8 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		 * ingress policy evaluation as we do not have ep info for the destination.
 		 */
 		if (!unknown_flow) {
+			/* Not unknown flow, so we're in PIP space */
+			set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
 			ret = privnet_policy_ingress4(ctx, ip4, src_sec_identity, ext_err);
 			if (IS_ERR(ret))
 				return ret;
@@ -214,5 +236,28 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 static __always_inline int enterprise_privnet_to_overlay(struct __ctx_buff *ctx __maybe_unused,
 							 __be16 __maybe_unused proto)
 {
+	if (!CONFIG(privnet_enable)) {
+		/* privnet isn't enabled, so we're always in PIP space */
+		set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+		return CTX_ACT_OK;
+	}
+
+	if (!CONFIG(privnet_bridge_enable)) {
+		/* We're not on the bridge. The source must be in PIP space, as it comes from
+		 * a local endpoint. The destination is unknown. It might also be in PIP space
+		 * for the pod to pod flow, or it might be in a netIP space for the unknown flow.
+		 * Set the destination NetID to UNKNOWN.
+		 */
+		set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_UNKNOWN_NET_ID);
+		return CTX_ACT_OK;
+	}
+	/* We're on the bridge. That means in to_overlay, the destination
+	 * is always in PIP space, as it points to a pod on a worker node.
+	 * The source, however, is unknown. It might also be in the PIP space
+	 * for extEP to pod flows, or it might be a netIP for the unknown flow.
+	 * Set the source NetID to UNKNOWN.
+	 */
+	set_privnet_net_ids(PRIVNET_UNKNOWN_NET_ID, PRIVNET_PIP_NET_ID);
+
 	return CTX_ACT_OK;
 }

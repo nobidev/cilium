@@ -34,6 +34,7 @@ var EnterpriseCell = cell.Module(
 		(*EnterpriseLoader).registerEndpointConfig,
 		(*EnterpriseLoader).registerOverlayConfig,
 		(*EnterpriseLoader).registerNetdevConfig,
+		(*EnterpriseLoader).registerWireguardConfig,
 	),
 )
 
@@ -86,6 +87,16 @@ func (l *EnterpriseLoader) registerOverlayConfig() {
 func (l *EnterpriseLoader) registerNetdevConfig() {
 	netdevConfigs.register(func(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link, _ netip.Addr, _ netip.Addr) any {
 		return &config.BPFHostEnterprise{
+			PrivnetEnable:       l.privnetConfig.Enabled,
+			PrivnetBridgeEnable: l.privnetConfig.EnabledAsBridge(),
+			PrivnetUnknownSecID: uint32(identity.ReservedPrivnetUnknownFlow),
+		}
+	})
+}
+
+func (l *EnterpriseLoader) registerWireguardConfig() {
+	wireguardConfigs.register(func(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
+		return &config.BPFWireguardEnterprise{
 			PrivnetEnable:       l.privnetConfig.Enabled,
 			PrivnetBridgeEnable: l.privnetConfig.EnabledAsBridge(),
 			PrivnetUnknownSecID: uint32(identity.ReservedPrivnetUnknownFlow),

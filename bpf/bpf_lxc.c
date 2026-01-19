@@ -1671,6 +1671,13 @@ int cil_from_container(struct __ctx_buff *ctx)
 	 */
 	ctx->queue_mapping = 0;
 
+	/* Needs to happen before any possible notify, because we set
+	 * netID information that Hubble needs to understand the events.
+	 */
+	ret = enterprise_privnet_from_lxc(ctx, proto);
+	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+		goto out;
+
 	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
 			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
@@ -1679,10 +1686,6 @@ int cil_from_container(struct __ctx_buff *ctx)
 		ret = DROP_UNSUPPORTED_L2;
 		goto out;
 	}
-
-	ret = enterprise_privnet_from_lxc(ctx, proto);
-	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
-		goto out;
 
 	switch (proto) {
 #ifdef ENABLE_IPV6
@@ -2485,6 +2488,14 @@ int cil_to_container(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	__u16 proto;
 	int ret;
+
+	/* Needs to happen before any possible notify (and in turn before
+	 * the validate_ethertype, because we set netID information that
+	 * Hubble needs to understand the events.
+	 */
+	ret = enterprise_privnet_to_lxc(ctx);
+	if (IS_ERR(ret))
+		return ret;
 
 	if (!validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;

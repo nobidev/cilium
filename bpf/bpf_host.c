@@ -1196,6 +1196,9 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 
 	check_and_store_ip_trace_id(ctx);
 
+	/* Set privnet netID info. Needs to happen before any possible notify */
+	enterprise_privnet_from_netdev();
+
 #ifdef ENABLE_NODEPORT_ACCELERATION
 	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
 #endif
@@ -1241,10 +1244,6 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif /* ENABLE_HOST_FIREWALL */
 	}
 
-	ret = enterprise_privnet_from_netdev(ctx, proto);
-	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
-		return ret;
-
 #ifdef ENABLE_IPSEC
 	/* If the packet needs decryption, we want to send it straight to the
 	 * stack. There's no need to run service handling logic, host firewall,
@@ -1284,6 +1283,9 @@ int cil_from_host(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 
 	check_and_store_ip_trace_id(ctx);
+
+	/* Set privnet netID info. Needs to happen before any possible notify */
+	enterprise_privnet_from_host();
 
 	/* Traffic from the host ns going through cilium_host device must
 	 * not be subject to EDT rate-limiting.
@@ -1347,6 +1349,9 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
+	/* Set privnet netID info. Needs to happen before any possible notify */
+	enterprise_privnet_to_netdev();
+
 	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || magic == MARK_MAGIC_ENCRYPT)
 		src_sec_identity = HOST_ID;
 	else if (magic == MARK_MAGIC_PROXY_EGRESS)
@@ -1362,10 +1367,6 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 
 	/* Load the ethertype just once: */
 	validate_ethertype(ctx, &proto);
-
-	ret = enterprise_privnet_to_netdev(ctx, proto);
-	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
-		return ret;
 
 #ifdef ENABLE_IPSEC
 	if (magic == MARK_MAGIC_ENCRYPT)
@@ -1695,6 +1696,9 @@ int cil_to_host(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 
 	check_and_store_ip_trace_id(ctx);
+
+	/* Set privnet netID info. Needs to happen before any possible notify */
+	enterprise_privnet_to_host();
 
 	/* Prefer ctx->mark when it is set to one of the expected values.
 	 * Also see https://github.com/cilium/cilium/issues/36329.

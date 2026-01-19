@@ -40,6 +40,8 @@
 #include "lib/nodeport_egress.h"
 #include "lib/local_delivery.h"
 
+#include "enterprise_bpf_wireguard.h"
+
 #ifdef ENABLE_IPV6
 static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx)
 {
@@ -316,6 +318,9 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
+	/* Set privnet netID info. Needs to happen before any possible notify */
+	enterprise_privnet_from_wireguard();
+
 #ifdef ENABLE_IDENTITY_MARK
 	/* mark packet as decrypted by wireguard */
 	set_decrypt_mark(ctx, 0);
@@ -411,6 +416,9 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
+
+	/* Set privnet netID info. Needs to happen before any possible notify */
+	enterprise_privnet_to_wireguard();
 
 #ifdef ENABLE_NODEPORT
 	if (magic == MARK_MAGIC_OVERLAY)

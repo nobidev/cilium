@@ -14,6 +14,8 @@
 #include "lib/trace.h"
 #include "lib/ipsec.h"
 
+#include "enterprise_bpf_network.h"
+
 __section_entry
 int cil_from_network(struct __ctx_buff *ctx)
 {
@@ -30,6 +32,9 @@ int cil_from_network(struct __ctx_buff *ctx)
 
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
+
+	/* Set privnet netID info. Needs to happen before any possible notify */
+	enterprise_privnet_from_network();
 
 #ifdef ENABLE_IPSEC
 	/* This program should be attached to the tc-ingress of
