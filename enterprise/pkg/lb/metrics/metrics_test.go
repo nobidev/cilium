@@ -323,10 +323,6 @@ func TestMetrics(t *testing.T) {
 	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.1:80/TCP", 10100.0, 30100.0, 2, 1)
 	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.2:80/TCP", 700.0, 1200.0, 2, 1)
 
-	totalConns, err := ilbMetrics.LBOpenConnectionsTotal.GetMetricWithLabelValues()
-	require.NoError(t, err)
-	require.Equal(t, float64(4), totalConns.Get())
-
 	// Delete one ctmap entry and trigger GC event handling
 
 	ctmockMap.Entries = ctmockMap.Entries[1:]
@@ -355,10 +351,6 @@ func TestMetrics(t *testing.T) {
 	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.1:80/TCP", 10100.0, 30100.0, 1, 1)
 	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.2:80/TCP", 700.0, 1200.0, 2, 1)
 
-	totalConns, err = ilbMetrics.LBOpenConnectionsTotal.GetMetricWithLabelValues()
-	require.NoError(t, err)
-	require.Equal(t, float64(3), totalConns.Get())
-
 	// Delete next ctmap entry for service & backend
 
 	ctmockMap.Entries = ctmockMap.Entries[1:]
@@ -385,10 +377,6 @@ func TestMetrics(t *testing.T) {
 	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.1:80/TCP", 10100.0, 30100.0, 0, 1)
 	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.2:80/TCP", 700.0, 1200.0, 2, 1)
 
-	totalConns, err = ilbMetrics.LBOpenConnectionsTotal.GetMetricWithLabelValues()
-	require.NoError(t, err)
-	require.Equal(t, float64(2), totalConns.Get())
-
 	// remove backend (and fetch until metrics entry is EOL)
 	err = lbm.DeleteBackend(lbmaps.NewBackend4KeyV3(backend1ID))
 	require.NoError(t, err)
@@ -401,10 +389,6 @@ func TestMetrics(t *testing.T) {
 	// removal of backend cleans the metrics
 	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.1:80/TCP", 0, 0, 0, 0) // actually deleted
 	assertServiceBackendMetric(t, ilbMetrics, "foo_bar", "10.0.0.2:80/TCP", 700.0, 1200.0, 2, 1)
-
-	totalConns, err = ilbMetrics.LBOpenConnectionsTotal.GetMetricWithLabelValues()
-	require.NoError(t, err)
-	require.Equal(t, float64(2), totalConns.Get())
 }
 
 func assertServiceBackendMetric(t *testing.T, metrics *lbMetrics, service string, backend string, expectedPackets float64, expectedBytes float64, expectedConns float64, expectedHealth float64) {
