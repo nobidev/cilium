@@ -15,7 +15,7 @@ contents:
     - iproute2=6.18.0-r0
     - ipset=7.24-r2
     - kmod=34.2-r43
-    - shadow=4.19.0-r0 # Needed for groupadd
+    - shadow=4.19.2-r0 # Needed for groupadd
     - curl=8.18.0-r0  # temporary, for getting prometheus metrics in CI
     - gcc-11=11.5.0-r9 # for some header files
     - libatomic=15.2.0-r6 # Needed for embedded envoy
