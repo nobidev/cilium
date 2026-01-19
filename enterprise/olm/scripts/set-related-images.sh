@@ -134,7 +134,7 @@ related_imgs+="{\"name\": \"RELATED_IMAGE_CILIUM-ENVOY\",\"value\":\"${registry}
 # kubectl
 echo "Process kubectl"
 if [ "${is_ci}" == "true" ]; then
-  yq_get ".kubectl.image.tag"
+  yq_get ".envoy.kubectl.image.tag"
   kubectl_tag=${yq_get_result}
 else
   kubectl_tag=${tag}
