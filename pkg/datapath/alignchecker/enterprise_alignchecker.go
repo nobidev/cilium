@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
 	"github.com/cilium/cilium/enterprise/pkg/maps/privnet"
 	vniMap "github.com/cilium/cilium/enterprise/pkg/maps/vni"
+	"github.com/cilium/cilium/pkg/monitor"
 )
 
 func init() {
@@ -37,6 +38,10 @@ func init() {
 	} {
 		toCheck[typ] = append(toCheck[typ], str...)
 	}
+
+	toCheck["trace_notify"] = []any{monitor.EnterpriseTraceNotify{}}
+	toCheck["drop_notify"] = []any{monitor.EnterpriseDropNotify{}}
+	toCheck["policy_verdict_notify"] = []any{monitor.EnterprisePolicyVerdictNotify{}}
 
 	for size, str := range map[string][]any{
 		"__u32": {extepspolicy.Value{}},
