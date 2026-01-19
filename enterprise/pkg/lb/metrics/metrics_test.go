@@ -192,6 +192,7 @@ func TestMetrics(t *testing.T) {
 			lbmaps.Cell,
 			cell.Provide(ctmap.NewFakeGCRunner),
 			cell.Provide(newLBMetrics),
+			cell.Provide(func() ctmap.CTMaps { return &fakeCTMap{} }),
 		),
 
 		cell.Provide(
@@ -201,7 +202,8 @@ func TestMetrics(t *testing.T) {
 		),
 		cell.Invoke(
 			func(p collectorParams, lbm_ lbmaps.LBMaps) {
-				lmc = newLBMetricsCollector(p, []ctmap.CtMap{ctmockMap})
+				lmc = newLBMetricsCollector(p)
+				lmc.ctMaps = []ctmap.CtMap{ctmockMap}
 				lbm = lbm_
 				db = p.DB
 				frontends = p.Frontends.(statedb.RWTable[*loadbalancer.Frontend])
@@ -408,3 +410,11 @@ func assertServiceBackendMetric(t *testing.T, metrics *lbMetrics, service string
 	require.NoError(t, err)
 	require.Equal(t, expectedHealth, actualHealth.Get())
 }
+
+type fakeCTMap struct{}
+
+func (f *fakeCTMap) ActiveMaps() []*ctmap.Map {
+	return nil
+}
+
+var _ ctmap.CTMaps = &fakeCTMap{}

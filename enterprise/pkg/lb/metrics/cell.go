@@ -55,6 +55,7 @@ type collectorParams struct {
 	Lifecycle cell.Lifecycle
 	Logger    *slog.Logger
 	LBMaps    lbmaps.LBMaps
+	CTMaps    ctmap.CTMaps
 	CTGC      ctmap.GCRunner
 
 	DB        *statedb.DB
@@ -70,12 +71,7 @@ func registerCollector(params collectorParams) {
 		return
 	}
 
-	var ctMaps []ctmap.CtMap
-	for _, m := range ctmap.Maps(true, false) {
-		ctMaps = append(ctMaps, m)
-	}
-
-	mc := newLBMetricsCollector(params, ctMaps)
+	mc := newLBMetricsCollector(params)
 
 	params.JobGroup.Add(
 		job.Timer(

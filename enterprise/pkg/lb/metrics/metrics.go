@@ -82,7 +82,7 @@ type lbMetricsCollector struct {
 	frontends statedb.Table[*loadbalancer.Frontend]
 	lbmaps    lbmaps.LBMaps
 	logger    *slog.Logger
-	ct4Maps   []ctmap.CtMap
+	ctMaps    []ctmap.CtMap
 
 	// Mutex protects the fields below
 	lock.Mutex
@@ -127,13 +127,19 @@ func (b *backendMetricValue) healthyAsFloat() float64 {
 // stays around even when the associated CT entry is gone.
 const entryTimeToLive = 10
 
-func newLBMetricsCollector(params collectorParams, ct4Maps []ctmap.CtMap) *lbMetricsCollector {
+func newLBMetricsCollector(params collectorParams) *lbMetricsCollector {
+	activeCTMaps := params.CTMaps.ActiveMaps()
+	var ctMaps []ctmap.CtMap
+	for _, m := range activeCTMaps {
+		ctMaps = append(ctMaps, m)
+	}
+
 	return &lbMetricsCollector{
 		logger:    params.Logger,
 		metrics:   params.Metrics,
 		db:        params.DB,
 		frontends: params.Frontends,
-		ct4Maps:   ct4Maps,
+		ctMaps:    ctMaps,
 		lbmaps:    params.LBMaps,
 
 		prevLbCtEntries: make(map[tuple.TupleKey4]*ctmap.CtEntry),
@@ -274,7 +280,12 @@ func (mc *lbMetricsCollector) updateMetricsEntryWithCTMapInfo(backends map[loadb
 	}
 
 	ctMapCallback := func(key bpf.MapKey, value bpf.MapValue) {
-		ctKey := key.(*ctmap.CtKey4Global).ToHost().(*ctmap.CtKey4Global)
+		ctKey4, ok := key.(*ctmap.CtKey4Global)
+		if !ok {
+			return
+		}
+
+		ctKey := ctKey4.ToHost().(*ctmap.CtKey4Global)
 		ctValue := value.(*ctmap.CtEntry)
 
 		svcName, svcID, isT1 := mc.getService(ctKeyToAddr(ctKey))
@@ -308,7 +319,7 @@ func (mc *lbMetricsCollector) updateMetricsEntryWithCTMapInfo(backends map[loadb
 		entry.openConnections++
 	}
 
-	for _, ctMap := range mc.ct4Maps {
+	for _, ctMap := range mc.ctMaps {
 		if err := ctMap.DumpWithCallback(ctMapCallback); err != nil {
 			mc.logger.Error("Cannot dump CT map, LB metrics may be incomplete", logfields.Error, err)
 			return err
