@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "enterprise_privnet_notify_helpers.h"
+
 #define DROP_EXTENSION \
 	__u16   src_net_id; \
 	__u16   dst_net_id; \
@@ -16,7 +18,6 @@
 static __always_inline void __drop_extension_hook(__u8 *extver, __u16 *src_net_id,
 						  __u16 *dst_net_id)
 {
-	*src_net_id = 0;
-	*dst_net_id = 0;
+	get_privnet_net_ids(src_net_id, dst_net_id);
 	*extver = NOTIFY_DROP_EXT_VER;
 }

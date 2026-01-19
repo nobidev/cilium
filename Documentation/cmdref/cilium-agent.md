@@ -73,7 +73,7 @@ cilium-agent [flags]
       --bpf-privnet-pip-fib-map-max uint32                               Maximum number of entries in the private network PIP and FIB BPF maps. (default 512000)
       --bpf-root string                                                  Path to BPF filesystem
       --bpf-sock-rev-map-max int                                         Maximum number of entries for the SockRevNAT BPF map
-      --bpf-vni-map-max uint32                                           Maximum number of entries in the VNI BPF map. (default 65536)
+      --bpf-vni-map-max uint32                                           Maximum number of entries in the VNI BPF map. (default 65535)
       --certificates-directory string                                    Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cgroup-root string                                               Path to Cgroup2 filesystem
       --cluster-health-port int                                          TCP port for cluster-wide network connectivity health API (default 4240)
