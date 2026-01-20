@@ -1,8 +1,9 @@
-#! --cluster-id=1 --cluster-name=local --test-remote-clusters=blue,green
+#! --cluster-id=1 --cluster-name=local --test-remote-clusters=blue,green,yellow
 
 # Populate the ClusterConfig in the remote clusters
 kvstore/update blue cilium/cluster-config/blue config-blue.json
 kvstore/update green cilium/cluster-config/green config-green.json
+kvstore/update yellow cilium/cluster-config/yellow config-yellow.json
 
 hive/start
 
@@ -15,6 +16,10 @@ endpoints:
 - in-memory
 
 -- green --
+endpoints:
+- in-memory
+
+-- yellow --
 endpoints:
 - in-memory
 
@@ -38,6 +43,17 @@ endpoints:
   }
 }
 
+-- config-yellow.json --
+{
+  "id": 11,
+  "capabilities": {
+    "privateNetworksEnabled": true,
+    "syncedCanaries": true,
+    "maxConnectedClusters": 255,
+    "serviceExportsEnabled": true
+  }
+}
+
 -- config.expected --
 # cilium/cluster-config/blue
 {
@@ -53,6 +69,17 @@ endpoints:
 {
   "id": 11,
   "capabilities": {
+    "syncedCanaries": true,
+    "cached": true,
+    "maxConnectedClusters": 255,
+    "serviceExportsEnabled": true
+  }
+}
+# cilium/cluster-config/yellow
+{
+  "id": 11,
+  "capabilities": {
+    "privateNetworksEnabled": true,
     "syncedCanaries": true,
     "cached": true,
     "maxConnectedClusters": 255,
