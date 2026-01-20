@@ -1,0 +1,133 @@
+#! --cluster-id=1 --cluster-name=local --test-remote-clusters=blue,green
+
+# Populate the ClusterConfig in the remote clusters
+kvstore/update blue cilium/cluster-config/blue config-blue.json
+kvstore/update green cilium/cluster-config/green config-green.json
+
+# Populate the initial private network endpoint entries
+kvstore/update green cilium/state/privneteps/v1/green/blue-network/10.244.5.108 entry-1.json
+kvstore/update green cilium/state/privneteps/v1/green/blue-network/10.244.5.109 entry-2.json
+kvstore/update green cilium/synced/green/cilium/state/privneteps/v1 synced.txt
+
+hive/start
+
+# Assert that the synced key gets created for both clusters, regardless of whether
+# private networks is disabled. We compare on the key only as the value is the
+# timestamp at which synchronization completed.
+kvstore/list -o plain local cilium/synced synced.actual
+* grep -q '^# cilium/synced/blue/cilium/cache/privneteps/v1$' synced.actual
+* grep -q '^# cilium/synced/green/cilium/cache/privneteps/v1$' synced.actual
+
+# The private network entries should have been propagated
+kvstore/list -o json local cilium/cache/privneteps entries-1+2.actual
+* cmp entries-1+2.actual entries-1+2.expected
+
+# Delete one entry from the remote cluster...
+kvstore/delete green cilium/state/privneteps/v1/green/blue-network/10.244.5.108
+
+# ... and assert that the deletion is propagated
+kvstore/list -o json local cilium/cache/privneteps entries-2.actual
+* cmp entries-2.actual entries-2.expected
+
+# Insert the entry back into the remote cluster...
+kvstore/update green cilium/state/privneteps/v1/green/blue-network/10.244.5.108 entry-1.json
+
+# ... and assert that the upsertion is propagated
+kvstore/list -o json local cilium/cache/privneteps entries-1+2.actual
+* cmp entries-1+2.actual entries-1+2.expected
+
+# ---
+
+-- blue --
+endpoints:
+- in-memory
+
+-- green --
+endpoints:
+- in-memory
+
+-- config-blue.json --
+{
+  "id": 10,
+  "capabilities": {
+    "syncedCanaries": true,
+    "maxConnectedClusters": 255,
+    "serviceExportsEnabled": false
+  }
+}
+
+-- config-green.json --
+{
+  "id": 11,
+  "capabilities": {
+    "privateNetworksEnabled": true,
+    "syncedCanaries": true,
+    "maxConnectedClusters": 255,
+    "serviceExportsEnabled": false
+  }
+}
+
+-- entry-1.json --
+{
+  "ip": "10.244.5.108",
+  "name": "optimum-mouse",
+  "network": {
+    "name": "blue-network",
+    "ip": "10.0.100.40"
+  },
+  "nodeName": "cobra"
+}
+
+-- entry-2.json --
+{
+  "ip": "10.244.5.109",
+  "name": "regular-koi",
+  "network": {
+    "name": "blue-network",
+    "ip": "10.0.100.52"
+  },
+  "nodeName": "cobra"
+}
+
+-- synced.txt --
+2026-01-01T00:00:00+00:00
+
+-- entries-1+2.expected --
+# cilium/cache/privneteps/v1/green/blue-network/10.244.5.108
+{
+  "ip": "10.244.5.108",
+  "name": "optimum-mouse",
+  "network": {
+    "name": "blue-network",
+    "ip": "10.0.100.40"
+  },
+  "nodeName": "cobra"
+}
+
+
+# cilium/cache/privneteps/v1/green/blue-network/10.244.5.109
+{
+  "ip": "10.244.5.109",
+  "name": "regular-koi",
+  "network": {
+    "name": "blue-network",
+    "ip": "10.0.100.52"
+  },
+  "nodeName": "cobra"
+}
+
+
+-- entries-2.expected --
+# cilium/cache/privneteps/v1/green/blue-network/10.244.5.109
+{
+  "ip": "10.244.5.109",
+  "name": "regular-koi",
+  "network": {
+    "name": "blue-network",
+    "ip": "10.0.100.52"
+  },
+  "nodeName": "cobra"
+}
+
+
+-- EOF --

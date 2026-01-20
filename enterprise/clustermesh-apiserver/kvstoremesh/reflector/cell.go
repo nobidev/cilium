@@ -8,24 +8,27 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package kvstoremesh
+package reflector
 
 import (
 	"github.com/cilium/hive/cell"
+	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/clustermesh-apiserver/common"
-	"github.com/cilium/cilium/clustermesh-apiserver/kvstoremesh"
-	"github.com/cilium/cilium/enterprise/clustermesh-apiserver/kvstoremesh/reflector"
+	privnet "github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
+	"github.com/cilium/cilium/pkg/clustermesh/kvstoremesh/reflector"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
-var (
-	EnterpriseKVStoreMesh = cell.Module(
-		"enterprise-kvstoremesh",
-		"Cilium KVStoreMesh Enterprise",
+const (
+	PrivateNetworkEndpoints = "private network endpoints"
+)
 
-		common.Cell,
-		kvstoremesh.Cell,
-
-		reflector.Cell,
-	)
+var Cell = cell.Group(
+	cell.Provide(
+		reflector.Out(reflector.NewFactory(PrivateNetworkEndpoints, privnet.EndpointsPrefix,
+			reflector.WithEnabledOverride(func(cfg types.CiliumClusterConfig) bool {
+				return ptr.Deref(cfg.Capabilities.PrivateNetworksEnabled, false)
+			})),
+		),
+	),
 )
