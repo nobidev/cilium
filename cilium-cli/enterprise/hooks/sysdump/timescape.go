@@ -324,11 +324,12 @@ func untarTo(in io.Reader, dst string) error {
 
 func removeTopDirectory(path string) (string, error) {
 	// file separator hardcoded because sysdump always created on Linux OS
-	index := strings.IndexByte(path, '/')
-	if index < 0 {
+	_, after, ok := strings.Cut(path, "/")
+	if !ok {
 		return "", fmt.Errorf("invalid path %q", path)
 	}
-	return path[index+1:], nil
+
+	return after, nil
 }
 
 // copyN copies from src to dst n bytes at a time to avoid this lint error:
