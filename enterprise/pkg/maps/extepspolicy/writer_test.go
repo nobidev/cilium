@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -40,7 +41,7 @@ func newPolicyMap(t *testing.T, log *slog.Logger, id uint16) *policymap.PolicyMa
 			&policymap.PolicyKey{},
 			&policymap.PolicyEntry{},
 			16,
-			0,
+			bpf.GetMapMemoryFlags(ebpf.LPMTrie)|unix.BPF_F_RDONLY_PROG,
 		),
 	}
 

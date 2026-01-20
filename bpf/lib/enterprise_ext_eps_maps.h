@@ -20,7 +20,7 @@ struct non_pinned_policy_map {
 	__type(key, struct policy_key);
 	__type(value, struct policy_entry);
 	__uint(max_entries, POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } __dummy_inner_ext_eps_policy__ __section_maps_btf;
 
 /* Per-endpoint policy enforcement map */

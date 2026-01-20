@@ -16,6 +16,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/hive/cell"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -56,6 +57,7 @@ func newMap(lc cell.Lifecycle, cfg Config, pc policymap.PolicyConfig, en enabled
 		ValueSize: uint32(unsafe.Sizeof(policymap.PolicyEntry{})),
 		// Mimic the same logic in [policymap.createFactory].
 		MaxEntries: uint32(max(min(pc.BpfPolicyMapMax, option.PolicyMapMax), option.PolicyMapMin)),
+		Flags:      bpf.GetMapMemoryFlags(ebpf.LPMTrie) | unix.BPF_F_RDONLY_PROG,
 	}
 
 	extEPsMap := bpf.NewMapWithInnerSpec(
