@@ -37,3 +37,6 @@ vendor
 
 # Directory containing the generated release archive
 .docs/*
+
+# Manifests folder - copied from main chart during tests
+manifests/

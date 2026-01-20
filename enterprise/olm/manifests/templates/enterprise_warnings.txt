@@ -1,9 +1,0 @@
-{{- define "enterprise.warnings" }}
-{{/*Warn if BGP Control Plane is enabled*/}}
-{{- /* TODO: move this warning to a validation failure from v1.19-ce */ -}}
-
-{{- if (eq "true" (print .Values.bgpControlPlane.enabled)) }}
-{{- println "The OSS BGP Control Plane is enabled. Please migrate to the enterprise BGP Control Plane." -}}
-{{- println "See: https://docs.isovalent.com/configuration-guide/networking/bgpv2/index.html#oss-vs-enterprise-bgp-control-plane" -}}
-{{- end }}
-{{- end }}

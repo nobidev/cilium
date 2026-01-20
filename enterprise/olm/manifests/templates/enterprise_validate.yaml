@@ -1,6 +1,0 @@
-{{/* validate enterprise options */}}
-
-{{/*validate encryption policy fallback mode*/}}
-{{- if and .Values.enterprise.encryption.policy.enabled (ne .Values.enterprise.encryption.policy.fallbackBehavior "plaintext") }}
-  {{- fail "enterprise.encryption.policy.fallbackBehavior needs to be set explicitly set to 'plaintext' for forward-compatibility" }}
-{{- end }}
