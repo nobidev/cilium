@@ -56,7 +56,13 @@ spec:
                         traffic ingress and egress on the selected nodes. This interface must be
                         present on the node and appropriately connected to underlying network
                         infrastructure.
+                      maxLength: 15
+                      minLength: 1
+                      pattern: ^[^:\s\/]+$
                       type: string
+                      x-kubernetes-validations:
+                      - message: '''.'' and ''..'' are not valid interface names'
+                        rule: self != '.' && self != '..'
                     subnetRefs:
                       description: |-
                         Subnets is a list of subnets reachable via this attachment.
@@ -68,6 +74,9 @@ spec:
                           name:
                             description: Name of the Subnet specified in the private-network
                               resource.
+                            maxLength: 63
+                            minLength: 1
+                            pattern: ^([a-z0-9][-a-z0-9]*)?[a-z0-9]$
                             type: string
                         required:
                         - name
@@ -153,6 +162,9 @@ spec:
                 properties:
                   name:
                     description: Name of the ClusterwidePrivateNetwork resource.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                 required:
                 - name

@@ -92,17 +92,24 @@ type SubnetSpec struct {
 	// The name of the subnet.
 	//
 	// +kubebuilder:validation:Required
-	Name string `json:"name"`
+	Name SubnetName `json:"name"`
 
 	// The CIDR (either v4 or v6) associated with the private network.
 	CIDR NetworkCIDR `json:"cidr"`
 }
 
+// Subnet names must conform to the RFC 1123 Label Names format.
+//
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=63
+// +kubebuilder:validation:Pattern=`^([a-z0-9][-a-z0-9]*)?[a-z0-9]$`
+type SubnetName = string
+
 type INBRef struct {
 	// The name of the cluster hosting the INB nodes.
 	//
 	// +kubebuilder:validation:Required
-	Cluster string `json:"cluster"`
+	Cluster ClusterName `json:"cluster"`
 
 	// A selector to optionally select a subset of nodes in the target
 	// cluster to be elected as INBs for this private network. Defaults to
@@ -111,6 +118,17 @@ type INBRef struct {
 	// +kubebuilder:validation:Optional
 	NodeSelector INBRefNodeSelector `json:"nodeSelector,omitzero"`
 }
+
+// A cluster name must respect the following constraints:
+// * It must contain at most 32 characters;
+// * It must begin and end with a lower case alphanumeric character;
+// * It may contain lower case alphanumeric characters and dashes between.
+// See pkg/clustermesh/types/types.go for the corresponding validation.
+//
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=32
+// +kubebuilder:validation:Pattern=`^([a-z0-9][-a-z0-9]*)?[a-z0-9]$`
+type ClusterName = string
 
 type INBRefNodeSelector struct {
 	slim_metav1.LabelSelector `json:",inline"`
@@ -122,8 +140,18 @@ type InterfaceSpec struct {
 	// Network Bridge cluster only.
 	//
 	// +kubebuilder:validation:Optional
-	Name string `json:"name,omitempty"`
+	Name InterfaceName `json:"name,omitempty"`
 }
+
+// Interface names must be less than 16 characters, and not include forward
+// slashes, colons and spaces. Additionally, they cannot match "." and "..".
+// See https://elixir.bootlin.com/linux/v6.18.6/source/net/core/dev.c#L1297-L1320
+
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=15
+// +kubebuilder:validation:Pattern=`^[^:\s\/]+$`
+// +kubebuilder:validation:XValidation:rule="self != '.' && self != '..'", message="'.' and '..' are not valid interface names"
+type InterfaceName = string
 
 type PrivateNetworkStatus struct {
 	// An allocated VNI value
@@ -157,8 +185,16 @@ type PrivateNetworkEndpointSlice struct {
 	// the Isovalent Network Bridge when operating in bridge mode.
 	//
 	// +kubebuilder:validation:Required
-	NodeName string `json:"nodeName"`
+	NodeName NodeName `json:"nodeName"`
 }
+
+// Node names must conform to the RFC 1123 DNS Subdomain Names format.
+//
+// +kubebuilder:validation:Required
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+type NodeName = string
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen=false
@@ -227,8 +263,15 @@ type PrivateNetworkEndpointSliceEndpoint struct {
 	// The name identifying the target endpoint.
 	//
 	// +kubebuilder:validation:Required
-	Name string `json:"name"`
+	Name EndpointName `json:"name"`
 }
+
+// Endpoint names must conform to the RFC 1123 DNS Subdomain Names format.
+//
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+type EndpointName = string
 
 type PrivateNetworkEndpointSliceInterface struct {
 	// The endpoint addresses (IPv4 and/or IPv6) from the private network point
@@ -247,8 +290,15 @@ type PrivateNetworkEndpointSliceInterface struct {
 	// ClusterwidePrivateNetwork resource.
 	//
 	// +kubebuilder:validation:Required
-	Network string `json:"network"`
+	Network PrivateNetworkName `json:"network"`
 }
+
+// Private network names must conform to the RFC 1123 DNS Subdomain Names format.
+//
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+type PrivateNetworkName = string
 
 // +kubebuilder:validation:MinProperties=1
 type PrivateNetworkEndpointAddressing struct {
@@ -420,14 +470,14 @@ type PrivateNetworkRef struct {
 	// Name of the ClusterwidePrivateNetwork resource.
 	//
 	// +kubebuilder:validation:Required
-	Name string `json:"name"`
+	Name PrivateNetworkName `json:"name"`
 }
 
 type PrivateNetworkSubnetRef struct {
 	// Name of the Subnet specified in the private-network resource.
 	//
 	// +kubebuilder:validation:Required
-	Name string `json:"name"`
+	Name SubnetName `json:"name"`
 }
 
 type PrivateNetworkAttachment struct {
@@ -437,7 +487,7 @@ type PrivateNetworkAttachment struct {
 	// infrastructure.
 	//
 	// +kubebuilder:validation:Required
-	Interface string `json:"interface"`
+	Interface InterfaceName `json:"interface"`
 
 	// Subnets is a list of subnets reachable via this attachment.
 	//

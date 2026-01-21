@@ -97,6 +97,9 @@ spec:
                     description: |-
                       Name of the target private network, as defined by a
                       ClusterwidePrivateNetwork resource.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                 required:
                 - addressing
