@@ -49,7 +49,7 @@ ext_eps_policy_can_egress6(struct __ctx_buff *ctx, union v6addr ip6, __u32 dst_i
 		.family = ENDPOINT_KEY_IPV6,
 	};
 
-	return ext_ep_policy_verdict(ctx, &key, dst_id, ETH_P_IP, dport, proto,
+	return ext_ep_policy_verdict(ctx, &key, dst_id, ETH_P_IPV6, dport, proto,
 				     l4_off, match_type, EGRESS_POLICY, false,
 				     audited, ext_err, proxy_port, cookie);
 }
@@ -65,7 +65,7 @@ ext_eps_policy_can_ingress6(struct __ctx_buff *ctx, union v6addr ip6, __u32 dst_
 		.family = ENDPOINT_KEY_IPV6,
 	};
 
-	return ext_ep_policy_verdict(ctx, &key, dst_id, ETH_P_IP, dport, proto,
+	return ext_ep_policy_verdict(ctx, &key, dst_id, ETH_P_IPV6, dport, proto,
 				     l4_off, match_type, INGRESS_POLICY, is_untracked_fragment,
 				     audited, ext_err, proxy_port, cookie);
 }
