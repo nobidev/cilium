@@ -95,6 +95,8 @@ int privnet_icmp_from_netdev_nat_src_dst_check(struct __ctx_buff *ctx)
 			   sizeof(__u32), PODIP_ICMP_REQ,
 			   sizeof(BUF(PODIP_ICMP_REQ)));
 
+	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
@@ -113,6 +115,7 @@ int privnet_icmp_from_netdev_respond_arp_setup(struct __ctx_buff *ctx)
 {
 	privnet_watchdog_set(ktime_get_ns(), 3000000000ULL);
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+
 	return netdev_receive_packet(ctx);
 }
 
@@ -127,6 +130,8 @@ int privnet_icmp_from_netdev_respond_arp_check(struct __ctx_buff *ctx)
 	ASSERT_CTX_BUF_OFF("privnet_icmp_from_netdev_respond_arp", "Ether", ctx,
 			   sizeof(__u32), NETIP_ARP_RES,
 			   sizeof(BUF(NETIP_ARP_RES)));
+
+	assert_privnet_net_ids(NET_ID, NET_ID);
 
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
@@ -155,6 +160,8 @@ int privnet_icmp_from_netdev_respond_arp_check_agent_down(struct __ctx_buff *ctx
 
 	/* No ARP response should be emitted */
 	assert_status_code(ctx, TC_ACT_OK);
+
+	assert_privnet_net_ids(NET_ID, NET_ID);
 
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
@@ -190,6 +197,8 @@ int privnet_icmp6_from_netdev_respond_ns_check(struct __ctx_buff *ctx)
 			   sizeof(__u32), NETDEV_ICMP6_NA,
 			   sizeof(BUF(NETDEV_ICMP6_NA)));
 
+	assert_privnet_net_ids(NET_ID, NET_ID);
+
 	privnet_v6_del_endpoint_entry(NET_ID,
 				      (const union v6addr *)V6_NET_IP_1,
 				      (const union v6addr *)V6_POD_IP_1);
@@ -222,6 +231,8 @@ int privnet_icmp6_from_netdev_respond_ns_check_agent_down(struct __ctx_buff *ctx
 	/* No ARP response should be emitted */
 	assert_status_code(ctx, TC_ACT_OK);
 
+	assert_privnet_net_ids(NET_ID, NET_ID);
+
 	privnet_v6_del_endpoint_entry(NET_ID,
 				      (const union v6addr *)V6_NET_IP_1,
 				      (const union v6addr *)V6_POD_IP_1);
@@ -253,6 +264,8 @@ int privnet_icmp_from_netdev_miss_src_check(struct __ctx_buff *ctx)
 	/* packet should be dropped */
 	assert_status_code(ctx, DROP_UNROUTABLE);
 
+	assert_privnet_net_ids(NET_ID, PRIVNET_PIP_NET_ID);
+
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	test_finish();
 }
@@ -280,6 +293,8 @@ int privnet_icmp_from_netdev_miss_dst_check(struct __ctx_buff *ctx)
 
 	/* packet should be dropped */
 	assert_status_code(ctx, DROP_UNROUTABLE);
+
+	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, NET_ID);
 
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	test_finish();

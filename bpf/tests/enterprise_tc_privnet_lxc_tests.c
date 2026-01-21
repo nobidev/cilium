@@ -61,6 +61,8 @@ int privnet_icmp_from_container_nat_src_dst_check(struct __ctx_buff *ctx)
 			   sizeof(__u32), PODIP_ICMP_REQ,
 			   sizeof(BUF(PODIP_ICMP_REQ)));
 
+	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
@@ -101,6 +103,8 @@ int privnet_tcp_from_container_nat_src_dst_check(struct __ctx_buff *ctx)
 			   sizeof(__u32), PODIP_TCP_SYN,
 			   sizeof(BUF(PODIP_TCP_SYN)));
 
+	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
@@ -140,6 +144,8 @@ int privnet_icmp_from_container_nat_src_route_dst_check(struct __ctx_buff *ctx)
 	ASSERT_CTX_BUF_OFF("privnet_icmp_from_container_nat_src_route_dst", "IP", ctx,
 			   sizeof(__u32), UNKNOWN_ICMP_REQ,
 			   sizeof(BUF(UNKNOWN_ICMP_REQ)));
+
+	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, NET_ID);
 
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_route(NET_ID, V4_NET_IP_2);
@@ -189,6 +195,8 @@ int privnet_icmp_from_container_nat_src_miss_dst_check(struct __ctx_buff *ctx)
 	if (!entry)
 		test_fatal("metrics entry not found");
 
+	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, NET_ID);
+
 	__u64 count = 1;
 
 	assert_metrics_count(key, count);
@@ -211,6 +219,8 @@ int privnet_icmp_to_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
+	set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
 	policy_add_ingress_allow_l3_l4_entry(0, 0, 0, 0);
 	return pod_receive_packet_by_tailcall(ctx);
 }
@@ -226,6 +236,8 @@ int privnet_icmp_to_container_nat_src_dst_check(struct __ctx_buff *ctx)
 	ASSERT_CTX_BUF_OFF("privnet_icmp_to_container_nat_src_dst", "IP", ctx,
 			   sizeof(__u32), EXPECTED_NETIP_ICMP_REQ,
 			   sizeof(BUF(EXPECTED_NETIP_ICMP_REQ)));
+
+	assert_privnet_net_ids(NET_ID, NET_ID);
 
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
@@ -247,6 +259,8 @@ int privnet_tcp_to_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
+	set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
 	policy_add_ingress_allow_l3_l4_entry(0, 0, 0, 0);
 	return pod_receive_packet_by_tailcall(ctx);
 }
@@ -261,6 +275,8 @@ int privnet_tcp_to_container_nat_src_dst_check(struct __ctx_buff *ctx)
 	ASSERT_CTX_BUF_OFF("privnet_tcp_to_container_nat_src_dst", "IP", ctx,
 			   sizeof(__u32), NETIP_TCP_SYN,
 			   sizeof(BUF(NETIP_TCP_SYN)));
+
+	assert_privnet_net_ids(NET_ID, NET_ID);
 
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
@@ -282,6 +298,8 @@ int privnet_icmp_to_container_unknown_src_nat_dst_setup(struct __ctx_buff *ctx)
 	/* dst is known, no entry for src */
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
+	set_privnet_net_ids(PRIVNET_UNKNOWN_NET_ID, PRIVNET_PIP_NET_ID);
+
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
 	return pod_receive_packet_by_tailcall(ctx);
 }
@@ -296,6 +314,8 @@ int privnet_icmp_to_container_unknown_src_nat_dst_check(struct __ctx_buff *ctx)
 	ASSERT_CTX_BUF_OFF("privnet_icmp_to_container_unknown_src_nat_dst", "IP", ctx,
 			   sizeof(__u32), UNKNOWN_ICMP_REQ,
 			   sizeof(BUF(UNKNOWN_ICMP_REQ)));
+
+	assert_privnet_net_ids(NET_ID, NET_ID);
 
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	test_finish();
@@ -316,6 +336,9 @@ int privnet_icmp_to_container_unknown_src_miss_dst_setup(struct __ctx_buff *ctx)
 {
 	/* no entry for dst */
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
+
+	set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
 	return pod_receive_packet_by_tailcall(ctx);
 }
 
@@ -325,6 +348,8 @@ int privnet_icmp_to_container_unknown_src_miss_dst_check(struct __ctx_buff *ctx)
 	test_init();
 
 	assert_status_code(ctx, DROP_UNROUTABLE); /* drop check*/
+
+	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
 
 	test_finish();
 }

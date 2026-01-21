@@ -47,18 +47,33 @@ BUF_DECL(NETDEV_ICMP6_NA, privnet_netdev_na);
 		pktgen__finish(&builder);		\
 	} while (0)
 
-#define assert_status_code(ctx, expected)				\
-	do {								\
-		void *data = ctx_data(ctx);				\
-		void *data_end = ctx_data_end(ctx);			\
-		__u32 *status_code;					\
-									\
-		if (data + sizeof(__u32) > data_end)			\
-			test_fatal("status code out of bounds");	\
-									\
-		status_code = data;					\
-		assert(*status_code == (__u32)(expected));		\
+#define assert_status_code(ctx, expected)						\
+	do {										\
+		void *data = ctx_data(ctx);						\
+		void *data_end = ctx_data_end(ctx);					\
+		__u32 *status_code;							\
+											\
+		if (data + sizeof(__u32) > data_end)					\
+			test_fatal("status code out of bounds");			\
+											\
+		status_code = data;							\
+		if ((*status_code) != (__u32)(expected))				\
+			test_fatal("unexpected status code (expected %d, got %d)",	\
+					(__u32)(expected), *status_code);		\
 	} while (0)
+
+#define assert_privnet_net_ids(expected_src, expected_dst)				\
+	do {										\
+		__u16 actual_src = 0;							\
+		__u16 actual_dst = 0;							\
+		get_privnet_net_ids(&actual_src, &actual_dst);				\
+		if (actual_src != (expected_src))					\
+			test_fatal("unexpected src netID (expected %d, got %d)",	\
+					(expected_src), actual_src);			\
+		if (actual_dst != (expected_dst))					\
+			test_fatal("unexpected dst netID (expected %d, got %d)",	\
+					(expected_dst), actual_dst);			\
+	} while (0)									\
 
 #define skb_get_tunnel_key mock_tunnel_key
 int mock_tunnel_key(struct __ctx_buff *ctx __maybe_unused,
