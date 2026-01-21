@@ -57,6 +57,7 @@ var (
 
 				newPrivateNetworkEndpointSliceOptions,
 				newPrivateNetworkEndpointSliceConverter,
+				newPrivateNetworkEndpointSliceNamespacer,
 			),
 			cell.Invoke(clustermesh.RegisterSynchronizer[*iso_api_v1a1.PrivateNetworkEndpointSlice]),
 		),

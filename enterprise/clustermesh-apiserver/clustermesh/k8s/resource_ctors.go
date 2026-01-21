@@ -12,6 +12,7 @@ package k8s
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -30,5 +31,10 @@ func PrivateNetworkEndpointSliceResource(params k8s.CiliumResourceParams, mp wor
 	)
 	return resource.New[*iso_v1alpha1.PrivateNetworkEndpointSlice](params.Lifecycle, lw, mp,
 		resource.WithMetric("PrivateNetworkEndpointSlices"), resource.WithCRDSync(params.CRDSyncPromise),
+		resource.WithIndexers(
+			cache.Indexers{
+				cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+			},
+		),
 	), nil
 }

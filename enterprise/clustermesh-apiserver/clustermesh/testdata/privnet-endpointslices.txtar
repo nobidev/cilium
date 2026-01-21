@@ -2,6 +2,9 @@
 
 hive/start
 
+# Create the namespaces used during the test
+k8s/add namespace-1.yaml namespace-2.yaml
+
 # Add two PrivateNetworkEndpointSlices
 k8s/add privnet-epslice-1.yaml privnet-epslice-2.yaml
 
@@ -35,7 +38,42 @@ k8s/delete privnet-epslice-2.yaml
 kvstore/list -o json cilium/state/privneteps entries-1+3.actual
 * cmp entries-1+3.actual entries-1+3.expected
 
+# Mark one of the namespaces as local
+k8s/update namespace-1-annotated.yaml
+
+# Wait for synchronization, the corresponding entries should be removed
+kvstore/list -o json cilium/state/privneteps entries-3.actual
+* cmp entries-3.actual entries-3.expected
+
+# Mark it as global again
+k8s/update namespace-1.yaml
+
+# Wait for synchronization, the corresponding entries should be inserted back
+kvstore/list -o json cilium/state/privneteps entries-1+3.actual
+* cmp entries-1+3.actual entries-1+3.expected
+
+
 # ---
+
+-- namespace-1.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: keen-calf
+
+-- namespace-1-annotated.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: keen-calf
+  annotations:
+    clustermesh.cilium.io/global: "false"
+
+-- namespace-2.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: precise-caiman
 
 -- privnet-epslice-1.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -622,5 +660,26 @@ nodeName: weasel
     "cluster": "cluster3",
     "namespace": "keen-calf",
     "name": "privnet-epslice-1"
+  }
+}
+-- entries-3.expected --
+# cilium/state/privneteps/v1/cluster3/yellow-network/10.244.7.42
+{
+  "activatedAt": "2025-06-20T16:24:09.627Z",
+  "flags": {
+    "external": false
+  },
+  "ip": "10.244.7.42",
+  "name": "enabling-lacewing",
+  "network": {
+    "name": "yellow-network",
+    "ip": "10.0.100.50",
+    "mac": "00:50:56:ad:9b:c7"
+  },
+  "nodeName": "weasel",
+  "source": {
+    "cluster": "cluster3",
+    "namespace": "precise-caiman",
+    "name": "privnet-epslice-3"
   }
 }

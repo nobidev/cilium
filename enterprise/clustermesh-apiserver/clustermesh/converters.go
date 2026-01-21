@@ -27,9 +27,10 @@ import (
 
 func newPrivateNetworkEndpointSliceOptions(cfg pncfg.Common) clustermesh.Options[*iso_api_v1a1.PrivateNetworkEndpointSlice] {
 	return clustermesh.Options[*iso_api_v1a1.PrivateNetworkEndpointSlice]{
-		Enabled:  cfg.Enabled,
-		Resource: "PrivateNetworkEndpointSlice",
-		Prefix:   privnet.EndpointsPrefix,
+		Enabled:    cfg.Enabled,
+		Resource:   "PrivateNetworkEndpointSlice",
+		Prefix:     privnet.EndpointsPrefix,
+		Namespaced: true,
 	}
 }
 
