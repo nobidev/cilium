@@ -48,6 +48,6 @@ check-enterprise-features:
 
 	$(QUIET)$(GO) run ../../enterprise/features/helm-gen validate
 
-EXTRA_ALL := check-enterprise-features
+all: check-enterprise-features
 
 COMMON_LABELS_EXCLUSIONS := --exclude validate.yaml --exclude enterprise_features_validate.yaml --exclude enterprise_validate.yaml

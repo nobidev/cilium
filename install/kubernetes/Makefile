@@ -44,12 +44,10 @@ endef
 COMMON_LABELS_EXCLUSIONS := --exclude validate.yaml
 CRD_FILES := $(shell find $(ROOT_DIR)/examples/crds/*/ -type f -name "*.yaml")
 
-all: update-versions check-values-yaml docs lint extra_all
+all: update-versions check-values-yaml docs lint
 
 # Add the ability to override variables and add more targets.
 -include Makefile.override
-
-extra_all: $(EXTRA_ALL)
 
 update-chart: $(ROOT_DIR)/VERSION # Update chart versions to point to the current version.
 	$(ECHO_GEN)cilium/Chart.yaml
