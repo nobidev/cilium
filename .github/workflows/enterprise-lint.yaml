@@ -44,7 +44,7 @@ jobs:
           git config set advice.mergeConflict false
           git config set advice.detachedHead false
           contrib/scripts/enterprise-mindful-branch.sh --branch "$BASE_BRANCH" \
-            --downstream-branch origin/main-ce --repo cilium/cilium \
+            --downstream-branch HEAD --repo cilium/cilium \
             --ignore-failures --debug
           # Ignore failures above as the cherry-picking of upstream commits is best-effort.
       - name: Diff against upstream tree for files that should not diverge from OSS
