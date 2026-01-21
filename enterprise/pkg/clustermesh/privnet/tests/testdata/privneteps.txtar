@@ -1,0 +1,124 @@
+#! --cluster-id=254 --cluster-name=local --private-networks-enabled
+
+# Override the default ClusterConfig created by the test, so that cluster1 and
+# cluster2 have private networks enabled (the latter using the KVStoreMesh API),
+# while cluster3 not.
+kvstore/update cilium/cluster-config/cluster1 cluster1.config
+kvstore/update cilium/cluster-config/cluster2 cluster2.config
+kvstore/update cilium/cluster-config/cluster3 cluster3.config
+
+hive start
+
+kvstore/update cilium/state/privneteps/v1/cluster1/blue-network/10.245.5.77 cluster1-endpoint1.json
+kvstore/update cilium/state/privneteps/v1/cluster1/blue-network/10.245.5.78 cluster1-endpoint2.json
+kvstore/update cilium/cache/privneteps/v1/cluster2/blue-network/10.246.5.77 cluster2-endpoint1.json
+kvstore/update cilium/synced/cluster1/cilium/state/privneteps/v1 synced.txt
+
+# cluster2 is not marked as synchronized yet, hence we should have observed only
+# the entries from cluster1 so far, and the table should not be marked as synced.
+db/cmp privnet-endpoints endpoints.v1.table
+! db/initialized --timeout 0 privnet-endpoints
+
+# Mark cluster2 as synchronized, all endpoints should now show up, and the
+# synchronization signal should be propagated to the observer as well (and
+# in turn to the table).
+kvstore/update cilium/synced/cluster2/cilium/cache/privneteps/v1 synced.txt
+db/cmp privnet-endpoints endpoints.v2.table
+db/initialized privnet-endpoints
+
+# Delete one entry, and check that the deletion is propagated.
+kvstore/delete cilium/state/privneteps/v1/cluster1/blue-network/10.245.5.78
+db/cmp privnet-endpoints endpoints.v3.table
+
+# Insert it back, and check that the upsertion is propagated.
+kvstore/update cilium/state/privneteps/v1/cluster1/blue-network/10.245.5.78 cluster1-endpoint2.json
+db/cmp privnet-endpoints endpoints.v2.table
+
+# Disconnect one cluster, and assert that all the associated entries get drained
+rm cluster1
+db/cmp privnet-endpoints endpoints.v4.table
+
+# ---
+
+-- cluster1.config --
+{"id":1,"capabilities":{"privateNetworksEnabled": true, "syncedCanaries": true, "maxConnectedClusters":255}}
+-- cluster2.config --
+{"id":2,"capabilities":{"privateNetworksEnabled": true, "syncedCanaries": true, "maxConnectedClusters":255, "cached": true}}
+-- cluster3.config --
+{"id":3,"capabilities":{"privateNetworksEnabled": false, "syncedCanaries": true, "maxConnectedClusters":255}}
+
+-- synced.txt --
+2026-01-01T00:00:00+00:00
+
+-- cluster1-endpoint1.json --
+{
+  "ip": "10.245.5.77",
+  "name": "optimum-mouse",
+  "network": {
+    "name": "blue-network",
+    "ip": "10.0.100.40",
+    "mac": "00:50:56:ad:45:ec"
+  },
+  "nodeName": "hookworm",
+  "source": {
+    "cluster": "cluster1",
+    "namespace": "keen-calf",
+    "name": "slice-1"
+  }
+}
+
+-- cluster1-endpoint2.json --
+{
+  "activatedAt": "2025-06-20T15:52:01.435Z",
+  "ip": "10.245.5.78",
+  "name": "regular-koi",
+  "network": {
+    "name": "blue-network",
+    "ip": "10.0.100.52",
+    "mac": "00:50:56:ad:11:99"
+  },
+  "nodeName": "hookworm",
+  "source": {
+    "cluster": "cluster1",
+    "namespace": "keen-calf",
+    "name": "slice-1"
+  }
+}
+
+-- cluster2-endpoint1.json --
+{
+  "activatedAt": "2025-06-20T15:53:49.174Z",
+  "ip": "10.246.5.77",
+  "name": "optimum-mouse",
+  "network": {
+    "name": "blue-network",
+    "ip": "10.0.100.40",
+    "mac": "00:50:56:ad:45:ec"
+  },
+  "nodeName": "impala",
+  "source": {
+    "cluster": "cluster2",
+    "namespace": "keen-calf",
+    "name": "slice-1"
+  }
+}
+
+-- endpoints.v1.table --
+Source                       Name            Network        NetworkIP     NetworkMAC          PodIP         ActivatedAt
+cluster1/keen-calf/slice-1   optimum-mouse   blue-network   10.0.100.40   00:50:56:ad:45:ec   10.245.5.77   <inactive>
+cluster1/keen-calf/slice-1   regular-koi     blue-network   10.0.100.52   00:50:56:ad:11:99   10.245.5.78   2025-06-20T15:52:01Z
+
+-- endpoints.v2.table --
+Source                       Name            Network        NetworkIP     NetworkMAC          PodIP         ActivatedAt
+cluster1/keen-calf/slice-1   optimum-mouse   blue-network   10.0.100.40   00:50:56:ad:45:ec   10.245.5.77   <inactive>
+cluster1/keen-calf/slice-1   regular-koi     blue-network   10.0.100.52   00:50:56:ad:11:99   10.245.5.78   2025-06-20T15:52:01Z
+cluster2/keen-calf/slice-1   optimum-mouse   blue-network   10.0.100.40   00:50:56:ad:45:ec   10.246.5.77   2025-06-20T15:53:49Z
+
+-- endpoints.v3.table --
+Source                       Name            Network        NetworkIP     NetworkMAC          PodIP         ActivatedAt
+cluster1/keen-calf/slice-1   optimum-mouse   blue-network   10.0.100.40   00:50:56:ad:45:ec   10.245.5.77   <inactive>
+cluster2/keen-calf/slice-1   optimum-mouse   blue-network   10.0.100.40   00:50:56:ad:45:ec   10.246.5.77   2025-06-20T15:53:49Z
+
+-- endpoints.v4.table --
+Source                       Name            Network        NetworkIP     NetworkMAC          PodIP         ActivatedAt
+cluster2/keen-calf/slice-1   optimum-mouse   blue-network   10.0.100.40   00:50:56:ad:45:ec   10.246.5.77   2025-06-20T15:53:49Z

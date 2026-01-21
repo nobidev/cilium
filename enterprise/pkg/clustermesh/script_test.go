@@ -31,8 +31,8 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	pntests "github.com/cilium/cilium/enterprise/pkg/clustermesh/privnet/tests"
 	cectnat "github.com/cilium/cilium/enterprise/pkg/maps/ctnat"
-	privnet "github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/pkg/allocator"
 	cm "github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
@@ -103,7 +103,9 @@ func TestScript(t *testing.T) {
 		t.Cleanup(serializeMu.Unlock)
 
 		storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
-		configDir := t.TempDir()
+
+		// Store clustermesh configurations in the working directory of the test.
+		configDir := path.Join(path.Dir(t.TempDir()), "001")
 
 		h := hive.New(
 			k8sfake.FakeClientCell(),
@@ -118,6 +120,8 @@ func TestScript(t *testing.T) {
 			ipset.Cell,
 			dial.ServiceResolverCell,
 			metrics.Cell,
+
+			pntests.Cell,
 
 			cell.Config(cmtypes.DefaultClusterInfo),
 			cell.Invoke(cmtypes.ClusterInfo.InitClusterIDMax, cmtypes.ClusterInfo.Validate),
@@ -167,8 +171,6 @@ func TestScript(t *testing.T) {
 			cell.Provide(func() cectnat.PerCluster {
 				return cectnat.NewFakePerCluster(true, true)
 			}),
-
-			cell.Provide(privnet.NewPrivateNetworkEndpoints),
 
 			cell.DecorateAll(func(client kvstore.Client) common.RemoteClientFactoryFn {
 				// All clusters share the same underlying client.
@@ -232,6 +234,13 @@ func TestScript(t *testing.T) {
 		setup,
 		[]string{},
 		"testdata/*.txtar")
+
+	// Tests related to private networks
+	scripttest.Test(t,
+		ctx,
+		setup,
+		[]string{},
+		"privnet/tests/testdata/*.txtar")
 
 	// Also execute the OSS tests
 	scripttest.Test(t,
