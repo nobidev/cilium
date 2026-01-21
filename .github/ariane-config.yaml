@@ -117,6 +117,7 @@ schedule:
     - conformance-aks.yaml
     - conformance-gateway-api.yaml
     - conformance-gke.yaml
+    - conformance-ipsec.yaml
 
 workflows:
   conformance-aks.yaml:
