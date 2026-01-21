@@ -20,7 +20,7 @@ CHART_FILE := "$(CILIUM_CHARTS)/Chart.yaml"
 VALUES_TMPL_FILE_NAME ?= *values.yaml.tmpl
 
 VERSION_REGEX := '[0-9]\+\.[0-9]\+\.[0-9]\+.*'
-CILIUM_CHART_REGEX := '^\([vV]ersion:\) '$(VERSION_REGEX)
+CILIUM_CHART_REGEX := '\([vV]ersion:\) '$(VERSION_REGEX)
 
 DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
 	--workdir /src/install/kubernetes \
