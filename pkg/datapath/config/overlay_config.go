@@ -36,14 +36,6 @@ type BPFOverlay struct {
 	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
-	// True if running on network bridge.
-	PrivnetBridgeEnable bool `config:"privnet_bridge_enable"`
-	// True if the endpoint is in a non-default network.
-	PrivnetEnable bool `config:"privnet_enable"`
-	// The identifier of the private network.
-	PrivnetNetworkID uint16 `config:"privnet_network_id"`
-	// The security identifier for unknown network traffic.
-	PrivnetUnknownSecID uint32 `config:"privnet_unknown_sec_id"`
 	// VXLAN tunnel endpoint network mask.
 	VTEPMask uint32 `config:"vtep_mask"`
 
@@ -54,5 +46,5 @@ func NewBPFOverlay(node Node) *BPFOverlay {
 	return &BPFOverlay{false, 0x5dc, false, false, false, false, false, false, 0x0, 0x0,
 		[8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, false, 0x0, 0x0, 0x0, node}
+		0x0, node}
 }

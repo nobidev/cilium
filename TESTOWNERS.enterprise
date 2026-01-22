@@ -405,7 +405,6 @@
 /bpf/enterprise_* @isovalent/cilium-datapath
 /bpf/enterprise_bpf_* @isovalent/cilium-datapath @isovalent/private-networking
 /bpf/enterprise_bpf_alignchecker.h @isovalent/cilium-datapath
-/bpf/include/bpf/config/enterprise_* @isovalent/cilium-datapath @isovalent/private-networking
 /bpf/lib/enterprise_* @isovalent/cilium-datapath
 /bpf/lib/enterprise_encrypt.h @isovalent/encryption
 /bpf/lib/enterprise_ext_eps*.h @isovalent/private-networking

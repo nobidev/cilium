@@ -7,6 +7,7 @@
 #include "conntrack.h"
 #include "icmp6.h"
 
+#include "enterprise_config.h"
 #include "enterprise_ext_eps_policy.h"
 
 /*
@@ -139,14 +140,19 @@
  *		f. Packet is redirected to lxc device.
  */
 
-DECLARE_CONFIG(bool, privnet_enable,
-	       "True if the endpoint is in a non-default network")
-DECLARE_CONFIG(__u32, privnet_unknown_sec_id,
-	       "The security identifier for unknown network traffic")
-DECLARE_CONFIG(__u16, privnet_network_id,
-	       "The identifier of the private network")
-DECLARE_CONFIG(bool, privnet_bridge_enable,
-	       "True if running on network bridge")
+DECLARE_ENTERPRISE_CONFIG(bool, privnet_enable,
+			  "True if the endpoint is in a non-default network")
+DECLARE_ENTERPRISE_CONFIG(__u32, privnet_unknown_sec_id,
+			  "The security identifier for unknown network traffic")
+DECLARE_ENTERPRISE_CONFIG(__u16, privnet_network_id,
+			  "The identifier of the private network")
+DECLARE_ENTERPRISE_CONFIG(bool, privnet_bridge_enable,
+			  "True if running on network bridge")
+
+#ifdef IS_BPF_LXC
+DECLARE_ENTERPRISE_CONFIG(union v6addr, privnet_ipv6,
+			  "The endpoint's IPv6 address within the network")
+#endif /* IS_BPF_LXC */
 
 struct privnet_fib_key {
 	struct bpf_lpm_trie_key lpm_key;
