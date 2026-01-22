@@ -33,6 +33,7 @@ import (
 	entcm "github.com/cilium/cilium/enterprise/clustermesh-apiserver/clustermesh"
 	entcmk8s "github.com/cilium/cilium/enterprise/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/enterprise/pkg/clustermesh/clustercfg"
+	"github.com/cilium/cilium/enterprise/pkg/clustermesh/phantom"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -106,6 +107,7 @@ func TestScript(t *testing.T) {
 			clustercfg.Cell,
 			entcmk8s.ResourcesCell,
 			entcm.EnterpriseSynchronization,
+			phantom.Cell,
 		)
 
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
