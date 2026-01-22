@@ -253,13 +253,52 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		gatewayLabel: gw.Name,
 	})
 
-	desiredT1EndpointSlice := r.t1Translator.DesiredEndpointSlice(model, false)
+	desiredT1EndpointSliceIPv4 := r.t1Translator.DesiredEndpointSlice(model, false)
+	desiredT1EndpointSliceIPv6 := r.t1Translator.DesiredEndpointSlice(model, true)
 
+	if desiredT1EndpointSliceIPv4 != nil {
+		desiredT1EndpointSliceIPv4.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion: gatewayv1beta1.GroupVersion.String(),
+				Kind:       gw.Kind,
+				Name:       gw.Name,
+				UID:        types.UID(gw.UID),
+				Controller: ptr.To(true),
+			},
+		}
+	}
+	if desiredT1EndpointSliceIPv6 != nil {
+		desiredT1EndpointSliceIPv6.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion: gatewayv1beta1.GroupVersion.String(),
+				Kind:       gw.Kind,
+				Name:       gw.Name,
+				UID:        types.UID(gw.UID),
+				Controller: ptr.To(true),
+			},
+		}
+	}
 	if err := r.createOrUpdateService(ctx, desiredT1Service); err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := r.createOrUpdateEndpointSlice(ctx, desiredT1EndpointSlice); err != nil {
-		return ctrl.Result{}, err
+
+	if desiredT1EndpointSliceIPv4 != nil {
+		if err := r.createOrUpdateEndpointSlice(ctx, desiredT1EndpointSliceIPv4); err != nil {
+			return controllerruntime.Fail(err)
+		}
+	} else {
+		if err := r.ensureEndpointSliceDeleted(ctx, model, false); err != nil {
+			return controllerruntime.Fail(err)
+		}
+	}
+	if desiredT1EndpointSliceIPv6 != nil {
+		if err := r.createOrUpdateEndpointSlice(ctx, desiredT1EndpointSliceIPv6); err != nil {
+			return controllerruntime.Fail(err)
+		}
+	} else {
+		if err := r.ensureEndpointSliceDeleted(ctx, model, true); err != nil {
+			return controllerruntime.Fail(err)
+		}
 	}
 
 	// stops reconciliation if T1 svc is not available yet or not able to bind to VIP
@@ -354,6 +393,25 @@ func (r *gatewayReconciler) loadK8sEndpointSlices(ctx context.Context, gw *gatew
 	}
 
 	return res
+}
+
+func (r *gatewayReconciler) ensureEndpointSliceDeleted(ctx context.Context, model *lbService, ipv6 bool) error {
+	midfix := ""
+	if ipv6 {
+		midfix = endpointSliceIPv6Midfix
+	}
+	ep := &discoveryv1.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: model.namespace,
+			Name:      model.getOwningResourceNameWithMidfix(midfix),
+		},
+	}
+	if err := r.Delete(ctx, ep); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to ensure enpointslice is deleted %w", err)
+		}
+	}
+	return nil
 }
 
 // creates/updates the svc from the T1 model
