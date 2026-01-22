@@ -1,0 +1,63 @@
+hive start
+
+# Add mappings for two private networks with different VNIs
+db/insert vni-mappings mappings.baseline.yaml
+
+# Ensure the BPF map entries are created as expected
+vni/map-dump map.actual
+* cmp map.actual baseline-map.expected
+
+# Update one of the mappings to use a different private network
+db/insert vni-mappings mappings.updated.yaml
+
+# Ensure the BPF map entries are updated as expected
+vni/map-dump map.actual
+* cmp map.actual map-updated.expected
+
+# Delete one of the mappings
+db/delete vni-mappings mappings.delete-100.yaml
+
+# Ensure the BPF map entries are deleted as expected
+vni/map-dump map.actual
+* cmp map.actual map-deleted-100.expected
+
+# Delete the other mapping
+db/delete vni-mappings mappings.delete-200.yaml
+
+# Ensure the BPF map entry is removed
+vni/map-dump map.actual
+* cmp map.actual map-empty.expected
+
+-- mappings.baseline.yaml --
+vni: 100
+networkid: 1
+status:
+  kind: Pending
+---
+vni: 200
+networkid: 2
+status:
+  kind: Pending
+-- baseline-map.expected --
+vni=100 -> net_id=1
+vni=200 -> net_id=2
+-- mappings.updated.yaml --
+vni: 100
+networkid: 1
+status:
+  kind: Pending
+---
+vni: 200
+networkid: 3
+status:
+  kind: Pending
+-- map-updated.expected --
+vni=100 -> net_id=1
+vni=200 -> net_id=3
+-- mappings.delete-100.yaml --
+vni: 100
+-- map-deleted-100.expected --
+vni=200 -> net_id=3
+-- mappings.delete-200.yaml --
+vni: 200
+-- map-empty.expected --
