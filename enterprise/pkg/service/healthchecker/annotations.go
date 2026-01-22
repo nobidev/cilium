@@ -63,6 +63,7 @@ type HealthCheckConfig struct {
 	L7                 bool
 	ProbeInterval      time.Duration
 	ProbeTimeout       time.Duration
+	ProbePort          uint16
 	QuarantineTimeout  time.Duration
 	ThresholdHealthy   uint
 	ThresholdUnhealthy uint
@@ -102,6 +103,11 @@ func getAnnotationHealthCheckConfig(svcAnnotations map[string]string) HealthChec
 	if value, ok := svcAnnotations[annotation.ServiceHealthProbeTimeout]; ok {
 		if duration, err := time.ParseDuration(value); err == nil {
 			hc.ProbeTimeout = duration
+		}
+	}
+	if value, ok := svcAnnotations[annotation.ServiceHealthProbePort]; ok {
+		if port, err := strconv.ParseUint(value, 10, 16); err == nil {
+			hc.ProbePort = uint16(port)
 		}
 	}
 	if value, ok := svcAnnotations[annotation.ServiceHealthQuarantineTimeout]; ok {

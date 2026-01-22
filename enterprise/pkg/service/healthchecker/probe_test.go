@@ -23,6 +23,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -36,11 +37,12 @@ func TestProbe(t *testing.T) {
 	)
 
 	table := []struct {
-		name             string            // name of the test case
-		config           HealthCheckConfig // service health-check config
-		useHTTPSServer   bool              // true if the probe will be connecting to the HTTPS server
-		useInvalidServer bool              // true if the probe will be connecting to an invalid server
-		expectHealthy    bool              // true if healthy probe result is expected
+		name              string            // name of the test case
+		config            HealthCheckConfig // service health-check config
+		overrideProbePort bool              // true if probe port must be used instead of service port
+		useHTTPSServer    bool              // true if the probe will be connecting to the HTTPS server
+		useInvalidServer  bool              // true if the probe will be connecting to an invalid server
+		expectHealthy     bool              // true if healthy probe result is expected
 	}{
 		{
 			name: "test simple HTTP probe",
@@ -187,6 +189,14 @@ func TestProbe(t *testing.T) {
 			},
 			expectHealthy: false,
 		},
+		{
+			name: "test probe port override",
+			config: HealthCheckConfig{
+				L7: true,
+			},
+			overrideProbePort: true,
+			expectHealthy:     true,
+		},
 	}
 
 	// request handler used for both HTTP and HTTPS servers
@@ -230,6 +240,16 @@ func TestProbe(t *testing.T) {
 	}
 	defer dummyTCPListener.Close()
 	dummyAddr := getTestServerL3n4Addr(t, dummyTCPListener.Addr())
+	// Accept and immediately close connections so probes hitting the dummy port fail reliably.
+	go func() {
+		for {
+			conn, err := dummyTCPListener.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
 
 	logger := slog.New(slog.DiscardHandler)
 	for _, tt := range table {
@@ -249,11 +269,114 @@ func TestProbe(t *testing.T) {
 				svcAddr: probeAddr,
 				beAddr:  probeAddr,
 			}
+			if tt.overrideProbePort {
+				params.svcAddr = dummyAddr
+				params.beAddr = dummyAddr
+				params.config.ProbePort = httpAddr.Port()
+			}
 			res := probe(params)
 
 			// check the result
 			if res.healthy != tt.expectHealthy {
 				t.Fatalf("non-expected probe result: %v (%s)", res.healthy, res.message)
+			}
+		})
+	}
+}
+
+func TestProbePortOverrideSNAT(t *testing.T) {
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
+
+	oldEnableHealthDatapath := option.Config.EnableHealthDatapath
+	// Forces SNAT path by setting option.Config.EnableHealthDatapath = false
+	option.Config.EnableHealthDatapath = false
+	t.Cleanup(func() { option.Config.EnableHealthDatapath = oldEnableHealthDatapath })
+
+	successListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer successListener.Close()
+	successAddr := getTestServerL3n4Addr(t, successListener.Addr())
+
+	closedListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	closedAddr := getTestServerL3n4Addr(t, closedListener.Addr())
+	closedListener.Close()
+
+	logger := slog.New(slog.DiscardHandler)
+	baseParams := probeParams{
+		ctx:    context.TODO(),
+		logger: logger,
+		config: HealthCheckConfig{
+			DSR:          true,
+			ProbeTimeout: 200 * time.Millisecond,
+		},
+		svcAddr: closedAddr,
+		beAddr:  closedAddr,
+	}
+
+	res := probe(baseParams)
+	if res.healthy {
+		t.Fatalf("expected probe to fail without override, got healthy")
+	}
+
+	baseParams.config.ProbePort = successAddr.Port()
+	res = probe(baseParams)
+	if !res.healthy {
+		t.Fatalf("expected probe to succeed with override, got unhealthy (%s)", res.message)
+	}
+}
+
+func TestAddrWithProbePort(t *testing.T) {
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
+
+	baseAddr := lb.NewL3n4Addr(
+		lb.TCP,
+		cmtypes.MustParseAddrCluster("10.0.0.2"),
+		80,
+		lb.ScopeExternal,
+	)
+
+	tests := []struct {
+		name     string
+		config   HealthCheckConfig
+		wantPort uint16
+	}{
+		{
+			name:     "probe port unset",
+			config:   HealthCheckConfig{ProbePort: 0},
+			wantPort: 80,
+		},
+		{
+			name:     "probe port matches",
+			config:   HealthCheckConfig{ProbePort: 80},
+			wantPort: 80,
+		},
+		{
+			name:     "probe port overrides",
+			config:   HealthCheckConfig{ProbePort: 81},
+			wantPort: 81,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := probeParams{config: tt.config}
+			got := p.addrWithProbePort(baseAddr)
+			if got.Port() != tt.wantPort {
+				t.Fatalf("addrWithProbePort() port = %d, want %d", got.Port(), tt.wantPort)
+			}
+			if got.Protocol() != baseAddr.Protocol() {
+				t.Fatalf("addrWithProbePort() protocol = %v, want %v", got.Protocol(), baseAddr.Protocol())
+			}
+			if got.AddrCluster().String() != baseAddr.AddrCluster().String() {
+				t.Fatalf("addrWithProbePort() addr = %v, want %v", got.AddrCluster(), baseAddr.AddrCluster())
+			}
+			if got.Scope() != baseAddr.Scope() {
+				t.Fatalf("addrWithProbePort() scope = %v, want %v", got.Scope(), baseAddr.Scope())
 			}
 		})
 	}

@@ -1,0 +1,101 @@
+# Replace the port placeholder with the HTTP test server port.
+replace '$HEALTH_PORT' $HTTP_PORT service.yaml
+
+hive/start
+db/initialized
+
+# Add service with an endpoint to health check using a custom probe port.
+k8s/add service.yaml endpointslice.yaml
+
+# Health check should succeed via the probe port override.
+db/cmp service-healthchecks healthchecks.table
+
+# Switch to a bad probe port and ensure health checks fail.
+k8s/update service-bad.yaml
+db/cmp service-healthchecks healthchecks-bad.table
+
+-- healthchecks.table --
+Backend           Service     Healthy   UnhealthyProbeStreak Message
+127.0.0.1:1/TCP   test/echo   true      0                    success
+
+-- healthchecks-bad.table --
+Backend           Service     Healthy  HealthyProbeStreak Message
+127.0.0.1:1/TCP   test/echo   false    0                  failed: err: dial tcp 127.0.0.1:1: connect: connection refused
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  annotations:
+    service.cilium.io/health-check-probe-interval:      20ms
+    service.cilium.io/health-check-probe-timeout:       100ms
+    service.cilium.io/health-check-threshold-healthy:   "1"
+    service.cilium.io/health-check-threshold-unhealthy: "1"
+    service.cilium.io/health-check-quarantine-timeout:  20s
+    service.cilium.io/health-check-probe-port:          "$HEALTH_PORT"
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- service-bad.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  annotations:
+    service.cilium.io/health-check-probe-interval:      20ms
+    service.cilium.io/health-check-probe-timeout:       100ms
+    service.cilium.io/health-check-threshold-healthy:   "1"
+    service.cilium.io/health-check-threshold-unhealthy: "1"
+    service.cilium.io/health-check-quarantine-timeout:  20s
+    service.cilium.io/health-check-probe-port:          "1"
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 127.0.0.1
+  nodeName: othernode
+ports:
+- name: http
+  port: 1
+  protocol: TCP

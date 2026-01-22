@@ -98,6 +98,7 @@ ports:
     "L7": false,
     "ProbeInterval": 20000000,
     "ProbeTimeout": 100000000,
+    "ProbePort": 0,
     "QuarantineTimeout": 20000000000,
     "ThresholdHealthy": 1,
     "ThresholdUnhealthy": 1,

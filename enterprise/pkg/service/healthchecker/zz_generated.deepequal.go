@@ -27,6 +27,9 @@ func (in *HealthCheckConfig) DeepEqual(other *HealthCheckConfig) bool {
 	if in.ProbeTimeout != other.ProbeTimeout {
 		return false
 	}
+	if in.ProbePort != other.ProbePort {
+		return false
+	}
 	if in.QuarantineTimeout != other.QuarantineTimeout {
 		return false
 	}

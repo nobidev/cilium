@@ -15,15 +15,17 @@ import (
 )
 
 const (
-	// ServiceHealthProbeInterval / ServiceHealthProbeTimeout annotations
+	// ServiceHealthProbeInterval / ServiceHealthProbeTimeout / ServiceHealthProbePort annotations
 	// determine the probe interval of a service and timeout duration for
-	// when a probe is considered as failed.
+	// when a probe is considered as failed. ServiceHealthProbePort configures
+	// an optional port override for the health check probes.
 	// Allowed values:
 	//  - A duration, for example:
 	//    "service.cilium.io/health-check-probe-interval": "1s"
 	//    "service.cilium.io/health-check-probe-timeout": "5s"
 	ServiceHealthProbeInterval = ossannotation.ServicePrefix + "/health-check-probe-interval"
 	ServiceHealthProbeTimeout  = ossannotation.ServicePrefix + "/health-check-probe-timeout"
+	ServiceHealthProbePort     = ossannotation.ServicePrefix + "/health-check-probe-port"
 
 	// ServiceHealthThresholdHealthy / ServiceHealthThresholdUnhealthy annotations
 	// determine the threshold of probes needed until a specific backend's state

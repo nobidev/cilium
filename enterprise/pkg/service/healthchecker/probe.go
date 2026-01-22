@@ -154,6 +154,13 @@ func (p probeParams) dialerConnSetupDSRviaIPIP(ctx context.Context, network stri
 	return nil
 }
 
+func (p probeParams) addrWithProbePort(addr lb.L3n4Addr) lb.L3n4Addr {
+	if p.config.ProbePort == 0 || addr.Port() == p.config.ProbePort {
+		return addr
+	}
+	return lb.NewL3n4Addr(addr.Protocol(), addr.AddrCluster(), p.config.ProbePort, addr.Scope())
+}
+
 func probeFailSignal(err error) bool {
 	return errors.Is(err, syscall.ECONNREFUSED) ||
 		errors.Is(err, syscall.ENETUNREACH) ||
@@ -168,14 +175,16 @@ func sendTCPProbe(p probeParams) probeResult {
 		Timeout: p.config.ProbeTimeout,
 	}
 	connAddr := ""
+	backendAddr := p.beAddr
 	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
 	if option.Config.EnableHealthDatapath && p.config.DSR {
 		connAddr = getAddrStr(p.svcAddr)
 		d.ControlContext = p.dialerConnSetupDSRviaIPIP
 	} else {
-		connAddr = getAddrStr(p.beAddr)
+		connAddr = getAddrStr(p.addrWithProbePort(p.beAddr))
+		backendAddr = p.addrWithProbePort(p.beAddr)
 	}
-	ctx := context.WithValue(p.ctx, backendAddrKey{}, getAddrStr(p.beAddr))
+	ctx := context.WithValue(p.ctx, backendAddrKey{}, getAddrStr(backendAddr))
 	conn, err := d.DialContext(ctx, "tcp", connAddr)
 	if err != nil {
 		// Be conservative while failing a probe.
@@ -183,7 +192,7 @@ func sendTCPProbe(p probeParams) probeResult {
 			return getProbeData(fmt.Errorf("err: %w", err))
 		}
 		p.logger.Debug("Dial TCP failed while sending out probe",
-			logfields.Backend, p.beAddr,
+			logfields.Backend, backendAddr,
 			logfields.Error, err)
 		return getProbeData(nil)
 	}
@@ -191,7 +200,7 @@ func sendTCPProbe(p probeParams) probeResult {
 
 	probe := getProbeData(nil)
 	p.logger.Debug("TCP health check success",
-		logfields.Backend, p.beAddr,
+		logfields.Backend, backendAddr,
 		logfields.Probe, probe)
 	return probe
 }
@@ -199,14 +208,16 @@ func sendTCPProbe(p probeParams) probeResult {
 func sendUDPProbe(p probeParams) probeResult {
 	d := net.Dialer{}
 	connAddr := ""
+	backendAddr := p.beAddr
 	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
 	if option.Config.EnableHealthDatapath && p.config.DSR {
 		connAddr = getAddrStr(p.svcAddr)
 		d.ControlContext = p.dialerConnSetupDSRviaIPIP
 	} else {
-		connAddr = getAddrStr(p.beAddr)
+		connAddr = getAddrStr(p.addrWithProbePort(p.beAddr))
+		backendAddr = p.addrWithProbePort(p.beAddr)
 	}
-	ctx := context.WithValue(p.ctx, backendAddrKey{}, getAddrStr(p.beAddr))
+	ctx := context.WithValue(p.ctx, backendAddrKey{}, getAddrStr(backendAddr))
 	// In the absence of flow control, the only definitive signal we can rely
 	// on for checking if remote UDP server is up is the receipt of
 	// ICMP_PORT_UNREACHABLE message.
@@ -217,7 +228,7 @@ func sendUDPProbe(p probeParams) probeResult {
 	conn, err := d.DialContext(ctx, "udp", connAddr)
 	if err != nil {
 		p.logger.Debug("DialUDP() failed while sending out probe",
-			logfields.Backend, p.beAddr,
+			logfields.Backend, backendAddr,
 			logfields.Error, err)
 		return getProbeData(nil)
 	}
@@ -227,7 +238,7 @@ func sendUDPProbe(p probeParams) probeResult {
 	conn.SetDeadline(time.Now().Add(p.config.ProbeTimeout))
 	if _, err = conn.Write([]byte("")); err != nil {
 		p.logger.Info("Write() failed while sending out probe",
-			logfields.Backend, p.beAddr,
+			logfields.Backend, backendAddr,
 			logfields.Error, err)
 		return getProbeData(nil)
 	}
@@ -238,7 +249,7 @@ func sendUDPProbe(p probeParams) probeResult {
 		// https://elixir.bootlin.com/linux/v6.0/source/net/ipv4/icmp.c#L130
 		if probeFailSignal(err) {
 			p.logger.Debug("probe failed",
-				logfields.Backend, p.beAddr,
+				logfields.Backend, backendAddr,
 				logfields.Error, err)
 			return getProbeData(fmt.Errorf("error: %w", err))
 		}
@@ -249,7 +260,7 @@ func sendUDPProbe(p probeParams) probeResult {
 		// not get an ICMP error back.
 		probe := getProbeData(nil)
 		p.logger.Debug("UDP health check success (via timeout)",
-			logfields.Backend, p.beAddr,
+			logfields.Backend, backendAddr,
 			logfields.Probe, probe)
 		return probe
 	}
@@ -257,7 +268,7 @@ func sendUDPProbe(p probeParams) probeResult {
 	// In case of an actual reply, we obviously consider this a success.
 	probe := getProbeData(nil)
 	p.logger.Debug("UDP health check success (via reply)",
-		logfields.Backend, p.beAddr,
+		logfields.Backend, backendAddr,
 		logfields.Probe, probe)
 	return probe
 }
@@ -301,10 +312,10 @@ func sendL7Probe(p probeParams) probeResult {
 		url = getConnURL(p.config, p.svcAddr)
 		d.ControlContext = p.dialerConnSetupDSRviaIPIP
 	} else {
-		url = getConnURL(p.config, p.beAddr)
+		url = getConnURL(p.config, p.addrWithProbePort(p.beAddr))
 	}
 	method := getSvcHTTPMethod(p.config)
-	backend := getAddrStr(p.beAddr)
+	backend := getAddrStr(p.addrWithProbePort(p.beAddr))
 	logFields := []slog.Attr{
 		slog.String("url", url),
 		slog.String("method", method),
