@@ -124,13 +124,13 @@ jobs:
           cd /tmp/generated/e2e
           # When test-l7-only is true: filter to only test-l7: true configs
           # When test-l7-only is false (default):
-          #   - On schedule: include all configs (with L3/L4 AND L7)
+          #   - On schedule (direct trigger, not workflow_call): include all configs (with L3/L4 AND L7)
           #   - Otherwise: include only test-l7: false configs (L3/L4 only)
           if [ "${{ inputs.test-l7-only }}" = "true" ]; then
             jq '[.[] | select(.["test-l7"] == "true") | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Filtering matrix to test-l7: true configurations only (${CONFIG_COUNT} configs for L7-only testing)"
-          elif [ "${{ github.event_name }}" = "schedule" ]; then
+          elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" = "false" ]; then
             jq '[.[] | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - scheduled run with full test suite)"
@@ -221,15 +221,15 @@ jobs:
 
           # When test-l7-only is true: run ONLY L7 tests (exclude L3/L4 tests)
           # When test-l7-only is false (default):
-          #   - On schedule: run full test suite (L3/L4 AND L7 tests together)
+          #   - On schedule (direct trigger, not workflow_call): run full test suite (L3/L4 AND L7 tests together)
           #   - Otherwise: exclude L7 tests (L3/L4 traffic only)
           if [ "${{ inputs.test-l7-only }}" = "true" ]; then
             # L7-only mode: run only L7 tests
             SEQUENTIAL_CONNECTIVITY_TESTS="seq-.*${L7_FILTER},!pod-to-world.*"
             CONCURRENT_CONNECTIVITY_TESTS="${CONCURRENT_CONNECTIVITY_TESTS},${L7_FILTER},no-unexpected-packet-drops,check-log-errors"
             echo "::notice::Running L7-only tests ${L7_FILTER}"
-          elif [ "${{ github.event_name }}" = "schedule" ]; then
-            # Scheduled run: full test suite (L3/L4 AND L7)
+          elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" = "false" ]; then
+            # Scheduled run (direct trigger): full test suite (L3/L4 AND L7)
             echo "::notice::Running full test suite (L3/L4 AND L7 tests)"
           else
             # Default mode: L3/L4 tests only, exclude L7
@@ -362,6 +362,14 @@ jobs:
                                       ${EXTRA_CLI_FLAGS[*]@Q}"
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
+
+          # Determine if L7 traffic testing should be enabled for conn-disrupt-test
+          # Only enable when test-l7-only is true or on scheduled runs
+          INCLUDE_CONN_DISRUPT_TEST_L7_TRAFFIC="false"
+          if [ "${{ inputs.test-l7-only }}" = "true" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+            INCLUDE_CONN_DISRUPT_TEST_L7_TRAFFIC="true"
+          fi
+          echo include_conn_disrupt_test_l7_traffic=${INCLUDE_CONN_DISRUPT_TEST_L7_TRAFFIC} >> $GITHUB_OUTPUT
 
       - name: Setup bootid file
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -549,7 +557,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-setup
         with:
           # cilium-agent only restart should not result in L7 traffic failures.
-          include-conn-disrupt-test-l7-traffic: true
+          include-conn-disrupt-test-l7-traffic: ${{ steps.vars-conn.outputs.include_conn_disrupt_test_l7_traffic }}
 
       - name: Restart Cilium Agent
         if: ${{ matrix.skip-upgrade != 'true' }}
@@ -569,7 +577,7 @@ jobs:
           job-name: cilium-restart-${{ matrix.name }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
           skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
-          include-conn-disrupt-test-l7-traffic: true
+          include-conn-disrupt-test-l7-traffic: ${{ steps.vars-conn.outputs.include_conn_disrupt_test_l7_traffic }}
 
       - name: Features tested before downgrade
         uses: ./.github/actions/feature-status

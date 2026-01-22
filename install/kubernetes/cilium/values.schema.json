@@ -1674,7 +1674,10 @@
             "limits": {
               "properties": {
                 "cpu": {
-                  "type": "integer"
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
                 },
                 "memory": {
                   "type": "string"
@@ -1685,7 +1688,10 @@
             "requests": {
               "properties": {
                 "cpu": {
-                  "type": "string"
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
                 },
                 "memory": {
                   "type": "string"
@@ -1890,6 +1896,9 @@
       "type": "boolean"
     },
     "enableNonDefaultDenyPolicies": {
+      "type": "boolean"
+    },
+    "enableTunnelBIGTCP": {
       "type": "boolean"
     },
     "enableXTSocketFallback": {
@@ -6027,7 +6036,10 @@
             "requests": {
               "properties": {
                 "cpu": {
-                  "type": "string"
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
                 },
                 "memory": {
                   "type": "string"
@@ -7081,6 +7093,9 @@
             "ciliumAgent": {
               "items": {
                 "anyOf": [
+                  {
+                    "type": "string"
+                  },
                   {
                     "type": "string"
                   },

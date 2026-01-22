@@ -33,6 +33,7 @@ Datadog
 Dataplane
 Deconfigure
 Dinan
+Disenroll
 Dockerfile
 Dockerfiles
 Donenfeld
@@ -315,6 +316,7 @@ dereference
 deserialization
 detections
 dev
+disenroll
 disjunct
 distro
 distros
@@ -383,6 +385,7 @@ fs
 func
 gRPC
 gVisor
+gapped
 gcc
 gcp
 geneve
@@ -586,6 +589,7 @@ modularizing
 mountPath
 mov
 mtk
+mtls
 mtu
 mul
 multicast
