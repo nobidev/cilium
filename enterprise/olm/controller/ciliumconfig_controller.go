@@ -18,6 +18,7 @@ import (
 	"maps"
 	"slices"
 
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -93,6 +94,8 @@ type CiliumConfigReconciler struct {
 //+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingressclasses,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
@@ -335,7 +338,9 @@ func initGVKs(builder *builder.Builder, mgrConfig *rest.Config, logger logr.Logg
 		Owns(&batchv1.CronJob{}).
 		Owns(&policyv1.PodDisruptionBudget{}).
 		Owns(&networkingv1.Ingress{}).
-		Owns(&networkingv1.IngressClass{})
+		Owns(&networkingv1.IngressClass{}).
+		Owns(&admissionregistrationv1.ValidatingWebhookConfiguration{}).
+		Owns(&admissionregistrationv1.MutatingWebhookConfiguration{})
 	d := discovery.NewDiscoveryClientForConfigOrDie(mgrConfig)
 	apisMissing = []string{}
 	GVKs = []schema.GroupVersionKind{
@@ -437,6 +442,16 @@ func initGVKs(builder *builder.Builder, mgrConfig *rest.Config, logger logr.Logg
 		{
 			Group:   "networking.k8s.io",
 			Kind:    "IngressClassList",
+			Version: "v1",
+		},
+		{
+			Group:   "admissionregistration.k8s.io",
+			Kind:    "MutatingWebhookConfigurationList",
+			Version: "v1",
+		},
+		{
+			Group:   "admissionregistration.k8s.io",
+			Kind:    "ValidatingWebhookConfigurationList",
 			Version: "v1",
 		},
 	}
