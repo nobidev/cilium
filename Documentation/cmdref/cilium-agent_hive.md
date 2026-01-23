@@ -56,6 +56,7 @@ cilium-agent hive [flags]
       --conntrack-gc-max-interval duration                               Set the maximum interval for the connection-tracking garbage collection
       --controller-group-metrics strings                                 List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --crd-wait-timeout duration                                        Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
+      --default-lb-service-ipam string                                   Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set.Applicable values: lbipam, nodeipam, none (default "lbipam")
       --devices strings                                                  List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'; support '!' to exclude devices, e.g. '!eth+' excludes any device with prefix 'eth'. Note '!' says nothing about which ones to include. A device must match other criteria to be selected; The filters are matched in order and whatever matched first wins.
       --diagnostics-constants stringToString                             Constant overrides (default [])
       --diagnostics-export-file string                                   File to which diagnostics events are appended to
@@ -113,15 +114,18 @@ cilium-agent hive [flags]
       --enable-k8s-api-discovery                                         Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-l2-neigh-discovery                                        Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec
       --enable-l2-pod-announcements                                      Enable announcing Pod IPs with Gratuitous ARP and NDP
+      --enable-lb-ipam                                                   Enable LB IPAM (default true)
       --enable-monitor                                                   Enable the monitor unix domain socket server (default true)
       --enable-multi-network                                             Enable support for multiple pod networks
       --enable-no-service-endpoints-routable                             Enable routes when service has 0 endpoints (default true)
+      --enable-node-ipam                                                 Enable Node IPAM
       --enable-packetization-layer-pmtud                                 Enables kernel packetization layer path mtu discovery on Pod netns (default true)
       --enable-phantom-services                                          Enable phantom services handling (default true)
       --enable-policy-secrets-sync                                       Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
       --enable-route-mtu-for-cni-chaining                                Enable route MTU for pod netns when CNI chaining is used
       --enable-service-topology                                          Enable support for service topology aware hints
       --enable-standalone-dns-proxy                                      Enables standalone DNS proxy
+      --enable-tunnel-big-tcp                                            Enable BIG TCP in tunneling mode and increase maximum GRO/GSO limits for VXLAN/GENEVE tunnels
       --enable-well-known-identities                                     Enable well-known identities for known Kubernetes components (default true)
       --enable-wireguard                                                 Enable WireGuard
       --enable-xt-socket-fallback                                        Enable fallback for missing xt_socket module (default true)

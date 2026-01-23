@@ -67,6 +67,7 @@ import (
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	k8sVersion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -74,6 +75,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
@@ -150,6 +152,9 @@ func TestPrivilegedScript(t *testing.T) {
 			),
 			cell.Config(cmtypes.DefaultClusterInfo),
 			svcrouteconfig.Cell,
+
+			lbipamconfig.Cell,
+			nodeipamconfig.Cell,
 
 			// OSS BGP cell
 			bgp.Cell,

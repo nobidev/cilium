@@ -371,6 +371,8 @@ securityContext:
       - SETGID
       # Allow to execute program that changes UID (e.g. required for package installation)
       - SETUID
+      # Allow to read dmesg and get kernel pointers when kptr_restrict=1
+      - SYSLOG
     # -- Capabilities for the `mount-cgroup` init container
     mountCgroup:
       # Only used for 'mount' cgroup
@@ -805,9 +807,15 @@ cni:
   # -- Specifies the resources for the cni initContainer
   resources:
     requests:
+      # @schema
+      # type: [integer, string]
+      # @schema
       cpu: 100m
       memory: 10Mi
     limits:
+      # @schema
+      # type: [integer, string]
+      # @schema
       cpu: 1
       memory: 1Gi
   # -- Enable route MTU for pod netns when CNI chaining is used
@@ -1254,8 +1262,8 @@ certgen:
     # @schema
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.3.1"
-    digest: "sha256:2825dbfa6f89cbed882fd1d81e46a56c087e35885825139923aa29eb8aec47a9"
+    tag: "v0.3.2"
+    digest: "sha256:19921f48ee7e2295ea4dca955878a6cd8d70e6d4219d08f688e866ece9d95d4d"
     useDigest: true
     pullPolicy: "Always"
   # @schema
@@ -2809,11 +2817,11 @@ ipam:
     ipamMaxAllocate: ~
     # -- IPAM static IP tags (currently only works with AWS and Azure)
     ipamStaticIPTags: []
-# -- defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when
-# no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
 # @schema
 # type: [string]
 # @schema
+# -- defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when
+# no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
 defaultLBServiceIPAM: lbipam
 nodeIPAM:
   # -- Configure Node IPAM
@@ -2934,6 +2942,8 @@ enableMasqueradeRouteSource: false
 enableIPv4BIGTCP: false
 # -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
 enableIPv6BIGTCP: false
+# -- Enable BIG TCP in tunneling mode and increase maximum GRO/GSO limits for VXLAN/GENEVE tunnels
+enableTunnelBIGTCP: false
 nat:
   # -- Number of the top-k SNAT map connections to track in Cilium statedb.
   mapStatsEntries: 32
@@ -3932,6 +3942,9 @@ nodeinit:
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources:
     requests:
+      # @schema
+      # type: [integer, string]
+      # @schema
       cpu: 100m
       memory: 100Mi
   # -- Security context to be added to nodeinit pods.
@@ -4772,7 +4785,7 @@ authentication:
           override: ~
           repository: "docker.io/library/busybox"
           tag: "1.37.0"
-          digest: "sha256:d80cd694d3e9467884fcb94b8ca1e20437d8a501096cdf367a5a1918a34fc2fd"
+          digest: "sha256:2383baad1860bbe9d8a7a843775048fd07d8afe292b94bd876df64a69aae7cb1"
           useDigest: true
           pullPolicy: "Always"
         # SPIRE agent configuration

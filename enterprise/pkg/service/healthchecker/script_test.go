@@ -40,6 +40,7 @@ import (
 	k8stestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/logging"
@@ -47,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -140,6 +142,8 @@ func TestScript(t *testing.T) {
 				maglev.Cell,
 				node.LocalNodeStoreTestCell,
 				metrics.Cell,
+				lbipamconfig.Cell,
+				nodeipamconfig.Cell,
 
 				cell.Provide(
 					func(cfg lb.TestConfig) *lb.TestConfig { return &cfg },

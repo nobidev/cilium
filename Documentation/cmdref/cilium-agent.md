@@ -98,6 +98,7 @@ cilium-agent [flags]
       --datapath-mode string                                             Datapath mode name (veth, netkit, netkit-l2) (default "veth")
   -D, --debug                                                            Enable debugging mode
       --debug-verbose strings                                            List of enabled verbose debug groups
+      --default-lb-service-ipam string                                   Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set.Applicable values: lbipam, nodeipam, none (default "lbipam")
       --devices strings                                                  List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'; support '!' to exclude devices, e.g. '!eth+' excludes any device with prefix 'eth'. Note '!' says nothing about which ones to include. A device must match other criteria to be selected; The filters are matched in order and whatever matched first wins.
       --diagnostics-constants stringToString                             Constant overrides (default [])
       --diagnostics-export-file string                                   File to which diagnostics events are appended to
@@ -190,6 +191,7 @@ cilium-agent [flags]
       --enable-l2-neigh-discovery                                        Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec
       --enable-l2-pod-announcements                                      Enable announcing Pod IPs with Gratuitous ARP and NDP
       --enable-l7-proxy                                                  Enable L7 proxy for L7 policy enforcement (default true)
+      --enable-lb-ipam                                                   Enable LB IPAM (default true)
       --enable-local-node-route                                          Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-local-redirect-policy                                     Enable Local Redirect Policy
       --enable-masquerade-to-route-source                                Masquerade packets to the source IP provided from the routing layer rather than interface address
@@ -197,6 +199,7 @@ cilium-agent [flags]
       --enable-multi-network                                             Enable support for multiple pod networks
       --enable-nat46x64-gateway                                          Enable NAT46 and NAT64 gateway
       --enable-no-service-endpoints-routable                             Enable routes when service has 0 endpoints (default true)
+      --enable-node-ipam                                                 Enable Node IPAM
       --enable-node-selector-labels                                      Enable use of node label based identity
       --enable-packetization-layer-pmtud                                 Enables kernel packetization layer path mtu discovery on Pod netns (default true)
       --enable-phantom-services                                          Enable phantom services handling (default true)
@@ -210,6 +213,7 @@ cilium-agent [flags]
       --enable-standalone-dns-proxy                                      Enables standalone DNS proxy
       --enable-tcx                                                       Attach endpoint programs using tcx if supported by the kernel (default true)
       --enable-tracing                                                   Enable tracing while determining policy (debugging)
+      --enable-tunnel-big-tcp                                            Enable BIG TCP in tunneling mode and increase maximum GRO/GSO limits for VXLAN/GENEVE tunnels
       --enable-unreachable-routes                                        Add unreachable routes on pod deletion
       --enable-vtep                                                      Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)
       --enable-well-known-identities                                     Enable well-known identities for known Kubernetes components (default true)

@@ -165,6 +165,7 @@
 /Documentation/security/http.rst @isovalent/policy-identity-networking
 /Documentation/security/network/encryption-ipsec.rst @isovalent/encryption
 /Documentation/security/network/encryption-wireguard.rst @isovalent/encryption
+/Documentation/security/network/encryption-ztunnel.rst @isovalent/encryption
 /Documentation/security/network/proxy/ @isovalent/service-mesh
 /Documentation/security/policy-creation.rst @isovalent/policy-identity-networking
 /Documentation/security/policy/ @isovalent/policy-identity-networking
@@ -289,6 +290,7 @@
 /pkg/l2announcer/ @isovalent/cni
 /pkg/labels @isovalent/policy-identity-networking
 /pkg/labelsfilter @isovalent/policy-identity-networking
+/pkg/lbipamconfig @isovalent/isovalent-loadbalancer
 /pkg/loadbalancer @isovalent/isovalent-loadbalancer
 /pkg/loadinfo/ @isovalent/cni
 /pkg/lock @isovalent/cni
@@ -316,6 +318,7 @@
 /pkg/node @isovalent/cni
 /pkg/node/neighbordiscovery @isovalent/cni @isovalent/cni
 /pkg/nodediscovery/ @isovalent/cni
+/pkg/nodeipamconfig @isovalent/networking-framework
 /pkg/option @isovalent/cni @isovalent/ci-structure
 /pkg/pidfile @isovalent/cni
 /pkg/policy @isovalent/policy-identity-networking
