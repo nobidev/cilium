@@ -9,6 +9,11 @@ nodes:
       kind: InitConfiguration
       nodeRegistration:
         taints: []
+    - |
+      kind: ClusterConfiguration
+      apiServer:
+        extraArgs:
+          enable-admission-plugins: NodeRestriction,OwnerReferencesPermissionEnforcement
   - role: worker
   - role: worker
 networking:
