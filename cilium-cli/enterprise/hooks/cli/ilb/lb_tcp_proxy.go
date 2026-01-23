@@ -14,27 +14,40 @@ import (
 	"fmt"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 func TestTCPProxyT1Only(t T) {
-	testTCPProxy(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1)
+	testTCPProxy(t, "tcp-proxy-t1-only", isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1, 8080, 0)
+}
+
+func TestTCPProxyT1OnlyHealthCheckCustomPort(t T) {
+	testTCPProxy(t, "tcp-proxy-t1-only-health-check-custom-port", isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1, 8181, 8080)
 }
 
 func TestTCPProxyT1T2(t T) {
-	testTCPProxy(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2)
+	testTCPProxy(t, "tcp-proxy-t1-t2", isovalentv1alpha1.LBTCPProxyForceDeploymentModeT2, 8080, 0)
 }
 
 func TestTCPProxyAuto(t T) {
-	testTCPProxy(t, isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto)
+	testTCPProxy(t, "tcp-proxy-auto", isovalentv1alpha1.LBTCPProxyForceDeploymentModeAuto, 8080, 0)
 }
 
-func testTCPProxy(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) {
+func testTCPProxy(t T, testName string, mode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType, listenPort, healthCheckPort uint32) {
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	t.RunTestCase(func(t T) {
-		testName := "tcp-proxy-" + string(mode)
+	// custom health check port is only supported in v1.18 and newer
+	if healthCheckPort != 0 {
+		minVersion := ">=1.18.0"
+		currentVersion := GetCiliumVersion(t, k8sCli)
+		if !versioncheck.MustCompile(minVersion)(currentVersion) {
+			fmt.Printf("skipping due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
+			return
+		}
+	}
 
+	t.RunTestCase(func(t T) {
 		// 0. Setup test scenario (backends, clients & LB resources)
 		scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
@@ -45,7 +58,12 @@ func testTCPProxy(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType)
 		if IsSingleNode() {
 			backendNum = 1
 		}
-		scenario.addBackendApplications(backendNum, backendApplicationConfig{h2cEnabled: true})
+		scenario.addBackendApplications(backendNum,
+			backendApplicationConfig{
+				h2cEnabled:      true,
+				listenPort:      listenPort,
+				healthCheckPort: healthCheckPort,
+			})
 
 		t.Log("Creating clients and add BGP peering ...")
 		client := scenario.addFRRClients(1, frrClientConfig{})[0]
@@ -57,7 +75,7 @@ func testTCPProxy(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType)
 		t.Log("Creating LB BackendPool resources...")
 		backends := []backendPoolOption{}
 		for _, b := range scenario.backendApps {
-			backends = append(backends, withIPBackend(b.ipv4, b.port))
+			backends = append(backends, withIPBackend(b.ipv4, b.port), withHealthCheckPort(int32(healthCheckPort)))
 		}
 		backendPool := lbBackendPool(testName, backends...)
 		scenario.createLBBackendPool(backendPool)
