@@ -31,6 +31,9 @@ type fibEntry struct {
 	NetID   uint16
 	Prefix  string
 	Nexthop string
+	IfIndex uint32
+	MAC     string
+	VNI     uint32
 	Flags   privnet.FIBFlags
 }
 
@@ -54,6 +57,9 @@ var bpfPrivNetFIBListCmd = &cobra.Command{
 				NetID:   uint16(key.NetID),
 				Prefix:  key.ToPrefix().String(),
 				Nexthop: val.ToAddr().String(),
+				IfIndex: val.IfIndex,
+				MAC:     val.MAC.String(),
+				VNI:     val.VNI,
 				Flags:   val.Flags,
 			})
 		}
@@ -69,11 +75,11 @@ var bpfPrivNetFIBListCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "NetID\tPrefix\tNexthop\tFlags")
+		fmt.Fprintln(w, "NetID\tPrefix\tNexthop\tIfIndex\tMAC\tVNI\tFlags")
 
 		for _, fib := range fibList {
-			fmt.Fprintf(w, "%#x\t%s\t%s\t%#x\n",
-				fib.NetID, fib.Prefix, fib.Nexthop, fib.Flags)
+			fmt.Fprintf(w, "%#x\t%s\t%s\t%d\t%s\t%d\t%#x\n",
+				fib.NetID, fib.Prefix, fib.Nexthop, fib.IfIndex, fib.MAC, fib.VNI, fib.Flags)
 		}
 
 		w.Flush()
