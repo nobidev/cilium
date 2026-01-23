@@ -1453,11 +1453,6 @@ func (r *ingestor) evaluateTCPProxyAutoTierMode(lbsvc *isovalentv1alpha1.LBServi
 			return tierModeT2
 		}
 
-		// Cilium Agent health checking doesn't support custom port for T1
-		if v.healthCheckConfig.port > 0 {
-			return tierModeT2
-		}
-
 		// T1-only cant have different IP family on the frontend & backend side
 		if v.typ == lbBackendTypeIP {
 			atLeastOneIPv4 := false
@@ -1536,11 +1531,6 @@ func (r *ingestor) evaluateUDPProxyAutoTierMode(lbsvc *isovalentv1alpha1.LBServi
 
 		// Cilium Agent health checking doesn't support TLS
 		if v.healthCheckConfig.tlsConfig != nil {
-			return tierModeT2
-		}
-
-		// Cilium Agent health checking doesn't support custom port for T1
-		if v.healthCheckConfig.port > 0 {
 			return tierModeT2
 		}
 

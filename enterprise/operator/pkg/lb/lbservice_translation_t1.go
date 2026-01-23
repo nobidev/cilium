@@ -154,6 +154,9 @@ func (r *lbServiceT1Translator) getHealthCheckAnnotations(model *lbService) map[
 		annotations[annotation.ServiceHealthThresholdHealthy] = strconv.Itoa(r.getT1OnlyHealthCheckThresholdHealthy(model))
 		annotations[annotation.ServiceHealthThresholdUnhealthy] = strconv.Itoa(r.getT1OnlyHealthCheckThresholdUnhealthy(model))
 		annotations[annotation.ServiceHealthQuarantineTimeout] = fmt.Sprintf("%ds", r.config.T1T2HealthCheck.T1ProbeTimeoutSeconds)
+		if port := r.getT1OnlyHealthCheckPort(model); port > 0 {
+			annotations[annotation.ServiceHealthProbePort] = strconv.FormatUint(uint64(port), 10)
+		}
 
 		if httpPath := r.getT1OnlyHealthCheckHTTPPath(model); httpPath != "" {
 			annotations[annotation.ServiceHealthHTTPPath] = httpPath
@@ -216,6 +219,15 @@ func (r *lbServiceT1Translator) getT1OnlyHealthCheckThresholdUnhealthy(model *lb
 	}
 
 	return 1
+}
+
+func (r *lbServiceT1Translator) getT1OnlyHealthCheckPort(model *lbService) uint32 {
+	for _, b := range model.referencedBackends {
+		// return value of first backend, because T1-only (TCP & UDP) backends can only reference one backend
+		return b.healthCheckConfig.port
+	}
+
+	return 0
 }
 
 func (r *lbServiceT1Translator) getT1OnlyHealthCheckHTTPPath(model *lbService) string {
