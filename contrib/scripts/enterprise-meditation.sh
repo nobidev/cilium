@@ -23,7 +23,7 @@ IGNORE_HUNK_REGEXES=(
   -I '^.*pull_request(_target)?' # Ignore pull_request_target->pull_request changes
   -I '.*ubuntu-2[24].04-arm64\]$' # https://github.com/isovalent/cilium/issues/6375
   -I '^.*(Version)|(CEE)|(-ce).*$' # Ignore version references for CEE
-  -I $'^(.*cee.*)|^(.*enterprise.*)|(\`\n\\\')|^(.*if.*CTX_ACT_).*|^(.*IS_ERR.*)|^(.*return [^;]*;)|^(.*goto [^;]*;)$' # Enterprise BPF hooks
+  -I $'^(.*cee.*)|^(.*enterprise.*)|(\`\n\\\')|^(.*if.*CTX_ACT_).*|^(.*IS_ERR.*)|^(.*return [^;]*;)|^(.*goto [^;]*;)$|^(\s*\/\*.*)$|^(\s*\*.*)$' # Enterprise BPF hooks
 )
 
 # DIFF_EXCL_GLOBS is an array of file patterns to (negatively) match to
