@@ -116,8 +116,12 @@ func (s *LoadbalancerClient) SetT2NodeAgentPods(pods []*Pod) {
 }
 
 const (
-	defaultT1Selector = "service.cilium.io/node in ( t1 , t1-t2 )"
-	defaultT2Selector = "service.cilium.io/node in ( t2 , t1-t2 )"
+	t1T2SelectorKey   = "service.cilium.io/node"
+	t1OnlyLabel       = "t1"
+	t1T2Label         = "t1-t2"
+	t2OnlyLabel       = "t2"
+	defaultT1Selector = t1T2SelectorKey + " in ( " + t1OnlyLabel + " , " + t1T2Label + " )"
+	defaultT2Selector = t1T2SelectorKey + " in ( " + t2OnlyLabel + " , " + t1T2Label + " )"
 )
 
 func (s *LoadbalancerClient) getLBNodes(ctx context.Context) ([]string, []string, error) {

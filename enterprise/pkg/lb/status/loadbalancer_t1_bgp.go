@@ -13,7 +13,6 @@ import (
 	"sync"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/api/v1/models"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -50,13 +49,7 @@ func (s *LoadbalancerClient) getBGPPeersFromBGPClusterConfig(ctx context.Context
 		if cfg.Spec.NodeSelector == nil {
 			continue
 		}
-		selector, err := slim_meta_v1.LabelSelectorAsSelector(cfg.Spec.NodeSelector)
-		if err != nil {
-			continue
-		}
-		if !selector.Matches(labels.Set{"service.cilium.io/node": "t1"}) &&
-			!selector.Matches(labels.Set{"service.cilium.io/node": "t1-t2"}) {
-
+		if !matchT1Node(cfg.Spec.NodeSelector) {
 			continue
 		}
 
@@ -71,6 +64,35 @@ func (s *LoadbalancerClient) getBGPPeersFromBGPClusterConfig(ctx context.Context
 	}
 
 	return bgpPeersByName, bgpPeersByAddr, nil
+}
+
+func matchT1Node(selector *slim_meta_v1.LabelSelector) bool {
+	if selector == nil {
+		return false
+	}
+
+	if selector.MatchLabels != nil {
+		if v, ok := selector.MatchLabels[t1T2SelectorKey]; ok {
+			return v == t1OnlyLabel || v == t1T2Label
+		}
+	}
+
+	for _, expr := range selector.MatchExpressions {
+		if expr.Key != t1T2SelectorKey {
+			continue
+		}
+		if expr.Operator != slim_meta_v1.LabelSelectorOpIn {
+			return false
+		}
+		for _, v := range expr.Values {
+			if v == t1OnlyLabel || v == t1T2Label {
+				return true
+			}
+		}
+		return false
+	}
+
+	return false
 }
 
 func (s *LoadbalancerClient) fetchBGPRoutesConcurrently(ctx context.Context) (map[string][]*models.BgpRoute, error) {
