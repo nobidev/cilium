@@ -2432,6 +2432,10 @@
      - Whether to enable the Cilium service resolver to resolve the IP address of the Hubble Timescape service. This is enabled by default and is required when Timescape is running in the same cluster as the Cilium agent. Disable this option if Hubble Timescape is running in a different cluster not using clustermesh and fallback to host DNS resolution. @schema type: [null, boolean] @schema
      - string
      - ``true``
+   * - :spelling:ignore:`hubble.hostUsers`
+     - Enable hostUsers for Hubble. This will allow use of user-namespaces for hubble components. Not all clusters support user-namespaces. See: https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/
+     - bool
+     - ``nil``
    * - :spelling:ignore:`hubble.listenAddress`
      - An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244.
      - string
