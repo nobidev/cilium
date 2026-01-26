@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "lib/eps.h"
 #include "enterprise_ext_eps_maps.h"
 
 #define EGRESS_POLICY	!!(CT_EGRESS)
