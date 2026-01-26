@@ -113,7 +113,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout Cilium
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ inputs.SHA || github.event.pull_request.head.sha }}
           persist-credentials: false
@@ -172,11 +172,11 @@ jobs:
 
       - name: Setup go
         if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
-        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.5
+          go-version: 1.25.6
 
       - name: Build and Push CLife image
         if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
@@ -199,7 +199,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout Cilium
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ inputs.SHA || github.event.pull_request.head.sha }}
           persist-credentials: false
@@ -270,11 +270,11 @@ jobs:
           echo region=${region} | tee -a $GITHUB_OUTPUT
 
       - name: Setup go
-        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.5
+          go-version: 1.25.6
 
       - name: Generate installation manifests
         working-directory: ./enterprise/olm
@@ -302,13 +302,13 @@ jobs:
           aws-region: ${{ steps.vars.outputs.region }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e875161a362b9092ff3e1110eccf52a9fdb17c0a # v0.18.9
+        uses: cilium/cilium-cli@eb32911890466ddec93da63cf83f5bcb2ae23e26 # v0.19.0
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Checkout the openshift-ci repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: isovalent/openshift-ci
           token: ${{ secrets.ISOVALENT_BOT_READ_PRIVATE_REPOSITORIES }}
@@ -490,7 +490,7 @@ jobs:
 
       - name: Checkout sail-operator repo for Service Mesh conformance tests
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' && steps.vars.outputs.ossm == 'true' }}
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: openshift-service-mesh/sail-operator
           path: ./openshift-ci/aws-ipi/.workdir/${{ env.clusterName }}/sail-operator

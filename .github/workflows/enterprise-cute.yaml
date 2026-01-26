@@ -79,7 +79,7 @@ jobs:
     timeout-minutes: 750
     steps:
       - name: Checkout workflow context branch
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -166,7 +166,7 @@ jobs:
           helm repo add ${{ env.CILIUM_OSS_HELM_REPO_NAME }} ${{ env.CILIUM_OSS_HELM_REPO_URL }}
 
       - name: Checkout CuTE repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: isovalent/cute-${{ steps.vars.outputs.cute_repo }}
           ref: ${{ steps.vars.outputs.cute_ref }}
