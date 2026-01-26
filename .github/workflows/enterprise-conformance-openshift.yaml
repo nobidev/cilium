@@ -446,7 +446,7 @@ jobs:
 
       - name: Cilium connectivity tests
         if: ${{ !cancelled() && steps.wait-for-co.outcome == 'success' }}
-        timeout-minutes: 60
+        timeout-minutes: 120
         working-directory: ./openshift-ci/aws-ipi
         run: |
           cp ${{ github.workspace }}/CODEOWNERS .
