@@ -144,7 +144,7 @@ function main() {
   upstream_commit="$upstream_remote/${UPSTREAM_BRANCH}"
   merge_base=$(git merge-base "$upstream_commit" "$DOWNSTREAM_BRANCH")
   merge_commit=$(git rev-list "$merge_base"..."$DOWNSTREAM_BRANCH" \
-                              --ancestry-path --merges \
+                              --ancestry-path --merges --reverse \
                  | head -n 1)
 
   if [[ -z "$branch" ]]; then
