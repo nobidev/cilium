@@ -1,5 +1,8 @@
 #! --private-networks-enabled --enable-evpn
 
+# Create the ICPN CRD to satisfy the existence check.
+k8s/add icpn-crd.yaml
+
 # Pre-populate the k8s resources. This is the resource from the "previous run".
 k8s/add test0-100.yaml test1-100.yaml test2-200.yaml test3-200.yaml test4-300.yaml test5-stale.yaml
 
@@ -8,6 +11,16 @@ hive start
 
 # Validate the restoration result
 db/cmp private-networks-status all.expected
+
+-- icpn-crd.yaml --
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: clusterwideprivatenetworks.isovalent.com
+status:
+  conditions:
+  - type: "Established"
+    status: "True"
 
 -- test0-100.yaml --
 # spec is conflicting with test1, but status is not. The VNI allocation should

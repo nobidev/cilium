@@ -1,5 +1,8 @@
 #! --private-networks-enabled --enable-evpn
 
+# Create the ICPN CRD to satisfy the existence check.
+k8s/add icpn-crd.yaml
+
 # Start Hive
 hive start
 
@@ -114,6 +117,16 @@ sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test0-no-request.actual.ya
 k8s/get isovalent.com.v1alpha1.clusterwideprivatenetworks test1 -o test1-no-request.actual.yaml
 sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' test1-no-request.actual.yaml
 * cmp test1-no-request.expected.yaml test1-no-request.actual.yaml
+
+-- icpn-crd.yaml --
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: clusterwideprivatenetworks.isovalent.com
+status:
+  conditions:
+  - type: "Established"
+    status: "True"
 
 -- test0-no-request.yaml --
 apiVersion: isovalent.com/v1alpha1

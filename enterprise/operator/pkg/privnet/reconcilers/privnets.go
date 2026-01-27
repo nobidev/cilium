@@ -11,21 +11,30 @@
 package reconcilers
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/k8s"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	k8sconstv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	cs_iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/promise"
 )
 
 var PrivateNetworksCell = cell.Group(
@@ -35,6 +44,12 @@ var PrivateNetworksCell = cell.Group(
 
 		// Provides the reconciler handling private networks.
 		newPrivateNetworks,
+
+		// Provides the promise to wait for the ClusterwidePrivateNetworks CRD.
+		// We need to explicitly check for its existence because we run the
+		// reflector in all operator replicas, and it may otherwise start
+		// before that the CRD got actually created.
+		(*PrivateNetworks).newCRDSyncPromise,
 	),
 
 	cell.Provide(
@@ -93,7 +108,7 @@ func newPrivateNetworks(in struct {
 	return reconciler, nil
 }
 
-func (pn *PrivateNetworks) registerK8sReflector() error {
+func (pn *PrivateNetworks) registerK8sReflector(sync promise.Promise[synced.CRDSync]) error {
 	if !pn.cfg.Enabled {
 		return nil
 	}
@@ -102,6 +117,7 @@ func (pn *PrivateNetworks) registerK8sReflector() error {
 		Name:          "to-table",
 		Table:         pn.tbl,
 		ListerWatcher: utils.ListerWatcherFromTyped(pn.client),
+		CRDSync:       sync,
 		Transform: func(txn statedb.ReadTxn, obj any) (tables.PrivateNetwork, bool) {
 			privnet, ok := obj.(*iso_v1alpha1.ClusterwidePrivateNetwork)
 			if !ok {
@@ -125,4 +141,40 @@ func (pn *PrivateNetworks) extractRequestedVNI(privnet *iso_v1alpha1.Clusterwide
 		}
 	}
 	return vni.VNI{}
+}
+
+func (pn *PrivateNetworks) newCRDSyncPromise(client client.Clientset) promise.Promise[synced.CRDSync] {
+	resolve, promise := promise.New[synced.CRDSync]()
+
+	pn.jg.Add(
+		job.OneShot("wait-for-icpn-crd", func(ctx context.Context, health cell.Health) error {
+			for {
+				health.OK("Checking if ClusterWidePrivateNetworks CRD exists")
+				crd, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(
+					ctx, k8sconstv1alpha1.ClusterwidePrivateNetworkName, metav1.GetOptions{})
+
+				switch {
+				case err == nil:
+					for _, condition := range crd.Status.Conditions {
+						if condition.Type == apiextensionsv1.Established &&
+							condition.Status == apiextensionsv1.ConditionTrue {
+							resolve.Resolve(synced.CRDSync{})
+							return nil
+						}
+					}
+
+				case !k8serrors.IsNotFound(err):
+					return fmt.Errorf("checking ClusterwidePrivateNetwork CRD existence: %w", err)
+				}
+
+				select {
+				case <-time.After(1 * time.Second):
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+		}, job.WithRetry(-1, &job.ExponentialBackoff{Min: 1 * time.Second, Max: 30 * time.Second})),
+	)
+
+	return promise
 }
