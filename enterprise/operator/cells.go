@@ -40,7 +40,7 @@ var (
 		"enterprise-operator",
 		"Cilium Operator Enterprise",
 
-		cmd.Operator,
+		cmd.Operator(),
 
 		// enterprise-only cells here
 

@@ -192,6 +192,10 @@
 /operator/pkg/controller-runtime @isovalent/service-mesh @isovalent/service-mesh
 /operator/pkg/gateway-api @isovalent/service-mesh
 /operator/pkg/ingress @isovalent/service-mesh
+/operator/pkg/ipam @isovalent/networking-framework
+/operator/pkg/ipam/alibabacloud.go @isovalent/networking-framework @isovalent/infrastructure
+/operator/pkg/ipam/aws.go @isovalent/networking-framework @isovalent/infrastructure
+/operator/pkg/ipam/azure.go @isovalent/networking-framework @isovalent/infrastructure
 /operator/pkg/lbipam @isovalent/isovalent-loadbalancer
 /operator/pkg/model @isovalent/service-mesh
 /operator/pkg/networkpolicy @isovalent/policy-identity-networking

@@ -22,8 +22,8 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/client"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
 	privnetTypes "github.com/cilium/cilium/enterprise/pkg/privnet/types"
-	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/plugins/cilium-cni/cmd"
@@ -75,7 +75,7 @@ func (h *addHooks) OnIPAMReady(ipam *models.IPAMResponse) error {
 	return nil
 }
 
-func (h *addHooks) OnLinkConfigReady(linkConfig *connector.LinkConfig) error {
+func (h *addHooks) OnLinkConfigReady(linkConfig *datapathTypes.LinkConfig) error {
 	// privnet not enabled, don't modify
 	if !h.privNetEnabled || h.cniArgs == nil || h.daemonConf == nil {
 		return nil

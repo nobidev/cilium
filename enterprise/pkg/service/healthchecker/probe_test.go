@@ -287,10 +287,10 @@ func TestProbe(t *testing.T) {
 func TestProbePortOverrideSNAT(t *testing.T) {
 	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
-	oldEnableHealthDatapath := option.Config.EnableHealthDatapath
+	oldEnableHealthDatapath := option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath
 	// Forces SNAT path by setting option.Config.EnableHealthDatapath = false
-	option.Config.EnableHealthDatapath = false
-	t.Cleanup(func() { option.Config.EnableHealthDatapath = oldEnableHealthDatapath })
+	option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath = false
+	t.Cleanup(func() { option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath = oldEnableHealthDatapath })
 
 	successListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
