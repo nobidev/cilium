@@ -458,6 +458,7 @@ features:
       mesh-auth-mutual-enabled: true
     helm:
       authentication.mutual.spire.enabled: true
+      authentication.enabled: true
 
   VTEPIntegration:
     maturity: Beta
