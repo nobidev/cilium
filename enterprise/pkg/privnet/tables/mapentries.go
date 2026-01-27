@@ -70,10 +70,18 @@ func (me MapEntry) String() string {
 var _ statedb.TableWritable = &MapEntry{}
 
 func (me *MapEntry) TableHeader() []string {
-	return []string{"Type", "Network", "CIDR", "Nexthop", "L2Ann", "Status"}
+	return []string{"Type", "Network", "CIDR", "Nexthop", "IfIndex", "MAC", "L2Ann", "Status"}
 }
 
 func (me MapEntry) TableRow() []string {
+	var ifIndex = "N/A"
+	if me.Routing.EgressIfIndex != 0 {
+		ifIndex = fmt.Sprintf("%d", me.Routing.EgressIfIndex)
+	}
+	var mac = "N/A"
+	if len(me.Target.MAC) > 0 {
+		mac = me.Target.MAC.String()
+	}
 	var l2Announce = "No"
 	if me.Routing.L2Announce {
 		l2Announce = "Yes"
@@ -83,6 +91,8 @@ func (me MapEntry) TableRow() []string {
 		me.Type.String(),
 		string(me.Target.NetworkName), me.Target.CIDR.String(),
 		me.Routing.NextHop.String(),
+		ifIndex,
+		mac,
 		l2Announce,
 		me.Status.String(),
 	}
