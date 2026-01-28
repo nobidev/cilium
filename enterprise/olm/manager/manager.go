@@ -96,11 +96,19 @@ func Start(ctx context.Context) {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+
+	// Development mode enables verbose logging including stack traces for reconciliation errors.
+	// Default is false (production mode) for cleaner logs. Set DEVELOPMENT_MODE=true to enable.
+	developmentMode := os.Getenv("DEVELOPMENT_MODE") == "true"
 	opts := zap.Options{
-		Development: true,
+		Development: developmentMode,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if developmentMode {
+		setupLog.Info("running in development mode with verbose logging enabled")
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
