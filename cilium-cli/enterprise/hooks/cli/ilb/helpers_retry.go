@@ -44,7 +44,7 @@ func eventually(t T, condition func() error, duration time.Duration, waitFor tim
 			// Reset the ticker after we have received a result
 			tick = ticker.C
 		case <-t.Context().Done():
-			return
+			t.Failedf("context cancelled, last error: %v", lastErr)
 		}
 	}
 }

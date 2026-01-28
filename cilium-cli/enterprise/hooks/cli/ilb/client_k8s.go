@@ -228,3 +228,40 @@ func (c *ciliumCli) EnsureLBIPPool(ctx context.Context, obj *ciliumv2.CiliumLoad
 	}
 	return nil
 }
+
+func (c *ciliumCli) CreateLBK8sBackendCluster(ctx context.Context, obj *isovalentv1alpha1.LBK8sBackendCluster, opts metav1.CreateOptions) error {
+	_, err := c.IsovalentV1alpha1().LBK8sBackendClusters().Create(ctx, obj, opts)
+	return err
+}
+
+func (c *ciliumCli) DeleteLBK8sBackendCluster(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return c.IsovalentV1alpha1().LBK8sBackendClusters().Delete(ctx, name, opts)
+}
+
+func (c *ciliumCli) GetLBK8sBackendCluster(ctx context.Context, name string, opts metav1.GetOptions) (*isovalentv1alpha1.LBK8sBackendCluster, error) {
+	return c.IsovalentV1alpha1().LBK8sBackendClusters().Get(ctx, name, opts)
+}
+
+func (c *ciliumCli) WaitForLBK8sBackendClusterConnected(ctx context.Context, name string) error {
+	ctx, cancel := context.WithTimeout(ctx, longTimeout)
+	defer cancel()
+
+	for {
+		obj, err := c.GetLBK8sBackendCluster(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		for _, cond := range obj.Status.Conditions {
+			if cond.Type == isovalentv1alpha1.ConditionTypeClusterConnected && cond.Status == metav1.ConditionTrue {
+				return nil
+			}
+		}
+
+		select {
+		case <-time.After(pollInterval):
+		case <-ctx.Done():
+			return fmt.Errorf("timeout reached waiting for LBK8sBackendCluster %s to be connected (status: %v)", name, obj.Status)
+		}
+	}
+}

@@ -99,4 +99,7 @@ var Tests = []func(t T){
 	TestNodeMaintenance_T1_T1T2_TCPProxy,
 	TestNodeMaintenance_T2_T1T2_TCPProxy,
 	TestNodeMaintenance_T2_T1T2_HTTP,
+	TestLBK8sBackendClusterConnectivity,
+	TestLBK8sBackendClusterMultiple,
+	TestLBK8sBackendClusterReconnect,
 }
