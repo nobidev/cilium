@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/healthconfig"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -55,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/time"
@@ -140,6 +142,11 @@ func TestPrivilegedAgentScripts(t *testing.T) {
 				// using the mock node sync type.
 				node.LocalNodeStoreCell,
 				endpointmanager.Cell,
+				cell.Provide(func() promise.Promise[endpointstate.Restorer] {
+					resolver, promise := promise.New[endpointstate.Restorer]()
+					resolver.Resolve(&fakeRestorer{})
+					return promise
+				}),
 				gneigh.Cell,
 				tunnel.Cell,
 
@@ -236,9 +243,11 @@ type mockHealthChecker struct{}
 
 func (m *mockHealthChecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy, active sets.Set[string]) {
 }
+
 func (m *mockHealthChecker) NodeHealth(nodeName string) healthcheck.NodeHealth {
 	return healthcheck.NodeHealth{Reachable: true, AgentUp: true}
 }
+
 func (m *mockHealthChecker) Events() chan healthcheck.Event {
 	ch := make(chan healthcheck.Event)
 	return ch
@@ -257,4 +266,22 @@ func (m *mockNodeSync) InitLocalNode(ctx context.Context, n *node.LocalNode) err
 }
 
 func (m *mockNodeSync) SyncLocalNode(context.Context, *node.LocalNodeStore) {
+}
+
+type fakeRestorer struct{}
+
+func (r *fakeRestorer) Await(context.Context) (endpointstate.Restorer, error) {
+	return r, nil
+}
+
+func (r *fakeRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
+	return nil
+}
+
+func (r *fakeRestorer) WaitForEndpointRestore(_ context.Context) error {
+	return nil
+}
+
+func (r *fakeRestorer) WaitForInitialPolicy(_ context.Context) error {
+	return nil
 }
