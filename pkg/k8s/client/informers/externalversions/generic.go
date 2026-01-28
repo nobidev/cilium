@@ -171,6 +171,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().LBBackendPools().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("lbdeployments"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().LBDeployments().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("lbk8sbackendclusters"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().LBK8sBackendClusters().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("lbservices"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().LBServices().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("lbvips"):

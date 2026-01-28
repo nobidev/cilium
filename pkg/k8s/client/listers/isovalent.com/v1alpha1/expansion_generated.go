@@ -109,6 +109,10 @@ type LBDeploymentListerExpansion interface{}
 // LBDeploymentNamespaceLister.
 type LBDeploymentNamespaceListerExpansion interface{}
 
+// LBK8sBackendClusterListerExpansion allows custom methods to be added to
+// LBK8sBackendClusterLister.
+type LBK8sBackendClusterListerExpansion interface{}
+
 // LBServiceListerExpansion allows custom methods to be added to
 // LBServiceLister.
 type LBServiceListerExpansion interface{}

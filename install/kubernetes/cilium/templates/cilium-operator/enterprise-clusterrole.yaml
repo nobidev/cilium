@@ -46,6 +46,7 @@ rules:
   - lbbackendpools.isovalent.com
   - lbvips.isovalent.com
   - lbdeployments.isovalent.com
+  - lbk8sbackendclusters.isovalent.com
 {{- end }}
 {{- if .Values.enterprise.privateNetworks.enabled }}
   - clusterwideprivatenetworks.isovalent.com
@@ -120,6 +121,26 @@ rules:
   - list
   - watch
   - update
+- apiGroups:
+  - isovalent.com
+  resources:
+  - lbk8sbackendclusters
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - isovalent.com
+  resources:
+  - lbk8sbackendclusters/status
+  verbs:
+  - get
+  - update
+  - patch
 {{- end }}
 - apiGroups:
   - isovalent.com

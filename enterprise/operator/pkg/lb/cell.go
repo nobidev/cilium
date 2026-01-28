@@ -24,6 +24,7 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/lb/accesslog"
+	"github.com/cilium/cilium/enterprise/operator/pkg/lb/extlb"
 	"github.com/cilium/cilium/enterprise/operator/pkg/lb/metrics"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
@@ -45,6 +46,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newT2Translator),
 
 	metrics.Cell,
+	extlb.Cell,
 )
 
 type Config struct {

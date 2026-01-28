@@ -51,6 +51,8 @@ type LBBackendPoolExpansion interface{}
 
 type LBDeploymentExpansion interface{}
 
+type LBK8sBackendClusterExpansion interface{}
+
 type LBServiceExpansion interface{}
 
 type LBVIPExpansion interface{}

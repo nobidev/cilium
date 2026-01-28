@@ -249,6 +249,13 @@ annotations:
         IsovalentSRv6LocatorPool is a custom resource which is used to
         define a SID prefix and format which will be used to allocate
         SID address blocks per node.
+    - kind: LBK8sBackendCluster
+      version: v1alpha1
+      name: lbk8sbackendclusters.isovalent.com
+      displayName: LB K8s Backend Cluster
+      description: |
+        LBK8sBackendCluster defines a remote Kubernetes cluster whose LoadBalancer
+        services should be discovered and load balanced by the ILB control plane.
     - kind: LBBackendPool
       version: v1alpha1
       name: lbbackendpools.isovalent.com

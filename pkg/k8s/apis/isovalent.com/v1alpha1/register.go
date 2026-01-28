@@ -130,6 +130,11 @@ const (
 	PrivateNetworkNodeAttachmentPluralName     = "privatenetworknodeattachments"
 	PrivateNetworkNodeAttachmentKindDefinition = "PrivateNetworkNodeAttachment"
 	PrivateNetworkNodeAttachmentName           = PrivateNetworkNodeAttachmentPluralName + "." + CustomResourceDefinitionGroup
+
+	// LBK8sBackendCluster
+	LBK8sBackendClusterPluralName     = "lbk8sbackendclusters"
+	LBK8sBackendClusterKindDefinition = "LBK8sBackendCluster"
+	LBK8sBackendClusterName           = LBK8sBackendClusterPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -228,6 +233,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&PrivateNetworkExternalEndpointList{},
 		&PrivateNetworkNodeAttachment{},
 		&PrivateNetworkNodeAttachmentList{},
+		&LBK8sBackendCluster{},
+		&LBK8sBackendClusterList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

@@ -64,6 +64,7 @@ func AllIsovalentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v1alpha1.LBServiceName))
 		result = append(result, CRDResourceName(v1alpha1.LBBackendPoolName))
 		result = append(result, CRDResourceName(v1alpha1.LBDeploymentName))
+		result = append(result, CRDResourceName(v1alpha1.LBK8sBackendClusterName))
 	}
 
 	if option.Config.EnablePrivateNetworks {

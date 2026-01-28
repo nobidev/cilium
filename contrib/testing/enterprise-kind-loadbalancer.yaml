@@ -66,6 +66,7 @@ extraConfig:
   loadbalancer-cp-t2-xff-num-trusted-hops: "0"
   loadbalancer-flow-logs-enabled: "true"
   loadbalancer-flow-logs-sender: "stdout"
+  loadbalancer-extlb-enabled: "true"
 operator:
   prometheus:
     enabled: true

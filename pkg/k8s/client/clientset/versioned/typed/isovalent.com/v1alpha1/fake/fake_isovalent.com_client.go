@@ -107,6 +107,10 @@ func (c *FakeIsovalentV1alpha1) LBDeployments(namespace string) v1alpha1.LBDeplo
 	return newFakeLBDeployments(c, namespace)
 }
 
+func (c *FakeIsovalentV1alpha1) LBK8sBackendClusters() v1alpha1.LBK8sBackendClusterInterface {
+	return newFakeLBK8sBackendClusters(c)
+}
+
 func (c *FakeIsovalentV1alpha1) LBServices(namespace string) v1alpha1.LBServiceInterface {
 	return newFakeLBServices(c, namespace)
 }

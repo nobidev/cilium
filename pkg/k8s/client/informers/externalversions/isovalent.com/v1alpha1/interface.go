@@ -57,6 +57,8 @@ type Interface interface {
 	LBBackendPools() LBBackendPoolInformer
 	// LBDeployments returns a LBDeploymentInformer.
 	LBDeployments() LBDeploymentInformer
+	// LBK8sBackendClusters returns a LBK8sBackendClusterInformer.
+	LBK8sBackendClusters() LBK8sBackendClusterInformer
 	// LBServices returns a LBServiceInformer.
 	LBServices() LBServiceInformer
 	// LBVIPs returns a LBVIPInformer.
@@ -193,6 +195,11 @@ func (v *version) LBBackendPools() LBBackendPoolInformer {
 // LBDeployments returns a LBDeploymentInformer.
 func (v *version) LBDeployments() LBDeploymentInformer {
 	return &lBDeploymentInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// LBK8sBackendClusters returns a LBK8sBackendClusterInformer.
+func (v *version) LBK8sBackendClusters() LBK8sBackendClusterInformer {
+	return &lBK8sBackendClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // LBServices returns a LBServiceInformer.

@@ -38,6 +38,7 @@ type IsovalentV1alpha1Interface interface {
 	IsovalentVRFsGetter
 	LBBackendPoolsGetter
 	LBDeploymentsGetter
+	LBK8sBackendClustersGetter
 	LBServicesGetter
 	LBVIPsGetter
 	PrivateNetworkEndpointSlicesGetter
@@ -140,6 +141,10 @@ func (c *IsovalentV1alpha1Client) LBBackendPools(namespace string) LBBackendPool
 
 func (c *IsovalentV1alpha1Client) LBDeployments(namespace string) LBDeploymentInterface {
 	return newLBDeployments(c, namespace)
+}
+
+func (c *IsovalentV1alpha1Client) LBK8sBackendClusters() LBK8sBackendClusterInterface {
+	return newLBK8sBackendClusters(c)
 }
 
 func (c *IsovalentV1alpha1Client) LBServices(namespace string) LBServiceInterface {

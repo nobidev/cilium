@@ -99,6 +99,9 @@ const (
 	// LBDeploymentCRDName is the full name of the LBDeployment CRD.
 	LBDeploymentCRDName = k8sconstv1alpha1.LBDeploymentKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 
+	// LBK8sBackendClusterCRDName is the full name of the LBK8sBackendCluster CRD.
+	LBK8sBackendClusterCRDName = k8sconstv1alpha1.LBK8sBackendClusterKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
+
 	// IsovalentNetworkPolicyName is the full name of the IsovalentNetworkPolicy CRD.
 	IsovalentNetworkPolicyCRDName = k8sconstv1alpha1.IsovalentNetworkPolicyKindDefinition + "/" + k8sconstv1alpha1.CustomResourceDefinitionVersion
 
@@ -222,6 +225,10 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 			Name:     LBDeploymentCRDName,
 			FullName: k8sconstv1alpha1.LBDeploymentName,
 		},
+		synced.CRDResourceName(k8sconstv1alpha1.LBK8sBackendClusterName): {
+			Name:     LBK8sBackendClusterCRDName,
+			FullName: k8sconstv1alpha1.LBK8sBackendClusterName,
+		},
 		synced.CRDResourceName(k8sconstv1alpha1.IsovalentNetworkPolicyName): {
 			Name:     IsovalentNetworkPolicyCRDName,
 			FullName: k8sconstv1alpha1.IsovalentNetworkPolicyName,
@@ -341,6 +348,9 @@ var (
 	//go:embed crds/v1alpha1/lbdeployments.yaml
 	crdsv1Alpha1LBDeployments []byte
 
+	//go:embed crds/v1alpha1/lbk8sbackendclusters.yaml
+	crdsv1Alpha1LBK8sBackendClusters []byte
+
 	//go:embed crds/v1alpha1/isovalentnetworkpolicies.yaml
 	crdsv1Alpha1IsovalentNetworkPolicies []byte
 
@@ -421,6 +431,8 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes = crdsv1Alpha1LBVIPs
 	case LBDeploymentCRDName:
 		crdBytes = crdsv1Alpha1LBDeployments
+	case LBK8sBackendClusterCRDName:
+		crdBytes = crdsv1Alpha1LBK8sBackendClusters
 	case IsovalentNetworkPolicyCRDName:
 		crdBytes = crdsv1Alpha1IsovalentNetworkPolicies
 	case IsovalentClusterwideNetworkPolicyCRDName:
