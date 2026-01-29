@@ -281,13 +281,6 @@ host_wg_encrypt_hook(struct __ctx_buff *ctx, __be16 proto, __u32 src_sec_identit
 	if (magic == MARK_MAGIC_PROXY_INGRESS ||
 	    magic == MARK_MAGIC_SKIP_TPROXY)
 		goto maybe_encrypt;
-#if defined(TUNNEL_MODE)
-	/* In tunneling mode the mark might have been reset. Check TC index instead.
-	 * TODO: remove this in v1.20, once we can rely on MARK_MAGIC_SKIP_TPROXY.
-	 */
-	if (tc_index_from_ingress_proxy(ctx) || tc_index_from_egress_proxy(ctx))
-		goto maybe_encrypt;
-#endif /* TUNNEL_MODE */
 
 	/* Unless node encryption is enabled, we don't want to encrypt
 	 * traffic from the hostns (an exception - L7 proxy traffic).
