@@ -18,6 +18,7 @@ IGNORE_HUNK_REGEXES=(
   -I $'^(.*[Ee]nterprise.*)|(\`\n\\\')$' # Ignore direct references to enterprise
   -I $'^(.*[Ee]nterprise.*)|(\`\n\\\')|(.*dnsproxy.*)$' # Enterprise dnsproxy image builds
   -I $'^(.*[Ee]nterprise.*)|(\`\n\\\')|(.*shell: bash.*)|(.*run: .*)$' # Enterprise environment overrides
+  -I $'^(.*[Ee]nterprise.*)|(\`\n\\\')|(.*kernel.*)$' # Support enterprise overrides for kernel CI targets
   -I '^.*git config.*ISOVALENT.*$' # Ignore enterprise GitHub secret configurations
   -I '^.*main(-ce)?.*$' # Ignore main->main-ce branch replacements
   -I '^.*pull_request(_target)?' # Ignore pull_request_target->pull_request changes
