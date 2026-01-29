@@ -75,7 +75,7 @@ func (r *gwIngestor) ingestGatewayAPItoLB(input Input, ctx context.Context) (*lb
 		return nil, fmt.Errorf("Failed to retrieve t1 and t2 node label selectors %w ", err)
 	}
 
-	t1NodeIPs, t2NodeIPs, err := r.loadT1AndT2NodeIPs(ctx, input.AllNodes, *t1LabelSelector, *t2LabelSelector)
+	t1NodeIPv4Addresses, t1NodeIPv6Addresses, t2NodeIPv4Addresses, t2NodeIPv6Addresses, err := r.loadT1AndT2NodeIPs(ctx, getIPFamily(input.VIP), input.AllNodes, *t1LabelSelector, *t2LabelSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve T1 & T2 node label selectors: %w", err)
 	}
@@ -92,7 +92,9 @@ func (r *gwIngestor) ingestGatewayAPItoLB(input Input, ctx context.Context) (*lb
 		name:      input.Gateway.Name,
 		vip: lbVIP{
 			name:         input.VIP.Name,
+			ipFamily:     getIPFamily(input.VIP),
 			assignedIPv4: getAssignedIPv4(input.VIP),
+			assignedIPv6: getAssignedIPv6(input.VIP),
 			bindStatus:   getVIPBindStatus(svc),
 		},
 		// the port of the LB fof the Gateway. Currently grabbing the first listener port.
@@ -101,8 +103,10 @@ func (r *gwIngestor) ingestGatewayAPItoLB(input Input, ctx context.Context) (*lb
 		//proxyProtocolConfig: input.Gateway.Spec.Listeners[0].Protocol,
 		applications:        applications,
 		referencedBackends:  referencedBackends,
-		t1NodeIPv4Addresses: t1NodeIPs,
-		t2NodeIPv4Addresses: t2NodeIPs,
+		t1NodeIPv4Addresses: t1NodeIPv4Addresses,
+		t1NodeIPv6Addresses: t1NodeIPv6Addresses,
+		t2NodeIPv4Addresses: t2NodeIPv4Addresses,
+		t2NodeIPv6Addresses: t2NodeIPv6Addresses,
 		t1LabelSelector:     *t1LabelSelector,
 		t2LabelSelector:     *t2LabelSelector,
 	}
@@ -297,7 +301,7 @@ func (r *gwIngestor) getAddressesFromEndpointSlices(endpointSlices []discoveryv1
 	res := []string{}
 	// get the endpoint slices associated with the applications (is there an easier way to do this?)
 	for _, ep := range endpointSlices {
-		if ep.Labels[discoveryv1.LabelServiceName] == name {
+		if ep.Labels[discoveryv1.LabelServiceName] == name && (ep.AddressType == discoveryv1.AddressTypeIPv4 || ep.AddressType == discoveryv1.AddressTypeIPv6) {
 			for _, v := range ep.Endpoints {
 				res = append(res, v.Addresses...)
 			}
@@ -360,25 +364,25 @@ func (r *gwIngestor) getTierLabelSelector(defaultLS slim_metav1.LabelSelector, d
 	return &combinedLabelSelector, nil
 }
 
-func (r *gwIngestor) loadT1AndT2NodeIPs(ctx context.Context, nodes []*slim_corev1.Node, t1LabelSelector labels.Selector, t2LabelSelector labels.Selector) ([]string, []string, error) {
-	t1NodeIPs, err := r.loadNodeAddressesByLabelSelector(ctx, nodes, t1LabelSelector)
+func (r *gwIngestor) loadT1AndT2NodeIPs(ctx context.Context, ipFamily ipFamily, nodes []*slim_corev1.Node, t1LabelSelector labels.Selector, t2LabelSelector labels.Selector) ([]string, []string, []string, []string, error) {
+	t1NodeIPv4Addresses, t1NodeIPv6Addresses, err := r.loadNodeAddressesByLabelSelector(ctx, ipFamily, nodes, t1LabelSelector)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to retrieve T1 node ips: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to retrieve T1 node ips: %w", err)
 	}
 
-	t2NodeIPs, err := r.loadNodeAddressesByLabelSelector(ctx, nodes, t2LabelSelector)
+	t2NodeIPv4Addresses, t2NodeIPv6Addresses, err := r.loadNodeAddressesByLabelSelector(ctx, ipFamily, nodes, t2LabelSelector)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to retrieve T2 node ips: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to retrieve T2 node ips: %w", err)
 	}
 
-	return t1NodeIPs, t2NodeIPs, nil
+	return t1NodeIPv4Addresses, t1NodeIPv6Addresses, t2NodeIPv4Addresses, t2NodeIPv6Addresses, nil
 }
-func (r *gwIngestor) loadNodeAddressesByLabelSelector(ctx context.Context, nodes []*slim_corev1.Node, selector labels.Selector) ([]string, error) {
-	nodeIPs := []string{}
+func (r *gwIngestor) loadNodeAddressesByLabelSelector(ctx context.Context, ipFamily ipFamily, nodes []*slim_corev1.Node, selector labels.Selector) ([]string, []string, error) {
+	nodeIPv4Addresses := []string{}
+	nodeIPv6Addresses := []string{}
 
 	for _, cn := range nodes {
 		if selector.Matches(labels.Set(cn.Labels)) {
-			var nodeIP string
 			for _, addr := range cn.Status.Addresses {
 				if addr.Type == slim_corev1.NodeInternalIP {
 					a, err := netip.ParseAddr(addr.Address)
@@ -390,30 +394,25 @@ func (r *gwIngestor) loadNodeAddressesByLabelSelector(ctx context.Context, nodes
 						continue
 					}
 
-					if a.Is6() {
-						// skip ipv6 addresses for now
-						continue
+					if a.Is4() && (ipFamily == ipFamilyV4 || ipFamily == ipFamilyDual) {
+						nodeIPv4Addresses = append(nodeIPv4Addresses, addr.Address)
+					} else if a.Is6() && !a.Is4In6() && (ipFamily == ipFamilyV6 || ipFamily == ipFamilyDual) {
+						nodeIPv6Addresses = append(nodeIPv6Addresses, addr.Address)
 					}
-
-					// use first ipv4 address
-					// TODO: support multiple addresses? (at least to configure the Envoy source IP filter)
-					nodeIP = addr.Address
-					break
+				}
+				if len(nodeIPv4Addresses)+len(nodeIPv6Addresses) == 0 {
+					r.logger.Warn("Could not find InternalIP for CiliumNode",
+						logfields.Resource, cn.Name,
+					)
+					continue
 				}
 			}
-			if nodeIP == "" {
-				r.logger.Warn("Could not find InternalIP for CiliumNode",
-					logfields.Resource, cn.Name,
-				)
-				continue
-			}
-
-			nodeIPs = append(nodeIPs, nodeIP)
 		}
 	}
 
-	slices.Sort(nodeIPs)
-	return nodeIPs, nil
+	slices.Sort(nodeIPv4Addresses)
+	slices.Sort(nodeIPv6Addresses)
+	return nodeIPv4Addresses, nodeIPv6Addresses, nil
 }
 
 //func toMapString[K, V ~string](in map[K]V) map[string]string {
