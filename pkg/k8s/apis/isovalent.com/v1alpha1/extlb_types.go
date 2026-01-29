@@ -11,6 +11,7 @@ import (
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbk8sbackendcluster",path="lbk8sbackendclusters",scope="Cluster",shortName={lbkbc}
+// +kubebuilder:printcolumn:JSONPath=".metadata.name",name="Cluster Name",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.status",name="Status",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
@@ -38,6 +39,16 @@ type LBK8sBackendClusterSpec struct {
 	//
 	// +required
 	Authentication LBK8sBackendClusterAuth `json:"authentication"`
+
+	// ServiceDiscovery contains one or more service discovery configurations.
+	// These define how services in the remote cluster should be discovered and
+	// health checked. If no ServiceDiscovery configurations are provided, the
+	// controller will discover all LoadBalancer type services in the remote
+	// cluster with default health check settings.
+	//
+	// +optional
+	// +deepequal-gen=false
+	ServiceDiscovery []LBK8sBackendClusterServiceDiscoveryConfig `json:"serviceDiscovery,omitempty"`
 }
 
 type LBK8sBackendClusterAuth struct {
@@ -50,11 +61,85 @@ type LBK8sBackendClusterAuth struct {
 
 type LBK8sBackendClusterSecretRef struct {
 	// +required
+	// +kubebuilder:validation:MinLength=1
 	Namespace string `json:"namespace"`
 
 	// +required
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 }
+
+// LBK8sBackendClusterServiceDiscoveryConfig configures which services to discover
+// and how they should be health checked.
+type LBK8sBackendClusterServiceDiscoveryConfig struct {
+	// Name is an optional identifier for this discovery configuration.
+	// If specified, it will be used in status reporting to identify which
+	// configuration discovered each service.
+	//
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name *string `json:"name,omitempty"`
+
+	// Namespaces limits service discovery to specific namespaces.
+	// If empty, services from all namespaces will be discovered.
+	//
+	// +optional
+	// +kubebuilder:validation:MaxItems=100
+	// +listType=set
+	Namespaces []string `json:"namespaces,omitempty"`
+
+	// LabelSelector filters which services to discover based on labels. If not
+	// specified, all LoadBalancer type services will be discovered.
+	//
+	// +optional
+	// +deepequal-gen=false
+	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
+
+	// HealthCheck configures the health check settings for backends discovered
+	// by this configuration. If not specified, defaults will be used.
+	//
+	// +optional
+	HealthCheck *LBK8sBackendServiceHealthCheck `json:"healthCheck,omitempty"`
+}
+
+// LBK8sBackendServiceHealthCheck defines how a collection of discovered
+// services should be health checked.
+type LBK8sBackendServiceHealthCheck struct {
+	// Protocol for health checks (currently only TCP).
+	//
+	// +optional
+	// +kubebuilder:default=TCP
+	Protocol *string `json:"protocol,omitempty"`
+
+	// Ports to health check.
+	// All ports must have a fully established connection for TCP
+	//
+	// +required
+	// +listType=set
+	Ports []*uint16 `json:"ports"`
+
+	// IntervalSeconds is the interval between health check probes.
+	//
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=30
+	IntervalSeconds *int32 `json:"intervalSeconds,omitempty"`
+
+	// TimeoutSeconds is the timeout for each health check probe.
+	//
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=5
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
+}
+
+// +kubebuilder:validation:Enum=TCP
+type LBExternalLBHealthCheckProtocol string
+
+const (
+	LBK8sBackendServiceHealthCheckProtocolTCP LBExternalLBHealthCheckProtocol = "TCP"
+)
 
 type LBK8sBackendClusterStatus struct {
 	// Status is one of "OK" or "ConditionNotMet".
@@ -63,33 +148,36 @@ type LBK8sBackendClusterStatus struct {
 	// +optional
 	Status *ExtLBResourceStatus `json:"status,omitempty"`
 
-	// LastSyncTime is the last time the cluster connection was synced.
+	// LastSyncTime is the timestamp of the last successful sync.
 	//
 	// +optional
 	// +deepequal-gen=false
 	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
 
-	// Conditions represent the latest available observations.
+	// ServicesDiscovered is the number of services currently discovered
+	// from this remote cluster.
+	//
+	// +optional
+	ServicesDiscovered int32 `json:"servicesDiscovered,omitempty"`
+
+	// DiscoveredServices lists the services that have been discovered and
+	// their corresponding ILB resources.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=namespace
+	// +listMapKey=name
+	// +deepequal-gen=false
+	DiscoveredServices []LBK8sBackendClusterDiscoveredService `json:"discoveredServices,omitempty"`
+
+	// Conditions represent the latest available observations of the
+	// LBK8sBackendCluster's state.
 	//
 	// +optional
 	// +listType=map
 	// +listMapKey=type
 	// +deepequal-gen=false
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:object:root=true
-// +deepequal-gen=false
-
-// LBK8sBackendClusterList is a list of LBK8sBackendCluster resources.
-type LBK8sBackendClusterList struct {
-	// +deepequal-gen=false
-	metav1.TypeMeta `json:",inline"`
-	// +deepequal-gen=false
-	metav1.ListMeta `json:"metadata,omitempty"`
-
-	Items []LBK8sBackendCluster `json:"items"`
 }
 
 func (r *LBK8sBackendCluster) GetStatusCondition(conditionType string) *metav1.Condition {
@@ -115,7 +203,6 @@ func (r *LBK8sBackendCluster) UpsertStatusCondition(conditionType string, condit
 				c.Reason != condition.Reason ||
 				c.Message != condition.Message ||
 				c.ObservedGeneration != condition.ObservedGeneration {
-				// transition -> update condition
 				r.Status.Conditions[i] = condition
 			}
 			conditionExists = true
@@ -144,12 +231,10 @@ func (r *LBK8sBackendCluster) UpdateResourceStatus() {
 	r.Status.Status = &resourceStatus
 }
 
-// Condition types for LBK8sBackendCluster
 const (
 	ConditionTypeClusterConnected = "extlb.cilium.io/ClusterConnected"
 )
 
-// Condition reasons for LBK8sBackendCluster
 const (
 	ClusterConnectedReasonConnected        = "Connected"
 	ClusterConnectedReasonConnectionFailed = "ConnectionFailed"
@@ -162,8 +247,90 @@ const (
 type ExtLBResourceStatus string
 
 const (
-	// Status OK: everything is OK
-	ExtLBResourceStatusOK ExtLBResourceStatus = "OK"
-	// Status ConditionNotMet: At least one condition isn't met
+	ExtLBResourceStatusOK              ExtLBResourceStatus = "OK"
 	ExtLBResourceStatusConditionNotMet ExtLBResourceStatus = "ConditionNotMet"
 )
+
+// LBK8sBackendClusterDiscoveredService represents a discovered service and
+// its corresponding ILB resources.
+type LBK8sBackendClusterDiscoveredService struct {
+	// Status is the overall status of the discovered service.
+	// For detailed information, refer to the Conditions on each of the referenced resources.
+	//
+	// +optional
+	Status string `json:"status,omitempty"`
+
+	// RemoteNamespace is the namespace of the source service in the remote cluster.
+	//
+	// +required
+	RemoteNamespace string `json:"namespace"`
+
+	// RemoteName is the name of the source service in the remote cluster.
+	//
+	// +required
+	RemoteName string `json:"name"`
+
+	// DiscoveryConfigName is the name of the ServiceDiscoveryConfig that
+	// matched this service. This corresponds to the optional Name field
+	// in the discovery configuration. If the matching config had no name,
+	// this will be empty.
+	//
+	// +optional
+	DiscoveryConfigName *string `json:"discoveryConfigName,omitempty"`
+
+	// LBServiceRef is the reference to the created LBService resource.
+	//
+	// +optional
+	LBServiceRef *LBExternalLBResourceRef `json:"lbServiceRef,omitempty"`
+
+	// LBVIPRef is the reference to the created LBVIP resource.
+	//
+	// +optional
+	LBVIPRef *LBExternalLBResourceRef `json:"lbVIPRef,omitempty"`
+
+	// LBBackendPoolRef is the reference to the created LBBackendPool resource.
+	//
+	// +optional
+	LBBackendPoolRef *LBExternalLBResourceRef `json:"lbBackendPoolRef,omitempty"`
+
+	// ExternalIP is the allocated external IP that was written back to
+	// the source service.
+	//
+	// +optional
+	ExternalIP *string `json:"externalIP,omitempty"`
+
+	// LastError contains the last error message if the service failed to sync.
+	//
+	// +optional
+	LastError *string `json:"lastError,omitempty"`
+}
+
+// +kubebuilder:validation:Enum=Pending;Synced;Error
+type LBK8sBackendClusterDiscoveredServiceStatus string
+
+const (
+	LBK8sBackendClusterDiscoveredServiceStatusPending LBK8sBackendClusterDiscoveredServiceStatus = "Pending"
+	LBK8sBackendClusterDiscoveredServiceStatusSynced  LBK8sBackendClusterDiscoveredServiceStatus = "Synced"
+	LBK8sBackendClusterDiscoveredServiceStatusError   LBK8sBackendClusterDiscoveredServiceStatus = "Error"
+)
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +deepequal-gen=false
+
+type LBK8sBackendClusterList struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +deepequal-gen=false
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []LBK8sBackendCluster `json:"items"`
+}
+
+type LBExternalLBResourceRef struct {
+	// +required
+	Namespace string `json:"namespace"`
+
+	// +required
+	Name string `json:"name"`
+}
