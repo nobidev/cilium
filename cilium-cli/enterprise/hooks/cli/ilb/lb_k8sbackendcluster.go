@@ -13,6 +13,7 @@ package ilb
 import (
 	"fmt"
 
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -159,4 +160,90 @@ func TestLBK8sBackendClusterReconnect(t T) {
 
 	t.Log("Waiting for LBK8sBackendCluster to reconnect...")
 	scenario.waitForLBK8sBackendClusterConnected(lbK8sBackendClusterName)
+}
+
+func TestLBK8sBackendClusterServiceDiscovery(t T) {
+	if skipIfOnSingleNode("backend kind clusters require a shared Docker network") {
+		return
+	}
+
+	testName := "lbk8sbackend-svc-disc"
+	backendClusterName := "ilb-backend-svc-disc"
+
+	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
+	dockerCli := NewDockerCli(t)
+
+	// extlb is only supported in v1.19 and newer
+	minVersion := ">=1.19.0"
+	currentVersion := GetCiliumVersion(t, k8sCli)
+	if !versioncheck.MustCompile(minVersion)(currentVersion) {
+		fmt.Printf("skipping due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
+		return
+	}
+
+	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
+
+	t.Log("Creating backend kind cluster...")
+	backendCluster := scenario.createBackendKindCluster(backendClusterName)
+
+	t.Log("Waiting for backend cluster to be ready...")
+	scenario.waitForBackendKindClusterReady(backendCluster)
+
+	// Create a LoadBalancer service in the backend cluster before creating the LBK8sBackendCluster
+	serviceNamespace := "test-svc-ns"
+	serviceName := "test-service"
+	servicePort := int32(8080)
+	t.Log("Creating LoadBalancer service in backend cluster...")
+	scenario.createServiceInBackendCluster(backendCluster, serviceNamespace, serviceName, servicePort)
+
+	t.Log("Creating kubeconfig secret...")
+	secretName := testName + "-kubeconfig"
+	scenario.createLBK8sBackendClusterSecret(backendCluster, secretName)
+
+	t.Log("Creating LBK8sBackendCluster with service discovery config...")
+	lbK8sBackendClusterName := testName + "-cluster"
+	discoveryConfigs := []isovalentv1alpha1.LBK8sBackendClusterServiceDiscoveryConfig{
+		{
+			Name:       "test-discovery",
+			Namespaces: []string{serviceNamespace},
+		},
+	}
+	scenario.createLBK8sBackendClusterWithServiceDiscovery(lbK8sBackendClusterName, secretName, scenario.k8sNamespace, discoveryConfigs)
+
+	t.Log("Waiting for LBK8sBackendCluster to connect...")
+	scenario.waitForLBK8sBackendClusterConnected(lbK8sBackendClusterName)
+
+	t.Log("Waiting for service to be discovered and synced...")
+	discoveredSvc := scenario.waitForLBK8sBackendClusterServiceDiscovery(lbK8sBackendClusterName, serviceNamespace, serviceName)
+
+	t.Log("Verifying ILB resources were created...")
+	if discoveredSvc.LBVIPRef == nil {
+		t.Failedf("discovered service should have LBVIPRef")
+	}
+	if len(discoveredSvc.LBServiceRefs) == 0 {
+		t.Failedf("discovered service should have LBServiceRefs")
+	}
+	if len(discoveredSvc.LBBackendPoolRefs) == 0 {
+		t.Failedf("discovered service should have LBBackendPoolRefs")
+	}
+
+	t.Log("Waiting for external IP to be written back to backend cluster service...")
+	externalIP := scenario.waitForServiceExternalIP(backendCluster, serviceNamespace, serviceName)
+
+	t.Log("Verifying external IP matches discovered service...")
+	if discoveredSvc.ExternalIP == nil || *discoveredSvc.ExternalIP != externalIP {
+		var discoveredIP string
+		if discoveredSvc.ExternalIP != nil {
+			discoveredIP = *discoveredSvc.ExternalIP
+		}
+		t.Failedf("external IP mismatch: discovered=%q, backend=%q", discoveredIP, externalIP)
+	}
+
+	t.Log("Verifying annotation was written to backend cluster service...")
+	annotationValue := scenario.waitForServiceAnnotation(backendCluster, serviceNamespace, serviceName, "lbk8sbackendcluster.isovalent.com/cluster")
+	if annotationValue != lbK8sBackendClusterName {
+		t.Failedf("annotation mismatch: expected=%q, got=%q", lbK8sBackendClusterName, annotationValue)
+	}
+
+	t.Log("Service discovery test completed successfully")
 }

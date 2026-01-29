@@ -811,6 +811,12 @@ func (r *lbK8sBackendClusterReconciler) updateRemoteServiceExternalIP(
 	externalIP string,
 	logger *slog.Logger,
 ) error {
+	logger.Debug("updateRemoteServiceExternalIP called",
+		logfields.K8sNamespace, remoteSvc.Namespace,
+		logfields.ServiceName, remoteSvc.Name,
+		logfields.IPAddr, externalIP,
+	)
+
 	var current corev1.Service
 	if err := remoteClient.Get(ctx, types.NamespacedName{
 		Name:      remoteSvc.Name,
