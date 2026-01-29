@@ -304,8 +304,8 @@ func (r *lbTestScenario) createLBK8sBackendClusterWithServiceDiscovery(
 					Namespace: secretNamespace,
 				},
 			},
-			ServiceDiscovery:  discoveryConfigs,
-			TargetNamespace:   &r.k8sNamespace,
+			ServiceDiscovery: discoveryConfigs,
+			TargetNamespace:  &r.k8sNamespace,
 		},
 	}
 
