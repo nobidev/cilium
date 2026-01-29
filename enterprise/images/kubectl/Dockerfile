@@ -19,10 +19,14 @@ LABEL org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 ARG VERSION=0.0.0
 LABEL version=${VERSION}
 
-# Install kubectl and other necessary tools
-RUN curl -LO "https://dl.k8s.io/release/v1.34.2/bin/linux/amd64/kubectl" && \
-    chmod +x kubectl && \
-    mv kubectl /usr/local/bin/kubectl
+# renovate: datasource=github-releases depName=kubernetes/kubernetes
+ARG KUBECTL_VERSION=v1.34.2
+ARG TARGETARCH
+
+# Install kubectl for the target architecture.
+RUN set -euo pipefail; \
+    curl -L -o /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl"; \
+    chmod +x /usr/local/bin/kubectl
 
 COPY LICENSE /usr/share/licenses/isovalent/
 RUN ln -s /usr/share/licenses /licenses
