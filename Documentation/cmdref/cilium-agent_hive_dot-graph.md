@@ -46,7 +46,7 @@ cilium-agent hive dot-graph [flags]
       --bpf-privnet-cidr-identity-map-max uint32                         Maximum number of entries in the private network CIDR identity map. (default 128000)
       --bpf-privnet-pip-fib-map-max uint32                               Maximum number of entries in the private network PIP and FIB BPF maps. (default 512000)
       --bpf-sock-rev-map-max int                                         Maximum number of entries for the SockRevNAT BPF map
-      --bpf-vni-map-max uint32                                           Maximum number of entries in the VNI BPF map. (default 65536)
+      --bpf-vni-map-max uint32                                           Maximum number of entries in the VNI BPF map. (default 65535)
       --certificates-directory string                                    Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cluster-id uint32                                                Unique identifier of the cluster
       --cluster-name string                                              Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character. (default "default")

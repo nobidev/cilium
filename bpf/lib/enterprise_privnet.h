@@ -7,7 +7,7 @@
 #include "conntrack.h"
 #include "icmp6.h"
 
-#include "enterprise_config.h"
+#include "enterprise_privnet_config.h"
 #include "enterprise_ext_eps_policy.h"
 
 /*
@@ -139,20 +139,6 @@
  *		e. Privnet ingress ( similar to 2.e )
  *		f. Packet is redirected to lxc device.
  */
-
-DECLARE_ENTERPRISE_CONFIG(bool, privnet_enable,
-			  "True if the endpoint is in a non-default network")
-DECLARE_ENTERPRISE_CONFIG(__u32, privnet_unknown_sec_id,
-			  "The security identifier for unknown network traffic")
-DECLARE_ENTERPRISE_CONFIG(__u16, privnet_network_id,
-			  "The identifier of the private network")
-DECLARE_ENTERPRISE_CONFIG(bool, privnet_bridge_enable,
-			  "True if running on network bridge")
-
-#ifdef IS_BPF_LXC
-DECLARE_ENTERPRISE_CONFIG(union v6addr, privnet_ipv6,
-			  "The endpoint's IPv6 address within the network")
-#endif /* IS_BPF_LXC */
 
 struct privnet_fib_key {
 	struct bpf_lpm_trie_key lpm_key;
@@ -430,8 +416,16 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx, const voi
 			 * entries, skip natting.
 			 */
 			ret = nat_v4_addr(ctx, IPV4_DADDR_OFF, &ip4->daddr, &dip_val->ip4);
-			if (IS_ERR(ret))
+			if (IS_ERR(ret)) {
+				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
+					/* Checksum failure still means we (somewhat)
+					 * successfully NATed the packet
+					 */
+					set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
 				return ret;
+			}
+			/* Set net id to default network.*/
+			set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
 		}
 	}
 
@@ -449,8 +443,16 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx, const voi
 			 * entries, skip natting.
 			 */
 			ret = nat_v4_addr(ctx, IPV4_SADDR_OFF, &ip4->saddr, &sip_val->ip4);
-			if (IS_ERR(ret))
+			if (IS_ERR(ret)) {
+				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
+					/* Checksum failure still means we (somewhat)
+					 * successfully NATed the packet
+					 */
+					set_privnet_net_src_id(PRIVNET_PIP_NET_ID);
 				return ret;
+			}
+			/* Set net id to default network.*/
+			set_privnet_net_src_id(PRIVNET_PIP_NET_ID);
 		}
 	}
 
@@ -485,6 +487,8 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx, const voi
 			ret = nat_v6_addr(ctx, IPV6_DADDR_OFF, &dip_val->ip6);
 			if (IS_ERR(ret))
 				return ret;
+			/* Set net id to default network.*/
+			set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
 		}
 	}
 
@@ -497,6 +501,8 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx, const voi
 			ret = nat_v6_addr(ctx, IPV6_SADDR_OFF, &sip_val->ip6);
 			if (IS_ERR(ret))
 				return ret;
+			/* Set net id to default network.*/
+			set_privnet_net_src_id(PRIVNET_PIP_NET_ID);
 		}
 	}
 
@@ -606,18 +612,30 @@ privnet_ingress_ipv4(struct __ctx_buff *ctx, const void *map, __u16 net_id, bool
 
 		if (net_id == sip_val->net_id || net_id == 0) {
 			ret = nat_v4_addr(ctx, IPV4_SADDR_OFF, &ip4->saddr, &sip_val->ip4);
-			if (IS_ERR(ret))
+			if (IS_ERR(ret)) {
+				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
+					/* Checksum failure still means we (somewhat)
+					 * successfully NATed the packet
+					 */
+					set_privnet_net_src_id(sip_val->net_id);
 				return ret;
+			}
+			/* Set net id to target network.*/
+			set_privnet_net_src_id(sip_val->net_id);
 		}
 	}
 
-	if (unknown_flow && net_id == 0)
+	if (unknown_flow && net_id == 0) {
 		/* net id is 0 when traffic is received at overlay device, and if
 		 * it is unknown flow, then we skip dip as destination IP is not
 		 * PIP. This is for traffic coming from k8s cluster into INB
 		 * and going out to connected L2 network.
+		 * The destination netID is the assumed to be the same as the source netID.
 		 */
+		if (sip_val)
+			set_privnet_net_dst_id(sip_val->net_id);
 		goto out;
+	}
 
 	/* revalidate data before accessing ip4, otherwise verifier will not be happy. */
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -637,8 +655,21 @@ privnet_ingress_ipv4(struct __ctx_buff *ctx, const void *map, __u16 net_id, bool
 		if (net_id == dip_val->net_id ||
 		    (sip_val && sip_val->net_id == dip_val->net_id)) {
 			ret = nat_v4_addr(ctx, IPV4_DADDR_OFF, &ip4->daddr, &dip_val->ip4);
-			if (IS_ERR(ret))
+			if (IS_ERR(ret)) {
+				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
+					/* Checksum failure still means we (somewhat)
+					 * successfully NATed the packet
+					 */
+					set_privnet_net_dst_id(dip_val->net_id);
 				return ret;
+			}
+			/* Set net id to target network.*/
+			set_privnet_net_dst_id(dip_val->net_id);
+			if (unknown_flow)
+				/* If we're in unknown flow - the source is also in th target
+				 * network, even though we did not NAT it.
+				 */
+				set_privnet_net_src_id(dip_val->net_id);
 		}
 	}
 
@@ -677,11 +708,16 @@ privnet_ingress_ipv6(struct __ctx_buff *ctx, const void *map, __u16 net_id, bool
 			ret = nat_v6_addr(ctx, IPV6_SADDR_OFF, &sip_val->ip6);
 			if (IS_ERR(ret))
 				return ret;
+			/* Set net id to target network.*/
+			set_privnet_net_src_id(sip_val->net_id);
 		}
 	}
 
-	if (unknown_flow && net_id == 0)
+	if (unknown_flow && net_id == 0) {
+		if (sip_val)
+			set_privnet_net_dst_id(sip_val->net_id);
 		goto out;
+	}
 
 	dip_val = privnet_pip_lookup6(map, orig_dip);
 	if (dip_val) {
@@ -693,6 +729,13 @@ privnet_ingress_ipv6(struct __ctx_buff *ctx, const void *map, __u16 net_id, bool
 			ret = nat_v6_addr(ctx, IPV6_DADDR_OFF, &dip_val->ip6);
 			if (IS_ERR(ret))
 				return ret;
+			/* Set net id to target network.*/
+			set_privnet_net_dst_id(dip_val->net_id);
+			if (unknown_flow)
+				/* If we're in unknown flow - the source is also in th target
+				 * network, even though we did not NAT it.
+				 */
+				set_privnet_net_src_id(dip_val->net_id);
 		}
 	}
 

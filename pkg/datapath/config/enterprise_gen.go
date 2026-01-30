@@ -15,3 +15,4 @@ package config
 //go:generate go run github.com/cilium/cilium/tools/dpgen -path ../../../bpf/bpf_overlay.o -kind enterprise -name BPFOverlayEnterprise -out enterprise_overlay_config.go
 //go:generate go run github.com/cilium/cilium/tools/dpgen -path ../../../bpf/enterprise_bpf_evpn.o -embed Node -kind object -name BPFEvpnBase -out enterprise_evpn_base_config.go
 //go:generate go run github.com/cilium/cilium/tools/dpgen -path ../../../bpf/enterprise_bpf_evpn.o -kind enterprise -name BPFEvpnEnterprise -out enterprise_evpn_config.go
+//go:generate go run github.com/cilium/cilium/tools/dpgen -path ../../../bpf/bpf_wireguard.o -kind enterprise -name BPFWireguardEnterprise -out enterprise_wireguard_config.go

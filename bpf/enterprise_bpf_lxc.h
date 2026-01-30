@@ -17,7 +17,19 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 	const struct privnet_fib_val *dip_val __maybe_unused;
 	int ret = CTX_ACT_OK;
 
-	if (!CONFIG(privnet_enable))
+	if (!CONFIG(privnet_enable)) {
+		/* Privnet is not enabled. We're always in P-IP space */
+		set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+		return ret;
+	}
+
+	/* We enter from the container, we're always in netIP space */
+	set_privnet_net_ids(CONFIG(privnet_network_id), CONFIG(privnet_network_id));
+
+	/* bpf_lxc will drop the packet as unsupported, return to normal control flow
+	 * after setting the netID.
+	 */
+	if (!eth_is_supported_ethertype(proto))
 		return ret;
 
 	switch (proto) {
@@ -96,6 +108,13 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 	}
 
 	return ret;
+}
+
+static __always_inline int enterprise_privnet_to_lxc(struct __ctx_buff *ctx __maybe_unused)
+{
+	/* If we enter to_lxc we always need to be in P-IP space */
+	set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+	return CTX_ACT_OK;
 }
 
 #ifdef ENABLE_IPV4

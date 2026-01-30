@@ -44,7 +44,9 @@ const (
 	NetworkIDReserved = NetworkID(0)
 
 	// NetworkIDMax represents the highest NetworkID value.
-	NetworkIDMax = NetworkID(math.MaxUint16)
+	NetworkIDMax = NetworkID(math.MaxUint16) - 1
+	// NetworkIDUnknown is reserved for signaling that the NetworkID is unknown.
+	NetworkIDUnknown = NetworkID(math.MaxUint16)
 )
 
 // PrivateNetwork represents a private network instance.

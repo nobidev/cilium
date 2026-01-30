@@ -46,6 +46,8 @@
 #include "lib/nodeport.h"
 #include "lib/tailcall.h"
 
+#include "enterprise_bpf_xdp.h"
+
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct lpm_v4_key);
@@ -365,6 +367,10 @@ __section_entry
 int cil_xdp_entry(struct __ctx_buff *ctx)
 {
 	check_and_store_ip_trace_id(ctx);
+
+	/* Set privnet netID info. Needs to happen before any possible notify */
+	enterprise_privnet_xdp_entry();
+
 	return check_filters(ctx);
 }
 

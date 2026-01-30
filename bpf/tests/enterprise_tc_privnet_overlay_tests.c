@@ -80,6 +80,8 @@ int privnet_icmp_from_overlay_nat_src_dst_check(struct __ctx_buff *ctx)
 			   sizeof(__u32), NETIP_ICMP_REQ,
 			   sizeof(BUF(NETIP_ICMP_REQ)));
 
+	assert_privnet_net_ids(NET_ID, NET_ID);
+
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 

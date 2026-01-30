@@ -15,6 +15,8 @@
 #include "common.h"
 #include "ratelimit.h"
 
+#include "enterprise_policy_log_extension.h"
+
 #if defined(IS_BPF_LXC)
 DECLARE_CONFIG(__u32, policy_verdict_log_filter, "The log level for policy verdicts in workload endpoints")
 #define POLICY_VERDICT_LOG_FILTER CONFIG(policy_verdict_log_filter)

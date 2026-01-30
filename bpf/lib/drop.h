@@ -23,6 +23,8 @@
 #include "classifiers.h"
 #include "trace_helpers.h"
 
+#include "enterprise_drop_extension.h"
+
 #define NOTIFY_DROP_VER 3
 
 #ifndef DROP_EXTENSION

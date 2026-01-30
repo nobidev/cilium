@@ -31,6 +31,8 @@
 #include "classifiers.h"
 #include "trace_helpers.h"
 
+#include "enterprise_trace_extension.h"
+
 /* Reasons for forwarding a packet, keep in sync with pkg/monitor/datapath_trace.go */
 enum trace_reason {
 	TRACE_REASON_POLICY = CT_NEW,
