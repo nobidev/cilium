@@ -592,37 +592,6 @@ snat_v4_rev_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4
 	return dport < target->min_port || dport > target->max_port;
 }
 
-/* Expects to be called with a nodeport-level CT tuple (ie. CT_EGRESS):
- * - extracted from a request packet,
- * - on CT_NEW (ie. the tuple is reversed)
- */
-static __always_inline __maybe_unused int
-snat_v4_create_dsr(const struct ipv4_ct_tuple *tuple,
-		   __be32 to_saddr, __be16 to_sport, __s8 *ext_err)
-{
-	struct ipv4_ct_tuple tmp = *tuple;
-	struct ipv4_nat_entry state = {};
-	int ret;
-
-	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
-
-	tmp.flags = TUPLE_F_OUT;
-	tmp.sport = tuple->dport;
-	tmp.dport = tuple->sport;
-
-	state.common.created = bpf_mono_now();
-	state.to_saddr = to_saddr;
-	state.to_sport = to_sport;
-
-	ret = map_update_elem(&cilium_snat_v4_external, &tmp, &state, 0);
-	if (ret) {
-		*ext_err = (__s8)ret;
-		return DROP_NAT_NO_MAPPING;
-	}
-
-	return CTX_ACT_OK;
-}
-
 static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
 					       enum nat_dir dir,
 					       struct ipv4_ct_tuple *tuple)
@@ -892,7 +861,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 
 	/* Check if the inner L4 header has checksum */
 	if (tuple.nexthdr == IPPROTO_TCP &&
-	    total_inner_len < iphdr.ihl + TCP_CSUM_OFF + sizeof(__u16))
+	    total_inner_len < ipv4_hdrlen(&iphdr) + TCP_CSUM_OFF + sizeof(__u16))
 		icmp_has_inner_l4_csum = false;
 
 	/* We found SNAT entry to NAT embedded packet. The destination addr
@@ -1117,7 +1086,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 
 	/* Check if the inner L4 header has checksum */
 	if (tuple.nexthdr == IPPROTO_TCP &&
-	    total_inner_len < iphdr.ihl + TCP_CSUM_OFF + sizeof(__u16))
+	    total_inner_len < ipv4_hdrlen(&iphdr) + TCP_CSUM_OFF + sizeof(__u16))
 		icmp_has_inner_l4_csum = false;
 
 	/* For UDP, a checksum value of zero means that no checksum */
@@ -1685,33 +1654,6 @@ snat_v6_rev_nat_can_skip(const struct ipv6_nat_target *target, const struct ipv6
 	return dport < target->min_port || dport > target->max_port;
 }
 
-static __always_inline __maybe_unused int
-snat_v6_create_dsr(const struct ipv6_ct_tuple *tuple, union v6addr *to_saddr,
-		   __be16 to_sport, __s8 *ext_err)
-{
-	struct ipv6_ct_tuple tmp = *tuple;
-	struct ipv6_nat_entry state = {};
-	int ret;
-
-	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
-
-	tmp.flags = TUPLE_F_OUT;
-	tmp.sport = tuple->dport;
-	tmp.dport = tuple->sport;
-
-	state.common.created = bpf_mono_now();
-	ipv6_addr_copy(&state.to_saddr, to_saddr);
-	state.to_sport = to_sport;
-
-	ret = map_update_elem(&cilium_snat_v6_external, &tmp, &state, 0);
-	if (ret) {
-		*ext_err = (__s8)ret;
-		return DROP_NAT_NO_MAPPING;
-	}
-
-	return CTX_ACT_OK;
-}
-
 static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 					       enum nat_dir dir,
 					       struct ipv6_ct_tuple *tuple)
@@ -1798,7 +1740,6 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	/* Do not SNAT if this is a localhost endpoint or
 	 * endpoint explicitly disallows it (normally multi-pool IPAM endpoints)
 	 */
-	 /*if (local_ep && (local_ep->flags & ENDPOINT_MASK_SKIP_MASQ_V6))*/
 	if (local_ep && (local_ep->flags & ENDPOINT_MASK_SKIP_MASQ_V6))
 		return NAT_PUNT_TO_STACK;
 

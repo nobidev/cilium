@@ -95,7 +95,7 @@ cilium-agent [flags]
       --container-ip-local-reserved-ports string                         Instructs the Cilium CNI plugin to reserve the provided comma-separated list of ports in the container network namespace. Prevents the container from using these ports as ephemeral source ports (see Linux ip_local_reserved_ports). Use this flag if you observe port conflicts between transparent DNS proxy requests and host network namespace services. Value "auto" reserves the WireGuard and VXLAN ports used by Cilium (default "auto")
       --controller-group-metrics strings                                 List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --crd-wait-timeout duration                                        Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
-      --datapath-mode string                                             Datapath mode name (veth, netkit, netkit-l2) (default "veth")
+      --datapath-mode string                                             Datapath mode name (auto, veth, netkit, netkit-l2) (default "veth")
   -D, --debug                                                            Enable debugging mode
       --debug-verbose strings                                            List of enabled verbose debug groups
       --default-lb-service-ipam string                                   Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set.Applicable values: lbipam, nodeipam, none (default "lbipam")
@@ -201,7 +201,6 @@ cilium-agent [flags]
       --enable-no-service-endpoints-routable                             Enable routes when service has 0 endpoints (default true)
       --enable-node-ipam                                                 Enable Node IPAM
       --enable-node-selector-labels                                      Enable use of node label based identity
-      --enable-packetization-layer-pmtud                                 Enables kernel packetization layer path mtu discovery on Pod netns (default true)
       --enable-phantom-services                                          Enable phantom services handling (default true)
       --enable-pmtu-discovery                                            Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                             Enable policy enforcement (default "default")
@@ -440,7 +439,7 @@ cilium-agent [flags]
       --log-system-load                                                  Enable periodic logging of system load
       --lrp-address-matcher-cidrs strings                                Limit address matches to specific CIDRs
       --max-connected-clusters uint32                                    Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
-      --mesh-auth-enabled                                                Enable authentication processing & garbage collection (beta) (default true)
+      --mesh-auth-enabled                                                Enable authentication processing & garbage collection (beta)
       --mesh-auth-gc-interval duration                                   Interval in which auth entries are attempted to be garbage collected (default 5m0s)
       --mesh-auth-mutual-connect-timeout duration                        Timeout for connecting to the remote node TCP socket (default 5s)
       --mesh-auth-mutual-listener-port int                               Port on which the Cilium Agent will perform mutual authentication handshakes between other Agents
@@ -465,7 +464,8 @@ cilium-agent [flags]
       --node-port-range strings                                          Set the min/max NodePort port range (default [30000,32767])
       --nodeport-addresses strings                                       A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.
       --only-masquerade-default-pool                                     When using multi-pool IPAM, only masquerade flows from the default IP pool. This will preserve source IPs for pods from non-default IP pools. Useful when combining multi-pool IPAM with BGP control plane. This option must be combined with enable-bpf-masquerade.
-      --policy-accounting                                                Enable policy accounting (default true)
+      --packetization-layer-pmtud-mode string                            Enables kernel packetization layer path mtu discovery on Pod netns (if empty will use host setting) (default "blackhole")
+      --policy-accounting                                                Maintain packet and byte counters for every policy entry (default true)
       --policy-audit-mode                                                Enable policy audit (non-drop) mode
       --policy-cidr-match-mode strings                                   The entities that can be selected by CIDR policy. Supported values: 'nodes'
       --policy-default-local-cluster                                     Control whether policy rules assume by default the local cluster if not explicitly selected (default true)

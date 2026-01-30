@@ -1309,6 +1309,22 @@ func init() {
         }
       }
     },
+    "/policy/subject-selectors": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "See what subject selectors match which identities on the local node",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/SelectorCache"
+            }
+          }
+        }
+      }
+    },
     "/prefilter": {
       "get": {
         "tags": [
@@ -2202,6 +2218,16 @@ func init() {
         "type": "string"
       }
     },
+    "ConfiguredDatapathMode": {
+      "description": "Configured datapath mode",
+      "type": "string",
+      "enum": [
+        "auto",
+        "veth",
+        "netkit",
+        "netkit-l2"
+      ]
+    },
     "ControllerStatus": {
       "description": "Status of a controller\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -2371,6 +2397,9 @@ func init() {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
+        "configuredDatapathMode": {
+          "$ref": "#/definitions/ConfiguredDatapathMode"
+        },
         "daemonConfigurationMap": {
           "description": "Config map which contains all the active daemon configurations",
           "additionalProperties": {
@@ -2394,10 +2423,6 @@ func init() {
         },
         "enableBBRHostNamespaceOnly": {
           "description": "True if BBR is enabled only in the host network namespace",
-          "type": "boolean"
-        },
-        "enablePacketizationLayerPMTUD": {
-          "description": "Enable PLPMTUD probing on the pod netns",
           "type": "boolean"
         },
         "enableRouteMTUForCNIChaining": {
@@ -2450,6 +2475,10 @@ func init() {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
         },
+        "packetizationLayerPMTUDMode": {
+          "description": "Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).",
+          "type": "string"
+        },
         "realized": {
           "description": "Currently applied configuration",
           "$ref": "#/definitions/DaemonConfigurationSpec"
@@ -2461,7 +2490,7 @@ func init() {
       }
     },
     "DatapathMode": {
-      "description": "Datapath mode",
+      "description": "Operational datapath mode",
       "type": "string",
       "enum": [
         "veth",
@@ -4716,6 +4745,10 @@ func init() {
           "description": "Status of the CNI configuration file",
           "$ref": "#/definitions/Status"
         },
+        "configured-datapath-mode": {
+          "description": "Status of configured datapath mode",
+          "$ref": "#/definitions/ConfiguredDatapathMode"
+        },
         "container-runtime": {
           "description": "Status of local container runtime",
           "$ref": "#/definitions/Status"
@@ -4725,7 +4758,7 @@ func init() {
           "$ref": "#/definitions/ControllerStatuses"
         },
         "datapath-mode": {
-          "description": "Status of datapath mode",
+          "description": "Status of operational datapath mode",
           "$ref": "#/definitions/DatapathMode"
         },
         "encryption": {
@@ -6594,6 +6627,22 @@ func init() {
         }
       }
     },
+    "/policy/subject-selectors": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "See what subject selectors match which identities on the local node",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/SelectorCache"
+            }
+          }
+        }
+      }
+    },
     "/prefilter": {
       "get": {
         "tags": [
@@ -7499,6 +7548,16 @@ func init() {
         "type": "string"
       }
     },
+    "ConfiguredDatapathMode": {
+      "description": "Configured datapath mode",
+      "type": "string",
+      "enum": [
+        "auto",
+        "veth",
+        "netkit",
+        "netkit-l2"
+      ]
+    },
     "ControllerStatus": {
       "description": "Status of a controller\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -7720,6 +7779,9 @@ func init() {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
+        "configuredDatapathMode": {
+          "$ref": "#/definitions/ConfiguredDatapathMode"
+        },
         "daemonConfigurationMap": {
           "description": "Config map which contains all the active daemon configurations",
           "additionalProperties": {
@@ -7743,10 +7805,6 @@ func init() {
         },
         "enableBBRHostNamespaceOnly": {
           "description": "True if BBR is enabled only in the host network namespace",
-          "type": "boolean"
-        },
-        "enablePacketizationLayerPMTUD": {
-          "description": "Enable PLPMTUD probing on the pod netns",
           "type": "boolean"
         },
         "enableRouteMTUForCNIChaining": {
@@ -7799,6 +7857,10 @@ func init() {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
         },
+        "packetizationLayerPMTUDMode": {
+          "description": "Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).",
+          "type": "string"
+        },
         "realized": {
           "description": "Currently applied configuration",
           "$ref": "#/definitions/DaemonConfigurationSpec"
@@ -7824,7 +7886,7 @@ func init() {
       }
     },
     "DatapathMode": {
-      "description": "Datapath mode",
+      "description": "Operational datapath mode",
       "type": "string",
       "enum": [
         "veth",
@@ -10525,6 +10587,10 @@ func init() {
           "description": "Status of the CNI configuration file",
           "$ref": "#/definitions/Status"
         },
+        "configured-datapath-mode": {
+          "description": "Status of configured datapath mode",
+          "$ref": "#/definitions/ConfiguredDatapathMode"
+        },
         "container-runtime": {
           "description": "Status of local container runtime",
           "$ref": "#/definitions/Status"
@@ -10534,7 +10600,7 @@ func init() {
           "$ref": "#/definitions/ControllerStatuses"
         },
         "datapath-mode": {
-          "description": "Status of datapath mode",
+          "description": "Status of operational datapath mode",
           "$ref": "#/definitions/DatapathMode"
         },
         "encryption": {
