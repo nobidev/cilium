@@ -1,11 +1,13 @@
-FROM registry.redhat.io/ubi9/ubi-minimal:9.6@sha256:34880b64c07f28f64d95737f82f891516de9a3b43583f39970f7bf8e4cfa48b7
+ARG BASE_IMAGE=debian:13.3-slim
+
+FROM ${BASE_IMAGE} AS release
 
 LABEL name="Kubectl for Isovalent Networking for Kubernetes" \
       maintainer="support@isovalent.com" \
       vendor="Isovalent" \
       release="1" \
       summary="Kubectl for Isovalent Networking for Kubernetes" \
-      description="Image of the Kubectl for Isovalent Networking for Kubernetes built on top of Red Hat Universal Base Image" \
+      description="Image of the Kubectl for Isovalent Networking for Kubernetes built on top of a minimal Linux base image" \
       org.opencontainers.image.authors="Isovalent" \
       org.opencontainers.image.url="https://isovalent.com" \
       org.opencontainers.image.documentation="https://isovalent.com/product" \
