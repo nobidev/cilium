@@ -252,6 +252,11 @@ func TestEVPNPathsType5(t *testing.T) {
 			type5 := nlri.RouteTypeData.(*bgp.EVPNIPPrefixRoute)
 			require.Equal(t, test.vrfInfo.RD, type5.RD.String())
 			require.Equal(t, test.vrfInfo.VNI.AsUint32(), type5.Label)
+			if type5.IPPrefix.To4() != nil {
+				require.Equal(t, "0.0.0.0", type5.GWIPAddress.String())
+			} else {
+				require.Equal(t, "::", type5.GWIPAddress.String())
+			}
 
 			var (
 				gotEncap   bool

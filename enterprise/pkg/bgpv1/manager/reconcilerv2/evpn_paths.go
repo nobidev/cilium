@@ -147,7 +147,11 @@ func (p *evpnPaths) GetEvpnRT5Path(prefix netip.Prefix, vrfInfo *EvpnVRFInfo) (*
 		return nil, "", fmt.Errorf("failed to parse Route Distinguisher %v: %w", vrfInfo.RD, err)
 	}
 	esi := bgp.EthernetSegmentIdentifier{Type: bgp.ESI_ARBITRARY, Value: nil}
-	nlri := bgp.NewEVPNIPPrefixRoute(rd, esi, 0, uint8(prefix.Bits()), prefix.Addr().String(), "0.0.0.0", vrfInfo.VNI.AsUint32())
+	gw := "0.0.0.0"
+	if prefix.Addr().Is6() {
+		gw = "::"
+	}
+	nlri := bgp.NewEVPNIPPrefixRoute(rd, esi, 0, uint8(prefix.Bits()), prefix.Addr().String(), gw, vrfInfo.VNI.AsUint32())
 
 	// Next Hop: let GoBGP resolve it automatically
 	nextHop := "0.0.0.0"
