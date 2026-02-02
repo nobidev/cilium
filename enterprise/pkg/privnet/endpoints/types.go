@@ -72,6 +72,9 @@ type Endpoint interface {
 	IPv6Address() netip.Addr
 	GetIPv6Address() string
 
+	HostInterface() string
+	GetIfIndex() int
+
 	GetK8sNamespaceAndCEPName() string
 	GetK8sNamespaceAndPodName() string
 

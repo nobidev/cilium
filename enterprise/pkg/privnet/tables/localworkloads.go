@@ -40,6 +40,18 @@ type LocalWorkload struct {
 
 	// Flags contains additional flags to characterize the endpoint.
 	Flags iso_v1alpha1.PrivateNetworkEndpointSliceFlags
+
+	// LXC is the LXC interface associated with this endpoint.
+	LXC LocalWorkloadLXC
+}
+
+// LocalWorkloadLXC is the LXC interface associated with an endpoint.
+type LocalWorkloadLXC struct {
+	// IfName is the name of the LXC interface associated with this endpoint.
+	IfName string
+
+	// IfIndex is the index of the LXC interface associated with this endpoint.
+	IfIndex int
 }
 
 var _ statedb.TableWritable = &LocalWorkload{}

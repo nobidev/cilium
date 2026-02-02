@@ -59,7 +59,9 @@ func mockEndpointCell(t testing.TB) cell.Cell {
 type fakeEP struct {
 	mu lock.Mutex
 
-	ID uint16
+	ID      uint16
+	IfName  string
+	IfIndex int
 
 	IPv4 netip.Addr
 	IPv6 netip.Addr
@@ -76,6 +78,16 @@ var _ endpoints.Endpoint = &fakeEP{}
 // GetID16 implements endpoints.Endpoint.
 func (f *fakeEP) GetID16() uint16 {
 	return f.ID
+}
+
+// HostInterface implements endpoints.Endpoint.
+func (f *fakeEP) HostInterface() string {
+	return f.IfName
+}
+
+// GetIfIndex implements endpoints.Endpoint.
+func (f *fakeEP) GetIfIndex() int {
+	return f.IfIndex
 }
 
 // IPv4Address implements endpoints.Endpoint.
@@ -246,6 +258,8 @@ func (f *fakeEPM) createEndpoint(epTemplate *models.EndpointChangeRequest, resto
 	var err error
 	ep := fakeEP{
 		ID:         uint16(epTemplate.ID),
+		IfName:     epTemplate.InterfaceName,
+		IfIndex:    int(epTemplate.InterfaceIndex),
 		PodName:    epTemplate.K8sPodName,
 		Namespace:  epTemplate.K8sNamespace,
 		Properties: epTemplate.Properties,

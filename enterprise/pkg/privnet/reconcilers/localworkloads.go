@@ -187,6 +187,10 @@ func (l *LocalWorkloads) upsertEndpoint(ep endpoints.Endpoint) {
 			Network: privNetAddr.network,
 		},
 		ActivatedAt: privNetAddr.activatedAt,
+		LXC: tables.LocalWorkloadLXC{
+			IfName:  ep.HostInterface(),
+			IfIndex: ep.GetIfIndex(),
+		},
 	}
 
 	_, _, err = l.tbl.Insert(wtx, lw)
