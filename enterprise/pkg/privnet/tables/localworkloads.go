@@ -98,11 +98,24 @@ var (
 		Unique:     false,
 	}
 
+	localWorkloadsNetwork = statedb.Index[*LocalWorkload, string]{
+		Name: "network",
+		FromObject: func(obj *LocalWorkload) index.KeySet {
+			return index.NewKeySet(index.String(string(obj.Interface.Network)))
+		},
+		FromKey:    index.String,
+		FromString: index.FromString,
+		Unique:     false,
+	}
+
 	// LocalWorkloadsByID queries the local workloads table by ID.
 	LocalWorkloadsByID = localWorkloadsID.Query
 
 	// LocalWorkloadsByNamespace queries the local workloads table by endpoint namespace.
 	LocalWorkloadsByNamespace = localWorkloadsNamespace.Query
+
+	// localWorkloadsNetwork queries the local workloads table by network name.
+	LocalWorkloadsByNetwork = localWorkloadsNetwork.Query
 )
 
 func NewLocalWorkloadsTable(db *statedb.DB) (statedb.RWTable[*LocalWorkload], error) {
@@ -111,5 +124,6 @@ func NewLocalWorkloadsTable(db *statedb.DB) (statedb.RWTable[*LocalWorkload], er
 		"privnet-local-workloads",
 		localWorkloadsID,
 		localWorkloadsNamespace,
+		localWorkloadsNetwork,
 	)
 }
