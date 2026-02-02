@@ -33,6 +33,8 @@ func init() {
 		"privnet_fib_val":              {privnet.FIBVal{}},
 		"privnet_pip_key":              {privnet.PIPKey{}},
 		"privnet_pip_val":              {privnet.PIPVal{}},
+		"privnet_device_key":           {privnet.DeviceKey{}},
+		"privnet_device_val":           {privnet.DeviceVal{}},
 		"vni_key":                      {vniMap.VNIKey{}},
 		"vni_val":                      {vniMap.VNIVal{}},
 	} {

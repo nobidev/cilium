@@ -212,6 +212,14 @@ struct privnet_pip_val {
 	__u32 ifindex;
 };
 
+struct privnet_device_key {
+	__u32 ifindex;
+};
+
+struct privnet_device_val {
+	__u16 net_id;
+};
+
 static __always_inline int
 nat_v4_addr(struct __ctx_buff *ctx, int l3_off, const __be32 *old_addr, const __be32 *new_addr)
 {
@@ -315,6 +323,15 @@ privnet_fib_lookup6(__u16 net_id, union v6addr addr) {
 
 	return map_lookup_elem(&cilium_privnet_fib, &key);
 }
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct privnet_device_key);
+	__type(value, struct privnet_device_val);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, PRIVNET_DEVICES_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_privnet_devices __section_maps_btf;
 
 /*
  * cilium_privnet_watchdog is used to detect when the Cilium agent is down for

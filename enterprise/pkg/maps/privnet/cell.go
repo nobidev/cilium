@@ -30,6 +30,7 @@ var Cell = cell.Module(
 	cell.Provide(
 		newPIP,
 		newFIB,
+		newDevices,
 		newWatchdog,
 		createCIDRIdentityMap,
 		Config.nodeDefs,
@@ -38,6 +39,7 @@ var Cell = cell.Module(
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Uint32("bpf-privnet-pip-fib-map-max", def.MapSize, "Maximum number of entries in the private network PIP and FIB BPF maps.")
+	flags.Uint32("bpf-privnet-devices-map-max", def.DevicesMapSize, "Maximum number of entries in the private network devices BPF map.")
 	flags.Uint32("bpf-privnet-cidr-identity-map-max", def.CIDRIdentityMapSize, "Maximum number of entries in the private network CIDR identity map.")
 }
 
@@ -45,6 +47,7 @@ type Config struct {
 	// MapSize is the maximum number of entries in the private network PIP and FIB BPF maps.
 	MapSize uint32 `mapstructure:"bpf-privnet-pip-fib-map-max"`
 
+	DevicesMapSize      uint32 `mapstructure:"bpf-privnet-devices-map-max"`
 	CIDRIdentityMapSize uint32 `mapstructure:"bpf-privnet-cidr-identity-map-max"`
 }
 
@@ -53,12 +56,14 @@ var defaultConfig = Config{
 	MapSize: 512000,
 	// Assuming 20% of IPCache is CIDR identities
 	CIDRIdentityMapSize: 128000,
+	DevicesMapSize:      16384,
 }
 
 func (c Config) nodeDefs() defines.NodeOut {
 	return defines.NodeOut{
 		NodeDefines: map[string]string{
 			"PRIVNET_PIP_FIB_MAP_SIZE":       fmt.Sprint(c.MapSize),
+			"PRIVNET_DEVICES_MAP_SIZE":       fmt.Sprint(c.DevicesMapSize),
 			"PRIVNET_CIDR_IDENTITY_MAP_SIZE": fmt.Sprint(c.CIDRIdentityMapSize),
 		},
 	}
