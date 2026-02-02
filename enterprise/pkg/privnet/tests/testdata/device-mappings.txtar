@@ -1,7 +1,11 @@
 #! --private-networks-enabled --private-networks-mode=bridge
 
+# Mark endpoint restoration as finished.
+privnet/epm-finish-restoration
+
 hive start
 db/initialized private-networks
+db/initialized privnet-local-workloads
 db/initialized privnet-device-mappings
 
 db/insert devices device.eth1.yaml device.eth3.yaml
@@ -33,6 +37,24 @@ db/cmp privnet-device-mappings device-mappings.v4.table
 k8s/delete icpn-3.yaml
 db/delete devices device.eth3.yaml
 db/cmp privnet-device-mappings device-mappings.v1.table
+
+# Create a bunch of endpoints, and assert that the entries are propagated.
+privnet/epm-create ep-speedy-cheetah.json
+privnet/epm-create ep-sleepy-sloth.json
+db/cmp privnet-device-mappings device-mappings.v5.table
+
+# Add one more one endpoint, and delete another, and assert that updates are propagated.
+privnet/epm-create ep-clever-fox.json
+privnet/epm-delete qux/sleepy-sloth
+db/cmp privnet-device-mappings device-mappings.v6.table
+
+# Delete one of the networks, and assert that entries are updated as expected.
+k8s/delete icpn-1.yaml
+db/cmp privnet-device-mappings device-mappings.v7.table
+
+# Create it again, and assert that the entries are updated as expected.
+k8s/add icpn-1.yaml
+db/cmp privnet-device-mappings device-mappings.v8.table
 
 # ---
 
@@ -114,3 +136,84 @@ Interface   Network          NetworkID   Owner
 eth1 (10)   direct-maggot    0x1         icpn-direct-maggot
 eth2 (20)   notable-goose    0x3         icpn-notable-goose
 eth3 (30)   united-firefly   0x2         icpn-united-firefly
+
+-- device-mappings.v5.table --
+Interface   Network         NetworkID    Owner
+eth1 (10)   direct-maggot   0x1          icpn-direct-maggot
+lxc16 (96)  direct-maggot   0x1          lw-16
+lxc17 (97)  direct-maggot   0x1          lw-17
+
+-- device-mappings.v6.table --
+Interface   Network         NetworkID    Owner
+eth1 (10)   direct-maggot   0x1          icpn-direct-maggot
+lxc16 (96)  direct-maggot   0x1          lw-16
+lxc18 (98)  united-firefly  0x2          lw-18
+
+-- device-mappings.v7.table --
+Interface   Network         NetworkID    Owner
+lxc18 (98)  united-firefly  0x2          lw-18
+
+-- device-mappings.v8.table --
+Interface   Network         NetworkID    Owner
+eth1 (10)   direct-maggot   0x4          icpn-direct-maggot
+lxc16 (96)  direct-maggot   0x4          lw-16
+lxc18 (98)  united-firefly  0x2          lw-18
+
+-- ep-speedy-cheetah.json --
+{
+  "ID": 16,
+  "addressing": {
+    "ipv4": "10.244.5.116",
+    "ipv6": "fd00:10:244:5::116"
+  },
+  "k8s-pod-name": "speedy-cheetah",
+  "k8s-namespace": "bar",
+  "mac": "00:50:56:ad:11:02",
+  "interface-name": "lxc16",
+  "interface-index": 96,
+  "properties": {
+    "isovalent-privnet-network": "direct-maggot",
+    "isovalent-privnet-activated-at": "2025-09-17T12:41:00.000000Z",
+    "isovalent-privnet-ipv4-addr": "10.20.0.11",
+    "isovalent-privnet-ipv6-addr": "fd00:10:20::11"
+  }
+}
+
+-- ep-sleepy-sloth.json --
+{
+  "ID": 17,
+  "addressing": {
+    "ipv4": "10.244.5.117",
+    "ipv6": "fd00:10:244:5::117"
+  },
+  "k8s-pod-name": "sleepy-sloth",
+  "k8s-namespace": "qux",
+  "mac": "00:50:56:ad:11:03",
+  "interface-name": "lxc17",
+  "interface-index": 97,
+  "properties": {
+    "isovalent-privnet-network": "direct-maggot",
+    "isovalent-privnet-activated-at": "2025-09-17T12:42:00.000000Z",
+    "isovalent-privnet-ipv4-addr": "192.168.30.10",
+    "isovalent-privnet-ipv6-addr": "fd00:192:168:30::10"
+  }
+}
+
+-- ep-clever-fox.json --
+{
+  "ID": 18,
+  "addressing": {
+    "ipv4": "10.244.5.118",
+    "ipv6": "fd00:10:244:5::118"
+  },
+  "k8s-pod-name": "clever-fox",
+  "k8s-namespace": "foo",
+  "mac": "00:50:56:ad:11:04",
+  "interface-name": "lxc18",
+  "interface-index": 98,
+  "properties": {
+    "isovalent-privnet-network": "united-firefly",
+    "isovalent-privnet-activated-at": "2025-09-17T12:43:00.000000Z",
+    "isovalent-privnet-ipv4-addr": "192.168.30.10"
+  }
+}

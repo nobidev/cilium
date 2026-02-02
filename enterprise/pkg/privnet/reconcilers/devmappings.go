@@ -13,11 +13,13 @@ package reconcilers
 import (
 	"context"
 	"log/slog"
+	"strconv"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
@@ -46,9 +48,15 @@ type DeviceMappings struct {
 
 	cfg config.Config
 
-	db       *statedb.DB
-	networks statedb.Table[tables.PrivateNetwork]
-	tbl      statedb.RWTable[tables.DeviceMapping]
+	db        *statedb.DB
+	networks  statedb.Table[tables.PrivateNetwork]
+	workloads statedb.Table[*tables.LocalWorkload]
+	tbl       statedb.RWTable[tables.DeviceMapping]
+
+	// netIDs caches the mapping between each private network and the
+	// corresponding ID. It is not protected by a mutex as access is
+	// serialized by write transactions.
+	netIDs map[tables.NetworkName]tables.NetworkID
 }
 
 func newDeviceMappings(in struct {
@@ -59,9 +67,10 @@ func newDeviceMappings(in struct {
 
 	Config config.Config
 
-	DB       *statedb.DB
-	Networks statedb.Table[tables.PrivateNetwork]
-	Table    statedb.RWTable[tables.DeviceMapping]
+	DB        *statedb.DB
+	Networks  statedb.Table[tables.PrivateNetwork]
+	Workloads statedb.Table[*tables.LocalWorkload]
+	Table     statedb.RWTable[tables.DeviceMapping]
 }) *DeviceMappings {
 	return &DeviceMappings{
 		log: in.Log,
@@ -69,9 +78,12 @@ func newDeviceMappings(in struct {
 
 		cfg: in.Config,
 
-		db:       in.DB,
-		networks: in.Networks,
-		tbl:      in.Table,
+		db:        in.DB,
+		networks:  in.Networks,
+		workloads: in.Workloads,
+		tbl:       in.Table,
+
+		netIDs: make(map[tables.NetworkName]tables.NetworkID),
 	}
 }
 
@@ -92,8 +104,9 @@ func (dm *DeviceMappings) registerReconciler() {
 
 				var initDone bool
 
-				wtx := dm.db.WriteTxn(dm.networks)
+				wtx := dm.db.WriteTxn(dm.networks, dm.workloads)
 				netChangeIter, _ := dm.networks.Changes(wtx)
+				lwChangeIter, _ := dm.workloads.Changes(wtx)
 				wtx.Commit()
 
 				for {
@@ -101,22 +114,55 @@ func (dm *DeviceMappings) registerReconciler() {
 
 					wtx := dm.db.WriteTxn(dm.tbl)
 					netChanges, netWatch := netChangeIter.Next(wtx)
-					watchset.Add(netWatch)
+					lwChanges, lwWatch := lwChangeIter.Next(wtx)
+					watchset.Add(netWatch, lwWatch)
 
+					var lwsProcessed = sets.New[tables.NetworkName]()
 					for change := range netChanges {
+						var network = change.Object.Name
+
 						if change.Deleted {
-							dm.deleteForNetwork(wtx, change.Object.Name)
+							dm.deleteForNetwork(wtx, network)
+
+							delete(dm.netIDs, network)
+							lwsProcessed.Insert(network)
 						} else {
 							dm.reconcile(wtx, dm.forNetwork(change.Object))
+
+							if prev, hadPrev := dm.netIDs[network]; !hadPrev || prev != change.Object.ID {
+								dm.netIDs[network] = change.Object.ID
+								lwsProcessed.Insert(network)
+
+								// Reconcile all local workloads belonging to the network.
+								dm.reconcileLocalWorkloads(wtx, network)
+							}
 						}
+					}
+
+					for change := range lwChanges {
+						var network = tables.NetworkName(change.Object.Interface.Network)
+						if lwsProcessed.Has(network) && !change.Deleted {
+							continue
+						}
+
+						new := dm.forLocalWorkload(change.Object)
+						if change.Deleted {
+							// Causes [dm.reconcile] to delete the entry.
+							new.DeviceIndex = 0
+						}
+
+						dm.reconcile(wtx, new)
 					}
 
 					if !initDone {
 						netInit, nw := dm.networks.Initialized(wtx)
+						lwInit, lw := dm.workloads.Initialized(wtx)
 
 						switch {
 						case !netInit:
 							watchset.Add(nw)
+						case !lwInit:
+							watchset.Add(lw)
 						default:
 							initDone = true
 							initialized(wtx)
@@ -159,6 +205,12 @@ func (dm *DeviceMappings) deleteForNetwork(wtx statedb.WriteTxn, network tables.
 	}
 }
 
+func (dm *DeviceMappings) reconcileLocalWorkloads(wtx statedb.WriteTxn, network tables.NetworkName) {
+	for lw := range dm.workloads.List(wtx, tables.LocalWorkloadsByNetwork(string(network))) {
+		dm.reconcile(wtx, dm.forLocalWorkload(lw))
+	}
+}
+
 func (dm *DeviceMappings) forNetwork(network tables.PrivateNetwork) tables.DeviceMapping {
 	return tables.DeviceMapping{
 		Owner:       tables.NewDeviceMappingOwner("icpn", string(network.Name)),
@@ -166,5 +218,17 @@ func (dm *DeviceMappings) forNetwork(network tables.PrivateNetwork) tables.Devic
 		DeviceName:  network.Interface.Name,
 		NetworkName: network.Name,
 		NetworkID:   network.ID,
+	}
+}
+
+func (dm *DeviceMappings) forLocalWorkload(lw *tables.LocalWorkload) tables.DeviceMapping {
+	var network = tables.NetworkName(lw.Interface.Network)
+
+	return tables.DeviceMapping{
+		Owner:       tables.NewDeviceMappingOwner("lw", strconv.FormatUint(uint64(lw.EndpointID), 10)),
+		DeviceIndex: lw.LXC.IfIndex,
+		DeviceName:  lw.LXC.IfName,
+		NetworkName: network,
+		NetworkID:   dm.netIDs[network],
 	}
 }
