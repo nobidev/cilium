@@ -2,6 +2,9 @@ allowed-teams:
   - isovalent
 
 triggers:
+  /default:
+    workflows:
+      - enterprise-kind.yaml
   /test\s*:
     workflows:
     - enterprise-clustermesh-mixed-routing.yaml
