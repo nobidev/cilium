@@ -25,6 +25,7 @@ var Cell = cell.Group(
 	GneighCell,
 	PIPFIBMapCell,
 	PolicyCell,
+	DeviceMappingsCell,
 
 	// Infrastructure shared between some of the reconcilers
 	cell.Provide(

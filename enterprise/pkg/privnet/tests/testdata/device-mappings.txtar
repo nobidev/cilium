@@ -1,0 +1,116 @@
+#! --private-networks-enabled --private-networks-mode=bridge
+
+hive start
+db/initialized private-networks
+db/initialized privnet-device-mappings
+
+db/insert devices device.eth1.yaml device.eth3.yaml
+
+# Add two ClusterwidePrivateNetworks
+k8s/add icpn-1.yaml icpn-2.yaml
+
+# Ensure that they are correctly propagated into the device-mappings table
+# Entries for united-firefly should not be present, as the corresponding
+# device entry has not been inserted yet.
+db/cmp privnet-device-mappings device-mappings.v1.table
+
+# Insert the eth2 device, entries for united-firefly should be now present.
+db/insert devices device.eth2.yaml
+db/cmp privnet-device-mappings device-mappings.v2.table
+
+# Update one of the networks, and assert that updates are propagated.
+cp icpn-2.yaml icpn-2.v2.yaml
+replace eth2 eth3 icpn-2.v2.yaml
+k8s/update icpn-2.v2.yaml
+db/cmp privnet-device-mappings device-mappings.v3.table
+
+# Add one more network, and assert that updates are propagated
+k8s/add icpn-3.yaml
+db/cmp privnet-device-mappings device-mappings.v4.table
+
+# Remove one of the devices, and one of the networks, and assert that updates
+# are propagated
+k8s/delete icpn-3.yaml
+db/delete devices device.eth3.yaml
+db/cmp privnet-device-mappings device-mappings.v1.table
+
+# ---
+
+-- device.eth1.yaml --
+index: 10
+name: eth1
+type: veth
+operstatus: up
+selected: true
+
+-- device.eth2.yaml --
+index: 20
+name: eth2
+type: veth
+operstatus: up
+selected: true
+
+-- device.eth3.yaml --
+index: 30
+name: eth3
+type: veth
+operstatus: up
+selected: true
+
+-- icpn-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: direct-maggot
+spec:
+  interface:
+    name: eth1
+  subnets:
+  - name: foo
+    cidrv4: 192.168.250.0/24
+    cidrv6: fd10:0:250::0/64
+
+-- icpn-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: united-firefly
+spec:
+  interface:
+    name: eth2
+  subnets:
+  - name: foo
+    cidrv4: 192.168.250.0/24
+    cidrv6: fd10:0:250::0/64
+
+-- icpn-3.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: notable-goose
+spec:
+  interface:
+    name: eth2
+  subnets:
+  - name: foo
+    cidrv4: 192.168.251.0/24
+
+-- device-mappings.v1.table --
+Interface   Network          NetworkID   Owner
+eth1 (10)   direct-maggot    0x1         icpn-direct-maggot
+
+-- device-mappings.v2.table --
+Interface   Network          NetworkID   Owner
+eth1 (10)   direct-maggot    0x1         icpn-direct-maggot
+eth2 (20)   united-firefly   0x2         icpn-united-firefly
+
+-- device-mappings.v3.table --
+Interface   Network          NetworkID   Owner
+eth1 (10)   direct-maggot    0x1         icpn-direct-maggot
+eth3 (30)   united-firefly   0x2         icpn-united-firefly
+
+-- device-mappings.v4.table --
+Interface   Network          NetworkID   Owner
+eth1 (10)   direct-maggot    0x1         icpn-direct-maggot
+eth2 (20)   notable-goose    0x3         icpn-notable-goose
+eth3 (30)   united-firefly   0x2         icpn-united-firefly
