@@ -146,7 +146,7 @@ func NewPIPVal(
 }
 
 func (v PIPVal) String() string {
-	return fmt.Sprintf("%#x %s %d %s %#x",
+	return fmt.Sprintf("%s %s %d %s %#x",
 		v.NetID,
 		v.ToAddr(),
 		v.IfIndex,

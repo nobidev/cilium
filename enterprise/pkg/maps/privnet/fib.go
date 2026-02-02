@@ -129,7 +129,7 @@ func NewFIBKey(netID tables.NetworkID, prefix netip.Prefix) FIBKey {
 }
 
 func (k FIBKey) String() string {
-	return fmt.Sprintf("%#x %s",
+	return fmt.Sprintf("%s %s",
 		k.NetID,
 		k.ToPrefix(),
 	)

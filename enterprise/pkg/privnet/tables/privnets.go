@@ -40,6 +40,10 @@ type (
 	NetworkName string
 )
 
+func (nid NetworkID) String() string {
+	return "0x" + strconv.FormatUint(uint64(nid), 16)
+}
+
 const (
 	// NetworkIDReserved represents the reserved NetworkID that cannot be assigned.
 	NetworkIDReserved = NetworkID(0)
@@ -171,7 +175,7 @@ func (pn PrivateNetwork) TableHeader() []string {
 func (pn PrivateNetwork) TableRow() []string {
 	return []string{
 		string(pn.Name),
-		"0x" + strconv.FormatUint(uint64(pn.ID), 16),
+		pn.ID.String(),
 		cmp.Or(pn.VNI.String(), "N/A"),
 		pn.Interface.String(),
 		cmp.Or(strings.Join(slices.Sorted(
