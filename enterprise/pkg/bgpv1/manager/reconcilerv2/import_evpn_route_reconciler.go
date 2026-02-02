@@ -255,7 +255,9 @@ func (r *importEVPNRouteReconciler) parseRoutes(routes []*types.Route) ([]*evpnR
 				// to provide metrics with error types as a
 				// label helps users to identify the
 				// interpoerability issues.
-				r.logger.Warn("skipping path due to parse error", logfields.Error, err)
+				if !errors.Is(err, errSelfOriginatedRoute) {
+					r.logger.Warn("skipping path due to parse error", logfields.Error, err)
+				}
 				continue
 			}
 
