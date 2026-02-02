@@ -12,6 +12,7 @@ package reconcilers
 
 import (
 	"context"
+	"iter"
 	"log/slog"
 	"strconv"
 
@@ -21,8 +22,13 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	pnmaps "github.com/cilium/cilium/enterprise/pkg/maps/privnet"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var DeviceMappingsCell = cell.Group(
@@ -37,6 +43,9 @@ var DeviceMappingsCell = cell.Group(
 	cell.Invoke(
 		// Registers the reconciler populating the device mappings table.
 		(*DeviceMappings).registerReconciler,
+
+		// Registers the reconciler updating the BPF map.
+		(*DeviceMappings).registerBPFReconciler,
 	),
 )
 
@@ -230,5 +239,121 @@ func (dm *DeviceMappings) forLocalWorkload(lw *tables.LocalWorkload) tables.Devi
 		DeviceName:  lw.LXC.IfName,
 		NetworkName: network,
 		NetworkID:   dm.netIDs[network],
+	}
+}
+
+func (dm *DeviceMappings) registerBPFReconciler(
+	params reconciler.Params, bpfMap pnmaps.Map[*pnmaps.DeviceKeyVal],
+	fence regeneration.Fence, registry *metrics.Registry,
+) error {
+	if !dm.cfg.Enabled {
+		return nil
+	}
+
+	// Block regeneration until we populated the map.
+	fence.Add("private-network-devices", dm.waitForSync)
+
+	bpf.RegisterTablePressureMetricsJob(
+		dm.jg, registry, params.DB, dm.tbl, bpfMap,
+	)
+
+	var ops = deviceMappingsOps{bpfOps: bpfMap.Ops()}
+	_, err := reconciler.Register(
+		// params
+		params,
+		// table
+		dm.tbl,
+		// clone
+		func(nim tables.DeviceMapping) tables.DeviceMapping {
+			return nim
+		},
+		// setStatus
+		func(nim tables.DeviceMapping, status reconciler.Status) tables.DeviceMapping {
+			nim.Status = status
+			return nim
+		},
+		// getStatus
+		func(nim tables.DeviceMapping) reconciler.Status {
+			return nim.Status
+		},
+		// ops
+		&ops,
+		// batchOps
+		nil,
+	)
+	return err
+}
+
+func (dm *DeviceMappings) waitForSync(ctx context.Context) error {
+	// Wait until the map entries table has been initialized.
+	_, initDone := dm.tbl.Initialized(dm.db.ReadTxn())
+	select {
+	case <-initDone:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	// Wait until no entries are in pending state.
+	// FIXME: replace with [Reconciler.WaitUntilReconciled] once the
+	// statedb dependency is bumped to a version that includes it.
+	for {
+		entries, watch := dm.tbl.AllWatch(dm.db.ReadTxn())
+
+		ready := true
+		for entry := range entries {
+			if entry.Status.Kind == reconciler.StatusKindPending {
+				ready = false
+				break
+			}
+		}
+
+		if ready {
+			return nil
+		}
+
+		// Poor man's rate limiting, just to avoid waking up for all changes.
+		select {
+		case <-time.After(SettleTime):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+
+		select {
+		case <-watch:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+type deviceMappingsOps struct {
+	bpfOps reconciler.Operations[*pnmaps.DeviceKeyVal]
+}
+
+// Update implements reconciler.Operations[tables.DeviceMapping]
+func (ops *deviceMappingsOps) Update(ctx context.Context,
+	txn statedb.ReadTxn, revision statedb.Revision, obj tables.DeviceMapping,
+) error {
+	return ops.bpfOps.Update(ctx, txn, revision, ops.KeyVal(obj))
+}
+
+// Delete implements reconciler.Operations[tables.DeviceMapping]
+func (ops *deviceMappingsOps) Delete(ctx context.Context,
+	txn statedb.ReadTxn, revision statedb.Revision, obj tables.DeviceMapping,
+) error {
+	return ops.bpfOps.Delete(ctx, txn, revision, ops.KeyVal(obj))
+}
+
+// Prune implements reconciler.Operations[tables.DeviceMapping]
+func (ops *deviceMappingsOps) Prune(ctx context.Context,
+	txn statedb.ReadTxn, iter iter.Seq2[tables.DeviceMapping, statedb.Revision],
+) error {
+	return ops.bpfOps.Prune(ctx, txn, statedb.Map(iter, ops.KeyVal))
+}
+
+func (ops *deviceMappingsOps) KeyVal(obj tables.DeviceMapping) *pnmaps.DeviceKeyVal {
+	return &pnmaps.DeviceKeyVal{
+		Key: pnmaps.NewDeviceKey(uint32(obj.DeviceIndex)),
+		Val: pnmaps.NewDeviceVal(obj.NetworkID),
 	}
 }

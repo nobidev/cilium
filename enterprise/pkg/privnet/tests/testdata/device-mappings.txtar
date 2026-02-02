@@ -18,9 +18,17 @@ k8s/add icpn-1.yaml icpn-2.yaml
 # device entry has not been inserted yet.
 db/cmp privnet-device-mappings device-mappings.v1.table
 
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_devices devices-actual.map
+* cmp devices.v1.map devices-actual.map
+
 # Insert the eth2 device, entries for united-firefly should be now present.
 db/insert devices device.eth2.yaml
 db/cmp privnet-device-mappings device-mappings.v2.table
+
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_devices devices-actual.map
+* cmp devices.v2.map devices-actual.map
 
 # Update one of the networks, and assert that updates are propagated.
 cp icpn-2.yaml icpn-2.v2.yaml
@@ -28,9 +36,17 @@ replace eth2 eth3 icpn-2.v2.yaml
 k8s/update icpn-2.v2.yaml
 db/cmp privnet-device-mappings device-mappings.v3.table
 
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_devices devices-actual.map
+* cmp devices.v3.map devices-actual.map
+
 # Add one more network, and assert that updates are propagated
 k8s/add icpn-3.yaml
 db/cmp privnet-device-mappings device-mappings.v4.table
+
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_devices devices-actual.map
+* cmp devices.v4.map devices-actual.map
 
 # Remove one of the devices, and one of the networks, and assert that updates
 # are propagated
@@ -38,23 +54,43 @@ k8s/delete icpn-3.yaml
 db/delete devices device.eth3.yaml
 db/cmp privnet-device-mappings device-mappings.v1.table
 
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_devices devices-actual.map
+* cmp devices.v1.map devices-actual.map
+
 # Create a bunch of endpoints, and assert that the entries are propagated.
 privnet/epm-create ep-speedy-cheetah.json
 privnet/epm-create ep-sleepy-sloth.json
 db/cmp privnet-device-mappings device-mappings.v5.table
+
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_devices devices-actual.map
+* cmp devices.v5.map devices-actual.map
 
 # Add one more one endpoint, and delete another, and assert that updates are propagated.
 privnet/epm-create ep-clever-fox.json
 privnet/epm-delete qux/sleepy-sloth
 db/cmp privnet-device-mappings device-mappings.v6.table
 
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_devices devices-actual.map
+* cmp devices.v6.map devices-actual.map
+
 # Delete one of the networks, and assert that entries are updated as expected.
 k8s/delete icpn-1.yaml
 db/cmp privnet-device-mappings device-mappings.v7.table
 
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_devices devices-actual.map
+* cmp devices.v7.map devices-actual.map
+
 # Create it again, and assert that the entries are updated as expected.
 k8s/add icpn-1.yaml
 db/cmp privnet-device-mappings device-mappings.v8.table
+
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_devices devices-actual.map
+* cmp devices.v8.map devices-actual.map
 
 # ---
 
@@ -217,3 +253,30 @@ lxc18 (98)  united-firefly  0x2          lw-18
     "isovalent-privnet-ipv4-addr": "192.168.30.10"
   }
 }
+
+-- devices.v1.map --
+10 -> 0x1
+-- devices.v2.map --
+10 -> 0x1
+20 -> 0x2
+-- devices.v3.map --
+10 -> 0x1
+30 -> 0x2
+-- devices.v4.map --
+10 -> 0x1
+20 -> 0x3
+30 -> 0x2
+-- devices.v5.map --
+10 -> 0x1
+96 -> 0x1
+97 -> 0x1
+-- devices.v6.map --
+10 -> 0x1
+96 -> 0x1
+98 -> 0x2
+-- devices.v7.map --
+98 -> 0x2
+-- devices.v8.map --
+10 -> 0x4
+96 -> 0x4
+98 -> 0x2
