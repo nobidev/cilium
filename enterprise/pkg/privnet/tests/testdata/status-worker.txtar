@@ -68,9 +68,11 @@ spec:
   - cluster: not-exists
   routes: []
   subnets:
-  - cidr: 192.168.250.0/24
-  - cidr: fd10:0:250::0/64
-  - cidr: 192.168.250.24/32
+  - name: foo
+    cidrv4: 192.168.250.0/24
+    cidrv6: fd10:0:250::0/64
+  - name: bar
+    cidrv4: 192.168.250.24/32
 
 -- icpn-blue.v2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -87,9 +89,11 @@ spec:
   - destination: 0.0.0.0/0
     gateway: 192.168.250.1
   subnets:
-  - cidr: 192.168.250.0/23
-  - cidr: fd10:0:250::0/64
-  - cidr: 192.168.250.24/32
+  - name: foo
+    cidrv4: 192.168.250.0/23
+    cidrv6: fd10:0:250::0/64
+  - name: bar
+    cidrv4: 192.168.250.24/32
 
 -- icpn-green.v1.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -101,8 +105,9 @@ spec:
   - cluster: camelidae
   routes: []
   subnets:
-  - cidr: 10.0.100.0/24
-  - cidr: fd00:10:100::0/64
+  - name: buzz
+    cidrv4: 10.0.100.0/24
+    cidrv6: fd00:10:100::0/64
 
 -- privnet-eps.v1.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -269,7 +274,7 @@ Node                                       foobar-worker-1                      
 
 -- status.1.json --
 {
-  "revision": 1,
+  "revision": 2,
   "name": "foobar-worker-1",
   "cluster": "default",
   "connectedClusters": [
@@ -293,13 +298,13 @@ Node                                       foobar-worker-1                      
       "name": "blue-network",
       "subnets": [
         {
-          "cidr": "192.168.250.0/24"
+          "name": "foo",
+          "cidrv4": "192.168.250.0/24",
+          "cidrv6": "fd10:0:250::/64"
         },
         {
-          "cidr": "fd10:0:250::/64"
-        },
-        {
-          "cidr": "192.168.250.24/32"
+          "name": "bar",
+          "cidrv4": "192.168.250.24/32"
         }
       ],
       "endpoints": [
@@ -375,10 +380,9 @@ Node                                       foobar-worker-1                      
       "name": "green-network",
       "subnets": [
         {
-          "cidr": "10.0.100.0/24"
-        },
-        {
-          "cidr": "fd00:10:100::/64"
+          "name": "buzz",
+          "cidrv4": "10.0.100.0/24",
+          "cidrv6": "fd00:10:100::/64"
         }
       ],
       "endpoints": [
@@ -447,7 +451,7 @@ Node                                       foobar-worker-1                      
 
 -- status.2.json --
 {
-  "revision": 1,
+  "revision": 2,
   "name": "foobar-worker-1",
   "cluster": "default",
   "connectedClusters": [
@@ -481,13 +485,13 @@ Node                                       foobar-worker-1                      
       ],
       "subnets": [
         {
-          "cidr": "192.168.250.0/23"
+          "name": "foo",
+          "cidrv4": "192.168.250.0/23",
+          "cidrv6": "fd10:0:250::/64"
         },
         {
-          "cidr": "fd10:0:250::/64"
-        },
-        {
-          "cidr": "192.168.250.24/32"
+          "name": "bar",
+          "cidrv4": "192.168.250.24/32"
         }
       ],
       "endpoints": [
@@ -571,10 +575,9 @@ Node                                       foobar-worker-1                      
       "name": "green-network",
       "subnets": [
         {
-          "cidr": "10.0.100.0/24"
-        },
-        {
-          "cidr": "fd00:10:100::/64"
+          "name": "buzz",
+          "cidrv4": "10.0.100.0/24",
+          "cidrv6": "fd00:10:100::/64"
         }
       ],
       "endpoints": [
@@ -644,7 +647,7 @@ Node                                       foobar-worker-1                      
 
 -- status.3.json --
 {
-  "revision": 1,
+  "revision": 2,
   "name": "foobar-worker-1",
   "cluster": "default",
   "connectedClusters": [
@@ -678,13 +681,13 @@ Node                                       foobar-worker-1                      
       ],
       "subnets": [
         {
-          "cidr": "192.168.250.0/23"
+          "name": "foo",
+          "cidrv4": "192.168.250.0/23",
+          "cidrv6": "fd10:0:250::/64"
         },
         {
-          "cidr": "fd10:0:250::/64"
-        },
-        {
-          "cidr": "192.168.250.24/32"
+          "name": "bar",
+          "cidrv4": "192.168.250.24/32"
         }
       ],
       "endpoints": [
@@ -771,10 +774,9 @@ Node                                       foobar-worker-1                      
       ],
       "subnets": [
         {
-          "cidr": "10.0.100.0/24"
-        },
-        {
-          "cidr": "fd00:10:100::/64"
+          "name": "buzz",
+          "cidrv4": "10.0.100.0/24",
+          "cidrv6": "fd00:10:100::/64"
         }
       ],
       "endpoints": [

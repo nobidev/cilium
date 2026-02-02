@@ -81,7 +81,8 @@ spec:
     name: ""
   routes: []
   subnets:
-  - cidr: 192.168.250.0/24
+  - name: foo
+    cidrv4: 192.168.250.0/24
 
 -- icpn-2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -93,7 +94,8 @@ spec:
     name: eth2
   routes: []
   subnets:
-  - cidr: 192.168.251.0/24
+  - name: bar
+    cidrv4: 192.168.251.0/24
 
 -- privnet.table --
 Name             ID    Interface   INBClusters    Subnets
@@ -112,7 +114,9 @@ interface:
     error: ""
 routes: []
 subnets:
-    - cidr: 192.168.250.0/24
+    - name: foo
+      cidrv4: 192.168.250.0/24
+      cidrv6: ""
 ---
 name: united-firefly
 id: 2
@@ -125,7 +129,9 @@ interface:
     error: Interface "eth2" has "lower-layer-down" operational status
 routes: []
 subnets:
-    - cidr: 192.168.251.0/24
+    - name: bar
+      cidrv4: 192.168.251.0/24
+      cidrv6: ""
 -- privnet.expected.v2.yaml --
 name: direct-maggot
 id: 1
@@ -138,7 +144,9 @@ interface:
     error: ""
 routes: []
 subnets:
-    - cidr: 192.168.250.0/24
+    - name: foo
+      cidrv4: 192.168.250.0/24
+      cidrv6: ""
 ---
 name: united-firefly
 id: 2
@@ -151,7 +159,9 @@ interface:
     error: Interface "eth2" has "lower-layer-down" operational status
 routes: []
 subnets:
-    - cidr: 192.168.251.0/24
+    - name: bar
+      cidrv4: 192.168.251.0/24
+      cidrv6: ""
 -- privnet.expected.v3.yaml --
 name: direct-maggot
 id: 1
@@ -164,7 +174,9 @@ interface:
     error: ""
 routes: []
 subnets:
-    - cidr: 192.168.250.0/24
+    - name: foo
+      cidrv4: 192.168.250.0/24
+      cidrv6: ""
 ---
 name: united-firefly
 id: 2
@@ -177,7 +189,9 @@ interface:
     error: 'Interface "eth2" not selected by Cilium: not matching user filter'
 routes: []
 subnets:
-    - cidr: 192.168.251.0/24
+    - name: bar
+      cidrv4: 192.168.251.0/24
+      cidrv6: ""
 -- privnet.expected.v4.yaml --
 name: direct-maggot
 id: 1
@@ -190,7 +204,9 @@ interface:
     error: ""
 routes: []
 subnets:
-    - cidr: 192.168.250.0/24
+    - name: foo
+      cidrv4: 192.168.250.0/24
+      cidrv6: ""
 ---
 name: united-firefly
 id: 2
@@ -203,7 +219,9 @@ interface:
     error: ""
 routes: []
 subnets:
-    - cidr: 192.168.251.0/24
+    - name: bar
+      cidrv4: 192.168.251.0/24
+      cidrv6: ""
 -- privnet.expected.v5.yaml --
 name: direct-maggot
 id: 1
@@ -216,7 +234,9 @@ interface:
     error: Interface "eth1" not found
 routes: []
 subnets:
-    - cidr: 192.168.250.0/24
+    - name: foo
+      cidrv4: 192.168.250.0/24
+      cidrv6: ""
 ---
 name: united-firefly
 id: 2
@@ -229,4 +249,6 @@ interface:
     error: ""
 routes: []
 subnets:
-    - cidr: 192.168.251.0/24
+    - name: bar
+      cidrv4: 192.168.251.0/24
+      cidrv6: ""

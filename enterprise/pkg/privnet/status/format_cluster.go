@@ -13,6 +13,7 @@ package status
 import (
 	"fmt"
 	"maps"
+	"net/netip"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -100,11 +101,18 @@ func (s mergedNetworkStatus) formatSubnets(width int, totalNodes int) string {
 	}
 	subnetStr := []string{}
 	for _, subnet := range s.subnets {
-		str := subnet.unwrap().CIDR.String()
-		if len(subnet.nodes) < totalNodes {
-			str = fmtWrn(str)
+		fmtAndAppend := func(cidr netip.Prefix) {
+			if !cidr.IsValid() {
+				return
+			}
+			cidrStr := cidr.String()
+			if len(subnet.nodes) < totalNodes {
+				cidrStr = fmtWrn(cidrStr)
+			}
+			subnetStr = append(subnetStr, cidrStr)
 		}
-		subnetStr = append(subnetStr, str)
+		fmtAndAppend(subnet.unwrap().CIDRv4)
+		fmtAndAppend(subnet.unwrap().CIDRv6)
 	}
 	return fmtWrapLineItemsTitle("Subnets", subnetStr, 10, width)
 }

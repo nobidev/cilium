@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -53,24 +52,35 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewPrivateNetworksTable: %s", err)
 		}
-		newPrivateNetwork := func(name string, id int, prefixes []netip.Prefix) tables.PrivateNetwork {
-			subnets := slices.Map(prefixes, func(prefix netip.Prefix) tables.PrivateNetworkSubnet {
-				return tables.PrivateNetworkSubnet{CIDR: prefix}
-			})
-			return tables.PrivateNetwork{
-				Name:    tables.NetworkName(name),
-				ID:      tables.NetworkID(id),
-				Subnets: subnets,
-			}
-		}
 		wtxn = db.WriteTxn(privNets)
-		privNets.Insert(wtxn, newPrivateNetwork("green-network", 1, []netip.Prefix{
-			netip.MustParsePrefix("192.168.11.0/24"),
-			netip.MustParsePrefix("fd10:0:150::/64"),
-		}))
-		privNets.Insert(wtxn, newPrivateNetwork("blue-network", 2, []netip.Prefix{
-			netip.MustParsePrefix("192.168.22.0/24"),
-		}))
+		privNets.Insert(wtxn,
+			tables.PrivateNetwork{
+				Name: "green-network",
+				ID:   1,
+				Subnets: []tables.PrivateNetworkSubnet{
+					{
+						Name:   "subnet1",
+						CIDRv4: netip.MustParsePrefix("192.168.11.0/24"),
+						CIDRv6: netip.MustParsePrefix("fd10:0:150::/64"),
+					},
+					{
+						Name:   "subnet2",
+						CIDRv4: netip.MustParsePrefix("192.168.52.0/24"),
+						CIDRv6: netip.MustParsePrefix("fd10:0:152::/64"),
+					},
+				},
+			})
+		privNets.Insert(wtxn,
+			tables.PrivateNetwork{
+				Name: "blue-network",
+				ID:   2,
+				Subnets: []tables.PrivateNetworkSubnet{
+					{
+						Name:   "subnet1",
+						CIDRv4: netip.MustParsePrefix("192.168.22.0/24"),
+					},
+				},
+			})
 		wtxn.Commit()
 
 		return &PrivNetAPI{
@@ -272,7 +282,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "10.10.0.17", "ipv6": "fd10:0:150::17", "mac": "00:69:af:ca:8e:34"}`,
 				},
 			),
-			wantErr: "requested IP 10.10.0.17 not in range of defined prefixes",
+			wantErr: "requested IP 10.10.0.17 not in range of",
 		},
 		{
 			name: "IPv6 not in prefixes",
@@ -281,7 +291,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.18", "ipv6": "face::bead", "mac": "00:a8:c0:01:2d:22"}`,
 				},
 			),
-			wantErr: "requested IP face::bead not in range of defined prefixes",
+			wantErr: "requested IP face::bead not in range of",
 		},
 		{
 			name: "requesting IPv6 from IPv4-only network",
@@ -290,7 +300,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					types.PrivateNetworkAnnotation: `{"network": "blue-network", "ipv4": "192.168.22.11", "ipv6": "fd10:0:250::11", "mac": "00:a8:c0:01:2d:22"}`,
 				},
 			),
-			wantErr: "requested IP fd10:0:250::11 not in range of defined prefixes",
+			wantErr: "requested IP fd10:0:250::11 not in range of",
 		},
 		{
 			name: "requesting IPv4 in IPv6-only configuration",
@@ -345,6 +355,15 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				},
 				Mac: "00:50:56:ad:11:02",
 			},
+		},
+		{
+			name: "IPv4 and IPv6 not in same subnet",
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.52.17", "ipv6": "fd10:0:150::17", "mac": "00:69:af:ca:8e:34"}`,
+				},
+			),
+			wantErr: "requested IP fd10:0:150::17 not in range of",
 		},
 	}
 

@@ -122,7 +122,7 @@ metadata:
   name: test0
 spec:
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
 -- test1-no-request.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -131,7 +131,7 @@ metadata:
   name: test1
 spec:
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
 -- test0-100.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -141,7 +141,7 @@ metadata:
 spec:
   vni: 100
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
 -- test0-200.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -151,7 +151,7 @@ metadata:
 spec:
   vni: 200
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
 -- test1-100.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -161,7 +161,7 @@ metadata:
 spec:
   vni: 100
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
 -- test1-200.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -171,7 +171,7 @@ metadata:
 spec:
   vni: 200
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
 -- test0-100.expected.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -183,7 +183,7 @@ spec:
   interface: {}
   routes: null
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
   vni: 100
 status:
@@ -204,7 +204,7 @@ spec:
   interface: {}
   routes: null
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
   vni: 200
 status:
@@ -225,7 +225,7 @@ spec:
   interface: {}
   routes: null
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
   vni: 100
 status:
@@ -246,7 +246,7 @@ spec:
   interface: {}
   routes: null
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
   vni: 200
 status:
@@ -267,7 +267,7 @@ spec:
   interface: {}
   routes: null
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
   vni: 200
 status:
@@ -287,7 +287,7 @@ spec:
   interface: {}
   routes: null
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
   vni: 200
 status:
@@ -307,7 +307,7 @@ spec:
   interface: {}
   routes: null
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
 -- test1-no-request.expected.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -319,6 +319,6 @@ spec:
   interface: {}
   routes: null
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
     name: subnet0
 status: {}

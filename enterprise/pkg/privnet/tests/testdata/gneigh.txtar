@@ -96,8 +96,9 @@ spec:
     name: eth1
   routes: []
   subnets:
-  - cidr: 192.168.251.0/24
-  - cidr: fd00:10:244::0/64
+  - name: blue1
+    cidrv4: 192.168.251.0/24
+    cidrv6: fd00:10:244::0/64
 
 -- icpn-2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -109,7 +110,8 @@ spec:
     name: eth2
   routes: []
   subnets:
-  - cidr: 192.168.99.0/24
+  - name: green1
+    cidrv4: 192.168.99.0/24
 
 -- privnet.v1.table --
 Name          ID    Interface   INBClusters    Subnets

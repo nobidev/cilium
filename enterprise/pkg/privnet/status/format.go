@@ -171,7 +171,12 @@ func (s NetworkStatus) formatSubnets(width int) string {
 	}
 	subnetStr := []string{}
 	for _, subnet := range s.Subnets {
-		subnetStr = append(subnetStr, subnet.CIDR.String())
+		if subnet.CIDRv4.IsValid() {
+			subnetStr = append(subnetStr, subnet.CIDRv4.String())
+		}
+		if subnet.CIDRv6.IsValid() {
+			subnetStr = append(subnetStr, subnet.CIDRv6.String())
+		}
 	}
 	return fmtWrapLineItemsTitle("Subnets", subnetStr, 10, width)
 }

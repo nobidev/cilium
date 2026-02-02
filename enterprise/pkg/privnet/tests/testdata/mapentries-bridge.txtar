@@ -99,7 +99,7 @@ spec:
     name: eth1
   routes: []
   subnets:
-  - cidr: 192.168.250.0/24
+  - cidrv4: 192.168.250.0/24
 
 -- icpn-2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -111,7 +111,7 @@ spec:
     name: eth2
   routes: []
   subnets:
-  - cidr: 192.168.251.0/24
+  - cidrv4: 192.168.251.0/24
 
 -- local-workload-optimum-mouse.yaml --
 endpointid: 11

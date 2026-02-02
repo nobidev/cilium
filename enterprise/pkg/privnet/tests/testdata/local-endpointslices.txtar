@@ -84,8 +84,9 @@ spec:
   - ip: 172.128.0.6
   routes: []
   subnets:
-  - cidr: 10.0.100.0/24
-  - cidr: fd00:10:100::0/64
+  - name: red1
+    cidrv4: 10.0.100.0/24
+    cidrv6: fd00:10:100::0/64
 
 -- privnet-eps-foo.v1.yaml --
 apiVersion: isovalent.com/v1alpha1

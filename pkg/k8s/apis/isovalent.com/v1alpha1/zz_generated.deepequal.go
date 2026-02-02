@@ -5672,7 +5672,10 @@ func (in *SubnetSpec) DeepEqual(other *SubnetSpec) bool {
 	if in.Name != other.Name {
 		return false
 	}
-	if in.CIDR != other.CIDR {
+	if in.CIDRv4 != other.CIDRv4 {
+		return false
+	}
+	if in.CIDRv6 != other.CIDRv6 {
 		return false
 	}
 

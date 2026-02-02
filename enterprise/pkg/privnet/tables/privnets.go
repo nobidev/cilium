@@ -12,6 +12,7 @@ package tables
 
 import (
 	"cmp"
+	"iter"
 	"maps"
 	"math"
 	"net/netip"
@@ -37,6 +38,9 @@ type (
 
 	// NetworkName is the name of a private network.
 	NetworkName string
+
+	// SubnetName is the name of a private network subnet.
+	SubnetName string
 )
 
 const (
@@ -132,8 +136,27 @@ type PrivateNetworkRoute struct {
 
 // PrivateNetworkSubnet is a subnet configured on the private network
 type PrivateNetworkSubnet struct {
-	// CIDR defines the subnet
-	CIDR netip.Prefix
+	// Name is the name of the subnet
+	Name SubnetName
+	// CIDRv4 defines the IPv4 subnet
+	CIDRv4 netip.Prefix
+	// CIDRv6 defines the IPv6 subnet
+	CIDRv6 netip.Prefix
+}
+
+func (sub PrivateNetworkSubnet) CIDRs() iter.Seq[netip.Prefix] {
+	return func(yield func(cidr netip.Prefix) bool) {
+		if sub.CIDRv4.IsValid() && sub.CIDRv4.Addr().Is4() {
+			if !yield(sub.CIDRv4) {
+				return
+			}
+		}
+		if sub.CIDRv6.IsValid() && sub.CIDRv6.Addr().Is6() {
+			if !yield(sub.CIDRv6) {
+				return
+			}
+		}
+	}
 }
 
 var _ statedb.TableWritable = PrivateNetwork{}
@@ -153,7 +176,15 @@ func (pn PrivateNetwork) TableRow() []string {
 				func(cn ClusterName) string { return string(cn) },
 			)), ","), "N/A"),
 		strings.Join(cslices.Map(pn.Subnets,
-			func(s PrivateNetworkSubnet) string { return s.CIDR.String() },
+			func(s PrivateNetworkSubnet) string {
+				if s.CIDRv4.IsValid() && s.CIDRv6.IsValid() {
+					return s.CIDRv4.String() + "," + s.CIDRv6.String()
+				}
+				if s.CIDRv4.IsValid() {
+					return s.CIDRv4.String()
+				}
+				return s.CIDRv6.String()
+			},
 		), ","),
 		strconv.FormatInt(int64(len(pn.Routes)), 10),
 	}

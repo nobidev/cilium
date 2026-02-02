@@ -19,7 +19,7 @@ metadata:
 spec:
   vni: 100
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
 status:
   vni: 100
 -- test1-100.yaml --
@@ -31,7 +31,7 @@ metadata:
 spec:
   vni: 100
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
 -- test2-200.yaml --
 # Status is conflicting with test3
 apiVersion: isovalent.com/v1alpha1
@@ -41,7 +41,7 @@ metadata:
 spec:
   vni: 200
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
 status:
   vni: 200
 -- test3-200.yaml --
@@ -53,7 +53,7 @@ metadata:
 spec:
   vni: 200
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
 status:
   vni: 200
 -- test4-300.yaml --
@@ -65,7 +65,7 @@ metadata:
 spec:
   vni: 300
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
 status:
   vni: 200
 -- test5-stale.yaml --
@@ -76,7 +76,7 @@ metadata:
   name: test5
 spec:
   subnets:
-  - cidr: 10.0.0.0/24
+  - cidrv4: 10.0.0.0/24
 status:
   vni: 400
 -- all.expected --

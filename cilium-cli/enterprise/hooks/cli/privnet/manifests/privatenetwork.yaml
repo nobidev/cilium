@@ -10,8 +10,10 @@ spec:
     name: "{{ .INBInterface }}"
   {{- end }}
   subnets:
-    {{- range .Prefixes }}
-    - cidr: {{ . }}
+    {{- range $index, $subnet := .Prefixes }}
+    - name: subnet-{{ $index }}
+      cidrv4: {{ $subnet.CIDRv4 }}
+      cidrv6: {{ $subnet.CIDRv6 }}
     {{- end }}
   {{- if .INBClusterNames }}
   networkBridges:

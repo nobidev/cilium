@@ -76,7 +76,9 @@ func (sc *statusCollector) collectNodeStatus() status.NodeStatus {
 			}),
 			Subnets: cslices.Map(pn.Subnets, func(s tables.PrivateNetworkSubnet) status.Subnet {
 				return status.Subnet{
-					CIDR: s.CIDR,
+					Name:   s.Name,
+					CIDRv4: s.CIDRv4,
+					CIDRv6: s.CIDRv6,
 				}
 			}),
 			Errors: errs,

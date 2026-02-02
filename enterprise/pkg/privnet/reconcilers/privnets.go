@@ -247,18 +247,41 @@ func (pn *PrivateNetworks) extractRoutes(privnet *iso_v1alpha1.ClusterwidePrivat
 func (pn *PrivateNetworks) extractSubnets(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) []tables.PrivateNetworkSubnet {
 	subnets := make([]tables.PrivateNetworkSubnet, 0, len(privnet.Spec.Subnets))
 	for _, subnetPrefix := range privnet.Spec.Subnets {
-		subnet, err := netip.ParsePrefix(string(subnetPrefix.CIDR))
-		if err != nil {
-			pn.log.Error("Encountered invalid subnet CIDR in private network spec",
-				logfields.CIDR, subnetPrefix,
-				logfields.Error, err,
-				logfields.ClusterwidePrivateNetwork, privnet.Name,
-			)
-			continue
+		subnet := tables.PrivateNetworkSubnet{
+			Name: tables.SubnetName(subnetPrefix.Name),
 		}
-		subnets = append(subnets, tables.PrivateNetworkSubnet{
-			CIDR: subnet,
-		})
+
+		if subnetPrefix.CIDRv4 != "" {
+			cidr, err := netip.ParsePrefix(string(subnetPrefix.CIDRv4))
+			if err != nil || !cidr.Addr().Is4() {
+				pn.log.Error("Encountered invalid IPv4 subnet CIDR in private network spec",
+					logfields.CIDR, subnetPrefix.CIDRv4,
+					logfields.Error, err,
+					logfields.ClusterwidePrivateNetwork, privnet.Name,
+					logfields.PrivateNetworkSubnet, subnetPrefix.Name,
+				)
+			} else {
+				subnet.CIDRv4 = cidr
+			}
+		}
+
+		if subnetPrefix.CIDRv6 != "" {
+			cidrv6, err := netip.ParsePrefix(string(subnetPrefix.CIDRv6))
+			if err != nil || !cidrv6.Addr().Is6() {
+				pn.log.Error("Encountered invalid IPv6 subnet CIDR in private network spec",
+					logfields.CIDR, subnetPrefix.CIDRv6,
+					logfields.Error, err,
+					logfields.ClusterwidePrivateNetwork, privnet.Name,
+					logfields.PrivateNetworkSubnet, subnetPrefix.Name,
+				)
+			} else {
+				subnet.CIDRv6 = cidrv6
+			}
+		}
+
+		if subnet.CIDRv4.IsValid() || subnet.CIDRv6.IsValid() {
+			subnets = append(subnets, subnet)
+		}
 	}
 	return subnets
 }

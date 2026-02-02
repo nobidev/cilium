@@ -94,7 +94,8 @@ spec:
     name: eth1
   routes: []
   subnets:
-  - cidr: 192.168.250.0/24
+  - name: foo
+    cidrv4: 192.168.250.0/24
 
 -- icpn-2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -106,7 +107,8 @@ spec:
     name: eth2
   routes: []
   subnets:
-  - cidr: 192.168.251.0/24
+  - name: bar
+    cidrv4: 192.168.251.0/24
 
 -- local-workload-optimum-mouse.yaml --
 endpointid: 11
@@ -335,7 +337,7 @@ Network Bridge                             foobar-worker-1                      
 
 -- status-1.json --
 {
-  "revision": 1,
+  "revision": 2,
   "name": "foobar-worker-1",
   "cluster": "default",
   "connectedClusters": [
@@ -361,7 +363,8 @@ Network Bridge                             foobar-worker-1                      
       "name": "firefly",
       "subnets": [
         {
-          "cidr": "192.168.251.0/24"
+          "name": "bar",
+          "cidrv4": "192.168.251.0/24"
         }
       ],
       "endpoints": [
@@ -417,7 +420,8 @@ Network Bridge                             foobar-worker-1                      
       "name": "maggot",
       "subnets": [
         {
-          "cidr": "192.168.250.0/24"
+          "name": "foo",
+          "cidrv4": "192.168.250.0/24"
         }
       ],
       "endpoints": [
@@ -491,7 +495,7 @@ Network Bridge                             foobar-worker-1                      
 
 -- status-2.json --
 {
-  "revision": 1,
+  "revision": 2,
   "name": "foobar-worker-1",
   "cluster": "default",
   "connectedClusters": [
@@ -517,7 +521,8 @@ Network Bridge                             foobar-worker-1                      
       "name": "firefly",
       "subnets": [
         {
-          "cidr": "192.168.251.0/24"
+          "name": "bar",
+          "cidrv4": "192.168.251.0/24"
         }
       ],
       "endpoints": [
@@ -576,7 +581,8 @@ Network Bridge                             foobar-worker-1                      
       ],
       "subnets": [
         {
-          "cidr": "192.168.250.0/24"
+          "name": "foo",
+          "cidrv4": "192.168.250.0/24"
         }
       ],
       "endpoints": [

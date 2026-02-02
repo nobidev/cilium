@@ -36,7 +36,7 @@ func TestMergeNetworkStatus(t *testing.T) {
 					subnets: []merged[Subnet]{
 						{
 							nodes: []types.NodeName{"foobar-1", "foobar-2"},
-							entry: Subnet{CIDR: netip.MustParsePrefix("10.1.1.1/24")},
+							entry: Subnet{CIDRv4: netip.MustParsePrefix("10.1.1.1/24")},
 						},
 					},
 					routes: []merged[Route]{
@@ -113,11 +113,11 @@ func TestMergeNetworkStatus(t *testing.T) {
 					subnets: []merged[Subnet]{
 						{
 							nodes: []types.NodeName{"foobar-1", "foobar-2"},
-							entry: Subnet{CIDR: netip.MustParsePrefix("10.1.1.1/24")},
+							entry: Subnet{CIDRv4: netip.MustParsePrefix("10.1.1.1/24")},
 						},
 						{
 							nodes: []types.NodeName{"foobar-1"},
-							entry: Subnet{CIDR: netip.MustParsePrefix("10.2.1.1/24")},
+							entry: Subnet{CIDRv4: netip.MustParsePrefix("10.2.1.1/24")},
 						},
 					},
 					routes: []merged[Route]{
@@ -222,7 +222,7 @@ var simpleClusterStatus = ClusterStatus{
 					},
 					Subnets: []Subnet{
 						{
-							CIDR: netip.MustParsePrefix("10.1.1.1/24"),
+							CIDRv4: netip.MustParsePrefix("10.1.1.1/24"),
 						},
 					},
 					Endpoints: []EndpointStatus{
@@ -276,7 +276,7 @@ var simpleClusterStatus = ClusterStatus{
 					},
 					Subnets: []Subnet{
 						{
-							CIDR: netip.MustParsePrefix("10.1.1.1/24"),
+							CIDRv4: netip.MustParsePrefix("10.1.1.1/24"),
 						},
 					},
 					Endpoints: []EndpointStatus{
@@ -336,10 +336,10 @@ var clusterStatusWithConflicts = ClusterStatus{
 					},
 					Subnets: []Subnet{
 						{
-							CIDR: netip.MustParsePrefix("10.1.1.1/24"),
+							CIDRv4: netip.MustParsePrefix("10.1.1.1/24"),
 						},
 						{
-							CIDR: netip.MustParsePrefix("10.2.1.1/24"),
+							CIDRv4: netip.MustParsePrefix("10.2.1.1/24"),
 						},
 					},
 					Endpoints: []EndpointStatus{
@@ -399,7 +399,7 @@ var clusterStatusWithConflicts = ClusterStatus{
 					},
 					Subnets: []Subnet{
 						{
-							CIDR: netip.MustParsePrefix("10.1.1.1/24"),
+							CIDRv4: netip.MustParsePrefix("10.1.1.1/24"),
 						},
 					},
 					Endpoints: []EndpointStatus{

@@ -169,11 +169,26 @@ spec:
                   reachable, from this private network.
                 items:
                   properties:
-                    cidr:
-                      description: The CIDR (either v4 or v6) associated with the
-                        private network.
+                    cidrv4:
+                      description: The IPv4 CIDRv4 associated with the private network.
                       format: cidr
+                      maxLength: 18
                       type: string
+                      x-kubernetes-validations:
+                      - message: Not an IPv4 CIDR
+                        rule: cidr(self).ip().family() == 4
+                      - message: Subnet IPv4 CIDR is immutable
+                        rule: oldSelf == self
+                    cidrv6:
+                      description: The IPv6 CIDR associated with the private network.
+                      format: cidr
+                      maxLength: 42
+                      type: string
+                      x-kubernetes-validations:
+                      - message: Not an IPv6 CIDR
+                        rule: cidr(self).ip().family() == 6
+                      - message: Subnet IPv6 CIDR is immutable
+                        rule: oldSelf == self
                     name:
                       description: The name of the subnet.
                       maxLength: 63
@@ -181,11 +196,17 @@ spec:
                       pattern: ^([a-z0-9][-a-z0-9]*)?[a-z0-9]$
                       type: string
                   required:
-                  - cidr
                   - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: Either cidrv4 or cidrv6 needs to be provided
+                    rule: has(self.cidrv4) || has(self.cidrv6)
+                maxItems: 256
                 minItems: 1
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               vni:
                 description: |-
                   A 24bit numeric identifier of this private network. Specify this

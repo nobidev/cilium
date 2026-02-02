@@ -20,7 +20,7 @@ import (
 
 // The schema version of the node status API. Bump this number whenever making
 // a change to the API
-const NodeStatusSchemaVersion = 1
+const NodeStatusSchemaVersion = 2
 
 // NodeStatus is a summary of the state of the privnet subsystem for one node
 //
@@ -95,8 +95,18 @@ type Route struct {
 
 // Subnet is a subnet configured on the private network
 type Subnet struct {
-	// CIDR defines the subnet
-	CIDR netip.Prefix `json:"cidr"`
+	// Name of the subnet
+	Name tables.SubnetName `json:"name,omitempty"`
+	// DeprecatedCIDR is the CIDR of the subnet
+	//
+	// Deprecated: DeprecatedCIDR exists for historical compatibility
+	// and should not be used. Use CIDRv4 and CIDRv6.
+	// Deprecated in revsion 2.
+	DeprecatedCIDR netip.Prefix `json:"cidr,omitzero"`
+	// CIDRv4 defines the IPv4 subnet
+	CIDRv4 netip.Prefix `json:"cidrv4,omitzero"`
+	// CIDRv6 defines the IPv6 subnet
+	CIDRv6 netip.Prefix `json:"cidrv6,omitzero"`
 }
 
 type EndpointStatus struct {
@@ -214,6 +224,17 @@ func (s *NodeStatus) UnmarshalJSON(b []byte) error {
 		if len(inbs) > 0 && len(s.Networks[i].WorkerStatus.ConnectedINBClusters) == 0 {
 			s.Networks[i].WorkerStatus.DeprecatedConnectedINBCluster = nil
 			s.Networks[i].WorkerStatus.ConnectedINBClusters = inbs
+		}
+
+		for j := range s.Networks[i].Subnets {
+			if depCIDR := s.Networks[i].Subnets[j].DeprecatedCIDR; depCIDR.IsValid() {
+				if depCIDR.Addr().Is4() {
+					s.Networks[i].Subnets[j].CIDRv4 = depCIDR
+				} else {
+					s.Networks[i].Subnets[j].CIDRv6 = depCIDR
+				}
+				s.Networks[i].Subnets[j].DeprecatedCIDR = netip.Prefix{}
+			}
 		}
 	}
 	return nil

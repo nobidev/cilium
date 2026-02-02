@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -130,17 +131,15 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 		ActivatedAt: strfmt.DateTime(activatedAt),
 	}
 
+	var ipv4, ipv6 netip.Addr
+
 	if n.cfg.enableIPv4 {
 		if !attachment.IPv4.Is4() {
 			return nil, fmt.Errorf("invalid IPv4 address %q in %q annotation on pod %s",
 				attachment.IPv4, types.PrivateNetworkAnnotation, podNamespaceName)
 		}
-
-		err := validAttachment(attachment.IPv4, privnet.Subnets)
-		if err != nil {
-			return nil, err
-		}
 		addressing.Address.IPV4 = attachment.IPv4.String()
+		ipv4 = attachment.IPv4
 	}
 
 	if n.cfg.enableIPv6 {
@@ -148,24 +147,41 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 			return nil, fmt.Errorf("invalid IPv6 address %q in %q annotation on pod %s",
 				attachment.IPv6, types.PrivateNetworkAnnotation, podNamespaceName)
 		}
-
-		err := validAttachment(attachment.IPv6, privnet.Subnets)
-		if err != nil {
-			return nil, err
-		}
 		addressing.Address.IPV6 = attachment.IPv6.String()
+		ipv6 = attachment.IPv6
+	}
+
+	if err = validAttachment(ipv4, ipv6, privnet.Subnets); err != nil {
+		return nil, err
 	}
 
 	return addressing, nil
 }
 
-func validAttachment(ip netip.Addr, prefixes []tables.PrivateNetworkSubnet) error {
-	for _, prefix := range prefixes {
-		if prefix.CIDR.Contains(ip) {
-			return nil
-		}
+func validAttachment(ipv4, ipv6 netip.Addr, prefixes []tables.PrivateNetworkSubnet) error {
+	idx4, idx6 := -1, -1
+
+	if ipv4.IsValid() {
+		idx4 = slices.IndexFunc(prefixes, func(sub tables.PrivateNetworkSubnet) bool {
+			return sub.CIDRv4.Contains(ipv4)
+		})
 	}
-	return fmt.Errorf("requested IP %s not in range of defined prefixes", ip)
+	if ipv6.IsValid() {
+		idx6 = slices.IndexFunc(prefixes, func(sub tables.PrivateNetworkSubnet) bool {
+			return sub.CIDRv6.Contains(ipv6)
+		})
+	}
+
+	switch {
+	case ipv4.IsValid() && idx4 == -1:
+		return fmt.Errorf("requested IP %s not in range of defined subnets", ipv4)
+	case ipv6.IsValid() && idx6 == -1:
+		return fmt.Errorf("requested IP %s not in range of defined subnets", ipv6)
+	case ipv4.IsValid() && ipv6.IsValid() && idx4 != idx6:
+		return fmt.Errorf("requested IP %s not in range of the subnet of the IP %s", ipv6, ipv4)
+	default:
+		return nil
+	}
 }
 
 // newPrivNetAPIHandler returns a default handler for the /network/private/addressing API endpoint

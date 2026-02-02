@@ -57,8 +57,9 @@ spec:
   - destination: fd10:0:255::/64
     gateway: fd10:0:250::200
   subnets:
-  - cidr: 192.168.250.0/24
-  - cidr: fd10:0:250::0/64
+  - name: subnet1
+    cidrv4: 192.168.250.0/24
+    cidrv6: fd10:0:250::0/64
 status:
   vni: 100
 
@@ -74,7 +75,8 @@ spec:
   - cluster: camelidae
   routes: []
   subnets:
-  - cidr: 192.168.251.0/24
+  - name: subnet2
+    cidrv4: 192.168.251.0/24
 status:
   vni: 200
 
@@ -143,5 +145,6 @@ routes:
     - destination: fd10:0:255::/64
       gateway: fd10:0:250::200
 subnets:
-    - cidr: 192.168.250.0/24
-    - cidr: fd10:0:250::/64
+    - name: subnet1
+      cidrv4: 192.168.250.0/24
+      cidrv6: fd10:0:250::/64

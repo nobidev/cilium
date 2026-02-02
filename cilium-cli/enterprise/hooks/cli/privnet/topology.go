@@ -92,8 +92,13 @@ type Route struct {
 	Gateway     netip.Addr
 }
 
+type Subnet struct {
+	CIDRv4 string
+	CIDRv6 string
+}
+
 type NetworkData struct {
-	Prefixes []string
+	Prefixes []Subnet
 	INBs     []INBInfo
 	VMs      []VM
 	Routes   []Route
@@ -101,9 +106,11 @@ type NetworkData struct {
 
 var networkTopology = map[NetworkName]NetworkData{
 	NetworkA: {
-		Prefixes: []string{
-			"192.168.250.0/24",
-			"fd10:0:250::0/64",
+		Prefixes: []Subnet{
+			{
+				CIDRv4: "192.168.250.0/24",
+				CIDRv6: "fd10:0:250::0/64",
+			},
 		},
 		INBs: []INBInfo{
 			{
@@ -173,9 +180,11 @@ var networkTopology = map[NetworkName]NetworkData{
 		},
 	},
 	NetworkB: {
-		Prefixes: []string{
-			"192.168.251.0/24",
-			"fd10:0:251::/64",
+		Prefixes: []Subnet{
+			{
+				CIDRv4: "192.168.251.0/24",
+				CIDRv6: "fd10:0:251::/64",
+			},
 		},
 		INBs: []INBInfo{
 			{
@@ -214,9 +223,11 @@ var networkTopology = map[NetworkName]NetworkData{
 		},
 	},
 	NetworkC: {
-		Prefixes: []string{
-			"192.168.252.0/24",
-			"fd10:0:252::/64",
+		Prefixes: []Subnet{
+			{
+				CIDRv4: "192.168.252.0/24",
+				CIDRv6: "fd10:0:252::/64",
+			},
 		},
 		INBs: []INBInfo{
 			{
@@ -261,9 +272,11 @@ var networkTopology = map[NetworkName]NetworkData{
 		},
 	},
 	NetworkD: {
-		Prefixes: []string{
-			"192.168.252.0/24",
-			"fd10:0:252::/64",
+		Prefixes: []Subnet{
+			{
+				CIDRv4: "192.168.252.0/24",
+				CIDRv6: "fd10:0:252::/64",
+			},
 		},
 		INBs: []INBInfo{
 			{

@@ -288,7 +288,7 @@ func (t *TestRun) renderNetworkPolicies(epName string, dstPort int) ([]k8s.Objec
 
 type networkTemplateData struct {
 	Network         NetworkName
-	Prefixes        []string
+	Prefixes        []Subnet
 	INBClusterNames []string
 	INBInterface    string
 	Routes          []Route

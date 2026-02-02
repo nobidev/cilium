@@ -85,18 +85,41 @@ type PrivateNetworkSpec struct {
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=256
+	// +listType=map
+	// +listMapKey=name
 	Subnets []SubnetSpec `json:"subnets"`
 }
 
+// +kubebuilder:validation:XValidation:rule="has(self.cidrv4) || has(self.cidrv6)", message="Either cidrv4 or cidrv6 needs to be provided"
 type SubnetSpec struct {
 	// The name of the subnet.
 	//
 	// +kubebuilder:validation:Required
 	Name SubnetName `json:"name"`
 
-	// The CIDR (either v4 or v6) associated with the private network.
-	CIDR NetworkCIDR `json:"cidr"`
+	// The IPv4 CIDRv4 associated with the private network.
+	CIDRv4 NetworkCIDRv4 `json:"cidrv4,omitempty"`
+
+	// The IPv6 CIDR associated with the private network.
+	CIDRv6 NetworkCIDRv6 `json:"cidrv6,omitempty"`
 }
+
+// NetworkCIDRv4 is an IPv4 network CIDR.
+//
+// +kubebuilder:validation:MaxLength=18
+// +kubebuilder:validation:Format=cidr
+// +kubebuilder:validation:XValidation:rule="cidr(self).ip().family() == 4", message="Not an IPv4 CIDR"
+// +kubebuilder:validation:XValidation:rule="oldSelf == self", message="Subnet IPv4 CIDR is immutable"
+type NetworkCIDRv4 string
+
+// NetworkCIDRv6 is an IPv6 network CIDR.
+//
+// +kubebuilder:validation:MaxLength=42
+// +kubebuilder:validation:Format=cidr
+// +kubebuilder:validation:XValidation:rule="cidr(self).ip().family() == 6", message="Not an IPv6 CIDR"
+// +kubebuilder:validation:XValidation:rule="oldSelf == self", message="Subnet IPv6 CIDR is immutable"
+type NetworkCIDRv6 string
 
 // Subnet names must conform to the RFC 1123 Label Names format.
 //

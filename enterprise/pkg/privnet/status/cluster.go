@@ -123,7 +123,7 @@ func mergeSubnets(networks []nodeNetworkStatus, allNodes []tables.NodeName) ([]m
 			return n.Subnets
 		},
 		func(a, b Subnet) int {
-			return cmp.Compare(a.CIDR.String(), b.CIDR.String())
+			return cmp.Or(cmp.Compare(a.Name, b.Name), cmp.Compare(a.CIDRv4.String(), b.CIDRv4.String()), cmp.Compare(a.CIDRv6.String(), b.CIDRv6.String()))
 		},
 	)
 
@@ -132,7 +132,7 @@ func mergeSubnets(networks []nodeNetworkStatus, allNodes []tables.NodeName) ([]m
 		if len(subnet.nodes) < len(allNodes) {
 			warnings = append(warnings, merged[string]{
 				nodes: cslices.Diff(allNodes, subnet.nodes),
-				entry: fmt.Sprintf("subnet %s not configured", subnet.unwrap().CIDR),
+				entry: fmt.Sprintf("subnet %s not configured", subnet.unwrap().CIDRv4),
 			})
 		}
 	}

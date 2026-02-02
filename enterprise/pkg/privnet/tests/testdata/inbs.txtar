@@ -135,7 +135,7 @@ spec:
     - cluster: camelidae
     - cluster: elephantidae
   subnets:
-    - cidr: 192.168.250.0/24
+    - cidrv4: 192.168.250.0/24
 
 -- icpn-blue.v2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -147,7 +147,7 @@ spec:
     - cluster: felidae
     - cluster: elephantidae
   subnets:
-    - cidr: 192.168.250.0/24
+    - cidrv4: 192.168.250.0/24
 
 -- icpn-red.v1.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -170,7 +170,7 @@ spec:
               - amd64
               - arm64
   subnets:
-    - cidr: 192.168.251.0/24
+    - cidrv4: 192.168.251.0/24
 
 -- icpn-red.v2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -193,7 +193,7 @@ spec:
           kubernetes.io/hostname: llama
     - cluster: elephantidae
   subnets:
-    - cidr: 192.168.251.0/24
+    - cidrv4: 192.168.251.0/24
 
 -- nodes-felidae-lion.json --
 {

@@ -72,7 +72,7 @@ func TestFormatGolden(t *testing.T) {
 						},
 						Subnets: []Subnet{
 							{
-								CIDR: netip.MustParsePrefix("192.168.1.1/24"),
+								CIDRv4: netip.MustParsePrefix("192.168.1.1/24"),
 							},
 						},
 						Endpoints: []EndpointStatus{
@@ -184,7 +184,7 @@ func TestFormatGolden(t *testing.T) {
 						},
 						Subnets: []Subnet{
 							{
-								CIDR: netip.MustParsePrefix("192.168.1.1/24"),
+								CIDRv4: netip.MustParsePrefix("192.168.1.1/24"),
 							},
 						},
 						Endpoints: []EndpointStatus{
@@ -320,7 +320,7 @@ func TestFormatGolden(t *testing.T) {
 						},
 						Subnets: []Subnet{
 							{
-								CIDR: netip.MustParsePrefix("192.168.1.1/24"),
+								CIDRv4: netip.MustParsePrefix("192.168.1.1/24"),
 							},
 						},
 						Endpoints: []EndpointStatus{

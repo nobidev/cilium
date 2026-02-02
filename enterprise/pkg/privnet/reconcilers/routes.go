@@ -154,19 +154,22 @@ func (r *Routes) registerReconciler() {
 func (r *Routes) extractRoutes(privNet tables.PrivateNetwork) map[tables.RouteKey]tables.Route {
 	routes := make(map[tables.RouteKey]tables.Route, len(privNet.Subnets)+len(privNet.Routes))
 	for _, subnet := range privNet.Subnets {
-		entry := tables.Route{
-			Network:     privNet.Name,
-			Destination: subnet.CIDR,
+		for cidr := range subnet.CIDRs() {
+			entry := tables.Route{
+				Network:     privNet.Name,
+				Destination: cidr,
+			}
+			key := entry.Key()
+			if _, ok := routes[key]; ok {
+				r.log.Warn("Duplicate subnet in private network definition",
+					logfields.Network, privNet.Name,
+					logfields.CIDR, cidr,
+					logfields.PrivateNetworkSubnet, subnet.Name,
+				)
+			} else {
+				routes[key] = entry
+			}
 		}
-		key := entry.Key()
-		if _, ok := routes[key]; ok {
-			r.log.Warn("Duplicate subnet in private network definition",
-				logfields.Network, privNet.Name,
-				logfields.CIDR, subnet.CIDR,
-			)
-			continue
-		}
-		routes[key] = entry
 	}
 
 	for _, route := range privNet.Routes {
