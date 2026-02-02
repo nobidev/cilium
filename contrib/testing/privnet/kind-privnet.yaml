@@ -38,6 +38,7 @@ enterprise:
     approved:
     - DatapathIPModeDualStack
     - PrivateNetworks
+    - ClusterMeshMixedRoutingMode
 
   privateNetworks:
     enabled: true
@@ -88,5 +89,4 @@ socketLB:
   enabled: true
   hostNamespaceOnly: true
 
-routingMode: tunnel
 tunnelProtocol: vxlan
