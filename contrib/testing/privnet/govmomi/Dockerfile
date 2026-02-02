@@ -12,6 +12,6 @@ FROM vmware/vcsim:v0.52.0@sha256:3d2924c88749abcd2965a41171faa8e583707d8fe38b6d1
 
 FROM vmware/govc:v0.52.0@sha256:cc1d61ab14266ab3c22d8752f796558dc0b5813db450a70b4529a87a91397a13 AS govc
 
-FROM docker.io/library/alpine:3.23.2@sha256:865b95f46d98cf867a156fe4a135ad3fe50d2056aa3f25ed31662dff6da4eb62
+FROM docker.io/library/alpine:3.23.3@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659
 COPY --from=vcsim /vcsim /usr/bin/vcsim
 COPY --from=govc /govc /usr/bin/govc
