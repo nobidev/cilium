@@ -122,3 +122,6 @@ workflows:
 feedback:
   verbose: true
   workflows-report: true
+
+rerun:
+  max-retries: 5
