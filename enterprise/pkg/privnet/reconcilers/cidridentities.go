@@ -352,6 +352,18 @@ func (c *CIDRIdentities) resolveLabels(metadata tables.CIDRMetadata) (labels.Lab
 			restoredIdentity = o.RestoredIdentity
 		}
 	}
+
+	// If the CNP or CCG that owned the prefix went away during the agent restart, we will
+	// not have any labels. Upsert the identity anyway with an artificial `cidr` label,
+	// to match IPCache behavior. The identity will de-allocated after initial
+	// endpoint regeneration finishes (unless a new owner appears before that).
+	if len(lbls) == 0 {
+		c.log.Debug("No label metadata found for restored identity. Adding `cidr:` label",
+			logfields.Prefix, metadata.Prefix,
+			logfields.Identity, restoredIdentity)
+		lbls.MergeLabels(labels.GetCIDRLabels(metadata.Prefix))
+	}
+
 	return lbls, restoredIdentity
 }
 
