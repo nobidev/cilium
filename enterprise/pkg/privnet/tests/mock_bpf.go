@@ -44,21 +44,21 @@ func mockBPFMapCell(t testing.TB) cell.Cell {
 		cell.Provide(
 			newFakeBPFMapRegistry,
 			registerFakeBPFMap(
-				"cilium_privnet_pip", 512000,
+				pnmaps.PIPMapName, 512000,
 				&pnmaps.PIPKeyVal{
 					Key: pnmaps.NewPIPKey(netip.MustParsePrefix("172.16.1.1/32")),
 					Val: pnmaps.NewPIPVal(0xff, netip.MustParseAddr("172.16.2.1"), types.MACAddr{}, 0x1f),
 				},
 			),
 			registerFakeBPFMap(
-				"cilium_privnet_fib", 512000,
+				pnmaps.FIBMapName, 512000,
 				&pnmaps.FIBKeyVal{
 					Key: pnmaps.NewFIBKey(5, netip.MustParsePrefix("172.16.2.1/32")),
 					Val: pnmaps.NewFIBVal(netip.MustParseAddr("172.16.1.1"), types.MACAddr{}, 0x0, 0, vni.MustFromUint32(0)),
 				},
 			),
 			registerFakeBPFMap[*pnmaps.CIDRIdentityKeyVal](
-				"cilium_privnet_cidr_identity", 128000,
+				pnmaps.CIDRIdentityMapName, 128000,
 				&pnmaps.CIDRIdentityKeyVal{
 					Key: pnmaps.NewCIDRIdentityKey(netip.MustParsePrefix("10.0.0.0/24")),
 					Val: pnmaps.NewCIDRIdentityVal(16777230),

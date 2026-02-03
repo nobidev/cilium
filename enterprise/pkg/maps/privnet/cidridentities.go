@@ -35,9 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/types"
 )
 
-const (
-	cidrIdentitiyMapName = "cilium_privnet_cidr_identity"
-)
+const CIDRIdentityMapName = "cilium_privnet_cidr_identity"
 
 type CIDRIdentityKey struct {
 	PrefixLen uint32     `align:"lpm_key"`
@@ -151,7 +149,7 @@ func (c *CIDRIdentityMap) dumpBatch(fn func(*CIDRIdentityKey, *CIDRIdentityVal))
 }
 
 func OpenPrivNetCIDRIdentityMap(logger *slog.Logger) (*CIDRIdentityMap, error) {
-	path := bpf.MapPath(logger, cidrIdentitiyMapName)
+	path := bpf.MapPath(logger, CIDRIdentityMapName)
 
 	m, err := bpf.OpenMap(path, &CIDRIdentityKey{}, &CIDRIdentityVal{})
 	if err != nil {
@@ -177,7 +175,7 @@ func createCIDRIdentityMap(in struct {
 	Observer policy.CIDRQueuer
 }) bpf.MapOut[Map[*CIDRIdentityKeyVal]] {
 	bpfMap := bpf.NewMap(
-		cidrIdentitiyMapName,
+		CIDRIdentityMapName,
 		ebpf.LPMTrie,
 		&CIDRIdentityKey{},
 		&CIDRIdentityVal{},

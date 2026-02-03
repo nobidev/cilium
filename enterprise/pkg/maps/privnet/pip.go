@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/types"
 )
 
-const pipMapName = "cilium_privnet_pip"
+const PIPMapName = "cilium_privnet_pip"
 
 // PIPKey is the PIP map key.
 type PIPKey struct {
@@ -67,7 +67,7 @@ func newPIP(
 	mapCfg Config,
 ) bpf.MapOut[Map[*PIPKeyVal]] {
 	pipMap := bpf.NewMap(
-		pipMapName,
+		PIPMapName,
 		ebpf.LPMTrie,
 		&PIPKey{},
 		&PIPVal{},
@@ -191,7 +191,7 @@ func (p *PIPKeyVal) MapValue() bpf.MapValue {
 }
 
 func OpenPinnedPIPMap(logger *slog.Logger) (*PIP, error) {
-	path := bpf.MapPath(logger, pipMapName)
+	path := bpf.MapPath(logger, PIPMapName)
 
 	m, err := bpf.OpenMap(path, &PIPKey{}, &PIPVal{})
 	if err != nil {

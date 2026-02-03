@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/types"
 )
 
-const fibMapName = "cilium_privnet_fib"
+const FIBMapName = "cilium_privnet_fib"
 
 // FIBKey is the FIB map key.
 type FIBKey struct {
@@ -81,7 +81,7 @@ func newFIB(
 	mapCfg Config,
 ) bpf.MapOut[Map[*FIBKeyVal]] {
 	fibMap := bpf.NewMap(
-		fibMapName,
+		FIBMapName,
 		ebpf.LPMTrie,
 		&FIBKey{},
 		&FIBVal{},
@@ -229,7 +229,7 @@ func toAddr(family uint8, address types.IPv6) netip.Addr {
 }
 
 func OpenPinnedFIBMap(logger *slog.Logger) (*FIB, error) {
-	path := bpf.MapPath(logger, fibMapName)
+	path := bpf.MapPath(logger, FIBMapName)
 
 	m, err := bpf.OpenMap(path, &FIBKey{}, &FIBVal{})
 	if err != nil {
