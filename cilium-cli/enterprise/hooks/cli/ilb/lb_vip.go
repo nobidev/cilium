@@ -146,10 +146,31 @@ func TestMultipleIPPools(t T) {
 	t.Log("Creating clients and add BGP peering ...")
 	client := scenario.addFRRClients(1, frrClientConfig{})[0]
 
+	clbi, err := ciliumCli.GetCiliumLoadBalancerIPPool(t.Context(), testName, metav1.GetOptions{})
+	if err != nil {
+		t.Failedf("failed to get LBIPPool (%s): %w", testName, err)
+	}
+
+	clbi.Spec.ServiceSelector = &slimmetav1.LabelSelector{
+		MatchExpressions: []slimmetav1.LabelSelectorRequirement{
+			// Exclude services from test "TestMultipleIPPools" from using the default IP Pool,
+			// because it doesn't define a service label selector and would select all services.
+			{
+				Key:      "io.kubernetes.service.namespace",
+				Operator: slimmetav1.LabelSelectorOpNotIn,
+				Values:   []string{"ilb-test-" + testName},
+			},
+		},
+	}
+
+	if err := ciliumCli.UpdateCiliumLoadBalancerIPPool(t.Context(), clbi, metav1.UpdateOptions{}); err != nil {
+		t.Failedf("failed to update LBIPPool (%s): %w", clbi, err)
+	}
+
 	t.Log("Creating additional IP Pools ...")
 	// 1
 	additionalPoolName1 := LbIPPoolName + "-1"
-	lbIPPool1 := LbIPPool(additionalPoolName1, "100.64.1.0/24")
+	lbIPPool1 := LbIPPool(additionalPoolName1, scenario.k8sNamespace, "100.63.1.0/24")
 	lbIPPool1.Spec.ServiceSelector = &slimmetav1.LabelSelector{
 		MatchLabels: map[string]slimmetav1.MatchLabelsValue{
 			"io.kubernetes.service.namespace":     scenario.k8sNamespace,
@@ -166,7 +187,7 @@ func TestMultipleIPPools(t T) {
 
 	// 2
 	additionalPoolName2 := LbIPPoolName + "-2"
-	lbIPPool2 := LbIPPool(additionalPoolName2, "100.64.2.0/24")
+	lbIPPool2 := LbIPPool(additionalPoolName2, scenario.k8sNamespace, "100.63.2.0/24")
 	lbIPPool2.Spec.ServiceSelector = &slimmetav1.LabelSelector{
 		MatchLabels: map[string]slimmetav1.MatchLabelsValue{
 			"io.kubernetes.service.namespace":     scenario.k8sNamespace,
@@ -202,8 +223,8 @@ func TestMultipleIPPools(t T) {
 
 		t.Log("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(vip.Name)
-		if !strings.HasPrefix(vipIP, "100.64.1.") {
-			t.Failedf("wrong ip pool")
+		if !strings.HasPrefix(vipIP, "100.63.1.") {
+			t.Failedf("wrong ip pool - expected prefix %q - got %q", "100.63.1", vipIP)
 		}
 
 		// 1. Send HTTP request to requested VIP
@@ -236,8 +257,8 @@ func TestMultipleIPPools(t T) {
 
 		t.Log("Waiting for full VIP connectivity...")
 		vipIP := scenario.waitForFullVIPConnectivity(vip.Name)
-		if !strings.HasPrefix(vipIP, "100.64.2.") {
-			t.Failedf("wrong ip pool")
+		if !strings.HasPrefix(vipIP, "100.63.2.") {
+			t.Failedf("wrong ip pool - expected prefix %q - got %q", "100.63.2", vipIP)
 		}
 
 		// 1. Send HTTP request to requested VIP

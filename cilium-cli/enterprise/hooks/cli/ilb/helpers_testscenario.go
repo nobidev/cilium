@@ -36,6 +36,7 @@ import (
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	metaslimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -71,6 +72,8 @@ type tlsCertificate struct {
 	keyBase64  string
 }
 
+var ippoolCount = 0
+
 func newLBTestScenario(t T, testName string, ciliumCli *ciliumCli, k8sCli *k8s.Clientset, dockerCli *dockerCli) *lbTestScenario {
 	k8sNamespace := fmt.Sprintf("ilb-test-%s", testName)
 
@@ -104,6 +107,48 @@ func newLBTestScenario(t T, testName string, ciliumCli *ciliumCli, k8sCli *k8s.C
 
 		return nil
 	})
+
+	// Create LBIPPool per testscenario / namespace
+	ipv4Enabled, ipv6Enabled, err := IPFamilyInfo(t.Context(), k8sCli, t.CiliumNamespace())
+	if err != nil {
+		t.Failedf("failed to create get ip family info: %s", err)
+	}
+
+	minVersion := ">=1.18.0"
+	currentVersion := GetCiliumVersionRaw(t.Context(), t, k8sCli, t.CiliumNamespace())
+
+	if versioncheck.MustCompile(minVersion)(currentVersion) {
+		ipBlocks := []string{}
+		if ipv4Enabled {
+			ipBlocks = append(ipBlocks, fmt.Sprintf("100.64.%d.0/24", ippoolCount))
+		}
+		if ipv6Enabled {
+			ipBlocks = append(ipBlocks, fmt.Sprintf("2004:0:0:0:0:0:%d:0/112", ippoolCount))
+		}
+		lbIPPool := LbIPPool(testName, k8sNamespace, ipBlocks...)
+		if err := ciliumCli.EnsureLBIPPool(t.Context(), lbIPPool); err != nil {
+			t.Failedf("failed to ensure LBIPPool %q: %s", testName, err)
+		}
+
+		t.RegisterCleanup(func(ctx context.Context) error {
+			return ciliumCli.DeleteLBIPPool(ctx, testName, metav1.DeleteOptions{})
+		})
+	} else {
+		lbIPPool := LbIPPoolV2Alpha1(testName, k8sNamespace, fmt.Sprintf("100.64.%d.0/24", ippoolCount))
+		if err := ciliumCli.EnsureLBIPPoolV2Alpha1(t.Context(), lbIPPool); err != nil {
+			t.Failedf("failed to ensure LBIPPool %q: %s", testName, err)
+		}
+
+		t.RegisterCleanup(func(ctx context.Context) error {
+			return ciliumCli.DeleteLBIPPoolV2Alpha1(ctx, testName, metav1.DeleteOptions{})
+		})
+	}
+
+	ippoolCount++
+
+	if ippoolCount > 255 {
+		t.Failedf("too many test functions for dynamic ip pool assignment")
+	}
 
 	return scenario
 }

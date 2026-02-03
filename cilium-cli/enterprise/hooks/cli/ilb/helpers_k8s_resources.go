@@ -26,7 +26,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-func LbIPPoolV2Alpha1(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
+func LbIPPoolV2Alpha1(name string, namespaceName string, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIPPool {
 	return &ciliumv2alpha1.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -37,11 +37,21 @@ func LbIPPoolV2Alpha1(name, ipBlock string) *ciliumv2alpha1.CiliumLoadBalancerIP
 					Cidr: ciliumv2alpha1.IPv4orIPv6CIDR(ipBlock),
 				},
 			},
+			// Only include services from test namespace
+			ServiceSelector: &slim_metav1.LabelSelector{
+				MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+					{
+						Key:      "io.kubernetes.service.namespace",
+						Operator: slim_metav1.LabelSelectorOpIn,
+						Values:   []string{namespaceName},
+					},
+				},
+			},
 		},
 	}
 }
 
-func LbIPPool(name string, ipBlocks ...string) *ciliumv2.CiliumLoadBalancerIPPool {
+func LbIPPool(name string, namespaceName string, ipBlocks ...string) *ciliumv2.CiliumLoadBalancerIPPool {
 	pool := &ciliumv2.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
@@ -49,14 +59,13 @@ func LbIPPool(name string, ipBlocks ...string) *ciliumv2.CiliumLoadBalancerIPPoo
 		},
 		Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
 			Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{},
-			// Exclude services from test "TestMultipleIPPools" from using the default IP Pool,
-			// because it doesn't define a service label selector and would select all services.
+			// Only include services from test namespace
 			ServiceSelector: &slim_metav1.LabelSelector{
 				MatchExpressions: []slim_metav1.LabelSelectorRequirement{
 					{
 						Key:      "io.kubernetes.service.namespace",
-						Operator: slim_metav1.LabelSelectorOpNotIn,
-						Values:   []string{"ilb-test-multiple-ip-pools"},
+						Operator: slim_metav1.LabelSelectorOpIn,
+						Values:   []string{namespaceName},
 					},
 				},
 			},

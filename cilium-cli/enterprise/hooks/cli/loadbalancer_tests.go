@@ -10,11 +10,9 @@ import (
 	"os/signal"
 
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli/ilb"
 	ilbCli "github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli/ilb"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 // Execute Isovalent Loadbalancer E2E Tests
@@ -86,38 +84,6 @@ func newCmdLoadbalancerTest() *cobra.Command {
 				if err := ilbCli.SetupSingleNodeMode(c.Context(), dockerCli, k8sCli); err != nil {
 					return fmt.Errorf("failed to set up single-node mode: %w", err)
 				}
-			}
-
-			// Create LBIPPool (it is shared among all test cases)
-
-			minVersion := ">=1.18.0"
-			currentVersion := ilb.GetCiliumVersionRaw(ctx, lbTestRun, k8sCli, ciliumNamespace(c))
-
-			if versioncheck.MustCompile(minVersion)(currentVersion) {
-				ipBlocks := []string{}
-				if ipv4Enabled {
-					ipBlocks = append(ipBlocks, "100.64.0.0/24")
-				}
-				if ipv6Enabled {
-					ipBlocks = append(ipBlocks, "2004::0/112")
-				}
-				lbIPPool := ilbCli.LbIPPool(ilbCli.LbIPPoolName, ipBlocks...)
-				if err := ciliumCli.EnsureLBIPPool(c.Context(), lbIPPool); err != nil {
-					return fmt.Errorf("failed to ensure LBIPPool (%s): %w", ilbCli.LbIPPoolName, err)
-				}
-
-				lbTestRun.RegisterCleanup(func(ctx context.Context) error {
-					return ciliumCli.DeleteLBIPPool(ctx, ilbCli.LbIPPoolName, metav1.DeleteOptions{})
-				})
-			} else {
-				lbIPPool := ilbCli.LbIPPoolV2Alpha1(ilbCli.LbIPPoolName, "100.64.0.0/24")
-				if err := ciliumCli.EnsureLBIPPoolV2Alpha1(c.Context(), lbIPPool); err != nil {
-					return fmt.Errorf("failed to ensure LBIPPool (%s): %w", ilbCli.LbIPPoolName, err)
-				}
-
-				lbTestRun.RegisterCleanup(func(ctx context.Context) error {
-					return ciliumCli.DeleteLBIPPoolV2Alpha1(ctx, ilbCli.LbIPPoolName, metav1.DeleteOptions{})
-				})
 			}
 
 			defer lbTestRun.RunCleanup()

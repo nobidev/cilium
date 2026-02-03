@@ -82,6 +82,10 @@ func (c *ciliumCli) GetLBVIP(ctx context.Context, namespace, name string, opts m
 	return c.IsovalentV1alpha1().LBVIPs(namespace).Get(ctx, name, opts)
 }
 
+func (c *ciliumCli) GetCiliumLoadBalancerIPPool(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumLoadBalancerIPPool, error) {
+	return c.CiliumV2().CiliumLoadBalancerIPPools().Get(ctx, name, opts)
+}
+
 func (c *ciliumCli) CreateLBDeployment(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBDeployment, opts metav1.CreateOptions) error {
 	_, err := c.IsovalentV1alpha1().LBDeployments(namespace).Create(ctx, obj, opts)
 	return err
@@ -89,6 +93,11 @@ func (c *ciliumCli) CreateLBDeployment(ctx context.Context, namespace string, ob
 
 func (c *ciliumCli) UpdateLBDeployment(ctx context.Context, namespace string, obj *isovalentv1alpha1.LBDeployment, opts metav1.UpdateOptions) error {
 	_, err := c.IsovalentV1alpha1().LBDeployments(namespace).Update(ctx, obj, opts)
+	return err
+}
+
+func (c *ciliumCli) UpdateCiliumLoadBalancerIPPool(ctx context.Context, obj *ciliumv2.CiliumLoadBalancerIPPool, opts metav1.UpdateOptions) error {
+	_, err := c.CiliumV2().CiliumLoadBalancerIPPools().Update(ctx, obj, opts)
 	return err
 }
 
