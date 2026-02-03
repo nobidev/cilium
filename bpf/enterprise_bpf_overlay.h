@@ -65,7 +65,7 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		if (!unknown_flow) {
 			/* Not unknown flow, so we're in PIP space */
 			set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
-			ret = privnet_policy_ingress6(ctx, ip6, src_sec_identity, ext_err);
+			ret = privnet_ext_ep_policy_ingress6(ctx, ip6, src_sec_identity, ext_err);
 			if (IS_ERR(ret))
 				return ret;
 		}
@@ -155,7 +155,7 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		if (!unknown_flow) {
 			/* Not unknown flow, so we're in PIP space */
 			set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
-			ret = privnet_policy_ingress4(ctx, ip4, src_sec_identity, ext_err);
+			ret = privnet_ext_ep_policy_ingress4(ctx, ip4, src_sec_identity, ext_err);
 			if (IS_ERR(ret))
 				return ret;
 		}

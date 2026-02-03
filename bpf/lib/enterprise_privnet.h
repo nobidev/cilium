@@ -5,6 +5,7 @@
 
 #include "arp.h"
 #include "conntrack.h"
+#include "conntrack_map.h"
 #include "icmp6.h"
 
 #include "enterprise_privnet_config.h"
@@ -746,17 +747,21 @@ out:
 }
 
 static __always_inline int
-privnet_policy_egress4(struct __ctx_buff *ctx,
-		       struct iphdr *ip4,
-		       __u32 dst_sec_identity,
-		       __s8 *ext_err)
+privnet_ext_ep_policy_egress4(struct __ctx_buff *ctx,
+			      struct iphdr *ip4,
+			      __u32 dst_sec_identity,
+			      __s8 *ext_err)
 {
+	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u16 proxy_port = 0;
 	__u8 audited = 0;
 	__u32 cookie = 0;
+	__u32 monitor = 0;
 	struct ipv4_ct_tuple tuple = {};
+	struct ct_state ct_state = {};
 	int l4_off;
+	int ct_ret;
 	int ret;
 
 	/* calculate tuple */
@@ -765,32 +770,58 @@ privnet_policy_egress4(struct __ctx_buff *ctx,
 	tuple.daddr = ip4->daddr;
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-	ret = ct_extract_ports4(ctx, ip4, ipfrag_encode_ipv4(ip4), l4_off, CT_EGRESS, &tuple);
-	if (IS_ERR(ret))
-		return ret;
-	ipv4_ct_tuple_swap_ports(&tuple);
+	ct_ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, ip4, l4_off,
+			    CT_EGRESS, SCOPE_BIDIR, &ct_state, &monitor);
 
-	return ext_eps_policy_can_egress4(ctx, ip4->saddr, dst_sec_identity, tuple.dport,
-					  ip4->protocol, l4_off, &policy_match_type, &audited,
-					  ext_err, &proxy_port, &cookie);
+	/* Skip policy enforcement for return traffic. */
+	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
+		return CTX_ACT_OK;
+
+	verdict = ext_eps_policy_can_egress4(ctx, ip4->saddr, dst_sec_identity, tuple.dport,
+					     ip4->protocol, l4_off, &policy_match_type, &audited,
+					     ext_err, &proxy_port, &cookie);
+
+	/* Only create CT entry for accepted connections */
+	if (ct_ret == CT_NEW && verdict == CTX_ACT_OK) {
+		/* TODO: To make userspace proxy work, we need to set src_sec_id here */
+		struct ct_state ct_state_new = {};
+
+		ret = ct_create4(get_ct_map4(&tuple), &cilium_ct_any4_global, &tuple,
+				 ctx, CT_EGRESS, &ct_state_new, ext_err);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	/* Emit verdict if drop or if allow for CT_NEW. */
+	if (verdict != CTX_ACT_OK || ct_ret != CT_ESTABLISHED) {
+		send_policy_verdict_notify(ctx, dst_sec_identity, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, false,
+					   verdict, proxy_port, policy_match_type, audited,
+					   0, cookie);
+	}
+
+	return verdict;
 }
 
 static __always_inline int
-privnet_policy_ingress4(struct __ctx_buff *ctx,
-			struct iphdr *ip4,
-			__u32 src_sec_identity,
-			__s8 *ext_err)
+privnet_ext_ep_policy_ingress4(struct __ctx_buff *ctx,
+			       struct iphdr *ip4,
+			       __u32 src_sec_identity,
+			       __s8 *ext_err)
 {
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	int verdict = CTX_ACT_OK;
 	__u16 proxy_port = 0;
 	__u8 audited = 0;
 	__u32 cookie = 0;
+	__u32 monitor = 0;
 	int l4_off;
+	int ct_ret;
 	int ret;
-	fraginfo_t fraginfo;
+	fraginfo_t fraginfo __maybe_unused;
 	bool is_untracked_fragment = false;
 	struct ipv4_ct_tuple tuple = {};
+	struct ct_state ct_state = {};
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
@@ -805,34 +836,56 @@ privnet_policy_ingress4(struct __ctx_buff *ctx,
 	tuple.nexthdr = ip4->protocol;
 	tuple.saddr = ip4->saddr;
 	tuple.daddr = ip4->daddr;
-	ret = ct_extract_ports4(ctx, ip4, fraginfo, l4_off, CT_INGRESS, &tuple);
-	if (IS_ERR(ret))
-		return ret;
+	ct_ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, ip4, l4_off,
+			    CT_INGRESS, SCOPE_BIDIR, &ct_state, &monitor);
 
-	ipv4_ct_tuple_swap_ports(&tuple);
+	/* Skip policy enforcement for return traffic. */
+	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
+		return CTX_ACT_OK;
 
 	verdict = ext_eps_policy_can_ingress4(ctx, ip4->daddr, src_sec_identity, tuple.dport,
 					      ip4->protocol, l4_off, is_untracked_fragment,
 					      &policy_match_type, &audited, ext_err, &proxy_port,
 					      &cookie);
+
+	/* Only create CT entry for accepted connections */
+	if (ct_ret == CT_NEW && verdict == CTX_ACT_OK) {
+		struct ct_state ct_state_new = {};
+
+		ct_state_new.src_sec_id = src_sec_identity;
+		ret = ct_create4(get_ct_map4(&tuple), &cilium_ct_any4_global, &tuple,
+				 ctx, CT_INGRESS, &ct_state_new, ext_err);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	/* Emit verdict if drop or if allow for CT_NEW. */
+	if (verdict != CTX_ACT_OK || ct_ret != CT_ESTABLISHED) {
+		send_policy_verdict_notify(ctx, src_sec_identity, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, false,
+					   verdict, proxy_port, policy_match_type, audited,
+					   0, cookie);
+	}
+
 	return verdict;
 }
 
 static __always_inline int
-privnet_policy_egress6(struct __ctx_buff *ctx,
-		       struct ipv6hdr *ip6,
-		       __u32 dst_sec_identity,
-		       __s8 *ext_err __maybe_unused)
+privnet_ext_ep_policy_egress6(struct __ctx_buff *ctx,
+			      struct ipv6hdr *ip6,
+			      __u32 dst_sec_identity,
+			      __s8 *ext_err __maybe_unused)
 {
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	int verdict = CTX_ACT_OK;
 	__u16 proxy_port = 0;
 	__u8 audited = 0;
 	__u32 cookie = 0;
+	__u32 monitor = 0;
 
 	struct ipv6_ct_tuple tuple = {};
 	fraginfo_t fraginfo;
-	int hdrlen, l4_off, ret;
+	int hdrlen, l4_off, ct_ret, ret;
 
 	tuple.nexthdr = ip6->nexthdr;
 	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
@@ -843,35 +896,58 @@ privnet_policy_egress6(struct __ctx_buff *ctx,
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
 
-	ret = ct_extract_ports6(ctx, ip6, fraginfo, l4_off, CT_EGRESS, &tuple);
-	if (IS_ERR(ret))
-		return ret;
+	ct_ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, ip6,
+			    fraginfo, l4_off,
+			    CT_EGRESS, SCOPE_BIDIR, NULL,
+			    &monitor);
+	/* Skip policy enforcement for return traffic. */
+	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
+		return CTX_ACT_OK;
 
-	ipv6_ct_tuple_swap_ports(&tuple);
-
-	verdict = ext_eps_policy_can_egress6(ctx, tuple.saddr, dst_sec_identity, tuple.dport,
+	/* using tuple.daddr as the local endpoint IP here because ct_lookup swaps the order */
+	verdict = ext_eps_policy_can_egress6(ctx, tuple.daddr, dst_sec_identity, tuple.dport,
 					     ip6->nexthdr, l4_off, &policy_match_type,
 					     &audited, ext_err, &proxy_port, &cookie);
+
+	/* Only create CT entry for accepted connections */
+	if (ct_ret == CT_NEW && verdict == CTX_ACT_OK) {
+		/* TODO: To make userspace proxy work, we need to set src_sec_id here */
+		struct ct_state ct_state_new = {};
+
+		ret = ct_create6(get_ct_map6(&tuple), &cilium_ct_any6_global, &tuple,
+				 ctx, CT_EGRESS, &ct_state_new, ext_err);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	/* Emit verdict if drop or if allow for CT_NEW. */
+	if (verdict != CTX_ACT_OK || ct_ret != CT_ESTABLISHED) {
+		send_policy_verdict_notify(ctx, dst_sec_identity, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, false,
+					   verdict, proxy_port, policy_match_type, audited,
+					   0, cookie);
+	}
 
 	return verdict;
 }
 
 static __always_inline int
-privnet_policy_ingress6(struct __ctx_buff *ctx,
-			struct ipv6hdr *ip6,
-			__u32 src_sec_identity,
-			__s8 *ext_err __maybe_unused)
+privnet_ext_ep_policy_ingress6(struct __ctx_buff *ctx,
+			       struct ipv6hdr *ip6,
+			       __u32 src_sec_identity,
+			       __s8 *ext_err __maybe_unused)
 {
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	int verdict = CTX_ACT_OK;
 	__u16 proxy_port = 0;
 	__u8 audited = 0;
 	__u32 cookie = 0;
+	__u32 monitor = 0;
 
 	struct ipv6_ct_tuple tuple = {};
 	fraginfo_t fraginfo;
 	bool is_untracked_fragment = false;
-	int hdrlen, l4_off, ret;
+	int hdrlen, l4_off, ct_ret, ret;
 
 	tuple.nexthdr = ip6->nexthdr;
 	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
@@ -889,15 +965,38 @@ privnet_policy_ingress6(struct __ctx_buff *ctx,
 	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
 #endif
 
-	ret = ct_extract_ports6(ctx, ip6, fraginfo, l4_off, CT_INGRESS, &tuple);
-	if (IS_ERR(ret))
-		return ret;
-	ipv6_ct_tuple_swap_ports(&tuple);
+	ct_ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, ip6,
+			    fraginfo, l4_off,
+			    CT_INGRESS, SCOPE_BIDIR, NULL,
+			    &monitor);
+	/* Skip policy enforcement for return traffic. */
+	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
+		return CTX_ACT_OK;
 
-	verdict = ext_eps_policy_can_ingress6(ctx, tuple.daddr, src_sec_identity, tuple.dport,
+	/* using tuple.saddr as the local endpoint IP here because ct_lookup swaps the order */
+	verdict = ext_eps_policy_can_ingress6(ctx, tuple.saddr, src_sec_identity, tuple.dport,
 					      ip6->nexthdr, l4_off, is_untracked_fragment,
 					      &policy_match_type, &audited, ext_err, &proxy_port,
 					      &cookie);
+
+	/* Only create CT entry for accepted connections */
+	if (ct_ret == CT_NEW && verdict == CTX_ACT_OK) {
+		struct ct_state ct_state_new = {};
+
+		ct_state_new.src_sec_id = src_sec_identity;
+		ret = ct_create6(get_ct_map6(&tuple), &cilium_ct_any6_global, &tuple,
+				 ctx, CT_INGRESS, &ct_state_new, ext_err);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	/* Emit verdict if drop or if allow for CT_NEW. */
+	if (verdict != CTX_ACT_OK || ct_ret != CT_ESTABLISHED) {
+		send_policy_verdict_notify(ctx, src_sec_identity, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, false,
+					   verdict, proxy_port, policy_match_type, audited,
+					   0, cookie);
+	}
 
 	return verdict;
 }
