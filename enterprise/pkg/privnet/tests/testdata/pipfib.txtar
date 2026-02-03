@@ -34,7 +34,7 @@ db/delete privnet-mapentries mapentries.v1.delete.yaml
 privnet/maps-dump privnet_fib fib-actual.map
 * cmp fib.v2.map fib-actual.map
 
-# Ensure that the delete PIP map entry is removed 
+# Ensure that the deleted PIP map entry is removed
 privnet/maps-dump privnet_pip pip-actual.map
 * cmp pip.v2.map pip-actual.map
 
@@ -44,7 +44,6 @@ target:
   networkname: blue-network
   networkid: 1
   cidr: 192.168.250.0/24
-  mac: []
 routing:
   nexthop: 172.128.0.6
   egressifindex: 0
@@ -57,7 +56,6 @@ target:
   networkname: blue-network
   networkid: 1
   cidr: 192.168.250.24/32
-  mac: []
 routing:
   nexthop: 172.128.0.6
   egressifindex: 0
@@ -70,13 +68,7 @@ target:
   networkname: blue-network
   networkid: 1
   cidr: 192.168.250.20/32
-  mac:
-   - 0x00
-   - 0x50
-   - 0x56
-   - 0xad
-   - 0x45
-   - 0xec
+  mac: 00:50:56:ad:45:ec
 routing:
   nexthop: 10.244.5.108
   egressifindex: 0
@@ -89,7 +81,6 @@ target:
   networkname: blue-network
   networkid: 1
   cidr: 10.10.0.0/16
-  mac: []
 routing:
   nexthop: 10.255.1.1
   egressifindex: 0
@@ -102,13 +93,7 @@ target:
   networkname: blue-network
   networkid: 1
   cidr: 10.30.0.0/16
-  mac:
-   - 0x00
-   - 0x90
-   - 0x7a
-   - 0x1b
-   - 0x34
-   - 0x08
+  mac: 00:90:7a:1b:34:08
 routing:
   nexthop: 10.233.3.1
   egressifindex: 2
