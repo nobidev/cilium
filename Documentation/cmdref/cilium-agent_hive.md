@@ -293,7 +293,7 @@ cilium-agent hive [flags]
       --loadbalancer-flow-logs-reader-queue-size uint                    LB flow log reader queue size (default 1024)
       --loadbalancer-flow-logs-report-frequency uint                     LB Report Frequency (seconds) (default 10)
       --loadbalancer-flow-logs-sender string                             Name of the sender where flow logs should be sent to (ipfix, stdout) (default "ipfix")
-      --loadbalancer-flow-logs-sender-ipfix-collector-address string     LB Flow Logs IPFix collector address in the IP:port format
+      --loadbalancer-flow-logs-sender-ipfix-collector-address string     Comma-separated list of IP:port, [IPv6]:port, or DNS:port addresses for the IPFix collector
       --loadbalancer-flow-logs-sender-protocol string                    The protocol to be used when sending flow logs (udp, tcp) (default "udp")
       --loadbalancer-metrics-collection-interval duration                Refresh interval for LoadBalancer metrics. (default 5s)
       --loadbalancer-metrics-enabled                                     Whether or not LoadBalancer metrics collection is enabled.
