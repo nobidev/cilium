@@ -11,6 +11,8 @@
 package reconcilers
 
 import (
+	"iter"
+
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -48,5 +50,41 @@ func (e *EndpointActivationManager) SetActivatedAt(ep endpoints.Endpoint, time t
 	ep.SyncEndpointHeaderFile() // ensure the new activatedAt timestamp is persisted on disk
 	for _, subscriber := range e.subscribers {
 		subscriber.EndpointActivationChanged(ep)
+	}
+}
+
+// watchesTracker tracks the associations between each watch channel and the
+// associated list of objects. The same channel may be associated with multiple
+// objects, in case they all map to the same watch channel.
+type watchesTracker[T any] map[<-chan struct{}][]T
+
+func newWatchesTracker[T any]() watchesTracker[T] {
+	return make(watchesTracker[T])
+}
+
+// Register registers a watch channel to object association.
+func (tracker watchesTracker[T]) Register(watch <-chan struct{}, obj T) {
+	tracker[watch] = append(tracker[watch], obj)
+}
+
+// Iter returns an iterator over all objects matching one of the closed channels.
+func (tracker watchesTracker[T]) Iter(closed []<-chan struct{}) iter.Seq[T] {
+	return func(yield func(T) bool) {
+		for _, watch := range closed {
+			objs, found := tracker[watch]
+
+			// The watch channel is not in our cache. This is expected if closed
+			// includes other channels as well, such as initialization ones.
+			if !found {
+				continue
+			}
+
+			delete(tracker, watch)
+			for _, obj := range objs {
+				if !yield(obj) {
+					return
+				}
+			}
+		}
 	}
 }

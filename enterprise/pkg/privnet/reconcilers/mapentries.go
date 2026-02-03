@@ -70,7 +70,7 @@ type MapEntries struct {
 
 	// inbWatchesTracker tracks the associations between each watch channel and corresponding network
 	// names. It is not protected by a mutex as access is serialized by write transactions.
-	inbWatchesTracker watchesTracker
+	inbWatchesTracker watchesTracker[tables.NetworkName]
 }
 
 func newMapEntries(in struct {
@@ -109,7 +109,7 @@ func newMapEntries(in struct {
 		tbl:       in.Table,
 
 		knownNetworks:     make(map[tables.NetworkName]tables.SlimPrivateNetwork),
-		inbWatchesTracker: newWatchesTracker(),
+		inbWatchesTracker: newWatchesTracker[tables.NetworkName](),
 	}
 }
 
@@ -663,40 +663,4 @@ func (m *MapEntries) deleteRoute(txn statedb.WriteTxn, route tables.Route) error
 
 	_, _, err := m.tbl.Delete(txn, entry)
 	return err
-}
-
-// watchesTracker tracks the associations between each watch channel and the
-// corresponding network names. The same channel may be associated with multiple
-// networks, e.g., in case no active INB is found.
-type watchesTracker map[<-chan struct{}][]tables.NetworkName
-
-func newWatchesTracker() watchesTracker {
-	return make(watchesTracker)
-}
-
-// Register registers an watch channel to network name association.
-func (tracker watchesTracker) Register(watch <-chan struct{}, network tables.NetworkName) {
-	tracker[watch] = append(tracker[watch], network)
-}
-
-// Iter returns an iterator over all networks matching one of the closed channels.
-func (tracker watchesTracker) Iter(closed []<-chan struct{}) iter.Seq[tables.NetworkName] {
-	return func(yield func(tables.NetworkName) bool) {
-		for _, watch := range closed {
-			networks, found := tracker[watch]
-
-			// The watch channel is not in our cache. This is expected if closed
-			// includes other channels as well, such as initialization ones.
-			if !found {
-				continue
-			}
-
-			delete(tracker, watch)
-			for _, network := range networks {
-				if !yield(network) {
-					return
-				}
-			}
-		}
-	}
 }
