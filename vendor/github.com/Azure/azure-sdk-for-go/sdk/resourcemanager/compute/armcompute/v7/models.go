@@ -120,6 +120,10 @@ type AccessURI struct {
 
 // AdditionalCapabilities - Enables or disables a capability on the virtual machine or virtual machine scale set.
 type AdditionalCapabilities struct {
+	// The flag enables the usage of FIPS 140-3 compliant cryptography on the protectedSettings of an extension. Learn more at:
+	// https://aka.ms/linuxagentfipssupport.
+	EnableFips1403Encryption *bool
+
 	// The flag that enables or disables hibernation capability on the VM.
 	HibernationEnabled *bool
 
@@ -1242,6 +1246,12 @@ type DataDisk struct {
 	// force-detach a data disk update toBeDetached to 'true' along with setting detachOption: 'ForceDetach'.
 	DetachOption *DiskDetachOptionTypes
 
+	// Specifies the Read-Write IOPS for the managed disk when StorageAccountType is UltraSSD_LRS.
+	DiskIOPSReadWrite *int64
+
+	// Specifies the bandwidth in MB per second for the managed disk when StorageAccountType is UltraSSD_LRS.
+	DiskMBpsReadWrite *int64
+
 	// Specifies the size of an empty data disk in gigabytes. This element can be used to overwrite the size of the disk in a
 	// virtual machine image. The property 'diskSizeGB' is the number of bytes x 1024^3
 	// for the disk and the value cannot be larger than 1023.
@@ -1269,16 +1279,6 @@ type DataDisk struct {
 
 	// Specifies whether writeAccelerator should be enabled or disabled on the disk.
 	WriteAcceleratorEnabled *bool
-
-	// READ-ONLY; Specifies the Read-Write IOPS for the managed disk when StorageAccountType is UltraSSD_LRS. Returned only for
-	// VirtualMachine ScaleSet VM disks. Can be updated only via updates to the VirtualMachine
-	// Scale Set.
-	DiskIOPSReadWrite *int64
-
-	// READ-ONLY; Specifies the bandwidth in MB per second for the managed disk when StorageAccountType is UltraSSD_LRS. Returned
-	// only for VirtualMachine ScaleSet VM disks. Can be updated only via updates to the
-	// VirtualMachine Scale Set.
-	DiskMBpsReadWrite *int64
 }
 
 // DataDiskImage - Contains the data disk images information.
@@ -1984,6 +1984,9 @@ type DiskRestorePointInstanceView struct {
 
 	// The disk restore point replication status information.
 	ReplicationStatus *DiskRestorePointReplicationStatus
+
+	// The state of snapshot which determines the access availability of the snapshot.
+	SnapshotAccessState *SnapshotAccessState
 }
 
 // DiskRestorePointList - The List Disk Restore Points operation response.
@@ -2288,14 +2291,14 @@ type ExecutedValidation struct {
 	// This property specifies the starting timestamp.
 	ExecutionTime *time.Time
 
-	// This property specifies the status of the validationProfile of the image version.
-	Status *ValidationStatus
-
 	// This property specifies the type of image version validation.
 	Type *string
 
 	// This property specifies the valid version of the validation.
 	Version *string
+
+	// READ-ONLY; This property specifies the status of the validationProfile of the image version.
+	Status *ValidationStatus
 }
 
 // ExtendedLocation - The complex type of the extended location.
@@ -2536,7 +2539,13 @@ type GalleryApplicationVersionPublishingProfile struct {
 	// VM or VM scale set.
 	Settings *UserArtifactSettings
 
-	// Specifies the storage account type to be used to store the image. This property is not updatable.
+	// Specifies the strategy to be used when selecting the storage account type. Cannot be specified along with storageAccountType,
+	// but can be overridden per region by specifying
+	// targetRegions[].storageAccountType. This property is not updatable.
+	StorageAccountStrategy *StorageAccountStrategy
+
+	// Specifies the storage account type to be used to store the image. Cannot be specified along with storageAccountStrategy.
+	// This property is not updatable.
 	StorageAccountType *StorageAccountType
 
 	// The target extended locations where the Image Version is going to be replicated to. This property is updatable.
@@ -2855,7 +2864,13 @@ type GalleryImageVersionPublishingProfile struct {
 	// Optional parameter which specifies the mode to be used for replication. This property is not updatable.
 	ReplicationMode *ReplicationMode
 
-	// Specifies the storage account type to be used to store the image. This property is not updatable.
+	// Specifies the strategy to be used when selecting the storage account type. Cannot be specified along with storageAccountType,
+	// but can be overridden per region by specifying
+	// targetRegions[].storageAccountType. This property is not updatable.
+	StorageAccountStrategy *StorageAccountStrategy
+
+	// Specifies the storage account type to be used to store the image. Cannot be specified along with storageAccountStrategy.
+	// This property is not updatable.
 	StorageAccountType *StorageAccountType
 
 	// The target extended locations where the Image Version is going to be replicated to. This property is updatable.
@@ -3117,6 +3132,220 @@ type GalleryProperties struct {
 
 	// READ-ONLY; Sharing status of current gallery.
 	SharingStatus *SharingStatus
+}
+
+// GalleryScript - Specifies information about the gallery Script Definition that you want to create or update.
+type GalleryScript struct {
+	// REQUIRED; The geo-location where the resource lives
+	Location *string
+
+	// Describes the properties of a gallery Script Definition.
+	Properties *GalleryScriptProperties
+
+	// Resource tags.
+	Tags map[string]*string
+
+	// READ-ONLY; Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+	ID *string
+
+	// READ-ONLY; The name of the resource
+	Name *string
+
+	// READ-ONLY; Azure Resource Manager metadata containing createdBy and modifiedBy information.
+	SystemData *SystemData
+
+	// READ-ONLY; The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+	Type *string
+}
+
+// GalleryScriptList - The List Gallery Script operation response.
+type GalleryScriptList struct {
+	// REQUIRED; The GalleryScript items on this page
+	Value []*GalleryScript
+
+	// The link to the next page of items
+	NextLink *string
+}
+
+// GalleryScriptParameter - The definition of a parameter that can be passed to a script of a Gallery Script Version.
+type GalleryScriptParameter struct {
+	// REQUIRED; The name of the parameter.
+	Name *string
+
+	// The default value of the parameter, only applies to string types.
+	DefaultValue *string
+
+	// A description to help users understand what this parameter means
+	Description *string
+
+	// A list of permissible values. Only applicable values are from 'enum' values defined in 'GalleryScriptParameter'.
+	EnumValues []*string
+
+	// The minimum value of parameter.
+	MaxValue *string
+
+	// The minimum value of parameter.
+	MinValue *string
+
+	// Indicates whether this parameter must be passed.
+	Required *bool
+
+	// Specifies the type of the Gallery Script parameter. Possible values are: String, Int, Double, Boolean, Enum
+	Type *GalleryScriptParameterType
+}
+
+// GalleryScriptProperties - Describes the properties of a gallery script definition.
+type GalleryScriptProperties struct {
+	// REQUIRED; This property allows you to specify the supported type of the OS that application is built for. Possible values
+	// are: Windows, Linux.
+	SupportedOSType *OperatingSystemTypes
+
+	// The description of this gallery script definition resource. This property is updatable.
+	Description *string
+
+	// The end of life date of the gallery Script Definition. This property can be used for decommissioning purposes. This property
+	// is updatable.
+	EndOfLifeDate *time.Time
+
+	// The Eula agreement (End User License Agreement) for the gallery Script Definition.
+	Eula *string
+
+	// The privacy statement uri.
+	PrivacyStatementURI *string
+
+	// The release note uri.
+	ReleaseNoteURI *string
+
+	// READ-ONLY; The provisioning state, which only appears in the response.
+	ProvisioningState *GalleryProvisioningState
+}
+
+// GalleryScriptUpdate - Specifies information about the gallery Script Definition that you want to update.
+type GalleryScriptUpdate struct {
+	// Gallery script definition properties to update.
+	Properties *GalleryScriptProperties
+
+	// Resource tags
+	Tags map[string]*string
+
+	// READ-ONLY; Resource Id
+	ID *string
+
+	// READ-ONLY; Resource name
+	Name *string
+
+	// READ-ONLY; Resource type
+	Type *string
+}
+
+// GalleryScriptVersion - Concrete tracked resource types can be created by aliasing this type using a specific property type.
+type GalleryScriptVersion struct {
+	// REQUIRED; The geo-location where the resource lives
+	Location *string
+
+	// Describes the properties of a gallery Script Version.
+	Properties *GalleryScriptVersionProperties
+
+	// Resource tags.
+	Tags map[string]*string
+
+	// READ-ONLY; Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+	ID *string
+
+	// READ-ONLY; The name of the resource
+	Name *string
+
+	// READ-ONLY; Azure Resource Manager metadata containing createdBy and modifiedBy information.
+	SystemData *SystemData
+
+	// READ-ONLY; The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+	Type *string
+}
+
+// GalleryScriptVersionList - Paged collection of GalleryScriptVersion items
+type GalleryScriptVersionList struct {
+	// REQUIRED; The GalleryScriptVersion items on this page
+	Value []*GalleryScriptVersion
+
+	// The link to the next page of items
+	NextLink *string
+}
+
+// GalleryScriptVersionProperties - Describes the properties of a gallery script version.
+type GalleryScriptVersionProperties struct {
+	// REQUIRED; The publishing profile of a gallery image version.
+	PublishingProfile *GalleryScriptVersionPublishingProfile
+
+	// The safety profile of the Gallery Script Version.
+	SafetyProfile *GalleryScriptVersionSafetyProfile
+
+	// READ-ONLY; The provisioning state, which only appears in the response.
+	ProvisioningState *GalleryProvisioningState
+
+	// READ-ONLY; This is the replication status of the gallery image version.
+	ReplicationStatus *ReplicationStatus
+}
+
+// GalleryScriptVersionPublishingProfile - The publishing profile of a gallery image version.
+type GalleryScriptVersionPublishingProfile struct {
+	// REQUIRED; The source script from which the Script Version is going to be created.
+	Source *ScriptSource
+
+	// The end of life date of the gallery image version. This property can be used for decommissioning purposes. This property
+	// is updatable.
+	EndOfLifeDate *time.Time
+
+	// If set to true, Virtual Machines deployed from the latest version of the Image Definition won't use this Image Version.
+	ExcludeFromLatest *bool
+
+	// The number of replicas of the Image Version to be created per region. This property would take effect for a region when
+	// regionalReplicaCount is not specified. This property is updatable.
+	ReplicaCount *int32
+
+	// Optional parameter which specifies the mode to be used for replication. This property is not updatable.
+	ReplicationMode *ReplicationMode
+
+	// Specifies the strategy to be used when selecting the storage account type. Cannot be specified along with storageAccountType,
+	// but can be overridden per region by specifying
+	// targetRegions[].storageAccountType. This property is not updatable.
+	StorageAccountStrategy *StorageAccountStrategy
+
+	// Specifies the storage account type to be used to store the image. Cannot be specified along with storageAccountStrategy.
+	// This property is not updatable.
+	StorageAccountType *StorageAccountType
+
+	// The target extended locations where the Image Version is going to be replicated to. This property is updatable.
+	TargetExtendedLocations []*GalleryTargetExtendedLocation
+
+	// The target regions where the Image Version is going to be replicated to. This property is updatable.
+	TargetRegions []*TargetRegion
+
+	// READ-ONLY; The timestamp for when the gallery image version is published.
+	PublishedDate *time.Time
+}
+
+// GalleryScriptVersionSafetyProfile - The safety profile of the Gallery Script Version.
+type GalleryScriptVersionSafetyProfile struct {
+	// Indicates whether or not removing this Gallery Image Version from replicated regions is allowed.
+	AllowDeletionOfReplicatedLocations *bool
+}
+
+// GalleryScriptVersionUpdate - Specifies information about the gallery Script Version that you want to update.
+type GalleryScriptVersionUpdate struct {
+	// Gallery script version properties to update.
+	Properties *GalleryScriptVersionProperties
+
+	// Resource tags
+	Tags map[string]*string
+
+	// READ-ONLY; Resource Id
+	ID *string
+
+	// READ-ONLY; Resource name
+	Name *string
+
+	// READ-ONLY; Resource type
+	Type *string
 }
 
 // GallerySoftDeletedResource - The details information of soft-deleted resource.
@@ -4887,6 +5116,11 @@ type RestorePointCollectionListResult struct {
 
 // RestorePointCollectionProperties - The restore point collection properties.
 type RestorePointCollectionProperties struct {
+	// This property determines whether instant access snapshot is enabled for restore points created under this restore point
+	// collection for Premium SSD v2 or Ultra disk. Instant access snapshot for Premium
+	// SSD v2 or Ultra disk is instantaneously available for restoring disk with fast restore performance.
+	InstantAccess *bool
+
 	// The properties of the source resource that this restore point collection is created from.
 	Source *RestorePointCollectionSourceProperties
 
@@ -4950,6 +5184,10 @@ type RestorePointProperties struct {
 	// List of disk resource ids that the customer wishes to exclude from the restore point. If no disks are specified, all disks
 	// will be included.
 	ExcludeDisks []*APIEntityReference
+
+	// This property determines the time in minutes the snapshot is retained as instant access for restoring Premium SSD v2 or
+	// Ultra disk with fast restore performance in this restore point.
+	InstantAccessDurationMinutes *int32
 
 	// Gets the details of the VM captured at the time of the restore point creation.
 	SourceMetadata *RestorePointSourceMetadata
@@ -5571,6 +5809,16 @@ type ScheduledEventsProfile struct {
 
 	// Specifies Terminate Scheduled Event related configurations.
 	TerminateNotificationProfile *TerminateNotificationProfile
+}
+
+// ScriptSource - The source script from which the Script Version is going to be created.
+type ScriptSource struct {
+	// REQUIRED; Required. The link of the source script, it must be a readable storage blob with SAS URI or publicly accessible
+	// URI or managed identity enabled.
+	ScriptLink *string
+
+	// Optional. Any input parameters that needs to passed to the script and are accessed within the script for its execution.
+	Parameters []*GalleryScriptParameter
 }
 
 // SecurityPostureReference - Specifies the security posture to be used in the scale set. Minimum api-version: 2023-03-01

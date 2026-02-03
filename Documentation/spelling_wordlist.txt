@@ -5,6 +5,7 @@ Alibaba
 Aquantia
 Attestor
 Bertin
+blackhole
 Blanco
 Borkmann
 Brenden
@@ -416,8 +417,10 @@ healthz
 helloworld
 herokuapp
 hexData
+hostNetwork
 hostPath
 hostPort
+hostUsers
 hostname
 hostnames
 hostns

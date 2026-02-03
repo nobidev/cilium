@@ -322,7 +322,7 @@ WARNING: A Limited feature Multicast was enabled, but it is not an approved feat
     {{- end -}}
   {{- end -}}
 {{- end -}}
-{{- if (eq "true" (print .authentication.mutual.spire.enabled))  -}}
+{{- if (and (eq "true" (print .authentication.enabled)) (eq "true" (print .authentication.mutual.spire.enabled)) ) -}}
   {{- if (and (gt (get $featureMaturityLevels "Beta") $minimumMaturityOrder) (not (has "MutualAuthSpire" .enterprise.featureGate.approved))) -}}
     {{- if $strictFeatureGates -}}
       {{- fail "\nBeta feature: MutualAuthSpire was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}

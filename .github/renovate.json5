@@ -48,6 +48,7 @@
     ".github/ISSUE_TEMPLATE/bug_report.yaml",
     "Documentation/requirements-min/requirements.txt",
     "cilium-cli/**",
+    "pkg/azure/**",
     "images/**",
     "enterprise/**",
     "examples/hubble/*",
@@ -93,6 +94,7 @@
   "pruneStaleBranches": true,
   "baseBranchPatterns": [
     "main",
+    "v1.19",
     "v1.18",
     "v1.17",
     "v1.16"
@@ -114,7 +116,9 @@
     "^make -C Documentation update-requirements$",
     "^make generate-k8s-api$",
     "^make manifests$",
-    "^make GO='contrib/scripts/builder.sh go' generate-apis$"
+    "^make GO='contrib/scripts/builder.sh go' generate-apis$",
+    "^go mod tidy$",
+    "^go mod vendor$"
   ],
   "assignAutomerge": true,
   "packageRules": [
@@ -230,6 +234,13 @@
         // update source import paths on major updates
         "gomodUpdateImportPaths"
       ],
+      "postUpgradeTasks": {
+        "commands": [
+          "go mod tidy",
+          "go mod vendor"
+        ],
+        "executionMode": "update"
+      },
       "matchBaseBranches": [
         "main"
       ]
@@ -360,26 +371,12 @@
       ]
     },
     {
-      "matchFileNames": [
-        "install/kubernetes/Makefile.values"
-      ],
-      "matchPackageNames": [
-        "ghcr.io/spiffe/spire-agent",
-        "ghcr.io/spiffe/spire-server"
-      ],
-      "matchBaseBranches": [
-        "main"
-      ],
-      // We need to manually fix some regressions caused by spire, thus we won't
-      // be upgrading to 1.10 until we fix it.
-      "allowedVersions": "<1.10"
-    },
-    {
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
       "allowedVersions": "24.04",
       "matchBaseBranches": [
+        "v1.19",
         "v1.18",
         "v1.17",
         "main"
@@ -399,11 +396,30 @@
         "docker.io/library/golang",
         "go"
       ],
+      "allowedVersions": "<1.26",
+      "matchBaseBranches": [
+        "v1.19"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "go"
+      ],
       "allowedVersions": "<1.25",
       "matchBaseBranches": [
         "v1.18",
         "v1.17",
         "v1.16"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.24",
+      "matchBaseBranches": [
+        "v1.19"
       ]
     },
     {
@@ -766,7 +782,6 @@
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
       "allowedVersions": "/^v1\\.34\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
-        "v1.17",
         "v1.16"
       ]
     },
@@ -784,8 +799,26 @@
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
       "allowedVersions": "/^v1\\.35\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
+        "v1.19",
+        "v1.18",
+        "v1.17"
+      ]
+    },
+    {
+      // cilium-envoy is referenced in both images/cilium/Dockerfile and
+      // install/kubernetes/Makefile.values. Without explicit grouping,
+      // Renovate creates separate PRs for each manager. The groupSlug ensures
+      // both updates use the same branch name and get combined into a single
+      // PR.
+      "groupName": "cilium-envoy",
+      "groupSlug": "cilium-envoy",
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
+      "allowedVersions": "/^v1\\.36\\.([0-9]+)-([0-9]+)-.*$/",
+      "matchBaseBranches": [
         "main",
-        "v1.18"
       ]
     },
     {

@@ -11,7 +11,17 @@ cilium-operator hive [flags]
 ### Options
 
 ```
+      --alibaba-cloud-release-excess-ips                               Enable releasing excess free IP addresses from Alibaba Cloud ENI.
+      --alibaba-cloud-vpc-id string                                    Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator
       --auto-create-default-pod-network                                Automatically creates the default IsovalentPodNetwork on startup (default true)
+      --aws-enable-prefix-delegation                                   Allows operator to allocate prefixes to ENIs instead of individual IP addresses
+      --aws-max-results-per-call int32                                 Maximum results per AWS API call for DescribeNetworkInterfaces and DescribeSecurityGroups. Set to 0 to let AWS determine optimal page size (default). If set to 0 and AWS returns OperationNotPermitted errors, automatically switches to 1000 for all future requests
+      --aws-release-excess-ips                                         Enable releasing excess free IP addresses from AWS ENI.
+      --aws-use-primary-address                                        Allows for using primary address of the ENI for allocations on the node
+      --azure-resource-group string                                    Resource group to use for Azure IPAM
+      --azure-subscription-id string                                   Subscription ID to access Azure API
+      --azure-use-primary-address                                      Use Azure IP address from interface's primary IPConfigurations
+      --azure-user-assigned-identity-id string                         ID of the user assigned identity used to auth with the Azure API
       --ces-max-ciliumendpoints-per-ces int                            Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                                         Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
       --cluster-id uint32                                              Unique identifier of the cluster
@@ -29,6 +39,7 @@ cilium-operator hive [flags]
       --default-lb-service-ipam string                                 Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set.Applicable values: lbipam, nodeipam, none (default "lbipam")
       --dns-server-addresses strings                                   A list of DNS server addresses to be used by the operator DNS client for resolution of FQDNs in IsovalentFQDNGroup CRDs. Each address should be in the form "<ip>:<port>". When resolving an FQDN, the operator will try to query the first server. If it fails, it will try the next one and so on, following the order specified by the user.
       --double-write-metric-reporter-interval duration                 Refresh interval for the Double Write Metric Reporter (default 1m0s)
+      --ec2-api-endpoint string                                        AWS API endpoint for the EC2 service
       --egress-gateway-ha-healthcheck-timeout duration                 Healthcheck timeout after which an egress gateway is marked not healthy. This also configures the frequency of probes to a value of healthcheckTimeout / 2 (default 2s)
       --egress-gateway-ha-icmp-health-probe-failure-threshold int      The number of consecutive failed ICMP probes after which a gateway node is considered unhealthy (default 3)
       --egress-gateway-ha-icmp-health-probe-interval duration          The interval at which ICMP echo requests are sent to gateway nodes for health verification (default 100ms)
@@ -55,6 +66,10 @@ cilium-operator hive [flags]
       --enable-policy-secrets-sync                                     Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
       --enable-ztunnel                                                 Use zTunnel as Cilium's encryption infrastructure
       --enforce-ingress-https                                          Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
+      --eni-gc-interval duration                                       Interval for garbage collection of unattached ENIs. Set to 0 to disable (default 5m0s)
+      --eni-gc-tags stringToString                                     Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected (default [])
+      --eni-tags stringToString                                        ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default [])
+      --excess-ip-release-delay int                                    Number of seconds operator would wait before it releases an IP previously marked as excess (default 180)
       --feature-gates-approved strings                                 Features approved to be enabled regardless of maturity level
       --feature-gates-minimum-maturity string                          Minimum feature maturity level to approve a feature (default "Stable")
       --feature-gates-strict                                           If enabled agent will refuse to start if feature gates do not pass (default true)
@@ -139,6 +154,7 @@ cilium-operator hive [flags]
       --loadbalancer-metrics-collection-interval duration              Refresh interval for LoadBalancer metrics. (default 5s)
       --loadbalancer-metrics-enabled                                   Whether or not LoadBalancer metrics collection is enabled.
       --max-connected-clusters uint32                                  Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
+      --mesh-auth-enabled                                              Enable authentication processing & garbage collection (beta)
       --mesh-auth-mutual-enabled                                       The flag to enable mutual authentication for the SPIRE server (beta).
       --mesh-auth-spiffe-trust-domain string                           The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-agent-socket string                            The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
@@ -158,6 +174,7 @@ cilium-operator hive [flags]
       --operator-prometheus-tls-cert-file string                       Path to TLS certificate file for prometheus server. The file must contain PEM encoded data
       --operator-prometheus-tls-client-ca-files strings                Path to one or more TLS client CA certificates files to use for TLS with mutual authentication (mTLS) for prometheus server. The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
       --operator-prometheus-tls-key-file string                        Path to TLS private key file for prometheus server. The file must contain PEM encoded data.
+      --parallel-alloc-workers int                                     Maximum number of parallel IPAM workers (default 50)
       --policy-default-local-cluster                                   Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-secrets-namespace string                                Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --private-networks-enabled                                       Enable support for private networks

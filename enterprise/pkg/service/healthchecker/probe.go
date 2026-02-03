@@ -79,7 +79,7 @@ func (p probeParams) dialerConnSetupDSRviaIPIP(ctx context.Context, network stri
 	var errCB error
 	var fn func(uintptr)
 
-	if !option.Config.EnableHealthDatapath {
+	if !option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
 		return nil
 	}
 	backend := ctx.Value(backendAddrKey{}).(string)
@@ -177,7 +177,7 @@ func sendTCPProbe(p probeParams) probeResult {
 	connAddr := ""
 	backendAddr := p.beAddr
 	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
-	if option.Config.EnableHealthDatapath && p.config.DSR {
+	if option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath && p.config.DSR {
 		connAddr = getAddrStr(p.svcAddr)
 		d.ControlContext = p.dialerConnSetupDSRviaIPIP
 	} else {
@@ -210,7 +210,7 @@ func sendUDPProbe(p probeParams) probeResult {
 	connAddr := ""
 	backendAddr := p.beAddr
 	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
-	if option.Config.EnableHealthDatapath && p.config.DSR {
+	if option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath && p.config.DSR {
 		connAddr = getAddrStr(p.svcAddr)
 		d.ControlContext = p.dialerConnSetupDSRviaIPIP
 	} else {
@@ -308,7 +308,7 @@ func sendL7Probe(p probeParams) probeResult {
 	}
 	url := ""
 	// IPIP DSR needs special dialer so that packets can be encapped the same way as regular LB traffic.
-	if option.Config.EnableHealthDatapath && p.config.DSR {
+	if option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath && p.config.DSR {
 		url = getConnURL(p.config, p.svcAddr)
 		d.ControlContext = p.dialerConnSetupDSRviaIPIP
 	} else {

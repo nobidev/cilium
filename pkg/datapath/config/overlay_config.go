@@ -22,6 +22,8 @@ type BPFOverlay struct {
 	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
+	// Maintain packet and byte counters for every policy entry.
+	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// Enable strict encryption for ingress traffic.
@@ -43,8 +45,9 @@ type BPFOverlay struct {
 }
 
 func NewBPFOverlay(node Node) *BPFOverlay {
-	return &BPFOverlay{false, 0x5dc, false, false, false, false, false, false, 0x0, 0x0,
-		[8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, [4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFOverlay{false, 0x5dc, false, false, false, false, false, false, false,
+		0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		0x0, node}
 }

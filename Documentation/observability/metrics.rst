@@ -459,6 +459,8 @@ Endpoint
 Name                                         Labels                                             Default    Description
 ============================================ ================================================== ========== ========================================================
 ``endpoint``                                                                                    Enabled    Number of endpoints managed by this agent
+``endpoint_restoration_endpoints``           ``phase``, ``outcome``                             Enabled    Number of restored endpoints labeled by phase and outcome
+``endpoint_restoration_duration_seconds``    ``phase``                                          Enabled    Duration of restoration phases in seconds
 ``endpoint_regenerations_total``             ``outcome``                                        Enabled    Count of all endpoint regenerations that have completed
 ``endpoint_regeneration_time_stats_seconds`` ``scope``                                          Enabled    Endpoint regeneration time stats
 ``endpoint_state``                           ``state``                                          Enabled    Count of all endpoints
@@ -993,15 +995,15 @@ Name                                                 Labels                     
 MCS-API
 ~~~~~~~
 
-========================================= ============================================================ ========== =========================================================
-Name                                      Labels                                                       Default    Description
-========================================= ============================================================ ========== =========================================================
-``mcsapi_serviceexport_info``             ``serviceexport``, ``namespace``                             Enabled    Information about ServiceExport in the local cluster
-``mcsapi_serviceexport_status_condition`` ``serviceexport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceExport in the local cluster
-``mcsapi_serviceimport_info``             ``serviceimport``, ``namespace``                             Enabled    Information about ServiceImport in the local cluster
-``mcsapi_serviceimport_status_condition`` ``serviceimport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceImport in the local cluster
-``mcsapi_serviceimport_status_clusters``  ``serviceimport``, ``namespace``                             Enabled    The number of clusters currently backing a ServiceImport
-========================================= ============================================================ ========== =========================================================
+========================================= ======================================================================== ========== =========================================================
+Name                                      Labels                                                                   Default    Description
+========================================= ======================================================================== ========== =========================================================
+``mcsapi_serviceexport_info``             ``serviceexport``, ``namespace``                                         Enabled    Information about ServiceExport in the local cluster
+``mcsapi_serviceexport_status_condition`` ``serviceexport``, ``namespace``, ``condition``, ``status``, ``reason``  Enabled    Status Condition of ServiceExport in the local cluster
+``mcsapi_serviceimport_info``             ``serviceimport``, ``namespace``                                         Enabled    Information about ServiceImport in the local cluster
+``mcsapi_serviceimport_status_condition`` ``serviceimport``, ``namespace``, ``condition``, ``status``, ``reason``  Enabled    Status Condition of ServiceImport in the local cluster
+``mcsapi_serviceimport_status_clusters``  ``serviceimport``, ``namespace``                                         Enabled    The number of clusters currently backing a ServiceImport
+========================================= ======================================================================== ========== =========================================================
 
 Clustermesh
 ~~~~~~~~~~~
@@ -1359,6 +1361,20 @@ This metric supports :ref:`Context Options<hubble_context_options>`.
 Name                             Labels                                   Default    Description
 ================================ ======================================== ========== ==================================================
 ``tcp_flags_total``              ``flag``, ``family``                     Disabled   TCP flag occurrences
+================================ ======================================== ========== ==================================================
+
+Options
+"""""""
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
+``sctp``
+~~~~~~~~
+
+================================ ======================================== ========== ==================================================
+Name                             Labels                                   Default    Description
+================================ ======================================== ========== ==================================================
+``sctp_chunk_types_total``       ``chunk_type``, ``family``               Disabled   SCTP chunk type occurrences
 ================================ ======================================== ========== ==================================================
 
 Options

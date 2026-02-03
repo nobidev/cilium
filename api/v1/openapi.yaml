@@ -576,6 +576,16 @@ paths:
           description: Success
           schema:
             "$ref": "#/definitions/SelectorCache"
+  "/policy/subject-selectors":
+    get:
+      summary: See what subject selectors match which identities on the local node
+      tags:
+        - policy
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/SelectorCache"
   "/lrp":
     get:
       summary: Retrieve list of all local redirect policies
@@ -1862,8 +1872,11 @@ definitions:
         description: Status of Kubernetes integration
         "$ref": "#/definitions/K8sStatus"
       datapath-mode:
-        description: Status of datapath mode
+        description: Status of operational datapath mode
         "$ref": "#/definitions/DatapathMode"
+      configured-datapath-mode:
+        description: Status of configured datapath mode
+        "$ref": "#/definitions/ConfiguredDatapathMode"
       attach-mode:
         description: Status of core datapath attachment mode
         "$ref": "#/definitions/AttachMode"
@@ -2464,11 +2477,13 @@ definitions:
       enableRouteMTUForCNIChaining:
         description: Enable route MTU for pod netns when CNI chaining is used
         type: boolean
-      enablePacketizationLayerPMTUD:
-        description: Enable PLPMTUD probing on the pod netns
-        type: boolean
+      packetizationLayerPMTUDMode:
+        description: Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).
+        type: string
       datapathMode:
         "$ref": "#/definitions/DatapathMode"
+      configuredDatapathMode:
+        "$ref": "#/definitions/ConfiguredDatapathMode"
       ipam-mode:
         description: Configured IPAM mode
         type: string
@@ -2518,9 +2533,17 @@ definitions:
         description: True if BBR is enabled only in the host network namespace
         type: boolean
   DatapathMode:
-    description: Datapath mode
+    description: Operational datapath mode
     type: string
     enum:
+      - veth
+      - netkit
+      - netkit-l2
+  ConfiguredDatapathMode:
+    description: Configured datapath mode
+    type: string
+    enum:
+      - auto
       - veth
       - netkit
       - netkit-l2

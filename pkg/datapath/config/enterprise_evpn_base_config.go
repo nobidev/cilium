@@ -15,6 +15,8 @@ type BPFEvpnBase struct {
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Apply Network Policy for ICMP packets.
 	EnableICMPRule bool `config:"enable_icmp_rule"`
+	// Maintain packet and byte counters for every policy entry.
+	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
@@ -24,6 +26,6 @@ type BPFEvpnBase struct {
 }
 
 func NewBPFEvpnBase(node Node) *BPFEvpnBase {
-	return &BPFEvpnBase{false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFEvpnBase{false, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		node}
 }

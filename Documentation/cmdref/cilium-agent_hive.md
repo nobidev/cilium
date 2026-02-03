@@ -119,7 +119,6 @@ cilium-agent hive [flags]
       --enable-multi-network                                             Enable support for multiple pod networks
       --enable-no-service-endpoints-routable                             Enable routes when service has 0 endpoints (default true)
       --enable-node-ipam                                                 Enable Node IPAM
-      --enable-packetization-layer-pmtud                                 Enables kernel packetization layer path mtu discovery on Pod netns (default true)
       --enable-phantom-services                                          Enable phantom services handling (default true)
       --enable-policy-secrets-sync                                       Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
       --enable-route-mtu-for-cni-chaining                                Enable route MTU for pod netns when CNI chaining is used
@@ -298,7 +297,7 @@ cilium-agent hive [flags]
       --loadbalancer-metrics-enabled                                     Whether or not LoadBalancer metrics collection is enabled.
       --lrp-address-matcher-cidrs strings                                Limit address matches to specific CIDRs
       --max-connected-clusters uint32                                    Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
-      --mesh-auth-enabled                                                Enable authentication processing & garbage collection (beta) (default true)
+      --mesh-auth-enabled                                                Enable authentication processing & garbage collection (beta)
       --mesh-auth-gc-interval duration                                   Interval in which auth entries are attempted to be garbage collected (default 5m0s)
       --mesh-auth-mutual-connect-timeout duration                        Timeout for connecting to the remote node TCP socket (default 5s)
       --mesh-auth-mutual-listener-port int                               Port on which the Cilium Agent will perform mutual authentication handshakes between other Agents
@@ -318,6 +317,7 @@ cilium-agent hive [flags]
       --node-port-range strings                                          Set the min/max NodePort port range (default [30000,32767])
       --nodeport-addresses strings                                       A whitelist of CIDRs to limit which IPs are used for NodePort. If not set, primary IPv4 and/or IPv6 address of each native device is used.
       --only-masquerade-default-pool                                     When using multi-pool IPAM, only masquerade flows from the default IP pool. This will preserve source IPs for pods from non-default IP pools. Useful when combining multi-pool IPAM with BGP control plane. This option must be combined with enable-bpf-masquerade.
+      --packetization-layer-pmtud-mode string                            Enables kernel packetization layer path mtu discovery on Pod netns (if empty will use host setting) (default "blackhole")
       --policy-default-local-cluster                                     Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-queue-size uint                                           Size of queue for policy-related events (default 100)
       --policy-secrets-namespace string                                  PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP
