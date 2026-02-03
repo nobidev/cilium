@@ -24,6 +24,7 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/lb/accesslog"
+	"github.com/cilium/cilium/enterprise/operator/pkg/lb/metrics"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	ossannotation "github.com/cilium/cilium/pkg/annotation"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -42,6 +43,8 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newNodeSource),
 	cell.ProvidePrivate(newT1Translator),
 	cell.ProvidePrivate(newT2Translator),
+
+	metrics.Cell,
 )
 
 type Config struct {

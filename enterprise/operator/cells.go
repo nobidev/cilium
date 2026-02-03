@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2"
 	"github.com/cilium/cilium/enterprise/operator/pkg/evpn"
 	"github.com/cilium/cilium/enterprise/operator/pkg/lb"
-	lbmetrics "github.com/cilium/cilium/enterprise/operator/pkg/lb/metrics"
 	"github.com/cilium/cilium/enterprise/operator/pkg/multinetwork"
 	"github.com/cilium/cilium/enterprise/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet"
@@ -70,7 +69,6 @@ var (
 			evpn.Cell,
 
 			lb.Cell,
-			lbmetrics.Cell,
 
 			networkpolicy.Cell,
 			networkpolicy.SecretSyncCell,
