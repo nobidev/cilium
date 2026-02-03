@@ -14,7 +14,6 @@ import (
 	"encoding"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/netip"
 	"unsafe"
 
@@ -221,7 +220,7 @@ func toAddr(family uint8, address types.IPv6) netip.Addr {
 
 	switch family {
 	case bpf.EndpointKeyIPv4:
-		addr = netip.AddrFrom4([4]byte(address[:net.IPv4len]))
+		addr = netip.AddrFrom4([4]byte(address[:4]))
 	case bpf.EndpointKeyIPv6:
 		addr = netip.AddrFrom16(address)
 	}
