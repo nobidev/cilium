@@ -1,5 +1,8 @@
 # Enterprise specific defines
 
+# Default to the 'all' build target, not the first target included in this file.
+.DEFAULT_GOAL := all
+
 LB_OPTIONS += \
 	-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DENABLE_NODEPORT:-DENABLE_NODEPORT_ACCELERATION:-DENABLE_L7_LB:-DENABLE_EGRESS_GATEWAY_HA:-DENABLE_MASQUERADE_IPV4:-DENABLE_MASQUERADE_IPV6:
 
