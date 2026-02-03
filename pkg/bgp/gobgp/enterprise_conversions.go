@@ -176,9 +176,25 @@ func toGoBGPRouteReflector(n *types.NeighborRouteReflector, g *gobgp.Peer) {
 	}
 }
 
+func toGoBGPAddPaths(a *types.NeighborAddPath, g *gobgp.Peer) {
+	if a == nil {
+		return
+	}
+	addpath := &gobgp.AddPaths{
+		Config: &gobgp.AddPathsConfig{
+			Receive: false,
+			SendMax: a.SendMax,
+		},
+	}
+	for _, fam := range g.AfiSafis {
+		fam.AddPaths = addpath
+	}
+}
+
 func toGoBGPPeerExtended(n *types.EnterpriseNeighbor, oldPeer *gobgp.Peer, v4 bool) *gobgp.Peer {
 	goBgpPeer := ToGoBGPPeer(&n.Neighbor, oldPeer, v4)
 	toGoBGPRouteReflector(n.RouteReflector, goBgpPeer)
+	toGoBGPAddPaths(n.AddPath, goBgpPeer)
 
 	return goBgpPeer
 }

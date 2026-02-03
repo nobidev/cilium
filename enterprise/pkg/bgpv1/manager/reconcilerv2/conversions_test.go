@@ -271,6 +271,24 @@ func TestToNeighbor(t *testing.T) {
 			},
 		},
 		{
+			name: "RouteReflector for external to test AddPath",
+			nodePeer: &v1.IsovalentBGPNodePeer{
+				PeerAddress: ptr.To("fd00::1"),
+				PeerASN:     ptr.To(int64(64512)),
+			},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
+			selfRRRole: v1.RouteReflectorRoleRouteReflector,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("fd00::1"),
+					ASN:     64512,
+				},
+				AddPath: &types.NeighborAddPath{
+					SendMax: 255,
+				},
+			},
+		},
+		{
 			name: "Families",
 			nodePeer: &v1.IsovalentBGPNodePeer{
 				PeerAddress: ptr.To("fd00::1"),

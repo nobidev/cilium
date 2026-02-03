@@ -176,6 +176,56 @@ func TestToGoBGPPeerExtended(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "With AddPaths only",
+			neighbor: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("1.2.3.4"),
+					ASN:     65001,
+					AfiSafis: []*ossTypes.Family{
+						{
+							Afi:  ossTypes.AfiIPv4,
+							Safi: ossTypes.SafiUnicast,
+						},
+						{
+							Afi:  ossTypes.AfiIPv6,
+							Safi: ossTypes.SafiUnicast,
+						},
+					},
+				},
+				AddPath: &types.NeighborAddPath{
+					SendMax: 4,
+				},
+			},
+			want: &gobgp.Peer{
+				Conf: &gobgp.PeerConf{
+					NeighborAddress: "1.2.3.4",
+					PeerAsn:         65001,
+				},
+				AfiSafis: []*gobgp.AfiSafi{
+					{
+						Config: &gobgp.AfiSafiConfig{
+							Family: GoBGPIPv4Family,
+						},
+						AddPaths: &gobgp.AddPaths{
+							Config: &gobgp.AddPathsConfig{
+								SendMax: 4,
+							},
+						},
+					},
+					{
+						Config: &gobgp.AfiSafiConfig{
+							Family: GoBGPIPv6Family,
+						},
+						AddPaths: &gobgp.AddPaths{
+							Config: &gobgp.AddPathsConfig{
+								SendMax: 4,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

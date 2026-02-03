@@ -51,6 +51,7 @@ func toEnterpriseNeighbor(np *v1.IsovalentBGPNodePeer, pc *v1.IsovalentBGPPeerCo
 		Neighbor:       *neighbor,
 		RouteReflector: toRouteReflector(np.RouteReflector, selfRRRole),
 	}
+	eeNeighbor.AddPath = toNeighborAddpath(selfRRRole, eeNeighbor.RouteReflector)
 
 	return eeNeighbor
 }
@@ -83,6 +84,15 @@ func toRouteReflector(routeReflector *v1.NodeRouteReflector, selfRRRole v1.Route
 		Client:    true,
 		ClusterID: routeReflector.ClusterID,
 	}
+}
+
+func toNeighborAddpath(selfRRRole v1.RouteReflectorRole, neighborRouteReflector *types.NeighborRouteReflector) *types.NeighborAddPath {
+	if selfRRRole == v1.RouteReflectorRoleRouteReflector && neighborRouteReflector == nil {
+		return &types.NeighborAddPath{
+			SendMax: types.DefaultAddPathMaxPaths,
+		}
+	}
+	return nil
 }
 
 func toNeighborTimers(apiTimers *v2.CiliumBGPTimers) *ossTypes.NeighborTimers {

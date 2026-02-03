@@ -21,9 +21,14 @@ const (
 type EnterpriseNeighbor struct {
 	ossTypes.Neighbor
 	RouteReflector *NeighborRouteReflector
+	AddPath        *NeighborAddPath
 }
 
 type NeighborRouteReflector struct {
 	Client    bool
 	ClusterID string
+}
+
+type NeighborAddPath struct {
+	SendMax uint32
 }
