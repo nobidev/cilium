@@ -39,11 +39,9 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 			return DROP_INVALID;
 
 		if (is_icmp6_ndp(ctx, ip6, ETH_HLEN))
-			return handle_privnet_ns(ctx, &cilium_privnet_fib,
-						 CONFIG(privnet_network_id), true);
+			return handle_privnet_ns(ctx, CONFIG(privnet_network_id), true);
 
-		ret = privnet_egress_ipv6(ctx, &cilium_privnet_fib, CONFIG(privnet_network_id),
-					  NULL, &dip_val);
+		ret = privnet_egress_ipv6(ctx, CONFIG(privnet_network_id), NULL, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
 #ifdef TUNNEL_MODE
@@ -73,8 +71,7 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		ret = privnet_egress_ipv4(ctx, &cilium_privnet_fib, CONFIG(privnet_network_id),
-					  NULL, &dip_val);
+		ret = privnet_egress_ipv4(ctx, CONFIG(privnet_network_id), NULL, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -121,9 +118,8 @@ static __always_inline int enterprise_privnet_to_lxc(struct __ctx_buff *ctx __ma
 static __always_inline int enterprise_privnet_to_lxc_ipv4_policy(struct __ctx_buff *ctx)
 {
 	if (CONFIG(privnet_enable)) {
-		int ret = privnet_ingress_ipv4(ctx, &cilium_privnet_pip,
-					       CONFIG(privnet_network_id), false,
-					       NULL, NULL);
+		int ret = privnet_ingress_ipv4(ctx, CONFIG(privnet_network_id),
+					       false, NULL, NULL);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -135,8 +131,8 @@ static __always_inline int enterprise_privnet_to_lxc_ipv4_policy(struct __ctx_bu
 static __always_inline int enterprise_privnet_to_lxc_ipv6_policy(struct __ctx_buff *ctx)
 {
 	if (CONFIG(privnet_enable)) {
-		int ret = privnet_ingress_ipv6(ctx, &cilium_privnet_pip,
-					       CONFIG(privnet_network_id), false, NULL, NULL);
+		int ret = privnet_ingress_ipv6(ctx, CONFIG(privnet_network_id),
+					       false, NULL, NULL);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -175,8 +171,7 @@ static __always_inline int tail_handle_ipv4_privnet_unknown_ingress(struct __ctx
 	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 #endif
 
-	ret = privnet_ingress_ipv4(ctx, &cilium_privnet_pip,
-				   CONFIG(privnet_network_id),
+	ret = privnet_ingress_ipv4(ctx, CONFIG(privnet_network_id),
 				   true, NULL, NULL);
 	if (IS_ERR(ret))
 		return ret;
@@ -202,8 +197,7 @@ static __always_inline int tail_handle_ipv6_privnet_unknown_ingress(struct __ctx
 	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 #endif
 
-	ret = privnet_ingress_ipv6(ctx, &cilium_privnet_pip,
-				   CONFIG(privnet_network_id),
+	ret = privnet_ingress_ipv6(ctx, CONFIG(privnet_network_id),
 				   true, NULL, NULL);
 	if (IS_ERR(ret))
 		return ret;

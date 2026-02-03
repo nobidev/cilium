@@ -49,7 +49,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 	case bpf_htons(ETH_P_ARP):
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
-		return handle_privnet_arp(ctx, &cilium_privnet_fib, CONFIG(privnet_network_id));
+		return handle_privnet_arp(ctx, CONFIG(privnet_network_id));
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
@@ -61,12 +61,10 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 			/* (i.e., they target a known IP reachable through this INB), */
 			/* and punt all the others up to the stack unmodified, to */
 			/* make sure we don't break local neighbor discovery. */
-			return handle_privnet_ns(ctx, &cilium_privnet_fib,
-						 CONFIG(privnet_network_id), false);
+			return handle_privnet_ns(ctx, CONFIG(privnet_network_id), false);
 		}
 
-		ret = privnet_egress_ipv6(ctx, &cilium_privnet_fib, CONFIG(privnet_network_id),
-					  &sip_val, &dip_val);
+		ret = privnet_egress_ipv6(ctx, CONFIG(privnet_network_id), &sip_val, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -111,8 +109,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 							METRIC_INGRESS);
 
-		ret = privnet_egress_ipv4(ctx, &cilium_privnet_fib, CONFIG(privnet_network_id),
-					  &sip_val, &dip_val);
+		ret = privnet_egress_ipv4(ctx, CONFIG(privnet_network_id), &sip_val, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
 

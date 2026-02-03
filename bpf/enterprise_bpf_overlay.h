@@ -70,7 +70,7 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 				return ret;
 		}
 
-		ret = privnet_ingress_ipv6(ctx, &cilium_privnet_pip, 0, unknown_flow,
+		ret = privnet_ingress_ipv6(ctx, 0, unknown_flow,
 					   &src_pip_val, &dst_pip_val);
 		if (IS_ERR(ret))
 			return ret;
@@ -116,8 +116,7 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 			nh_params.nh_family = AF_INET6;
 
 			/* network id is based on original source ip (pip). */
-			dip_fib_val = privnet_fib_lookup6(&cilium_privnet_fib, src_pip_val->net_id,
-							  daddr);
+			dip_fib_val = privnet_fib_lookup6(src_pip_val->net_id, daddr);
 			if (dip_fib_val && dip_fib_val->flag_is_static_route) {
 				__bpf_memcpy_builtin(&nh_params.ipv6_nh, &dip_fib_val->ip6,
 						     sizeof(nh_params.ipv6_nh));
@@ -160,7 +159,7 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 				return ret;
 		}
 
-		ret = privnet_ingress_ipv4(ctx, &cilium_privnet_pip, 0, unknown_flow,
+		ret = privnet_ingress_ipv4(ctx, 0, unknown_flow,
 					   &src_pip_val, &dst_pip_val);
 		if (IS_ERR(ret))
 			return ret;
@@ -211,9 +210,7 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 			__u32 ipv4_nh;
 
 			/* network id is based on original source ip (pip). */
-			dip_fib_val = privnet_fib_lookup4(&cilium_privnet_fib,
-							  src_pip_val->net_id,
-							  ip4->daddr);
+			dip_fib_val = privnet_fib_lookup4(src_pip_val->net_id, ip4->daddr);
 			if (dip_fib_val && dip_fib_val->flag_is_static_route) {
 				ipv4_nh = dip_fib_val->ip4;
 			} else if (dip_fib_val && dip_fib_val->flag_is_subnet_route) {
