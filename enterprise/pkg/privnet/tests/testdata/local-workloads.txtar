@@ -7,11 +7,12 @@ db/cmp privnet-local-workloads local-workloads.v1.table
 # Ensure the table is not initialized before restoration finishes
 ! db/initialized --timeout 0 privnet-local-workloads
 
-# Start hive (this will also finish restoration)
+# Mark endpoint restoration as finished
+privnet/epm-finish-restoration
+
+# Start hive
 hive start
-clustermesh/endpoints/sync
-clustermesh/nodes/sync
-db/initialized
+db/initialized privnet-local-workloads
 
 # Create three endpoints - clever-fox is a regular endpoint without privnet
 privnet/epm-create ep-speedy-cheetah.json

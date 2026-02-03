@@ -178,17 +178,7 @@ type fakeEPM struct {
 	restorer *fakeRestorer
 }
 
-func newFakeEPM(restorer *fakeRestorer, fence regeneration.Fence, jg job.Group) *fakeEPM {
-	// wait for regeneration fence to unblock
-	jg.Add(job.OneShot("wait-for-restore", func(ctx context.Context, health cell.Health) error {
-		err := fence.Wait(ctx)
-		if err != nil {
-			return err
-		}
-		restorer.finishRestoration()
-		return nil
-	}))
-
+func newFakeEPM(restorer *fakeRestorer, jg job.Group) *fakeEPM {
 	return &fakeEPM{
 		subs: []endpoints.EndpointSubscriber{},
 		eps:  []*fakeEP{},
@@ -357,6 +347,8 @@ func (f *fakeEPM) cmds() map[string]script.Cmd {
 		"privnet/epm-create":  f.createEPCmd(),
 		"privnet/epm-delete":  f.deleteEPCmd(),
 		"privnet/epm-restore": f.restoreEPCmd(),
+
+		"privnet/epm-finish-restoration": f.finishRestorationCmd(),
 	}
 }
 
@@ -416,6 +408,22 @@ func (f *fakeEPM) restoreEPCmd() script.Cmd {
 				return nil, fmt.Errorf("fake endpoint creation failed: %w", err)
 			}
 
+			return nil, nil
+		},
+	)
+}
+
+func (f *fakeEPM) finishRestorationCmd() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "mark endpoint restoration as finished",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if f.restorer.isRestored() {
+				return nil, errors.New("restoration already marked as finished")
+			}
+
+			f.restorer.finishRestoration()
 			return nil, nil
 		},
 	)

@@ -119,7 +119,7 @@ func (l *LocalWorkloads) registerReconciler() {
 		}
 
 		health.OK("Waiting for endpoint restoration to finish")
-		err = restorer.WaitForEndpointRestore(ctx)
+		err = restorer.WaitForEndpointRestoreWithoutRegeneration(ctx)
 		if err != nil {
 			health.Degraded("Failed to wait for endpoint restoration", err)
 			return err
