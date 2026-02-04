@@ -3183,7 +3183,7 @@
    * - :spelling:ignore:`hubble.ui.backend.securityContext`
      - Hubble-ui backend security context.
      - object
-     - ``{"allowPrivilegeEscalation":false}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
    * - :spelling:ignore:`hubble.ui.baseUrl`
      - Defines base url prefix for all hubble-ui http requests. It needs to be changed in case if ingress for hubble-ui is configured under some sub-path. Trailing ``/`` is required for custom path, ex. ``/service-map/``
      - string
@@ -3215,7 +3215,7 @@
    * - :spelling:ignore:`hubble.ui.frontend.securityContext`
      - Hubble-ui frontend security context.
      - object
-     - ``{"allowPrivilegeEscalation":false}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
    * - :spelling:ignore:`hubble.ui.frontend.server.ipv6`
      - Controls server listener for ipv6
      - object
@@ -3271,7 +3271,7 @@
    * - :spelling:ignore:`hubble.ui.securityContext`
      - Security context to be added to Hubble UI pods
      - object
-     - ``{"fsGroup":1001,"runAsGroup":1001,"runAsUser":1001}``
+     - ``{"fsGroup":1001,"runAsGroup":1001,"runAsNonRoot":true,"runAsUser":1001,"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`hubble.ui.service`
      - hubble-ui service configuration.
      - object
