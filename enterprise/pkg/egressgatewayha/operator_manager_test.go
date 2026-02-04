@@ -3047,3 +3047,47 @@ func TestEgressCIDRAllocationWithAZAffinityMaxGWNodes(t *testing.T) {
 		},
 	})
 }
+
+// TestEgressCIDRAllocationIsStable assures that in cases where a gateway IP
+// spans multiple zones, that this does not cause unstable egressIP assignment
+// between reconciles.
+func TestEgressCIDRAllocationIsStable(t *testing.T) {
+	k := setupEgressGatewayOperatorTestSuite(t)
+
+	// create a node that will not match but is in az1 to ensure our
+	// zones span both.
+	k.addNode(t, node1Name, node1IP, nodeGroup2LabelsAZ1)
+	k.addNode(t, node2Name, node2IP, nodeGroup1LabelsAZ2)
+	//nodeGroup2LabelsAZ1  = map[string]string{"label2": "1", core_v1.LabelTopologyZone: "az-1"}
+
+	k.addPolicy(t, &policyParams{
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		egressCIDRs:      []string{"10.100.255.48/28"},
+		azAffinity:       azAffinityLocalOnlyFirst,
+		egressGroups: []egressGroupParams{{
+			iface:           testInterface1,
+			nodeLabels:      nodeGroup1Labels,
+			maxGatewayNodes: 1,
+		}},
+	})
+
+	for range 10 {
+		// create node update event to force re-reconcile.
+		k.addNode(t, node3Name, node3IP, nil)
+		// Subsequent reconciles should result in a stable egressIP assignment.
+		k.assertIegpGatewayStatus(t, gatewayStatus{
+			activeGatewayIPs: []string{node2IP},
+			activeGatewayIPsByAZ: map[string][]string{
+				"az-1": {node2IP},
+				"az-2": {node2IP},
+			},
+			egressIPByGatewayIP: map[string]string{
+				node2IP: "10.100.255.48",
+			},
+			healthyGatewayIPs: []string{node2IP},
+		})
+	}
+}
