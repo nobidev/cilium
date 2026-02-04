@@ -1892,6 +1892,10 @@
      - 
      - string
      - ``"1.0.1"``
+   * - :spelling:ignore:`envoy.kubectl.image.useDigest`
+     - 
+     - bool
+     - ``false``
    * - :spelling:ignore:`envoy.livenessProbe.enabled`
      - Enable liveness probe for cilium-envoy
      - bool

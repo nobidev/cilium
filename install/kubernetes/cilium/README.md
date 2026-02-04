@@ -519,6 +519,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.kubectl.image.override | string | `nil` |  |
 | envoy.kubectl.image.repository | string | `"quay.io/isovalent/kubectl"` |  |
 | envoy.kubectl.image.tag | string | `"1.0.1"` |  |
+| envoy.kubectl.image.useDigest | bool | `false` |  |
 | envoy.livenessProbe.enabled | bool | `true` | Enable liveness probe for cilium-envoy |
 | envoy.livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
 | envoy.livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
