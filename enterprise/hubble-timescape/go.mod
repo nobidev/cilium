@@ -27,7 +27,7 @@ require (
 	github.com/cilium/fake v0.7.0 // indirect
 	github.com/cilium/hive v0.0.0-20260108104938-97756f6ff54c // indirect
 	github.com/cilium/proxy v0.0.0-20250623105955-2136f59a4ea1 // indirect
-	github.com/cilium/statedb v0.6.1 // indirect
+	github.com/cilium/statedb v0.6.2 // indirect
 	github.com/cilium/stream v0.0.1 // indirect
 	github.com/cloudflare/cfssl v1.6.5 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
