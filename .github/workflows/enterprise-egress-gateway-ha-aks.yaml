@@ -150,6 +150,7 @@ jobs:
             --set=azure.resourceGroup=${NAME} \
             --datapath-mode=aks-byocni \
             --set=enterprise.egressGatewayHA.enabled=true \
+            --set=enterprise.egressGatewayHA.socketTermination.enabled=true \
             --set=enterprise.bgpControlPlane.enabled=true \
             --set-string=extraConfig.external-dns-proxy=true \
             --set=enableIPv4Masquerade=true \
@@ -162,7 +163,7 @@ jobs:
             --nodes-without-cilium
           "
 
-          BASE_FEATURE_GATES="EgressGatewayHA,DNSProxyHA,DatapathIPModeDualStack"
+          BASE_FEATURE_GATES="EgressGatewayHA,EgressGatewayHASocketTermination,DNSProxyHA,DatapathIPModeDualStack"
 
           if [ "${{ matrix.ipam }}" == "cluster-pool" ]; then
             FEATURE_GATES="${BASE_FEATURE_GATES}"
