@@ -17,9 +17,10 @@ import (
 	"iter"
 	"log/slog"
 
-	"github.com/cilium/cilium/enterprise/datapath/tables"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
+
+	"github.com/cilium/cilium/enterprise/datapath/tables"
 )
 
 func (o *ops) Update(ctx context.Context, txn statedb.ReadTxn, obj *tables.EgressIPEntry) error {
