@@ -308,3 +308,53 @@ func (g *GoBGPServer) GetRoutePoliciesExtended(ctx context.Context) (*types.GetR
 		Policies: policies,
 	}, nil
 }
+
+// AddNeighborExtended adds an enterprise BGP neighbor to the gobgp server.
+func (g *GoBGPServer) AddNeighborExtended(ctx context.Context, n *types.EnterpriseNeighbor) error {
+	peerReq := &gobgp.AddPeerRequest{
+		Peer: toGoBGPPeerExtended(n, nil, n.Address.Is4()),
+	}
+	if err := g.server.AddPeer(ctx, peerReq); err != nil {
+		return fmt.Errorf("failed while adding peer %s with ASN %d: %w", n.Address, n.ASN, err)
+	}
+	return nil
+}
+
+// UpdateNeighborExtended will update the existing CiliumBGPNeighbor in the gobgp.BgpServer.
+func (g *GoBGPServer) UpdateNeighborExtended(ctx context.Context, n *types.EnterpriseNeighbor) error {
+	oldPeer, err := g.getExistingPeer(ctx, n.Address, n.ASN)
+	if err != nil {
+		return fmt.Errorf("failed to get existing peer: %w", err)
+	}
+
+	newPeer := toGoBGPPeerExtended(n, oldPeer, n.Address.Is4())
+
+	needsHardReset := g.needsHardReset(oldPeer, newPeer)
+
+	// update peer config
+	peerReq := &gobgp.UpdatePeerRequest{
+		Peer: toGoBGPPeerExtended(n, oldPeer, n.Address.Is4()),
+	}
+
+	updateRes, err := g.server.UpdatePeer(ctx, peerReq)
+	if err != nil {
+		return fmt.Errorf("failed while updating peer %v:%v with ASN %v: %w", oldPeer.Conf.NeighborAddress, oldPeer.Transport.RemotePort, oldPeer.Conf.PeerAsn, err)
+	}
+
+	// perform full / soft peer reset if necessary
+	if needsHardReset || updateRes.NeedsSoftResetIn {
+		resetReq := &gobgp.ResetPeerRequest{
+			Address:       oldPeer.Conf.NeighborAddress,
+			Communication: "Peer configuration changed",
+		}
+		if !needsHardReset {
+			resetReq.Soft = true
+			resetReq.Direction = gobgp.ResetPeerRequest_IN
+		}
+		if err = g.server.ResetPeer(ctx, resetReq); err != nil {
+			return fmt.Errorf("failed while resetting peer %v:%v in ASN %v: %w", oldPeer.Conf.NeighborAddress, oldPeer.Transport.RemotePort, oldPeer.Conf.PeerAsn, err)
+		}
+	}
+
+	return nil
+}

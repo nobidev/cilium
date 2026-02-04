@@ -165,3 +165,20 @@ func policyCommunityDefinedSetName(policyStatementName string) string {
 func policyLargeCommunityDefinedSetName(policyStatementName string) string {
 	return policyStatementName + "-large-community"
 }
+
+func toGoBGPRouteReflector(n *types.NeighborRouteReflector, g *gobgp.Peer) {
+	if n == nil {
+		return
+	}
+	g.RouteReflector = &gobgp.RouteReflector{
+		RouteReflectorClient:    n.Client,
+		RouteReflectorClusterId: n.ClusterID,
+	}
+}
+
+func toGoBGPPeerExtended(n *types.EnterpriseNeighbor, oldPeer *gobgp.Peer, v4 bool) *gobgp.Peer {
+	goBgpPeer := ToGoBGPPeer(&n.Neighbor, oldPeer, v4)
+	toGoBGPRouteReflector(n.RouteReflector, goBgpPeer)
+
+	return goBgpPeer
+}

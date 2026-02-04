@@ -18,6 +18,7 @@ import (
 
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8s "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -26,7 +27,6 @@ import (
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -47,7 +47,10 @@ func NewCiliumAndK8sCli(f FailureReporter) (*ciliumCli, *k8s.Clientset) {
 		f.Failedf("unable to create cilium k8s client: %s", err)
 	}
 
-	k8s := k8s.NewForConfigOrDie(restConfig)
+	k8s, err := k8s.NewForConfig(restConfig)
+	if err != nil {
+		f.Failedf("unable to create k8s client: %s", err)
+	}
 
 	return &ciliumCli{cli}, k8s
 }

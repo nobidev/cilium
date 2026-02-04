@@ -44,28 +44,22 @@ func NewLinkPair(
 
 	switch mode {
 	case types.ConnectorModeVeth:
-		hostLink, peerLink, err = SetupVethWithNames(
+		hostLink, peerLink, err = setupVethPair(
 			log,
-			cfg.HostIfName,
-			cfg.PeerIfName,
 			cfg,
 			sysctl,
 		)
 
 	case types.ConnectorModeNetkit:
-		hostLink, peerLink, err = SetupNetkitWithNames(
+		hostLink, peerLink, err = setupNetkitPair(
 			log,
-			cfg.HostIfName,
-			cfg.PeerIfName,
 			cfg,
 			false,
 			sysctl,
 		)
 	case types.ConnectorModeNetkitL2:
-		hostLink, peerLink, err = SetupNetkitWithNames(
+		hostLink, peerLink, err = setupNetkitPair(
 			log,
-			cfg.HostIfName,
-			cfg.PeerIfName,
 			cfg,
 			true,
 			sysctl,
@@ -73,6 +67,22 @@ func NewLinkPair(
 	default:
 		err = fmt.Errorf("invalid linkpair mode: %s", mode)
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		if err != nil {
+			if err := netlink.LinkDel(hostLink); err != nil {
+				log.Warn("failed to cleanup link pair",
+					logfields.Device, hostLink.Attrs().Name,
+					logfields.Error, err,
+				)
+			}
+		}
+	}()
+
+	err = configureLinkPair(hostLink, peerLink, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +123,69 @@ func NewLinkPair(
 		mode:     mode,
 	}
 	return pair, nil
+}
+
+func configureLinkPair(hostSide, endpointSide netlink.Link, cfg types.LinkConfig) error {
+	var err error
+	epIfName := endpointSide.Attrs().Name
+	hostIfName := hostSide.Attrs().Name
+
+	if err = netlink.LinkSetMTU(hostSide, cfg.DeviceMTU); err != nil {
+		return fmt.Errorf("unable to set MTU to %q: %w", hostIfName, err)
+	}
+
+	if err = netlink.LinkSetMTU(endpointSide, cfg.DeviceMTU); err != nil {
+		return fmt.Errorf("unable to set MTU to %q: %w", epIfName, err)
+	}
+
+	if err = netlink.LinkSetUp(hostSide); err != nil {
+		return fmt.Errorf("unable to bring up %q: %w", hostIfName, err)
+	}
+
+	if cfg.GROIPv6MaxSize > 0 {
+		if err = netlink.LinkSetGROMaxSize(hostSide, cfg.GROIPv6MaxSize); err != nil {
+			return fmt.Errorf("unable to set GRO max size to %q: %w",
+				hostIfName, err)
+		}
+		if err = netlink.LinkSetGROMaxSize(endpointSide, cfg.GROIPv6MaxSize); err != nil {
+			return fmt.Errorf("unable to set GRO max size to %q: %w",
+				epIfName, err)
+		}
+	}
+
+	if cfg.GSOIPv6MaxSize > 0 {
+		if err = netlink.LinkSetGSOMaxSize(hostSide, cfg.GSOIPv6MaxSize); err != nil {
+			return fmt.Errorf("unable to set GSO max size to %q: %w",
+				hostIfName, err)
+		}
+		if err = netlink.LinkSetGSOMaxSize(endpointSide, cfg.GSOIPv6MaxSize); err != nil {
+			return fmt.Errorf("unable to set GSO max size to %q: %w",
+				epIfName, err)
+		}
+	}
+
+	if cfg.GROIPv4MaxSize > 0 {
+		if err = netlink.LinkSetGROIPv4MaxSize(hostSide, cfg.GROIPv4MaxSize); err != nil {
+			return fmt.Errorf("unable to set GRO max size to %q: %w",
+				hostIfName, err)
+		}
+		if err = netlink.LinkSetGROIPv4MaxSize(endpointSide, cfg.GROIPv4MaxSize); err != nil {
+			return fmt.Errorf("unable to set GRO max size to %q: %w",
+				epIfName, err)
+		}
+	}
+
+	if cfg.GSOIPv4MaxSize > 0 {
+		if err = netlink.LinkSetGSOIPv4MaxSize(hostSide, cfg.GSOIPv4MaxSize); err != nil {
+			return fmt.Errorf("unable to set GSO max size to %q: %w",
+				hostIfName, err)
+		}
+		if err = netlink.LinkSetGSOIPv4MaxSize(endpointSide, cfg.GSOIPv4MaxSize); err != nil {
+			return fmt.Errorf("unable to set GSO max size to %q: %w",
+				epIfName, err)
+		}
+	}
+	return nil
 }
 
 func DeleteLinkPair(cfg types.LinkConfig) error {

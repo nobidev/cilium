@@ -60,6 +60,10 @@ type mockReconciler struct{}
 
 func (m *mockReconciler) Prune() {}
 
+func (m *mockReconciler) WaitUntilReconciled(_ context.Context, untilRevision statedb.Revision) (revision statedb.Revision, retryLowWatermark statedb.Revision, err error) {
+	return untilRevision, 0, nil
+}
+
 func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	testutils.PrivilegedTest(t)
 	log := hivetest.Logger(t)

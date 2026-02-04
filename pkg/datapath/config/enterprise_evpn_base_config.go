@@ -21,11 +21,15 @@ type BPFEvpnBase struct {
 	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
+	// Port number used for the overlay network.
+	TunnelPort uint16 `config:"tunnel_port"`
+	// The identifier of the tunnel protocol used for the overlay network.
+	TunnelProtocol uint8 `config:"tunnel_protocol"`
 
 	Node
 }
 
 func NewBPFEvpnBase(node Node) *BPFEvpnBase {
 	return &BPFEvpnBase{false, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		node}
+		0x0, 0x0, node}
 }

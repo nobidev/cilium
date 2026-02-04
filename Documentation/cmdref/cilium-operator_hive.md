@@ -13,6 +13,7 @@ cilium-operator hive [flags]
 ```
       --alibaba-cloud-release-excess-ips                               Enable releasing excess free IP addresses from Alibaba Cloud ENI.
       --alibaba-cloud-vpc-id string                                    Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator
+      --auto-create-cilium-pod-ip-pools stringToString                 Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag) (default [])
       --auto-create-default-pod-network                                Automatically creates the default IsovalentPodNetwork on startup (default true)
       --aws-enable-prefix-delegation                                   Allows operator to allocate prefixes to ENIs instead of individual IP addresses
       --aws-max-results-per-call int32                                 Maximum results per AWS API call for DescribeNetworkInterfaces and DescribeSecurityGroups. Set to 0 to let AWS determine optimal page size (default). If set to 0 and AWS returns OperationNotPermitted errors, automatically switches to 1000 for all future requests
@@ -58,12 +59,14 @@ cilium-operator hive [flags]
       --enable-ingress-controller                                      Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.
       --enable-ingress-proxy-protocol                                  Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
       --enable-ingress-secrets-sync                                    Enables fan-in TLS secrets from multiple namespaces to singular namespace (specified by ingress-secrets-namespace flag) (default true)
+      --enable-ipsec                                                   Enable IPsec
       --enable-k8s                                                     Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                       Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-lb-ipam                                                 Enable LB IPAM (default true)
       --enable-multi-network                                           Enable support for multiple pod networks
       --enable-node-ipam                                               Enable Node IPAM
       --enable-policy-secrets-sync                                     Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
+      --enable-wireguard                                               Enable WireGuard
       --enable-ztunnel                                                 Use zTunnel as Cilium's encryption infrastructure
       --enforce-ingress-https                                          Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --eni-gc-interval duration                                       Interval for garbage collection of unattached ENIs. Set to 0 to disable (default 5m0s)

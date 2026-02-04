@@ -48,7 +48,7 @@ type perClusterParams struct {
 	DaemonConfig *option.DaemonConfig
 }
 
-func newPerCluster(p perClusterParams) (PerCluster, ctmapgc.PerClusterCTMapsRetriever) {
+func newPerCluster(p perClusterParams) (PerCluster, ctmapgc.AdditionalCTMapsOut) {
 	maps := perCluster{
 		ct: ctmap.NewPerClusterCTMaps(
 			p.DaemonConfig.IPv4Enabled(),
@@ -95,10 +95,12 @@ func newPerCluster(p perClusterParams) (PerCluster, ctmapgc.PerClusterCTMapsRetr
 	})
 
 	if !p.Config.EnableClusterAwareAddressing {
-		return perClusterDisabled{}, nil
+		return perClusterDisabled{}, ctmapgc.AdditionalCTMapsOut{}
 	}
 
-	return &maps, maps.ct.GetAllClusterCTMaps
+	return &maps, ctmapgc.AdditionalCTMapsOut{
+		AdditionalCTMaps: maps.ct.GetAllClusterCTMaps,
+	}
 }
 
 func cleanupPerCluster(log *slog.Logger, ipv4, ipv6 bool) {

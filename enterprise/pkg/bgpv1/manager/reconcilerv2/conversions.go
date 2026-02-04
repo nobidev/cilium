@@ -13,7 +13,8 @@ package reconcilerv2
 import (
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/bgp/types"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
+	ossTypes "github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
@@ -22,20 +23,36 @@ import (
 // toNeighbor converts a IsovalentBGPNodePeer to Neighbor which can be used
 // with Router API. The caller must ensure that the np, np.PeerAddress,
 // np.PeerASN and pc are not nil.
-func toNeighbor(np *v1.IsovalentBGPNodePeer, pc *v1.IsovalentBGPPeerConfigSpec, password string, selfRRRole v1.RouteReflectorRole) *types.Neighbor {
-	neighbor := &types.Neighbor{}
 
+func toNeighbor(np *v1.IsovalentBGPNodePeer, pc *v1.IsovalentBGPPeerConfigSpec, password string) *ossTypes.Neighbor {
+	neighbor := &ossTypes.Neighbor{}
+
+	neighbor.Name = np.Name
 	neighbor.Address = toPeerAddress(*np.PeerAddress)
 	neighbor.ASN = uint32(*np.PeerASN)
 	neighbor.AuthPassword = password
 	neighbor.EbgpMultihop = toNeighborEbgpMultihop(pc.EBGPMultihop)
-	neighbor.RouteReflector = toRouteReflector(np.RouteReflector, selfRRRole)
 	neighbor.Timers = toNeighborTimers(pc.Timers)
 	neighbor.Transport = toNeighborTransport(np.LocalAddress, pc.Transport)
 	neighbor.GracefulRestart = toNeighborGracefulRestart(pc.GracefulRestart)
 	neighbor.AfiSafis = toNeighborAfiSafis(pc.Families)
 
 	return neighbor
+}
+
+// toEnterpriseNeighbor converts a IsovalentBGPNodePeer to EnterpriseNeighbor which can be used
+// with Router API. The caller must ensure that the np, np.PeerAddress,
+// np.PeerASN and pc are not nil.
+
+func toEnterpriseNeighbor(np *v1.IsovalentBGPNodePeer, pc *v1.IsovalentBGPPeerConfigSpec, password string, selfRRRole v1.RouteReflectorRole) *types.EnterpriseNeighbor {
+	neighbor := toNeighbor(np, pc, password)
+
+	eeNeighbor := &types.EnterpriseNeighbor{
+		Neighbor:       *neighbor,
+		RouteReflector: toRouteReflector(np.RouteReflector, selfRRRole),
+	}
+
+	return eeNeighbor
 }
 
 func toPeerAddress(peerAddress string) netip.Addr {
@@ -46,11 +63,11 @@ func toPeerAddress(peerAddress string) netip.Addr {
 	return addr
 }
 
-func toNeighborEbgpMultihop(ebgpMultihop *int32) *types.NeighborEbgpMultihop {
+func toNeighborEbgpMultihop(ebgpMultihop *int32) *ossTypes.NeighborEbgpMultihop {
 	if ebgpMultihop == nil || *ebgpMultihop <= 1 {
 		return nil
 	}
-	return &types.NeighborEbgpMultihop{
+	return &ossTypes.NeighborEbgpMultihop{
 		TTL: uint32(*ebgpMultihop),
 	}
 }
@@ -68,12 +85,12 @@ func toRouteReflector(routeReflector *v1.NodeRouteReflector, selfRRRole v1.Route
 	}
 }
 
-func toNeighborTimers(apiTimers *v2.CiliumBGPTimers) *types.NeighborTimers {
+func toNeighborTimers(apiTimers *v2.CiliumBGPTimers) *ossTypes.NeighborTimers {
 	if apiTimers == nil {
 		return nil
 	}
 
-	timers := &types.NeighborTimers{}
+	timers := &ossTypes.NeighborTimers{}
 
 	if apiTimers.ConnectRetryTimeSeconds != nil {
 		timers.ConnectRetry = uint64(*apiTimers.ConnectRetryTimeSeconds)
@@ -90,12 +107,12 @@ func toNeighborTimers(apiTimers *v2.CiliumBGPTimers) *types.NeighborTimers {
 	return timers
 }
 
-func toNeighborTransport(apiLocalAddress *string, apiTransport *v2.CiliumBGPTransport) *types.NeighborTransport {
+func toNeighborTransport(apiLocalAddress *string, apiTransport *v2.CiliumBGPTransport) *ossTypes.NeighborTransport {
 	if apiLocalAddress == nil && apiTransport == nil {
 		return nil
 	}
 
-	transport := &types.NeighborTransport{}
+	transport := &ossTypes.NeighborTransport{}
 
 	if apiLocalAddress != nil {
 		transport.LocalAddress = *apiLocalAddress
@@ -110,27 +127,27 @@ func toNeighborTransport(apiLocalAddress *string, apiTransport *v2.CiliumBGPTran
 	return transport
 }
 
-func toNeighborGracefulRestart(apiGR *v2.CiliumBGPNeighborGracefulRestart) *types.NeighborGracefulRestart {
+func toNeighborGracefulRestart(apiGR *v2.CiliumBGPNeighborGracefulRestart) *ossTypes.NeighborGracefulRestart {
 	if apiGR == nil || apiGR.RestartTimeSeconds == nil {
 		return nil
 	}
-	return &types.NeighborGracefulRestart{
+	return &ossTypes.NeighborGracefulRestart{
 		Enabled:     apiGR.Enabled,
 		RestartTime: uint32(*apiGR.RestartTimeSeconds),
 	}
 }
 
-func toNeighborAfiSafis(families []v1.IsovalentBGPFamilyWithAdverts) []*types.Family {
+func toNeighborAfiSafis(families []v1.IsovalentBGPFamilyWithAdverts) []*ossTypes.Family {
 	if len(families) == 0 {
 		return nil
 	}
 
-	afiSafis := []*types.Family{}
+	afiSafis := []*ossTypes.Family{}
 
 	for _, family := range families {
-		afiSafis = append(afiSafis, &types.Family{
-			Afi:  types.ParseAfi(family.Afi),
-			Safi: types.ParseSafi(family.Safi),
+		afiSafis = append(afiSafis, &ossTypes.Family{
+			Afi:  ossTypes.ParseAfi(family.Afi),
+			Safi: ossTypes.ParseSafi(family.Safi),
 		})
 	}
 

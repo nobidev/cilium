@@ -71,6 +71,7 @@ func TestDatapathConfigProvider(t *testing.T) {
 					func() *option.DaemonConfig {
 						return &option.DaemonConfig{
 							RoutingMode: option.RoutingModeNative,
+							EnableIPv4:  true,
 						}
 					},
 					func() loadbalancer.Config {

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "lib/enterprise_privnet.h"
+#include "lib/network_device.h"
 
 static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ctx __maybe_unused,
 							   __u16 proto,
@@ -92,10 +93,12 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		if (src_pip_val && dst_pip_val) {
 			/* fully xlated flow*/
 
-			union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(privnet_ifindex);
+			union macaddr *smac = device_mac(privnet_ifindex);
 			union macaddr dmac = dst_pip_val->mac;
 
-			if (eth_store_saddr(ctx, (__u8 *)&smac, 0) < 0)
+			if (!smac)
+				return DROP_NO_DEVICE;
+			if (eth_store_saddr(ctx, smac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
 			if (eth_store_daddr(ctx, (__u8 *)&dmac, 0) < 0)
 				return DROP_WRITE_ERROR;
@@ -187,10 +190,12 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		if (src_pip_val && dst_pip_val) {
 			/* Fully xlated flow. */
 
-			union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(privnet_ifindex);
+			union macaddr *smac = device_mac(privnet_ifindex);
 			union macaddr dmac = dst_pip_val->mac;
 
-			if (eth_store_saddr(ctx, (__u8 *)&smac, 0) < 0)
+			if (!smac)
+				return DROP_NO_DEVICE;
+			if (eth_store_saddr(ctx, smac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
 
 			if (eth_store_daddr(ctx, (__u8 *)&dmac, 0) < 0)

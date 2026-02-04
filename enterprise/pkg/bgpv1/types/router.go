@@ -39,6 +39,12 @@ type EnterpriseRouter interface {
 
 	// GetRoutePoliciesExtended retrieves enterprise-specific route policies from the underlying router
 	GetRoutePoliciesExtended(ctx context.Context) (*GetRoutePoliciesExtendedResponse, error)
+
+	// AddNeighborExtended adds a new enterprise-specific BGP peer into the underlying router.
+	AddNeighborExtended(ctx context.Context, n *EnterpriseNeighbor) error
+
+	// UpdateNeighborExtended updates enterprise-specific BGP peer
+	UpdateNeighborExtended(ctx context.Context, n *EnterpriseNeighbor) error
 }
 
 type GetRoutesExtendedRequest struct {

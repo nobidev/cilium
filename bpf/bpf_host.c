@@ -1140,29 +1140,23 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
 								CTX_ACT_OK, METRIC_INGRESS);
 	case bpf_htons(ETH_P_ARP):
-		if (is_defined(ENABLE_ARP_PASSTHROUGH) ||
-		    is_defined(ENABLE_ARP_RESPONDER) ||
-		    CONFIG(enable_l2_announcements)) {
-			if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp)) {
-				ret = DROP_INVALID;
-				goto drop_err_ingress;
-			}
-
-			send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-					  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
-
-			if (CONFIG(enable_l2_announcements)) {
-				ret = handle_l2_announcement(ctx, NULL);
-				if (IS_ERR(ret))
-					goto drop_err_egress;
-			} else {
-				ret = CTX_ACT_OK;
-			}
-
-			break;
+		if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp)) {
+			ret = DROP_INVALID;
+			goto drop_err_ingress;
 		}
 
-		fallthrough;
+		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
+
+		if (CONFIG(enable_l2_announcements)) {
+			ret = handle_l2_announcement(ctx, NULL);
+			if (IS_ERR(ret))
+				goto drop_err_egress;
+		} else {
+			ret = CTX_ACT_OK;
+		}
+
+		break;
 #endif /* ENABLE_IPV4 */
 	default:
 		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
@@ -1417,11 +1411,6 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	}
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
-	case bpf_htons(ETH_P_ARP):
-		ret = CTX_ACT_OK;
-		break;
-# endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		ret = handle_to_netdev_ipv6(ctx, src_sec_identity,
@@ -1434,6 +1423,9 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 					    &trace, &ext_err);
 		break;
 	}
+	case bpf_htons(ETH_P_ARP):
+		ret = CTX_ACT_OK;
+		break;
 # endif
 	default:
 		ret = DROP_UNKNOWN_L3;
@@ -1632,11 +1624,6 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 	int ret;
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
-	case bpf_htons(ETH_P_ARP):
-		ret = CTX_ACT_OK;
-		break;
-# endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (use_tailcall) {
@@ -1663,6 +1650,9 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 						       &trace, ext_err);
 		}
 
+		break;
+	case bpf_htons(ETH_P_ARP):
+		ret = CTX_ACT_OK;
 		break;
 # endif
 	default:
@@ -1705,7 +1695,14 @@ int cil_to_host(struct __ctx_buff *ctx)
 	/* Set privnet netID info. Needs to happen before any possible notify */
 	enterprise_privnet_to_host();
 
-	/* Prefer ctx->mark when it is set to one of the expected values.
+	/* Retrieve values carried only via ctx->mark. */
+#ifdef ENABLE_IDENTITY_MARK
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_IDENTITY)
+		src_id = get_identity(ctx);
+#endif
+
+	/* Retrieve values carried either via ctx->mark or ctx->cb.
+	 * Prefer ctx->mark when it is set to one of the expected values.
 	 * Also see https://github.com/cilium/cilium/issues/36329.
 	 */
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_TO_PROXY)
@@ -1735,12 +1732,6 @@ int cil_to_host(struct __ctx_buff *ctx)
 #endif
 
 #ifdef ENABLE_IPSEC
-	/* Encryption stack needs this when IPSec headers are
-	 * rewritten without FIB helper because we do not yet
-	 * know correct MAC address which will cause the stack
-	 * to mark as PACKET_OTHERHOST and drop.
-	 */
-	ctx_change_type(ctx, PACKET_HOST);
 #if !defined(TUNNEL_MODE)
 	/* Since v1.18 Cilium performs IPsec encryption at the native device,
 	 * before the packet leaves the host.
@@ -1838,11 +1829,6 @@ from_host_to_lxc(struct __ctx_buff *ctx, __be16 proto, __s8 *ext_err)
 	struct ipv6hdr *ip6 __maybe_unused;
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
-	case bpf_htons(ETH_P_ARP):
-		ret = CTX_ACT_OK;
-		break;
-# endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -1863,6 +1849,9 @@ from_host_to_lxc(struct __ctx_buff *ctx, __be16 proto, __s8 *ext_err)
 		 * for the last parameter. That avoids an ipcache lookup.
 		 */
 		ret = ipv4_host_policy_egress(ctx, HOST_ID, 0, ip4, &trace, ext_err);
+		break;
+	case bpf_htons(ETH_P_ARP):
+		ret = CTX_ACT_OK;
 		break;
 # endif
 	default:

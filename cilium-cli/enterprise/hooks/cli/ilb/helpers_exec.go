@@ -13,8 +13,9 @@ package ilb
 import (
 	"bytes"
 
+	clientset "k8s.io/client-go/kubernetes"
+
 	"github.com/cilium/cilium/cilium-cli/k8s"
-	"github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
 func execIntoPod(t T, clientset *clientset.Clientset, namespace string, pod string, container string, command []string) (bytes.Buffer, bytes.Buffer, error) {

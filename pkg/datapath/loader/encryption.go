@@ -27,6 +27,10 @@ func init() {
 // attaching instances of bpf_network.c to externally-facing network devices.
 var encryptionConfigs funcRegistry[func(*datapath.LocalNodeConfiguration) any]
 
+// encryptionRenames holds functions that yield BPF map renames for
+// attaching instances of bpf_network.c to externally-facing network devices.
+var encryptionRenames funcRegistry[func(*datapath.LocalNodeConfiguration) map[string]string]
+
 // encryptionConfiguration returns a slice of BPF configuration objects yielded
 // by all registered config providers of [encryptionConfigs].
 func encryptionConfiguration(lnc *datapath.LocalNodeConfiguration) (configs []any) {
@@ -34,6 +38,14 @@ func encryptionConfiguration(lnc *datapath.LocalNodeConfiguration) (configs []an
 		configs = append(configs, f(lnc))
 	}
 	return configs
+}
+
+// encryptionMapRenames returns the merged map of encryption map renames yielded by all registered rename providers.
+func encryptionMapRenames(lnc *datapath.LocalNodeConfiguration) (renames []map[string]string) {
+	for f := range encryptionRenames.all() {
+		renames = append(renames, f(lnc))
+	}
+	return renames
 }
 
 func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, links []netlink.Link) error {
@@ -51,7 +63,8 @@ func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *da
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		Constants: encryptionConfiguration(lnc),
+		Constants:  encryptionConfiguration(lnc),
+		MapRenames: encryptionMapRenames(lnc),
 		// A single bpf_network.o Collection is attached to multiple devices, only
 		// store a single config at the root of the bpf statedir.
 		ConfigDumpPath: bpfStateDeviceDir(networkConfig),

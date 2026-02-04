@@ -11,7 +11,7 @@ cilium-operator-generic [flags]
 ### Options
 
 ```
-      --auto-create-cilium-pod-ip-pools map                            Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)
+      --auto-create-cilium-pod-ip-pools stringToString                 Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag) (default [])
       --auto-create-default-pod-network                                Automatically creates the default IsovalentPodNetwork on startup (default true)
       --ces-max-ciliumendpoints-per-ces int                            Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                                         Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
@@ -59,6 +59,7 @@ cilium-operator-generic [flags]
       --enable-ingress-controller                                      Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.
       --enable-ingress-proxy-protocol                                  Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
       --enable-ingress-secrets-sync                                    Enables fan-in TLS secrets from multiple namespaces to singular namespace (specified by ingress-secrets-namespace flag) (default true)
+      --enable-ipsec                                                   Enable IPsec
       --enable-ipv4                                                    Enable IPv4 support (default true)
       --enable-ipv6                                                    Enable IPv6 support (default true)
       --enable-k8s                                                     Enable the k8s clientset (default true)
@@ -71,6 +72,7 @@ cilium-operator-generic [flags]
       --enable-node-selector-labels                                    Enable use of node label based identity
       --enable-policy string                                           Enable policy enforcement (default "default")
       --enable-policy-secrets-sync                                     Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
+      --enable-wireguard                                               Enable WireGuard
       --enable-ztunnel                                                 Use zTunnel as Cilium's encryption infrastructure
       --enforce-ingress-https                                          Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --feature-gates-approved strings                                 Features approved to be enabled regardless of maturity level

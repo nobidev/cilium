@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"strings"
 
-	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
+	k8s "k8s.io/client-go/kubernetes"
 )
 
 func IsSingleNode() bool {

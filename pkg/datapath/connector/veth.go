@@ -17,26 +17,10 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 )
 
-// SetupVeth sets up the net interface, the temporary interface and fills up some endpoint
-// fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
-// veth, a pointer for the temporary link, the name of the temporary link and error if
-// something fails.
-func SetupVeth(defaultLogger *slog.Logger, id string, cfg types.LinkConfig, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, string, error) {
-	if id == "" {
-		return nil, nil, "", fmt.Errorf("invalid: empty ID")
-	}
-
-	lxcIfName := Endpoint2IfName(id)
-	tmpIfName := Endpoint2TempIfName(id)
-
-	veth, link, err := SetupVethWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, sysctl)
-	return veth, link, tmpIfName, err
-}
-
-// SetupVethWithNames sets up the net interface, the peer interface and fills up some endpoint
-// fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
-// veth, a pointer for the peer link and error if something fails.
-func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string, cfg types.LinkConfig, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, error) {
+// setupVethPair sets up the host-facing interface, the peer interface and fills
+// up some endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer
+// for the created veth, a pointer for the peer link and error if something fails.
+func setupVethPair(defaultLogger *slog.Logger, cfg types.LinkConfig, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, error) {
 	logger := defaultLogger.With(logfields.LogSubsys, "endpoint-connector")
 	// systemd 242+ tries to set a "persistent" MAC addr for any virtual device
 	// by default (controlled by MACAddressPolicy). As setting happens
@@ -57,11 +41,11 @@ func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string
 
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
-			Name:         lxcIfName,
+			Name:         cfg.HostIfName,
 			HardwareAddr: net.HardwareAddr(epHostMAC),
 			TxQLen:       1000,
 		},
-		PeerName:         peerIfName,
+		PeerName:         cfg.PeerIfName,
 		PeerHardwareAddr: net.HardwareAddr(epLXCMAC),
 	}
 
@@ -80,89 +64,21 @@ func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string
 	}()
 
 	logger.Debug("Created veth pair",
-		logfields.VethPair, []string{veth.PeerName, lxcIfName},
+		logfields.VethPair, []string{veth.PeerName, cfg.HostIfName},
 	)
 
 	// Disable reverse path filter on the host side veth peer to allow
 	// container addresses to be used as source address when the linux
 	// stack performs routing.
-	err = DisableRpFilter(sysctl, lxcIfName)
+	err = DisableRpFilter(sysctl, cfg.HostIfName)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	peer, err := safenetlink.LinkByName(peerIfName)
+	peer, err := safenetlink.LinkByName(cfg.PeerIfName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to lookup veth peer just created: %w", err)
 	}
 
-	err = configurePair(veth, peer, cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	return veth, peer, nil
-}
-
-func configurePair(hostSide, endpointSide netlink.Link, cfg types.LinkConfig) error {
-	var err error
-	epIfName := endpointSide.Attrs().Name
-	hostIfName := hostSide.Attrs().Name
-
-	if err = netlink.LinkSetMTU(hostSide, cfg.DeviceMTU); err != nil {
-		return fmt.Errorf("unable to set MTU to %q: %w", hostIfName, err)
-	}
-
-	if err = netlink.LinkSetMTU(endpointSide, cfg.DeviceMTU); err != nil {
-		return fmt.Errorf("unable to set MTU to %q: %w", epIfName, err)
-	}
-
-	if err = netlink.LinkSetUp(hostSide); err != nil {
-		return fmt.Errorf("unable to bring up %q: %w", hostIfName, err)
-	}
-
-	if cfg.GROIPv6MaxSize > 0 {
-		if err = netlink.LinkSetGROMaxSize(hostSide, cfg.GROIPv6MaxSize); err != nil {
-			return fmt.Errorf("unable to set GRO max size to %q: %w",
-				hostIfName, err)
-		}
-		if err = netlink.LinkSetGROMaxSize(endpointSide, cfg.GROIPv6MaxSize); err != nil {
-			return fmt.Errorf("unable to set GRO max size to %q: %w",
-				epIfName, err)
-		}
-	}
-
-	if cfg.GSOIPv6MaxSize > 0 {
-		if err = netlink.LinkSetGSOMaxSize(hostSide, cfg.GSOIPv6MaxSize); err != nil {
-			return fmt.Errorf("unable to set GSO max size to %q: %w",
-				hostIfName, err)
-		}
-		if err = netlink.LinkSetGSOMaxSize(endpointSide, cfg.GSOIPv6MaxSize); err != nil {
-			return fmt.Errorf("unable to set GSO max size to %q: %w",
-				epIfName, err)
-		}
-	}
-
-	if cfg.GROIPv4MaxSize > 0 {
-		if err = netlink.LinkSetGROIPv4MaxSize(hostSide, cfg.GROIPv4MaxSize); err != nil {
-			return fmt.Errorf("unable to set GRO max size to %q: %w",
-				hostIfName, err)
-		}
-		if err = netlink.LinkSetGROIPv4MaxSize(endpointSide, cfg.GROIPv4MaxSize); err != nil {
-			return fmt.Errorf("unable to set GRO max size to %q: %w",
-				epIfName, err)
-		}
-	}
-
-	if cfg.GSOIPv4MaxSize > 0 {
-		if err = netlink.LinkSetGSOIPv4MaxSize(hostSide, cfg.GSOIPv4MaxSize); err != nil {
-			return fmt.Errorf("unable to set GSO max size to %q: %w",
-				hostIfName, err)
-		}
-		if err = netlink.LinkSetGSOIPv4MaxSize(endpointSide, cfg.GSOIPv4MaxSize); err != nil {
-			return fmt.Errorf("unable to set GSO max size to %q: %w",
-				epIfName, err)
-		}
-	}
-	return nil
 }

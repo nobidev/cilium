@@ -18,8 +18,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
+	k8s "k8s.io/client-go/kubernetes"
 )
 
 func getT1NodeIPs(ctx context.Context, k8sCli *k8s.Clientset) ([]string, []string, error) {

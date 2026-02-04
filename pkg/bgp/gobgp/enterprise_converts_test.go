@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
+	ossTypes "github.com/cilium/cilium/pkg/bgp/types"
 )
 
 func TestToAgentPathsExtended(t *testing.T) {
@@ -141,6 +142,46 @@ func TestToAgentPathExtended(t *testing.T) {
 			got, err := ToAgentPathExtended(validPath)
 			require.NoError(t, err)
 			require.Equal(t, expectedPath, got)
+		})
+	}
+}
+
+func TestToGoBGPPeerExtended(t *testing.T) {
+	tests := []struct {
+		name     string
+		neighbor *types.EnterpriseNeighbor
+		want     *gobgp.Peer
+	}{
+		{
+			name: "with RouteReflector only",
+			neighbor: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("1.2.3.4"),
+					ASN:     65001,
+				},
+				RouteReflector: &types.NeighborRouteReflector{
+					Client:    true,
+					ClusterID: "1.2.3.4",
+				},
+			},
+			want: &gobgp.Peer{
+				Conf: &gobgp.PeerConf{
+					NeighborAddress: "1.2.3.4",
+					PeerAsn:         65001,
+				},
+				AfiSafis: defaultAfiSafi,
+				RouteReflector: &gobgp.RouteReflector{
+					RouteReflectorClient:    true,
+					RouteReflectorClusterId: "1.2.3.4",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toGoBGPPeerExtended(tt.neighbor, nil, true)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
