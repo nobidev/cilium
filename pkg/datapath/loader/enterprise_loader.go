@@ -54,9 +54,9 @@ func newEnterpriseLoader(in struct {
 
 func (l *EnterpriseLoader) registerEndpointConfig() {
 	epConfigs.register(func(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) any {
-		cfg := &config.BPFLXCEnterprise{
-			PrivnetUnknownSecID: uint32(identity.ReservedPrivnetUnknownFlow),
-		}
+		cfg := config.NewBPFLXCEnterprise()
+
+		cfg.PrivnetUnknownSecID = uint32(identity.ReservedPrivnetUnknownFlow)
 
 		if l.privnetConfig.Enabled {
 			networkProps, ok := pnendpoints.ExtractEndpointProperties(ep)
@@ -76,30 +76,36 @@ func (l *EnterpriseLoader) registerEndpointConfig() {
 
 func (l *EnterpriseLoader) registerOverlayConfig() {
 	overlayConfigs.register(func(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
-		return &config.BPFOverlayEnterprise{
-			PrivnetEnable:       l.privnetConfig.Enabled,
-			PrivnetBridgeEnable: l.privnetConfig.EnabledAsBridge(),
-			PrivnetUnknownSecID: uint32(identity.ReservedPrivnetUnknownFlow),
-		}
+		cfg := config.NewBPFOverlayEnterprise()
+
+		cfg.PrivnetEnable = l.privnetConfig.Enabled
+		cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()
+		cfg.PrivnetUnknownSecID = uint32(identity.ReservedPrivnetUnknownFlow)
+
+		return cfg
 	})
 }
 
 func (l *EnterpriseLoader) registerNetdevConfig() {
 	netdevConfigs.register(func(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link, _ netip.Addr, _ netip.Addr) any {
-		return &config.BPFHostEnterprise{
-			PrivnetEnable:       l.privnetConfig.Enabled,
-			PrivnetBridgeEnable: l.privnetConfig.EnabledAsBridge(),
-			PrivnetUnknownSecID: uint32(identity.ReservedPrivnetUnknownFlow),
-		}
+		cfg := config.NewBPFHostEnterprise()
+
+		cfg.PrivnetEnable = l.privnetConfig.Enabled
+		cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()
+		cfg.PrivnetUnknownSecID = uint32(identity.ReservedPrivnetUnknownFlow)
+
+		return cfg
 	})
 }
 
 func (l *EnterpriseLoader) registerWireguardConfig() {
 	wireguardConfigs.register(func(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
-		return &config.BPFWireguardEnterprise{
-			PrivnetEnable:       l.privnetConfig.Enabled,
-			PrivnetBridgeEnable: l.privnetConfig.EnabledAsBridge(),
-			PrivnetUnknownSecID: uint32(identity.ReservedPrivnetUnknownFlow),
-		}
+		cfg := config.NewBPFWireguardEnterprise()
+
+		cfg.PrivnetEnable = l.privnetConfig.Enabled
+		cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()
+		cfg.PrivnetUnknownSecID = uint32(identity.ReservedPrivnetUnknownFlow)
+
+		return cfg
 	})
 }
