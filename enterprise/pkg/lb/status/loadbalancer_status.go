@@ -87,7 +87,7 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 			Port:              uint(f.Spec.Port),
 			Type:              s.getType(f),
 			DeploymentMode:    s.getDeploymentMode(f),
-			BGPPeerStatus:     s.getBGPPeerStatus(f, bgpRoutes, bgpPeers, bgpPeersFromCRDByName, bgpPeersFromCRDByAddr, bgpPeersForSvc),
+			BGPPeerStatus:     s.getBGPPeerStatus(f, bgpPeers, bgpPeersFromCRDByAddr, bgpPeersForSvc),
 			BGPRouteStatus:    s.getBGPRoutesStatus(f, bgpRoutes),
 			T1NodeStatus:      s.getT1Status(f, t1ServicesRoutes),
 			T1T2HCStatus:      s.getHCT1T2(f, t1ServicesRoutes),
@@ -245,7 +245,7 @@ func (s *LoadbalancerClient) getBGPPeersForSvc(ctx context.Context,
 	return peers, nil
 }
 
-func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute, nodeBGPPeers map[string][]*models.BgpPeer, bgpPeersFromCRDByName map[string][]string, bgpPeersFromCRDByAddr map[string]string, svcPeers []string) BGPPeerStatus {
+func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPPeers map[string][]*models.BgpPeer, bgpPeersFromCRDByAddr map[string]string, svcPeers []string) BGPPeerStatus {
 	if lbsvc.Status.Addresses.IPv4 == nil {
 		return BGPPeerStatus{
 			LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
@@ -256,14 +256,8 @@ func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService,
 		}
 	}
 
-	// | BGP peer sessions for lbsvc | = | lbsvc peers | * | T1 nodes |
-	peers := 0
-	for _, v := range svcPeers {
-		peers += len(bgpPeersFromCRDByName[v])
-	}
-
-	nrPeersTotal := peers * len(nodeBGPRoutes)
 	nrOk := 0
+	nrPeersTotal := 0
 	activePeers := []BGPPeer{}
 
 	// Find out a number of svcPeers which has the session state == "established"
@@ -279,6 +273,7 @@ func (s *LoadbalancerClient) getBGPPeerStatus(lbsvc isovalentv1alpha1.LBService,
 				continue
 			}
 
+			nrPeersTotal++
 			isHealthy := pp.SessionState == "established"
 			if isHealthy {
 				nrOk++
