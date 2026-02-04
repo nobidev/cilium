@@ -468,6 +468,7 @@ type Endpoint struct {
 	isHost    bool
 
 	noTrackPort uint16
+	fibTableID  uint32
 
 	// mutable! must hold the endpoint lock to read
 	ciliumEndpointUID k8sTypes.UID
@@ -2703,6 +2704,16 @@ func (e *Endpoint) setDefaultPolicyConfig() {
 // GetCreatedAt returns the endpoint creation time.
 func (e *Endpoint) GetCreatedAt() time.Time {
 	return e.createdAt
+}
+
+func (e *Endpoint) GetFibTableID() uint32 {
+	return e.fibTableID
+}
+
+func (e *Endpoint) SetFibTableID(id uint32) {
+	e.unconditionalLock()
+	defer e.unlock()
+	e.fibTableID = id
 }
 
 // GetPropertyValue returns the endpoint property value for this key.
