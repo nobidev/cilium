@@ -90,6 +90,9 @@ type PrivateNetworkInterface struct {
 
 	// Error is the possible error occurred mapping the interface name to its index.
 	Error string
+
+	// Conflict is true in case the interface is selected by multiple private networks.
+	Conflict bool
 }
 
 func (pni PrivateNetworkInterface) String() string {
@@ -236,6 +239,18 @@ var (
 		FromString: index.FromString,
 		Unique:     true,
 	}
+
+	privateNetworksInterfaceIndex = statedb.Index[PrivateNetwork, string]{
+		Name: "interface",
+		FromObject: func(obj PrivateNetwork) index.KeySet {
+			if ifname := obj.Interface.Name; ifname != "" {
+				return index.NewKeySet(index.String(ifname))
+			}
+			return index.NewKeySet()
+		},
+		FromKey:    index.String,
+		FromString: index.FromString,
+	}
 )
 
 // PrivateNetworkByName queries the private networks table by name
@@ -243,10 +258,16 @@ func PrivateNetworkByName(name NetworkName) statedb.Query[PrivateNetwork] {
 	return privateNetworksNameIndex.Query(string(name))
 }
 
+// PrivateNetworksByInterface queries the private networks table by interface name
+func PrivateNetworksByInterface(ifname string) statedb.Query[PrivateNetwork] {
+	return privateNetworksInterfaceIndex.Query(ifname)
+}
+
 func NewPrivateNetworksTable(db *statedb.DB) (statedb.RWTable[PrivateNetwork], error) {
 	return statedb.NewTable(
 		db,
 		"private-networks",
 		privateNetworksNameIndex,
+		privateNetworksInterfaceIndex,
 	)
 }

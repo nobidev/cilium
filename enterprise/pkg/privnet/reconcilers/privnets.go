@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers/idpool"
@@ -62,6 +63,9 @@ var PrivateNetworksCell = cell.Group(
 
 		// Register the reconciler reacting to device changes.
 		(*PrivateNetworks).registerDeviceChangesReconciler,
+
+		// Register the reconciler reacting to interface conflicts.
+		(*PrivateNetworks).registerInterfaceConflictsReconciler,
 
 		// Register the reconciler to release stale network IDs.
 		(*PrivateNetworks).registerIDsReleaser,
@@ -166,7 +170,17 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *idpool.IDPool, sync prom
 				// that they are correctly populated on startup, when the table
 				// is marked as initialized.
 				dev, _, _ := pn.devs.Get(txn, dptables.DeviceNameIndex.Query(ifname))
-				iface = pn.newInterface(ifname, dev)
+
+				// Verify if any other network is selecting the same interface.
+				var conflict bool
+				for net := range pn.tbl.List(txn, tables.PrivateNetworksByInterface(ifname)) {
+					if net.Name != tables.NetworkName(privnet.Name) {
+						conflict = true
+						break
+					}
+				}
+
+				iface = pn.newInterface(ifname, dev, conflict)
 			}
 
 			vni := pn.extractVNI(privnet)
@@ -332,7 +346,7 @@ func (pn *PrivateNetworks) reconcileDeviceChanges(ctx context.Context, health ce
 				continue
 			}
 
-			iface := pn.newInterface(ifname, devs[ifname])
+			iface := pn.newInterface(ifname, devs[ifname], privnet.Interface.Conflict)
 			if privnet.Interface != iface {
 				copy := privnet
 				copy.Interface = iface
@@ -347,6 +361,103 @@ func (pn *PrivateNetworks) reconcileDeviceChanges(ctx context.Context, health ce
 		case <-devsWatch:
 		case <-ctx.Done():
 			return nil
+		}
+	}
+}
+
+func (pn *PrivateNetworks) registerInterfaceConflictsReconciler() {
+	// Interfaces are currently only relevant in bridge mode.
+	if !pn.cfg.EnabledAsBridge() {
+		return
+	}
+
+	pn.jg.Add(
+		job.OneShot(
+			"private-networks-interface-conflicts",
+			pn.reconcileInterfaceConflicts,
+		),
+	)
+}
+
+func (pn *PrivateNetworks) reconcileInterfaceConflicts(ctx context.Context, health cell.Health) error {
+	health.OK("Starting")
+
+	type IfName = string
+	var (
+		watchset = statedb.NewWatchSet()
+		closed   []<-chan struct{}
+		err      error
+
+		tracker     = newWatchesTracker[IfName]()
+		conflicting = sets.New[IfName]()
+		conflicts   = -1
+	)
+
+	wtx := pn.db.WriteTxn(pn.tbl)
+	changeIter, _ := pn.tbl.Changes(wtx)
+	wtx.Commit()
+
+	for {
+		wtx := pn.db.WriteTxn(pn.tbl)
+		changes, watch := changeIter.Next(wtx)
+		watchset.Add(watch)
+
+		var toProcess = sets.New[IfName]()
+
+		for change := range changes {
+			// Check if any new network has been marked as conflicting by the
+			// kubernetes reflector. If so, we need to reconcile the already
+			// existing network associated with that interface, to mark it as
+			// conflicting as well.
+			var iface = change.Object.Interface
+			if iface.Conflict && !conflicting.Has(iface.Name) {
+				toProcess.Insert(iface.Name)
+			}
+		}
+
+		for ifname := range tracker.Iter(closed) {
+			toProcess.Insert(ifname)
+		}
+
+		var shouldCommit = toProcess.Len() > 0
+		for ifname := range toProcess {
+			var (
+				iter, watch = pn.tbl.ListWatch(wtx, tables.PrivateNetworksByInterface(ifname))
+				networks    = statedb.Collect(iter)
+				conflict    = len(networks) > 1
+			)
+
+			if conflict {
+				conflicting.Insert(ifname)
+				watchset.Add(watch)
+				tracker.Register(watch, ifname)
+			} else {
+				conflicting.Delete(ifname)
+			}
+
+			for _, network := range networks {
+				if network.Interface.Conflict != conflict {
+					dev, _, _ := pn.devs.Get(wtx, dptables.DeviceNameIndex.Query(ifname))
+					network.Interface = pn.newInterface(ifname, dev, conflict)
+					pn.tbl.Insert(wtx, network)
+				}
+			}
+		}
+
+		if shouldCommit {
+			wtx.Commit()
+		} else {
+			wtx.Abort()
+		}
+
+		if conflicts != conflicting.Len() {
+			conflicts = conflicting.Len()
+			health.OK(fmt.Sprintf("Reconciliation completed, %d conflict(s)", conflicts))
+		}
+
+		closed, err = watchset.Wait(ctx, SettleTime)
+		if err != nil {
+			return err
 		}
 	}
 }
@@ -406,10 +517,12 @@ func (pn *PrivateNetworks) registerIDsReleaser(idpool *idpool.IDPool) {
 	)
 }
 
-func (pn *PrivateNetworks) newInterface(name string, dev *dptables.Device) tables.PrivateNetworkInterface {
-	iface := tables.PrivateNetworkInterface{Name: name}
+func (pn *PrivateNetworks) newInterface(name string, dev *dptables.Device, conflict bool) tables.PrivateNetworkInterface {
+	iface := tables.PrivateNetworkInterface{Name: name, Conflict: conflict}
 
 	switch {
+	case conflict:
+		iface.Error = fmt.Sprintf("Interface %q is selected by multiple private networks", name)
 	case dev == nil:
 		iface.Error = fmt.Sprintf("Interface %q not found", name)
 	case dev.OperStatus != "up":
