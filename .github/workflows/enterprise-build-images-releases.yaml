@@ -74,6 +74,14 @@ jobs:
             base-image: registry.redhat.io/ubi9/ubi-minimal:9.6@sha256:8d905a93f1392d4a8f7fb906bd49bf540290674b28d82de3536bb4d0898bf9d7
             build-from-source: false
 
+          - component: KUBECTL
+            image-name: kubectl
+            docker-context: enterprise/images/kubectl
+            dockerfile: enterprise/images/kubectl/Dockerfile
+            # renovate: datasource=docker
+            base-image: debian:13.3-slim@sha256:f6e2cfac5cf956ea044b4bd75e6397b4372ad88fe00908045e9a0d21712ae3ba
+            build-from-source: false
+
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -94,12 +102,7 @@ jobs:
           echo "upstream_version=${upstream_version}" >> $GITHUB_OUTPUT
           echo "upstream_repo=$(cat install/kubernetes/Makefile.values | grep ${{ matrix.component }}_REPO | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
           echo "upstream_digest=$(cat install/kubernetes/Makefile.values | grep ${{ matrix.component }}_DIGEST | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
-          # Don't build if the image reference does not exist in Makefile.values
-          # This is a workaround as etcd-operator, for instance, should not be part of the matrix in the -trigger workflow for newer releases
-          if [[ -z "${upstream_version}" ]]; then
-             echo "No version available for ${{ matrix.component }} in install/kubernetes/Makefile.values. Build skipped."
-             echo "rebuild=false" >> $GITHUB_OUTPUT
-          elif docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.image-name }}:${version} >/dev/null; then
+          if docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.image-name }}:${version} >/dev/null; then
             echo "Image already exists! Build skipped."
             echo "rebuild=false" >> $GITHUB_OUTPUT
           else
@@ -149,7 +152,7 @@ jobs:
         if: ${{ matrix.build-from-source == true }}
         working-directory: ${{ matrix.directory }}
         run: |
-            git checkout ${{ steps.version.outputs.upstream_version }}
+          git checkout ${{ steps.version.outputs.upstream_version }}
 
       - name: Build and push ${{ matrix.component }} image
         if: ${{ steps.version.outputs.rebuild == 'true' }}
@@ -357,7 +360,6 @@ jobs:
           name: image-digest ${{ matrix.name }}-${{ matrix.postfix }}
           path: image-digest
 
-
   build-and-push-clife:
     timeout-minutes: 45
     name: Build and Push OLM Images
@@ -548,7 +550,8 @@ jobs:
   image-digests:
     name: Display Digests
     runs-on: ubuntu-24.04
-    needs: [build-and-push-external-images, build-and-push, build-and-push-clife]
+    needs:
+      [build-and-push-external-images, build-and-push, build-and-push-clife]
 
     steps:
       - name: Prepare image digests download

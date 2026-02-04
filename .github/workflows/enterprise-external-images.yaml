@@ -10,6 +10,11 @@ on:
       image-name:
         required: true
         type: string
+      version-path:
+        required: false
+        type: string
+        default: "true"
+        description: "Path to the version field in values.yaml. For OSS images the version is taken from Makefile.values and this parameter should be left empty."
       docker-context:
         required: true
         type: string
@@ -50,20 +55,20 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Check ${{ inputs.component }} code changes
+      - name: Check ${{ inputs.component }} changes
         id: check-changes
         run: |
-          echo "repo=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_REPO | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
-          version=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_VERSION | awk -F '=' '{print $2}')
-          echo "version=${version}" >> $GITHUB_OUTPUT
-          echo "digest=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_DIGEST | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
-          # Don't build if the image reference does not exist in Makefile.values
-          # This is a workaround as etcd-operator, for instance, should not be part of the matrix in the -trigger workflow for main-ce
-          if [[ -z "${version}" ]]; then
-             echo "No version available for ${{ inputs.component }} in install/kubernetes/Makefile.values. Build skipped."
-             echo "rebuild=false" >> $GITHUB_OUTPUT
+          if [ -z "${{ inputs.version-path }}" ]; then
+            echo "repo=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_REPO | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
+            version=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_VERSION | awk -F '=' '{print $2}')
+            echo "version=${version}" >> $GITHUB_OUTPUT
+            echo "digest=$(cat install/kubernetes/Makefile.values| grep ${{ inputs.component }}_DIGEST | awk -F '=' '{print $2}')" >> $GITHUB_OUTPUT
+          else
+            version="$(yq '${{ inputs.version-path }}' install/kubernetes/cilium/values.yaml)"
+            echo "version=${version}" >> $GITHUB_OUTPUT
+          fi
           # Don't rebuild if the image already exists
-          elif docker manifest inspect quay.io/isovalent-dev/${{ inputs.image-name }}:${version}; then
+          if docker manifest inspect quay.io/isovalent-dev/${{ inputs.image-name }}:${version}; then
             echo "Image already exist!"
             echo "rebuild=false" >> $GITHUB_OUTPUT
           else
@@ -71,7 +76,7 @@ jobs:
           fi
 
   build-push-image:
-    needs: [ check-changes ]
+    needs: [check-changes]
     if: ${{ needs.check-changes.outputs.rebuild == 'true' }}
     name: Build and push image
     runs-on: ubuntu-24.04
@@ -146,13 +151,13 @@ jobs:
             UPSTREAM_IMAGE=${{ needs.check-changes.outputs.repo }}:${{ needs.check-changes.outputs.version }}@${{ needs.check-changes.outputs.digest }}
             VERSION=${{ needs.check-changes.outputs.version }}
 
-      - name: Image Release Digest Runtime
+      - name: Image Release Digests
         shell: bash
         run: |
           mkdir -p image-digest/
           echo "## ${{ inputs.image-name }}" > image-digest/${{ inputs.image-name }}.txt
           echo "" >> image-digest/${{ inputs.image-name }}.txt
-          echo "\`quay.io/isovalent-dev/${{ inputs.image-name }}:${{ needs.check-changes.outputs.version }}@${{ needs.check-changes.outputs.digest }}\`" >> image-digest/${{ inputs.image-name }}.txt
+          echo "\`quay.io/isovalent-dev/${{ inputs.image-name }}:${{ needs.check-changes.outputs.version }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ inputs.image-name }}.txt
           echo "" >> image-digest/${{ inputs.image-name }}.txt
 
       - name: Upload artifact digests runtime

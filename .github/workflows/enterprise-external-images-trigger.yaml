@@ -80,10 +80,20 @@ jobs:
 
           - component: KUBECTL
             image-name: kubectl-ubi-ci
+            version-path: ".envoy.kubectl.image.tag"
             docker-context: enterprise/images/kubectl
             dockerfile: enterprise/images/kubectl/Dockerfile
             # renovate: datasource=docker
             base-image: registry.redhat.io/ubi9/ubi-minimal:9.6@sha256:8d905a93f1392d4a8f7fb906bd49bf540290674b28d82de3536bb4d0898bf9d7
+            build-from-source: false
+
+          - component: KUBECTL
+            image-name: kubectl-ci
+            version-path: ".envoy.kubectl.image.tag"
+            docker-context: enterprise/images/kubectl
+            dockerfile: enterprise/images/kubectl/Dockerfile
+            # renovate: datasource=docker
+            base-image: debian:13.3-slim@sha256:f6e2cfac5cf956ea044b4bd75e6397b4372ad88fe00908045e9a0d21712ae3ba
             build-from-source: false
 
     uses: ./.github/workflows/enterprise-external-images.yaml
@@ -91,6 +101,7 @@ jobs:
     with:
       component: ${{ matrix.component }}
       image-name: ${{ matrix.image-name }}
+      version-path: ${{ matrix.version-path }}
       docker-context: ${{ matrix.docker-context }}
       dockerfile: ${{ matrix.dockerfile }}
       base-image: ${{ matrix.base-image }}
