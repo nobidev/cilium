@@ -141,7 +141,7 @@ func (e *environment) use(cond *ConditionStatus, now time.Time) *environment {
 }
 
 func (e *environment) Metric(name string, labels prometheus.Labels) (Metric, error) {
-	metrics, err := e.MetricsMatchingLabels(name, nil)
+	metrics, err := e.MetricsMatchingLabels(name, labels)
 	if err != nil {
 		return Metric{}, err
 	}
