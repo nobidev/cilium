@@ -65,28 +65,30 @@ func TestHistogramSampler(t *testing.T) {
 
 	}
 
-	feed := func(hours int, x float64) {
+	feed := func(hours int, x float64, asFloat bool) {
 		for range int((time.Duration(hours) * time.Hour) / interval) {
 			count++
 			sum += x
+			hs := &dto.Histogram{
+				SampleCount: pi(count),
+				SampleSum:   f(sum),
+				Bucket:      buckets(x),
+			}
+			if asFloat {
+				hs.SampleCountFloat = f(count)
+			}
 			sampler.observe(now, Metric{
 				Name:  "foo",
 				Value: 0,
-				Raw: &dto.Metric{
-					Histogram: &dto.Histogram{
-						SampleCountFloat: f(count),
-						SampleSum:        f(sum),
-						Bucket:           buckets(x),
-					},
-				},
+				Raw:   &dto.Metric{Histogram: hs},
 			})
 			now = now.Add(interval + time.Second)
 		}
 	}
 
-	feed(21, 8.0) // 21 hours of ~8.0
-	feed(3, 4.0)  // 4 hours of ~4.0
-	feed(2, 1.0)  // 2 hours of ~1.0
+	feed(21, 8.0, true) // 21 hours of ~8.0
+	feed(3, 4.0, false) // 4 hours of ~4.0
+	feed(2, 1.0, true)  // 2 hours of ~1.0
 
 	avg24h, avg4h, avg1h, avgLatest = sampler.Averages()
 

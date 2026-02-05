@@ -75,14 +75,15 @@ func (hs *histogramSampler) Averages() (h24, h4, h1, latest float64) {
 		return
 	}
 
-	currentSum := hs.latest[0].Raw.Histogram.GetSampleSum()
-	currentCount := hs.latest[0].Raw.Histogram.GetSampleCountFloat()
-
+	var currentSum, currentCount float64
 	samples := slices.Collect(hs.samples.all())
 
 	getCount := func(x Metric) float64 {
 		switch {
 		case x.Raw.Histogram != nil:
+			if x.Raw.Histogram.GetSampleCountFloat() == 0 {
+				return float64(x.Raw.Histogram.GetSampleCount())
+			}
 			return x.Raw.Histogram.GetSampleCountFloat()
 		case x.Raw.Summary != nil:
 			return float64(x.Raw.Summary.GetSampleCount())
@@ -90,6 +91,7 @@ func (hs *histogramSampler) Averages() (h24, h4, h1, latest float64) {
 			return 0.0
 		}
 	}
+	currentCount = getCount(hs.latest[0])
 
 	getSum := func(x Metric) float64 {
 		switch {
@@ -101,6 +103,7 @@ func (hs *histogramSampler) Averages() (h24, h4, h1, latest float64) {
 			return 0.0
 		}
 	}
+	currentSum = getSum(hs.latest[0])
 
 	avg := func(x Metric) float64 {
 		count := currentCount - getCount(x)
