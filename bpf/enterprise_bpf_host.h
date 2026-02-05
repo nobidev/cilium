@@ -37,6 +37,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 	const struct remote_endpoint_info *info __maybe_unused;
 	__s8 __maybe_unused ext_err = 0;
 	int ret = CTX_ACT_OK;
+	const __u16 *net_id;
 
 	if (!CONFIG(privnet_enable))
 		return ret;
@@ -45,11 +46,18 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 	if (from_host)
 		return ret;
 
+	net_id = privnet_get_net_id(CONFIG(interface_ifindex));
+	if (!net_id)
+		/* This interface is not associated to a network ID; nothing to do here. */
+		/* We don't treat net_id == 0 specially, the different paths will handle */
+		/* a miss in the FIB map as appropriate (either punt to stack or drop).  */
+		return ret;
+
 	switch (proto) {
 	case bpf_htons(ETH_P_ARP):
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
-		return handle_privnet_arp(ctx, CONFIG(privnet_network_id));
+		return handle_privnet_arp(ctx, *net_id);
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
@@ -61,10 +69,10 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 			/* (i.e., they target a known IP reachable through this INB), */
 			/* and punt all the others up to the stack unmodified, to */
 			/* make sure we don't break local neighbor discovery. */
-			return handle_privnet_ns(ctx, CONFIG(privnet_network_id), false);
+			return handle_privnet_ns(ctx, *net_id, false);
 		}
 
-		ret = privnet_egress_ipv6(ctx, CONFIG(privnet_network_id), &sip_val, &dip_val);
+		ret = privnet_egress_ipv6(ctx, *net_id, &sip_val, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -109,7 +117,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 							METRIC_INGRESS);
 
-		ret = privnet_egress_ipv4(ctx, CONFIG(privnet_network_id), &sip_val, &dip_val);
+		ret = privnet_egress_ipv4(ctx, *net_id, &sip_val, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -173,13 +181,18 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 
 static __always_inline void enterprise_privnet_to_netdev(void)
 {
-	__u16 local_net_id = CONFIG(privnet_network_id);
+	const __u16 *local_net_id;
 
-	if (CONFIG(privnet_enable) && local_net_id)
+	if (!CONFIG(privnet_enable))
+		/* Private networks is not enabled. We're always in P-IP space. */
+		return set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
+	local_net_id = privnet_get_net_id(CONFIG(interface_ifindex));
+	if (local_net_id && *local_net_id)
 		/* The netdev is directly attached to a private network. Anything entering
 		 * or leaving this interface is in the configured network.
 		 */
-		return set_privnet_net_ids(local_net_id, local_net_id);
+		return set_privnet_net_ids(*local_net_id, *local_net_id);
 
 	if (!CONFIG(privnet_bridge_enable))
 		/* We're not on the bridge, and the netdev is not attached to a private network.
@@ -197,13 +210,18 @@ static __always_inline void enterprise_privnet_to_netdev(void)
 
 static __always_inline void enterprise_privnet_from_netdev(void)
 {
-	__u16 local_net_id = CONFIG(privnet_network_id);
+	const __u16 *local_net_id;
 
-	if (CONFIG(privnet_enable) && local_net_id)
+	if (!CONFIG(privnet_enable))
+		/* Private networks is not enabled. We're always in P-IP space. */
+		return set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
+	local_net_id = privnet_get_net_id(CONFIG(interface_ifindex));
+	if (local_net_id && *local_net_id)
 		/* The netdev is directly attached to a private network. Anything entering
 		 * or leaving this interface is in the configured network.
 		 */
-		return set_privnet_net_ids(local_net_id, local_net_id);
+		return set_privnet_net_ids(*local_net_id, *local_net_id);
 
 	if (!CONFIG(privnet_bridge_enable))
 		/* We're not on the bridge, and the netdev is not attached to a private network.
