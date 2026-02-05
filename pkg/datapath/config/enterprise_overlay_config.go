@@ -13,12 +13,10 @@ type BPFOverlayEnterprise struct {
 	PrivnetBridgeEnable bool `config:"privnet_bridge_enable"`
 	// True if the endpoint is in a non-default network.
 	PrivnetEnable bool `config:"privnet_enable"`
-	// The identifier of the private network.
-	PrivnetNetworkID uint16 `config:"privnet_network_id"`
 	// The security identifier for unknown network traffic.
 	PrivnetUnknownSecID uint32 `config:"privnet_unknown_sec_id"`
 }
 
 func NewBPFOverlayEnterprise() *BPFOverlayEnterprise {
-	return &BPFOverlayEnterprise{false, false, 0x0, 0x0}
+	return &BPFOverlayEnterprise{false, false, 0x0}
 }

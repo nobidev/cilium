@@ -9,8 +9,6 @@ DECLARE_ENTERPRISE_CONFIG(bool, privnet_enable,
 			  "True if the endpoint is in a non-default network")
 DECLARE_ENTERPRISE_CONFIG(__u32, privnet_unknown_sec_id,
 			  "The security identifier for unknown network traffic")
-DECLARE_ENTERPRISE_CONFIG(__u16, privnet_network_id,
-			  "The identifier of the private network")
 DECLARE_ENTERPRISE_CONFIG(bool, privnet_bridge_enable,
 			  "True if running on network bridge")
 

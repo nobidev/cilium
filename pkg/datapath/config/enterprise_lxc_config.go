@@ -15,8 +15,6 @@ type BPFLXCEnterprise struct {
 	PrivnetEnable bool `config:"privnet_enable"`
 	// The endpoint's IPv6 address within the network.
 	PrivnetIPv6 [16]byte `config:"privnet_ipv6"`
-	// The identifier of the private network.
-	PrivnetNetworkID uint16 `config:"privnet_network_id"`
 	// The security identifier for unknown network traffic.
 	PrivnetUnknownSecID uint32 `config:"privnet_unknown_sec_id"`
 }
@@ -24,5 +22,5 @@ type BPFLXCEnterprise struct {
 func NewBPFLXCEnterprise() *BPFLXCEnterprise {
 	return &BPFLXCEnterprise{false, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0}
+		0x0}
 }
