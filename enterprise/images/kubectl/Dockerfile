@@ -13,8 +13,8 @@ LABEL name="Kubectl for Isovalent Networking for Kubernetes" \
       org.opencontainers.image.documentation="https://isovalent.com/product" \
       org.opencontainers.image.vendor="Isovalent, part of Cisco" \
       org.opencontainers.image.title="Isovalent Networking for Kubernetes Kubectl" \
-      org.opencontainers.image.description="Image of the Kubectl for Isovalent Networking for Kubernetes built on top of Red Hat Universal Base Image" \
-      io.k8s.description="Image of the Kubectl for Isovalent Networking for Kubernetes built on top of Red Hat Universal Base Image" \
+      org.opencontainers.image.description="Image of the Kubectl for Isovalent Networking for Kubernetes" \
+      io.k8s.description="Image of the Kubectl for Isovalent Networking for Kubernetes" \
       io.k8s.display-name="Kubectl for Isovalent Networking for Kubernetes"
 
 LABEL org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
