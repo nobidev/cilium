@@ -333,6 +333,15 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_privnet_devices __section_maps_btf;
 
+static __always_inline const __u16 *privnet_get_net_id(__u32 ifindex)
+{
+	const struct privnet_device_key key = { .ifindex = ifindex };
+	const struct privnet_device_val *val;
+
+	val = map_lookup_elem(&cilium_privnet_devices, &key);
+	return val ? &val->net_id : NULL;
+}
+
 /*
  * cilium_privnet_watchdog is used to detect when the Cilium agent is down for
  * a prolonged period of time.

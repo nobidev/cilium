@@ -16,6 +16,7 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 	struct iphdr *ip4 __maybe_unused;
 	const struct privnet_fib_val *dip_val __maybe_unused;
 	int ret = CTX_ACT_OK;
+	const __u16 *net_id;
 
 	if (!CONFIG(privnet_enable)) {
 		/* Privnet is not enabled. We're always in P-IP space */
@@ -23,8 +24,15 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		return ret;
 	}
 
+	/* Private networks is enabled, but the network ID is unknown. */
+	net_id = privnet_get_net_id(CONFIG(interface_ifindex));
+	if (unlikely(!net_id || !(*net_id))) {
+		set_privnet_net_ids(PRIVNET_UNKNOWN_NET_ID, PRIVNET_UNKNOWN_NET_ID);
+		return DROP_UNROUTABLE;
+	}
+
 	/* We enter from the container, we're always in netIP space */
-	set_privnet_net_ids(CONFIG(privnet_network_id), CONFIG(privnet_network_id));
+	set_privnet_net_ids(*net_id, *net_id);
 
 	/* bpf_lxc will drop the packet as unsupported, return to normal control flow
 	 * after setting the netID.
@@ -39,9 +47,9 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 			return DROP_INVALID;
 
 		if (is_icmp6_ndp(ctx, ip6, ETH_HLEN))
-			return handle_privnet_ns(ctx, CONFIG(privnet_network_id), true);
+			return handle_privnet_ns(ctx, *net_id, true);
 
-		ret = privnet_egress_ipv6(ctx, CONFIG(privnet_network_id), NULL, &dip_val);
+		ret = privnet_egress_ipv6(ctx, *net_id, NULL, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
 #ifdef TUNNEL_MODE
@@ -71,7 +79,7 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		ret = privnet_egress_ipv4(ctx, CONFIG(privnet_network_id), NULL, &dip_val);
+		ret = privnet_egress_ipv4(ctx, *net_id, NULL, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -118,8 +126,14 @@ static __always_inline int enterprise_privnet_to_lxc(struct __ctx_buff *ctx __ma
 static __always_inline int enterprise_privnet_to_lxc_ipv4_policy(struct __ctx_buff *ctx)
 {
 	if (CONFIG(privnet_enable)) {
-		int ret = privnet_ingress_ipv4(ctx, CONFIG(privnet_network_id),
-					       false, NULL, NULL);
+		int ret;
+		const __u16 *net_id;
+
+		net_id = privnet_get_net_id(CONFIG(interface_ifindex));
+		if (unlikely(!net_id || !(*net_id)))
+			return DROP_UNROUTABLE;
+
+		ret = privnet_ingress_ipv4(ctx, *net_id, false, NULL, NULL);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -131,8 +145,14 @@ static __always_inline int enterprise_privnet_to_lxc_ipv4_policy(struct __ctx_bu
 static __always_inline int enterprise_privnet_to_lxc_ipv6_policy(struct __ctx_buff *ctx)
 {
 	if (CONFIG(privnet_enable)) {
-		int ret = privnet_ingress_ipv6(ctx, CONFIG(privnet_network_id),
-					       false, NULL, NULL);
+		int ret;
+		const __u16 *net_id;
+
+		net_id = privnet_get_net_id(CONFIG(interface_ifindex));
+		if (unlikely(!net_id || !(*net_id)))
+			return DROP_UNROUTABLE;
+
+		ret = privnet_ingress_ipv6(ctx, *net_id, false, NULL, NULL);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -163,16 +183,21 @@ static __always_inline int tail_handle_ipv4_privnet_unknown_ingress(struct __ctx
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	bool from_tunnel = false;
 	int ret = CTX_ACT_OK;
+	const __u16 *net_id;
 
 	if (!CONFIG(privnet_enable))
 		return ret;
+
+	/* Private networks is enabled, but the network ID is unknown. */
+	net_id = privnet_get_net_id(CONFIG(interface_ifindex));
+	if (unlikely(!net_id || !(*net_id)))
+		return DROP_UNROUTABLE;
 
 #ifdef HAVE_ENCAP
 	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 #endif
 
-	ret = privnet_ingress_ipv4(ctx, CONFIG(privnet_network_id),
-				   true, NULL, NULL);
+	ret = privnet_ingress_ipv4(ctx, *net_id, true, NULL, NULL);
 	if (IS_ERR(ret))
 		return ret;
 
@@ -189,16 +214,21 @@ static __always_inline int tail_handle_ipv6_privnet_unknown_ingress(struct __ctx
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	bool from_tunnel = false;
 	int ret = CTX_ACT_OK;
+	const __u16 *net_id;
 
 	if (!CONFIG(privnet_enable))
 		return ret;
+
+	/* Private networks is enabled, but the network ID is unknown. */
+	net_id = privnet_get_net_id(CONFIG(interface_ifindex));
+	if (unlikely(!net_id || !(*net_id)))
+		return DROP_UNROUTABLE;
 
 #ifdef HAVE_ENCAP
 	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 #endif
 
-	ret = privnet_ingress_ipv6(ctx, CONFIG(privnet_network_id),
-				   true, NULL, NULL);
+	ret = privnet_ingress_ipv6(ctx, *net_id, true, NULL, NULL);
 	if (IS_ERR(ret))
 		return ret;
 

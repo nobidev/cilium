@@ -21,6 +21,7 @@ volatile const __u8 v6_net_two[] = v6_net_two_addr;
 #define V6_POD_IP_2 v6_pod_two
 #define INB_IP v4_ext_one
 #define NODE_IP v4_node_one
+#define IFINDEX 0x42
 
 /* Scapy packet definitions */
 BUF_DECL(NETIP_ARP_REQ, privnet_net_ip_arp_req);

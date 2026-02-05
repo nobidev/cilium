@@ -198,3 +198,20 @@ privnet_v6_del_route(__u16 net_id, const union v6addr *prefix)
 {
 	__privnet_fib_v6_del_entry(net_id, prefix);
 }
+
+static __always_inline void
+privnet_add_device_entry(__u32 ifindex, __u16 net_id)
+{
+	struct privnet_device_key key = { .ifindex = ifindex };
+	struct privnet_device_val val = { .net_id = net_id };
+
+	map_update_elem(&cilium_privnet_devices, &key, &val, BPF_ANY);
+}
+
+static __always_inline void
+privnet_del_device_entry(__u32 ifindex)
+{
+	struct privnet_device_key key = { .ifindex = ifindex };
+
+	map_delete_elem(&cilium_privnet_devices, &key);
+}
