@@ -177,6 +177,7 @@ func (r *Routes) extractRoutes(privNet tables.PrivateNetwork) map[tables.RouteKe
 			Network:     privNet.Name,
 			Destination: route.Destination,
 			Gateway:     route.Gateway,
+			EVPNGateway: route.EVPNGateway,
 		}
 		key := entry.Key()
 		if _, ok := routes[key]; ok {

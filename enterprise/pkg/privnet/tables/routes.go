@@ -16,6 +16,8 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/reconciler"
+
+	"github.com/cilium/cilium/enterprise/pkg/vni"
 )
 
 // Route represents a subnet or route found in a private network CR
@@ -28,6 +30,9 @@ type Route struct {
 
 	// Gateway is the gateway of a route. This is empty for subnets.
 	Gateway netip.Addr
+
+	// EVPNGateway is set if network is reachable via EVPN/Vxlan.
+	EVPNGateway bool
 }
 
 var _ statedb.TableWritable = Route{}
@@ -44,11 +49,19 @@ func (r Route) TableRow() []string {
 	return []string{
 		string(r.Network),
 		r.Destination.String(),
-		gw,
+		func() string {
+			if r.EVPNGateway {
+				return "evpn"
+			}
+			return gw
+		}(),
 	}
 }
 
 func (r Route) MapEntryType() MapEntryType {
+	if r.EVPNGateway {
+		return MapEntryTypeEVPNRoute
+	}
 	if r.Gateway.IsValid() {
 		return MapEntryTypeStaticRoute
 	}
@@ -56,26 +69,13 @@ func (r Route) MapEntryType() MapEntryType {
 }
 
 func (r Route) ToMapEntry(privNet SlimPrivateNetwork, bridgeMode bool) *MapEntry {
-	routeType := r.MapEntryType()
-
-	nexthop := r.Gateway
-	if !bridgeMode {
-		// If not running in bridge mode, we use active INB IP as next hop.
-		if !privNet.ActiveINB.IP.IsValid() {
-			return nil
-		}
-		nexthop = privNet.ActiveINB.IP
-	} else if routeType == MapEntryTypeDCNRoute {
-		// For DCNRoutes, use the unspecified IP as the nexthop
-		if r.Destination.Addr().Is6() {
-			nexthop = netip.IPv6Unspecified()
-		} else {
-			nexthop = netip.IPv4Unspecified()
-		}
+	nexthop := r.getNexthop(privNet, bridgeMode)
+	if !nexthop.IsValid() {
+		return nil
 	}
 
 	return &MapEntry{
-		Type: routeType,
+		Type: r.MapEntryType(),
 		Target: MapEntryTarget{
 			NetworkName: privNet.Name,
 			NetworkID:   privNet.ID,
@@ -83,6 +83,7 @@ func (r Route) ToMapEntry(privNet SlimPrivateNetwork, bridgeMode bool) *MapEntry
 		},
 		Routing: MapEntryRouting{
 			NextHop: nexthop,
+			VNI:     r.getVNI(privNet),
 		},
 
 		Status: reconciler.StatusPending(),
@@ -139,4 +140,39 @@ func NewRouteTable(db *statedb.DB) (statedb.RWTable[Route], error) {
 		"privnet-routes",
 		routeIndex,
 	)
+}
+
+func (r Route) getNexthop(privNet SlimPrivateNetwork, bridgeMode bool) netip.Addr {
+	var nexthop netip.Addr
+
+	if r.EVPNGateway {
+		nexthop = r.unspecifiedNexthop()
+	} else if !bridgeMode {
+		if privNet.ActiveINB.IP.IsValid() {
+			nexthop = privNet.ActiveINB.IP
+		}
+	} else {
+		switch r.MapEntryType() {
+		case MapEntryTypeStaticRoute:
+			nexthop = r.Gateway
+		case MapEntryTypeDCNRoute:
+			nexthop = r.unspecifiedNexthop()
+		}
+	}
+
+	return nexthop
+}
+
+func (r Route) unspecifiedNexthop() netip.Addr {
+	if r.Destination.Addr().Is6() {
+		return netip.IPv6Unspecified()
+	}
+	return netip.IPv4Unspecified()
+}
+
+func (r Route) getVNI(privNet SlimPrivateNetwork) vni.VNI {
+	if r.EVPNGateway {
+		return privNet.VNI
+	}
+	return vni.MustFromUint32(0)
 }

@@ -132,9 +132,13 @@ func (pmo *pipFIBMapOps) FIBKeyVal(me *tables.MapEntry) *pnmaps.FIBKeyVal {
 	if me.Type == tables.MapEntryTypeEndpoint {
 		mac = types.MACAddr(me.Target.MAC)
 	}
+	entryVNI, _ := vni.FromUint32(0)
+	if me.Type == tables.MapEntryTypeEVPNRoute {
+		entryVNI = me.Routing.VNI
+	}
 	return &pnmaps.FIBKeyVal{
 		Key: pnmaps.NewFIBKey(me.Target.NetworkID, me.Target.CIDR),
-		Val: pnmaps.NewFIBVal(me.Routing.NextHop, mac, pmo.FIBFlags(me.Type, me.Routing.L2Announce), uint32(me.Routing.EgressIfIndex), vni.MustFromUint32(0)),
+		Val: pnmaps.NewFIBVal(me.Routing.NextHop, mac, pmo.FIBFlags(me.Type, me.Routing.L2Announce), uint32(me.Routing.EgressIfIndex), entryVNI),
 	}
 }
 
@@ -150,6 +154,8 @@ func (pmo *pipFIBMapOps) FIBFlags(typ tables.MapEntryType, l2ann bool) pnmaps.FI
 		flags |= pnmaps.FIBFlagSubnetRoute
 	case tables.MapEntryTypeStaticRoute:
 		flags |= pnmaps.FIBFlagStaticRoute
+	case tables.MapEntryTypeEVPNRoute:
+		flags |= pnmaps.FIBFlagVxlanRoute
 	}
 
 	return flags

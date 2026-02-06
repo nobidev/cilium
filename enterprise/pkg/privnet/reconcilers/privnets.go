@@ -240,6 +240,14 @@ func (pn *PrivateNetworks) extractRoutes(privnet *iso_v1alpha1.ClusterwidePrivat
 			continue
 		}
 
+		if routeSpec.Gateway == iso_v1alpha1.EVPNRoute {
+			routes = append(routes, tables.PrivateNetworkRoute{
+				Destination: dst,
+				EVPNGateway: true,
+			})
+			continue
+		}
+
 		gw, err := netip.ParseAddr(string(routeSpec.Gateway))
 		if err != nil {
 			pn.log.Error("Encountered invalid route gateway in private network spec",

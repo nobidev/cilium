@@ -286,12 +286,16 @@ interface:
 routes:
     - destination: 192.168.252.0/24
       gateway: 192.168.250.254
+      evpngateway: false
     - destination: fd10:0:252::/64
       gateway: fd10:0:250::fffe
+      evpngateway: false
     - destination: 192.168.255.0/24
       gateway: 192.168.250.200
+      evpngateway: false
     - destination: fd10:0:255::/64
       gateway: fd10:0:250::200
+      evpngateway: false
 subnets:
     - name: subnet1
       cidrv4: 192.168.250.0/24

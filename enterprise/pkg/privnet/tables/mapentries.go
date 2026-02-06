@@ -11,6 +11,7 @@
 package tables
 
 import (
+	"cmp"
 	"encoding"
 	"fmt"
 	"net/netip"
@@ -20,6 +21,7 @@ import (
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/reconciler"
 
+	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/mac"
 )
 
@@ -70,7 +72,7 @@ func (me MapEntry) String() string {
 var _ statedb.TableWritable = &MapEntry{}
 
 func (me *MapEntry) TableHeader() []string {
-	return []string{"Type", "Network", "CIDR", "Nexthop", "IfIndex", "MAC", "L2Ann", "Status"}
+	return []string{"Type", "Network", "CIDR", "Nexthop", "IfIndex", "MAC", "L2Ann", "VNI", "Status"}
 }
 
 func (me MapEntry) TableRow() []string {
@@ -94,6 +96,7 @@ func (me MapEntry) TableRow() []string {
 		ifIndex,
 		mac,
 		l2Announce,
+		cmp.Or(me.Routing.VNI.String(), "N/A"),
 		me.Status.String(),
 	}
 }
@@ -111,6 +114,8 @@ const (
 	MapEntryTypeDCNRoute
 	// MapEntryTypeStaticRoute represents an L3 static route.
 	MapEntryTypeStaticRoute
+	// MapEntryTypeEVPNRoute represents an EVPN route.
+	MapEntryTypeEVPNRoute
 )
 
 func (typ MapEntryType) String() string {
@@ -123,6 +128,8 @@ func (typ MapEntryType) String() string {
 		return "D"
 	case MapEntryTypeStaticRoute:
 		return "S"
+	case MapEntryTypeEVPNRoute:
+		return "V"
 	default:
 		return "?"
 	}
@@ -147,6 +154,8 @@ func (typ *MapEntryType) UnmarshalText(in []byte) error {
 		*typ = MapEntryTypeDCNRoute
 	case "S":
 		*typ = MapEntryTypeStaticRoute
+	case "V":
+		*typ = MapEntryTypeEVPNRoute
 	default:
 		return fmt.Errorf("invalid MapEntryType %q", string(in))
 	}
@@ -193,6 +202,9 @@ type MapEntryRouting struct {
 	// EgressIfIndex is the index of the interface to egress traffic towards the target network.
 	// Currently applicable on the INB clusters only.
 	EgressIfIndex int
+
+	// VNI associated with the private-network
+	VNI vni.VNI
 
 	// L2Announce is whether the local node should announce the target endpoint on
 	// the egress facing interface, replying to ARP/ND requests, as well as sending

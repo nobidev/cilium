@@ -132,6 +132,9 @@ type PrivateNetworkRoute struct {
 
 	// Gateway is the route's gateway IP address.
 	Gateway netip.Addr
+
+	// EVPNGateway is true if destination is reachable via evpn gateway
+	EVPNGateway bool
 }
 
 // PrivateNetworkSubnet is a subnet configured on the private network
@@ -197,6 +200,7 @@ func (pn PrivateNetwork) ToSlim(activeINB INBNode) SlimPrivateNetwork {
 		ID:            pn.ID,
 		EgressIfIndex: pn.Interface.Index,
 		ActiveINB:     activeINB,
+		VNI:           pn.VNI,
 	}
 }
 
@@ -214,6 +218,9 @@ type SlimPrivateNetwork struct {
 
 	// ActiveINB is the active INB node.
 	ActiveINB INBNode
+
+	// VNI associated with the private-network
+	VNI vni.VNI
 }
 
 var (
