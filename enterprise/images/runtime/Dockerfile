@@ -14,16 +14,18 @@ FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} AS bpftool-dist
 FROM ${COMPILERS_IMAGE} AS compilers
 
-FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS gops-cni-builder
+FROM ${GOLANG_IMAGE} AS go-builder
 
-RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu
-
-# build-gops.sh will build both archs at the same time
 WORKDIR /go/src/github.com/isovalent/cilium/images/runtime
-RUN --mount=type=bind,readwrite,source=./images/runtime,target=. --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+RUN --mount=type=bind,readwrite,source=./images/runtime,target=. \
+    --mount=target=/root/.cache,type=cache \
+    --mount=target=/go/pkg/mod,type=cache \
     ./build-gops.sh
-# download-cni.sh will build both archs at the same time
-RUN --mount=type=bind,readwrite,source=./images/runtime,target=. --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
+
+ARG TARGETARCH
+RUN --mount=type=bind,readwrite,source=./images/runtime,target=. \
+    --mount=target=/root/.cache,type=cache \
+    --mount=target=/go/pkg/mod,type=cache \
     ./download-cni.sh
 
 FROM ${UBI_MINI_IMAGE} AS release
@@ -51,11 +53,9 @@ RUN --mount=type=bind,readwrite,source=./images/runtime,target=. ./iptables-wrap
 
 COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
 
-COPY --from=bpftool-dist /usr/local /usr/local
+COPY --from=bpftool-dist /usr/local/bin/bpftool /usr/local/bin/bpftool
 
-ARG BUILDPLATFORM
-COPY --from=gops-cni-builder /out/${BUILDPLATFORM}/bin/loopback /cni/loopback
-COPY --from=gops-cni-builder /out/${BUILDPLATFORM}/bin/gops /bin/gops
+COPY --from=go-builder /out /
 
 LABEL version="${VERSION}" \
       org.opencontainers.image.version="${VERSION}" \
