@@ -149,19 +149,25 @@ spec:
               routes:
                 description: The set of routes configured for this private network.
                 items:
-                  description: RouteSpec is the routing specification for a pod network.
+                  description: PrivateNetworkRouteSpec defines a route in the private
+                    network.
                   properties:
                     destination:
-                      description: Destination is the route's destination CIDR.
+                      description: The destination network.
                       format: cidr
                       type: string
                     gateway:
-                      description: Gateway is the route's gateway IP address.
-                      format: ip
+                      description: Gateway is the route's nexthop.
+                      maxLength: 45
                       type: string
+                      x-kubernetes-validations:
+                      - message: must be a valid IP or 'EVPN'
+                        rule: self == 'EVPN' || isIP(self)
                   required:
                   - destination
+                  - gateway
                   type: object
+                maxItems: 1000
                 type: array
               subnets:
                 description: |-

@@ -78,7 +78,8 @@ type PrivateNetworkSpec struct {
 	// The set of routes configured for this private network.
 	//
 	// +kubebuilder:validation:Optional
-	Routes []RouteSpec `json:"routes"`
+	// +kubebuilder:validation:MaxItems=1000
+	Routes []PrivateNetworkRouteSpec `json:"routes"`
 
 	// The set of subnets (that is, L2 domains) associated with, and directly
 	// reachable, from this private network.
@@ -120,6 +121,29 @@ type NetworkCIDRv4 string
 // +kubebuilder:validation:XValidation:rule="cidr(self).ip().family() == 6", message="Not an IPv6 CIDR"
 // +kubebuilder:validation:XValidation:rule="oldSelf == self", message="Subnet IPv6 CIDR is immutable"
 type NetworkCIDRv6 string
+
+// PrivateNetworkRouteSpec defines a route in the private network.
+type PrivateNetworkRouteSpec struct {
+	// The destination network.
+	//
+	// +kubebuilder:validation:Required
+	Destination NetworkCIDR `json:"destination"`
+
+	// Gateway is the route's nexthop.
+	//
+	// +kubebuilder:validation:Required
+	Gateway Nexthop `json:"gateway"`
+}
+
+// Nexthop is an IP address (IPv4 or IPv6) or "EVPN" for lookup in BGP/EVPN routing table.
+//
+// +kubebuilder:validation:MaxLength=45
+// +kubebuilder:validation:XValidation:rule="self == 'EVPN' || isIP(self)", message="must be a valid IP or 'EVPN'"
+type Nexthop string
+
+const (
+	EVPNRoute Nexthop = "EVPN"
+)
 
 // Subnet names must conform to the RFC 1123 Label Names format.
 //
