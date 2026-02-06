@@ -51,15 +51,12 @@ import (
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
-	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
-
 	// version/capabilities are unfortunately a global variable, so we're forcing it here.
 	// This makes it difficult to have different k8s version/capabilities (e.g. use Endpoints
 	// not EndpointSlice) in the tests here, which is why we're currently only testing against

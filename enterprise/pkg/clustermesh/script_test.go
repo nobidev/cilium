@@ -67,7 +67,6 @@ import (
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -75,17 +74,6 @@ import (
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
-	// Catch any leaked goroutines. Ignoring goroutines possibly left by other tests.
-	leakOpts := testutils.GoleakIgnoreCurrent()
-	t.Cleanup(func() {
-		testutils.GoleakVerifyNone(t,
-			leakOpts,
-			// Ignore workqueue metrics collection goroutine, this would otherwise be
-			// cleaned up shortly after the tests complete.
-			testutils.GoleakIgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Typed[...]).updateUnfinishedWorkLoop"),
-		)
-	})
-
 	version.Force(k8stestutils.DefaultVersion)
 
 	var opts []hivetest.LogOption

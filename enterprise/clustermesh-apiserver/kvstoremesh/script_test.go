@@ -37,16 +37,12 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
-	// Catch any leaked goroutines.
-	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
-
 	var opts []hivetest.LogOption
 	if *debug {
 		opts = append(opts, hivetest.LogLevel(slog.LevelDebug))

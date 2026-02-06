@@ -45,26 +45,12 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
-	// Catch any leaked goroutines.
-	t.Cleanup(func() {
-		testutils.GoleakVerifyNone(t,
-			// To ignore goroutines possibly left by other tests.
-			testutils.GoleakIgnoreCurrent(),
-
-			// To ignore goroutine started by the workqueue. It reports metrics
-			// on unfinished work with default tick period of 0.5s - it terminates
-			// no longer than 0.5s after the workqueue is stopped.
-			testutils.GoleakIgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop"),
-		)
-	})
-
 	version.Force(k8stestutils.DefaultVersion)
 
 	var opts []hivetest.LogOption

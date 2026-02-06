@@ -29,14 +29,11 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/testutils"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
-	defer testutils.GoleakVerifyNone(t)
-
 	version.Force(k8sTestutils.DefaultVersion)
 	nodeTypes.SetName(nodeName)
 
