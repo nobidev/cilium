@@ -35,8 +35,9 @@ const FIBMapName = "cilium_privnet_fib"
 type FIBKey struct {
 	PrefixLen uint32           `align:"lpm_key"`
 	NetID     tables.NetworkID `align:"net_id"`
+	SubnetID  tables.SubnetID  `align:"subnet_id"`
 	Family    uint8            `align:"family"`
-	_         [1]uint8         `align:"pad"`
+	_         [3]uint8         `align:"pad"`
 	Address   types.IPv6       `align:"$union0"`
 }
 
@@ -116,21 +117,23 @@ func (f FIB) Ops() reconciler.Operations[*FIBKeyVal] {
 }
 
 // NewFIBKey constructs a new FIB map key.
-func NewFIBKey(netID tables.NetworkID, prefix netip.Prefix) FIBKey {
+func NewFIBKey(netID tables.NetworkID, subnetID tables.SubnetID, prefix netip.Prefix) FIBKey {
 	family, addr := fromAddr(prefix.Addr())
 	prefixLen := fibKeyStaticPrefixBits + uint32(prefix.Bits())
 
 	return FIBKey{
 		PrefixLen: prefixLen,
 		NetID:     netID,
+		SubnetID:  subnetID,
 		Family:    family,
 		Address:   addr,
 	}
 }
 
 func (k FIBKey) String() string {
-	return fmt.Sprintf("%s %s",
+	return fmt.Sprintf("%s %s %s",
 		k.NetID,
+		k.SubnetID,
 		k.ToPrefix(),
 	)
 }

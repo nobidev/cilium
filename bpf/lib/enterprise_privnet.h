@@ -144,8 +144,9 @@
 struct privnet_fib_key {
 	struct bpf_lpm_trie_key lpm_key;
 	__u16 net_id;
+	__u16 subnet_id;
 	__u8 family;
-	__u8 pad[1];
+	__u8 pad[3];
 	union {
 		struct {
 			__u32		ip4;
