@@ -6,6 +6,8 @@ package types
 import (
 	"errors"
 	"fmt"
+	"math"
+	"sync"
 
 	"github.com/spf13/pflag"
 
@@ -29,6 +31,35 @@ type ClusterInfo struct {
 	ID                   uint32 `mapstructure:"cluster-id"`
 	Name                 string `mapstructure:"cluster-name"`
 	MaxConnectedClusters uint32 `mapstructure:"max-connected-clusters"`
+	clusterIDInit        sync.Once
+	clusterIDBits        uint32
+	clusterIDShift       uint32
+}
+
+const numericIdentityBitlength = 24
+
+// GetClusterIDShift returns the number of bits to shift a cluster ID in a numeric
+// identity and is equal to the number of bits that represent a cluster-local identity.
+// A sync.Once is used to ensure we only initialize clusterIDShift once.
+func (c *ClusterInfo) GetClusterIDShift() uint32 {
+	c.clusterIDInit.Do(c.initClusterIDShift)
+	return c.clusterIDShift
+}
+
+// GetClusterIDBits returns the number of bits that represent a cluster ID in a numeric identity
+// A sync.Once is used to ensure we only initialize clusterIDBits once.
+func (c *ClusterInfo) GetClusterIDBits() uint32 {
+	c.clusterIDInit.Do(c.initClusterIDShift)
+	return c.clusterIDBits
+}
+
+// initClusterIDShift sets variables that control the bit allocation of cluster
+// ID in a numeric identity.
+func (c *ClusterInfo) initClusterIDShift() {
+	// ClusterIDLen is the number of bits that represent a cluster ID in a numeric identity
+	c.clusterIDBits = uint32(math.Log2(float64(ClusterIDMax + 1)))
+	// ClusterIDShift is the number of bits to shift a cluster ID in a numeric identity
+	c.clusterIDShift = numericIdentityBitlength - c.clusterIDBits
 }
 
 // DefaultClusterInfo represents the default ClusterInfo values.
@@ -39,10 +70,10 @@ var DefaultClusterInfo = ClusterInfo{
 }
 
 // Flags implements the cell.Flagger interface, to register the given flags.
-func (def ClusterInfo) Flags(flags *pflag.FlagSet) {
-	flags.Uint32(OptClusterID, def.ID, "Unique identifier of the cluster")
-	flags.String(OptClusterName, def.Name, "Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character.")
-	flags.Uint32(OptMaxConnectedClusters, def.MaxConnectedClusters, "Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511].")
+func (c ClusterInfo) Flags(flags *pflag.FlagSet) {
+	flags.Uint32(OptClusterID, c.ID, "Unique identifier of the cluster")
+	flags.String(OptClusterName, c.Name, "Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character.")
+	flags.Uint32(OptMaxConnectedClusters, c.MaxConnectedClusters, "Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511].")
 }
 
 // Validate validates that the ClusterID is in the valid range (including ClusterID == 0),
