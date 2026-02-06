@@ -12,6 +12,7 @@ package tables
 
 import (
 	"net/netip"
+	"strconv"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -20,6 +21,18 @@ import (
 type (
 	// SubnetName is the name of a subnet.
 	SubnetName string
+
+	// SubnetID is a numeric identifier of a private network subnet.
+	SubnetID uint16
+)
+
+func (sid SubnetID) String() string {
+	return "0x" + strconv.FormatUint(uint64(sid), 16)
+}
+
+const (
+	// SubnetIDReserved represents the reserved SubnetID that cannot be assigned.
+	SubnetIDReserved = SubnetID(0)
 )
 
 // Subnet represents a private network subnet instance.
