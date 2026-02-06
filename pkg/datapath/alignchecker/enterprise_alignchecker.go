@@ -35,6 +35,8 @@ func init() {
 		"privnet_pip_val":              {privnet.PIPVal{}},
 		"privnet_device_key":           {privnet.DeviceKey{}},
 		"privnet_device_val":           {privnet.DeviceVal{}},
+		"privnet_subnet_key":           {privnet.SubnetKey{}},
+		"privnet_subnet_val":           {privnet.SubnetVal{}},
 		"vni_key":                      {vniMap.VNIKey{}},
 		"vni_val":                      {vniMap.VNIVal{}},
 	} {
