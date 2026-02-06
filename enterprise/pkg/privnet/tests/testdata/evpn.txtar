@@ -1,0 +1,51 @@
+#! --private-networks-enabled
+
+hive start
+db/initialized private-networks
+db/initialized privnet-routes
+
+# Add ClusterwidePrivateNetworks
+k8s/add icpn-evpn.yaml
+
+# Ensure that they are correctly propagated into the table
+db/cmp private-networks privnet.table
+db/cmp privnet-routes routes.table
+
+# Wait for initial table to be populated
+db/cmp privnet-mapentries mapentries.v1.table
+
+# ---
+
+-- icpn-evpn.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: icpn-evpn
+spec:
+  routes:
+  - destination: 0.0.0.0/0
+    gateway: EVPN
+  - destination: ::/0
+    gateway: EVPN
+  subnets:
+  - name: subnet1
+    cidrv4: 192.168.250.0/24
+    cidrv6: fd10:0:250::0/64
+status:
+  vni: 100
+
+-- privnet.table --
+Name        ID    VNI  Subnets                              Routes
+icpn-evpn   0x1   100  192.168.250.0/24,fd10:0:250::/64     2
+
+-- routes.table --
+Network     Destination        Gateway
+icpn-evpn   0.0.0.0/0          evpn
+icpn-evpn   192.168.250.0/24   N/A
+icpn-evpn   ::/0               evpn
+icpn-evpn   fd10:0:250::/64    N/A
+
+-- mapentries.v1.table --
+Type   Network     CIDR         Nexthop   VNI
+V      icpn-evpn   0.0.0.0/0    0.0.0.0   100
+V      icpn-evpn   ::/0         ::        100
