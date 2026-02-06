@@ -56,10 +56,12 @@ import (
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	cmoperator "github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/gops"
@@ -79,6 +81,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
+	wgAgent "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 var (
@@ -147,6 +150,9 @@ var (
 		cell.Provide(func() *operatorOption.OperatorConfig {
 			return operatorOption.Config
 		}),
+
+		ipsec.OperatorCell,
+		wgAgent.OperatorCell,
 
 		cell.Provide(func(
 			daemonCfg *option.DaemonConfig,
@@ -298,6 +304,9 @@ var (
 		// secrets namespace that is accessible by the Cilium Agents.
 		// Resources might be K8s `Ingress` or Gateway API `Gateway`.
 		secretsync.Cell,
+
+		// Provide the namespace manager for service and serviceexport synchronizers.
+		cmnamespace.Cell,
 
 		// Synchronizes K8s services to KVStore.
 		cell.Provide(func(cfg *operatorOption.OperatorConfig, dcfg *option.DaemonConfig) operatorWatchers.ServiceSyncConfig {

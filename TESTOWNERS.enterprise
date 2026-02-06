@@ -347,6 +347,7 @@
 /pkg/source @isovalent/policy-identity-networking
 /pkg/spanstat/ @isovalent/cni
 /pkg/status/ @isovalent/cni
+/pkg/subnet/ @isovalent/cni
 /pkg/svcrouteconfig/ @isovalent/cni @isovalent/traffic-engineering
 /pkg/testutils/scriptnet @isovalent/ci-structure
 /pkg/time @isovalent/cni

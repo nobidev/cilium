@@ -32,7 +32,7 @@ type phantomServiceConverter struct {
 // Convert implements watchers.ClusterServiceConverter.
 // Mutates the service in order to make the service
 // reachable in remote clusters, if it is marked to be of type phantom.
-func (c *phantomServiceConverter) Convert(svc *slim_corev1.Service, getEndpoints func(namespace string, name string) []*k8s.Endpoints) (out *store.ClusterService, toUpsert bool) {
+func (c *phantomServiceConverter) Convert(svc *slim_corev1.Service, getEndpoints func(namespace string, name string) []*k8s.Endpoints) (out *store.ClusterService, toUpsert bool, err error) {
 	if !getAnnotationPhantom(svc) {
 		return c.orig.Convert(svc, getEndpoints)
 	}
@@ -52,11 +52,14 @@ func (c *phantomServiceConverter) Convert(svc *slim_corev1.Service, getEndpoints
 	if len(svc.Spec.ClusterIPs) > 0 {
 		svc.Spec.ClusterIP = svc.Spec.ClusterIPs[0]
 	} else {
-		return c.orig.ForDeletion(svc), false
+		return c.orig.ForDeletion(svc), false, nil
 	}
 
-	out, toUpsert = c.orig.Convert(svc, getEndpoints)
-	out.IncludeExternal = false
+	out, toUpsert, err = c.orig.Convert(svc, getEndpoints)
+	if err == nil {
+		out.IncludeExternal = false
+	}
+
 	return
 }
 

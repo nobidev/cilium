@@ -55,6 +55,14 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 	cfg.EphemeralMin = lnc.EphemeralMin
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
+	cfg.DebugLB = ep.GetOptions().IsEnabled(option.DebugLB)
+
+	if lnc.DatapathIsLayer2 {
+		cfg.EnableARPResponder = !ep.RequireARPPassthrough()
+	}
+
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
 
 	return cfg
 }

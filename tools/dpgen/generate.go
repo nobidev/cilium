@@ -40,6 +40,8 @@ var stylized = map[string]string{
 	"ep":      "EP",
 	"fib":     "FIB",
 	"ifindex": "IfIndex",
+	"arp":     "ARP",
+	"lb":      "LB",
 }
 
 // varsToStruct generates a Go struct from the configuration variables in the

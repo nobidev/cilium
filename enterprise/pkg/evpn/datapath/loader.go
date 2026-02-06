@@ -72,8 +72,10 @@ func replaceEvpnDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath
 			config.EvpnBase(lnc, device),
 			config.EvpnEnterprise(evpnCfg, privnetCfg),
 		},
-		MapRenames: map[string]string{
-			"cilium_calls": evpnCallsMap,
+		MapRenames: []map[string]string{
+			{
+				"cilium_calls": evpnCallsMap,
+			},
 		},
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},

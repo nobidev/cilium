@@ -5,7 +5,6 @@ package option
 
 const (
 	PolicyTracing        = "PolicyTracing"
-	ConntrackAccounting  = "ConntrackAccounting"
 	Debug                = "Debug"
 	DebugLB              = "DebugLB"
 	DebugPolicy          = "DebugPolicy"
@@ -23,19 +22,12 @@ const (
 )
 
 var (
-	specConntrackAccounting = Option{
-		Define:      "CONNTRACK_ACCOUNTING",
-		Description: "Enable per flow (conntrack) statistics",
-		Requires:    nil,
-	}
-
 	specDebug = Option{
 		Define:      "DEBUG",
 		Description: "Enable debugging trace statements",
 	}
 
 	specDebugLB = Option{
-		Define:      "LB_DEBUG",
 		Description: "Enable debugging trace statements for load balancer",
 	}
 

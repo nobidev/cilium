@@ -101,3 +101,13 @@ func (f *EnterpriseFakeRouter) GetRoutePoliciesExtended(ctx context.Context) (*c
 	}
 	return &ceeTypes.GetRoutePoliciesExtendedResponse{Policies: policies}, nil
 }
+
+// AddNeighborExtended adds a new enterprise-specific BGP peer into the underlying router.
+func (f *EnterpriseFakeRouter) AddNeighborExtended(ctx context.Context, n *ceeTypes.EnterpriseNeighbor) error {
+	return nil
+}
+
+// UpdateNeighborExtended updates enterprise-specific BGP peer into the underlying router.
+func (f *EnterpriseFakeRouter) UpdateNeighborExtended(ctx context.Context, n *ceeTypes.EnterpriseNeighbor) error {
+	return nil
+}

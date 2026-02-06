@@ -174,6 +174,7 @@ func TestPrivilegedAgentScripts(t *testing.T) {
 							EnterpriseDaemonConfig: option.EnterpriseDaemonConfig{
 								EnableIPv4EgressGatewayHA: true,
 							},
+							EnableIPv4:             true,
 							EnableBPFMasquerade:    true,
 							EnableIPv4Masquerade:   true,
 							IdentityAllocationMode: option.IdentityAllocationModeCRD,

@@ -17,9 +17,9 @@ import (
 
 	"github.com/blang/semver/v4"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "k8s.io/client-go/kubernetes"
 
 	"github.com/cilium/cilium/cilium-cli/k8s"
-	"github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 )
 
 const (

@@ -293,7 +293,7 @@ func Test_extractDirectNodeRoutes(t *testing.T) {
 								Allocated: []ipamTypes.IPAMPoolAllocation{
 									{
 										Pool: "default",
-										CIDRs: []ipamTypes.IPAMPodCIDR{
+										CIDRs: []ipamTypes.IPAMCIDR{
 											"10.20.30.0/24",
 										},
 									},
@@ -333,7 +333,7 @@ func Test_extractDirectNodeRoutes(t *testing.T) {
 								Allocated: []ipamTypes.IPAMPoolAllocation{
 									{
 										Pool: "default",
-										CIDRs: []ipamTypes.IPAMPodCIDR{
+										CIDRs: []ipamTypes.IPAMCIDR{
 											"10.20.30.0/24",
 										},
 									},
@@ -379,7 +379,7 @@ func Test_extractDirectNodeRoutes(t *testing.T) {
 								Allocated: []ipamTypes.IPAMPoolAllocation{
 									{
 										Pool: "default",
-										CIDRs: []ipamTypes.IPAMPodCIDR{
+										CIDRs: []ipamTypes.IPAMCIDR{
 											"10.20.30.0/24",
 										},
 									},
@@ -452,14 +452,14 @@ func Test_extractDirectNodeRoutes(t *testing.T) {
 								Allocated: []ipamTypes.IPAMPoolAllocation{
 									{
 										Pool: "default",
-										CIDRs: []ipamTypes.IPAMPodCIDR{
+										CIDRs: []ipamTypes.IPAMCIDR{
 											"10.20.30.0/24",
 											"fd00:20::/64",
 										},
 									},
 									{
 										Pool: "pool-1",
-										CIDRs: []ipamTypes.IPAMPodCIDR{
+										CIDRs: []ipamTypes.IPAMCIDR{
 											"172.20.40.0/26",
 											"172.20.50.0/26",
 											"fd00:80::/96",

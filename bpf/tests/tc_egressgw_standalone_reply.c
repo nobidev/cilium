@@ -40,6 +40,8 @@ mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 #include "lib/egressgw.h"
 #include "lib/egressgw_ha.h"
 
+ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
+
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused, __u32 flags __maybe_unused)

@@ -1593,7 +1593,7 @@ func (ct *ConnectivityTest) patchDeployment(ctx context.Context) error {
 		}
 
 		for _, pod := range clientPods.Items {
-			_, err := ct.client.ExecInPod(ctx, ct.params.TestNamespace, pod.Name, "",
+			_, err := ct.client.ExecInPod(ctx, ct.params.TestNamespace, pod.Name, pod.Spec.Containers[0].Name,
 				[]string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d >> /etc/ssl/certs/ca-certificates.crt", encodedCert)})
 			if err != nil {
 				return fmt.Errorf("unable to add CA to pod %s: %w", pod.Name, err)
@@ -2739,6 +2739,15 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 					continue
 				}
 
+				// On GKE, ExternalIP is not reachable from inside a cluster.
+				// Skip validation for external IPs in GKE to match the actual test behavior.
+				if addr.Type == slimcorev1.NodeExternalIP {
+					if f, ok := ct.Feature(features.Flavor); ok && f.Enabled && f.Mode == "gke" {
+						ct.Debugf("Skipping NodePort validation for external IP %s on GKE", addr.Address)
+						continue
+					}
+				}
+
 				for _, s := range ct.echoServices {
 					if err := WaitForNodePorts(ctx, ct, *client, addr.Address, s); err != nil {
 						return err
@@ -2778,7 +2787,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			if iface := ct.params.SecondaryNetworkIface; iface != "" {
 				if ct.Features[features.IPv4].Enabled {
 					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
-					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
+					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd)
 					if err != nil {
 						return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
 					}
@@ -2786,7 +2795,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 				}
 				if ct.Features[features.IPv6].Enabled {
 					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet6 -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
-					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
+					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd)
 					if err != nil {
 						return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
 					}

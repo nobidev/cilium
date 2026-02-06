@@ -16,8 +16,7 @@ import (
 	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
+	k8s "k8s.io/client-go/kubernetes"
 )
 
 func IPFamilyInfo(ctx context.Context, k8sCli *k8s.Clientset, ciliumNamespace string) (bool, bool, error) {

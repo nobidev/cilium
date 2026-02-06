@@ -46,6 +46,7 @@ mock_ext_eps_policy_can_access(struct __ctx_buff __maybe_unused *ctx,
 #include "lib/bpf_overlay.h"
 
 #include "tests/lib/enterprise_privnet.h"
+#include "tests/lib/network_device.h"
 
 /* Enable privnet */
 ASSIGN_CONFIG(bool, privnet_enable, true)
@@ -62,6 +63,9 @@ int privnet_icmp_from_overlay_nat_src_dst_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_icmp_from_overlay_nat_src_dst")
 int privnet_icmp_from_overlay_nat_src_dst_setup(struct __ctx_buff *ctx)
 {
+	const __u8 mac[] = mac_one_addr;
+	cilium_device_add_entry(ENCAP_IFINDEX, mac, 0);
+
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
 

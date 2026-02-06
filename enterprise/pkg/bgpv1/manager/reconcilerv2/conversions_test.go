@@ -17,7 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/bgp/types"
+	types "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
+	ossTypes "github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 )
@@ -29,7 +30,7 @@ func TestToNeighbor(t *testing.T) {
 		peerConfig   *v1.IsovalentBGPPeerConfigSpec
 		authPassword string
 		selfRRRole   v1.RouteReflectorRole
-		expected     *types.Neighbor
+		expected     *types.EnterpriseNeighbor
 	}{
 		{
 			name: "IPv4 Minimal",
@@ -38,9 +39,11 @@ func TestToNeighbor(t *testing.T) {
 				PeerASN:     ptr.To(int64(64512)),
 			},
 			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
-			expected: &types.Neighbor{
-				Address: netip.MustParseAddr("10.0.0.1"),
-				ASN:     64512,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("10.0.0.1"),
+					ASN:     64512,
+				},
 			},
 		},
 		{
@@ -50,9 +53,11 @@ func TestToNeighbor(t *testing.T) {
 				PeerASN:     ptr.To(int64(64512)),
 			},
 			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
-			expected: &types.Neighbor{
-				Address: netip.MustParseAddr("fd00::1"),
-				ASN:     64512,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("fd00::1"),
+					ASN:     64512,
+				},
 			},
 		},
 		{
@@ -63,11 +68,13 @@ func TestToNeighbor(t *testing.T) {
 				LocalAddress: ptr.To("fd00::2"),
 			},
 			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
-			expected: &types.Neighbor{
-				Address: netip.MustParseAddr("fd00::1"),
-				ASN:     64512,
-				Transport: &types.NeighborTransport{
-					LocalAddress: "fd00::2",
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("fd00::1"),
+					ASN:     64512,
+					Transport: &ossTypes.NeighborTransport{
+						LocalAddress: "fd00::2",
+					},
 				},
 			},
 		},
@@ -82,11 +89,13 @@ func TestToNeighbor(t *testing.T) {
 					PeerPort: ptr.To(int32(1790)),
 				},
 			},
-			expected: &types.Neighbor{
-				Address: netip.MustParseAddr("fd00::1"),
-				ASN:     64512,
-				Transport: &types.NeighborTransport{
-					RemotePort: 1790,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("fd00::1"),
+					ASN:     64512,
+					Transport: &ossTypes.NeighborTransport{
+						RemotePort: 1790,
+					},
 				},
 			},
 		},
@@ -103,13 +112,15 @@ func TestToNeighbor(t *testing.T) {
 					KeepAliveTimeSeconds:    ptr.To(int32(1)),
 				},
 			},
-			expected: &types.Neighbor{
-				Address: netip.MustParseAddr("fd00::1"),
-				ASN:     64512,
-				Timers: &types.NeighborTimers{
-					ConnectRetry:      1,
-					HoldTime:          3,
-					KeepaliveInterval: 1,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("fd00::1"),
+					ASN:     64512,
+					Timers: &ossTypes.NeighborTimers{
+						ConnectRetry:      1,
+						HoldTime:          3,
+						KeepaliveInterval: 1,
+					},
 				},
 			},
 		},
@@ -121,10 +132,12 @@ func TestToNeighbor(t *testing.T) {
 			},
 			peerConfig:   &v1.IsovalentBGPPeerConfigSpec{},
 			authPassword: "password",
-			expected: &types.Neighbor{
-				Address:      netip.MustParseAddr("fd00::1"),
-				ASN:          64512,
-				AuthPassword: "password",
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address:      netip.MustParseAddr("fd00::1"),
+					ASN:          64512,
+					AuthPassword: "password",
+				},
 			},
 		},
 		{
@@ -139,12 +152,14 @@ func TestToNeighbor(t *testing.T) {
 					RestartTimeSeconds: ptr.To(int32(3)),
 				},
 			},
-			expected: &types.Neighbor{
-				Address: netip.MustParseAddr("fd00::1"),
-				ASN:     64512,
-				GracefulRestart: &types.NeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: 3,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("fd00::1"),
+					ASN:     64512,
+					GracefulRestart: &ossTypes.NeighborGracefulRestart{
+						Enabled:     true,
+						RestartTime: 3,
+					},
 				},
 			},
 		},
@@ -157,11 +172,13 @@ func TestToNeighbor(t *testing.T) {
 			peerConfig: &v1.IsovalentBGPPeerConfigSpec{
 				EBGPMultihop: ptr.To(int32(3)),
 			},
-			expected: &types.Neighbor{
-				Address: netip.MustParseAddr("fd00::1"),
-				ASN:     64512,
-				EbgpMultihop: &types.NeighborEbgpMultihop{
-					TTL: 3,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("fd00::1"),
+					ASN:     64512,
+					EbgpMultihop: &ossTypes.NeighborEbgpMultihop{
+						TTL: 3,
+					},
 				},
 			},
 		},
@@ -177,9 +194,11 @@ func TestToNeighbor(t *testing.T) {
 			},
 			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
 			selfRRRole: v1.RouteReflectorRoleRouteReflector,
-			expected: &types.Neighbor{
-				Address: netip.MustParseAddr("fd00::1"),
-				ASN:     64512,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("fd00::1"),
+					ASN:     64512,
+				},
 				RouteReflector: &types.NeighborRouteReflector{
 					Client:    true,
 					ClusterID: "255.0.0.1",
@@ -198,9 +217,11 @@ func TestToNeighbor(t *testing.T) {
 			},
 			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
 			selfRRRole: v1.RouteReflectorRoleRouteReflector,
-			expected: &types.Neighbor{
-				Address: netip.MustParseAddr("fd00::1"),
-				ASN:     64512,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("fd00::1"),
+					ASN:     64512,
+				},
 				RouteReflector: &types.NeighborRouteReflector{
 					Client:    true,
 					ClusterID: "255.0.0.1",
@@ -219,9 +240,34 @@ func TestToNeighbor(t *testing.T) {
 			},
 			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
 			selfRRRole: v1.RouteReflectorRoleClient,
-			expected: &types.Neighbor{
-				Address: netip.MustParseAddr("fd00::1"),
-				ASN:     64512,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("fd00::1"),
+					ASN:     64512,
+				},
+			},
+		},
+		{
+			name: "RouteReflector to RouteReflector",
+			nodePeer: &v1.IsovalentBGPNodePeer{
+				PeerAddress: ptr.To("fd00::1"),
+				PeerASN:     ptr.To(int64(64512)),
+				RouteReflector: &v1.NodeRouteReflector{
+					Role:      v1.RouteReflectorRoleRouteReflector,
+					ClusterID: "255.0.0.1",
+				},
+			},
+			peerConfig: &v1.IsovalentBGPPeerConfigSpec{},
+			selfRRRole: v1.RouteReflectorRoleRouteReflector,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("fd00::1"),
+					ASN:     64512,
+				},
+				RouteReflector: &types.NeighborRouteReflector{
+					Client:    true,
+					ClusterID: "255.0.0.1",
+				},
 			},
 		},
 		{
@@ -248,17 +294,19 @@ func TestToNeighbor(t *testing.T) {
 					},
 				},
 			},
-			expected: &types.Neighbor{
-				Address: netip.MustParseAddr("fd00::1"),
-				ASN:     64512,
-				AfiSafis: []*types.Family{
-					{
-						Afi:  types.AfiIPv4,
-						Safi: types.SafiUnicast,
-					},
-					{
-						Afi:  types.AfiIPv6,
-						Safi: types.SafiUnicast,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address: netip.MustParseAddr("fd00::1"),
+					ASN:     64512,
+					AfiSafis: []*ossTypes.Family{
+						{
+							Afi:  ossTypes.AfiIPv4,
+							Safi: ossTypes.SafiUnicast,
+						},
+						{
+							Afi:  ossTypes.AfiIPv6,
+							Safi: ossTypes.SafiUnicast,
+						},
 					},
 				},
 			},
@@ -300,34 +348,36 @@ func TestToNeighbor(t *testing.T) {
 				},
 			},
 			authPassword: "password",
-			expected: &types.Neighbor{
-				Address:      netip.MustParseAddr("fd00::1"),
-				ASN:          64512,
-				AuthPassword: "password",
-				EbgpMultihop: &types.NeighborEbgpMultihop{
-					TTL: 3,
-				},
-				Timers: &types.NeighborTimers{
-					ConnectRetry:      1,
-					HoldTime:          3,
-					KeepaliveInterval: 1,
-				},
-				Transport: &types.NeighborTransport{
-					LocalAddress: "fd00::2",
-					RemotePort:   1790,
-				},
-				GracefulRestart: &types.NeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: 3,
-				},
-				AfiSafis: []*types.Family{
-					{
-						Afi:  types.AfiIPv4,
-						Safi: types.SafiUnicast,
+			expected: &types.EnterpriseNeighbor{
+				Neighbor: ossTypes.Neighbor{
+					Address:      netip.MustParseAddr("fd00::1"),
+					ASN:          64512,
+					AuthPassword: "password",
+					EbgpMultihop: &ossTypes.NeighborEbgpMultihop{
+						TTL: 3,
 					},
-					{
-						Afi:  types.AfiIPv6,
-						Safi: types.SafiUnicast,
+					Timers: &ossTypes.NeighborTimers{
+						ConnectRetry:      1,
+						HoldTime:          3,
+						KeepaliveInterval: 1,
+					},
+					Transport: &ossTypes.NeighborTransport{
+						LocalAddress: "fd00::2",
+						RemotePort:   1790,
+					},
+					GracefulRestart: &ossTypes.NeighborGracefulRestart{
+						Enabled:     true,
+						RestartTime: 3,
+					},
+					AfiSafis: []*ossTypes.Family{
+						{
+							Afi:  ossTypes.AfiIPv4,
+							Safi: ossTypes.SafiUnicast,
+						},
+						{
+							Afi:  ossTypes.AfiIPv6,
+							Safi: ossTypes.SafiUnicast,
+						},
 					},
 				},
 			},
@@ -335,7 +385,7 @@ func TestToNeighbor(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			neighbor := toNeighbor(tt.nodePeer, tt.peerConfig, tt.authPassword, tt.selfRRRole)
+			neighbor := toEnterpriseNeighbor(tt.nodePeer, tt.peerConfig, tt.authPassword, tt.selfRRRole)
 			require.Equal(t, tt.expected, neighbor)
 		})
 	}

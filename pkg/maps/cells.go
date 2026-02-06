@@ -24,10 +24,12 @@ import (
 	"github.com/cilium/cilium/pkg/maps/multicast"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
+	"github.com/cilium/cilium/pkg/maps/netdev"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
+	"github.com/cilium/cilium/pkg/maps/subnet"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 )
 
@@ -43,6 +45,9 @@ var Cell = cell.Module(
 
 	// ConfigMap stores runtime configuration state for the Cilium datapath.
 	configmap.Cell,
+
+	// Provides access to eBPF map which stores network devices properties for datapath usage.
+	netdev.Cell,
 
 	// Receives datapath signals for GC fill-up events
 	// Note that we can't import this from ctmap package, as gc needs to import ctmap.
@@ -97,6 +102,9 @@ var Cell = cell.Module(
 
 	// Provides access to the vtep map.
 	vtep.Cell,
+
+	// Provides access to the subnet map.
+	subnet.Cell,
 )
 
 type mapApiHandlerOut struct {

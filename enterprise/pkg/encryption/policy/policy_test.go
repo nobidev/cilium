@@ -11,6 +11,7 @@
 package policy
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -34,6 +35,10 @@ import (
 type mockReconciler struct{}
 
 func (m *mockReconciler) Prune() {}
+
+func (m *mockReconciler) WaitUntilReconciled(_ context.Context, untilRevision statedb.Revision) (revision statedb.Revision, retryLowWatermark statedb.Revision, err error) {
+	return untilRevision, 0, nil
+}
 
 type mockReconcilerMetrics struct{}
 

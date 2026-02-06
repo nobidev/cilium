@@ -16,9 +16,9 @@ import (
 	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8s "k8s.io/client-go/kubernetes"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	k8s "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
