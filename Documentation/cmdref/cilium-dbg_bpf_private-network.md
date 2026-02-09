@@ -27,4 +27,5 @@ Manage private network maps
 * [cilium-dbg bpf private-network devices](cilium-dbg_bpf_private-network_devices.md)	 - Manage the private-network devices map
 * [cilium-dbg bpf private-network fib](cilium-dbg_bpf_private-network_fib.md)	 - Manage the private-network FIB map
 * [cilium-dbg bpf private-network pip](cilium-dbg_bpf_private-network_pip.md)	 - Manage the private-network PIP map
+* [cilium-dbg bpf private-network subnets](cilium-dbg_bpf_private-network_subnets.md)	 - Manage the private-network subnets map
 
