@@ -52,35 +52,55 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewPrivateNetworksTable: %s", err)
 		}
-		wtxn = db.WriteTxn(privNets)
+		subnets, err := tables.NewSubnetTable(db)
+		if err != nil {
+			t.Fatalf("NewPrivateNetworksTable: %s", err)
+		}
+		wtxn = db.WriteTxn(privNets, subnets)
 		privNets.Insert(wtxn,
 			tables.PrivateNetwork{
 				Name: "green-network",
 				ID:   1,
-				Subnets: []tables.PrivateNetworkSubnet{
-					{
-						Name:   "subnet1",
-						CIDRv4: netip.MustParsePrefix("192.168.11.0/24"),
-						CIDRv6: netip.MustParsePrefix("fd10:0:150::/64"),
-					},
-					{
-						Name:   "subnet2",
-						CIDRv4: netip.MustParsePrefix("192.168.52.0/24"),
-						CIDRv6: netip.MustParsePrefix("fd10:0:152::/64"),
-					},
-				},
 			})
+		subnets.Insert(wtxn,
+			tables.Subnet{
+				Network:   "green-network",
+				NetworkID: 1,
+				Name:      "subnet1",
+				CIDRv4:    netip.MustParsePrefix("192.168.11.0/24"),
+				CIDRv6:    netip.MustParsePrefix("fd10:0:150::/64"),
+			})
+		subnets.Insert(wtxn,
+			tables.Subnet{
+				Network:   "green-network",
+				NetworkID: 1,
+				Name:      "subnet2",
+				CIDRv4:    netip.MustParsePrefix("192.168.52.0/24"),
+				CIDRv6:    netip.MustParsePrefix("fd10:0:152::/64"),
+			},
+		)
+		subnets.Insert(wtxn,
+			tables.Subnet{
+				Network:   "green-network",
+				NetworkID: 1,
+				Name:      "subnet3",
+				CIDRv4:    netip.MustParsePrefix("192.168.10.0/24"),
+				CIDRv6:    netip.MustParsePrefix("fd10:0:140::/64"),
+			},
+		)
 		privNets.Insert(wtxn,
 			tables.PrivateNetwork{
 				Name: "blue-network",
 				ID:   2,
-				Subnets: []tables.PrivateNetworkSubnet{
-					{
-						Name:   "subnet1",
-						CIDRv4: netip.MustParsePrefix("192.168.22.0/24"),
-					},
-				},
 			})
+		subnets.Insert(wtxn,
+			tables.Subnet{
+				Network:   "blue-network",
+				NetworkID: 2,
+				Name:      "subnet1",
+				CIDRv4:    netip.MustParsePrefix("192.168.22.0/24"),
+			})
+
 		wtxn.Commit()
 
 		return &PrivNetAPI{
@@ -89,6 +109,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			log:             hivetest.Logger(t),
 			pods:            pods,
 			privateNetworks: privNets,
+			subnets:         subnets,
 		}
 	}
 
@@ -364,6 +385,15 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				},
 			),
 			wantErr: "requested IP fd10:0:150::17 not in range of",
+		},
+		{
+			name: "network attachement in conflicting subnet",
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+				},
+			),
+			wantErr: "requested IP fd10:0:150::11 not in range of the subnet of the IP 192.168.10.11",
 		},
 	}
 

@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
-	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -48,6 +47,7 @@ type apiParams struct {
 	DaemonConfig         *option.DaemonConfig
 	Pods                 statedb.Table[daemonK8s.LocalPod]
 	PrivateNetworks      statedb.Table[tables.PrivateNetwork]
+	Subnets              statedb.Table[tables.Subnet]
 }
 
 type cfg struct {
@@ -64,6 +64,7 @@ type PrivNetAPI struct {
 
 	pods            statedb.Table[daemonK8s.LocalPod]
 	privateNetworks statedb.Table[tables.PrivateNetwork]
+	subnets         statedb.Table[tables.Subnet]
 }
 
 func newPrivNetAPI(p apiParams) *PrivNetAPI {
@@ -78,6 +79,7 @@ func newPrivNetAPI(p apiParams) *PrivNetAPI {
 		log:             p.Log,
 		pods:            p.Pods,
 		privateNetworks: p.PrivateNetworks,
+		subnets:         p.Subnets,
 	}
 }
 
@@ -151,33 +153,33 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 		ipv6 = attachment.IPv6
 	}
 
-	if err = validAttachment(ipv4, ipv6, privnet.Subnets); err != nil {
+	if err = n.validAttachment(txn, privnet.Name, ipv4, ipv6); err != nil {
 		return nil, err
 	}
 
 	return addressing, nil
 }
 
-func validAttachment(ipv4, ipv6 netip.Addr, prefixes []tables.PrivateNetworkSubnet) error {
-	idx4, idx6 := -1, -1
+func (n *PrivNetAPI) validAttachment(txn statedb.ReadTxn, privnet tables.NetworkName, ipv4, ipv6 netip.Addr) error {
+	var subnetv4, subnetv6 tables.SubnetName
 
 	if ipv4.IsValid() {
-		idx4 = slices.IndexFunc(prefixes, func(sub tables.PrivateNetworkSubnet) bool {
-			return sub.CIDRv4.Contains(ipv4)
-		})
+		if sub, ok := tables.FindSubnetForIPs(n.subnets, txn, privnet, ipv4); ok {
+			subnetv4 = sub.Name
+		}
 	}
 	if ipv6.IsValid() {
-		idx6 = slices.IndexFunc(prefixes, func(sub tables.PrivateNetworkSubnet) bool {
-			return sub.CIDRv6.Contains(ipv6)
-		})
+		if sub, ok := tables.FindSubnetForIPs(n.subnets, txn, privnet, ipv6); ok {
+			subnetv6 = sub.Name
+		}
 	}
 
 	switch {
-	case ipv4.IsValid() && idx4 == -1:
+	case ipv4.IsValid() && subnetv4 == "":
 		return fmt.Errorf("requested IP %s not in range of defined subnets", ipv4)
-	case ipv6.IsValid() && idx6 == -1:
+	case ipv6.IsValid() && subnetv6 == "":
 		return fmt.Errorf("requested IP %s not in range of defined subnets", ipv6)
-	case ipv4.IsValid() && ipv6.IsValid() && idx4 != idx6:
+	case ipv4.IsValid() && ipv6.IsValid() && subnetv4 != subnetv6:
 		return fmt.Errorf("requested IP %s not in range of the subnet of the IP %s", ipv6, ipv4)
 	default:
 		return nil

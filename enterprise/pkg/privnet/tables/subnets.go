@@ -13,6 +13,7 @@ package tables
 import (
 	"iter"
 	"net/netip"
+	"slices"
 	"strconv"
 
 	"github.com/cilium/statedb"
@@ -147,4 +148,17 @@ func NewSubnetTable(db *statedb.DB) (statedb.RWTable[Subnet], error) {
 		"privnet-subnets",
 		subnetNameIndex,
 	)
+}
+
+// FindSubnetForIPs returns the first subnet that contains all the provided IPs (if the subnet table is consistent this should always be the only one)
+func FindSubnetForIPs(tbl statedb.Table[Subnet], txn statedb.ReadTxn, network NetworkName, ips ...netip.Addr) (Subnet, bool) {
+	for entry := range tbl.Prefix(txn, SubnetsByNetwork(network)) {
+		// return subnet if there is no ip in the provided list that is not either contained in the v4 or v6 CIDR
+		if !slices.ContainsFunc(ips, func(ip netip.Addr) bool {
+			return !entry.CIDRv4.Contains(ip) && !entry.CIDRv6.Contains(ip)
+		}) {
+			return entry, true
+		}
+	}
+	return Subnet{}, false
 }
