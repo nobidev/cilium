@@ -40,7 +40,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.6
+          go-version: 1.25.7
 
       - name: Run tests
         working-directory: ./enterprise/olm
@@ -71,7 +71,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.6
+          go-version: 1.25.7
 
       - name: Login to quay.io
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -132,7 +132,7 @@ jobs:
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci@${{ steps.docker_digest.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@deef08a0db64bfad603422135db61477b16cef56 # v0.22.1
+        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
         with:
           artifact-name: sbom_ci_clife_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_clife_${{ steps.tag.outputs.tag }}.spdx.json

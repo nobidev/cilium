@@ -24,7 +24,7 @@ env:
   # renovate: datasource=helm depName=dex registryUrl=https://charts.dexidp.io
   DEX_VERSION: 0.24.0
   # renovate: datasource=helm depName=ingress-nginx registryUrl=https://kubernetes.github.io/ingress-nginx
-  INGRESS_NGINX_VERSION: 4.14.2
+  INGRESS_NGINX_VERSION: 4.14.3
 
 
 jobs:
@@ -83,7 +83,7 @@ jobs:
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.6
+          go-version: 1.25.7
 
       - name: Wait for Helm dev chart to be available
         timeout-minutes: 30
