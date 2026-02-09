@@ -398,11 +398,15 @@ func (pn *PrivateNetworks) reconcileInterfaceConflicts(ctx context.Context, heal
 	wtx.Commit()
 
 	for {
-		wtx := pn.db.WriteTxn(pn.tbl)
-		changes, watch := changeIter.Next(wtx)
-		watchset.Add(watch)
-
 		var toProcess = sets.New[IfName]()
+
+		// We need to use a separate read transaction, because [Next] would panic
+		// if called with a WriteTxn that has locked the target table. However,
+		// this is fine, because we are only interested in collecting the list of
+		// potentially conflicting interfaces, and we'd be simply waken up again
+		// if new updates were to happen before acquiring the write transaction.
+		changes, watch := changeIter.Next(pn.db.ReadTxn())
+		watchset.Add(watch)
 
 		for change := range changes {
 			// Check if any new network has been marked as conflicting by the
@@ -419,35 +423,32 @@ func (pn *PrivateNetworks) reconcileInterfaceConflicts(ctx context.Context, heal
 			toProcess.Insert(ifname)
 		}
 
-		var shouldCommit = toProcess.Len() > 0
-		for ifname := range toProcess {
-			var (
-				iter, watch = pn.tbl.ListWatch(wtx, tables.PrivateNetworksByInterface(ifname))
-				networks    = statedb.Collect(iter)
-				conflict    = len(networks) > 1
-			)
+		if toProcess.Len() > 0 {
+			wtx := pn.db.WriteTxn(pn.tbl)
+			for ifname := range toProcess {
+				var (
+					iter, watch = pn.tbl.ListWatch(wtx, tables.PrivateNetworksByInterface(ifname))
+					networks    = statedb.Collect(iter)
+					conflict    = len(networks) > 1
+				)
 
-			if conflict {
-				conflicting.Insert(ifname)
-				watchset.Add(watch)
-				tracker.Register(watch, ifname)
-			} else {
-				conflicting.Delete(ifname)
-			}
+				if conflict {
+					conflicting.Insert(ifname)
+					watchset.Add(watch)
+					tracker.Register(watch, ifname)
+				} else {
+					conflicting.Delete(ifname)
+				}
 
-			for _, network := range networks {
-				if network.Interface.Conflict != conflict {
-					dev, _, _ := pn.devs.Get(wtx, dptables.DeviceNameIndex.Query(ifname))
-					network.Interface = pn.newInterface(ifname, dev, conflict)
-					pn.tbl.Insert(wtx, network)
+				for _, network := range networks {
+					if network.Interface.Conflict != conflict {
+						dev, _, _ := pn.devs.Get(wtx, dptables.DeviceNameIndex.Query(ifname))
+						network.Interface = pn.newInterface(ifname, dev, conflict)
+						pn.tbl.Insert(wtx, network)
+					}
 				}
 			}
-		}
-
-		if shouldCommit {
 			wtx.Commit()
-		} else {
-			wtx.Abort()
 		}
 
 		if conflicts != conflicting.Len() {
