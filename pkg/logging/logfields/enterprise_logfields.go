@@ -110,7 +110,13 @@ const (
 	WorldIdentity = "worldIdentity"
 
 	ClusterwidePrivateNetwork = "ClusterwidePrivateNetwork"
-	PrivateNetworkSubnet      = "subnet"
+
+	// Name of a private network subnet
+	PrivateNetworkSubnet = "subnet"
+	// Name of a pivate network subnet that conflits with another subnet
+	ConflictingPrivateNetworkSubnet = "conflictingSubnet"
+	// ConflictingCIDRs is a list of IPv4/IPv6 CIDRs that conflicts with another list
+	ConflictingCIDRs = "conflictingCIDRs"
 
 	Stdout = "stdout"
 	Stderr = "stderr"

@@ -15,6 +15,7 @@ import "github.com/cilium/hive/cell"
 var Cell = cell.Group(
 	PrivateNetworksCell,
 	EndpointsCell,
+	SubnetsCell,
 	RoutesCell,
 	MapEntriesCell,
 	PodsCell,
