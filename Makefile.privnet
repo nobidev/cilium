@@ -225,6 +225,9 @@ define privnet_install_cert_manager_crds
 	helm template cert-manager jetstack/cert-manager --include-crds --set installCRDs=true \
 		| yq 'select(.kind == "CustomResourceDefinition")' \
 		| kubectl create --context $(1) -f -
+	kubectl wait --context $(1) --for=condition=Established --timeout=60s \
+		crd/certificates.cert-manager.io \
+		crd/issuers.cert-manager.io
 endef
 
 .PHONY: kind-privnet-install-common
