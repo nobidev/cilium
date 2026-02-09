@@ -133,18 +133,26 @@ func getIEGPForStatusUpdate(iegp *Policy, groupStatuses []groupStatus, condition
 	return policy
 }
 
+func (gc *groupConfig) selectActiveGateways(operatorManager *OperatorManager, config *PolicyConfig, status *groupStatus, availableHealthyGatewayIPs []netip.Addr) []netip.Addr {
+	// Selects the active GWs from a list of the healthy GWs with random probability
+	// using a uid as a seed to make the result deterministic. The result is used for the
+	// non AZ affinity case.
+	//
+	// If the active GWs have already been selected, we exclude all the unhealthy and non gateway nodes,
+	// and back-fill the currently selected group of active gateways, until maxGateways is reached.
+	var currentActiveGWs []netip.Addr
+	if status != nil {
+		currentActiveGWs = status.activeGatewayIPs
+	}
+	return doSelection(currentActiveGWs, availableHealthyGatewayIPs, string(config.uid), gc.maxGatewayNodes)
+}
+
 func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, config *PolicyConfig, status *groupStatus,
-	availableHealthyGatewayIPs, healthyGatewayIPs []netip.Addr, availableHealthyGatewayIPsByAZ map[string][]netip.Addr, groupIndex int) (groupStatus, gatewaySelectionMetrics) {
+	availableHealthyGatewayIPsByAZ map[string][]netip.Addr, selectionMetrics *gatewaySelectionMetrics, groupIndex int) groupStatus {
 
 	activeGatewayIPsByAZ := make(map[string][]netip.Addr)
 
 	isLocalSelectedByAZ := make(map[string]bool)
-
-	selectionMetrics := gatewaySelectionMetrics{
-		activeGateways:     0,
-		activeGatewaysByAZ: make(map[string]activeGatewaysByMetrics),
-		healthyGateways:    0,
-	}
 
 	// if AZ affinity is enabled,
 	// Choose maxGateway items from the list of per AZ healthy GWs  with random probability.
@@ -226,27 +234,10 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 		}
 	}
 
-	// Selects the active GWs from a list of the healthy GWs with random probability
-	// using a uid as a seed to make the result deterministic. The result is used for the
-	// non AZ affinity case.
-	//
-	// If the active GWs have already been selected, we exclude all the unhealthy and non gateway nodes,
-	// and back-fill the currently selected group of active gateways, until maxGateways is reached.
-	var currentActiveGWs []netip.Addr
-	if status != nil {
-		currentActiveGWs = gc.excludeUnavailableGWs(operatorManager, status.activeGatewayIPs)
-	}
-	activeGatewayIPs := selectActiveGWs(string(config.uid), gc.maxGatewayNodes, currentActiveGWs, availableHealthyGatewayIPs)
-
-	selectionMetrics.activeGateways = len(activeGatewayIPs)
-	selectionMetrics.healthyGateways = len(healthyGatewayIPs)
-
 	return groupStatus{
-		activeGatewayIPs:          activeGatewayIPs,
 		activeGatewayIPsByAZ:      activeGatewayIPsByAZ,
 		isLocalActiveGatewaysByAZ: isLocalSelectedByAZ,
-		healthyGatewayIPs:         healthyGatewayIPs,
-	}, selectionMetrics
+	}
 }
 
 // selectCurrentLocalActiveGWs selects the current local active GWs.
@@ -773,14 +764,24 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 			status = &config.groupStatuses[i]
 		}
 
+		sm := gatewaySelectionMetrics{
+			activeGateways:     0,
+			activeGatewaysByAZ: make(map[string]activeGatewaysByMetrics),
+			healthyGateways:    0,
+		}
+
 		policyHealthyGatewayIPs, policyHealthyGatewayIPsByAZ := config.preComputePolicyHealthyGateways(operatorManager, nodeToAZFn(config.azAffinity, config.uid))
 		availableHealthyGatewayIPsByAZ := computeAvailableHealthyGatewaysByAZ(policyHealthyGatewayIPsByAZ, true, i)
-		healthyGatewayIPs := computeHealthyGateways(policyHealthyGatewayIPs, false, i)
 
-		availableHealthyGatewayIPs := computeHealthyGateways(policyHealthyGatewayIPs, true, i)
+		gs := gc.computeGroupStatus(operatorManager, config, status,
+			availableHealthyGatewayIPsByAZ, &sm, i)
 
-		gs, sm := gc.computeGroupStatus(operatorManager, config, status,
-			availableHealthyGatewayIPs, healthyGatewayIPs, availableHealthyGatewayIPsByAZ, i)
+		gs.healthyGatewayIPs = computeHealthyGateways(policyHealthyGatewayIPs, false, i)
+		gs.activeGatewayIPs = gc.selectActiveGateways(operatorManager, config, status,
+			computeHealthyGateways(policyHealthyGatewayIPs, true, i))
+
+		sm.activeGateways = len(gs.activeGatewayIPs)
+		sm.healthyGateways = len(gs.healthyGatewayIPs)
 
 		groupStatuses = append(groupStatuses, gs)
 		for zone, isLocal := range gs.isLocalActiveGatewaysByAZ {

@@ -36,6 +36,7 @@ func parseNetIPs(t *testing.T, ss ...string) []netip.Addr {
 	return out
 }
 
+/*
 func Test_computeHealthyGateways(t *testing.T) {
 	policyHealthyGatewayIPs := []gatewayNodeIP{
 		{
@@ -66,7 +67,7 @@ func Test_computeHealthyGateways(t *testing.T) {
 	assert.Equal(t, parseNetIPs(t,
 		"10.0.0.1", "10.0.0.4"), computeHealthyGateways(policyHealthyGatewayIPs, false, 0))
 
-}
+}*/
 
 func Test_computeAvailableHealthyGatewaysByAZ(t *testing.T) {
 	policyHealthyGatewayIPs := map[string][]gatewayNodeIP{

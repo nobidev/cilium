@@ -15,6 +15,7 @@ import (
 	"net/netip"
 	"slices"
 
+	"github.com/cilium/cilium/enterprise/pkg/functional"
 	fn "github.com/cilium/cilium/enterprise/pkg/functional"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -22,6 +23,7 @@ import (
 	"go4.org/netipx"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type nodeToZoneFn func(nodeTypes.Node) (string, bool)
@@ -166,4 +168,16 @@ func computeAvailableHealthyGatewaysByAZ(policyHealthyGatewayIPs map[string][]ga
 	}
 
 	return availGWs
+}
+
+func doSelection(statusActiveGateways, availableHealthyGatewayIPs []netip.Addr, selectionKey string, maxGatewayNodes int) []netip.Addr {
+	var currentLocalActiveGWs []netip.Addr
+	if len(statusActiveGateways) != 0 {
+		// we have to reverify they're still local and active.
+		availableForReselection := sets.New(availableHealthyGatewayIPs...)
+		currentLocalActiveGWs = slices.Collect(functional.Filter(slices.Values(statusActiveGateways),
+			availableForReselection.Has))
+	}
+	// seed with zone
+	return selectActiveGWs(selectionKey, maxGatewayNodes, currentLocalActiveGWs, availableHealthyGatewayIPs)
 }
