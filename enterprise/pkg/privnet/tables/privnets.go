@@ -38,9 +38,6 @@ type (
 
 	// NetworkName is the name of a private network.
 	NetworkName string
-
-	// SubnetName is the name of a private network subnet.
-	SubnetName string
 )
 
 const (
