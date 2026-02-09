@@ -225,6 +225,10 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWAFPaths(desiredFamilyAdverts P
 					desiredEGWAFPaths := make(reconciler.AFPathsMap)
 
 					for _, egwIP := range egwIPs {
+						if !egwIP.IsValid() {
+							r.logger.Error("invalid egress gateway IP", logfields.EgressIP, egwIP)
+							continue
+						}
 						switch {
 						case agentFamily.Afi == types.AfiIPv4 && egwIP.Is4():
 							path := types.NewPathForPrefix(netip.PrefixFrom(egwIP, egwIP.BitLen()))
@@ -237,7 +241,6 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWAFPaths(desiredFamilyAdverts P
 							reconciler.AddPathToAFPathsMap(desiredEGWAFPaths, agentFamily, path, path.NLRI.String())
 
 						default:
-							r.logger.Error("invalid egress gateway IP", logfields.EgressIP, egwIP)
 							continue
 						}
 					}
@@ -289,6 +292,10 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(desiredFamilyAdv
 				for egwID, egwIPs := range egwPolicyResult {
 					var v4Prefixes, v6Prefixes types.PolicyPrefixList
 					for _, egwIP := range egwIPs {
+						if !egwIP.IsValid() {
+							r.logger.Error("invalid egress gateway IP", logfields.EgressIP, egwIP)
+							continue
+						}
 						switch {
 						case agentFamily.Afi == types.AfiIPv4 && egwIP.Is4():
 							v4Prefixes = append(v4Prefixes, types.RoutePolicyPrefix{
@@ -305,7 +312,6 @@ func (r *EgressGatewayIPsReconciler) getDesiredEGWRoutePolicies(desiredFamilyAdv
 							})
 
 						default:
-							r.logger.Error("invalid egress gateway IP", logfields.EgressIP, egwIP)
 							continue
 						}
 					}
