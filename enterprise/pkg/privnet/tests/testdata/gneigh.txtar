@@ -4,7 +4,7 @@
 checkerpool/new hookworm remote/hookworm
 
 hive start
-db/initialized private-networks
+db/initialized private-networks privnet-subnets
 
 # Insert the devices.
 db/insert devices device.eth1.yaml
@@ -15,6 +15,7 @@ k8s/add icpn-1.yaml icpn-2.yaml
 
 # Ensure that they are correctly propagated into the table
 db/cmp private-networks privnet.v1.table
+db/cmp privnet-subnets subnets.v1.table
 
 # Let a workload node activate a few networks.
 checkerpool/register hookworm default/foobar-worker-1 blue-network
@@ -60,6 +61,7 @@ k8s/delete icpn-1.yaml
 
 # ...and validate that the changes are correctly reflected
 db/cmp private-networks privnet.v2.table
+db/cmp privnet-subnets subnets.v2.table
 db/cmp privnet-mapentries mapentries.v3.table
 
 # Prune sent entries from closed senders
@@ -115,12 +117,21 @@ spec:
 
 -- privnet.v1.table --
 Name          ID    Interface   INBClusters    Subnets
-blue-network  0x1   eth1        N/A            192.168.251.0/24,fd00:10:244::/64
-green-network 0x2   eth2        N/A            192.168.99.0/24
+blue-network  0x1   eth1        N/A            1
+green-network 0x2   eth2        N/A            1
 
 -- privnet.v2.table --
 Name          ID    Interface   INBClusters    Subnets
-green-network 0x2   eth2        N/A            192.168.99.0/24
+green-network 0x2   eth2        N/A            1
+
+-- subnets.v1.table --
+Network         Name      CIDRv4            CIDRv6
+blue-network    blue1     192.168.251.0/24  fd00:10:244::/64
+green-network   green1    192.168.99.0/24   -
+
+-- subnets.v2.table --
+Network         Name      CIDRv4            CIDRv6
+green-network   green1    192.168.99.0/24   -
 
 --  privnet-eps-1.yaml --
 apiVersion: isovalent.com/v1alpha1

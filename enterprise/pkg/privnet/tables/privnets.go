@@ -175,17 +175,7 @@ func (pn PrivateNetwork) TableRow() []string {
 			cslices.MapIter(maps.Keys(pn.INBs.Selectors),
 				func(cn ClusterName) string { return string(cn) },
 			)), ","), "N/A"),
-		strings.Join(cslices.Map(pn.Subnets,
-			func(s PrivateNetworkSubnet) string {
-				if s.CIDRv4.IsValid() && s.CIDRv6.IsValid() {
-					return s.CIDRv4.String() + "," + s.CIDRv6.String()
-				}
-				if s.CIDRv4.IsValid() {
-					return s.CIDRv4.String()
-				}
-				return s.CIDRv6.String()
-			},
-		), ","),
+		strconv.FormatInt(int64(len(pn.Subnets)), 10),
 		strconv.FormatInt(int64(len(pn.Routes)), 10),
 	}
 }

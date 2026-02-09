@@ -1,8 +1,7 @@
 #! --private-networks-enabled
 
 hive start
-db/initialized private-networks
-db/initialized privnet-routes
+db/initialized private-networks privnet-routes privnet-subnets
 
 # Add two ClusterwidePrivateNetworks
 k8s/add icpn-1.yaml icpn-2.yaml
@@ -10,6 +9,7 @@ k8s/add icpn-1.yaml icpn-2.yaml
 # Ensure that they are correctly propagated into the table
 db/cmp private-networks privnet.table
 db/cmp privnet-routes routes.table
+db/cmp privnet-subnets subnets.table
 
 # Ensure that all the fields are propagated correctly
 db/get private-networks direct-maggot -f yaml -o privnet.direct-maggot.actual.yaml
@@ -21,16 +21,35 @@ replace '192.168.251.0/24' '192.168.252.0/24' icpn-2.v2.yaml
 k8s/update icpn-2.v2.yaml
 db/cmp private-networks privnet.table.v2
 db/cmp privnet-routes routes.table.v2
+db/cmp privnet-subnets subnets.table.v2
 
 # Delete one ClusterwidePrivateNetwork, and assert that the deletion is propagated
 k8s/delete icpn-1.yaml
 db/cmp private-networks privnet.table.v3
 db/cmp privnet-routes routes.table.v3
+db/cmp privnet-subnets subnets.table.v3
 
 # Add it back, and assert that it is present again (although with a different ID)
 k8s/add icpn-1.yaml
 db/cmp private-networks privnet.table.v4
 db/cmp privnet-routes routes.table.v2
+db/cmp privnet-subnets subnets.table.v4
+
+# Add VPC like privnet with multiple subnets
+k8s/add icpn-vpc-1.yaml
+db/cmp privnet-subnets subnets.table.vpc1
+
+# Add subnet to privnet
+k8s/add icpn-vpc-2.yaml
+db/cmp privnet-subnets subnets.table.vpc2
+
+# Remove subnet and add conflicting subnet to privnet, assert that conflicts don't show up
+k8s/add icpn-vpc-3.yaml
+db/cmp privnet-subnets subnets.table.vpc3
+
+# Remove subnets, assert that previously filtered out conflicts show up
+k8s/add icpn-vpc-4.yaml
+db/cmp privnet-subnets subnets.table.vpc4
 
 # ---
 
@@ -80,24 +99,152 @@ spec:
 status:
   vni: 200
 
+-- icpn-vpc-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: vpc
+spec:
+  networkBridges:
+  - cluster: camelidae
+  routes: []
+  subnets:
+  - name: blue
+    cidrv4: 192.168.251.0/24
+    cidrv6: fd10:0:251::/64
+  - name: red
+    cidrv4: 192.168.252.0/24
+    cidrv6: fd10:0:252::/64
+
+-- icpn-vpc-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: vpc
+spec:
+  networkBridges:
+  - cluster: camelidae
+  routes: []
+  subnets:
+  - name: blue
+    cidrv4: 192.168.251.0/24
+    cidrv6: fd10:0:251::/64
+  - name: red
+    cidrv4: 192.168.252.0/24
+    cidrv6: fd10:0:252::/64
+  - name: green
+    cidrv4: 192.168.253.0/24
+    cidrv6: fd10:0:253::/64
+
+-- icpn-vpc-3.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: vpc
+spec:
+  networkBridges:
+  - cluster: camelidae
+  routes: []
+  subnets:
+  - name: blue
+    cidrv4: 192.168.251.0/24
+    cidrv6: fd10:0:251::/64
+  - name: red
+    cidrv4: 192.168.252.0/24
+    cidrv6: fd10:0:252::/64
+  - name: red2
+    cidrv4: 192.168.252.0/30
+    cidrv6: fd10:0:1::/64
+  - name: blue2
+    cidrv4: 192.168.1.0/24
+    cidrv6: fd10:0:251::/64
+
+-- icpn-vpc-4.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: vpc
+spec:
+  networkBridges:
+  - cluster: camelidae
+  routes: []
+  subnets:
+  - name: red2
+    cidrv4: 192.168.252.0/30
+    cidrv6: fd10:0:1::/64
+  - name: blue2
+    cidrv4: 192.168.1.0/24
+    cidrv6: fd10:0:251::/64
+
 -- privnet.table --
-Name             ID    VNI  Interface   INBClusters              Subnets                             Routes
-direct-maggot    0x1   100  N/A         elephantidae,felidae     192.168.250.0/24,fd10:0:250::/64    4
-united-firefly   0x2   200  N/A         camelidae                192.168.251.0/24                    0
+Name             ID    VNI  Interface   INBClusters              Subnets       Routes
+direct-maggot    0x1   100  N/A         elephantidae,felidae     1             4
+united-firefly   0x2   200  N/A         camelidae                1             0
 
 -- privnet.table.v2 --
-Name             ID    VNI  Interface   INBClusters              Subnets                             Routes
-direct-maggot    0x1   100  N/A         elephantidae,felidae     192.168.250.0/24,fd10:0:250::/64    4
-united-firefly   0x2   200  N/A         camelidae                192.168.252.0/24                    0
+Name             ID    VNI  Interface   INBClusters              Subnets       Routes
+direct-maggot    0x1   100  N/A         elephantidae,felidae     1             4
+united-firefly   0x2   200  N/A         camelidae                1             0
 
 -- privnet.table.v3 --
-Name             ID    VNI  Interface   INBClusters              Subnets                             Routes
-united-firefly   0x2   200  N/A         camelidae                192.168.252.0/24                    0
+Name             ID    VNI  Interface   INBClusters              Subnets       Routes
+united-firefly   0x2   200  N/A         camelidae                1             0
 
 -- privnet.table.v4 --
-Name             ID    VNI  Interface   INBClusters              Subnets                             Routes
-direct-maggot    0x3   100  N/A         elephantidae,felidae     192.168.250.0/24,fd10:0:250::/64    4
-united-firefly   0x2   200  N/A         camelidae                192.168.252.0/24                    0
+Name             ID    VNI  Interface   INBClusters              Subnets       Routes
+direct-maggot    0x3   100  N/A         elephantidae,felidae     1             4
+united-firefly   0x2   200  N/A         camelidae                1             0
+
+-- subnets.table --
+Network          Name      CIDRv4            CIDRv6
+direct-maggot    subnet1   192.168.250.0/24  fd10:0:250::/64
+united-firefly   subnet2   192.168.251.0/24  -
+
+
+-- subnets.table.v2 --
+Network         Name      CIDRv4            CIDRv6
+direct-maggot   subnet1   192.168.250.0/24  fd10:0:250::/64
+united-firefly  subnet2   192.168.252.0/24  -
+
+-- subnets.table.v3 --
+Network         Name      CIDRv4            CIDRv6
+united-firefly  subnet2   192.168.252.0/24  -
+
+-- subnets.table.v4 --
+Network        Name      CIDRv4            CIDRv6
+direct-maggot  subnet1   192.168.250.0/24  fd10:0:250::/64
+united-firefly subnet2   192.168.252.0/24  -
+
+
+-- subnets.table.vpc1 --
+Network         Name      CIDRv4            CIDRv6
+direct-maggot   subnet1   192.168.250.0/24  fd10:0:250::/64
+united-firefly  subnet2   192.168.252.0/24  -
+vpc             blue      192.168.251.0/24  fd10:0:251::/64
+vpc             red       192.168.252.0/24  fd10:0:252::/64
+
+-- subnets.table.vpc2 --
+Network         Name      CIDRv4            CIDRv6
+direct-maggot   subnet1   192.168.250.0/24  fd10:0:250::/64
+united-firefly  subnet2   192.168.252.0/24  -
+vpc             blue      192.168.251.0/24  fd10:0:251::/64
+vpc             green     192.168.253.0/24  fd10:0:253::/64
+vpc             red       192.168.252.0/24  fd10:0:252::/64
+
+-- subnets.table.vpc3 --
+Network         Name      CIDRv4            CIDRv6
+direct-maggot   subnet1   192.168.250.0/24  fd10:0:250::/64
+united-firefly  subnet2   192.168.252.0/24  -
+vpc             blue      192.168.251.0/24  fd10:0:251::/64
+vpc             red       192.168.252.0/24  fd10:0:252::/64
+
+-- subnets.table.vpc4 --
+Network         Name      CIDRv4            CIDRv6
+direct-maggot   subnet1   192.168.250.0/24  fd10:0:250::/64
+united-firefly  subnet2   192.168.252.0/24  -
+vpc             blue2     192.168.1.0/24    fd10:0:251::/64
+vpc             red2      192.168.252.0/30  fd10:0:1::/64
+
 
 -- routes.table --
 Network          Destination        Gateway

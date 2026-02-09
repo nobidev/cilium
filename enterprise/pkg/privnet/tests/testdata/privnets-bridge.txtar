@@ -1,7 +1,7 @@
 #! --private-networks-enabled --private-networks-mode=bridge
 
 hive start
-db/initialized private-networks
+db/initialized private-networks privnet-subnets
 
 db/insert devices device.eth1.yaml
 db/insert devices device.eth2.yaml
@@ -11,10 +11,15 @@ k8s/add icpn-1.yaml icpn-2.yaml
 
 # Ensure that they are correctly propagated into the table
 db/cmp private-networks privnet.table
+db/cmp privnet-subnets subnets.table
 
 # Ensure that all fields are as expected
 db/show private-networks -f yaml -o privnet.actual.yaml
 cmp privnet.actual.yaml privnet.expected.yaml
+
+# Ensure that all subnet fields are as expected
+db/show privnet-subnets -f yaml -o subnets.actual.yaml
+cmp subnets.actual.yaml subnets.expected.yaml
 
 # Configure an interface for the direct-maggot private network
 sed 'name: ""' 'name: eth1' icpn-1.yaml
@@ -142,8 +147,13 @@ spec:
 
 -- privnet.table --
 Name             ID    Interface   INBClusters    Subnets
-direct-maggot    0x1   N/A         N/A            192.168.250.0/24
-united-firefly   0x2   eth2 !      N/A            192.168.251.0/24
+direct-maggot    0x1   N/A         N/A            1
+united-firefly   0x2   eth2 !      N/A            1
+
+-- subnets.table --
+Network         Name  CIDRv4            CIDRv6
+direct-maggot   foo   192.168.250.0/24  -
+united-firefly  bar   192.168.251.0/24  -
 
 -- privnet.expected.yaml --
 name: direct-maggot
@@ -433,3 +443,19 @@ subnets:
     - name: bar
       cidrv4: 192.168.251.0/24
       cidrv6: ""
+-- subnets.expected.yaml --
+network: direct-maggot
+networkid: 1
+name: foo
+cidrv4: 192.168.250.0/24
+cidrv6: ""
+egressifindex: 0
+egressifname: ""
+---
+network: united-firefly
+networkid: 2
+name: bar
+cidrv4: 192.168.251.0/24
+cidrv6: ""
+egressifindex: 0
+egressifname: eth2
