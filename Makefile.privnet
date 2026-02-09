@@ -73,7 +73,7 @@ kind-privnet-up: kind-privnet-govmomi-image  ## Setup the privnet environment
 				--topo ./contrib/containerlab/enterprise/privnet/topo.clab.yaml
 
 	# Make sure that coredns uses IPv4-only upstream DNS servers, to prevent issues
-    # in case IPv6 ones are not reachable, causing spurious failures.
+	# in case IPv6 ones are not reachable, causing spurious failures.
 	NAMESERVER=${PRIVNET_DNS_SERVER} envsubst < contrib/testing/privnet/coredns-patch.yaml.tmpl | \
 		kubectl --context=kind-privnet-cluster patch deployment -n kube-system coredns --patch-file=/dev/stdin
 	NAMESERVER=${PRIVNET_DNS_SERVER} envsubst < contrib/testing/privnet/coredns-patch.yaml.tmpl | \
@@ -106,7 +106,7 @@ endef
 kind-privnet-populate-vcsim:  ## Populate the information inside vcsim
 	# Clean stale entries
 	-$(GOVC) find -type m $(PRIVNET_VM_FOLDER) | \
-    	$(SED) 's|$(PRIVNET_VM_FOLDER)/||' | xargs -t -I {} $(GOVC) vm.destroy {};
+		$(SED) 's|$(PRIVNET_VM_FOLDER)/||' | xargs -t -I {} $(GOVC) vm.destroy {};
 	-$(GOVC) object.destroy $(PRIVNET_VM_FOLDER)
 
 	-$(GOVC) find -type g /DC0/network | xargs -t -I {} $(GOVC) object.destroy {};
@@ -162,7 +162,7 @@ $(eval $(call KIND_PRIVNET_ENV,kind-privnet-build-images))
 kind-privnet-build-images: kind-build-image-agent kind-build-image-operator kind-build-clustermesh-apiserver  ## Build the privnet images
 
 define privnet_pull_image
-    docker image inspect $(1) >/dev/null 2>&1 || docker pull --quiet $(1)
+	docker image inspect $(1) >/dev/null 2>&1 || docker pull --quiet $(1)
 endef
 
 .PHONY: kind-privnet-load-images  ## Load the privnet images to kind nodes
@@ -222,9 +222,9 @@ kind-privnet-jetstack-repo:
 	$(QUIET) helm repo update jetstack >/dev/null
 
 define privnet_install_cert_manager_crds
-    helm template cert-manager jetstack/cert-manager --include-crds --set installCRDs=true \
+	helm template cert-manager jetstack/cert-manager --include-crds --set installCRDs=true \
 		| yq 'select(.kind == "CustomResourceDefinition")' \
-     	| kubectl create --context $(1) -f -
+		| kubectl create --context $(1) -f -
 endef
 
 .PHONY: kind-privnet-install-common
