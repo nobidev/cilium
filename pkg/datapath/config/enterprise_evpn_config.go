@@ -9,6 +9,12 @@ package config
 // Warning: do not instantiate directly! Always use [NewBPFEvpnEnterprise] to
 // ensure the default values configured in the ELF are honored.
 type BPFEvpnEnterprise struct {
+	// Allow ICMP_FRAG_NEEDED messages when applying Network Policy.
+	AllowICMPFragNeeded bool `config:"allow_icmp_frag_needed"`
+	// Apply Network Policy for ICMP packets.
+	EnableICMPRule bool `config:"enable_icmp_rule"`
+	// Maintain packet and byte counters for every policy entry.
+	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
 	// True if evpn feature is enabled.
 	EvpnEnable bool `config:"evpn_enable"`
 	// True if running on network bridge.
@@ -20,5 +26,5 @@ type BPFEvpnEnterprise struct {
 }
 
 func NewBPFEvpnEnterprise() *BPFEvpnEnterprise {
-	return &BPFEvpnEnterprise{false, false, false, 0x0}
+	return &BPFEvpnEnterprise{false, false, false, false, false, false, 0x0}
 }

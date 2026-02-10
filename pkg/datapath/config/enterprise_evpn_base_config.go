@@ -9,14 +9,8 @@ package config
 // do not instantiate directly! Always use [NewBPFEvpnBase] to ensure the
 // default values configured in the ELF are honored.
 type BPFEvpnBase struct {
-	// Allow ICMP_FRAG_NEEDED messages when applying Network Policy.
-	AllowICMPFragNeeded bool `config:"allow_icmp_frag_needed"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
-	// Apply Network Policy for ICMP packets.
-	EnableICMPRule bool `config:"enable_icmp_rule"`
-	// Maintain packet and byte counters for every policy entry.
-	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
@@ -30,6 +24,6 @@ type BPFEvpnBase struct {
 }
 
 func NewBPFEvpnBase(node Node) *BPFEvpnBase {
-	return &BPFEvpnBase{false, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0, node}
+	return &BPFEvpnBase{false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0,
+		0x0, node}
 }

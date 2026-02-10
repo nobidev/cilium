@@ -28,15 +28,13 @@ func EvpnBase(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
 	cfg.InterfaceIfIndex = uint32(link.Attrs().Index)
 	cfg.InterfaceMAC = mac.MAC(link.Attrs().HardwareAddr).As8()
 
-	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
-	cfg.EnableICMPRule = option.Config.EnableICMPRules
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 
 	return cfg
 }
 
 // EvpnEnterprise returns a [BPFEvpnEnterprise].
-func EvpnEnterprise(evpnCfg evpnConfig.Config, privnetCfg privnetConfig.Config) any {
+func EvpnEnterprise(lnc *datapath.LocalNodeConfiguration, evpnCfg evpnConfig.Config, privnetCfg privnetConfig.Config) any {
 	cfg := NewBPFEvpnEnterprise()
 
 	cfg.EvpnEnable = evpnCfg.Enabled
@@ -44,6 +42,10 @@ func EvpnEnterprise(evpnCfg evpnConfig.Config, privnetCfg privnetConfig.Config) 
 	cfg.PrivnetEnable = privnetCfg.Enabled
 	cfg.PrivnetBridgeEnable = privnetCfg.EnabledAsBridge()
 	cfg.PrivnetUnknownSecID = uint32(identity.ReservedPrivnetUnknownFlow)
+
+	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
+	cfg.EnableICMPRule = option.Config.EnableICMPRules
+	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 
 	return cfg
 }

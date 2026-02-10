@@ -70,7 +70,7 @@ func replaceEvpnDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: []any{
 			config.EvpnBase(lnc, device),
-			config.EvpnEnterprise(evpnCfg, privnetCfg),
+			config.EvpnEnterprise(lnc, evpnCfg, privnetCfg),
 		},
 		MapRenames: []map[string]string{
 			{
