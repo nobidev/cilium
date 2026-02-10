@@ -11,6 +11,7 @@
 package tables
 
 import (
+	"iter"
 	"net/netip"
 	"strconv"
 
@@ -86,6 +87,21 @@ func (s Subnet) Key() SubnetKey {
 
 func (s Subnet) Equals(other Subnet) bool {
 	return s == other
+}
+
+func (s Subnet) CIDRs() iter.Seq[netip.Prefix] {
+	return func(yield func(cidr netip.Prefix) bool) {
+		if s.CIDRv4.IsValid() {
+			if !yield(s.CIDRv4) {
+				return
+			}
+		}
+		if s.CIDRv6.IsValid() {
+			if !yield(s.CIDRv6) {
+				return
+			}
+		}
+	}
 }
 
 // SubnetKey is <network-name>|<subnet-name>

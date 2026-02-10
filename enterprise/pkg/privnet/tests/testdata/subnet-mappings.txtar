@@ -1,0 +1,207 @@
+#! --private-networks-enabled
+
+hive start
+db/initialized private-networks privnet-subnets privnet-subnet-mappings
+
+# Add two private networks.
+k8s/add icpn-1.yaml icpn-2.yaml
+
+# Ensure that they are correctly propagated into the subnets and subnet-mappings table.
+db/cmp privnet-subnets subnets.v1.table
+db/cmp privnet-subnet-mappings subnet-mappings.v1.table
+
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_subnets subnets-actual.map
+* cmp subnets.v1.map subnets-actual.map
+
+# Update a few subnets and validate that changes are propagated into the tables.
+k8s/update icpn-1.v2.yaml
+db/cmp privnet-subnets subnets.v2.table
+db/cmp privnet-subnet-mappings subnet-mappings.v2.table
+
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_subnets subnets-actual.map
+* cmp subnets.v2.map subnets-actual.map
+
+# Delete a private network, and validate that changes are propagated into the tables.
+k8s/delete icpn-1.v2.yaml
+db/cmp privnet-subnets subnets.v3.table
+db/cmp privnet-subnet-mappings subnet-mappings.v3.table
+
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_subnets subnets-actual.map
+* cmp subnets.v3.map subnets-actual.map
+
+# Add it back, and validate that changes are propagated into the tables.
+k8s/add icpn-1.v2.yaml
+db/cmp privnet-subnets subnets.v2.table
+db/cmp privnet-subnet-mappings subnet-mappings.v4.table
+
+# Ensure that the entries are propagated into the corresponding BPF map.
+privnet/maps-dump privnet_subnets subnets-actual.map
+* cmp subnets.v4.map subnets-actual.map
+
+# ---
+
+-- icpn-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: direct-maggot
+spec:
+  subnets:
+  - name: bar
+    cidrv4: 192.168.250.0/24
+    cidrv6: fd10:0:250::0/64
+  - name: baz
+    cidrv4: 192.168.251.0/24
+    cidrv6: fd10:0:251::0/64
+  - name: foo
+    cidrv4: 192.168.252.0/25
+  - name: qux
+    cidrv6: fd10:0:253::0/65
+
+-- icpn-1.v2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: direct-maggot
+spec:
+  subnets:
+  - name: baz
+    cidrv4: 192.168.251.0/24
+    cidrv6: fd10:0:254::0/64
+  - name: foo
+    cidrv4: 192.168.252.0/25
+    cidrv6: fd10:0:252::0/64
+  - name: fred
+    cidrv4: 192.168.250.0/24
+    cidrv6: fd10:0:250::0/96
+  - name: qux
+    cidrv4: 192.168.253.0/25
+
+-- icpn-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: united-firefly
+spec:
+  subnets:
+  - name: bar
+    cidrv4: 192.168.250.0/24
+    cidrv6: fd10:0:250::0/64
+  - name: foo
+    cidrv4: 192.168.254.0/24
+    cidrv6: fd10:0:254::0/64
+
+-- subnets.v1.table --
+Network          Name   CIDRv4             CIDRv6
+direct-maggot    bar    192.168.250.0/24   fd10:0:250::/64
+direct-maggot    baz    192.168.251.0/24   fd10:0:251::/64
+direct-maggot    foo    192.168.252.0/25   -
+direct-maggot    qux    -                  fd10:0:253::/65
+united-firefly   bar    192.168.250.0/24   fd10:0:250::/64
+united-firefly   foo    192.168.254.0/24   fd10:0:254::/64
+
+-- subnets.v2.table --
+Network          Name   CIDRv4             CIDRv6
+direct-maggot    baz    192.168.251.0/24   fd10:0:254::/64
+direct-maggot    foo    192.168.252.0/25   fd10:0:252::/64
+direct-maggot    fred   192.168.250.0/24   fd10:0:250::/96
+direct-maggot    qux    192.168.253.0/25   -
+united-firefly   bar    192.168.250.0/24   fd10:0:250::/64
+united-firefly   foo    192.168.254.0/24   fd10:0:254::/64
+
+-- subnets.v3.table --
+Network          Name   CIDRv4             CIDRv6
+united-firefly   bar    192.168.250.0/24   fd10:0:250::/64
+united-firefly   foo    192.168.254.0/24   fd10:0:254::/64
+
+-- subnet-mappings.v1.table --
+Network          NetworkID   Subnet   SubnetID   CIDR
+direct-maggot    0x1         bar      0x0        192.168.250.0/24
+direct-maggot    0x1         baz      0x0        192.168.251.0/24
+direct-maggot    0x1         foo      0x0        192.168.252.0/25
+direct-maggot    0x1         bar      0x0        fd10:0:250::/64
+direct-maggot    0x1         baz      0x0        fd10:0:251::/64
+direct-maggot    0x1         qux      0x0        fd10:0:253::/65
+united-firefly   0x2         bar      0x0        192.168.250.0/24
+united-firefly   0x2         foo      0x0        192.168.254.0/24
+united-firefly   0x2         bar      0x0        fd10:0:250::/64
+united-firefly   0x2         foo      0x0        fd10:0:254::/64
+
+-- subnet-mappings.v2.table --
+Network          NetworkID   Subnet   SubnetID   CIDR
+direct-maggot    0x1         fred     0x0        192.168.250.0/24
+direct-maggot    0x1         baz      0x0        192.168.251.0/24
+direct-maggot    0x1         foo      0x0        192.168.252.0/25
+direct-maggot    0x1         qux      0x0        192.168.253.0/25
+direct-maggot    0x1         fred     0x0        fd10:0:250::/96
+direct-maggot    0x1         foo      0x0        fd10:0:252::/64
+direct-maggot    0x1         baz      0x0        fd10:0:254::/64
+united-firefly   0x2         bar      0x0        192.168.250.0/24
+united-firefly   0x2         foo      0x0        192.168.254.0/24
+united-firefly   0x2         bar      0x0        fd10:0:250::/64
+united-firefly   0x2         foo      0x0        fd10:0:254::/64
+
+-- subnet-mappings.v3.table --
+Network          NetworkID   Subnet   SubnetID   CIDR
+united-firefly   0x2         bar      0x0        192.168.250.0/24
+united-firefly   0x2         foo      0x0        192.168.254.0/24
+united-firefly   0x2         bar      0x0        fd10:0:250::/64
+united-firefly   0x2         foo      0x0        fd10:0:254::/64
+
+-- subnet-mappings.v4.table --
+Network          NetworkID   Subnet   SubnetID   CIDR
+direct-maggot    0x3         fred     0x0        192.168.250.0/24
+direct-maggot    0x3         baz      0x0        192.168.251.0/24
+direct-maggot    0x3         foo      0x0        192.168.252.0/25
+direct-maggot    0x3         qux      0x0        192.168.253.0/25
+direct-maggot    0x3         fred     0x0        fd10:0:250::/96
+direct-maggot    0x3         foo      0x0        fd10:0:252::/64
+direct-maggot    0x3         baz      0x0        fd10:0:254::/64
+united-firefly   0x2         bar      0x0        192.168.250.0/24
+united-firefly   0x2         foo      0x0        192.168.254.0/24
+united-firefly   0x2         bar      0x0        fd10:0:250::/64
+united-firefly   0x2         foo      0x0        fd10:0:254::/64
+
+-- subnets.v1.map --
+0x1 192.168.250.0/24 -> 0x0
+0x1 192.168.251.0/24 -> 0x0
+0x1 192.168.252.0/25 -> 0x0
+0x1 fd10:0:250::/64 -> 0x0
+0x1 fd10:0:251::/64 -> 0x0
+0x1 fd10:0:253::/65 -> 0x0
+0x2 192.168.250.0/24 -> 0x0
+0x2 192.168.254.0/24 -> 0x0
+0x2 fd10:0:250::/64 -> 0x0
+0x2 fd10:0:254::/64 -> 0x0
+-- subnets.v2.map --
+0x1 192.168.250.0/24 -> 0x0
+0x1 192.168.251.0/24 -> 0x0
+0x1 192.168.252.0/25 -> 0x0
+0x1 192.168.253.0/25 -> 0x0
+0x1 fd10:0:250::/96 -> 0x0
+0x1 fd10:0:252::/64 -> 0x0
+0x1 fd10:0:254::/64 -> 0x0
+0x2 192.168.250.0/24 -> 0x0
+0x2 192.168.254.0/24 -> 0x0
+0x2 fd10:0:250::/64 -> 0x0
+0x2 fd10:0:254::/64 -> 0x0
+-- subnets.v3.map --
+0x2 192.168.250.0/24 -> 0x0
+0x2 192.168.254.0/24 -> 0x0
+0x2 fd10:0:250::/64 -> 0x0
+0x2 fd10:0:254::/64 -> 0x0
+-- subnets.v4.map --
+0x2 192.168.250.0/24 -> 0x0
+0x2 192.168.254.0/24 -> 0x0
+0x2 fd10:0:250::/64 -> 0x0
+0x2 fd10:0:254::/64 -> 0x0
+0x3 192.168.250.0/24 -> 0x0
+0x3 192.168.251.0/24 -> 0x0
+0x3 192.168.252.0/25 -> 0x0
+0x3 192.168.253.0/25 -> 0x0
+0x3 fd10:0:250::/96 -> 0x0
+0x3 fd10:0:252::/64 -> 0x0
+0x3 fd10:0:254::/64 -> 0x0

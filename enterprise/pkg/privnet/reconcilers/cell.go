@@ -26,6 +26,7 @@ var Cell = cell.Group(
 	PIPFIBMapCell,
 	PolicyCell,
 	DeviceMappingsCell,
+	SubnetMappingsCell,
 
 	// Infrastructure shared between some of the reconcilers
 	cell.Provide(
