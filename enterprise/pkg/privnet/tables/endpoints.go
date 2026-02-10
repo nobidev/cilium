@@ -39,7 +39,7 @@ func (ep Endpoint) Equal(other Endpoint) bool {
 
 // Key returns the key uniquely identifying this endpoint in the endpoints table.
 func (ep Endpoint) Key() EndpointKey {
-	return newEndpointKey(ep.Source, NetworkName(ep.Name), ep.IP)
+	return newEndpointKey(ep.Source, ep.Name, ep.IP)
 }
 
 // MapEntryType returns the MapEntry type of this endpoint.
@@ -124,7 +124,7 @@ const (
 	indexDelimiter = "|"
 )
 
-// EndpointKey is <cluster>/<namespace>/<name>|<network>|<network-ip>.
+// EndpointKey is <cluster>|<namespace>|<source-name>|<ep-name>|<pod-ip>.
 type EndpointKey string
 
 func (key EndpointKey) Key() index.Key {
@@ -139,8 +139,12 @@ func newEndpointKeyFromSource(source Source) EndpointKey {
 	return newEndpointKeyFromCluster(source.Cluster) + EndpointKey(source.Namespace+indexDelimiter+source.Name+indexDelimiter)
 }
 
-func newEndpointKey(source Source, network NetworkName, networkIP netip.Addr) EndpointKey {
-	return newEndpointKeyFromSource(source) + EndpointKey(string(network)+indexDelimiter+networkIP.String())
+func newEndpointKeyFromSourceAndName(source Source, name string) EndpointKey {
+	return newEndpointKeyFromSource(source) + EndpointKey(name) + indexDelimiter
+}
+
+func newEndpointKey(source Source, epName string, podIP netip.Addr) EndpointKey {
+	return newEndpointKeyFromSourceAndName(source, epName) + EndpointKey(podIP.String())
 }
 
 // endpointNetIPKey is <network>|<network-ip>.
@@ -231,6 +235,11 @@ func EndpointsByCluster(cluster ClusterName) statedb.Query[Endpoint] {
 // EndpointsBySource queries the endpoints table by source.
 func EndpointsBySource(source Source) statedb.Query[Endpoint] {
 	return endpointsPrimaryIndex.Query(newEndpointKeyFromSource(source))
+}
+
+// EndpointsBySourceAndName queries the endpoints table by source and endpoint name
+func EndpointsBySourceAndName(source Source, epName string) statedb.Query[Endpoint] {
+	return endpointsPrimaryIndex.Query(newEndpointKeyFromSourceAndName(source, epName))
 }
 
 // EndpointsByNetwork queries the endpoints table by network name.
