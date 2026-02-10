@@ -16,11 +16,13 @@ import (
 	"iter"
 	"log/slog"
 	"maps"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
@@ -32,7 +34,9 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
+	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
 var EndpointsCell = cell.Group(
@@ -61,6 +65,9 @@ var EndpointsCell = cell.Group(
 
 		// Registers the clustermesh to table reflector.
 		(*Endpoints).registerClusterMeshReflector,
+
+		// Registers reconciler that updates subnet assignment on subnet changes.
+		(*Endpoints).registerSubnetAssignmentReconciler,
 	),
 )
 
@@ -72,8 +79,9 @@ type Endpoints struct {
 	cfg   config.Config
 	cname tables.ClusterName
 
-	db  *statedb.DB
-	tbl statedb.RWTable[tables.Endpoint]
+	db      *statedb.DB
+	tbl     statedb.RWTable[tables.Endpoint]
+	subnets statedb.Table[tables.Subnet]
 }
 
 func newEndpoints(in struct {
@@ -85,16 +93,18 @@ func newEndpoints(in struct {
 	Config      config.Config
 	ClusterInfo cmtypes.ClusterInfo
 
-	DB    *statedb.DB
-	Table statedb.RWTable[tables.Endpoint]
+	DB      *statedb.DB
+	Table   statedb.RWTable[tables.Endpoint]
+	Subnets statedb.Table[tables.Subnet]
 }) *Endpoints {
 	return &Endpoints{
-		log:   in.Log,
-		jg:    in.JobGroup,
-		cfg:   in.Config,
-		cname: tables.ClusterName(in.ClusterInfo.Name),
-		db:    in.DB,
-		tbl:   in.Table,
+		log:     in.Log,
+		jg:      in.JobGroup,
+		cfg:     in.Config,
+		cname:   tables.ClusterName(in.ClusterInfo.Name),
+		db:      in.DB,
+		tbl:     in.Table,
+		subnets: in.Subnets,
 	}
 }
 
@@ -142,11 +152,45 @@ func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync], 
 				return !ok
 			}
 
-			return maps.Values(current), statedb.ToSeq(statedb.Filter(stale, filter))
+			return ep.mapEndpointsToSubnet(txn, maps.Values(current)), statedb.ToSeq(statedb.Filter(stale, filter))
 		},
 	}
 
 	return k8s.RegisterReflector(ep.jg, ep.db, cfg)
+}
+
+func (ep *Endpoints) mapEndpointsToSubnet(txn statedb.ReadTxn, in iter.Seq[tables.Endpoint]) iter.Seq[tables.Endpoint] {
+	type key struct {
+		Network  tables.NetworkName
+		Endpoint string
+	}
+
+	type value struct {
+		Subnet tables.SubnetName
+		IPs    []netip.Addr
+	}
+
+	var mappings = make(map[key]value)
+
+	for endpoint := range in {
+		k := key{tables.NetworkName(endpoint.Network.Name), endpoint.Name}
+		v := mappings[k]
+
+		v.IPs = append(v.IPs, endpoint.Network.IP)
+		mappings[k] = v
+	}
+
+	for k, v := range mappings {
+		sn, _ := tables.FindSubnetForIPs(ep.subnets, txn, k.Network, v.IPs...)
+		v.Subnet = sn.Name
+		mappings[k] = v
+	}
+
+	return cslices.MapIter(in,
+		func(in tables.Endpoint) tables.Endpoint {
+			in.Subnet = mappings[key{tables.NetworkName(in.Network.Name), in.Name}].Subnet
+			return in
+		})
 }
 
 func (ep *Endpoints) registerClusterMeshReflector(obs *observers.PrivateNetworkEndpoints) {
@@ -171,7 +215,7 @@ func (ep *Endpoints) registerClusterMeshReflector(obs *observers.PrivateNetworkE
 						// etcd, so it is possible that all other fields are updated without
 						// changing the key. However, this table uses a different primary
 						// key, so we need to explicitly delete the old version, if present.
-						for other := range ep.tbl.Prefix(wtx, tables.EndpointsByPIP(ev.Object.IP)) {
+						for other := range ep.tbl.List(wtx, tables.EndpointsByPIP(ev.Object.IP)) {
 							if other.Source.Cluster == ev.Object.Source.Cluster &&
 								other.Network.Name == ev.Object.Network.Name {
 								ep.tbl.Delete(wtx, other)
@@ -179,8 +223,16 @@ func (ep *Endpoints) registerClusterMeshReflector(obs *observers.PrivateNetworkE
 						}
 
 						ep.tbl.Insert(wtx, tables.Endpoint{Endpoint: ev.Object})
+
+						// We enforce the invariant that all endpoint with the same source and name are in the same subnet or no subnet.
+						// We just added an endpoint that might have a conflict with another endpoint.
+						ep.enforceSubnetConsistency(wtx, ev.Object.Source, ev.Object.Name)
 					case resource.Delete:
 						ep.tbl.Delete(wtx, tables.Endpoint{Endpoint: ev.Object})
+						// We enforce the invariant that all endpoint with the same source and name are in the same subnet or no subnet.
+						// We just removed an endpoint that might have conflicted with another endpoint. Check if they can now be assigned
+						// to a subnet.
+						ep.enforceSubnetConsistency(wtx, ev.Object.Source, ev.Object.Name)
 					case resource.Sync:
 						finish(wtx)
 					}
@@ -213,4 +265,138 @@ func newEndpointSliceSharedListerWatcher(in struct {
 	epSlices := in.Client.IsovalentV1alpha1().PrivateNetworkEndpointSlices(metav1.NamespaceAll)
 	listerWatcher := utils.ListerWatcherFromTyped(epSlices)
 	return k8s.NewSharedListerWatcher("privnet-endpointslices", in.JobGroup, listerWatcher), nil
+}
+
+func (ep *Endpoints) registerSubnetAssignmentReconciler() {
+	if !ep.cfg.Enabled {
+		return
+	}
+
+	wtx := ep.db.WriteTxn(ep.tbl)
+	initialized := ep.tbl.RegisterInitializer(wtx, "subnet-assignment-initialized")
+	wtx.Commit()
+
+	ep.jg.Add(job.OneShot("assign-subnets-to-endpoints", func(ctx context.Context, _ cell.Health) error {
+		var initDone bool
+
+		txn := ep.db.WriteTxn(ep.subnets)
+		changeIter, _ := ep.subnets.Changes(txn)
+		txn.Commit()
+
+		for {
+			var initWatch <-chan struct{}
+			txn := ep.db.WriteTxn(ep.tbl)
+			changes, watch := changeIter.Next(txn)
+
+			for change := range changes {
+				ep.log.Debug("Processing table event",
+					logfields.Table, ep.subnets.Name(),
+					logfields.Event, change,
+				)
+
+				type epSourceName struct {
+					source tables.Source
+					name   string
+				}
+				enforcedEps := sets.Set[epSourceName]{}
+				enforceSubnetConsistencyForList := func(prefix iter.Seq2[tables.Endpoint, statedb.Revision]) {
+					for e := range prefix {
+						key := epSourceName{
+							source: e.Source,
+							name:   e.Name,
+						}
+						// check if we have already checked this endpoint name to avoid redundant work
+						if !enforcedEps.Has(key) {
+							ep.enforceSubnetConsistency(txn, e.Source, e.Name)
+							enforcedEps.Insert(key)
+						}
+					}
+				}
+
+				sub := change.Object
+				if change.Deleted {
+					// Reassign things
+					enforceSubnetConsistencyForList(ep.tbl.List(txn, tables.EndpointsByNetworkSubnet(sub.Network, sub.Name)))
+				} else {
+					// Check if we can adopt some endpoints
+					enforceSubnetConsistencyForList(ep.tbl.List(txn, tables.EndpointsByNetworkSubnet(sub.Network, "")))
+					// Check if we need to orphan some endpoints
+					enforceSubnetConsistencyForList(ep.tbl.List(txn, tables.EndpointsByNetworkSubnet(sub.Network, sub.Name)))
+				}
+			}
+
+			// In order to be able to propagate initialization, we need to check if the upstream
+			// tables have already been initialized
+			if !initDone {
+				init, nw := ep.subnets.Initialized(txn)
+
+				switch {
+				case !init:
+					initWatch = nw
+				default:
+					initDone = true
+					initialized(txn)
+				}
+			}
+
+			txn.Commit()
+
+			// Wait until there's new changes to consume
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-watch:
+			case <-initWatch:
+			}
+		}
+	}))
+}
+
+// enforceSubnetConsistency enforces the invariant that all endpoint with the provided source and name are in the same subnet or no subnet.
+//
+// In general there should be at most 2 endpoints per source/name. One IPv4 and one IPv6 address. Both should end
+// up in the same subnet. If there are more than 2 endpoints per source/name, this likely indicates some consistency
+// issues, for example because we observe the endpoint updates out of order. We still enforce the invariable in that case.
+func (ep *Endpoints) enforceSubnetConsistency(txn statedb.WriteTxn, source tables.Source, name string) {
+	conflict := false
+	var network tables.NetworkName
+	var subnet tables.Subnet
+	toInsert := []tables.Endpoint{}
+
+	for e := range ep.tbl.Prefix(txn, tables.EndpointsBySourceAndName(source, name)) {
+		toInsert = append(toInsert, e)
+		switch {
+		case conflict:
+			// If we already saw a conflict, we'll orphan all endpoints anyways, skip checks
+		case network == "":
+			// If we have not seen a subnet/network yet. This only happens for the first endpoint.
+			// Check what subnet this endpoint belongs to.
+			network = tables.NetworkName(e.Network.Name)
+			var ok bool
+			subnet, ok = tables.FindSubnetForIPs(ep.subnets, txn, tables.NetworkName(e.Network.Name), e.Network.IP)
+			if !ok {
+				// endpoint does not match any subnet - we'll orphan all endpoints
+				conflict = true
+			}
+		default:
+			// We've already seen another endpoint - check that this endpoint is also in the same network and subnet
+			if tables.NetworkName(e.Network.Name) != network ||
+				(!subnet.CIDRv4.Contains(e.Network.IP) && !subnet.CIDRv6.Contains(e.Network.IP)) {
+				conflict = true
+			}
+		}
+	}
+
+	var subnetName tables.SubnetName
+	if !conflict {
+		subnetName = subnet.Name
+	}
+
+	for _, e := range toInsert {
+		// Only trigger insert if subnet changed
+		if e.Subnet != subnetName {
+			e.Subnet = subnetName
+			ep.tbl.Insert(txn, e)
+		}
+	}
 }
