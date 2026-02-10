@@ -9,7 +9,4 @@
  * variable using the CONFIG() macro.
  */
 #define DECLARE_ENTERPRISE_CONFIG(type, name, description) \
-	__section(__CONFIG_SECTION) \
-	__attribute__((btf_decl_tag("kind:enterprise"))) \
-	__attribute__((btf_decl_tag(description))) \
-	volatile const type __config_##name;
+	DECLARE_CONFIG_KIND("enterprise", type, name, description)
