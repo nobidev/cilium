@@ -11,6 +11,7 @@
 package tables
 
 import (
+	"cmp"
 	"iter"
 	"log/slog"
 	"net/netip"
@@ -30,6 +31,7 @@ type Source = kvstore.Source
 // Endpoint represents a single private network endpoint, for either IPv4 or IPv6.
 type Endpoint struct {
 	*kvstore.Endpoint
+	Subnet SubnetName
 }
 
 // Equal returns whether two Endpoint objects are identical.
@@ -94,7 +96,7 @@ var _ statedb.TableWritable = Endpoint{}
 func (ep Endpoint) TableHeader() []string {
 	return []string{
 		"Source", "Name",
-		"Network", "NetworkIP", "NetworkMAC",
+		"Network", "Subnet", "NetworkIP", "NetworkMAC",
 		"PodIP", "ActivatedAt",
 	}
 }
@@ -104,6 +106,7 @@ func (ep Endpoint) TableRow() []string {
 		ep.Source.String(),
 		ep.Name,
 		ep.Network.Name,
+		cmp.Or(string(ep.Subnet), "?"),
 		ep.Network.IP.String(),
 		ep.Network.MAC.String(),
 		ep.IP.String(),
@@ -223,6 +226,18 @@ var (
 		Unique:     false,
 	}
 
+	endpointsNetSubnetIndex = statedb.Index[Endpoint, SubnetKey]{
+		Name: "network-subnet",
+		FromObject: func(obj Endpoint) index.KeySet {
+			return index.NewKeySet(newSubnetKey(
+				NetworkName(obj.Network.Name), obj.Subnet,
+			).Key())
+		},
+		FromKey:    SubnetKey.Key,
+		FromString: index.FromString,
+		Unique:     false,
+	}
+
 	// EndpointsByPIP queries the endpoints table by Pod IP.
 	EndpointsByPIP = endpointsPIPIndex.Query
 )
@@ -257,6 +272,11 @@ func EndpointsByNetworkNode(network NetworkName, node WorkloadNode) statedb.Quer
 	return endpointsNetNodeIndex.Query(newEndpointNetNodeKey(network, node))
 }
 
+// EndpointsByNetworkSubnet queries the endpoints table by network name and hosting node.
+func EndpointsByNetworkSubnet(network NetworkName, Subnet SubnetName) statedb.Query[Endpoint] {
+	return endpointsNetSubnetIndex.Query(newSubnetKey(network, Subnet))
+}
+
 func NewEndpointsTable(db *statedb.DB) (statedb.RWTable[Endpoint], error) {
 	return statedb.NewTable(
 		db,
@@ -265,5 +285,6 @@ func NewEndpointsTable(db *statedb.DB) (statedb.RWTable[Endpoint], error) {
 		endpointsPIPIndex,
 		endpointsNetIPIndex,
 		endpointsNetNodeIndex,
+		endpointsNetSubnetIndex,
 	)
 }
