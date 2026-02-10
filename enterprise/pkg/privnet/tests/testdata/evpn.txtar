@@ -35,8 +35,8 @@ status:
   vni: 100
 
 -- privnet.table --
-Name        ID    VNI  Subnets                              Routes
-icpn-evpn   0x1   100  192.168.250.0/24,fd10:0:250::/64     2
+Name        ID    VNI  Subnets  Routes
+icpn-evpn   0x1   100  1        2
 
 -- routes.table --
 Network     Destination        Gateway
