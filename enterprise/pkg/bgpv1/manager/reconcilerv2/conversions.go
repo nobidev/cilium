@@ -77,8 +77,8 @@ func toRouteReflector(routeReflector *v1.NodeRouteReflector, selfRRRole v1.Route
 		return nil
 	}
 	// RR to RR peering should be also considered as client peering.
-	// Otherwise, CLUSTER_LIST attributes will not be sent and the peer RR
-	// will reflect the routes to its clients.
+	// Otherwise, the remote RR won't reflect the routes originated
+	// from local RR to the external iBGP peers.
 	return &types.NeighborRouteReflector{
 		Client:    true,
 		ClusterID: routeReflector.ClusterID,

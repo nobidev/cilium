@@ -738,18 +738,6 @@ func TestRouteReflectorPolicy(t *testing.T) {
 						},
 					},
 				},
-				"rr-rr-allow-all-exports": &enterpriseTypes.ExtendedRoutePolicy{
-					Name: "rr-rr-allow-all-exports",
-					Type: types.RoutePolicyTypeExport,
-					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
-						{
-							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{},
-							Actions: types.RoutePolicyActions{
-								RouteAction: types.RoutePolicyActionAccept,
-							},
-						},
-					},
-				},
 			},
 		},
 		{
@@ -790,18 +778,6 @@ func TestRouteReflectorPolicy(t *testing.T) {
 									},
 								},
 							},
-							Actions: types.RoutePolicyActions{
-								RouteAction: types.RoutePolicyActionAccept,
-							},
-						},
-					},
-				},
-				"rr-rr-allow-all-exports": &enterpriseTypes.ExtendedRoutePolicy{
-					Name: "rr-rr-allow-all-exports",
-					Type: types.RoutePolicyTypeExport,
-					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
-						{
-							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{},
 							Actions: types.RoutePolicyActions{
 								RouteAction: types.RoutePolicyActionAccept,
 							},
@@ -888,18 +864,6 @@ func TestRouteReflectorPolicy(t *testing.T) {
 						},
 					},
 				},
-				"rr-rr-allow-all-exports": &enterpriseTypes.ExtendedRoutePolicy{
-					Name: "rr-rr-allow-all-exports",
-					Type: types.RoutePolicyTypeExport,
-					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
-						{
-							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{},
-							Actions: types.RoutePolicyActions{
-								RouteAction: types.RoutePolicyActionAccept,
-							},
-						},
-					},
-				},
 			},
 		},
 		{
@@ -923,30 +887,7 @@ func TestRouteReflectorPolicy(t *testing.T) {
 					},
 				},
 			},
-			expected: RoutePolicyMap{
-				"rr-client-allow-all-imports-from-rr": &enterpriseTypes.ExtendedRoutePolicy{
-					Name: "rr-client-allow-all-imports-from-rr",
-					Type: types.RoutePolicyTypeImport,
-					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
-						{
-							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
-								RoutePolicyConditions: types.RoutePolicyConditions{
-									MatchNeighbors: &types.RoutePolicyNeighborMatch{
-										Type: types.RoutePolicyMatchAny,
-										Neighbors: []netip.Addr{
-											netip.MustParseAddr("10.0.0.1"),
-											netip.MustParseAddr("10.0.0.2"),
-										},
-									},
-								},
-							},
-							Actions: types.RoutePolicyActions{
-								RouteAction: types.RoutePolicyActionAccept,
-							},
-						},
-					},
-				},
-			},
+			expected: RoutePolicyMap{},
 		},
 		{
 			name: "route-reflector to eBGP peer",
@@ -991,8 +932,8 @@ func TestRouteReflectorPolicy(t *testing.T) {
 						},
 					},
 				},
-				"rr-rr-allow-all-exports": &enterpriseTypes.ExtendedRoutePolicy{
-					Name: "rr-rr-allow-all-exports",
+				"rr-rr-allow-all-exports-to-non-rr-peers": &enterpriseTypes.ExtendedRoutePolicy{
+					Name: "rr-rr-allow-all-exports-to-non-rr-peers",
 					Type: types.RoutePolicyTypeExport,
 					Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
 						{
@@ -1011,12 +952,6 @@ func TestRouteReflectorPolicy(t *testing.T) {
 								NextHop: &types.RoutePolicyActionNextHop{
 									Unchanged: true,
 								},
-							},
-						},
-						{
-							Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{},
-							Actions: types.RoutePolicyActions{
-								RouteAction: types.RoutePolicyActionAccept,
 							},
 						},
 					},

@@ -62,13 +62,18 @@ bgp/routes -o cilium-routes.actual --no-age loc ipv4 unicast
 # Ensure the routes are not imported into the Cilium RIB. Route import with RR is not supported yet.
 db/cmp desired-routes desired-routes.expected
 
-# In-cluster clients should see the routes with nexthop unmodified, no AS path appended, and with Originator and ClusterList.
+# FIXME: In-cluster clients should not receive any route (so the loc-rib should
+# only contain self-originated route). However, due to some implementation
+# details, clients still receives RR-originated routes. In the real Cilium RR
+# client, such a route will be filtered with the default-deny policy. However,
+# we see that here because the client is a dummy GoBGP server and doesn't have
+# the default-deny policy.
 gobgp/routes -s client-v4   -o client-v4-routes.actual
 * cmp client-v4-routes.actual client-v4-routes.expected
 gobgp/routes -s client-v6   -o client-v6-routes.actual
 * cmp client-v6-routes.actual client-v6-routes.expected
 
-# In-cluster route-reflectors is just a client from RR's perspective, so should see the routes with nexthop unmodified, no AS path appended, and with Originator and ClusterList.
+# In-cluster route-reflectors should only receive RR-originated routes, and the routes should have nexthop unmodified, no AS path appended, and should have Originator and ClusterList.
 gobgp/routes -s rr-v4       -o rr-v4-routes.actual
 * cmp rr-v4-routes.actual rr-v4-routes.expected
 gobgp/routes -s rr-v6       -o rr-v6-routes.actual
@@ -221,32 +226,20 @@ route-reflector   10.244.1.0/24   0.0.0.0             true   -
                   10.244.4.0/24   10.99.102.3         true   -
                   10.244.5.0/24   fc00:10:99:102::3   true   -
 -- client-v4-routes.expected --
-Prefix          NextHop             Attrs
-10.244.1.0/24   10.99.102.1         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.1} {LocalPref: 100} {Originator: 1.0.0.1} {ClusterList: [255.0.0.1]}]
-10.244.2.0/24   0.0.0.0             [{Origin: i} {Nexthop: 0.0.0.0}]
-10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.3} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
-10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.3} {LocalPref: 100} {Originator: 1.0.0.4} {ClusterList: [255.0.0.1]}]
-10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.5} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]
+Prefix          NextHop       Attrs
+10.244.1.0/24   10.99.102.1   [{Origin: i} {AsPath: } {Nexthop: 10.99.102.1} {LocalPref: 100} {Originator: 1.0.0.1} {ClusterList: [255.0.0.1]}]
+10.244.2.0/24   0.0.0.0       [{Origin: i} {Nexthop: 0.0.0.0}]
 -- client-v6-routes.expected --
 Prefix          NextHop             Attrs
 10.244.1.0/24   fc00:10:99:102::1   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.1} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::1, NLRIs: [10.244.1.0/24]}}]
-10.244.2.0/24   10.99.102.2         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.2} {LocalPref: 100} {Originator: 1.0.0.2} {ClusterList: [255.0.0.1]}]
 10.244.3.0/24   0.0.0.0             [{Origin: i} {Nexthop: 0.0.0.0}]
-10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.3} {LocalPref: 100} {Originator: 1.0.0.4} {ClusterList: [255.0.0.1]}]
-10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.5} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]
 -- rr-v4-routes.expected --
-Prefix          NextHop             Attrs
-10.244.1.0/24   10.99.102.1         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.1} {LocalPref: 100} {Originator: 1.0.0.1} {ClusterList: [255.0.0.1]}]
-10.244.2.0/24   10.99.102.2         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.2} {LocalPref: 100} {Originator: 1.0.0.2} {ClusterList: [255.0.0.1]}]
-10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.3} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
-10.244.4.0/24   0.0.0.0             [{Origin: i} {Nexthop: 0.0.0.0}]
-10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.5} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]
+Prefix          NextHop       Attrs
+10.244.1.0/24   10.99.102.1   [{Origin: i} {AsPath: } {Nexthop: 10.99.102.1} {LocalPref: 100} {Originator: 1.0.0.1} {ClusterList: [255.0.0.1]}]
+10.244.4.0/24   0.0.0.0       [{Origin: i} {Nexthop: 0.0.0.0}]
 -- rr-v6-routes.expected --
 Prefix          NextHop             Attrs
 10.244.1.0/24   fc00:10:99:102::1   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.1} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::1, NLRIs: [10.244.1.0/24]}}]
-10.244.2.0/24   10.99.102.2         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.2} {LocalPref: 100} {Originator: 1.0.0.2} {ClusterList: [255.0.0.1]}]
-10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: } {LocalPref: 100} {Originator: 1.0.0.3} {ClusterList: [255.0.0.1]} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
-10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.3} {LocalPref: 100} {Originator: 1.0.0.4} {ClusterList: [255.0.0.1]}]
 10.244.5.0/24   0.0.0.0             [{Origin: i} {Nexthop: 0.0.0.0}]
 -- external-v4-routes.expected --
 Prefix          NextHop             Attrs

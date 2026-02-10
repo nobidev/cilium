@@ -385,7 +385,8 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) Rou
 
 	routeReflectors := []netip.Addr{}
 	clients := []netip.Addr{}
-	eBGPPeers := []netip.Addr{}
+	nonRREBGPPeers := []netip.Addr{}
+	nonRROtherPeers := []netip.Addr{}
 
 	for _, peer := range instance.Peers {
 		if peer.PeerAddress == nil {
@@ -406,7 +407,9 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) Rou
 			}
 		} else if peer.PeerASN != nil && instance.LocalASN != nil && (*peer.PeerASN != *instance.LocalASN) {
 			// Record non-RR eBGP peers
-			eBGPPeers = append(eBGPPeers, addr)
+			nonRREBGPPeers = append(nonRREBGPPeers, addr)
+		} else {
+			nonRROtherPeers = append(nonRROtherPeers, addr)
 		}
 	}
 
@@ -414,6 +417,12 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) Rou
 		return a.Compare(b)
 	})
 	slices.SortFunc(clients, func(a, b netip.Addr) int {
+		return a.Compare(b)
+	})
+	slices.SortFunc(nonRREBGPPeers, func(a, b netip.Addr) int {
+		return a.Compare(b)
+	})
+	slices.SortFunc(nonRROtherPeers, func(a, b netip.Addr) int {
 		return a.Compare(b)
 	})
 
@@ -441,6 +450,8 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) Rou
 					},
 				},
 			}
+			// RR only advertises self-originated routes to other RRs. We don't need to add an explicit
+			// policy here as individual reconcilers set necessary allow policies.
 		}
 
 		if len(clients) > 0 {
@@ -465,18 +476,25 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) Rou
 					},
 				},
 			}
+			// FIXME: RR shouldn't advertise any route to clients, because the routes won't be
+			// imported into the FIB anyways. However, here we cannot stop advertising self-originated
+			// routes because reconcilers adds their own allow policies and we cannot override them
+			// (defining deny-all policy here doesn't work because the order of policy evaluation is
+			// not guaranteed). Fixing this requires significant refactoring of policy reconciliation.
+			// For the moment, we let RR-originated routes be advertised to clients and rely on the
+			// clients to filter-out routes.
 		}
 
 		// RR allows all exports to any peers
 		if len(clients) != 0 || len(routeReflectors) != 0 {
-			name := "rr-rr-allow-all-exports"
+			name := "rr-rr-allow-all-exports-to-non-rr-peers"
 			policy := &enterpriseTypes.ExtendedRoutePolicy{
 				Name:       name,
 				Type:       types.RoutePolicyTypeExport,
 				Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{},
 			}
 
-			if len(eBGPPeers) > 0 {
+			if len(nonRREBGPPeers) > 0 {
 				// For all eBGP peers, advertise routes
 				// without modifying nexthop. Since
 				// this doesn't care if the nexthop is
@@ -490,7 +508,7 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) Rou
 							RoutePolicyConditions: types.RoutePolicyConditions{
 								MatchNeighbors: &types.RoutePolicyNeighborMatch{
 									Type:      types.RoutePolicyMatchAny,
-									Neighbors: eBGPPeers,
+									Neighbors: nonRREBGPPeers,
 								},
 							},
 						},
@@ -504,33 +522,14 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) Rou
 				)
 			}
 
-			policy.Statements = append(policy.Statements,
-				&enterpriseTypes.ExtendedRoutePolicyStatement{
-					Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{},
-					Actions: types.RoutePolicyActions{
-						RouteAction: types.RoutePolicyActionAccept,
-					},
-				},
-			)
-
-			desiredRoutePolicies[name] = policy
-		}
-
-		// We still don't allow imports from non-route-reflector peers with the default import policy.
-	case v1.RouteReflectorRoleClient:
-		if len(routeReflectors) > 0 {
-			// Client allows all imports from RR
-			name := "rr-client-allow-all-imports-from-rr"
-			desiredRoutePolicies[name] = &enterpriseTypes.ExtendedRoutePolicy{
-				Name: name,
-				Type: types.RoutePolicyTypeImport,
-				Statements: []*enterpriseTypes.ExtendedRoutePolicyStatement{
-					{
+			if len(nonRROtherPeers) > 0 {
+				policy.Statements = append(policy.Statements,
+					&enterpriseTypes.ExtendedRoutePolicyStatement{
 						Conditions: enterpriseTypes.ExtendedRoutePolicyConditions{
 							RoutePolicyConditions: types.RoutePolicyConditions{
 								MatchNeighbors: &types.RoutePolicyNeighborMatch{
 									Type:      types.RoutePolicyMatchAny,
-									Neighbors: routeReflectors,
+									Neighbors: nonRROtherPeers,
 								},
 							},
 						},
@@ -538,10 +537,17 @@ func getDesiredRouteReflectorPolicies(instance *v1.IsovalentBGPNodeInstance) Rou
 							RouteAction: types.RoutePolicyActionAccept,
 						},
 					},
-				},
+				)
+			}
+
+			if len(policy.Statements) > 0 {
+				desiredRoutePolicies[name] = policy
 			}
 		}
-		// We already allow all generated routes per neighbor. No need to add additional policies.
+
+		// We still don't allow imports from non-route-reflector peers with the default import policy.
+	case v1.RouteReflectorRoleClient:
+		// The default-deny import policy already denies all imports from both RR and non-RR peers. We don't need to add an explicit policy here.
 	}
 	return desiredRoutePolicies
 }
