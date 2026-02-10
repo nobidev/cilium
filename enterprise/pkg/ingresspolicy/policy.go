@@ -242,6 +242,11 @@ func (owner *ingressPolicyOwner) IsHost() bool {
 	return false
 }
 
+// PreviousMapState is to satisfy the PolicyOwner interface.
+func (owner *ingressPolicyOwner) PreviousMapState() *policy.MapState {
+	return nil
+}
+
 // MapStateSize is to satisfy the PolicyOwner interface.
 func (owner *ingressPolicyOwner) MapStateSize() int {
 	return 0

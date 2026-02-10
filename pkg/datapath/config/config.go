@@ -44,12 +44,18 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 		node.PolicyDenyResponseEnabled = false
 	}
 
+	node.NodeportPortMin = lnc.LBConfig.NodePortMin
+	node.NodeportPortMax = lnc.LBConfig.NodePortMax
+
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
 	node.KernelHz = uint32(option.Config.KernelHz)
 
 	node.EnableConntrackAccounting = lnc.EnableConntrackAccounting
 
 	node.DebugLB = option.Config.Opts.IsEnabled(option.DebugLB)
+
+	node.HashInit4Seed = lnc.MaglevConfig.SeedJhash0
+	node.HashInit6Seed = lnc.MaglevConfig.SeedJhash1
 
 	return node
 }

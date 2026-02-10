@@ -159,7 +159,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:e226d6308690dbe282443c8c7e57365c96b5228f0fe7f40731b5d84d37a06839","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -2432,6 +2432,10 @@
      - Whether to enable the Cilium service resolver to resolve the IP address of the Hubble Timescape service. This is enabled by default and is required when Timescape is running in the same cluster as the Cilium agent. Disable this option if Hubble Timescape is running in a different cluster not using clustermesh and fallback to host DNS resolution. @schema type: [null, boolean] @schema
      - string
      - ``true``
+   * - :spelling:ignore:`hubble.hostUsers`
+     - Enable hostUsers for Hubble. This will allow use of user-namespaces for hubble components. Not all clusters support user-namespaces. See: https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/
+     - bool
+     - ``nil``
    * - :spelling:ignore:`hubble.listenAddress`
      - An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244.
      - string
@@ -3183,7 +3187,7 @@
    * - :spelling:ignore:`hubble.ui.backend.securityContext`
      - Hubble-ui backend security context.
      - object
-     - ``{"allowPrivilegeEscalation":false}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
    * - :spelling:ignore:`hubble.ui.baseUrl`
      - Defines base url prefix for all hubble-ui http requests. It needs to be changed in case if ingress for hubble-ui is configured under some sub-path. Trailing ``/`` is required for custom path, ex. ``/service-map/``
      - string
@@ -3215,7 +3219,7 @@
    * - :spelling:ignore:`hubble.ui.frontend.securityContext`
      - Hubble-ui frontend security context.
      - object
-     - ``{"allowPrivilegeEscalation":false}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
    * - :spelling:ignore:`hubble.ui.frontend.server.ipv6`
      - Controls server listener for ipv6
      - object
@@ -3271,7 +3275,7 @@
    * - :spelling:ignore:`hubble.ui.securityContext`
      - Security context to be added to Hubble UI pods
      - object
-     - ``{"fsGroup":1001,"runAsGroup":1001,"runAsUser":1001}``
+     - ``{"fsGroup":1001,"runAsGroup":1001,"runAsNonRoot":true,"runAsUser":1001,"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`hubble.ui.service`
      - hubble-ui service configuration.
      - object
