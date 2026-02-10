@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 var DeviceMappingsCell = cell.Group(
@@ -251,7 +250,8 @@ func (dm *DeviceMappings) registerBPFReconciler(
 	}
 
 	// Block regeneration until we populated the map.
-	fence.Add("private-network-devices", dm.waitForSync)
+	fence.Add("private-network-devices", newWaitUntilReconciledFn(dm.db, dm.tbl,
+		func(obj tables.DeviceMapping) reconciler.Status { return obj.Status }))
 
 	bpf.RegisterTablePressureMetricsJob(
 		dm.jg, registry, params.DB, dm.tbl, bpfMap,
@@ -282,48 +282,6 @@ func (dm *DeviceMappings) registerBPFReconciler(
 		nil,
 	)
 	return err
-}
-
-func (dm *DeviceMappings) waitForSync(ctx context.Context) error {
-	// Wait until the map entries table has been initialized.
-	_, initDone := dm.tbl.Initialized(dm.db.ReadTxn())
-	select {
-	case <-initDone:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-
-	// Wait until no entries are in pending state.
-	// FIXME: replace with [Reconciler.WaitUntilReconciled] once the
-	// statedb dependency is bumped to a version that includes it.
-	for {
-		entries, watch := dm.tbl.AllWatch(dm.db.ReadTxn())
-
-		ready := true
-		for entry := range entries {
-			if entry.Status.Kind == reconciler.StatusKindPending {
-				ready = false
-				break
-			}
-		}
-
-		if ready {
-			return nil
-		}
-
-		// Poor man's rate limiting, just to avoid waking up for all changes.
-		select {
-		case <-time.After(SettleTime):
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-
-		select {
-		case <-watch:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
 }
 
 type deviceMappingsOps struct {

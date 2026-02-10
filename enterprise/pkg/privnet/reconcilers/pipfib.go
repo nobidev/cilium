@@ -26,8 +26,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -85,7 +83,8 @@ func (b *PIPFIBMap) registerReconciler() (reconciler.Reconciler[*tables.MapEntry
 	// Block regeneration until we populated the maps again.
 	b.fence.Add(
 		"private-network",
-		b.newInitWaitFunc(),
+		newWaitUntilReconciledFn(b.db, b.mapEntries,
+			func(me *tables.MapEntry) reconciler.Status { return me.Status }),
 	)
 
 	return reconciler.Register(
@@ -211,49 +210,4 @@ func (pmo *pipFIBMapOps) Prune(ctx context.Context, txn statedb.ReadTxn, iter it
 			func(pip *pnmaps.PIPKeyVal) bool { return pip != nil }),
 		),
 	)
-}
-
-func (b *PIPFIBMap) newInitWaitFunc() hive.WaitFunc {
-	return func(ctx context.Context) error {
-		// Wait until the map entries table has been initialized.
-		_, initDone := b.mapEntries.Initialized(b.db.ReadTxn())
-		select {
-		case <-initDone:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-
-		// Wait until no entries are in pending state.
-		// FIXME: we should probably only check the ones present initially,
-		// and wait for at least a couple of retries in case of errors,
-		// but this works anyways for the moment.
-		for {
-			entries, watch := b.mapEntries.AllWatch(b.db.ReadTxn())
-
-			ready := true
-			for entry := range entries {
-				if entry.Status.Kind == reconciler.StatusKindPending {
-					ready = false
-					break
-				}
-			}
-
-			if ready {
-				return nil
-			}
-
-			// Poor man's rate limiting, just to avoid waking up for all changes.
-			select {
-			case <-time.After(50 * time.Millisecond):
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-
-			select {
-			case <-watch:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
-	}
 }

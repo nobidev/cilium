@@ -11,9 +11,14 @@
 package reconcilers
 
 import (
+	"context"
 	"iter"
 
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
+
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -84,6 +89,49 @@ func (tracker watchesTracker[T]) Iter(closed []<-chan struct{}) iter.Seq[T] {
 				if !yield(obj) {
 					return
 				}
+			}
+		}
+	}
+}
+
+func newWaitUntilReconciledFn[T any](db *statedb.DB, tbl statedb.Table[T], getStatus func(T) reconciler.Status) hive.WaitFunc {
+	return func(ctx context.Context) error {
+		// Wait until the table has been initialized.
+		_, initDone := tbl.Initialized(db.ReadTxn())
+		select {
+		case <-initDone:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+
+		// Wait until no entries are in pending state.
+		// TODO: replace with [Reconciler.WaitUntilReconciled].
+		for {
+			entries, watch := tbl.AllWatch(db.ReadTxn())
+
+			ready := true
+			for entry := range entries {
+				if getStatus(entry).Kind == reconciler.StatusKindPending {
+					ready = false
+					break
+				}
+			}
+
+			if ready {
+				return nil
+			}
+
+			// Poor man's rate limiting, just to avoid waking up for all changes.
+			select {
+			case <-time.After(SettleTime):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+
+			select {
+			case <-watch:
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 		}
 	}
