@@ -9,6 +9,12 @@ package config
 // Warning: do not instantiate directly! Always use [NewBPFOverlayEnterprise] to
 // ensure the default values configured in the ELF are honored.
 type BPFOverlayEnterprise struct {
+	// Allow ICMP_FRAG_NEEDED messages when applying Network Policy.
+	AllowICMPFragNeeded bool `config:"allow_icmp_frag_needed"`
+	// Apply Network Policy for ICMP packets.
+	EnableICMPRule bool `config:"enable_icmp_rule"`
+	// Maintain packet and byte counters for every policy entry.
+	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
 	// True if running on network bridge.
 	PrivnetBridgeEnable bool `config:"privnet_bridge_enable"`
 	// True if the endpoint is in a non-default network.
@@ -18,5 +24,5 @@ type BPFOverlayEnterprise struct {
 }
 
 func NewBPFOverlayEnterprise() *BPFOverlayEnterprise {
-	return &BPFOverlayEnterprise{false, false, 0x0}
+	return &BPFOverlayEnterprise{false, false, false, false, false, 0x0}
 }

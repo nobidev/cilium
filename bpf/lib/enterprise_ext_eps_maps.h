@@ -3,7 +3,16 @@
 
 #pragma once
 
+#include "lib/enterprise_config.h"
+/* Re-define DECLARE_CONFIG so the policy-specific global runtime config
+ * variables end up as enterprise variables in bpf_overlay.c because current OSS
+ * bpf_overlay.c doesn't otherwise include lib/policy.h.
+ */
+#undef DECLARE_CONFIG
+#define DECLARE_CONFIG DECLARE_ENTERPRISE_CONFIG
 #include "lib/policy.h"
+#undef DECLARE_CONFIG
+#define DECLARE_CONFIG(type, name, description) DECLARE_CONFIG_KIND("object", type, name, description)
 #include "lib/policy_log.h"
 
 struct non_pinned_policy_map {

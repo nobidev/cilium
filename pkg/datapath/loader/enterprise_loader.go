@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // EnterpriseCell provides the enterprise-specific loader config hooks.
@@ -81,6 +82,10 @@ func (l *EnterpriseLoader) registerOverlayConfig() {
 		cfg.PrivnetEnable = l.privnetConfig.Enabled
 		cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()
 		cfg.PrivnetUnknownSecID = uint32(identity.ReservedPrivnetUnknownFlow)
+
+		cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
+		cfg.EnableICMPRule = option.Config.EnableICMPRules
+		cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 
 		return cfg
 	})
