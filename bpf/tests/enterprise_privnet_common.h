@@ -11,6 +11,14 @@
 volatile const __u8 v6_net_two[] = v6_net_two_addr;
 
 #define NET_ID 100
+#define SUBNET_ID 200
+
+const __u8 __subnet_v6[16] = {0xfd, 0x10};
+#define SUBNET_V4 IPV4(172, 16, 10, 0)
+#define SUBNET_V4_LEN 24
+#define SUBNET_V6 ((const union v6addr *)__subnet_v6)
+#define SUBNET_V6_LEN 96
+
 #define V4_NET_IP_1 v4_svc_one
 #define V4_NET_IP_2 v4_svc_two
 #define V4_POD_IP_1 v4_pod_one

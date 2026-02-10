@@ -75,8 +75,9 @@ SETUP("tc", "01_icmp_from_netdev_nat_src_dst")
 int privnet_icmp_from_netdev_nat_src_dst_setup(struct __ctx_buff *ctx)
 {
 	privnet_add_device_entry(IFINDEX, NET_ID);
-	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
-	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
 	ipcache_v4_add_entry(V4_POD_IP_1, 0, 1001, INB_IP, 0);
 	ipcache_v4_add_entry(V4_POD_IP_2, 0, 1002, NODE_IP, 0);
@@ -98,8 +99,9 @@ int privnet_icmp_from_netdev_nat_src_dst_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
 
-	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
-	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
 	privnet_del_device_entry(IFINDEX);
 
 	test_finish();
@@ -117,7 +119,8 @@ int privnet_icmp_from_netdev_respond_arp_setup(struct __ctx_buff *ctx)
 {
 	privnet_add_device_entry(IFINDEX, NET_ID);
 	privnet_watchdog_set(ktime_get_ns(), 3000000000ULL);
-	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
 	return netdev_receive_packet(ctx);
 }
@@ -136,7 +139,8 @@ int privnet_icmp_from_netdev_respond_arp_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(NET_ID, NET_ID);
 
-	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
 	privnet_del_device_entry(IFINDEX);
 
 	test_finish();
@@ -154,7 +158,8 @@ int privnet_icmp_from_netdev_respond_arp_setup_agent_down(struct __ctx_buff *ctx
 {
 	privnet_add_device_entry(IFINDEX, NET_ID);
 	privnet_watchdog_set(ktime_get_ns() - 5000000000ULL, 3000000000ULL);
-	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	return netdev_receive_packet(ctx);
 }
 
@@ -168,7 +173,8 @@ int privnet_icmp_from_netdev_respond_arp_check_agent_down(struct __ctx_buff *ctx
 
 	assert_privnet_net_ids(NET_ID, NET_ID);
 
-	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
 	privnet_del_device_entry(IFINDEX);
 
 	test_finish();
@@ -186,7 +192,8 @@ int privnet_icmp6_from_netdev_respond_ns_setup(struct __ctx_buff *ctx)
 {
 	privnet_add_device_entry(IFINDEX, NET_ID);
 	privnet_watchdog_set(ktime_get_ns(), 3000000000ULL);
-	privnet_v6_add_endpoint_entry(NET_ID,
+	privnet_v6_add_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN, SUBNET_ID);
+	privnet_v6_add_endpoint_entry(NET_ID, SUBNET_ID,
 				      (const union v6addr *)V6_NET_IP_1,
 				      (const union v6addr *)V6_POD_IP_1);
 	return netdev_receive_packet(ctx);
@@ -206,9 +213,10 @@ int privnet_icmp6_from_netdev_respond_ns_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(NET_ID, NET_ID);
 
-	privnet_v6_del_endpoint_entry(NET_ID,
+	privnet_v6_del_endpoint_entry(NET_ID, SUBNET_ID,
 				      (const union v6addr *)V6_NET_IP_1,
 				      (const union v6addr *)V6_POD_IP_1);
+	privnet_v6_del_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN);
 	privnet_del_device_entry(IFINDEX);
 
 	test_finish();
@@ -226,7 +234,8 @@ int privnet_icmp6_from_netdev_respond_ns_setup_agent_down(struct __ctx_buff *ctx
 {
 	privnet_add_device_entry(IFINDEX, NET_ID);
 	privnet_watchdog_set(ktime_get_ns() - 5000000000ULL, 3000000000ULL);
-	privnet_v6_add_endpoint_entry(NET_ID,
+	privnet_v6_add_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN, SUBNET_ID);
+	privnet_v6_add_endpoint_entry(NET_ID, SUBNET_ID,
 				      (const union v6addr *)V6_NET_IP_1,
 				      (const union v6addr *)V6_POD_IP_1);
 	return netdev_receive_packet(ctx);
@@ -242,9 +251,10 @@ int privnet_icmp6_from_netdev_respond_ns_check_agent_down(struct __ctx_buff *ctx
 
 	assert_privnet_net_ids(NET_ID, NET_ID);
 
-	privnet_v6_del_endpoint_entry(NET_ID,
+	privnet_v6_del_endpoint_entry(NET_ID, SUBNET_ID,
 				      (const union v6addr *)V6_NET_IP_1,
 				      (const union v6addr *)V6_POD_IP_1);
+	privnet_v6_del_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN);
 	privnet_del_device_entry(IFINDEX);
 
 	test_finish();
@@ -261,7 +271,8 @@ SETUP("tc", "06_icmp_from_netdev_miss_src")
 int privnet_icmp_from_netdev_miss_src_setup(struct __ctx_buff *ctx)
 {
 	privnet_add_device_entry(IFINDEX, NET_ID);
-	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	ipcache_v4_add_entry(V4_POD_IP_2, 0, 1002, NODE_IP, 0);
 
 	return netdev_receive_packet(ctx);
@@ -277,7 +288,8 @@ int privnet_icmp_from_netdev_miss_src_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(NET_ID, PRIVNET_PIP_NET_ID);
 
-	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
 	privnet_del_device_entry(IFINDEX);
 	test_finish();
 }
@@ -293,7 +305,8 @@ SETUP("tc", "07_icmp_from_netdev_miss_dst")
 int privnet_icmp_from_netdev_miss_dst_setup(struct __ctx_buff *ctx)
 {
 	privnet_add_device_entry(IFINDEX, NET_ID);
-	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	ipcache_v4_add_entry(V4_POD_IP_1, 0, 1001, INB_IP, 0);
 
 	return netdev_receive_packet(ctx);
@@ -309,7 +322,8 @@ int privnet_icmp_from_netdev_miss_dst_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, NET_ID);
 
-	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
 	privnet_del_device_entry(IFINDEX);
 	test_finish();
 }
@@ -325,8 +339,9 @@ SETUP("tc", "08_icmp_from_netdev_miss_net_id")
 int privnet_icmp_from_netdev_miss_net_id_setup(struct __ctx_buff *ctx)
 {
 	privnet_add_device_entry(IFINDEX, 0);
-	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
-	privnet_v4_add_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
 	ipcache_v4_add_entry(V4_POD_IP_1, 0, 1001, INB_IP, 0);
 	ipcache_v4_add_entry(V4_POD_IP_2, 0, 1002, NODE_IP, 0);
@@ -343,8 +358,9 @@ int privnet_icmp_from_netdev_miss_net_check(struct __ctx_buff *ctx)
 	assert_status_code(ctx, DROP_UNROUTABLE);
 	assert_privnet_net_ids(PRIVNET_UNKNOWN_NET_ID, PRIVNET_PIP_NET_ID);
 
-	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_1, V4_POD_IP_1);
-	privnet_v4_del_endpoint_entry(NET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
 	privnet_del_device_entry(IFINDEX);
 
 	test_finish();
