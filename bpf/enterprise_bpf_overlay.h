@@ -111,12 +111,14 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 				return DROP_INVALID;
 
 			union v6addr daddr = {};
+			__u16 sn_id;
 
 			ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
 			nh_params.nh_family = AF_INET6;
 
-			/* network id is based on original source ip (pip). */
-			dip_fib_val = privnet_fib_lookup6(src_pip_val->net_id, daddr);
+			/* network and subnet IDs are based on original source ip (pip). */
+			sn_id = privnet_subnet_id_lookup6(src_pip_val->net_id, src_pip_val->ip6);
+			dip_fib_val = privnet_fib_lookup6(src_pip_val->net_id, sn_id, daddr);
 			if (dip_fib_val && dip_fib_val->flag_is_static_route) {
 				__bpf_memcpy_builtin(&nh_params.ipv6_nh, &dip_fib_val->ip6,
 						     sizeof(nh_params.ipv6_nh));
@@ -208,9 +210,11 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 				return DROP_INVALID;
 
 			__u32 ipv4_nh;
+			__u16 sn_id;
 
-			/* network id is based on original source ip (pip). */
-			dip_fib_val = privnet_fib_lookup4(src_pip_val->net_id, ip4->daddr);
+			/* network and subnet IDs are based on original source ip (pip). */
+			sn_id = privnet_subnet_id_lookup4(src_pip_val->net_id, src_pip_val->ip4);
+			dip_fib_val = privnet_fib_lookup4(src_pip_val->net_id, sn_id, ip4->daddr);
 			if (dip_fib_val && dip_fib_val->flag_is_static_route) {
 				ipv4_nh = dip_fib_val->ip4;
 			} else if (dip_fib_val && dip_fib_val->flag_is_subnet_route) {

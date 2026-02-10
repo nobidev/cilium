@@ -14,6 +14,7 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr *ip6 __maybe_unused;
 	struct iphdr *ip4 __maybe_unused;
+	union v6addr sip6 __maybe_unused;
 	const struct privnet_fib_val *dip_val __maybe_unused;
 	int ret = CTX_ACT_OK;
 	const __u16 *net_id;
@@ -49,7 +50,10 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		if (is_icmp6_ndp(ctx, ip6, ETH_HLEN))
 			return handle_privnet_ns(ctx, *net_id, true);
 
-		ret = privnet_egress_ipv6(ctx, *net_id, NULL, &dip_val);
+		ipv6_addr_copy(&sip6, (union v6addr *)&ip6->saddr);
+		ret = privnet_egress_ipv6(ctx, *net_id,
+					  privnet_subnet_id_lookup6(*net_id, sip6),
+					  NULL, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
 #ifdef TUNNEL_MODE
@@ -79,7 +83,9 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		ret = privnet_egress_ipv4(ctx, *net_id, NULL, &dip_val);
+		ret = privnet_egress_ipv4(ctx, *net_id,
+					  privnet_subnet_id_lookup4(*net_id, ip4->saddr),
+					  NULL, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
 

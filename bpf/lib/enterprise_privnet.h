@@ -322,10 +322,11 @@ struct {
 } cilium_privnet_pip __section_maps_btf;
 
 static __always_inline __maybe_unused const struct privnet_fib_val *
-privnet_fib_lookup4(__u16 net_id, __be32 addr) {
+privnet_fib_lookup4(__u16 net_id, __u16 subnet_id, __be32 addr) {
 	const struct privnet_fib_key key = {
 		.lpm_key = { PRIVNET_FIB_PREFIX_LEN(V4_PRIVNET_KEY_LEN), {} },
 		.net_id = net_id,
+		.subnet_id = subnet_id,
 		.family = ENDPOINT_KEY_IPV4,
 		.ip4 = addr,
 	};
@@ -334,10 +335,11 @@ privnet_fib_lookup4(__u16 net_id, __be32 addr) {
 }
 
 static __always_inline __maybe_unused const struct privnet_fib_val *
-privnet_fib_lookup6(__u16 net_id, union v6addr addr) {
+privnet_fib_lookup6(__u16 net_id, __u16 subnet_id, union v6addr addr) {
 	const struct privnet_fib_key key = {
 		.lpm_key = { PRIVNET_FIB_PREFIX_LEN(V6_PRIVNET_KEY_LEN), {} },
 		.net_id = net_id,
+		.subnet_id = subnet_id,
 		.family = ENDPOINT_KEY_IPV6,
 		.ip6 = addr,
 	};
@@ -363,6 +365,11 @@ static __always_inline const __u16 *privnet_get_net_id(__u32 ifindex)
 	return val ? &val->net_id : NULL;
 }
 
+#define PRIVNET_SUBNET_STATIC_PREFIX						\
+(8 * (sizeof(struct privnet_subnet_key) - sizeof(struct bpf_lpm_trie_key)	\
+- sizeof(union v6addr)))
+#define PRIVNET_SUBNET_PREFIX_LEN(PREFIX) (PRIVNET_SUBNET_STATIC_PREFIX + (PREFIX))
+
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct privnet_subnet_key);
@@ -371,6 +378,34 @@ struct {
 	__uint(max_entries, PRIVNET_SUBNETS_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_privnet_subnets __section_maps_btf;
+
+static __always_inline __u16 privnet_subnet_id_lookup4(__u16 net_id, __be32 addr)
+{
+	const struct privnet_subnet_key key = {
+		.lpm_key = { PRIVNET_SUBNET_PREFIX_LEN(V4_PRIVNET_KEY_LEN), {} },
+		.net_id = net_id,
+		.family = ENDPOINT_KEY_IPV4,
+		.ip4 = addr,
+	};
+	const struct privnet_subnet_val *val;
+
+	val = map_lookup_elem(&cilium_privnet_subnets, &key);
+	return val ? val->subnet_id : 0;
+}
+
+static __always_inline __u16 privnet_subnet_id_lookup6(__u16 net_id, union v6addr addr)
+{
+	const struct privnet_subnet_key key = {
+		.lpm_key = { PRIVNET_SUBNET_PREFIX_LEN(V6_PRIVNET_KEY_LEN), {} },
+		.net_id = net_id,
+		.family = ENDPOINT_KEY_IPV6,
+		.ip6 = addr,
+	};
+	const struct privnet_subnet_val *val;
+
+	val = map_lookup_elem(&cilium_privnet_subnets, &key);
+	return val ? val->subnet_id : 0;
+}
 
 /*
  * cilium_privnet_watchdog is used to detect when the Cilium agent is down for
@@ -450,7 +485,7 @@ enforce_privnet_egress_segmentation(const struct privnet_fib_val *sip_val,
  * - Returns lookup result for source and destination.
  */
 static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
-					       __u16 net_id,
+					       __u16 net_id, __u16 subnet_id,
 					       const struct privnet_fib_val **src_privnet_entry,
 					       const struct privnet_fib_val **dst_privnet_entry)
 {
@@ -463,7 +498,7 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	dip_val = privnet_fib_lookup4(net_id, ip4->daddr);
+	dip_val = privnet_fib_lookup4(net_id, subnet_id, ip4->daddr);
 	if (dip_val) {
 		if (dst_privnet_entry)
 			*dst_privnet_entry = dip_val;
@@ -490,7 +525,7 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	sip_val = privnet_fib_lookup4(net_id, ip4->saddr);
+	sip_val = privnet_fib_lookup4(net_id, subnet_id, ip4->saddr);
 	if (sip_val) {
 		if (src_privnet_entry)
 			*src_privnet_entry = sip_val;
@@ -518,7 +553,7 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 
 /* see ipv4 comment */
 static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
-					       __u16 net_id,
+					       __u16 net_id, __u16 subnet_id,
 					       const struct privnet_fib_val **src_privnet_entry,
 					       const struct privnet_fib_val **dst_privnet_entry)
 {
@@ -535,7 +570,7 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
 	ipv6_addr_copy(&orig_dip, (union v6addr *)&ip6->daddr);
 
-	dip_val = privnet_fib_lookup6(net_id, orig_dip);
+	dip_val = privnet_fib_lookup6(net_id, subnet_id, orig_dip);
 	if (dip_val) {
 		if (dst_privnet_entry)
 			*dst_privnet_entry = dip_val;
@@ -549,7 +584,7 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 		}
 	}
 
-	sip_val = privnet_fib_lookup6(net_id, orig_sip);
+	sip_val = privnet_fib_lookup6(net_id, subnet_id, orig_sip);
 	if (sip_val) {
 		if (src_privnet_entry)
 			*src_privnet_entry = sip_val;
@@ -1093,7 +1128,7 @@ handle_privnet_ns(struct __ctx_buff *ctx, const __u16 net_id, bool from_lxc)
 		return icmp6_send_ndisc_adv(ctx, ETH_HLEN, &mac, false);
 	}
 
-	val = privnet_fib_lookup6(net_id, tip);
+	val = privnet_fib_lookup6(net_id, privnet_subnet_id_lookup6(net_id, tip), tip);
 
 	/* Don't reply to NDs if the agent is not alive, as the map state may
 	 * be out of sync, and we may conflict with the newly activated INB.
@@ -1138,7 +1173,7 @@ handle_privnet_arp(struct __ctx_buff *ctx, const __u16 net_id)
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
 		return CTX_ACT_OK;
 
-	val = privnet_fib_lookup4(net_id, tip);
+	val = privnet_fib_lookup4(net_id, privnet_subnet_id_lookup4(net_id, tip), tip);
 
 	/* Don't reply to ARPs if the agent is not alive, as the map state may
 	 * be out of sync, and we may conflict with the newly activated INB.

@@ -32,6 +32,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
+	union v6addr dip6 __maybe_unused;
 	const struct privnet_fib_val *sip_val __maybe_unused = NULL;
 	const struct privnet_fib_val *dip_val __maybe_unused = NULL;
 	const struct remote_endpoint_info *info __maybe_unused;
@@ -72,7 +73,10 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 			return handle_privnet_ns(ctx, *net_id, false);
 		}
 
-		ret = privnet_egress_ipv6(ctx, *net_id, &sip_val, &dip_val);
+		ipv6_addr_copy(&dip6, (union v6addr *)&ip6->daddr);
+		ret = privnet_egress_ipv6(ctx, *net_id,
+					  privnet_subnet_id_lookup6(*net_id, dip6),
+					  &sip_val, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -117,7 +121,9 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 							METRIC_INGRESS);
 
-		ret = privnet_egress_ipv4(ctx, *net_id, &sip_val, &dip_val);
+		ret = privnet_egress_ipv4(ctx, *net_id,
+					  privnet_subnet_id_lookup4(*net_id, ip4->daddr),
+					  &sip_val, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
 
