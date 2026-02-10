@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	api "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1"
+	api "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/api/v1"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/logging"

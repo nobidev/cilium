@@ -1,7 +1,7 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-include ../../../../../../Makefile.defs
+include ../../../../../Makefile.defs
 
 CILIUM_BUILDER_IMAGE=$(shell cat $(ROOT_DIR)/images/cilium/Dockerfile | grep "ARG CILIUM_BUILDER_IMAGE=" | cut -d"=" -f2)
 
@@ -11,4 +11,4 @@ proto:
 		--volume $(ROOT_DIR):/src \
 		--user "$(shell id -u):$(shell id -g)" \
 		$(CILIUM_BUILDER_IMAGE) \
-		make -C /src/enterprise/pkg/privnet/health/grpc/api -f Makefile.protoc
+		make -C /src/enterprise/pkg/privnet/grpc/api -f Makefile.protoc

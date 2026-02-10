@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/hive/script"
 	"github.com/cilium/statedb"
 
+	grpcclient "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/client"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/checker"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
@@ -42,7 +43,7 @@ type CheckerPool struct {
 	db  *statedb.DB
 
 	cfg     config.Config
-	factory checker.ConnFactoryFn
+	factory grpcclient.ConnFactoryFn
 	pool    map[string]*Checker
 	started bool
 
@@ -58,7 +59,7 @@ func newCheckerPool(in struct {
 	DB        *statedb.DB
 
 	Config  config.Config
-	Factory checker.ConnFactoryFn
+	Factory grpcclient.ConnFactoryFn
 
 	Interceptors *Interceptors
 }) *CheckerPool {

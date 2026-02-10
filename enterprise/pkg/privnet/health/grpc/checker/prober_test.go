@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	api "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1"
+	api "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/api/v1"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/lock"

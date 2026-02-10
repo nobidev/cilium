@@ -26,8 +26,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
-	api "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/checker"
+	api "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/api/v1"
+	grpcclient "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/client"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
@@ -64,7 +64,7 @@ func (f ConnFactory) NewListener(inst Instance) (net.Listener, error) {
 	return lis, nil
 }
 
-func (f ConnFactory) ClientConnFactory() checker.ConnFactoryFn {
+func (f ConnFactory) ClientConnFactory() grpcclient.ConnFactoryFn {
 	return func(target tables.INBNode) (*grpc.ClientConn, error) {
 		return grpc.NewClient(
 			"unix://"+f.Path(Instance{Cluster: target.Cluster, Name: target.Name}),

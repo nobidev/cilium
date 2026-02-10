@@ -17,8 +17,8 @@ import (
 	"github.com/cilium/hive/cell"
 
 	pnmaps "github.com/cilium/cilium/enterprise/pkg/maps/privnet"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/checker"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/server"
+	grpcclient "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/client"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/grpc/server"
 	ht "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/tests"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
@@ -33,7 +33,7 @@ func Health(path string) cell.Cell {
 		ht.CheckerPoolCell,
 
 		cell.DecorateAll(
-			func(factory ht.ConnFactory) checker.ConnFactoryFn { return factory.ClientConnFactory() },
+			func(factory ht.ConnFactory) grpcclient.ConnFactoryFn { return factory.ClientConnFactory() },
 		),
 
 		cell.DecorateAll(

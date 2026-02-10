@@ -10,13 +10,17 @@
 
 package checker
 
-import "github.com/cilium/hive/cell"
+import (
+	"github.com/cilium/hive/cell"
+
+	grpcclient "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/client"
+)
 
 var Cell = cell.Group(
 	cell.ProvidePrivate(
 		// Provide the connection factory via hive, so that it can be
 		// overridden for testing purposes.
-		newDefaultConnFactory,
+		grpcclient.NewDefaultConnFactory,
 
 		// Provide the identifiers of the local node via hive, so that it
 		// can be overridden for testing purposes.

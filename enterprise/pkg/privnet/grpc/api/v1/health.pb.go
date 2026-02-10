@@ -13,7 +13,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.5
-// source: v1/api.proto
+// source: v1/health.proto
 
 package v1
 
@@ -63,11 +63,11 @@ func (x ProbeResponse_ServingStatus) String() string {
 }
 
 func (ProbeResponse_ServingStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_v1_api_proto_enumTypes[0].Descriptor()
+	return file_v1_health_proto_enumTypes[0].Descriptor()
 }
 
 func (ProbeResponse_ServingStatus) Type() protoreflect.EnumType {
-	return &file_v1_api_proto_enumTypes[0]
+	return &file_v1_health_proto_enumTypes[0]
 }
 
 func (x ProbeResponse_ServingStatus) Number() protoreflect.EnumNumber {
@@ -76,7 +76,7 @@ func (x ProbeResponse_ServingStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ProbeResponse_ServingStatus.Descriptor instead.
 func (ProbeResponse_ServingStatus) EnumDescriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{1, 0}
+	return file_v1_health_proto_rawDescGZIP(), []int{1, 0}
 }
 
 type NetworkEvents_Event_ServingStatus int32
@@ -115,11 +115,11 @@ func (x NetworkEvents_Event_ServingStatus) String() string {
 }
 
 func (NetworkEvents_Event_ServingStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_v1_api_proto_enumTypes[1].Descriptor()
+	return file_v1_health_proto_enumTypes[1].Descriptor()
 }
 
 func (NetworkEvents_Event_ServingStatus) Type() protoreflect.EnumType {
-	return &file_v1_api_proto_enumTypes[1]
+	return &file_v1_health_proto_enumTypes[1]
 }
 
 func (x NetworkEvents_Event_ServingStatus) Number() protoreflect.EnumNumber {
@@ -128,7 +128,7 @@ func (x NetworkEvents_Event_ServingStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use NetworkEvents_Event_ServingStatus.Descriptor instead.
 func (NetworkEvents_Event_ServingStatus) EnumDescriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{3, 0, 0}
+	return file_v1_health_proto_rawDescGZIP(), []int{3, 0, 0}
 }
 
 type ProbeRequest struct {
@@ -146,7 +146,7 @@ type ProbeRequest struct {
 
 func (x *ProbeRequest) Reset() {
 	*x = ProbeRequest{}
-	mi := &file_v1_api_proto_msgTypes[0]
+	mi := &file_v1_health_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -158,7 +158,7 @@ func (x *ProbeRequest) String() string {
 func (*ProbeRequest) ProtoMessage() {}
 
 func (x *ProbeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_api_proto_msgTypes[0]
+	mi := &file_v1_health_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -171,7 +171,7 @@ func (x *ProbeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeRequest.ProtoReflect.Descriptor instead.
 func (*ProbeRequest) Descriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{0}
+	return file_v1_health_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ProbeRequest) GetSelf() *Node {
@@ -205,7 +205,7 @@ type ProbeResponse struct {
 
 func (x *ProbeResponse) Reset() {
 	*x = ProbeResponse{}
-	mi := &file_v1_api_proto_msgTypes[1]
+	mi := &file_v1_health_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -217,7 +217,7 @@ func (x *ProbeResponse) String() string {
 func (*ProbeResponse) ProtoMessage() {}
 
 func (x *ProbeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_api_proto_msgTypes[1]
+	mi := &file_v1_health_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -230,7 +230,7 @@ func (x *ProbeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeResponse.ProtoReflect.Descriptor instead.
 func (*ProbeResponse) Descriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{1}
+	return file_v1_health_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ProbeResponse) GetStatus() ProbeResponse_ServingStatus {
@@ -250,7 +250,7 @@ type WatchRequest struct {
 
 func (x *WatchRequest) Reset() {
 	*x = WatchRequest{}
-	mi := &file_v1_api_proto_msgTypes[2]
+	mi := &file_v1_health_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -262,7 +262,7 @@ func (x *WatchRequest) String() string {
 func (*WatchRequest) ProtoMessage() {}
 
 func (x *WatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_api_proto_msgTypes[2]
+	mi := &file_v1_health_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -275,7 +275,7 @@ func (x *WatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchRequest.ProtoReflect.Descriptor instead.
 func (*WatchRequest) Descriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{2}
+	return file_v1_health_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *WatchRequest) GetSelf() *Node {
@@ -295,7 +295,7 @@ type NetworkEvents struct {
 
 func (x *NetworkEvents) Reset() {
 	*x = NetworkEvents{}
-	mi := &file_v1_api_proto_msgTypes[3]
+	mi := &file_v1_health_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -307,7 +307,7 @@ func (x *NetworkEvents) String() string {
 func (*NetworkEvents) ProtoMessage() {}
 
 func (x *NetworkEvents) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_api_proto_msgTypes[3]
+	mi := &file_v1_health_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -320,7 +320,7 @@ func (x *NetworkEvents) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkEvents.ProtoReflect.Descriptor instead.
 func (*NetworkEvents) Descriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{3}
+	return file_v1_health_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *NetworkEvents) GetEvents() []*NetworkEvents_Event {
@@ -342,7 +342,7 @@ type ActivationRequest struct {
 
 func (x *ActivationRequest) Reset() {
 	*x = ActivationRequest{}
-	mi := &file_v1_api_proto_msgTypes[4]
+	mi := &file_v1_health_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -354,7 +354,7 @@ func (x *ActivationRequest) String() string {
 func (*ActivationRequest) ProtoMessage() {}
 
 func (x *ActivationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_api_proto_msgTypes[4]
+	mi := &file_v1_health_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -367,7 +367,7 @@ func (x *ActivationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActivationRequest.ProtoReflect.Descriptor instead.
 func (*ActivationRequest) Descriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{4}
+	return file_v1_health_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ActivationRequest) GetSelf() *Node {
@@ -392,7 +392,7 @@ type ActivationResponse struct {
 
 func (x *ActivationResponse) Reset() {
 	*x = ActivationResponse{}
-	mi := &file_v1_api_proto_msgTypes[5]
+	mi := &file_v1_health_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -404,7 +404,7 @@ func (x *ActivationResponse) String() string {
 func (*ActivationResponse) ProtoMessage() {}
 
 func (x *ActivationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_api_proto_msgTypes[5]
+	mi := &file_v1_health_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -417,7 +417,7 @@ func (x *ActivationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActivationResponse.ProtoReflect.Descriptor instead.
 func (*ActivationResponse) Descriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{5}
+	return file_v1_health_proto_rawDescGZIP(), []int{5}
 }
 
 type DeactivationRequest struct {
@@ -432,7 +432,7 @@ type DeactivationRequest struct {
 
 func (x *DeactivationRequest) Reset() {
 	*x = DeactivationRequest{}
-	mi := &file_v1_api_proto_msgTypes[6]
+	mi := &file_v1_health_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -444,7 +444,7 @@ func (x *DeactivationRequest) String() string {
 func (*DeactivationRequest) ProtoMessage() {}
 
 func (x *DeactivationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_api_proto_msgTypes[6]
+	mi := &file_v1_health_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -457,7 +457,7 @@ func (x *DeactivationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeactivationRequest.ProtoReflect.Descriptor instead.
 func (*DeactivationRequest) Descriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{6}
+	return file_v1_health_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeactivationRequest) GetSelf() *Node {
@@ -482,7 +482,7 @@ type DeactivationResponse struct {
 
 func (x *DeactivationResponse) Reset() {
 	*x = DeactivationResponse{}
-	mi := &file_v1_api_proto_msgTypes[7]
+	mi := &file_v1_health_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -494,7 +494,7 @@ func (x *DeactivationResponse) String() string {
 func (*DeactivationResponse) ProtoMessage() {}
 
 func (x *DeactivationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_api_proto_msgTypes[7]
+	mi := &file_v1_health_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -507,7 +507,7 @@ func (x *DeactivationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeactivationResponse.ProtoReflect.Descriptor instead.
 func (*DeactivationResponse) Descriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{7}
+	return file_v1_health_proto_rawDescGZIP(), []int{7}
 }
 
 // Node identifies a Kubernetes node.
@@ -523,7 +523,7 @@ type Node struct {
 
 func (x *Node) Reset() {
 	*x = Node{}
-	mi := &file_v1_api_proto_msgTypes[8]
+	mi := &file_v1_health_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -535,7 +535,7 @@ func (x *Node) String() string {
 func (*Node) ProtoMessage() {}
 
 func (x *Node) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_api_proto_msgTypes[8]
+	mi := &file_v1_health_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -548,7 +548,7 @@ func (x *Node) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Node.ProtoReflect.Descriptor instead.
 func (*Node) Descriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{8}
+	return file_v1_health_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Node) GetCluster() string {
@@ -576,7 +576,7 @@ type Network struct {
 
 func (x *Network) Reset() {
 	*x = Network{}
-	mi := &file_v1_api_proto_msgTypes[9]
+	mi := &file_v1_health_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -588,7 +588,7 @@ func (x *Network) String() string {
 func (*Network) ProtoMessage() {}
 
 func (x *Network) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_api_proto_msgTypes[9]
+	mi := &file_v1_health_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -601,7 +601,7 @@ func (x *Network) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Network.ProtoReflect.Descriptor instead.
 func (*Network) Descriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{9}
+	return file_v1_health_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Network) GetName() string {
@@ -623,7 +623,7 @@ type NetworkEvents_Event struct {
 
 func (x *NetworkEvents_Event) Reset() {
 	*x = NetworkEvents_Event{}
-	mi := &file_v1_api_proto_msgTypes[10]
+	mi := &file_v1_health_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -635,7 +635,7 @@ func (x *NetworkEvents_Event) String() string {
 func (*NetworkEvents_Event) ProtoMessage() {}
 
 func (x *NetworkEvents_Event) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_api_proto_msgTypes[10]
+	mi := &file_v1_health_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -648,7 +648,7 @@ func (x *NetworkEvents_Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkEvents_Event.ProtoReflect.Descriptor instead.
 func (*NetworkEvents_Event) Descriptor() ([]byte, []int) {
-	return file_v1_api_proto_rawDescGZIP(), []int{3, 0}
+	return file_v1_health_proto_rawDescGZIP(), []int{3, 0}
 }
 
 func (x *NetworkEvents_Event) GetNetwork() *Network {
@@ -665,11 +665,11 @@ func (x *NetworkEvents_Event) GetStatus() NetworkEvents_Event_ServingStatus {
 	return NetworkEvents_Event_UNKNOWN
 }
 
-var File_v1_api_proto protoreflect.FileDescriptor
+var File_v1_health_proto protoreflect.FileDescriptor
 
-const file_v1_api_proto_rawDesc = "" +
+const file_v1_health_proto_rawDesc = "" +
 	"\n" +
-	"\fv1/api.proto\x12\x03api\x1a\x1egoogle/protobuf/duration.proto\"\x99\x01\n" +
+	"\x0fv1/health.proto\x12\x03api\x1a\x1egoogle/protobuf/duration.proto\"\x99\x01\n" +
 	"\fProbeRequest\x12\x1d\n" +
 	"\x04self\x18\x01 \x01(\v2\t.api.NodeR\x04self\x123\n" +
 	"\atimeout\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\atimeout\x125\n" +
@@ -711,23 +711,23 @@ const file_v1_api_proto_rawDesc = "" +
 	"\x05Watch\x12\x11.api.WatchRequest\x1a\x12.api.NetworkEvents\"\x000\x01\x12=\n" +
 	"\bActivate\x12\x16.api.ActivationRequest\x1a\x17.api.ActivationResponse\"\x00\x12C\n" +
 	"\n" +
-	"Deactivate\x12\x18.api.DeactivationRequest\x1a\x19.api.DeactivationResponse\"\x00BDZBgithub.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1b\x06proto3"
+	"Deactivate\x12\x18.api.DeactivationRequest\x1a\x19.api.DeactivationResponse\"\x00B=Z;github.com/cilium/cilium/enterprise/pkg/privnet/grpc/api/v1b\x06proto3"
 
 var (
-	file_v1_api_proto_rawDescOnce sync.Once
-	file_v1_api_proto_rawDescData []byte
+	file_v1_health_proto_rawDescOnce sync.Once
+	file_v1_health_proto_rawDescData []byte
 )
 
-func file_v1_api_proto_rawDescGZIP() []byte {
-	file_v1_api_proto_rawDescOnce.Do(func() {
-		file_v1_api_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_v1_api_proto_rawDesc), len(file_v1_api_proto_rawDesc)))
+func file_v1_health_proto_rawDescGZIP() []byte {
+	file_v1_health_proto_rawDescOnce.Do(func() {
+		file_v1_health_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_v1_health_proto_rawDesc), len(file_v1_health_proto_rawDesc)))
 	})
-	return file_v1_api_proto_rawDescData
+	return file_v1_health_proto_rawDescData
 }
 
-var file_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
-var file_v1_api_proto_goTypes = []any{
+var file_v1_health_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_v1_health_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_v1_health_proto_goTypes = []any{
 	(ProbeResponse_ServingStatus)(0),       // 0: api.ProbeResponse.ServingStatus
 	(NetworkEvents_Event_ServingStatus)(0), // 1: api.NetworkEvents.Event.ServingStatus
 	(*ProbeRequest)(nil),                   // 2: api.ProbeRequest
@@ -743,7 +743,7 @@ var file_v1_api_proto_goTypes = []any{
 	(*NetworkEvents_Event)(nil),            // 12: api.NetworkEvents.Event
 	(*durationpb.Duration)(nil),            // 13: google.protobuf.Duration
 }
-var file_v1_api_proto_depIdxs = []int32{
+var file_v1_health_proto_depIdxs = []int32{
 	10, // 0: api.ProbeRequest.self:type_name -> api.Node
 	13, // 1: api.ProbeRequest.timeout:type_name -> google.protobuf.Duration
 	13, // 2: api.ProbeRequest.interval:type_name -> google.protobuf.Duration
@@ -771,27 +771,27 @@ var file_v1_api_proto_depIdxs = []int32{
 	0,  // [0:12] is the sub-list for field type_name
 }
 
-func init() { file_v1_api_proto_init() }
-func file_v1_api_proto_init() {
-	if File_v1_api_proto != nil {
+func init() { file_v1_health_proto_init() }
+func file_v1_health_proto_init() {
+	if File_v1_health_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_v1_api_proto_rawDesc), len(file_v1_api_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_v1_health_proto_rawDesc), len(file_v1_health_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
-		GoTypes:           file_v1_api_proto_goTypes,
-		DependencyIndexes: file_v1_api_proto_depIdxs,
-		EnumInfos:         file_v1_api_proto_enumTypes,
-		MessageInfos:      file_v1_api_proto_msgTypes,
+		GoTypes:           file_v1_health_proto_goTypes,
+		DependencyIndexes: file_v1_health_proto_depIdxs,
+		EnumInfos:         file_v1_health_proto_enumTypes,
+		MessageInfos:      file_v1_health_proto_msgTypes,
 	}.Build()
-	File_v1_api_proto = out.File
-	file_v1_api_proto_goTypes = nil
-	file_v1_api_proto_depIdxs = nil
+	File_v1_health_proto = out.File
+	file_v1_health_proto_goTypes = nil
+	file_v1_health_proto_depIdxs = nil
 }

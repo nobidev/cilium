@@ -6,7 +6,7 @@ set -euo pipefail
 find enterprise/api/extensions -name '*.go' -delete
 find enterprise/fqdn-proxy/api/v1/dnsproxy -name '*.go' -delete
 find enterprise/pkg/hubble/aggregation/api/aggregation -name '*.go' -delete
-find enterprise/pkg/privnet/health/grpc/api/v1 -name '*.go' -delete
+find enterprise/pkg/privnet/grpc/api -name '*.go' -delete
 
 # Regenerate all API-related files.
 make generate-enterprise-apis

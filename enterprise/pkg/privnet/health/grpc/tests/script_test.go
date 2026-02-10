@@ -30,8 +30,8 @@ import (
 
 	pnmaps "github.com/cilium/cilium/enterprise/pkg/maps/privnet"
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	grpcserver "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/server"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/server"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
@@ -56,6 +56,7 @@ func TestScript(t *testing.T) {
 			h := hive.New(
 				pncfg.Cell,
 				grpc.Cell,
+				grpcserver.Cell,
 
 				ConnFactoryCell(t.TempDir()),
 				ServerPoolCell,
@@ -69,7 +70,7 @@ func TestScript(t *testing.T) {
 					),
 
 					cell.DecorateAll(
-						func(cf ConnFactory) server.ListenerFactory {
+						func(cf ConnFactory) grpcserver.ListenerFactory {
 							return func(context.Context) ([]net.Listener, error) {
 								lis, err := cf.NewListener(Instance{Cluster: "local", Name: "sloth"})
 								return []net.Listener{lis}, err

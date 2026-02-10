@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/addressing"
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
+	grpcserver "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/server"
 	health "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/policy"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
@@ -29,6 +30,7 @@ var Cell = cell.Module(
 	pncfg.Cell,
 	reconcilers.Cell,
 	endpoints.Cell,
+	grpcserver.Cell,
 	health.Cell,
 	addressing.Cell,
 	statuscollector.Cell,

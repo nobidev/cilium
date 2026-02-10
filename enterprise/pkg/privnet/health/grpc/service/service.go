@@ -8,15 +8,13 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package server
+package service
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
-	"strconv"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -28,78 +26,23 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
-	api "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
+	api "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/api/v1"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/watchdog"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/time"
-)
-
-type (
-	// ListenerFactory is the type of the function returning the listeners the
-	// server accepts connections on.
-	ListenerFactory func(ctx context.Context) ([]net.Listener, error)
 )
 
 // settleTime is the time reconcilers wait before proceeding with the actual
 // reconciliation, to batch work. It can be overridden for testing purposes.
 var settleTime = 100 * time.Millisecond
 
-// netListen is the [net.Listen] function. It can be overridden for testing purposes.
-var netListen = net.Listen
-
 // watchdogIDPrefix is the prefix prepended to watchdog IDs to prevent collisions
 // with other subsystems.
 const watchdogIDPrefix = "__srv/"
 
-func newDefaultListenerFactory(cfg config.Config, lns *node.LocalNodeStore) ListenerFactory {
-	port := strconv.FormatUint(uint64(cfg.Port), 10)
-
-	// Set the node annotation to propagate the health server port.
-	lns.Update(func(ln *node.LocalNode) {
-		if ln.Annotations == nil {
-			ln.Annotations = make(map[string]string)
-		}
-
-		ln.Annotations[types.PrivateNetworkINBHealthServerPortAnnotation] = port
-	})
-
-	return func(ctx context.Context) ([]net.Listener, error) {
-		ln, err := lns.Get(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("retrieving local node: %w", err)
-		}
-
-		var listeners []net.Listener
-
-		// Listen to the NodeInternalIP addresses (both IPv4 and IPv6 if available),
-		// with a fallback to the NodeExternalIP ones. This matches the symmetric
-		// logic to determine the address to use on the client side ([types.NewNode]).
-		for _, ip := range []net.IP{ln.GetNodeIP(false), ln.GetNodeIP(true)} {
-			if ip != nil {
-				lis, err := netListen("tcp", net.JoinHostPort(ip.String(), port))
-				if err != nil {
-					return nil, err
-				}
-
-				listeners = append(listeners, lis)
-			}
-		}
-
-		if len(listeners) == 0 {
-			return nil, errors.New("no valid node IP address found")
-		}
-
-		return listeners, nil
-	}
-}
-
-type server struct {
+type health struct {
 	api.UnimplementedHealthServer
 	api.UnimplementedNetworksServer
 
@@ -125,15 +68,11 @@ type wnEntry struct {
 	wdtimeout time.Duration
 }
 
-type serverParams struct {
+type healthParams struct {
 	cell.In
 
-	Logger     *slog.Logger
-	Lifecycle  cell.Lifecycle
-	Shutdowner hive.Shutdowner
-
-	Config  pncfg.Config
-	Factory ListenerFactory
+	Logger    *slog.Logger
+	Lifecycle cell.Lifecycle
 
 	DB       *statedb.DB
 	Networks statedb.Table[tables.PrivateNetwork]
@@ -142,8 +81,8 @@ type serverParams struct {
 	Watchdog watchdog.Watchdog
 }
 
-func newServer(in serverParams) *server {
-	srv := &server{
+func newHealth(in healthParams) *health {
+	h := &health{
 		log: in.Logger,
 
 		db:       in.DB,
@@ -155,55 +94,19 @@ func newServer(in serverParams) *server {
 
 		watchdog: in.Watchdog,
 	}
+	in.Lifecycle.Append(cell.Hook{OnStop: h.stopHook})
+	return h
+}
 
-	// The health server is only started when we are running in bridge mode.
-	if !in.Config.EnabledAsBridge() {
-		return srv
-	}
-
-	gsrv := grpc.NewServer(grpc.WaitForHandlers(true))
-	api.RegisterHealthServer(gsrv, srv)
-	api.RegisterNetworksServer(gsrv, srv)
-
-	in.Lifecycle.Append(
-		cell.Hook{
-			OnStart: func(hctx cell.HookContext) error {
-				listeners, err := in.Factory(hctx)
-				if err != nil {
-					return fmt.Errorf("cannot create private networks health server listeners: %w", err)
-				}
-
-				for _, lis := range listeners {
-					srv.log.Info("Starting health server", logfields.Address, lis.Addr().String())
-
-					srv.wg.Go(func() {
-						err := gsrv.Serve(lis)
-						if err != nil {
-							in.Shutdowner.Shutdown(hive.ShutdownWithError(
-								fmt.Errorf("cannot start private networks health server on %v: %w", lis.Addr(), err),
-							))
-						}
-					})
-				}
-
-				return nil
-			},
-
-			OnStop: func(cell.HookContext) error {
-				close(srv.stop)
-				gsrv.Stop()
-				srv.wg.Wait()
-				return nil
-			},
-		},
-	)
-
-	return srv
+func (s *health) stopHook(_ cell.HookContext) error {
+	close(s.stop)
+	s.wg.Wait()
+	return nil
 }
 
 // registerGCer registers a job to GC entries from the active networks table
 // when the given network can no longer be served.
-func (s *server) registerGCer(jg job.Group, cfg pncfg.Config) {
+func (s *health) registerGCer(jg job.Group, cfg pncfg.Config) {
 	// No need to reconcile anything if we are not running as bridge.
 	if !cfg.EnabledAsBridge() {
 		return
@@ -214,7 +117,7 @@ func (s *server) registerGCer(jg job.Group, cfg pncfg.Config) {
 	)
 }
 
-func (s *server) gcLoop(ctx context.Context, health cell.Health) error {
+func (s *health) gcLoop(ctx context.Context, health cell.Health) error {
 	wtx := s.db.WriteTxn(s.networks)
 	changeIter, _ := s.networks.Changes(wtx)
 	wtx.Commit()
@@ -270,7 +173,7 @@ func (s *server) gcLoop(ctx context.Context, health cell.Health) error {
 	}
 }
 
-func (s *server) Probe(stream grpc.BidiStreamingServer[api.ProbeRequest, api.ProbeResponse]) error {
+func (s *health) Probe(stream grpc.BidiStreamingServer[api.ProbeRequest, api.ProbeResponse]) error {
 	var known tables.WorkloadNode
 
 	for {
@@ -319,7 +222,7 @@ func (s *server) Probe(stream grpc.BidiStreamingServer[api.ProbeRequest, api.Pro
 	}
 }
 
-func (s *server) onProbe(node tables.WorkloadNode, interval, timeout time.Duration) {
+func (s *health) onProbe(node tables.WorkloadNode, interval, timeout time.Duration) {
 	// We are conservative, and compute the watchdog timeout as timeout - interval.
 	// This is to have a reasonable guarantee that it would always expire first,
 	// regardless of the fact that intervals are different, and not synchronized.
@@ -376,7 +279,7 @@ func (s *server) onProbe(node tables.WorkloadNode, interval, timeout time.Durati
 	s.log.Info("Registered new healthy workload node", logfields.Node, node)
 }
 
-func (s *server) onProbeTimeout(node tables.WorkloadNode) {
+func (s *health) onProbeTimeout(node tables.WorkloadNode) {
 	s.hmu.Lock()
 	defer s.hmu.Unlock()
 
@@ -395,7 +298,7 @@ func (s *server) onProbeTimeout(node tables.WorkloadNode) {
 	wtx.Commit()
 }
 
-func (s *server) Watch(in *api.WatchRequest, stream grpc.ServerStreamingServer[api.NetworkEvents]) error {
+func (s *health) Watch(in *api.WatchRequest, stream grpc.ServerStreamingServer[api.NetworkEvents]) error {
 	var incremental bool
 
 	node, err := s.toWorkloadNode(in.GetSelf())
@@ -490,7 +393,7 @@ func (s *server) Watch(in *api.WatchRequest, stream grpc.ServerStreamingServer[a
 	}
 }
 
-func (s *server) Activate(ctx context.Context, in *api.ActivationRequest) (*api.ActivationResponse, error) {
+func (s *health) Activate(ctx context.Context, in *api.ActivationRequest) (*api.ActivationResponse, error) {
 	node, err := s.toWorkloadNode(in.GetSelf())
 	if err != nil {
 		return &api.ActivationResponse{}, err
@@ -518,7 +421,7 @@ func (s *server) Activate(ctx context.Context, in *api.ActivationRequest) (*api.
 	return &api.ActivationResponse{}, nil
 }
 
-func (s *server) activate(node tables.WorkloadNode, network tables.NetworkName) error {
+func (s *health) activate(node tables.WorkloadNode, network tables.NetworkName) error {
 	s.hmu.RLock()
 	defer s.hmu.RUnlock()
 
@@ -548,7 +451,7 @@ func (s *server) activate(node tables.WorkloadNode, network tables.NetworkName) 
 	return nil
 }
 
-func (s *server) Deactivate(ctx context.Context, in *api.DeactivationRequest) (*api.DeactivationResponse, error) {
+func (s *health) Deactivate(ctx context.Context, in *api.DeactivationRequest) (*api.DeactivationResponse, error) {
 	node, err := s.toWorkloadNode(in.GetSelf())
 	if err != nil {
 		return &api.DeactivationResponse{}, err
@@ -571,7 +474,7 @@ func (s *server) Deactivate(ctx context.Context, in *api.DeactivationRequest) (*
 	return &api.DeactivationResponse{}, nil
 }
 
-func (s *server) toWorkloadNode(in *api.Node) (tables.WorkloadNode, error) {
+func (s *health) toWorkloadNode(in *api.Node) (tables.WorkloadNode, error) {
 	out := tables.WorkloadNode{
 		Cluster: tables.ClusterName(in.GetCluster()),
 		Name:    tables.NodeName(in.GetName()),

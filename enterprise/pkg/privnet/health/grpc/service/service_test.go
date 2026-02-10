@@ -8,14 +8,12 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package server
+package service
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"maps"
-	"net"
 	"slices"
 	"sync"
 	"testing"
@@ -33,14 +31,9 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	api "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
+	api "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/api/v1"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/addressing"
-	notypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -76,7 +69,7 @@ func (fwd *fakewd) get(id string) time.Duration {
 	return timeout
 }
 
-func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[PN], statedb.RWTable[AN], *fakewd, *server) {
+func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[PN], statedb.RWTable[AN], *fakewd, *health) {
 	var (
 		db  = statedb.New()
 		fwd fakewd
@@ -88,12 +81,13 @@ func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[PN], statedb.RWTable[AN
 	actnets, err := tables.NewActiveNetworksTable(db)
 	require.NoError(t, err, "tables.NewActiveNetworksTable")
 
-	return db, networks, actnets, &fwd, newServer(serverParams{
-		Logger:   hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
-		DB:       db,
-		Networks: networks,
-		Table:    actnets,
-		Watchdog: &fwd,
+	return db, networks, actnets, &fwd, newHealth(healthParams{
+		Logger:    hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+		Lifecycle: hivetest.Lifecycle(t),
+		DB:        db,
+		Networks:  networks,
+		Table:     actnets,
+		Watchdog:  &fwd,
 	})
 }
 
@@ -171,7 +165,7 @@ func TestMain(m *testing.M) {
 	testutils.GoleakVerifyTestMain(m)
 }
 
-func TestServerProbe(t *testing.T) {
+func TestServiceProbe(t *testing.T) {
 	var (
 		sloth    = WN{Cluster: "local", Name: "sloth"}
 		snail    = WN{Cluster: "local", Name: "snail"}
@@ -190,9 +184,6 @@ func TestServerProbe(t *testing.T) {
 		)
 
 		defer func() {
-			// Stop all timeout timers.
-			close(srv.stop)
-
 			// Force both streams to terminate
 			streamSloth.doSend(nil, context.Canceled)
 			streamSnail.doSend(nil, context.Canceled)
@@ -276,7 +267,7 @@ func TestServerProbe(t *testing.T) {
 	})
 }
 
-func TestServerProbeErrors(t *testing.T) {
+func TestServiceProbeErrors(t *testing.T) {
 	var (
 		apiSloth = &api.Node{Cluster: "local", Name: "sloth"}
 		apiSnail = &api.Node{Cluster: "local", Name: "snail"}
@@ -324,7 +315,6 @@ func TestServerProbeErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				_, _, _, _, srv := fixture(t)
-				defer close(srv.stop)
 
 				var (
 					errch  = make(chan error)
@@ -344,7 +334,7 @@ func TestServerProbeErrors(t *testing.T) {
 
 }
 
-func TestServerWatch(t *testing.T) {
+func TestServiceWatch(t *testing.T) {
 	// Ideally, we could use synctest here to not have to depend on timings.
 	// However, that turned out not working well because [Table.Changes] makes
 	// use of [runtime.SetFinalizer] to unregister the delete tracker. However,
@@ -437,7 +427,7 @@ func TestServerWatch(t *testing.T) {
 	stream.noGetSent(t)
 }
 
-func TestServerActivate(t *testing.T) {
+func TestServiceActivate(t *testing.T) {
 	var (
 		sloth    = WN{Cluster: "local", Name: "sloth"}
 		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
@@ -485,7 +475,7 @@ func TestServerActivate(t *testing.T) {
 	require.NoError(t, err, "[srv.Activate]")
 }
 
-func TestServerDeactivate(t *testing.T) {
+func TestServiceDeactivate(t *testing.T) {
 	var (
 		sloth    = WN{Cluster: "local", Name: "sloth"}
 		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
@@ -538,7 +528,7 @@ func TestServerDeactivate(t *testing.T) {
 	require.NoError(t, err, "[srv.Deactivate]")
 }
 
-func TestServerGCer(t *testing.T) {
+func TestServiceGCer(t *testing.T) {
 	// Override the settleTime to make the test faster.
 	settleTime = 0
 
@@ -604,91 +594,4 @@ func TestServerGCer(t *testing.T) {
 			{Node: snail, Network: "yellow"},
 		})
 	}, timeout, interval)
-}
-
-func TestDefaultListenerFactory(t *testing.T) {
-	tests := []struct {
-		name      string
-		addresses []notypes.Address
-		expected  []string
-		assertErr assert.ErrorAssertionFunc
-	}{
-		{
-			name: "ipv4-only",
-			addresses: []notypes.Address{
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.1")},
-				{Type: addressing.NodeExternalIP, IP: net.ParseIP("10.255.0.1")},
-			},
-			expected:  []string{"10.0.0.1:1234"},
-			assertErr: assert.NoError,
-		},
-		{
-			name: "ipv6-only",
-			addresses: []notypes.Address{
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("fd10::1")},
-				{Type: addressing.NodeExternalIP, IP: net.ParseIP("fc10::1")},
-			},
-			expected:  []string{"[fd10::1]:1234"},
-			assertErr: assert.NoError,
-		},
-		{
-			name: "dual-stack",
-			addresses: []notypes.Address{
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.1")},
-				{Type: addressing.NodeExternalIP, IP: net.ParseIP("10.255.0.1")},
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("fd10::1")},
-				{Type: addressing.NodeExternalIP, IP: net.ParseIP("fc10::1")},
-			},
-			expected:  []string{"10.0.0.1:1234", "[fd10::1]:1234"},
-			assertErr: assert.NoError,
-		},
-		{
-			name: "fallback",
-			addresses: []notypes.Address{
-				{Type: addressing.NodeExternalIP, IP: net.ParseIP("10.255.0.1")},
-				{Type: addressing.NodeExternalIP, IP: net.ParseIP("fc10::1")},
-			},
-			expected:  []string{"10.255.0.1:1234", "[fc10::1]:1234"},
-			assertErr: assert.NoError,
-		},
-		{
-			name:      "missing",
-			assertErr: assert.Error,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var (
-				cfg = config.Config{Port: 1234}
-				lns = node.NewTestLocalNodeStore(
-					node.LocalNode{Node: notypes.Node{IPAddresses: tt.addresses}},
-				)
-
-				factory = newDefaultListenerFactory(cfg, lns)
-			)
-
-			defer func(orig func(string, string) (net.Listener, error)) { netListen = orig }(netListen)
-			netListen = func(network, address string) (net.Listener, error) {
-				if network != "tcp" {
-					return nil, fmt.Errorf("unexpected network protocol %q", network)
-				}
-
-				if !slices.Contains(tt.expected, address) {
-					return nil, fmt.Errorf("unexpected address %q", address)
-				}
-
-				return &net.TCPListener{}, nil
-			}
-
-			// Assert that the local node annotation is correctly set.
-			ln, err := lns.Get(t.Context())
-			require.NoError(t, err, "[lns.Get]")
-			assert.Equal(t, "1234", ln.Annotations[types.PrivateNetworkINBHealthServerPortAnnotation])
-
-			listeners, err := factory(t.Context())
-			tt.assertErr(t, err)
-			assert.Len(t, listeners, len(tt.expected))
-		})
-	}
 }

@@ -15,8 +15,7 @@ import "google/protobuf/duration.proto";
 
 package api;
 
-option go_package = "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1";
-
+option go_package = "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/api/v1";
 
 // The Health service allows workload nodes to probe the health status of INBs
 // (and vice versa, indirectly). It is leveraged to implement INB high

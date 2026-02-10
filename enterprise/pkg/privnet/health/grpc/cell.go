@@ -15,7 +15,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/checker"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/server"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/service"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/watchdog"
 )
 
@@ -25,7 +25,7 @@ var Cell = cell.Module(
 
 	config.Cell,
 	checker.Cell,
-	server.Cell,
+	service.Cell,
 
 	watchdog.Cell,
 )

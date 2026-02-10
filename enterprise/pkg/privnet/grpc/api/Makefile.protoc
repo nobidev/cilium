@@ -8,7 +8,7 @@
 PROTOC ?= protoc
 
 PROTO_SOURCES := \
-	./v1/api.proto
+	./v1/health.proto
 
 GO_TARGETS := $(PROTO_SOURCES:.proto=.pb.go)
 

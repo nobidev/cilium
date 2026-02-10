@@ -21,10 +21,10 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/stream"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
+	api "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/api/v1"
+	grpcclient "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/client"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health"
-	api "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/api/v1"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
@@ -36,22 +36,9 @@ import (
 )
 
 type (
-	// ConnFactoryFn is the type of the function returning a grpc client connection
-	// for a given target node.
-	ConnFactoryFn func(target tables.INBNode) (*grpc.ClientConn, error)
-
 	// LocalNode identifies the local node.
 	LocalNode struct{ Cluster, Name string }
 )
-
-func newDefaultConnFactory() ConnFactoryFn {
-	return func(target tables.INBNode) (*grpc.ClientConn, error) {
-		return grpc.NewClient(
-			target.HealthAddress(),
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
-	}
-}
 
 func newDefaultLocalNode(cinfo cmtypes.ClusterInfo) LocalNode {
 	return LocalNode{
@@ -65,7 +52,7 @@ type checker struct {
 
 	log     *slog.Logger
 	config  config.Config
-	factory ConnFactoryFn
+	factory grpcclient.ConnFactoryFn
 	self    LocalNode
 
 	mu        lock.RWMutex
@@ -79,7 +66,7 @@ var _ health.Checker = (*checker)(nil)
 // New returns a new [health.Checker] instance. Consumers are expected to leverage
 // the checker provided via hive, while new instances shall be explicitly created
 // for testing purposes only.
-func New(log *slog.Logger, lc cell.Lifecycle, cfg config.Config, factory ConnFactoryFn, self LocalNode) health.Checker {
+func New(log *slog.Logger, lc cell.Lifecycle, cfg config.Config, factory grpcclient.ConnFactoryFn, self LocalNode) health.Checker {
 	c := checker{
 		Generic: observers.NewGeneric[*health.Event, health.EventKind](),
 
