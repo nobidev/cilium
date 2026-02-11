@@ -446,16 +446,20 @@ subnets:
 -- subnets.expected.yaml --
 network: direct-maggot
 networkid: 1
+vni: null
 name: foo
 cidrv4: 192.168.250.0/24
 cidrv6: ""
 egressifindex: 0
 egressifname: ""
+routes: []
 ---
 network: united-firefly
 networkid: 2
+vni: null
 name: bar
 cidrv4: 192.168.251.0/24
 cidrv6: ""
 egressifindex: 0
 egressifname: eth2
+routes: []

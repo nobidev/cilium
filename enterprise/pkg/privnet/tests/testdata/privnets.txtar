@@ -196,24 +196,24 @@ direct-maggot    0x3   100  N/A         elephantidae,felidae     1             4
 united-firefly   0x2   200  N/A         camelidae                1             0
 
 -- subnets.table --
-Network          Name      CIDRv4            CIDRv6
-direct-maggot    subnet1   192.168.250.0/24  fd10:0:250::/64
-united-firefly   subnet2   192.168.251.0/24  -
+Network          Name      CIDRv4            CIDRv6           Routes
+direct-maggot    subnet1   192.168.250.0/24  fd10:0:250::/64  4
+united-firefly   subnet2   192.168.251.0/24  -                0
 
 
 -- subnets.table.v2 --
-Network         Name      CIDRv4            CIDRv6
-direct-maggot   subnet1   192.168.250.0/24  fd10:0:250::/64
-united-firefly  subnet2   192.168.252.0/24  -
+Network         Name      CIDRv4            CIDRv6           Routes
+direct-maggot   subnet1   192.168.250.0/24  fd10:0:250::/64  4
+united-firefly  subnet2   192.168.252.0/24  -                0
 
 -- subnets.table.v3 --
-Network         Name      CIDRv4            CIDRv6
-united-firefly  subnet2   192.168.252.0/24  -
+Network         Name      CIDRv4            CIDRv6   Routes
+united-firefly  subnet2   192.168.252.0/24  -        0
 
 -- subnets.table.v4 --
-Network        Name      CIDRv4            CIDRv6
-direct-maggot  subnet1   192.168.250.0/24  fd10:0:250::/64
-united-firefly subnet2   192.168.252.0/24  -
+Network        Name      CIDRv4            CIDRv6          Routes
+direct-maggot  subnet1   192.168.250.0/24  fd10:0:250::/64 4
+united-firefly subnet2   192.168.252.0/24  -               0
 
 
 -- subnets.table.vpc1 --

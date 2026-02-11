@@ -18,6 +18,8 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+
+	"github.com/cilium/cilium/enterprise/pkg/vni"
 )
 
 type (
@@ -39,10 +41,21 @@ const (
 
 // Subnet represents a private network subnet instance.
 type Subnet struct {
+	SubnetSpec `json:",inline" yaml:",inline"`
+
+	// The set of routes configured for this Subnet
+	Routes []PrivateNetworkRoute
+}
+
+// SubnetSpec wraps the core subnet information for MapEntry construction.
+type SubnetSpec struct {
 	// Network is the name of the Private Network this subnet belongs to.
 	Network NetworkName
 	// NetworkID is the local-scoped numeric identifier of the Private Network this subnet belongs to.
 	NetworkID NetworkID
+
+	// VNI is the allocated value of the VXLAN Network Identifier of the subnet.
+	VNI vni.VNI
 
 	// Name is the name of the subnet.
 	Name SubnetName
@@ -63,7 +76,7 @@ type Subnet struct {
 var _ statedb.TableWritable = Subnet{}
 
 func (s Subnet) TableHeader() []string {
-	return []string{"Network", "Name", "CIDRv4", "CIDRv6"}
+	return []string{"Network", "Name", "CIDRv4", "CIDRv6", "Routes"}
 }
 
 func (s Subnet) TableRow() []string {
@@ -79,6 +92,7 @@ func (s Subnet) TableRow() []string {
 		string(s.Name),
 		fmtCIDR(s.CIDRv4),
 		fmtCIDR(s.CIDRv6),
+		strconv.FormatInt(int64(len(s.Routes)), 10),
 	}
 }
 
@@ -87,7 +101,7 @@ func (s Subnet) Key() SubnetKey {
 }
 
 func (s Subnet) Equals(other Subnet) bool {
-	return s == other
+	return s.SubnetSpec == other.SubnetSpec && slices.Equal(s.Routes, other.Routes)
 }
 
 func (s Subnet) CIDRs() iter.Seq[netip.Prefix] {

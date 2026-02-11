@@ -64,28 +64,34 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			})
 		subnets.Insert(wtxn,
 			tables.Subnet{
-				Network:   "green-network",
-				NetworkID: 1,
-				Name:      "subnet1",
-				CIDRv4:    netip.MustParsePrefix("192.168.11.0/24"),
-				CIDRv6:    netip.MustParsePrefix("fd10:0:150::/64"),
+				SubnetSpec: tables.SubnetSpec{
+					Network:   "green-network",
+					NetworkID: 1,
+					Name:      "subnet1",
+					CIDRv4:    netip.MustParsePrefix("192.168.11.0/24"),
+					CIDRv6:    netip.MustParsePrefix("fd10:0:150::/64"),
+				},
 			})
 		subnets.Insert(wtxn,
 			tables.Subnet{
-				Network:   "green-network",
-				NetworkID: 1,
-				Name:      "subnet2",
-				CIDRv4:    netip.MustParsePrefix("192.168.52.0/24"),
-				CIDRv6:    netip.MustParsePrefix("fd10:0:152::/64"),
+				SubnetSpec: tables.SubnetSpec{
+					Network:   "green-network",
+					NetworkID: 1,
+					Name:      "subnet2",
+					CIDRv4:    netip.MustParsePrefix("192.168.52.0/24"),
+					CIDRv6:    netip.MustParsePrefix("fd10:0:152::/64"),
+				},
 			},
 		)
 		subnets.Insert(wtxn,
 			tables.Subnet{
-				Network:   "green-network",
-				NetworkID: 1,
-				Name:      "subnet3",
-				CIDRv4:    netip.MustParsePrefix("192.168.10.0/24"),
-				CIDRv6:    netip.MustParsePrefix("fd10:0:140::/64"),
+				SubnetSpec: tables.SubnetSpec{
+					Network:   "green-network",
+					NetworkID: 1,
+					Name:      "subnet3",
+					CIDRv4:    netip.MustParsePrefix("192.168.10.0/24"),
+					CIDRv6:    netip.MustParsePrefix("fd10:0:140::/64"),
+				},
 			},
 		)
 		privNets.Insert(wtxn,
@@ -95,10 +101,12 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			})
 		subnets.Insert(wtxn,
 			tables.Subnet{
-				Network:   "blue-network",
-				NetworkID: 2,
-				Name:      "subnet1",
-				CIDRv4:    netip.MustParsePrefix("192.168.22.0/24"),
+				SubnetSpec: tables.SubnetSpec{
+					Network:   "blue-network",
+					NetworkID: 2,
+					Name:      "subnet1",
+					CIDRv4:    netip.MustParsePrefix("192.168.22.0/24"),
+				},
 			})
 
 		wtxn.Commit()

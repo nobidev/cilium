@@ -179,13 +179,17 @@ func (r *Subnets) extractSubnets(privNet tables.PrivateNetwork) map[tables.Subne
 
 	for _, subnet := range privNet.Subnets {
 		entry := tables.Subnet{
-			Network:       privNet.Name,
-			NetworkID:     privNet.ID,
-			Name:          subnet.Name,
-			CIDRv4:        subnet.CIDRv4,
-			CIDRv6:        subnet.CIDRv6,
-			EgressIfIndex: privNet.Interface.Index,
-			EgressIfName:  privNet.Interface.Name,
+			SubnetSpec: tables.SubnetSpec{
+				Network:       privNet.Name,
+				NetworkID:     privNet.ID,
+				Name:          subnet.Name,
+				VNI:           privNet.VNI,
+				CIDRv4:        subnet.CIDRv4,
+				CIDRv6:        subnet.CIDRv6,
+				EgressIfIndex: privNet.Interface.Index,
+				EgressIfName:  privNet.Interface.Name,
+			},
+			Routes: privNet.Routes, // Just duplicate all of them for now to keep the existing API
 		}
 		if hasConflicts(entry) {
 			continue
