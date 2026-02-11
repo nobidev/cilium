@@ -38,18 +38,22 @@ db/cmp privnet-subnets subnets.table.v4
 # Add VPC like privnet with multiple subnets
 k8s/add icpn-vpc-1.yaml
 db/cmp privnet-subnets subnets.table.vpc1
+db/cmp privnet-routes routes.table.vpc1
 
 # Add subnet to privnet
 k8s/add icpn-vpc-2.yaml
 db/cmp privnet-subnets subnets.table.vpc2
+db/cmp privnet-routes routes.table.vpc2
 
 # Remove subnet and add conflicting subnet to privnet, assert that conflicts don't show up
 k8s/add icpn-vpc-3.yaml
 db/cmp privnet-subnets subnets.table.vpc3
+db/cmp privnet-routes routes.table.vpc3
 
 # Remove subnets, assert that previously filtered out conflicts show up
 k8s/add icpn-vpc-4.yaml
 db/cmp privnet-subnets subnets.table.vpc4
+db/cmp privnet-routes routes.table.vpc4
 
 # ---
 
@@ -107,7 +111,14 @@ metadata:
 spec:
   networkBridges:
   - cluster: camelidae
-  routes: []
+  routes:
+  - destination: 0.0.0.0/0
+    gateway: 192.168.252.1
+  - destination: ::/0
+    gateway: fd10:0:252::1
+  # Should be filtered out because it's the same key, just different
+  - destination: 0.0.1.2/0
+    gateway: 192.168.252.8
   subnets:
   - name: blue
     cidrv4: 192.168.251.0/24
@@ -124,7 +135,11 @@ metadata:
 spec:
   networkBridges:
   - cluster: camelidae
-  routes: []
+  routes:
+  - destination: 0.0.0.0/0
+    gateway: 192.168.252.2
+  - destination: ::/0
+    gateway: fd10:0:252::2
   subnets:
   - name: blue
     cidrv4: 192.168.251.0/24
@@ -247,28 +262,96 @@ vpc             red2      192.168.252.0/30  fd10:0:1::/64
 
 
 -- routes.table --
-Network          Destination        Gateway
-direct-maggot    192.168.250.0/24   N/A
-direct-maggot    192.168.252.0/24   192.168.250.254
-direct-maggot    192.168.255.0/24   192.168.250.200
-direct-maggot    fd10:0:250::/64    N/A
-direct-maggot    fd10:0:252::/64    fd10:0:250::fffe
-direct-maggot    fd10:0:255::/64    fd10:0:250::200
-united-firefly   192.168.251.0/24   N/A
+Network          Subnet    Destination        Gateway
+direct-maggot    subnet1   192.168.250.0/24   N/A
+direct-maggot    subnet1   192.168.252.0/24   192.168.250.254
+direct-maggot    subnet1   192.168.255.0/24   192.168.250.200
+direct-maggot    subnet1   fd10:0:250::/64    N/A
+direct-maggot    subnet1   fd10:0:252::/64    fd10:0:250::fffe
+direct-maggot    subnet1   fd10:0:255::/64    fd10:0:250::200
+united-firefly   subnet2   192.168.251.0/24   N/A
 
 -- routes.table.v2 --
-Network          Destination        Gateway
-direct-maggot    192.168.250.0/24   N/A
-direct-maggot    192.168.252.0/24   192.168.250.254
-direct-maggot    192.168.255.0/24   192.168.250.200
-direct-maggot    fd10:0:250::/64    N/A
-direct-maggot    fd10:0:252::/64    fd10:0:250::fffe
-direct-maggot    fd10:0:255::/64    fd10:0:250::200
-united-firefly   192.168.252.0/24   N/A
+Network          Subnet    Destination        Gateway
+direct-maggot    subnet1   192.168.250.0/24   N/A
+direct-maggot    subnet1   192.168.252.0/24   192.168.250.254
+direct-maggot    subnet1   192.168.255.0/24   192.168.250.200
+direct-maggot    subnet1   fd10:0:250::/64    N/A
+direct-maggot    subnet1   fd10:0:252::/64    fd10:0:250::fffe
+direct-maggot    subnet1   fd10:0:255::/64    fd10:0:250::200
+united-firefly   subnet2   192.168.252.0/24   N/A
 
 -- routes.table.v3 --
-Network          Destination        Gateway
-united-firefly   192.168.252.0/24   N/A
+Network          Subnet    Destination        Gateway
+united-firefly   subnet2   192.168.252.0/24   N/A
+
+-- routes.table.vpc1 --
+Network          Subnet    Destination        Gateway
+direct-maggot    subnet1   192.168.250.0/24   N/A
+direct-maggot    subnet1   192.168.252.0/24   192.168.250.254
+direct-maggot    subnet1   192.168.255.0/24   192.168.250.200
+direct-maggot    subnet1   fd10:0:250::/64    N/A
+direct-maggot    subnet1   fd10:0:252::/64    fd10:0:250::fffe
+direct-maggot    subnet1   fd10:0:255::/64    fd10:0:250::200
+united-firefly   subnet2   192.168.252.0/24   N/A
+vpc              blue      0.0.0.0/0          192.168.252.1
+vpc              blue      192.168.251.0/24   N/A
+vpc              blue      ::/0               fd10:0:252::1
+vpc              blue      fd10:0:251::/64    N/A
+vpc              red       0.0.0.0/0          192.168.252.1
+vpc              red       192.168.252.0/24   N/A
+vpc              red       ::/0               fd10:0:252::1
+vpc              red       fd10:0:252::/64    N/A
+
+-- routes.table.vpc2 --
+Network          Subnet    Destination        Gateway
+direct-maggot    subnet1   192.168.250.0/24   N/A
+direct-maggot    subnet1   192.168.252.0/24   192.168.250.254
+direct-maggot    subnet1   192.168.255.0/24   192.168.250.200
+direct-maggot    subnet1   fd10:0:250::/64    N/A
+direct-maggot    subnet1   fd10:0:252::/64    fd10:0:250::fffe
+direct-maggot    subnet1   fd10:0:255::/64    fd10:0:250::200
+united-firefly   subnet2   192.168.252.0/24   N/A
+vpc              blue      0.0.0.0/0          192.168.252.2
+vpc              blue      192.168.251.0/24   N/A
+vpc              blue      ::/0               fd10:0:252::2
+vpc              blue      fd10:0:251::/64    N/A
+vpc              green     0.0.0.0/0          192.168.252.2
+vpc              green     192.168.253.0/24   N/A
+vpc              green     ::/0               fd10:0:252::2
+vpc              green     fd10:0:253::/64    N/A
+vpc              red       0.0.0.0/0          192.168.252.2
+vpc              red       192.168.252.0/24   N/A
+vpc              red       ::/0               fd10:0:252::2
+vpc              red       fd10:0:252::/64    N/A
+
+-- routes.table.vpc3 --
+Network          Subnet    Destination        Gateway
+direct-maggot    subnet1   192.168.250.0/24   N/A
+direct-maggot    subnet1   192.168.252.0/24   192.168.250.254
+direct-maggot    subnet1   192.168.255.0/24   192.168.250.200
+direct-maggot    subnet1   fd10:0:250::/64    N/A
+direct-maggot    subnet1   fd10:0:252::/64    fd10:0:250::fffe
+direct-maggot    subnet1   fd10:0:255::/64    fd10:0:250::200
+united-firefly   subnet2   192.168.252.0/24   N/A
+vpc              blue      192.168.251.0/24   N/A
+vpc              blue      fd10:0:251::/64    N/A
+vpc              red       192.168.252.0/24   N/A
+vpc              red       fd10:0:252::/64    N/A
+
+-- routes.table.vpc4 --
+Network          Subnet    Destination        Gateway
+direct-maggot    subnet1   192.168.250.0/24   N/A
+direct-maggot    subnet1   192.168.252.0/24   192.168.250.254
+direct-maggot    subnet1   192.168.255.0/24   192.168.250.200
+direct-maggot    subnet1   fd10:0:250::/64    N/A
+direct-maggot    subnet1   fd10:0:252::/64    fd10:0:250::fffe
+direct-maggot    subnet1   fd10:0:255::/64    fd10:0:250::200
+united-firefly   subnet2   192.168.252.0/24   N/A
+vpc              blue2     192.168.1.0/24     N/A
+vpc              blue2     fd10:0:251::/64    N/A
+vpc              red2      192.168.252.0/30   N/A
+vpc              red2      fd10:0:1::/64      N/A
 
 -- privnet.direct-maggot.expected.yaml --
 name: direct-maggot
