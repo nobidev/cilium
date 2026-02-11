@@ -321,7 +321,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
             MODIFIERS=FIPS=1\ NOSTRIP=1
 
-      - name: Ensure binaries are using the correct crypto libraries
+      - name: Ensure binaries are built with native FIPS 140-3 module
         shell: bash
         # Use /tmp so we don't touch the build context.
         working-directory: /tmp
@@ -330,7 +330,6 @@ jobs:
           # "catch exit status 1" grep wrapper
           # https://stackoverflow.com/questions/6550484/prevent-grep-returning-an-error-when-input-doesnt-match/49627999#49627999
           c1grep() { grep "$@" || test $? = 1; }
-
           image="${{ steps.tags.outputs.image_tag_platform }}"
 
           if ! docker image inspect $image; then
@@ -341,30 +340,35 @@ jobs:
           container_name=$(uuidgen | cut -d'-' -f1)
 
           mkdir -p ./binaries
-          touch ./symbols.txt
           docker create --name $container_name $image
           for binary in ${{ matrix.binaries }}; do
             docker cp $container_name:/usr/bin/$binary ./binaries/$binary
-            echo "$binary" >> ./symbols.txt
-            go tool nm ./binaries/$binary | grep -E "sig\.(BoringCrypto|FIPSOnly|StandardCrypto)" >> ./symbols.txt
+            echo "=== Checking $binary for native FIPS 140-3 module ==="
+
+            # Check for native Go FIPS 140-3 module symbols
+            # Native FIPS uses crypto/internal/fips140 package
+            fips_symbols=$(go tool nm ./binaries/$binary | c1grep 'crypto/internal/fips140' | wc -l)
+
+            # Also check that BoringCrypto is NOT present (should use native FIPS)
+            boring_symbols=$(go tool nm ./binaries/$binary | c1grep 'sig.BoringCrypto' | wc -l)
+
+            echo "FIPS 140-3 symbols found: $fips_symbols"
+            echo "BoringCrypto symbols found: $boring_symbols"
+
+            if [ "$fips_symbols" -eq 0 ]; then
+              echo "FAIL: Binary $binary does not contain native FIPS 140-3 module"
+              exit 1
+            fi
+
+            if [ "$boring_symbols" -ne 0 ]; then
+              echo "FAIL: Binary $binary contains BoringCrypto symbols (should use native FIPS)"
+              exit 1
+            fi
+
+            echo "PASS: Binary $binary is built with native FIPS 140-3 module"
           done
+
           docker rm $container_name
-
-          cat ./symbols.txt
-
-          nstandard="$(cat ./symbols.txt | c1grep 'sig.StandardCrypto' | wc -l)"
-          nboring="$(cat ./symbols.txt | c1grep 'sig.BoringCrypto' | wc -l)"
-          nfips="$(cat ./symbols.txt | c1grep 'sig.FIPSOnly' | wc -l)"
-
-          if [ "${nstandard}" != "0" ]; then
-            echo "Fail for image ${image}, standard crypto is used in ${nstandard} binaries"
-            exit 1
-          fi
-
-          if [ "${nboring}" != "${nfips}" ]; then
-            echo "Fail for image ${image}, mismatch between number of FIPSOnly binaries and BoringCrypto binaries: ${nfips} != ${nboring}"
-            exit 1
-          fi
 
       - name: Push verified image
         id: docker_push

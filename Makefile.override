@@ -27,10 +27,13 @@ ADDITIONAL_KIND_VALUES_FILE := contrib/testing/enterprise-kind.yaml
 endif
 
 ifneq ($(FIPS),)
-export CGO_ENABLED = 1
-export GOEXPERIMENT = boringcrypto
+# Native FIPS 140-3 mode (Go 1.24+)
+# Use v1.0.0 for CMVP-validated module, or 'latest' for development
+# See https://go.dev/doc/security/fips140 for details
+export GOFIPS140 = v1.0.0
+# FIPS mode is enabled at runtime via GODEBUG=fips140=on
+# or programmatically checked via crypto/fips140.Enabled()
 GO_TAGS_FLAGS += fips
-GO_BUILD_LDFLAGS += -linkmode external -extldflags "-static --enable-static-nss"
 endif
 
 .PHONY: kind-loadbalancer
