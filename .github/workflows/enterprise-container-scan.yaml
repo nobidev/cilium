@@ -23,12 +23,14 @@ jobs:
         # of the dependencies used by Cilium. We only scan the Enterprise images
         # for the oldest maintained Enterprise version, which does not receive
         # OSS dependency updates.
-        branch: [v1.16-ce, v1.17, v1.18]
+        branch: [v1.16-ce, v1.17, v1.18, v1.19]
         include:
           - image: cilium
             branch: v1.17-ce
           - image: cilium
             branch: v1.18-ce
+          - image: cilium
+            branch: v1.19-ce
     steps:
       - name: Checkout latest VEX data
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
