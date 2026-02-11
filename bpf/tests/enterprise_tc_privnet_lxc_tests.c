@@ -149,7 +149,7 @@ int privnet_icmp_from_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1); /* source entry */
-	privnet_v4_add_subnet_route(NET_ID, SUBNET_ID, V4_NET_IP_2, INB_IP); /* destination entry */
+	privnet_v4_add_subnet_route(NET_ID, SUBNET_ID, V4_NET_IP_2, INB_IP, 0); /* destination entry */
 
 	/* allow traffic from endpoints */
 	policy_add_egress_allow_all_entry();
