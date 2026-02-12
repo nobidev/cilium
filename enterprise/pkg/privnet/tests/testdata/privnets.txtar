@@ -173,6 +173,9 @@ spec:
   - name: blue2
     cidrv4: 192.168.1.0/24
     cidrv6: fd10:0:251::/64
+  - name: yellow
+    cidrv4: 192.168.100.0/24
+    cidrv6: fd10:0:100::/64
 
 -- icpn-vpc-4.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -190,6 +193,9 @@ spec:
   - name: blue2
     cidrv4: 192.168.1.0/24
     cidrv6: fd10:0:251::/64
+  - name: yellow
+    cidrv4: 192.168.100.0/24
+    cidrv6: fd10:0:100::/64
 
 -- privnet.table --
 Name             ID    VNI  Interface   INBClusters              Subnets       Routes
@@ -217,48 +223,50 @@ united-firefly   subnet2   192.168.251.0/24  -                0
 
 
 -- subnets.table.v2 --
-Network         Name      CIDRv4            CIDRv6           Routes
-direct-maggot   subnet1   192.168.250.0/24  fd10:0:250::/64  4
-united-firefly  subnet2   192.168.252.0/24  -                0
+Network         Name      ID    CIDRv4            CIDRv6           Routes
+direct-maggot   subnet1   0x1   192.168.250.0/24  fd10:0:250::/64  4
+united-firefly  subnet2   0x1   192.168.252.0/24  -                0
 
 -- subnets.table.v3 --
-Network         Name      CIDRv4            CIDRv6   Routes
-united-firefly  subnet2   192.168.252.0/24  -        0
+Network         Name      ID    CIDRv4            CIDRv6   Routes
+united-firefly  subnet2   0x1   192.168.252.0/24  -        0
 
 -- subnets.table.v4 --
-Network        Name      CIDRv4            CIDRv6          Routes
-direct-maggot  subnet1   192.168.250.0/24  fd10:0:250::/64 4
-united-firefly subnet2   192.168.252.0/24  -               0
+Network        Name      ID     CIDRv4            CIDRv6          Routes
+direct-maggot  subnet1   0x1    192.168.250.0/24  fd10:0:250::/64 4
+united-firefly subnet2   0x1    192.168.252.0/24  -               0
 
 
 -- subnets.table.vpc1 --
-Network         Name      CIDRv4            CIDRv6
-direct-maggot   subnet1   192.168.250.0/24  fd10:0:250::/64
-united-firefly  subnet2   192.168.252.0/24  -
-vpc             blue      192.168.251.0/24  fd10:0:251::/64
-vpc             red       192.168.252.0/24  fd10:0:252::/64
+Network         Name      ID      CIDRv4            CIDRv6
+direct-maggot   subnet1   0x1     192.168.250.0/24  fd10:0:250::/64
+united-firefly  subnet2   0x1     192.168.252.0/24  -
+vpc             blue      0x1     192.168.251.0/24  fd10:0:251::/64
+vpc             red       0x2     192.168.252.0/24  fd10:0:252::/64
 
 -- subnets.table.vpc2 --
-Network         Name      CIDRv4            CIDRv6
-direct-maggot   subnet1   192.168.250.0/24  fd10:0:250::/64
-united-firefly  subnet2   192.168.252.0/24  -
-vpc             blue      192.168.251.0/24  fd10:0:251::/64
-vpc             green     192.168.253.0/24  fd10:0:253::/64
-vpc             red       192.168.252.0/24  fd10:0:252::/64
+Network         Name      ID      CIDRv4            CIDRv6
+direct-maggot   subnet1   0x1     192.168.250.0/24  fd10:0:250::/64
+united-firefly  subnet2   0x1     192.168.252.0/24  -
+vpc             blue      0x1     192.168.251.0/24  fd10:0:251::/64
+vpc             green     0x3     192.168.253.0/24  fd10:0:253::/64
+vpc             red       0x2     192.168.252.0/24  fd10:0:252::/64
 
 -- subnets.table.vpc3 --
-Network         Name      CIDRv4            CIDRv6
-direct-maggot   subnet1   192.168.250.0/24  fd10:0:250::/64
-united-firefly  subnet2   192.168.252.0/24  -
-vpc             blue      192.168.251.0/24  fd10:0:251::/64
-vpc             red       192.168.252.0/24  fd10:0:252::/64
+Network         Name      ID      CIDRv4            CIDRv6
+direct-maggot   subnet1   0x1     192.168.250.0/24  fd10:0:250::/64
+united-firefly  subnet2   0x1     192.168.252.0/24  -
+vpc             blue      0x1     192.168.251.0/24  fd10:0:251::/64
+vpc             red       0x2     192.168.252.0/24  fd10:0:252::/64
+vpc             yellow    0x4     192.168.100.0/24  fd10:0:100::/64
 
 -- subnets.table.vpc4 --
-Network         Name      CIDRv4            CIDRv6
-direct-maggot   subnet1   192.168.250.0/24  fd10:0:250::/64
-united-firefly  subnet2   192.168.252.0/24  -
-vpc             blue2     192.168.1.0/24    fd10:0:251::/64
-vpc             red2      192.168.252.0/30  fd10:0:1::/64
+Network         Name      ID      CIDRv4            CIDRv6
+direct-maggot   subnet1   0x1     192.168.250.0/24  fd10:0:250::/64
+united-firefly  subnet2   0x1     192.168.252.0/24  -
+vpc             blue2     0x5     192.168.1.0/24    fd10:0:251::/64
+vpc             red2      0x6     192.168.252.0/30  fd10:0:1::/64
+vpc             yellow    0x4     192.168.100.0/24  fd10:0:100::/64
 
 
 -- routes.table --
@@ -338,6 +346,8 @@ vpc              blue      192.168.251.0/24   N/A
 vpc              blue      fd10:0:251::/64    N/A
 vpc              red       192.168.252.0/24   N/A
 vpc              red       fd10:0:252::/64    N/A
+vpc              yellow    192.168.100.0/24   N/A
+vpc              yellow    fd10:0:100::/64    N/A
 
 -- routes.table.vpc4 --
 Network          Subnet    Destination        Gateway
@@ -352,6 +362,8 @@ vpc              blue2     192.168.1.0/24     N/A
 vpc              blue2     fd10:0:251::/64    N/A
 vpc              red2      192.168.252.0/30   N/A
 vpc              red2      fd10:0:1::/64      N/A
+vpc              yellow    192.168.100.0/24   N/A
+vpc              yellow    fd10:0:100::/64    N/A
 
 -- privnet.direct-maggot.expected.yaml --
 name: direct-maggot
