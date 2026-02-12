@@ -87,8 +87,19 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_ARP):
+		return handle_privnet_arp(ctx, net_id, &dev_val->ipv4);
 	case bpf_htons(ETH_P_IP):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		/* If this is a DHCP request redirect it to the 'cilium_dhcp' device */
+		ret = privnet_redirect_dhcp(ctx, ip4);
+		if (ret != CTX_ACT_OK)
+			return ret;
+
+		/* If no network IP assigned drop IP packets until one is assigned. */
+		if (!dev_val->ipv4.be32)
 			return DROP_INVALID;
 
 		ret = privnet_egress_ipv4(ctx, net_id,

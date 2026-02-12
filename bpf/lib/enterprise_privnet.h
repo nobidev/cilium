@@ -7,6 +7,7 @@
 #include "conntrack.h"
 #include "conntrack_map.h"
 #include "icmp6.h"
+#include "l4.h"
 
 #include "enterprise_privnet_config.h"
 #include "enterprise_ext_eps_policy.h"
@@ -116,6 +117,7 @@
  *		a. In kubernetes cluster, ARP requests from pods are blindly responded by lxc device with its own MAC address.
  *		b. In INB, ARP request coming from external endpoints should only get response for the pods which are in connected
  *			kubernetes cluster. Care must be taken to not attract unroutable traffic to INB.
+ *.     c. If ARP request is for pod's own network IP do not reply to not mess up DHCP
  *	2. Pod to External EP
  *		a. Traffic from pod comes with dip of external ep ip and source of its own private ip.
  *			- cil_from_container -> enterprise_privnet hook
@@ -139,6 +141,14 @@
  *		d. In cil_lxc_policy, regular policy evaluation is done.
  *		e. Privnet ingress ( similar to 2.e )
  *		f. Packet is redirected to lxc device.
+ *  4. DHCP
+ *      a. Pod has no network IP yet and uses DHCP
+ *      b. Privnet egress
+ *         - if packet is DHCP then set endpoint ID in src MAC and
+ *           redirect packet to 'cilium_dhcp_ifindex'.
+ *         - drop other packets as long as network IP is all zeros
+ *      c. Agent reads DHCP request from cilium_dhcp device and relays
+ *      d. Relay response sent to pod's host-side veth device
  */
 
 struct privnet_fib_key {
@@ -1156,15 +1166,21 @@ handle_privnet_ns(struct __ctx_buff *ctx, const __u16 net_id,
 		 * by duplicate address detection checks.
 		 */
 		if (ipv6_addr_equals(&tip, ep_addr))
-			return CTX_ACT_DROP;
+			return DROP_INVALID;
 	}
 
 	return icmp6_send_ndisc_adv(ctx, ETH_HLEN, &mac, false);
 }
 #endif /* ENABLE_IPv6 */
 
+static __always_inline bool ipv4_addr_is_link_local(const __be32 ip4)
+{
+	return (bpf_ntohl(ip4) >> 16) == 0xA9FE /* 169 254 */;
+}
+
 static __always_inline int
-handle_privnet_arp(struct __ctx_buff *ctx, const __u16 net_id)
+handle_privnet_arp(struct __ctx_buff *ctx, const __u16 net_id,
+		   const union v4addr *ep_addr __maybe_unused)
 {
 	union macaddr mac = CONFIG(interface_mac);
 	union macaddr smac;
@@ -1181,6 +1197,34 @@ handle_privnet_arp(struct __ctx_buff *ctx, const __u16 net_id)
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
 		return CTX_ACT_OK;
 
+	if (ep_addr) {
+		/* No network IP assigned so drop all ARP requests until one is assigned.
+		 * This ensures the DHCP client won't reject an offer when it tries to
+		 * arping the offered address.
+		 */
+		if (!ep_addr->be32)
+			return DROP_INVALID;
+
+		/* Don't reply to ARP requests for the endpoint's own network IP in order
+		 * to allow DHCP renewal (DHCP clients ARPing to check if IP is in use).
+		 */
+		if (tip == ep_addr->be32)
+			return DROP_INVALID;
+
+		return CTX_ACT_OK;
+	}
+
+	if (ipv4_addr_is_link_local(tip)) {
+		/*
+		 * Only applicable for LXC.
+		 * We are expecting default route from inside the VM as 'default via <some-link-local-address>.
+		 * Which means connected VM will send ARP for a link local address.
+		 * Check target address is the link local address, if yes then respond with ARP
+		 * and skip the fib lookup and agent liveness check.
+		 */
+		return arp_respond(ctx, &mac, tip, &smac, sip, 0);
+	}
+
 	val = privnet_fib_lookup4(net_id, privnet_subnet_id_lookup4(net_id, tip), tip);
 
 	/* Don't reply to ARPs if the agent is not alive, as the map state may
@@ -1191,3 +1235,55 @@ handle_privnet_arp(struct __ctx_buff *ctx, const __u16 net_id)
 
 	return arp_respond(ctx, &mac, tip, &smac, sip, 0);
 };
+
+#ifdef IS_BPF_LXC
+#define DHCP_SERVER_PORT 67
+
+/* redirect DHCP packets coming from the pod to the 'cilium_dhcp' device,
+ * which the agent will then relay and forward the reply back to the endpoint's
+ * host-side veth device
+ */
+static __always_inline int
+privnet_redirect_dhcp(struct __ctx_buff *ctx, struct iphdr *ip4)
+{
+	__be16 dport;
+	int l4_off;
+	__u32 dhcp_ifindex = CONFIG(cilium_dhcp_ifindex);
+
+	if (!dhcp_ifindex)
+		return CTX_ACT_OK;
+
+	/* DHCP redirection requires an L2 frame since we rewrite source/destination MACs. */
+	if (THIS_IS_L3_DEV)
+		return CTX_ACT_OK;
+
+	/* UDP and going to DHCP server port? */
+	if (ip4->protocol != IPPROTO_UDP)
+		return CTX_ACT_OK;
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	if (l4_load_port(ctx, l4_off + UDP_DPORT_OFF, &dport) < 0)
+		return CTX_ACT_OK;
+	if (dport != bpf_htons(DHCP_SERVER_PORT))
+		return CTX_ACT_OK;
+
+	/* Encode the endpoint id into the source MAC so agent can reliably associate the request
+	 * with a specific endpoint. Set the destination MAC as broadcast to ensure the agent
+	 * raw packet socket can read the packet.
+	 *
+	 * Source MAC      -> 00:00:00:00:ep:ep
+	 * Destination MAC -> FF:FF:FF:FF:FF:FF
+	 */
+	{
+		__u64 dst = 0xffffffffffffffff;
+		__u16 src_lo = bpf_htons(LXC_ID);
+		__u32 src_hi = 0;
+
+		ctx_store_bytes(ctx, ETH_ALEN, &src_hi, 4, 0);
+		ctx_store_bytes(ctx, ETH_ALEN + 4, &src_lo, sizeof(src_lo), 0);
+		ctx_store_bytes(ctx, 0, &dst, ETH_ALEN, 0);
+	}
+
+	/* Redirect to 'cilium_dhcp' device */
+	return ctx_redirect(ctx, dhcp_ifindex, 0);
+}
+#endif /* IS_BPF_LXC */
