@@ -49,7 +49,7 @@ func (s *clientToEcho) run(ctx context.Context, exp Expectation, family features
 	dstIP := s.dst.IP(family)
 	srcIP := s.src.IP(family)
 
-	s.t.log.Info(fmt.Sprintf("🧐 Executing curl %s (%v) %s %s (%v:%v)", s.src.Name, srcIP, exp, s.dst.Name, dstIP, EchoServerPort))
+	s.t.log.Info(fmt.Sprintf("🧐 Executing curl %s (%v) %s %s (%v:%v)", s.src.DescName(), srcIP, exp, s.dst.DescName(), dstIP, EchoServerPort))
 	err := s.t.client.ExecInVMWithWriters(ctx, s.t.params.TestNamespace, s.src.Name.String(),
 		curlCmd(netip.AddrPortFrom(dstIP, EchoServerPort).String()),
 		&stdout, &stderr)

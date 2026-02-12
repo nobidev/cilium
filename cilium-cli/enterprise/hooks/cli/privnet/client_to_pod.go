@@ -56,7 +56,7 @@ func (s *clientToPod) run(ctx context.Context, exp Expectation, family features.
 	}
 	var stdout, stderr bytes.Buffer
 
-	s.t.log.Info(fmt.Sprintf("🧐 Executing curl %s (%v) %s %s (%s:%d)", s.src.Name, s.src.IP(family), exp, s.dst.Name, dstIP, EchoServerPort))
+	s.t.log.Info(fmt.Sprintf("🧐 Executing curl %s (%v) %s %s (%s:%d)", s.src.DescName(), s.src.IP(family), exp, s.dst.GetName(), dstIP, EchoServerPort))
 	err := s.t.client.ExecInVMWithWriters(ctx, s.t.params.TestNamespace, s.src.Name.String(),
 		curlCmd(netip.AddrPortFrom(dstIP, EchoServerPort).String()),
 		&stdout, &stderr)

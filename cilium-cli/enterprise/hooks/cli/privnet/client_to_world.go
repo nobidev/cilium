@@ -44,7 +44,7 @@ func (s *clientToWorld) Run(ctx context.Context, exp Expectation, overrideIPFami
 func (s *clientToWorld) run(ctx context.Context, exp Expectation, family features.IPFamily) {
 	var stdout, stderr bytes.Buffer
 
-	s.t.log.Info(fmt.Sprintf("🧐 Executing curl %s (%v) %s %s", s.src.Name, s.src.IP(family), exp, s.dst))
+	s.t.log.Info(fmt.Sprintf("🧐 Executing curl %s (%v) %s %s", s.src.DescName(), s.src.IP(family), exp, s.dst))
 	err := s.t.client.ExecInVMWithWriters(ctx, s.t.params.TestNamespace, s.src.Name.String(),
 		curlCmd(s.dst),
 		&stdout, &stderr)

@@ -91,6 +91,7 @@ type TestRun struct {
 
 	vms map[NetworkName]map[VMName]VM
 	ext map[NetworkName]map[VMName]VM
+	unk map[NetworkName]map[VMName]VM
 
 	pod map[VMName]*corev1.Pod
 
@@ -122,6 +123,7 @@ func NewTestRun(
 		log:        log,
 		vms:        map[NetworkName]map[VMName]VM{},
 		ext:        map[NetworkName]map[VMName]VM{},
+		unk:        map[NetworkName]map[VMName]VM{},
 		pod:        map[VMName]*corev1.Pod{},
 		policies:   map[string]k8s.Object{},
 		cancel:     cancel,
@@ -494,6 +496,10 @@ func (t *TestRun) ExtVM(network NetworkName, vmName VMName) VM {
 	return t.ext[network][vmName]
 }
 
+func (t *TestRun) Unknown(network NetworkName) iter.Seq[VM] {
+	return maps.Values(t.unk[network])
+}
+
 func (t *TestRun) VirtLauncherPodForVM(vm VM) *corev1.Pod {
 	return t.pod[vm.Name]
 }
@@ -553,11 +559,16 @@ func (t *TestRun) SetupAndValidate(ctx context.Context) error {
 		updateNetworkMap(t.ext, vms)
 	}
 
-	// update network definitions in inb clients
+	// update network definitions in inb clients and collect unknown endpoints
 	for network, networkData := range networkTopology {
 		err := t.applyINBNetworkTopology(ctx, network, networkData)
 		if err != nil {
 			return err
+		}
+
+		t.unk[network] = make(map[VMName]VM, len(networkData.Unknown))
+		for _, vm := range networkData.Unknown {
+			t.unk[network][vm.Name] = vm
 		}
 	}
 

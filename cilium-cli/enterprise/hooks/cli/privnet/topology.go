@@ -32,9 +32,10 @@ var (
 type VMKind string
 
 var (
-	VMKindClient VMKind = "client"
-	VMKindEcho   VMKind = "echo"
-	VMKindExtern VMKind = "extern"
+	VMKindClient  VMKind = "client"
+	VMKindEcho    VMKind = "echo"
+	VMKindExtern  VMKind = "extern"
+	VMKindUnknown VMKind = "unknown"
 )
 
 type VMName string
@@ -62,8 +63,10 @@ func (n NetworkName) String() string {
 }
 
 type VM struct {
-	ID        string
-	Name      VMName
+	ID          string
+	Name        VMName
+	Description string
+
 	NetName   NetworkName
 	NetSubnet string
 
@@ -88,6 +91,13 @@ func (vm *VM) IP(family features.IPFamily) netip.Addr {
 	}
 }
 
+func (vm *VM) DescName() string {
+	if vm.Description == "" {
+		return vm.Name.String()
+	}
+	return fmt.Sprintf("%s [%s]", vm.Name, vm.Description)
+}
+
 type Route struct {
 	Destination netip.Prefix
 	Gateway     netip.Addr
@@ -103,6 +113,7 @@ type NetworkData struct {
 	Prefixes []Subnet
 	INBs     []INBInfo
 	VMs      []VM
+	Unknown  []VM
 }
 
 var networkTopology = map[NetworkName]NetworkData{
@@ -190,6 +201,23 @@ var networkTopology = map[NetworkName]NetworkData{
 				NetMAC:         "02:00:00:e6:bb:ff",
 				Affinity:       SameNode,
 				Kind:           VMKindClient,
+			},
+		},
+		Unknown: []VM{
+			{
+				Name:    "privnet-vm-net-c1",
+				NetName: NetworkC,
+				NetIPv4: netip.MustParseAddr("192.168.252.200"),
+				NetIPv6: netip.MustParseAddr("fd10:0:252::200"),
+				Kind:    VMKindUnknown,
+			},
+			{
+				Name:        "privnet-vm-net-a1",
+				NetName:     NetworkA,
+				Description: "alt-if",
+				NetIPv4:     netip.MustParseAddr("192.168.255.200"),
+				NetIPv6:     netip.MustParseAddr("fd10:0:255::200"),
+				Kind:        VMKindUnknown,
 			},
 		},
 	},
@@ -309,6 +337,23 @@ var networkTopology = map[NetworkName]NetworkData{
 				Kind:           VMKindEcho,
 			},
 		},
+		Unknown: []VM{
+			{
+				Name:    "privnet-vm-net-a1",
+				NetName: NetworkA,
+				NetIPv4: netip.MustParseAddr("192.168.250.200"),
+				NetIPv6: netip.MustParseAddr("fd10:0:250::200"),
+				Kind:    VMKindUnknown,
+			},
+			{
+				Name:        "privnet-vm-net-c1",
+				NetName:     NetworkC,
+				Description: "alt-if",
+				NetIPv4:     netip.MustParseAddr("192.168.252.210"),
+				NetIPv6:     netip.MustParseAddr("fd10:0:252::210"),
+				Kind:        VMKindUnknown,
+			},
+		},
 	},
 	NetworkD: {
 		Prefixes: []Subnet{
@@ -346,20 +391,15 @@ var networkTopology = map[NetworkName]NetworkData{
 				Kind:           VMKindClient,
 			},
 		},
-	},
-}
-
-var UnknownDestinations = map[NetworkName][]VM{
-	NetworkA: {
-		{Name: "vm-net-c1", NetName: NetworkC, NetIPv4: netip.MustParseAddr("192.168.252.200"), NetIPv6: netip.MustParseAddr("fd10:0:252::200")},
-		{Name: "vm-net-a1-bis", NetName: NetworkA, NetIPv4: netip.MustParseAddr("192.168.255.200"), NetIPv6: netip.MustParseAddr("fd10:0:255::200")},
-	},
-	NetworkB: {},
-	NetworkC: {
-		{Name: "vm-net-a1", NetName: NetworkA, NetIPv4: netip.MustParseAddr("192.168.250.200"), NetIPv6: netip.MustParseAddr("fd10:0:250::200")},
-		{Name: "vm-net-c1-bis", NetName: NetworkC, NetIPv4: netip.MustParseAddr("192.168.252.210"), NetIPv6: netip.MustParseAddr("fd10:0:252::210")},
-	},
-	NetworkD: {
-		{Name: "vm-net-d1-bis", NetName: NetworkD, NetIPv4: netip.MustParseAddr("192.168.252.210"), NetIPv6: netip.MustParseAddr("fd10:0:252::210")},
+		Unknown: []VM{
+			{
+				Name:        "privnet-vm-net-d1",
+				NetName:     NetworkD,
+				Description: "alt-if",
+				NetIPv4:     netip.MustParseAddr("192.168.252.210"),
+				NetIPv6:     netip.MustParseAddr("fd10:0:252::210"),
+				Kind:        VMKindUnknown,
+			},
+		},
 	},
 }

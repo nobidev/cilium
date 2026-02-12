@@ -187,7 +187,7 @@ func newCmdPrivNetTest() *cobra.Command {
 
 			// Ensure traffic to unknown destinations works (policies don't apply here).
 			for net := range t.Networks() {
-				for _, dst := range privnet.UnknownDestinations[net] {
+				for dst := range t.Unknown(net) {
 					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), dst), privnet.ExpectationOK)
 				}
 			}
