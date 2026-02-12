@@ -74,7 +74,7 @@ int privnet_icmp_from_netdev_nat_src_dst_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_icmp_from_netdev_nat_src_dst")
 int privnet_icmp_from_netdev_nat_src_dst_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, NULL, NULL);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
@@ -117,7 +117,7 @@ int privnet_icmp_from_netdev_respond_arp_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_icmp_from_netdev_respond_arp")
 int privnet_icmp_from_netdev_respond_arp_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, NULL, NULL);
 	privnet_watchdog_set(ktime_get_ns(), 3000000000ULL);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
@@ -156,7 +156,7 @@ int privnet_icmp_from_netdev_respond_arp_pktgen_agent_down(struct __ctx_buff *ct
 SETUP("tc", "03_icmp_from_netdev_respond_arp_agent_down")
 int privnet_icmp_from_netdev_respond_arp_setup_agent_down(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, NULL, NULL);
 	privnet_watchdog_set(ktime_get_ns() - 5000000000ULL, 3000000000ULL);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
@@ -190,7 +190,7 @@ int privnet_icmp6_from_netdev_respond_ns_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "04_icmp6_from_netdev_respond_ns")
 int privnet_icmp6_from_netdev_respond_ns_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, NULL, NULL);
 	privnet_watchdog_set(ktime_get_ns(), 3000000000ULL);
 	privnet_v6_add_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN, SUBNET_ID);
 	privnet_v6_add_endpoint_entry(NET_ID, SUBNET_ID,
@@ -232,7 +232,7 @@ int privnet_icmp6_from_netdev_respond_ns_pktgen_agent_down(struct __ctx_buff *ct
 SETUP("tc", "05_icmp6_from_netdev_respond_ns_agent_down")
 int privnet_icmp6_from_netdev_respond_ns_setup_agent_down(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, NULL, NULL);
 	privnet_watchdog_set(ktime_get_ns() - 5000000000ULL, 3000000000ULL);
 	privnet_v6_add_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN, SUBNET_ID);
 	privnet_v6_add_endpoint_entry(NET_ID, SUBNET_ID,
@@ -270,7 +270,7 @@ int privnet_icmp_from_netdev_miss_src_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "06_icmp_from_netdev_miss_src")
 int privnet_icmp_from_netdev_miss_src_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, NULL, NULL);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	ipcache_v4_add_entry(V4_POD_IP_2, 0, 1002, NODE_IP, 0);
@@ -304,7 +304,7 @@ int privnet_icmp_from_netdev_miss_dst_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "07_icmp_from_netdev_miss_dst")
 int privnet_icmp_from_netdev_miss_dst_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, NULL, NULL);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	ipcache_v4_add_entry(V4_POD_IP_1, 0, 1001, INB_IP, 0);
@@ -338,7 +338,7 @@ int privnet_icmp_from_netdev_miss_net_id_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "08_icmp_from_netdev_miss_net_id")
 int privnet_icmp_from_netdev_miss_net_id_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, 0);
+	privnet_add_device_entry(IFINDEX, 0, NULL, NULL);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);

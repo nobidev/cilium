@@ -29,7 +29,10 @@ ASSIGN_CONFIG(bool, privnet_enable, true)
 ASSIGN_CONFIG(__u32, privnet_unknown_sec_id, 99) /* tunnel id 99 is reserved for unknown privnet flow */
 ASSIGN_CONFIG(__u32, interface_ifindex, IFINDEX)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr}) /* set lxc mac */
-ASSIGN_CONFIG(union v6addr, privnet_ipv6, {.addr = v6_svc_one_addr})
+
+static const union v4addr lxc_privnet_ipv4 = { .be32 = V4_NET_IP_2 };
+static const union v6addr lxc_privnet_ipv6 = { .addr = v6_svc_one_addr };
+
 
 PKTGEN("tc", "01_icmp_from_container_nat_src_dst")
 int privnet_icmp_from_container_nat_src_dst_pktgen(struct __ctx_buff *ctx)
@@ -41,7 +44,7 @@ int privnet_icmp_from_container_nat_src_dst_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_icmp_from_container_nat_src_dst")
 int privnet_icmp_from_container_nat_src_dst_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
@@ -87,7 +90,7 @@ int privnet_tcp_from_container_nat_src_dst_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_tcp_from_container_nat_src_dst")
 int privnet_tcp_from_container_nat_src_dst_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
@@ -131,7 +134,7 @@ int privnet_icmp_from_container_nat_src_route_dst_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "03_icmp_from_container_nat_src_route_dst")
 int privnet_icmp_from_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1); /* source entry */
 	privnet_v4_add_subnet_route(NET_ID, SUBNET_ID, V4_NET_IP_2, INB_IP); /* destination entry */
@@ -182,7 +185,7 @@ int privnet_icmp_from_container_nat_src_miss_dst_setup(struct __ctx_buff *ctx)
 	};
 	map_delete_elem(&cilium_metrics, &key);
 
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1); /* only source entry */
 
@@ -232,7 +235,7 @@ int privnet_icmp_to_container_nat_src_dst_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "05_icmp_to_container_nat_src_dst")
 int privnet_icmp_to_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
@@ -276,7 +279,7 @@ int privnet_tcp_to_container_nat_src_dst_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "06_tcp_to_container_nat_src_dst")
 int privnet_tcp_to_container_nat_src_route_dst_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
@@ -319,7 +322,7 @@ int privnet_icmp_to_container_unknown_src_nat_dst_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "07_icmp_to_container_unknown_src_nat_dst")
 int privnet_icmp_to_container_unknown_src_nat_dst_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	/* dst is known, no entry for src */
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
@@ -387,7 +390,7 @@ const __u8 *BUF(__UNUSED__) = NULL;
 
 static __always_inline int privnet_icmp6_ns_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID);
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
 	privnet_v6_add_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN, SUBNET_ID);
 	privnet_v6_add_endpoint_entry(NET_ID, SUBNET_ID,
 				      (const union v6addr *)V6_NET_IP_1,

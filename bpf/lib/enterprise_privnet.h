@@ -219,6 +219,9 @@ struct privnet_device_key {
 
 struct privnet_device_val {
 	__u16 net_id;
+	__u16 pad1;
+	union v4addr ipv4;
+	union v6addr ipv6;
 };
 
 struct privnet_subnet_key {
@@ -363,6 +366,13 @@ static __always_inline const __u16 *privnet_get_net_id(__u32 ifindex)
 
 	val = map_lookup_elem(&cilium_privnet_devices, &key);
 	return val ? &val->net_id : NULL;
+}
+
+static __always_inline const struct privnet_device_val *privnet_get_device(__u32 ifindex)
+{
+	const struct privnet_device_key key = { .ifindex = ifindex };
+
+	return map_lookup_elem(&cilium_privnet_devices, &key);
 }
 
 #define PRIVNET_SUBNET_STATIC_PREFIX						\
@@ -1100,7 +1110,9 @@ static __always_inline bool ipv6_addr_is_link_local(const union v6addr *ip6addr)
 }
 
 static __always_inline int
-handle_privnet_ns(struct __ctx_buff *ctx, const __u16 net_id, bool from_lxc)
+handle_privnet_ns(struct __ctx_buff *ctx, const __u16 net_id,
+		  const union v6addr *ep_addr __maybe_unused,
+		  bool from_lxc)
 {
 	union macaddr mac = CONFIG(interface_mac);
 	const struct privnet_fib_val *val;
@@ -1137,19 +1149,15 @@ handle_privnet_ns(struct __ctx_buff *ctx, const __u16 net_id, bool from_lxc)
 	    !(from_lxc || (val->flag_l2_announce && privnet_agent_alive())))
 		return CTX_ACT_OK;
 
-#ifdef IS_BPF_LXC
-	{
-		union v6addr lip = CONFIG(privnet_ipv6);
-
+	if (from_lxc && ep_addr) {
 		/*
 		 * Don't reply to neighbor solicitations for the IPv6 address
 		 * associated with the local endpoint, to avoid issues caused
 		 * by duplicate address detection checks.
 		 */
-		if (ipv6_addr_equals(&tip, &lip))
-			return CTX_ACT_OK;
+		if (ipv6_addr_equals(&tip, ep_addr))
+			return CTX_ACT_DROP;
 	}
-#endif /* IS_BPF_LXC */
 
 	return icmp6_send_ndisc_adv(ctx, ETH_HLEN, &mac, false);
 }

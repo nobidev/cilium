@@ -209,10 +209,19 @@ privnet_v6_del_route(__u16 net_id, __u16 subnet_id, const union v6addr *prefix)
 }
 
 static __always_inline void
-privnet_add_device_entry(__u32 ifindex, __u16 net_id)
+privnet_add_device_entry(__u32 ifindex, __u16 net_id,
+			 const union v4addr *ipv4,
+			 const union v6addr *ipv6)
 {
 	struct privnet_device_key key = { .ifindex = ifindex };
-	struct privnet_device_val val = { .net_id = net_id };
+	struct privnet_device_val val __aligned(8) = {};
+
+	val.net_id = net_id;
+
+	if (ipv4)
+		val.ipv4 = *ipv4;
+	if (ipv6)
+		memcpy(&val.ipv6, ipv6, sizeof(val.ipv6));
 
 	map_update_elem(&cilium_privnet_devices, &key, &val, BPF_ANY);
 }

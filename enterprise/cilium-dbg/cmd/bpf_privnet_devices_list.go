@@ -32,6 +32,8 @@ func init() {
 type devEntry struct {
 	IfIndex uint32
 	NetID   uint16
+	IPv4    string
+	IPv6    string
 }
 
 var bpfPrivNetDevicesListCmd = &cobra.Command{
@@ -53,6 +55,8 @@ var bpfPrivNetDevicesListCmd = &cobra.Command{
 			devs = append(devs, devEntry{
 				IfIndex: key.IfIndex,
 				NetID:   uint16(val.NetworkID),
+				IPv4:    val.IPv4.String(),
+				IPv6:    val.IPv6.String(),
 			})
 		}
 		if err := devicesMap.Map.DumpWithCallback(parseDevs); err != nil {
@@ -66,15 +70,15 @@ var bpfPrivNetDevicesListCmd = &cobra.Command{
 			return
 		}
 		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "IfIndex\tNetID")
+		fmt.Fprintln(w, "IfIndex\tNetID\tIPv4\tIPv6")
 
 		for _, dev := range slices.SortedFunc(
 			slices.Values(devs),
 			func(a, b devEntry) int {
 				return cmp.Compare(a.IfIndex, b.IfIndex)
 			}) {
-			fmt.Fprintf(w, "%d\t%#x\n",
-				dev.IfIndex, dev.NetID)
+			fmt.Fprintf(w, "%d\t%#x\t%s\t%s\n",
+				dev.IfIndex, dev.NetID, dev.IPv4, dev.IPv6)
 		}
 
 		w.Flush()

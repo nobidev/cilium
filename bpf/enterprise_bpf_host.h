@@ -61,7 +61,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 			/* (i.e., they target a known IP reachable through this INB), */
 			/* and punt all the others up to the stack unmodified, to */
 			/* make sure we don't break local neighbor discovery. */
-			return handle_privnet_ns(ctx, *net_id, false);
+			return handle_privnet_ns(ctx, *net_id, NULL, false);
 		}
 
 		ipv6_addr_copy(&dip6, (union v6addr *)&ip6->daddr);

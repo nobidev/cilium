@@ -13,6 +13,7 @@ package tables
 import (
 	"cmp"
 	"fmt"
+	"net/netip"
 	"strings"
 
 	"github.com/cilium/statedb"
@@ -53,6 +54,12 @@ type DeviceMapping struct {
 	// NetworkID is the identifier of the target private network.
 	NetworkID NetworkID
 
+	// NetworkIPv4 is the IPv4 address of the endpoint.
+	NetworkIPv4 netip.Addr
+
+	// NetworkIPv6 is the IPv6 address of the endpoint.
+	NetworkIPv6 netip.Addr
+
 	// Status is the status of the reconciliation of this entry into the BPF map.
 	Status reconciler.Status
 }
@@ -66,13 +73,15 @@ func (dm *DeviceMapping) Equal(other *DeviceMapping) bool {
 		dm.DeviceIndex == other.DeviceIndex &&
 		dm.DeviceName == other.DeviceName &&
 		dm.NetworkName == other.NetworkName &&
-		dm.NetworkID == other.NetworkID
+		dm.NetworkID == other.NetworkID &&
+		dm.NetworkIPv4 == other.NetworkIPv4 &&
+		dm.NetworkIPv6 == other.NetworkIPv6
 }
 
 var _ statedb.TableWritable = DeviceMapping{}
 
 func (dm DeviceMapping) TableHeader() []string {
-	return []string{"Interface", "Network", "NetworkID", "Owner", "Status"}
+	return []string{"Interface", "Network", "NetworkID", "NetworkIPv4", "NetworkIPv6", "Owner", "Status"}
 }
 
 func (dm DeviceMapping) TableRow() []string {
@@ -80,6 +89,8 @@ func (dm DeviceMapping) TableRow() []string {
 		fmt.Sprintf("%s (%d)", cmp.Or(dm.DeviceName, "?"), dm.DeviceIndex),
 		string(dm.NetworkName),
 		dm.NetworkID.String(),
+		dm.NetworkIPv4.String(),
+		dm.NetworkIPv6.String(),
 		string(dm.Owner),
 		dm.Status.String(),
 	}

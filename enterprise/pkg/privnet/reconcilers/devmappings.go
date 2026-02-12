@@ -14,6 +14,7 @@ import (
 	"context"
 	"iter"
 	"log/slog"
+	"net/netip"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
@@ -231,6 +232,8 @@ func (dm *DeviceMappings) forNetwork(network tables.PrivateNetwork) tables.Devic
 
 func (dm *DeviceMappings) forLocalWorkload(lw *tables.LocalWorkload) tables.DeviceMapping {
 	var network = tables.NetworkName(lw.Interface.Network)
+	ipv4, _ := netip.ParseAddr(lw.Interface.Addressing.IPv4)
+	ipv6, _ := netip.ParseAddr(lw.Interface.Addressing.IPv6)
 
 	return tables.DeviceMapping{
 		Owner:       tables.NewDeviceMappingOwner("lw", strconv.FormatUint(uint64(lw.EndpointID), 10)),
@@ -238,6 +241,8 @@ func (dm *DeviceMappings) forLocalWorkload(lw *tables.LocalWorkload) tables.Devi
 		DeviceName:  lw.LXC.IfName,
 		NetworkName: network,
 		NetworkID:   dm.netIDs[network],
+		NetworkIPv4: ipv4,
+		NetworkIPv6: ipv6,
 	}
 }
 
@@ -312,6 +317,6 @@ func (ops *deviceMappingsOps) Prune(ctx context.Context,
 func (ops *deviceMappingsOps) KeyVal(obj tables.DeviceMapping) *pnmaps.DeviceKeyVal {
 	return &pnmaps.DeviceKeyVal{
 		Key: pnmaps.NewDeviceKey(uint32(obj.DeviceIndex)),
-		Val: pnmaps.NewDeviceVal(obj.NetworkID),
+		Val: pnmaps.NewDeviceVal(obj.NetworkID, obj.NetworkIPv4, obj.NetworkIPv6),
 	}
 }

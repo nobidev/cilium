@@ -12,6 +12,7 @@ package privnet
 
 import (
 	"context"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -28,7 +29,7 @@ import (
 
 func TestDevicesString(t *testing.T) {
 	assert.Equal(t, "10", NewDeviceKey(10).String())
-	assert.Equal(t, "0x42", NewDeviceVal(0x42).String())
+	assert.Equal(t, "0x42 10.0.0.1 2001::1", NewDeviceVal(0x42, netip.MustParseAddr("10.0.0.1"), netip.MustParseAddr("2001::1")).String())
 }
 
 func TestPrivilegedDevices(t *testing.T) {

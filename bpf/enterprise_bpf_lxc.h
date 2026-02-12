@@ -16,8 +16,9 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 	struct iphdr *ip4 __maybe_unused;
 	union v6addr sip6 __maybe_unused;
 	const struct privnet_fib_val *dip_val __maybe_unused;
+	const struct privnet_device_val *dev_val __maybe_unused;
 	int ret = CTX_ACT_OK;
-	const __u16 *net_id;
+	__u16 net_id;
 
 	if (!CONFIG(privnet_enable)) {
 		/* Privnet is not enabled. We're always in P-IP space */
@@ -25,15 +26,22 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		return ret;
 	}
 
+	dev_val = privnet_get_device(CONFIG(interface_ifindex));
+	if (unlikely(!dev_val)) {
+		/* No configuration for this device */
+		set_privnet_net_ids(PRIVNET_UNKNOWN_NET_ID, PRIVNET_UNKNOWN_NET_ID);
+		return DROP_UNROUTABLE;
+	}
+
 	/* Private networks is enabled, but the network ID is unknown. */
-	net_id = privnet_get_net_id(CONFIG(interface_ifindex));
-	if (unlikely(!net_id || !(*net_id))) {
+	net_id = dev_val->net_id;
+	if (unlikely(!net_id)) {
 		set_privnet_net_ids(PRIVNET_UNKNOWN_NET_ID, PRIVNET_UNKNOWN_NET_ID);
 		return DROP_UNROUTABLE;
 	}
 
 	/* We enter from the container, we're always in netIP space */
-	set_privnet_net_ids(*net_id, *net_id);
+	set_privnet_net_ids(net_id, net_id);
 
 	/* bpf_lxc will drop the packet as unsupported, return to normal control flow
 	 * after setting the netID.
@@ -48,11 +56,11 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 			return DROP_INVALID;
 
 		if (is_icmp6_ndp(ctx, ip6, ETH_HLEN))
-			return handle_privnet_ns(ctx, *net_id, true);
+			return handle_privnet_ns(ctx, net_id, &dev_val->ipv6, true);
 
 		ipv6_addr_copy(&sip6, (union v6addr *)&ip6->saddr);
-		ret = privnet_egress_ipv6(ctx, *net_id,
-					  privnet_subnet_id_lookup6(*net_id, sip6),
+		ret = privnet_egress_ipv6(ctx, net_id,
+					  privnet_subnet_id_lookup6(net_id, sip6),
 					  NULL, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
@@ -83,8 +91,8 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		ret = privnet_egress_ipv4(ctx, *net_id,
-					  privnet_subnet_id_lookup4(*net_id, ip4->saddr),
+		ret = privnet_egress_ipv4(ctx, net_id,
+					  privnet_subnet_id_lookup4(net_id, ip4->saddr),
 					  NULL, &dip_val);
 		if (IS_ERR(ret))
 			return ret;

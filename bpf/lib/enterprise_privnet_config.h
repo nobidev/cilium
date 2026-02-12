@@ -11,8 +11,3 @@ DECLARE_ENTERPRISE_CONFIG(__u32, privnet_unknown_sec_id,
 			  "The security identifier for unknown network traffic")
 DECLARE_ENTERPRISE_CONFIG(bool, privnet_bridge_enable,
 			  "True if running on network bridge")
-
-#ifdef IS_BPF_LXC
-DECLARE_ENTERPRISE_CONFIG(union v6addr, privnet_ipv6,
-			  "The endpoint's IPv6 address within the network")
-#endif /* IS_BPF_LXC */

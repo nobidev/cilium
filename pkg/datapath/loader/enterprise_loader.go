@@ -60,14 +60,10 @@ func (l *EnterpriseLoader) registerEndpointConfig() {
 		cfg.PrivnetUnknownSecID = uint32(identity.ReservedPrivnetUnknownFlow)
 
 		if l.privnetConfig.Enabled {
-			networkProps, ok := pnendpoints.ExtractEndpointProperties(ep)
+			_, ok := pnendpoints.ExtractEndpointProperties(ep)
 			if ok {
 				cfg.PrivnetEnable = true
 				cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()
-
-				if addr, _ := networkProps.NetworkIPv6(); addr.IsValid() {
-					cfg.PrivnetIPv6 = addr.As16()
-				}
 			}
 		}
 

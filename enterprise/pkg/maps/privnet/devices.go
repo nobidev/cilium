@@ -14,6 +14,7 @@ import (
 	"encoding"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 const DevicesMapName = "cilium_privnet_devices"
@@ -36,6 +38,9 @@ type DeviceKey struct {
 // DeviceVal is the privnet_devices map value.
 type DeviceVal struct {
 	NetworkID tables.NetworkID `align:"net_id"`
+	Pad1      uint16           `align:"pad1"`
+	IPv4      types.IPv4       `align:"ipv4"`
+	IPv6      types.IPv6       `align:"ipv6"`
 }
 
 // Devices allows to interact with the privnet_devices map.
@@ -107,14 +112,20 @@ func (*DeviceKey) New() bpf.MapKey {
 }
 
 // NewDeviceVal constructs a new privnet_devices map value.
-func NewDeviceVal(netID tables.NetworkID) DeviceVal {
-	return DeviceVal{
+func NewDeviceVal(netID tables.NetworkID, ipv4, ipv6 netip.Addr) DeviceVal {
+	val := DeviceVal{
 		NetworkID: netID,
 	}
+	copy(val.IPv4[:], ipv4.Unmap().AsSlice())
+	copy(val.IPv6[:], ipv6.Unmap().AsSlice())
+	return val
 }
 
 func (v DeviceVal) String() string {
-	return v.NetworkID.String()
+	return fmt.Sprintf("%s %s %s",
+		v.NetworkID,
+		v.IPv4,
+		v.IPv6)
 }
 
 func (DeviceVal) New() bpf.MapValue {
