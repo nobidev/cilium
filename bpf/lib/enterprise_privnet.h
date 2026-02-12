@@ -467,7 +467,7 @@ static __always_inline bool is_privnet_route_entry(const struct privnet_fib_val 
 	if (!val)
 		return false;
 
-	return val->flag_is_subnet_route || val->flag_is_static_route;
+	return val->flag_is_subnet_route || val->flag_is_static_route || val->flag_is_vxlan_route;
 }
 
 static __always_inline int
