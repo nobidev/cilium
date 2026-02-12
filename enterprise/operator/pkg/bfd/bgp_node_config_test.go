@@ -910,12 +910,13 @@ func Test_ReconcileBGPNodeConfig(t *testing.T) {
 }
 
 func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *ciliumv2.CiliumNode) {
-	_, err := f.ciliumNodeClient.Get(ctx, node.Name, metav1.GetOptions{})
+	prev, err := f.ciliumNodeClient.Get(ctx, node.Name, metav1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.ciliumNodeClient.Create(ctx, node, metav1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		node.SetResourceVersion(prev.GetResourceVersion())
 		_, err = f.ciliumNodeClient.Update(ctx, node, metav1.UpdateOptions{})
 	}
 	req.NoError(err)
@@ -927,36 +928,39 @@ func deleteNode(req *require.Assertions, ctx context.Context, f *fixture, node *
 }
 
 func upsertBGPPeerConfig(req *require.Assertions, ctx context.Context, f *fixture, pc *v1.IsovalentBGPPeerConfig) {
-	_, err := f.bgpPeerConfigClient.Get(ctx, pc.Name, metav1.GetOptions{})
+	prev, err := f.bgpPeerConfigClient.Get(ctx, pc.Name, metav1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bgpPeerConfigClient.Create(ctx, pc, metav1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		pc.SetResourceVersion(prev.GetResourceVersion())
 		_, err = f.bgpPeerConfigClient.Update(ctx, pc, metav1.UpdateOptions{})
 	}
 	req.NoError(err)
 }
 
 func upsertBGPClusterConfig(req *require.Assertions, ctx context.Context, f *fixture, cc *v1.IsovalentBGPClusterConfig) {
-	_, err := f.bgpClusterConfigClient.Get(ctx, cc.Name, metav1.GetOptions{})
+	prev, err := f.bgpClusterConfigClient.Get(ctx, cc.Name, metav1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bgpClusterConfigClient.Create(ctx, cc, metav1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		cc.SetResourceVersion(prev.GetResourceVersion())
 		_, err = f.bgpClusterConfigClient.Update(ctx, cc, metav1.UpdateOptions{})
 	}
 	req.NoError(err)
 }
 
 func upsertBFDNodeConfigOverrides(req *require.Assertions, ctx context.Context, f *fixture, o *v1alpha1.IsovalentBFDNodeConfigOverride) {
-	_, err := f.bfdNodeConfigOverrideClient.Get(ctx, o.Name, metav1.GetOptions{})
+	prev, err := f.bfdNodeConfigOverrideClient.Get(ctx, o.Name, metav1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bfdNodeConfigOverrideClient.Create(ctx, o, metav1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		o.SetResourceVersion(prev.GetResourceVersion())
 		_, err = f.bfdNodeConfigOverrideClient.Update(ctx, o, metav1.UpdateOptions{})
 	}
 	req.NoError(err)

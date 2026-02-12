@@ -329,8 +329,9 @@ func Test_NodeResourceChanges(t *testing.T) {
 		{
 			description: "update node, should be no-op",
 			node: &slim_core_v1.Node{ObjectMeta: slim_metav1.ObjectMeta{
-				Name:   "node1",
-				Labels: map[string]string{"foo": "bar"},
+				Name:            "node1",
+				Labels:          map[string]string{"foo": "bar"},
+				ResourceVersion: "3",
 			}},
 			nodeOperation: func(ctx context.Context, node *slim_core_v1.Node, client slim_core_v1_client.NodeInterface) error {
 				_, err := client.Update(ctx, node, meta_v1.UpdateOptions{})
@@ -592,7 +593,8 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 			description: "3. update second pool prefix",
 			pool: &isovalent_api_v1alpha1.IsovalentSRv6LocatorPool{
 				ObjectMeta: meta_v1.ObjectMeta{
-					Name: "test-locator-pool-2",
+					Name:            "test-locator-pool-2",
+					ResourceVersion: "6",
 				},
 				Spec: isovalent_api_v1alpha1.IsovalentSRv6LocatorPoolSpec{
 					Prefix:       "2001:db8:aaaa::/48",
@@ -675,7 +677,8 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 			description: "4. update second pool sid structure",
 			pool: &isovalent_api_v1alpha1.IsovalentSRv6LocatorPool{
 				ObjectMeta: meta_v1.ObjectMeta{
-					Name: "test-locator-pool-2",
+					Name:            "test-locator-pool-2",
+					ResourceVersion: "9",
 				},
 				Spec: isovalent_api_v1alpha1.IsovalentSRv6LocatorPoolSpec{
 					Prefix: "2001:db8:aaaa::/48",

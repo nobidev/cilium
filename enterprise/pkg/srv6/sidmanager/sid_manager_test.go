@@ -12,6 +12,7 @@ package sidmanager
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"net/netip"
 	"sync"
@@ -267,6 +268,17 @@ func TestSIDManagerSpecReconciliation(t *testing.T) {
 	_, err = c.Create(context.TODO(), &sidmanager, metav1.CreateOptions{})
 	require.NoError(t, err)
 
+	update := func(ctx context.Context, sm *v1alpha1.IsovalentSRv6SIDManager) error {
+		prev, err := c.Get(ctx, sm.GetName(), metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("get: %w", err)
+		}
+
+		sm.SetResourceVersion(prev.GetResourceVersion())
+		_, err = c.Update(ctx, sm, metav1.UpdateOptions{})
+		return err
+	}
+
 	t.Run("AddOneLocator", func(t *testing.T) {
 		eventuallyWithT(t, func(t *assert.CollectT) {
 			allocator, found := o.Allocator(sidmanager.Spec.LocatorAllocations[0].PoolRef)
@@ -282,8 +294,7 @@ func TestSIDManagerSpecReconciliation(t *testing.T) {
 	t.Run("ChangeLocatorPrefix", func(t *testing.T) {
 		sidmanager.Spec.LocatorAllocations[0].Locators[0] = resourceLocator3.DeepCopy()
 
-		_, err := c.Update(context.TODO(), &sidmanager, metav1.UpdateOptions{})
-		require.NoError(t, err)
+		require.NoError(t, update(t.Context(), &sidmanager))
 
 		eventuallyWithT(t, func(t *assert.CollectT) {
 			allocator, found := o.Allocator(sidmanager.Spec.LocatorAllocations[0].PoolRef)
@@ -299,8 +310,7 @@ func TestSIDManagerSpecReconciliation(t *testing.T) {
 	t.Run("ChangeLocatorStructure", func(t *testing.T) {
 		sidmanager.Spec.LocatorAllocations[0].Locators[0] = resourceLocator4.DeepCopy()
 
-		_, err := c.Update(context.TODO(), &sidmanager, metav1.UpdateOptions{})
-		require.NoError(t, err)
+		require.NoError(t, update(t.Context(), &sidmanager))
 
 		eventuallyWithT(t, func(t *assert.CollectT) {
 			allocator, found := o.Allocator(sidmanager.Spec.LocatorAllocations[0].PoolRef)
@@ -316,8 +326,7 @@ func TestSIDManagerSpecReconciliation(t *testing.T) {
 	t.Run("ChangeLocatorBehaviorType", func(t *testing.T) {
 		sidmanager.Spec.LocatorAllocations[0].Locators[0] = resourceLocator4uSID.DeepCopy()
 
-		_, err := c.Update(context.TODO(), &sidmanager, metav1.UpdateOptions{})
-		require.NoError(t, err)
+		require.NoError(t, update(t.Context(), &sidmanager))
 
 		eventuallyWithT(t, func(t *assert.CollectT) {
 			allocator, found := o.Allocator(sidmanager.Spec.LocatorAllocations[0].PoolRef)
@@ -333,8 +342,7 @@ func TestSIDManagerSpecReconciliation(t *testing.T) {
 	t.Run("AddOneMoreLocator", func(t *testing.T) {
 		sidmanager.Spec.LocatorAllocations = append(sidmanager.Spec.LocatorAllocations, resourceLocatorAllocation2.DeepCopy())
 
-		_, err := c.Update(context.TODO(), &sidmanager, metav1.UpdateOptions{})
-		require.NoError(t, err)
+		require.NoError(t, update(t.Context(), &sidmanager))
 
 		eventuallyWithT(t, func(t *assert.CollectT) {
 			allocator1, found1 := o.Allocator(sidmanager.Spec.LocatorAllocations[0].PoolRef)
@@ -359,8 +367,7 @@ func TestSIDManagerSpecReconciliation(t *testing.T) {
 		oldRef2 := sidmanager.Spec.LocatorAllocations[1].PoolRef
 		sidmanager.Spec.LocatorAllocations = []*v1alpha1.IsovalentSRv6LocatorAllocation{}
 
-		_, err := c.Update(context.TODO(), &sidmanager, metav1.UpdateOptions{})
-		require.NoError(t, err)
+		require.NoError(t, update(t.Context(), &sidmanager))
 
 		eventuallyWithT(t, func(t *assert.CollectT) {
 			_, found1 := o.Allocator(oldRef1)
