@@ -147,13 +147,9 @@ func (gc *groupConfig) selectActiveGateways(operatorManager *OperatorManager, co
 	return doSelection(currentActiveGWs, availableHealthyGatewayIPs, string(config.uid), gc.maxGatewayNodes)
 }
 
-func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, config *PolicyConfig, status *groupStatus,
-	availableByZone zoneToAvailable, availableHealthyGatewayIPsByAZ map[string][]netip.Addr, selectionMetrics *gatewaySelectionMetrics, groupIndex int) groupStatus {
-
+func (gc *groupConfig) selectActiveGatewaysByAZ(operatorManager *OperatorManager, config *PolicyConfig, status *groupStatus,
+	availableByZone zoneToAvailable, availableHealthyGatewayIPsByAZ map[string][]netip.Addr, selectionMetrics *gatewaySelectionMetrics, groupIndex int) map[string][]netip.Addr {
 	activeGatewayIPsByAZ := make(map[string][]netip.Addr)
-
-	isLocalSelectedByAZ := make(map[string]bool)
-
 	// nonLocalActiveGatewayIPs is a helper that returns, given a particular AZ, a slice of non local gateways for
 	// that AZ.
 	//
@@ -203,12 +199,10 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 	for az, healthyGatewayIPs := range availableHealthyGatewayIPsByAZ {
 		var currentLocalActiveGWs []netip.Addr
 		if status != nil {
-			currentLocalActiveGWs = gc.selectCurrentLocalActiveGWs(operatorManager, az, status.activeGatewayIPsByAZ[az])
+			currentLocalActiveGWs = status.activeGatewayIPsByAZ[az]
 		}
-		activeGWs := selectActiveGWs(az, gc.maxGatewayNodes, currentLocalActiveGWs, healthyGatewayIPs)
-		activeGatewayIPsByAZ[az] = activeGWs
-
-		selectionMetrics.activeGatewaysByAZ[az] = activeGatewaysByMetrics{local: len(activeGWs), remote: 0}
+		activeGatewayIPsByAZ[az] = doSelection(currentLocalActiveGWs, healthyGatewayIPs, az, gc.maxGatewayNodes)
+		selectionMetrics.activeGatewaysByAZ[az] = activeGatewaysByMetrics{local: len(activeGatewayIPsByAZ[az]), remote: 0}
 
 		// next do a second pass to populate the per-AZ list of active gateways
 		switch config.azAffinity {
@@ -234,10 +228,7 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 		}
 	}
 
-	return groupStatus{
-		activeGatewayIPsByAZ:      activeGatewayIPsByAZ,
-		isLocalActiveGatewaysByAZ: isLocalSelectedByAZ,
-	}
+	return activeGatewayIPsByAZ
 }
 
 // selectCurrentLocalActiveGWs selects the current local active GWs.
@@ -808,7 +799,6 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 	haveSeenLatestIEGP := config.groupStatusesGeneration == config.generation
 
 	groupStatuses := make([]groupStatus, 0, len(config.groupConfigs))
-	zoneHasAnyLocalGateway := make(map[string]bool)
 	selectionMetricsList := make([]gatewaySelectionMetrics, 0, len(config.groupConfigs))
 
 	allAZs, policyHealthyGatewayIPs := config.preComputePolicyHealthyGateways(operatorManager)
@@ -825,9 +815,11 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 			healthyGateways:    0,
 		}
 
+		gs := groupStatus{}
+
 		availableHealthyGatewayIPsByAZ, availByZone := computeAvailableHealthyGatewaysByAZ(allAZs, policyHealthyGatewayIPs, i)
 
-		gs := gc.computeGroupStatus(operatorManager, config, status,
+		gs.activeGatewayIPsByAZ = gc.selectActiveGatewaysByAZ(operatorManager, config, status,
 			availByZone, availableHealthyGatewayIPsByAZ, &sm, i)
 
 		healthyGatewayNodes := computeHealthyGateways(policyHealthyGatewayIPs, i)
@@ -839,27 +831,10 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 		sm.healthyGateways = len(gs.healthyGatewayIPs)
 
 		groupStatuses = append(groupStatuses, gs)
-		for zone, isLocal := range gs.isLocalActiveGatewaysByAZ {
-			zoneHasAnyLocalGateway[zone] = zoneHasAnyLocalGateway[zone] || isLocal
-		}
-
 		selectionMetricsList = append(selectionMetricsList, sm)
 	}
 
 	selectionMetrics := aggregateSelectionMetrics(selectionMetricsList)
-	if config.azAffinity == azAffinityLocalOnlyFirst && len(groupStatuses) > 1 {
-		for _, gs := range groupStatuses {
-			for zone, isLocal := range gs.isLocalActiveGatewaysByAZ {
-				if zoneHasAnyLocalGateway[zone] && !isLocal {
-					if activeGatewaysByAZStats, ok := selectionMetrics.activeGatewaysByAZ[zone]; ok {
-						activeGatewaysByAZStats.remote = activeGatewaysByAZStats.remote - len(gs.activeGatewayIPsByAZ[zone])
-						selectionMetrics.activeGatewaysByAZ[zone] = activeGatewaysByAZStats
-					}
-					gs.activeGatewayIPsByAZ[zone] = nil
-				}
-			}
-		}
-	}
 
 	var conditions []meta_v1.Condition
 	if len(config.egressCIDRs) > 0 {

@@ -52,11 +52,10 @@ func (g *groupConfig) String() string {
 }
 
 type groupStatus struct {
-	activeGatewayIPs          []netip.Addr
-	activeGatewayIPsByAZ      map[string][]netip.Addr
-	isLocalActiveGatewaysByAZ map[string]bool
-	healthyGatewayIPs         []netip.Addr
-	egressIPByGatewayIP       map[netip.Addr]netip.Addr
+	activeGatewayIPs     []netip.Addr
+	activeGatewayIPsByAZ map[string][]netip.Addr
+	healthyGatewayIPs    []netip.Addr
+	egressIPByGatewayIP  map[netip.Addr]netip.Addr
 }
 
 type azAffinityMode int
@@ -350,7 +349,6 @@ func ParseIEGP(logger *slog.Logger, iegp *v1.IsovalentEgressGatewayPolicy) (*Pol
 		gs = append(gs, groupStatus{
 			activeGatewayIPs,
 			activeGatewayIPsByAZ,
-			nil,
 			healthyGatewayIPs,
 			egressIPByGatewayIP,
 		})
