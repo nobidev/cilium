@@ -125,4 +125,6 @@ const (
 	Chaddr = "chaddr" // DHCP client hardware address
 	Yiaddr = "yiaddr" // DHCP "your IP" address
 	Giaddr = "giaddr" // DHCP gateway IP address
+
+	ServiceCount = "serviceCount"
 )
