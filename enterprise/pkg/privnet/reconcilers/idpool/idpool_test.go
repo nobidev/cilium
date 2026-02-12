@@ -25,7 +25,7 @@ import (
 func TestIDPool(t *testing.T) {
 	log := slog.Default()
 
-	pool := NewIDPool(log, 3, 5)
+	pool := NewIDPool[tables.NetworkName, tables.NetworkID](log, 3, 5)
 
 	nameFn := func(id tables.NetworkID) tables.NetworkName {
 		return tables.NetworkName(fmt.Sprintf("net-%d", id))
@@ -45,8 +45,10 @@ func TestIDPool(t *testing.T) {
 	acquireAssertValue(3)
 	acquireAssertValue(4)
 	acquireAssertValue(5)
+	require.Equal(t, 3, pool.Allocated())
 	acquireAssertValue(1)
 	acquireAssertValue(2)
+	require.Equal(t, 5, pool.Allocated())
 
 	// No more IDs should be available
 	acquireAssertError()
@@ -54,6 +56,7 @@ func TestIDPool(t *testing.T) {
 	pool.Release(4)
 	pool.Release(0) // No-op
 	pool.Release(2)
+	require.Equal(t, 3, pool.Allocated())
 
 	acquireAssertValue(4)
 	acquireAssertValue(2)
@@ -62,21 +65,24 @@ func TestIDPool(t *testing.T) {
 	acquireAssertError()
 
 	// Checking the boundaries
-	pool = NewIDPool(log, 0, 5)
+	pool = NewIDPool[tables.NetworkName, tables.NetworkID](log, 0, 5)
 	acquireAssertValue(1)
 	acquireAssertValue(2)
+	require.Equal(t, 2, pool.Allocated())
 
-	pool = NewIDPool(log, 5, 5)
+	pool = NewIDPool[tables.NetworkName, tables.NetworkID](log, 5, 5)
 	acquireAssertValue(5)
+	require.Equal(t, 1, pool.Allocated())
 	acquireAssertValue(1)
 
-	pool = NewIDPool(log, tables.NetworkIDMax-1, tables.NetworkIDMax)
+	pool = NewIDPool[tables.NetworkName, tables.NetworkID](log, tables.NetworkIDMax-1, tables.NetworkIDMax)
 	acquireAssertValue(tables.NetworkIDMax - 1)
 	acquireAssertValue(tables.NetworkIDMax)
+	require.Equal(t, 2, pool.Allocated())
 	acquireAssertValue(1)
 
 	// Checking re requesting the ID
-	pool = NewIDPool(log, 0, 5)
+	pool = NewIDPool[tables.NetworkName, tables.NetworkID](log, 0, 5)
 	actual, err := pool.Acquire("foobar")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(1), actual)
@@ -84,16 +90,20 @@ func TestIDPool(t *testing.T) {
 	actual, err = pool.Acquire("buzz")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(2), actual)
+	require.Equal(t, 2, pool.Allocated())
 
 	actual, err = pool.Acquire("buzz")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(2), actual)
+	require.Equal(t, 2, pool.Allocated())
 
 	actual, err = pool.Acquire("foobar")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(1), actual)
+	require.Equal(t, 2, pool.Allocated())
 
 	pool.Release(1)
+	require.Equal(t, 1, pool.Allocated())
 	// Acquire new id after release
 	actual, err = pool.Acquire("foobar")
 	require.NoError(t, err, "acquire unexpectedly failed")
@@ -101,6 +111,7 @@ func TestIDPool(t *testing.T) {
 	actual, err = pool.Acquire("buzz")
 	require.NoError(t, err, "acquire unexpectedly failed")
 	require.Equal(t, tables.NetworkID(2), actual)
+	require.Equal(t, 2, pool.Allocated())
 }
 
 func TestIDPool_restore(t *testing.T) {
@@ -108,8 +119,8 @@ func TestIDPool_restore(t *testing.T) {
 	walFile := path.Join(t.TempDir(), PrivnetIDWALFile)
 	var err error
 
-	pool := NewIDPool(log, 0, 5)
-	pool.walWriter, err = wal.NewWriter[allocationWALEntry](walFile)
+	pool := NewIDPool[tables.NetworkName, tables.NetworkID](log, 0, 5)
+	pool.walWriter, err = wal.NewWriter[allocationWALEntry[tables.NetworkName, tables.NetworkID]](walFile)
 	require.NoError(t, err)
 
 	actual, err := pool.Acquire("foo")
@@ -130,9 +141,9 @@ func TestIDPool_restore(t *testing.T) {
 
 	pool.Release(tables.NetworkID(4))
 
-	pool = NewIDPool(log, 3, 6)
+	pool = NewIDPool[tables.NetworkName, tables.NetworkID](log, 3, 6)
 	require.NoError(t, pool.restore(walFile))
-	pool.walWriter, err = wal.NewWriter[allocationWALEntry](walFile)
+	pool.walWriter, err = wal.NewWriter[allocationWALEntry[tables.NetworkName, tables.NetworkID]](walFile)
 	require.NoError(t, err)
 
 	actual, err = pool.Acquire("buzz")

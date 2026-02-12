@@ -51,7 +51,7 @@ var PrivateNetworksCell = cell.Group(
 	cell.Provide(
 		// Provide the IDPool via hive, so that it can be overridden for testing
 		// purposes, as we will want stable IDs there.
-		idpool.NewDefaultIDPool,
+		idpool.NewPrivnetIDPool,
 
 		// Provides the ReadOnly PrivateNetworks table.
 		statedb.RWTable[tables.PrivateNetwork].ToTable,
@@ -121,7 +121,7 @@ func newPrivateNetworks(in struct {
 	return reconciler, nil
 }
 
-func (pn *PrivateNetworks) registerK8sReflector(idpool *idpool.IDPool, sync promise.Promise[synced.CRDSync]) error {
+func (pn *PrivateNetworks) registerK8sReflector(idpool *idpool.NetworkIDPool, sync promise.Promise[synced.CRDSync]) error {
 	if !pn.cfg.Enabled {
 		return nil
 	}
@@ -471,7 +471,7 @@ func (pn *PrivateNetworks) reconcileInterfaceConflicts(ctx context.Context, heal
 	}
 }
 
-func (pn *PrivateNetworks) registerIDsReleaser(idpool *idpool.IDPool) {
+func (pn *PrivateNetworks) registerIDsReleaser(idpool *idpool.NetworkIDPool) {
 	if !pn.cfg.Enabled {
 		return
 	}

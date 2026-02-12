@@ -29,46 +29,51 @@ import (
 	"github.com/cilium/cilium/pkg/wal"
 )
 
+// The null ID is always reserved
+const IDReserved = 0
+
 // IDPool handles the allocation of IDs for private networks.
-type IDPool struct {
+type IDPool[N comparable, I ~uint16] struct {
 	mu          lock.Mutex
-	next, max   tables.NetworkID
-	allocations map[tables.NetworkName]idAllocation
-	used        map[tables.NetworkID]tables.NetworkName
+	next, max   I
+	allocations map[N]idAllocation[I]
+	used        map[I]N
 
 	log       *slog.Logger
-	walWriter *wal.Writer[allocationWALEntry]
+	walWriter *wal.Writer[allocationWALEntry[N, I]]
 }
 
-type idAllocation struct {
-	id tables.NetworkID
+type idAllocation[I ~uint16] struct {
+	id I
 	// restored is true for entries that have been restored from disk and have
 	// not been acquired again.
 	restored bool
 }
 
 // NewIDPool creates and returns a new ID pool with custom settings.
-func NewIDPool(log *slog.Logger, first, max tables.NetworkID) *IDPool {
-	return &IDPool{
+func NewIDPool[N comparable, I ~uint16](log *slog.Logger, first, max I) *IDPool[N, I] {
+	return &IDPool[N, I]{
 		log:  log,
 		mu:   lock.Mutex{},
 		next: first,
 		max:  max,
-		allocations: map[tables.NetworkName]idAllocation{
-			"": {
-				id: tables.NetworkIDReserved,
+		allocations: map[N]idAllocation[I]{
+			*new(N): {
+				id: IDReserved,
 			},
 		},
-		used: map[tables.NetworkID]tables.NetworkName{
-			tables.NetworkIDReserved: "",
+		used: map[I]N{
+			IDReserved: *new(N),
 		},
 	}
 }
 
-func NewDefaultIDPool(log *slog.Logger, cfg *option.DaemonConfig, lc cell.Lifecycle) *IDPool {
+type NetworkIDPool = IDPool[tables.NetworkName, tables.NetworkID]
+
+func NewPrivnetIDPool(log *slog.Logger, cfg *option.DaemonConfig, lc cell.Lifecycle) *NetworkIDPool {
 	// Use a random initial value, to make sure we don't incorrectly rely
-	// on the fact that network IDs are consitent across nodes
-	pool := NewIDPool(log, tables.NetworkID(rand.Uint64N(uint64(tables.NetworkIDMax))+1), tables.NetworkIDMax)
+	// on the fact that network IDs are consistent across nodes
+	pool := NewIDPool[tables.NetworkName, tables.NetworkID](log, tables.NetworkID(rand.Uint64N(uint64(tables.NetworkIDMax))+1), tables.NetworkIDMax)
 	lc.Append(
 		cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {
@@ -88,7 +93,7 @@ func NewDefaultIDPool(log *slog.Logger, cfg *option.DaemonConfig, lc cell.Lifecy
 					}
 				}
 
-				walw, err := wal.NewWriter[allocationWALEntry](filePath)
+				walw, err := wal.NewWriter[allocationWALEntry[tables.NetworkName, tables.NetworkID]](filePath)
 				if err != nil {
 					log.Warn("Failed to setup IDPool WAL writer."+
 						"Local Network IDs will not be preserved.",
@@ -108,7 +113,7 @@ func NewDefaultIDPool(log *slog.Logger, cfg *option.DaemonConfig, lc cell.Lifecy
 // was already allocated for the provided network name, the previously
 // allocated ID will be returned. acquire will return an error if the ID pool
 // was exhausted.
-func (idp *IDPool) Acquire(name tables.NetworkName) (tables.NetworkID, error) {
+func (idp *IDPool[N, I]) Acquire(name N) (I, error) {
 	idp.mu.Lock()
 	defer idp.mu.Unlock()
 
@@ -120,11 +125,11 @@ func (idp *IDPool) Acquire(name tables.NetworkName) (tables.NetworkID, error) {
 	}
 
 	if len(idp.used) == int(idp.max)+1 {
-		return tables.NetworkIDReserved, errors.New("ID pool exhausted")
+		return IDReserved, errors.New("ID pool exhausted")
 	}
 
-	advance := func(cur tables.NetworkID) (next tables.NetworkID) {
-		return tables.NetworkID((uint64(cur) + 1) % (uint64(idp.max) + 1))
+	advance := func(cur I) (next I) {
+		return I((uint64(cur) + 1) % (uint64(idp.max) + 1))
 	}
 
 	cur := idp.next
@@ -135,11 +140,11 @@ func (idp *IDPool) Acquire(name tables.NetworkName) (tables.NetworkID, error) {
 	}
 
 	idp.used[cur] = name
-	idp.allocations[name] = idAllocation{
+	idp.allocations[name] = idAllocation[I]{
 		id: cur,
 	}
 
-	err := idp.walWrite(allocationWALEntry{
+	err := idp.walWrite(allocationWALEntry[N, I]{
 		ID:   cur,
 		Name: name,
 	})
@@ -156,11 +161,11 @@ func (idp *IDPool) Acquire(name tables.NetworkName) (tables.NetworkID, error) {
 }
 
 // Release will free the provided network ID if it was allocated before.
-func (idp *IDPool) Release(id tables.NetworkID) {
+func (idp *IDPool[N, I]) Release(id I) {
 	idp.mu.Lock()
 	defer idp.mu.Unlock()
 	// Cannot release the reserved network ID.
-	if id != tables.NetworkIDReserved {
+	if id != IDReserved {
 		name := idp.used[id]
 		delete(idp.allocations, name)
 		delete(idp.used, id)
@@ -175,37 +180,44 @@ func (idp *IDPool) Release(id tables.NetworkID) {
 	}
 }
 
-// allocationWALEntry is the representation of a single alloction on disk
-// STABLE API - make sure not to break backwards compatibility
-type allocationWALEntry struct {
-	ID   tables.NetworkID
-	Name tables.NetworkName
+// Allocated returns the number of active allocations
+func (idp *IDPool[N, I]) Allocated() int {
+	idp.mu.Lock()
+	defer idp.mu.Unlock()
+	return len(idp.allocations) - 1 // don't count the reserved ID as an allocation
 }
 
-func (ae allocationWALEntry) MarshalBinary() (data []byte, err error) {
+// allocationWALEntry is the representation of a single alloction on disk
+// STABLE API - make sure not to break backwards compatibility
+type allocationWALEntry[N comparable, I ~uint16] struct {
+	ID   I
+	Name N
+}
+
+func (ae allocationWALEntry[N, I]) MarshalBinary() (data []byte, err error) {
 	return jsoniter.Marshal(ae)
 }
 
 const PrivnetIDWALFile = "privnet-net-ids.wal"
 
-func (idp *IDPool) walWrite(e allocationWALEntry) error {
+func (idp *IDPool[N, I]) walWrite(e allocationWALEntry[N, I]) error {
 	if idp.walWriter == nil {
 		return nil
 	}
 	return idp.walWriter.Write(e)
 }
 
-func (idp *IDPool) walCompact() error {
+func (idp *IDPool[N, I]) walCompact() error {
 	if idp.walWriter == nil {
 		return nil
 	}
 	return idp.walWriter.Compact(idp.allWALEntries())
 }
 
-func (idp *IDPool) allWALEntries() iter.Seq[allocationWALEntry] {
-	return func(yield func(allocationWALEntry) bool) {
+func (idp *IDPool[N, I]) allWALEntries() iter.Seq[allocationWALEntry[N, I]] {
+	return func(yield func(allocationWALEntry[N, I]) bool) {
 		for name, alloc := range idp.allocations {
-			if !yield(allocationWALEntry{
+			if !yield(allocationWALEntry[N, I]{
 				ID:   alloc.id,
 				Name: name,
 			}) {
@@ -216,9 +228,9 @@ func (idp *IDPool) allWALEntries() iter.Seq[allocationWALEntry] {
 }
 
 // restores the checkpoint file content - clearing any in-memory state.
-func (idp *IDPool) restore(path string) error {
-	allocations, err := wal.Read(path, func(data []byte) (allocationWALEntry, error) {
-		var ae allocationWALEntry
+func (idp *IDPool[N, I]) restore(path string) error {
+	allocations, err := wal.Read(path, func(data []byte) (allocationWALEntry[N, I], error) {
+		var ae allocationWALEntry[N, I]
 		err := jsoniter.Unmarshal(data, &ae)
 		return ae, err
 	})
@@ -230,9 +242,9 @@ func (idp *IDPool) restore(path string) error {
 		if err != nil {
 			return err
 		}
-		idp.allocations[allocation.Name] = idAllocation{
+		idp.allocations[allocation.Name] = idAllocation[I]{
 			id:       allocation.ID,
-			restored: allocation.ID != tables.NetworkIDReserved,
+			restored: allocation.ID != IDReserved,
 		}
 		idp.used[allocation.ID] = allocation.Name
 	}
@@ -243,7 +255,7 @@ func (idp *IDPool) restore(path string) error {
 // Initialized marks the IDPool as successfully restored and will free any IDs
 // that have not been re-acquired. Should only be called once the IDPool has
 // seen the "state of the world"
-func (idp *IDPool) Initialized() {
+func (idp *IDPool[N, I]) Initialized() {
 	idp.mu.Lock()
 	defer idp.mu.Unlock()
 
