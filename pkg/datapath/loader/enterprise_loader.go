@@ -11,7 +11,9 @@
 package loader
 
 import (
+	"context"
 	"net/netip"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/vishvananda/netlink"
@@ -19,7 +21,9 @@ import (
 	pnconfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	pnendpoints "github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -29,7 +33,10 @@ var EnterpriseCell = cell.Module(
 	"enterprise-loader",
 	"Enterprise Loader",
 
-	cell.Provide(newEnterpriseLoader),
+	cell.Provide(
+		newEnterpriseLoader,
+		newPrivnetDHCPDevice,
+	),
 
 	cell.Invoke(
 		(*EnterpriseLoader).registerEndpointConfig,
@@ -53,7 +60,7 @@ func newEnterpriseLoader(in struct {
 	}
 }
 
-func (l *EnterpriseLoader) registerEndpointConfig() {
+func (l *EnterpriseLoader) registerEndpointConfig(pd *privnetDHCPDevice) {
 	epConfigs.register(func(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) any {
 		cfg := config.NewBPFLXCEnterprise()
 
@@ -64,6 +71,8 @@ func (l *EnterpriseLoader) registerEndpointConfig() {
 			if ok {
 				cfg.PrivnetEnable = true
 				cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()
+
+				cfg.CiliumDhcpIfIndex = uint32(pd.getIfindex())
 			}
 		}
 
@@ -110,3 +119,72 @@ func (l *EnterpriseLoader) registerWireguardConfig() {
 		return cfg
 	})
 }
+
+const CiliumDHCPInterfaceName = "cilium_dhcp"
+
+// newPrivnetDHCPDevice registers lifecycle hook to create [CiliumDHCPInterfaceName]
+// and provides access to its ifindex. This is used in bpf/lib/enterprise_privnet.h
+// to redirect DHCP packets for processing by the agent.
+func newPrivnetDHCPDevice(lc cell.Lifecycle, fence regeneration.Fence, cfg pnconfig.Config) *privnetDHCPDevice {
+	p := &privnetDHCPDevice{
+		cfg:   cfg,
+		ready: make(chan struct{}),
+	}
+	// Register an endpoint regeneration fence to force regeneration to wait for the cilium_dhcp
+	// device to be ready.
+	fence.Add("privnet-dhcp", func(ctx context.Context) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-p.ready:
+			return nil
+		}
+	})
+	lc.Append(p)
+	return p
+}
+
+type privnetDHCPDevice struct {
+	cfg     pnconfig.Config
+	ifindex atomic.Uint32
+	ready   chan struct{}
+}
+
+func (p *privnetDHCPDevice) getIfindex() uint32 {
+	return p.ifindex.Load()
+}
+
+// Start implements [cell.HookInterface].
+func (p *privnetDHCPDevice) Start(ctx cell.HookContext) error {
+	defer close(p.ready)
+	if !p.cfg.Enabled {
+		return p.deleteDevice()
+	}
+
+	link, err := safenetlink.LinkByName(CiliumDHCPInterfaceName)
+	if err != nil {
+		dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: CiliumDHCPInterfaceName}}
+		if err := netlink.LinkAdd(dummy); err != nil {
+			return err
+		}
+		link = dummy
+	}
+
+	p.ifindex.Store(uint32(link.Attrs().Index))
+	return netlink.LinkSetUp(link)
+}
+
+// Stop implements [cell.HookInterface].
+func (p *privnetDHCPDevice) Stop(cell.HookContext) error {
+	return nil
+}
+
+func (p *privnetDHCPDevice) deleteDevice() error {
+	link, _ := safenetlink.LinkByName(CiliumDHCPInterfaceName)
+	if link != nil {
+		return netlink.LinkDel(link)
+	}
+	return nil
+}
+
+var _ cell.HookInterface = &privnetDHCPDevice{}
