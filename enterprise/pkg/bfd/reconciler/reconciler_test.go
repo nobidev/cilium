@@ -607,7 +607,12 @@ func Test_BFDReconciler(t *testing.T) {
 				case "create":
 					_, err = f.profileClient.Create(testCtx, profile, metav1.CreateOptions{})
 				case "update":
-					_, err = f.profileClient.Update(testCtx, profile, metav1.UpdateOptions{})
+					var prev *v1alpha1.IsovalentBFDProfile
+					prev, err = f.profileClient.Get(testCtx, profile.GetName(), metav1.GetOptions{})
+					if err == nil {
+						profile.SetResourceVersion(prev.GetResourceVersion())
+						_, err = f.profileClient.Update(testCtx, profile, metav1.UpdateOptions{})
+					}
 				case "delete":
 					err = f.profileClient.Delete(testCtx, profile.Name, metav1.DeleteOptions{})
 				}
@@ -619,7 +624,12 @@ func Test_BFDReconciler(t *testing.T) {
 				case "create":
 					_, err = f.ncClient.Create(testCtx, nc, metav1.CreateOptions{})
 				case "update":
-					_, err = f.ncClient.Update(testCtx, nc, metav1.UpdateOptions{})
+					var prev *v1alpha1.IsovalentBFDNodeConfig
+					prev, err = f.ncClient.Get(testCtx, nc.GetName(), metav1.GetOptions{})
+					if err == nil {
+						nc.SetResourceVersion(prev.GetResourceVersion())
+						_, err = f.ncClient.Update(testCtx, nc, metav1.UpdateOptions{})
+					}
 				case "delete":
 					err = f.ncClient.Delete(testCtx, nc.Name, metav1.DeleteOptions{})
 				}
