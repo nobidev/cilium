@@ -154,23 +154,6 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 
 	isLocalSelectedByAZ := make(map[string]bool)
 
-	// if AZ affinity is enabled,
-	// Choose maxGateway items from the list of per AZ healthy GWs  with random probability.
-	// If the selected active GW list is not enough, choose from the non-local active GW list later
-	// according to the azAffinity config.
-	if config.azAffinity.enabled() {
-		for az, healthyGatewayIPs := range availableHealthyGatewayIPsByAZ {
-			var currentLocalActiveGWs []netip.Addr
-			if status != nil {
-				currentLocalActiveGWs = gc.selectCurrentLocalActiveGWs(operatorManager, az, status.activeGatewayIPsByAZ[az])
-			}
-			activeGWs := selectActiveGWs(az, gc.maxGatewayNodes, currentLocalActiveGWs, healthyGatewayIPs)
-			activeGatewayIPsByAZ[az] = activeGWs
-
-			selectionMetrics.activeGatewaysByAZ[az] = activeGatewaysByMetrics{local: len(activeGWs), remote: 0}
-		}
-	}
-
 	// nonLocalActiveGatewayIPs is a helper that returns, given a particular AZ, a slice of non local gateways for
 	// that AZ.
 	//
@@ -192,13 +175,26 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 		return activeGWs
 	}
 
-	// next do a second pass to populate the per-AZ list of active gateways
-	switch config.azAffinity {
-	case azAffinityLocalOnly:
-		// for local only affinity there's nothing left to do
+	// if AZ affinity is enabled,
+	// Choose maxGateway items from the list of per AZ healthy GWs  with random probability.
+	// If the selected active GW list is not enough, choose from the non-local active GW list later
+	// according to the azAffinity config.
+	for az, healthyGatewayIPs := range availableHealthyGatewayIPsByAZ {
+		var currentLocalActiveGWs []netip.Addr
+		if status != nil {
+			currentLocalActiveGWs = gc.selectCurrentLocalActiveGWs(operatorManager, az, status.activeGatewayIPsByAZ[az])
+		}
+		activeGWs := selectActiveGWs(az, gc.maxGatewayNodes, currentLocalActiveGWs, healthyGatewayIPs)
+		activeGatewayIPsByAZ[az] = activeGWs
 
-	case azAffinityLocalOnlyFirst:
-		for az := range activeGatewayIPsByAZ {
+		selectionMetrics.activeGatewaysByAZ[az] = activeGatewaysByMetrics{local: len(activeGWs), remote: 0}
+
+		// next do a second pass to populate the per-AZ list of active gateways
+		switch config.azAffinity {
+		case azAffinityLocalOnly:
+			// for local only affinity there's nothing left to do
+
+		case azAffinityLocalOnlyFirst:
 			// only if there are no local gateways, pick the ones from the other AZs
 			if len(activeGatewayIPsByAZ[az]) == 0 {
 				var currentNonLocalActiveGWs []netip.Addr
@@ -214,10 +210,8 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 			} else {
 				isLocalSelectedByAZ[az] = true
 			}
-		}
 
-	case azAffinityLocalPriority:
-		for az := range activeGatewayIPsByAZ {
+		case azAffinityLocalPriority:
 			if gc.maxGatewayNodes != 0 && len(activeGatewayIPsByAZ[az]) < gc.maxGatewayNodes {
 				var currentNonLocalActiveGWs []netip.Addr
 				if status != nil {
