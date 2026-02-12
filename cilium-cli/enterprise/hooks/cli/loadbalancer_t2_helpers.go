@@ -21,16 +21,16 @@ type reader struct {
 	name string
 }
 
-func podReaders(ctx context.Context, ciliumNamespace, podNameFilter string, follow bool) ([]reader, error) {
+func podReaders(ctx context.Context, namespace, labelSelector, podNameFilter string, follow bool, sinceSeconds *int64) ([]reader, error) {
 	var readers []reader
 
 	k8sClient, _ := api.GetK8sClientContextValue(ctx)
 
-	pods, err := k8sClient.ListPods(ctx, ciliumNamespace, metav1.ListOptions{
-		LabelSelector: "name=cilium-envoy",
+	pods, err := k8sClient.ListPods(ctx, namespace, metav1.ListOptions{
+		LabelSelector: labelSelector,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list T2 Envoy pods: %w", err)
+		return nil, fmt.Errorf("failed to list pods with selector %q in namespace %q: %w", labelSelector, namespace, err)
 	}
 
 	for _, p := range pods.Items {
@@ -38,9 +38,14 @@ func podReaders(ctx context.Context, ciliumNamespace, podNameFilter string, foll
 			continue
 		}
 
-		r := k8sClient.Clientset.CoreV1().Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{
+		opts := &corev1.PodLogOptions{
 			Follow: follow,
-		})
+		}
+		if sinceSeconds != nil {
+			opts.SinceSeconds = sinceSeconds
+		}
+
+		r := k8sClient.Clientset.CoreV1().Pods(p.Namespace).GetLogs(p.Name, opts)
 		s, err := r.Stream(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open log stream for pod %q: %w", p.Name, err)

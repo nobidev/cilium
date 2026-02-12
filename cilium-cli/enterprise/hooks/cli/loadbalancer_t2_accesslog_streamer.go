@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -22,6 +23,8 @@ var (
 	accessLogIncludeHTTPHealthCheckFilter bool
 	accessLogFollow                       bool
 	accessLogFiles                        []string
+	accessLogTenant                       string
+	accessLogSince                        string
 )
 
 func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
@@ -30,12 +33,31 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 		Short: "Display Loadbalancer T2 access log",
 		Long:  "",
 		RunE: func(c *cobra.Command, _ []string) error {
+			if accessLogSince != "" && accessLogTenant == "" {
+				return fmt.Errorf("--since requires --tenant to be set")
+			}
+
 			var readers []reader
 			var err error
+			var sinceSeconds *int64
 			errGrp, ctx := errgroup.WithContext(c.Context())
 
-			if len(accessLogFiles) == 0 {
-				readers, err = podReaders(ctx, ciliumNamespace(c), "", accessLogFollow)
+			if accessLogSince != "" {
+				d, parseErr := time.ParseDuration(accessLogSince)
+				if parseErr != nil {
+					return fmt.Errorf("invalid --since value %q: %w", accessLogSince, parseErr)
+				}
+				if d <= 0 {
+					return fmt.Errorf("--since must be a positive duration, got %q", accessLogSince)
+				}
+				s := int64(d.Seconds())
+				sinceSeconds = &s
+			}
+
+			if accessLogTenant != "" {
+				readers, err = podReaders(ctx, accessLogTenant, "app=namespace-logger", "", accessLogFollow, sinceSeconds)
+			} else if len(accessLogFiles) == 0 {
+				readers, err = podReaders(ctx, ciliumNamespace(c), "name=cilium-envoy", "", accessLogFollow, nil)
 			} else {
 				readers, err = fileReaders(accessLogFiles)
 			}
@@ -48,20 +70,31 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 				}
 			}()
 
+			if accessLogTenant != "" && len(readers) == 0 {
+				return fmt.Errorf("no namespace-logger pods found in namespace %q", accessLogTenant)
+			}
+
 			for _, r := range readers {
 				errGrp.Go(func() error {
 					scanner := bufio.NewScanner(r.r)
 					for scanner.Scan() {
 						logLine := scanner.Text()
 
-						if !strings.Contains(logLine, "Z][access]") {
-							continue
+						if accessLogTenant != "" {
+							if !includeTenantLogLine(logLine) {
+								continue
+							}
+						} else {
+							if !strings.Contains(logLine, "Z][access]") {
+								continue
+							}
+							if !includeAccesslogLine(logLine) {
+								continue
+							}
 						}
 
-						if includeAccesslogLine(logLine) {
-							if _, err := io.Copy(os.Stdout, strings.NewReader(fmt.Sprintf("[%s] %s\n", r.name, logLine))); err != nil {
-								return fmt.Errorf("failed to copy: %w", err)
-							}
+						if _, err := io.Copy(os.Stdout, strings.NewReader(fmt.Sprintf("[%s] %s\n", r.name, logLine))); err != nil {
+							return fmt.Errorf("failed to copy: %w", err)
 						}
 					}
 
@@ -84,6 +117,8 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 	cmd.Flags().StringSliceVar(&accessLogApplicationTypesFilter, "application-types", []string{"udp", "tcp", "tls_passthrough", "tls", "https", "http"}, "Filter for the provided application types")
 	cmd.Flags().BoolVar(&accessLogIncludeHTTPHealthCheckFilter, "healthcheck", false, "Include HTTP Healthcheck accesslog")
 	cmd.Flags().BoolVar(&accessLogFollow, "follow", false, "Specify if the logs should be streamed")
+	cmd.Flags().StringVar(&accessLogTenant, "tenant", "", "Tenant namespace to read access logs from namespace-logger pods")
+	cmd.Flags().StringVar(&accessLogSince, "since", "", "Show tenant logs since duration (e.g. 24h, 30m, 1h30m) (requires --tenant)")
 
 	return cmd
 }
@@ -136,4 +171,13 @@ func includeAccesslogLine(logLine string) bool {
 	}
 
 	return allAttributeFiltersMatched
+}
+
+func includeTenantLogLine(logLine string) bool {
+	for _, f := range accessLogGenericFilters {
+		if !strings.Contains(logLine, f) {
+			return false
+		}
+	}
+	return true
 }
