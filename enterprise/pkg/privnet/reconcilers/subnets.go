@@ -12,14 +12,18 @@ package reconcilers
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"maps"
 	"net/netip"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers/idpool"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -34,6 +38,12 @@ var SubnetsCell = cell.Group(
 	),
 
 	cell.Provide(
+		// Provide function to instantiate new SubnetID IDPools
+		func(log *slog.Logger) SubnetIDPoolFactory {
+			return func() *idpool.SubnetIDPool {
+				return idpool.NewSubnetIDPool(log)
+			}
+		},
 		// Provides the ReadOnly Subnets table.
 		statedb.RWTable[tables.Subnet].ToTable,
 	),
@@ -50,10 +60,15 @@ type Subnets struct {
 
 	cfg config.Config
 
+	idpoolFactory SubnetIDPoolFactory
+	idpools       map[tables.NetworkName]*idpool.SubnetIDPool
+
 	db       *statedb.DB
 	networks statedb.Table[tables.PrivateNetwork]
 	tbl      statedb.RWTable[tables.Subnet]
 }
+
+type SubnetIDPoolFactory func() *idpool.IDPool[tables.SubnetName, tables.SubnetID]
 
 func newSubnets(in struct {
 	cell.In
@@ -62,6 +77,8 @@ func newSubnets(in struct {
 	JobGroup job.Group
 
 	Config config.Config
+
+	IDpoolFactory SubnetIDPoolFactory
 
 	DB       *statedb.DB
 	Networks statedb.Table[tables.PrivateNetwork]
@@ -72,6 +89,9 @@ func newSubnets(in struct {
 		jg:  in.JobGroup,
 
 		cfg: in.Config,
+
+		idpoolFactory: in.IDpoolFactory,
+		idpools:       map[tables.NetworkName]*idpool.SubnetIDPool{},
 
 		db:       in.DB,
 		networks: in.Networks,
@@ -214,16 +234,33 @@ func (r *Subnets) upsertSubnets(txn statedb.WriteTxn, privNet tables.PrivateNetw
 			if err != nil {
 				return err
 			}
-		} else if desired.Equals(existing) {
-			// if the desired subnet exactly matches the existing one,
-			// we do not need to re-insert it
-			delete(desiredSubnets, name)
+			r.releaseSubnetID(existing)
+			continue
+		}
+		delete(desiredSubnets, name)
+
+		// preserve ID
+		desired.ID = existing.ID
+
+		// if the desired subnet doesn't exactly matches the existing one,
+		// update it
+		if !desired.Equals(existing) {
+			_, _, err := r.tbl.Insert(txn, desired)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	// upsert remaining desired subnets
-	for _, subnet := range desiredSubnets {
-		_, _, err := r.tbl.Insert(txn, subnet)
+	// upsert remaining desired subnets - sort it for consistent ID allocation (for tests)
+	for _, name := range slices.Sorted(maps.Keys(desiredSubnets)) {
+		subnet := desiredSubnets[name]
+		id, err := r.allocateSubnetID(subnet)
+		if err != nil {
+			return fmt.Errorf("failed to allocate ID for subnet %q: %w", fmt.Sprintf("%s/%s", subnet.Network, subnet.Name), err)
+		}
+		subnet.ID = id
+		_, _, err = r.tbl.Insert(txn, subnet)
 		if err != nil {
 			return err
 		}
@@ -239,6 +276,33 @@ func (r *Subnets) deleteSubnets(txn statedb.WriteTxn, privNetName tables.Network
 		if err != nil {
 			return err
 		}
+		r.releaseSubnetID(entry)
 	}
 	return nil
+}
+
+// allocateSubnetID will allocate an ID for the provided subnet
+func (r *Subnets) allocateSubnetID(subnet tables.Subnet) (tables.SubnetID, error) {
+	pool, ok := r.idpools[subnet.Network]
+	if !ok {
+		pool = r.idpoolFactory()
+		r.idpools[subnet.Network] = pool
+	}
+	id, err := pool.Acquire(subnet.Name)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+// releaseSubnetID will release the ID associated with the subnet
+// If the ID was never allocated, this is a NOOP.
+func (r *Subnets) releaseSubnetID(subnet tables.Subnet) {
+	pool, ok := r.idpools[subnet.Network]
+	if ok {
+		pool.Release(subnet.ID)
+		if pool.Allocated() == 0 {
+			delete(r.idpools, subnet.Network)
+		}
+	}
 }

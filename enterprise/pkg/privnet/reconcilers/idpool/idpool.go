@@ -109,6 +109,14 @@ func NewPrivnetIDPool(log *slog.Logger, cfg *option.DaemonConfig, lc cell.Lifecy
 	return pool
 }
 
+type SubnetIDPool = IDPool[tables.SubnetName, tables.SubnetID]
+
+func NewSubnetIDPool(log *slog.Logger) *SubnetIDPool {
+	// Use a random initial value, to make sure we don't incorrectly rely
+	// on the fact that subnet IDs are consistent across nodes
+	return NewIDPool[tables.SubnetName, tables.SubnetID](log, tables.SubnetID(rand.Uint64N(uint64(tables.SubnetIDMax))+1), tables.SubnetIDMax)
+}
+
 // Acquire returns a network ID for the provided network name. If a network ID
 // was already allocated for the provided network name, the previously
 // allocated ID will be returned. acquire will return an error if the ID pool

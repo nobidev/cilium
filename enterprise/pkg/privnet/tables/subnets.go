@@ -12,6 +12,7 @@ package tables
 
 import (
 	"iter"
+	"math"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -37,6 +38,8 @@ func (sid SubnetID) String() string {
 const (
 	// SubnetIDReserved represents the reserved SubnetID that cannot be assigned.
 	SubnetIDReserved = SubnetID(0)
+	// SubnetIDMax represents the highest SubnetID value.
+	SubnetIDMax = SubnetID(math.MaxUint16)
 )
 
 // Subnet represents a private network subnet instance.
@@ -59,6 +62,8 @@ type SubnetSpec struct {
 
 	// Name is the name of the subnet.
 	Name SubnetName
+	// ID is the per node and per privnet scoped numeric identifier of the subnet
+	ID SubnetID
 	// CIDRv4 defines the IPv4 subnet.
 	CIDRv4 netip.Prefix
 	// CIDRv6 defines the IPv6 subnet.
@@ -76,7 +81,7 @@ type SubnetSpec struct {
 var _ statedb.TableWritable = Subnet{}
 
 func (s Subnet) TableHeader() []string {
-	return []string{"Network", "Name", "CIDRv4", "CIDRv6", "Routes"}
+	return []string{"Network", "Name", "ID", "CIDRv4", "CIDRv6", "Routes"}
 }
 
 func (s Subnet) TableRow() []string {
@@ -90,6 +95,7 @@ func (s Subnet) TableRow() []string {
 	return []string{
 		string(s.Network),
 		string(s.Name),
+		s.ID.String(),
 		fmtCIDR(s.CIDRv4),
 		fmtCIDR(s.CIDRv6),
 		strconv.FormatInt(int64(len(s.Routes)), 10),
