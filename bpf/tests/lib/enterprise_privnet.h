@@ -288,3 +288,30 @@ privnet_v6_del_subnet_entry(__u16 net_id, const union v6addr *prefix, __u8 prefi
 	__bpf_memcpy_builtin(&key.ip6, prefix, sizeof(*prefix));
 	map_delete_elem(&cilium_privnet_subnets, &key);
 }
+
+static const __u8 dhcp_bcast_mac[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+#define DHCP_SERVER_PORT 67
+
+static __always_inline int
+build_privnet_dhcp_request_to(struct __ctx_buff *ctx, const __u8 *dmac, __be32 daddr)
+{
+	struct pktgen builder;
+	__be32 saddr = v4_all;
+
+	pktgen__init(&builder, ctx);
+
+	if (!pktgen__push_ipv4_udp_packet(&builder, (__u8 *)mac_one,
+					  (__u8 *)dmac, saddr, daddr,
+					  bpf_htons(68), bpf_htons(DHCP_SERVER_PORT)))
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+static __always_inline int
+build_privnet_dhcp_request(struct __ctx_buff *ctx)
+{
+	return build_privnet_dhcp_request_to(ctx, dhcp_bcast_mac,
+					     IPV4(255, 255, 255, 255));
+}

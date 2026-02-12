@@ -16,6 +16,18 @@
 /* Enable debug output */
 #define DEBUG
 
+#define CILIUM_DHCP_IFINDEX 123
+
+static int redirect_target_ifindex;
+
+#define ctx_redirect mock_ctx_redirect
+static __always_inline int mock_ctx_redirect(const struct __sk_buff __maybe_unused *ctx,
+					     int ifindex, __u32 __maybe_unused flags)
+{
+	redirect_target_ifindex = ifindex;
+	return CTX_ACT_REDIRECT;
+}
+
 #include "enterprise_privnet_common.h"
 
 #include "lib/bpf_lxc.h"
@@ -28,11 +40,11 @@
 ASSIGN_CONFIG(bool, privnet_enable, true)
 ASSIGN_CONFIG(__u32, privnet_unknown_sec_id, 99) /* tunnel id 99 is reserved for unknown privnet flow */
 ASSIGN_CONFIG(__u32, interface_ifindex, IFINDEX)
+ASSIGN_CONFIG(__u32, cilium_dhcp_ifindex, CILIUM_DHCP_IFINDEX)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr}) /* set lxc mac */
 
 static const union v4addr lxc_privnet_ipv4 = { .be32 = V4_NET_IP_2 };
 static const union v6addr lxc_privnet_ipv6 = { .addr = v6_svc_one_addr };
-
 
 PKTGEN("tc", "01_icmp_from_container_nat_src_dst")
 int privnet_icmp_from_container_nat_src_dst_pktgen(struct __ctx_buff *ctx)
@@ -564,5 +576,96 @@ int privnet_icmp_from_container_missing_net_id_check(struct __ctx_buff *ctx)
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 
+	test_finish();
+}
+
+/* ARP request for the privnet IPv4 should be dropped to allow DHCP renewals.
+ * If we don't drop them DHCP clients will decline the IP as they detect a conflict
+ * when the "arping" for the offered address.
+ */
+
+PKTGEN("tc", "14_arp_from_container_privnet_ip_match")
+int privnet_arp_from_container_privnet_ip_mismatch_pktgen(struct __ctx_buff *ctx)
+{
+	build_privnet_packet(ctx, NETIP_ARP_REQ);
+	return 0;
+}
+
+SETUP("tc", "14_arp_from_container_privnet_ip_match")
+int privnet_arp_from_container_privnet_ip_mismatch_setup(struct __ctx_buff *ctx)
+{
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4,
+				 &lxc_privnet_ipv6);
+	return pod_send_packet(ctx);
+}
+
+CHECK("tc", "14_arp_from_container_privnet_ip_match")
+int privnet_arp_from_container_privnet_ip_mismatch_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	assert_status_code(ctx, CTX_ACT_DROP);
+
+	privnet_del_device_entry(IFINDEX);
+	test_finish();
+}
+
+PKTGEN("tc", "15_dhcp_from_container_redirect")
+int privnet_dhcp_from_container_redirect_pktgen(struct __ctx_buff *ctx)
+{
+	return build_privnet_dhcp_request_to(ctx, dhcp_bcast_mac,
+					     IPV4(255, 255, 255, 255));
+}
+
+SETUP("tc", "15_dhcp_from_container_redirect")
+int privnet_dhcp_from_container_redirect_setup(struct __ctx_buff *ctx)
+{
+	redirect_target_ifindex = 0;
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4,
+				 &lxc_privnet_ipv6);
+	return pod_send_packet(ctx);
+}
+
+CHECK("tc", "15_dhcp_from_container_redirect")
+int privnet_dhcp_from_container_redirect_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	assert_status_code(ctx, TC_ACT_REDIRECT);
+	if (redirect_target_ifindex != CILIUM_DHCP_IFINDEX)
+		test_fatal("unexpected redirect ifindex (expected %d, got %d)",
+			   CILIUM_DHCP_IFINDEX, redirect_target_ifindex);
+
+	privnet_del_device_entry(IFINDEX);
+	test_finish();
+}
+
+PKTGEN("tc", "16_dhcp_from_container_unicast_redirect")
+int privnet_dhcp_from_container_unicast_redirect_pktgen(struct __ctx_buff *ctx)
+{
+	return build_privnet_dhcp_request_to(ctx, (__u8 *)mac_two, V4_NET_IP_1);
+}
+
+SETUP("tc", "16_dhcp_from_container_unicast_redirect")
+int privnet_dhcp_from_container_unicast_redirect_setup(struct __ctx_buff *ctx)
+{
+	redirect_target_ifindex = 0;
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4,
+				 &lxc_privnet_ipv6);
+
+	return pod_send_packet(ctx);
+}
+
+CHECK("tc", "16_dhcp_from_container_unicast_redirect")
+int privnet_dhcp_from_container_unicast_redirect_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	assert_status_code(ctx, TC_ACT_REDIRECT);
+	if (redirect_target_ifindex != CILIUM_DHCP_IFINDEX)
+		test_fatal("unexpected redirect ifindex (expected %d, got %d)",
+			   CILIUM_DHCP_IFINDEX, redirect_target_ifindex);
+
+	privnet_del_device_entry(IFINDEX);
 	test_finish();
 }
