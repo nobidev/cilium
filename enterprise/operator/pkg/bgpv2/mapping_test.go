@@ -533,12 +533,13 @@ func upsertIsoBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bg
 		return
 	}
 
-	_, err := f.isoClusterClient.Get(ctx, bgpcc.Name, meta_v1.GetOptions{})
+	prev, err := f.isoClusterClient.Get(ctx, bgpcc.Name, meta_v1.GetOptions{})
 	if err != nil && k8s_errors.IsNotFound(err) {
 		_, err = f.isoClusterClient.Create(ctx, bgpcc, meta_v1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		bgpcc.SetResourceVersion(prev.GetResourceVersion())
 		_, err = f.isoClusterClient.Update(ctx, bgpcc, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)
@@ -549,12 +550,13 @@ func upsertIsoBGPPC(req *require.Assertions, ctx context.Context, f *fixture, bg
 		return
 	}
 
-	_, err := f.isoPeerConfClient.Get(ctx, bgppc.Name, meta_v1.GetOptions{})
+	prev, err := f.isoPeerConfClient.Get(ctx, bgppc.Name, meta_v1.GetOptions{})
 	if err != nil && k8s_errors.IsNotFound(err) {
 		_, err = f.isoPeerConfClient.Create(ctx, bgppc, meta_v1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		bgppc.SetResourceVersion(prev.GetResourceVersion())
 		_, err = f.isoPeerConfClient.Update(ctx, bgppc, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)
@@ -565,12 +567,13 @@ func upsertIsoBGPAdvert(req *require.Assertions, ctx context.Context, f *fixture
 		return
 	}
 
-	_, err := f.isoAdvertClient.Get(ctx, bgpAdvert.Name, meta_v1.GetOptions{})
+	prev, err := f.isoAdvertClient.Get(ctx, bgpAdvert.Name, meta_v1.GetOptions{})
 	if err != nil && k8s_errors.IsNotFound(err) {
 		_, err = f.isoAdvertClient.Create(ctx, bgpAdvert, meta_v1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		bgpAdvert.SetResourceVersion(prev.GetResourceVersion())
 		_, err = f.isoAdvertClient.Update(ctx, bgpAdvert, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)
@@ -581,12 +584,13 @@ func upsertIsoBGPNodeConfigOR(req *require.Assertions, ctx context.Context, f *f
 		return
 	}
 
-	_, err := f.isoBGPNodeConfORClient.Get(ctx, bgpNodeConfigOR.Name, meta_v1.GetOptions{})
+	prev, err := f.isoBGPNodeConfORClient.Get(ctx, bgpNodeConfigOR.Name, meta_v1.GetOptions{})
 	if err != nil && k8s_errors.IsNotFound(err) {
 		_, err = f.isoBGPNodeConfORClient.Create(ctx, bgpNodeConfigOR, meta_v1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		bgpNodeConfigOR.SetResourceVersion(prev.GetResourceVersion())
 		_, err = f.isoBGPNodeConfORClient.Update(ctx, bgpNodeConfigOR, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)
@@ -597,12 +601,13 @@ func upsertIsoVrf(req *require.Assertions, ctx context.Context, f *fixture, vrf 
 		return
 	}
 
-	_, err := f.isoVrfClient.Get(ctx, vrf.Name, meta_v1.GetOptions{})
+	prev, err := f.isoVrfClient.Get(ctx, vrf.Name, meta_v1.GetOptions{})
 	if err != nil && k8s_errors.IsNotFound(err) {
 		_, err = f.isoVrfClient.Create(ctx, vrf, meta_v1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		vrf.SetResourceVersion(prev.GetResourceVersion())
 		_, err = f.isoVrfClient.Update(ctx, vrf, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)
@@ -613,12 +618,13 @@ func upsertIsoBGPVrfConfig(req *require.Assertions, ctx context.Context, f *fixt
 		return
 	}
 
-	_, err := f.isoBGPVrfClient.Get(ctx, vrfConfig.Name, meta_v1.GetOptions{})
+	prev, err := f.isoBGPVrfClient.Get(ctx, vrfConfig.Name, meta_v1.GetOptions{})
 	if err != nil && k8s_errors.IsNotFound(err) {
 		_, err = f.isoBGPVrfClient.Create(ctx, vrfConfig, meta_v1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		vrfConfig.SetResourceVersion(prev.GetResourceVersion())
 		_, err = f.isoBGPVrfClient.Update(ctx, vrfConfig, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)

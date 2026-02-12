@@ -1674,12 +1674,13 @@ func TestRRPeeringMultiInstance(t *testing.T) {
 }
 
 func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *cilium_v2.CiliumNode) {
-	_, err := f.nodeClient.Get(ctx, node.Name, meta_v1.GetOptions{})
+	prev, err := f.nodeClient.Get(ctx, node.Name, meta_v1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.nodeClient.Create(ctx, node, meta_v1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		node.SetResourceVersion(prev.GetResourceVersion())
 		_, err = f.nodeClient.Update(ctx, node, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)

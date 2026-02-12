@@ -169,7 +169,12 @@ func TestNodeStatus(t *testing.T) {
 					_, err = f.nodeClient.Create(t.Context(), tt.localNode, metav1.CreateOptions{})
 					created = true
 				} else {
-					_, err = f.nodeClient.Update(t.Context(), tt.localNode, metav1.UpdateOptions{})
+					var prev *slimcorev1.Node
+					prev, err = f.nodeClient.Get(t.Context(), tt.localNode.Name, metav1.GetOptions{})
+					if err == nil {
+						tt.localNode.SetResourceVersion(prev.GetResourceVersion())
+						_, err = f.nodeClient.Update(t.Context(), tt.localNode, metav1.UpdateOptions{})
+					}
 				}
 				req.NoError(err)
 
