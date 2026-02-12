@@ -577,7 +577,14 @@ func updateFQDNGroup(clientset k8sClient.Clientset, name string, fqdns []v1alpha
 			FQDNs: fqdns,
 		},
 	}
-	_, err := clientset.IsovalentV1alpha1().IsovalentFQDNGroups().Update(
+	prev, err := clientset.IsovalentV1alpha1().IsovalentFQDNGroups().Get(
+		context.Background(), fqdnGroup.GetName(), metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get: %w", err)
+	}
+
+	fqdnGroup.SetResourceVersion(prev.GetResourceVersion())
+	_, err = clientset.IsovalentV1alpha1().IsovalentFQDNGroups().Update(
 		context.Background(),
 		fqdnGroup,
 		metav1.UpdateOptions{},
