@@ -129,13 +129,13 @@ func Test_computeAvailableHealthyGatewaysByAZ(t *testing.T) {
 		},
 	}
 	allAZs := sets.New[string]() // as empty, we still expect all valid gws in az-0
-	out := computeAvailableHealthyGatewaysByAZ(allAZs, policyHealthyGatewayIPs, 0)
+	out, _ := computeAvailableHealthyGatewaysByAZ(allAZs, policyHealthyGatewayIPs, 0)
 	assert.Equal(t, map[string][]netip.Addr{
 		"az-0": parseNetIPs(t, "10.0.0.1"),
 	}, out)
 
 	allAZs = sets.New[string]("az-0", "az-1") // now we span all AZs
-	out = computeAvailableHealthyGatewaysByAZ(allAZs, policyHealthyGatewayIPs, 1)
+	out, _ = computeAvailableHealthyGatewaysByAZ(allAZs, policyHealthyGatewayIPs, 1)
 	assert.Equal(t, map[string][]netip.Addr{
 		"az-0": parseNetIPs(t, "10.0.0.2"),
 		"az-1": {},

@@ -149,23 +149,33 @@ func computeAvailableHealthyGatewayIPs(healthyGatewayIPs []gatewayNodeIP) []neti
 	return out
 }
 
-// computeAvailableHealthyGatewaysByAZ takes the policy healthy and available gateways and translates it to
-// only those selected by the group specified by the groupIndex.
-// This is what's used for doing per groupConfig gateway selection.
-func computeAvailableHealthyGatewaysByAZ(allAZs sets.Set[string], policyHealthyGatewayIPs []gatewayNodeIP, groupIndex int) map[string][]netip.Addr {
+type zoneToAvailable map[string]int
+
+func (za zoneToAvailable) hasAvailableGateways(zone string) bool {
+	return za[zone] > 0
+}
+
+// computeAvailableHealthyGatewaysByAZ takes the policy healthy and available gateways and filters/partitions
+// it down to the per-group availableHealthyGatewayIPsByAZ used by selectActiveGatewaysByAZ to perform
+// az-aware gateway selection.
+func computeAvailableHealthyGatewaysByAZ(allAZs sets.Set[string], policyHealthyGatewayIPs []gatewayNodeIP, groupIndex int) (map[string][]netip.Addr, zoneToAvailable) {
 	availGWs := map[string][]netip.Addr{}
+	policyAvailByZone := map[string]int{}
 	for az := range allAZs {
 		availGWs[az] = []netip.Addr{}
 	}
 
-	for _, gni := range policyHealthyGatewayIPs {
-		if !gni.available || !gni.selectsGroupIndex(groupIndex) || !gni.zoneOK() {
+	for _, gn := range policyHealthyGatewayIPs {
+		if !gn.available || !gn.zoneOK() {
 			continue
 		}
-		availGWs[gni.zone] = append(availGWs[gni.zone], gni.ip)
+		policyAvailByZone[gn.zone]++
+		if !gn.selectsGroupIndex(groupIndex) {
+			continue
+		}
+		availGWs[gn.zone] = append(availGWs[gn.zone], gn.ip)
 	}
-
-	return availGWs
+	return availGWs, policyAvailByZone
 }
 
 func doSelection(statusActiveGateways, availableHealthyGatewayIPs []netip.Addr, selectionKey string, maxGatewayNodes int) []netip.Addr {

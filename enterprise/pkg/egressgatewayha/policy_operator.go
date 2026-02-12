@@ -148,7 +148,7 @@ func (gc *groupConfig) selectActiveGateways(operatorManager *OperatorManager, co
 }
 
 func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, config *PolicyConfig, status *groupStatus,
-	availableHealthyGatewayIPsByAZ map[string][]netip.Addr, selectionMetrics *gatewaySelectionMetrics, groupIndex int) groupStatus {
+	availableByZone zoneToAvailable, availableHealthyGatewayIPsByAZ map[string][]netip.Addr, selectionMetrics *gatewaySelectionMetrics, groupIndex int) groupStatus {
 
 	activeGatewayIPsByAZ := make(map[string][]netip.Addr)
 
@@ -819,10 +819,10 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 			healthyGateways:    0,
 		}
 
-		availableHealthyGatewayIPsByAZ := computeAvailableHealthyGatewaysByAZ(allAZs, policyHealthyGatewayIPs, i)
+		availableHealthyGatewayIPsByAZ, availByZone := computeAvailableHealthyGatewaysByAZ(allAZs, policyHealthyGatewayIPs, i)
 
 		gs := gc.computeGroupStatus(operatorManager, config, status,
-			availableHealthyGatewayIPsByAZ, &sm, i)
+			availByZone, availableHealthyGatewayIPsByAZ, &sm, i)
 
 		healthyGatewayNodes := computeHealthyGateways(policyHealthyGatewayIPs, i)
 		availableHealthyGatewayIPs := computeAvailableHealthyGatewayIPs(healthyGatewayNodes)
