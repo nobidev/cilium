@@ -830,9 +830,10 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 		gs := gc.computeGroupStatus(operatorManager, config, status,
 			availableHealthyGatewayIPsByAZ, &sm, i)
 
-		gs.healthyGatewayIPs = computeHealthyGateways(policyHealthyGatewayIPs, false, i)
-		gs.activeGatewayIPs = gc.selectActiveGateways(operatorManager, config, status,
-			computeHealthyGateways(policyHealthyGatewayIPs, true, i))
+		healthyGatewayNodes := computeHealthyGateways(policyHealthyGatewayIPs, i)
+		availableHealthyGatewayIPs := computeAvailableHealthyGatewayIPs(healthyGatewayNodes)
+		gs.healthyGatewayIPs = gatewayNodesToAddrs(healthyGatewayNodes)
+		gs.activeGatewayIPs = gc.selectActiveGateways(operatorManager, config, status, availableHealthyGatewayIPs)
 
 		sm.activeGateways = len(gs.activeGatewayIPs)
 		sm.healthyGateways = len(gs.healthyGatewayIPs)

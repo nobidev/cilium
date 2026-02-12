@@ -64,8 +64,34 @@ func Test_computeHealthyGateways(t *testing.T) {
 			available:             true,
 		},
 	}
-	assert.Equal(t, parseNetIPs(t,
-		"10.0.0.1", "10.0.0.4"), computeHealthyGateways(policyHealthyGatewayIPs, false, 0))
+
+	expected := []gatewayNodeIP{
+		{
+			ip:                    netip.MustParseAddr("10.0.0.1"),
+			selectingGroupIndices: []int{0},
+			zone:                  "az0",
+			available:             true,
+		},
+		{
+			ip:                    netip.MustParseAddr("10.0.0.4"),
+			selectingGroupIndices: []int{3, 2, 0},
+			zone:                  "",
+			available:             true,
+		},
+	}
+	out := computeHealthyGateways(policyHealthyGatewayIPs, 0)
+	assert.Equal(t, expected, out)
+
+	expected = []gatewayNodeIP{
+		{
+			ip:                    netip.MustParseAddr("10.0.0.2"),
+			selectingGroupIndices: []int{3, 2, 1},
+			zone:                  "az0",
+			available:             true,
+		},
+	}
+	out = computeHealthyGateways(policyHealthyGatewayIPs, 1)
+	assert.Equal(t, expected, out)
 
 }
 

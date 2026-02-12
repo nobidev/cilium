@@ -15,7 +15,6 @@ import (
 	"net/netip"
 	"slices"
 
-	fn "github.com/cilium/cilium/enterprise/pkg/functional"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
@@ -118,18 +117,36 @@ func (config *PolicyConfig) preComputePolicyHealthyGateways(operatorManager *Ope
 	return allAZs, policyHealthyGateways
 }
 
-func gwToAddr(gw gatewayNodeIP) netip.Addr {
-	return gw.ip
+func gatewayNodesToAddrs(gns []gatewayNodeIP) []netip.Addr {
+	var out []netip.Addr
+	for _, gn := range gns {
+		out = append(out, gn.ip)
+	}
+	return out
 }
 
 // computeHealthyGateways takes in a list of policy-wide gatewayNodeIPs and translates it to
 // a per groupConfig list used for the final healthyGatewayIPs groupStatus field.
-func computeHealthyGateways(policyHealthyGatewayIPs []gatewayNodeIP, requireAvailable bool, groupIndex int) []netip.Addr {
-	return slices.Collect(fn.Map(fn.Filter(slices.Values(policyHealthyGatewayIPs), func(n gatewayNodeIP) bool {
-		return slices.Contains(n.selectingGroupIndices, groupIndex)
-	}, func(n gatewayNodeIP) bool {
-		return !requireAvailable || n.available
-	}), gwToAddr))
+func computeHealthyGateways(policyHealthyGatewayIPs []gatewayNodeIP, groupIndex int) []gatewayNodeIP {
+	var out []gatewayNodeIP
+	for _, gn := range policyHealthyGatewayIPs {
+		if !gn.selectsGroupIndex(groupIndex) {
+			continue
+		}
+		out = append(out, gn)
+	}
+	return out
+}
+
+func computeAvailableHealthyGatewayIPs(healthyGatewayIPs []gatewayNodeIP) []netip.Addr {
+	var out []netip.Addr
+	for _, gn := range healthyGatewayIPs {
+		if !gn.available {
+			continue
+		}
+		out = append(out, gn.ip)
+	}
+	return out
 }
 
 // computeAvailableHealthyGatewaysByAZ takes the policy healthy and available gateways and translates it to
