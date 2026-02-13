@@ -83,7 +83,7 @@ func (b *PIPFIBMap) registerReconciler() (reconciler.Reconciler[*tables.MapEntry
 	// Block regeneration until we populated the maps again.
 	b.fence.Add(
 		"private-network",
-		newWaitUntilReconciledFn(b.db, b.mapEntries,
+		NewWaitUntilReconciledFn(b.db, b.mapEntries,
 			func(me *tables.MapEntry) reconciler.Status { return me.Status }),
 	)
 

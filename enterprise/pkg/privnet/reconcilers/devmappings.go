@@ -255,7 +255,7 @@ func (dm *DeviceMappings) registerBPFReconciler(
 	}
 
 	// Block regeneration until we populated the map.
-	fence.Add("private-network-devices", newWaitUntilReconciledFn(dm.db, dm.tbl,
+	fence.Add("private-network-devices", NewWaitUntilReconciledFn(dm.db, dm.tbl,
 		func(obj tables.DeviceMapping) reconciler.Status { return obj.Status }))
 
 	bpf.RegisterTablePressureMetricsJob(

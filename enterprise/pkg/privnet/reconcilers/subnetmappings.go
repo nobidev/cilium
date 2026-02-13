@@ -187,7 +187,7 @@ func (sm *SubnetMappings) registerBPFReconciler(
 	// Block regeneration until we populated the map.
 	fence.Add(
 		"private-network-subnets",
-		newWaitUntilReconciledFn(sm.db, sm.tbl, tables.SubnetMapping.GetStatus),
+		NewWaitUntilReconciledFn(sm.db, sm.tbl, tables.SubnetMapping.GetStatus),
 	)
 
 	bpf.RegisterTablePressureMetricsJob(

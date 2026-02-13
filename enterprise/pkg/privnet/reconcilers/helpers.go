@@ -94,7 +94,7 @@ func (tracker watchesTracker[T]) Iter(closed []<-chan struct{}) iter.Seq[T] {
 	}
 }
 
-func newWaitUntilReconciledFn[T any](db *statedb.DB, tbl statedb.Table[T], getStatus func(T) reconciler.Status) hive.WaitFunc {
+func NewWaitUntilReconciledFn[T any](db *statedb.DB, tbl statedb.Table[T], getStatus func(T) reconciler.Status) hive.WaitFunc {
 	return func(ctx context.Context) error {
 		// Wait until the table has been initialized.
 		_, initDone := tbl.Initialized(db.ReadTxn())
