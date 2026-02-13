@@ -55,8 +55,10 @@ jobs:
           readarray workflows < <((
             yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml
             yq '.schedule.nightly.workflows[]' .github/ariane-config.yaml
+            yq '.triggers["/test\s*"].workflows[]' .github/ariane-config.yaml
             yq '.triggers["/test"].workflows[]' .github/ariane-config-enterprise.yaml
             yq '.schedule.nightly.workflows[]' .github/ariane-config-enterprise.yaml
+            yq '.triggers["/test\s*"].workflows[]' .github/ariane-config-enterprise.yaml
           ) | sort -u)
 
           for workflow in "${workflows[@]}"; do

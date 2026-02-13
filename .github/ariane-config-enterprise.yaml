@@ -5,6 +5,7 @@ triggers:
   /default:
     workflows:
       - enterprise-kind.yaml
+  # This trigger needs to be kept in sync with enterprise-ariane-scheduled.yaml workflow
   /test\s*:
     workflows:
     - enterprise-clustermesh-mixed-routing.yaml
@@ -89,6 +90,7 @@ triggers:
     workflows:
     - enterprise-egress-gateway-ha-aks.yaml
 
+# This trigger needs to be kept in sync with enterprise-ariane-scheduled.yaml workflow
 schedule:
   nightly:
     workflows:
