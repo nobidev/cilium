@@ -78,19 +78,14 @@ func TestAccesslogFlagValidation(t *testing.T) {
 		expectErr string
 	}{
 		{
-			name:      "since without tenant",
-			args:      []string{"--since", "1h"},
-			expectErr: "--since requires --tenant to be set",
-		},
-		{
 			name:      "invalid since value",
 			args:      []string{"--tenant", "tenant-a", "--since", "abc"},
-			expectErr: `invalid --since value "abc"`,
+			expectErr: errSinceInvalidValue,
 		},
 		{
 			name:      "negative since value",
 			args:      []string{"--tenant", "tenant-a", "--since", "-1h"},
-			expectErr: "--since must be a positive duration",
+			expectErr: errSincePositive,
 		},
 	}
 

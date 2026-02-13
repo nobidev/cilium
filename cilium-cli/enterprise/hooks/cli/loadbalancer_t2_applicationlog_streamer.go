@@ -51,7 +51,7 @@ func newCmdLoadbalancerT2ApplicationlogStreamer() *cobra.Command {
 					for scanner.Scan() {
 						logLine := scanner.Text()
 
-						if strings.Contains(logLine, "Z][access]") {
+						if strings.Contains(logLine, "][access]") {
 							continue
 						}
 

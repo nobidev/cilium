@@ -5,6 +5,7 @@ package cli
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +14,13 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
+)
+
+const (
+	errSinceCannotUseFiles = "--since cannot be used with --files"
+	errSinceInvalidValue   = "invalid --since value"
+	errSincePositive       = "--since must be a positive duration"
+	errNoLoggerPods        = "no namespace-logger pods found in namespace"
 )
 
 var (
@@ -33,8 +41,8 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 		Short: "Display Loadbalancer T2 access log",
 		Long:  "",
 		RunE: func(c *cobra.Command, _ []string) error {
-			if accessLogSince != "" && accessLogTenant == "" {
-				return fmt.Errorf("--since requires --tenant to be set")
+			if accessLogSince != "" && len(accessLogFiles) != 0 {
+				return errors.New(errSinceCannotUseFiles)
 			}
 
 			var readers []reader
@@ -45,10 +53,10 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 			if accessLogSince != "" {
 				d, parseErr := time.ParseDuration(accessLogSince)
 				if parseErr != nil {
-					return fmt.Errorf("invalid --since value %q: %w", accessLogSince, parseErr)
+					return fmt.Errorf("%s %q: %w", errSinceInvalidValue, accessLogSince, parseErr)
 				}
 				if d <= 0 {
-					return fmt.Errorf("--since must be a positive duration, got %q", accessLogSince)
+					return fmt.Errorf("%s, got %q", errSincePositive, accessLogSince)
 				}
 				s := int64(d.Seconds())
 				sinceSeconds = &s
@@ -57,7 +65,7 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 			if accessLogTenant != "" {
 				readers, err = podReaders(ctx, accessLogTenant, "app=namespace-logger", "", accessLogFollow, sinceSeconds)
 			} else if len(accessLogFiles) == 0 {
-				readers, err = podReaders(ctx, ciliumNamespace(c), "name=cilium-envoy", "", accessLogFollow, nil)
+				readers, err = podReaders(ctx, ciliumNamespace(c), "name=cilium-envoy", "", accessLogFollow, sinceSeconds)
 			} else {
 				readers, err = fileReaders(accessLogFiles)
 			}
@@ -71,7 +79,7 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 			}()
 
 			if accessLogTenant != "" && len(readers) == 0 {
-				return fmt.Errorf("no namespace-logger pods found in namespace %q", accessLogTenant)
+				return fmt.Errorf("%s %q", errNoLoggerPods, accessLogTenant)
 			}
 
 			for _, r := range readers {
@@ -85,9 +93,6 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 								continue
 							}
 						} else {
-							if !strings.Contains(logLine, "Z][access]") {
-								continue
-							}
 							if !includeAccesslogLine(logLine) {
 								continue
 							}
@@ -124,6 +129,10 @@ func newCmdLoadbalancerT2AccesslogStreamer() *cobra.Command {
 }
 
 func includeAccesslogLine(logLine string) bool {
+	if !strings.Contains(logLine, "][access]") {
+		return false
+	}
+
 	// filter for log application type (OR)
 	logApplicationTypes := []string{}
 
@@ -135,7 +144,7 @@ func includeAccesslogLine(logLine string) bool {
 
 	matchesOneLogApplicationType := false
 	for _, lt := range logApplicationTypes {
-		if strings.Contains(logLine, fmt.Sprintf("Z][access][%s]", lt)) {
+		if strings.Contains(logLine, fmt.Sprintf("][access][%s]", lt)) {
 			matchesOneLogApplicationType = true
 		}
 	}
