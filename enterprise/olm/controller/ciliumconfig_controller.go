@@ -147,11 +147,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			Reason:             ciliumiov1alpha1.ValuesNotReadableReason,
 			Message:            "values in CiliumConfig cannot not be read, please check that they have been correctly formatted",
 		}
-		ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
-		if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
-			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w, original error: %w", sErr, err)
-		}
-		return ctrl.Result{}, err
+		return r.updateStatusWithConflictHandling(ctx, ccfg, conditions, err)
 	} else {
 		conditions[ciliumiov1alpha1.ValuesErrorsCondition] = metav1.Condition{
 			Type:               ciliumiov1alpha1.ValuesErrorsCondition,
@@ -173,11 +169,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			Reason:             ciliumiov1alpha1.StateRetrievalProcessingErrorReason,
 			Message:            fmt.Sprintf("current state cannot be retrieved: %v", err),
 		}
-		ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
-		if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
-			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w, original error: %w", sErr, err)
-		}
-		return ctrl.Result{}, err
+		return r.updateStatusWithConflictHandling(ctx, ccfg, conditions, err)
 	}
 
 	// Generate the desired state
@@ -190,11 +182,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			Reason:             ciliumiov1alpha1.HelmProcessingErrorReason,
 			Message:            fmt.Sprintf("helm cannot generate manifests: %v", err),
 		}
-		ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
-		if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
-			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w, original error: %w", sErr, err)
-		}
-		return ctrl.Result{}, err
+		return r.updateStatusWithConflictHandling(ctx, ccfg, conditions, err)
 	}
 
 	// Align the current with the desire state
@@ -210,11 +198,7 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				Reason:             ciliumiov1alpha1.APIProcessingErrorReason,
 				Message:            fmt.Sprintf("resource could not be applied: %v", err),
 			}
-			ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
-			if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
-				return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w, original error: %w", sErr, err)
-			}
-			return ctrl.Result{}, err
+			return r.updateStatusWithConflictHandling(ctx, ccfg, conditions, err)
 		}
 	}
 	for _, d := range toRemove {
@@ -228,18 +212,10 @@ func (r *CiliumConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				Reason:             ciliumiov1alpha1.APIProcessingErrorReason,
 				Message:            fmt.Sprintf("resource could not be deleted: %v", err),
 			}
-			ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
-			if sErr := r.Status().Update(ctx, ccfg); sErr != nil {
-				return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w, original error: %w", sErr, err)
-			}
-			return ctrl.Result{}, err
+			return r.updateStatusWithConflictHandling(ctx, ccfg, conditions, err)
 		}
 	}
-	ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
-	if err := r.Status().Update(ctx, ccfg); err != nil {
-		return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w", err)
-	}
-	return ctrl.Result{}, nil
+	return r.updateStatusWithConflictHandling(ctx, ccfg, conditions, nil)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -512,4 +488,27 @@ func initGVKs(builder *builder.Builder, mgrConfig *rest.Config, logger logr.Logg
 		}
 	}
 	return
+}
+
+// updateStatusWithConflictHandling updates the CiliumConfig status and handles conflict errors gracefully.
+// Conflict errors trigger a requeue without being logged as ERROR.
+func (r *CiliumConfigReconciler) updateStatusWithConflictHandling(
+	ctx context.Context, ccfg *ciliumiov1alpha1.CiliumConfig, conditions map[string]metav1.Condition, originalErr error) (ctrl.Result, error) {
+	ccfg.Status.Conditions = slices.Collect(maps.Values(conditions))
+
+	if err := r.Status().Update(ctx, ccfg); err != nil {
+		// Conflict errors are expected and automatically retried by controller-runtime.
+		if apierrors.IsConflict(err) {
+			log.FromContext(ctx).V(1).Info("status update conflict, requeuing")
+			return ctrl.Result{Requeue: true}, originalErr
+		}
+
+		if originalErr != nil {
+			return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w, original error: %w", err, originalErr)
+		}
+
+		return ctrl.Result{}, fmt.Errorf("unable to update CiliumConfig status: %w", err)
+	}
+
+	return ctrl.Result{}, originalErr
 }

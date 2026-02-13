@@ -150,7 +150,7 @@ build: manifests generate fmt sync-helm-manifests vet set-images ## Build manage
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go
+	DEVELOPMENT_MODE=true go run ./cmd/main.go
 
 licenses-all: ## Generate a file with the licenses of all the dependencies.
 	go mod vendor
@@ -213,6 +213,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+	$(KUBECTL) set env deployment/clife-controller-manager -n cilium DEVELOPMENT_MODE=true
 
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
