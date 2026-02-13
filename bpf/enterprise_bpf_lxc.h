@@ -102,6 +102,9 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		if (!dev_val->ipv4.be32)
 			return DROP_INVALID;
 
+		if (unlikely(!revalidate_data(ctx, &data, &data_end, &ip4)))
+			return DROP_INVALID;
+
 		ret = privnet_egress_ipv4(ctx, net_id,
 					  privnet_subnet_id_lookup4(net_id, ip4->saddr),
 					  NULL, &dip_val);
