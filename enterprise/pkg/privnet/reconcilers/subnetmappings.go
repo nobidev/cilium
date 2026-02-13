@@ -163,7 +163,7 @@ func (sm *SubnetMappings) reconcile(wtx statedb.WriteTxn, sn tables.Subnet, dele
 			NetworkName: sn.Network,
 			NetworkID:   sn.NetworkID,
 			SubnetName:  sn.Name,
-			SubnetID:    tables.SubnetIDReserved,
+			SubnetID:    sn.ID,
 			CIDR:        cidr,
 			Status:      reconciler.StatusPending(),
 		}, func(old, new tables.SubnetMapping) tables.SubnetMapping {

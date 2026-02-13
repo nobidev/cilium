@@ -136,7 +136,7 @@ func (pmo *pipFIBMapOps) FIBKeyVal(me *tables.MapEntry) *pnmaps.FIBKeyVal {
 		entryVNI = me.Routing.VNI
 	}
 	return &pnmaps.FIBKeyVal{
-		Key: pnmaps.NewFIBKey(me.Target.NetworkID, tables.SubnetIDReserved, me.Target.CIDR),
+		Key: pnmaps.NewFIBKey(me.Target.NetworkID, me.Target.SubnetID, me.Target.CIDR),
 		Val: pnmaps.NewFIBVal(me.Routing.NextHop, mac, pmo.FIBFlags(me.Type, me.Routing.L2Announce), uint32(me.Routing.EgressIfIndex), entryVNI),
 	}
 }
