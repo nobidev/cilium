@@ -44,7 +44,7 @@ db/cmp privnet-mapentries mapentries.v2.table
 # Upsert four conflicting endpoints:
 # - blue:192.168.250.20 gets a Net-IP conflicting (newer) endpoint
 # - blue:192.168.250.21 gets a Pod-IP conflicting (newer) endpoint
-# - blue:192.168.250.24 is a new endpoint which shadows a subnet entry
+# - blue:192.168.24.24 is a new endpoint which shadows a subnet entry
 # - green:10.0.100.30 gets a Net-IP conflicting (but older) endpoint
 k8s/add privnet-alt-eps.v1.yaml
 db/cmp privnet-mapentries mapentries.v3.table
@@ -102,7 +102,7 @@ spec:
     cidrv4: 192.168.250.0/24
     cidrv6: fd10:0:250::0/64
   - name: blue2
-    cidrv4: 192.168.250.24/32
+    cidrv4: 192.168.24.24/32
 
 -- icpn-blue.v2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -122,7 +122,7 @@ spec:
     cidrv4: 192.168.250.0/23
     cidrv6: fd10:0:250::0/64
   - name: blue2
-    cidrv4: 192.168.250.24/32
+    cidrv4: 192.168.24.24/32
 
 -- icpn-blue.v4.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -140,7 +140,7 @@ spec:
     cidrv4: 192.168.250.0/23
     cidrv6: fd10:0:250::0/64
   - name: blue2
-    cidrv4: 192.168.250.24/32
+    cidrv4: 192.168.24.24/32
 
 -- icpn-green.v1.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -273,7 +273,7 @@ endpoints:
     name: gracious-gerbil
   interface:
     addressing:
-      ipv4: 192.168.250.24
+      ipv4: 192.168.24.24
       ipv6: fd10:0:250::24
     mac: 00:50:56:ad:11:97
     network: blue-network
@@ -397,8 +397,8 @@ nodeName: crayfish
 
 -- mapentries.v1.table --
 Type   Network        CIDR               Nexthop
+D      blue-network   192.168.24.24/32   172.128.0.6
 D      blue-network   192.168.250.0/24   172.128.0.6
-D      blue-network   192.168.250.24/32  172.128.0.6
 D      blue-network   fd10:0:250::/64    172.128.0.6
 E      blue-network   192.168.250.20/32  10.244.5.108
 E      blue-network   192.168.250.21/32  10.244.5.109
@@ -409,8 +409,8 @@ X      blue-network   192.168.250.201/32 10.245.8.87
 
 -- mapentries.v2.table --
 Type   Network        CIDR                  Nexthop
+D      blue-network   192.168.24.24/32      172.128.0.6
 D      blue-network   192.168.250.0/24      172.128.0.6
-D      blue-network   192.168.250.24/32     172.128.0.6
 D      blue-network   fd10:0:250::/64       172.128.0.6
 E      blue-network   192.168.250.20/32     10.244.5.108
 E      blue-network   192.168.250.21/32     10.244.5.109
@@ -429,9 +429,9 @@ E      green-network  fd00:10:100::31/128   fd00:10:244:5::111
 Type   Network        CIDR                  Nexthop
 D      blue-network   192.168.250.0/24      172.128.0.6
 D      blue-network   fd10:0:250::/64       172.128.0.6
+E      blue-network   192.168.24.24/32      10.244.5.107
 E      blue-network   192.168.250.20/32     10.244.6.150
 E      blue-network   192.168.250.23/32     10.244.5.109
-E      blue-network   192.168.250.24/32     10.244.5.107
 E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
 E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
 E      blue-network   fd10:0:250::24/128    fd00:10:244:5::107
@@ -448,9 +448,9 @@ E      green-network  fd00:10:100::31/128   fd00:10:244:5::111
 Type   Network        CIDR                  Nexthop
 D      blue-network   192.168.250.0/24      172.128.0.6
 D      blue-network   fd10:0:250::/64       172.128.0.6
+E      blue-network   192.168.24.24/32      10.244.5.107
 E      blue-network   192.168.250.20/32     10.244.6.150
 E      blue-network   192.168.250.23/32     10.244.5.109
-E      blue-network   192.168.250.24/32     10.244.5.107
 E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
 E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
 E      blue-network   fd10:0:250::24/128    fd00:10:244:5::107
@@ -465,9 +465,9 @@ E      green-network  fd00:10:100::30/128   fd00:10:244:6::151
 Type   Network        CIDR                  Nexthop
 D      blue-network   192.168.250.0/24      172.128.0.6
 D      blue-network   fd10:0:250::/64       172.128.0.6
+E      blue-network   192.168.24.24/32      10.244.5.107
 E      blue-network   192.168.250.20/32     10.244.6.150
 E      blue-network   192.168.250.23/32     10.244.5.109
-E      blue-network   192.168.250.24/32     10.244.5.107
 E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
 E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
 E      blue-network   fd10:0:250::24/128    fd00:10:244:5::107
@@ -478,9 +478,9 @@ X      blue-network   192.168.250.202/32    10.245.8.92
 Type   Network        CIDR                 Nexthop
 D      blue-network   192.168.250.0/23     172.128.0.6
 D      blue-network   fd10:0:250::/64      172.128.0.6
+E      blue-network   192.168.24.24/32     10.244.5.107
 E      blue-network   192.168.250.20/32    10.244.6.150
 E      blue-network   192.168.250.23/32    10.244.5.109
-E      blue-network   192.168.250.24/32    10.244.5.107
 E      blue-network   fd10:0:250::20/128   fd00:10:244:6::150
 E      blue-network   fd10:0:250::23/128   fd00:10:244:5::109
 E      blue-network   fd10:0:250::24/128   fd00:10:244:5::107
@@ -491,8 +491,8 @@ X      blue-network   192.168.250.202/32   10.245.8.92
 
 -- mapentries.v7.table --
 Type   Network        CIDR                 Nexthop
+D      blue-network   192.168.24.24/32     172.128.0.6
 D      blue-network   192.168.250.0/23     172.128.0.6
-D      blue-network   192.168.250.24/32    172.128.0.6
 D      blue-network   fd10:0:250::/64      172.128.0.6
 S      blue-network   0.0.0.0/0            172.128.0.6
 S      blue-network   192.168.252.0/24     172.128.0.6
@@ -501,8 +501,8 @@ X      blue-network   192.168.250.202/32   10.245.8.92
 
 -- mapentries.v8.table --
 Type   Network        CIDR                 Nexthop
+D      blue-network   192.168.24.24/32     172.128.0.7
 D      blue-network   192.168.250.0/23     172.128.0.7
-D      blue-network   192.168.250.24/32    172.128.0.7
 D      blue-network   fd10:0:250::/64      172.128.0.7
 S      blue-network   0.0.0.0/0            172.128.0.7
 S      blue-network   192.168.252.0/24     172.128.0.7

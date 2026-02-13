@@ -43,16 +43,16 @@ var RoutesCell = cell.Group(
 	),
 )
 
-// Routes is a reconciler which watches the private network table and populates the routes table from that
+// Routes is a reconciler which watches the subnets table and populates the routes table from that
 type Routes struct {
 	log *slog.Logger
 	jg  job.Group
 
 	cfg config.Config
 
-	db       *statedb.DB
-	networks statedb.Table[tables.PrivateNetwork]
-	tbl      statedb.RWTable[tables.Route]
+	db     *statedb.DB
+	subnet statedb.Table[tables.Subnet]
+	tbl    statedb.RWTable[tables.Route]
 }
 
 func newRoutes(in struct {
@@ -63,9 +63,9 @@ func newRoutes(in struct {
 
 	Config config.Config
 
-	DB       *statedb.DB
-	Networks statedb.Table[tables.PrivateNetwork]
-	Table    statedb.RWTable[tables.Route]
+	DB      *statedb.DB
+	Subnets statedb.Table[tables.Subnet]
+	Table   statedb.RWTable[tables.Route]
 }) *Routes {
 	return &Routes{
 		log: in.Log,
@@ -73,9 +73,9 @@ func newRoutes(in struct {
 
 		cfg: in.Config,
 
-		db:       in.DB,
-		networks: in.Networks,
-		tbl:      in.Table,
+		db:     in.DB,
+		subnet: in.Subnets,
+		tbl:    in.Table,
 	}
 }
 
@@ -88,12 +88,12 @@ func (r *Routes) registerReconciler() {
 	initialized := r.tbl.RegisterInitializer(wtx, "routes-initialized")
 	wtx.Commit()
 
-	// This job watches the upstream private networks table and populates the routes table from that
+	// This job watches the upstream subnets table and populates the routes table from that
 	r.jg.Add(job.OneShot("populate-routes-table", func(ctx context.Context, _ cell.Health) error {
 		var initDone bool
 
-		txn := r.db.WriteTxn(r.networks)
-		changeIter, _ := r.networks.Changes(txn)
+		txn := r.db.WriteTxn(r.subnet)
+		changeIter, _ := r.subnet.Changes(txn)
 		txn.Commit()
 
 		for {
@@ -103,12 +103,12 @@ func (r *Routes) registerReconciler() {
 
 			for change := range changes {
 				r.log.Debug("Processing table event",
-					logfields.Table, r.networks.Name(),
+					logfields.Table, r.subnet.Name(),
 					logfields.Event, change,
 				)
 
 				if change.Deleted {
-					if err := r.deleteNetworkRoutes(txn, change.Object.Name); err != nil {
+					if err := r.deleteNetworkRoutes(txn, change.Object); err != nil {
 						txn.Abort()
 						return err
 					}
@@ -123,7 +123,7 @@ func (r *Routes) registerReconciler() {
 			// In order to be able to propagate initialization, we need to check if the upstream
 			// tables have already been initialized
 			if !initDone {
-				init, nw := r.networks.Initialized(txn)
+				init, nw := r.subnet.Initialized(txn)
 
 				switch {
 				case !init:
@@ -147,42 +147,43 @@ func (r *Routes) registerReconciler() {
 	}))
 }
 
-// extractRoutes extracts the routes from the private network and stores it in a map, indexed
+// extractRoutes extracts the routes from the subnet and stores it in a map, indexed
 // by the StateDB key (which contains the route destination). If it detects a key conflict,
-// it logs a warning and ignores the conflicting entry. Subnet entries take precedence over
+// it logs a warning and ignores the conflicting entry. CIDR entries take precedence over
 // route entries.
-func (r *Routes) extractRoutes(privNet tables.PrivateNetwork) map[tables.RouteKey]tables.Route {
-	routes := make(map[tables.RouteKey]tables.Route, len(privNet.Subnets)+len(privNet.Routes))
-	for _, subnet := range privNet.Subnets {
-		for cidr := range subnet.CIDRs() {
-			entry := tables.Route{
-				Network:     privNet.Name,
-				Destination: cidr,
-			}
-			key := entry.Key()
-			if _, ok := routes[key]; ok {
-				r.log.Warn("Duplicate subnet in private network definition",
-					logfields.Network, privNet.Name,
-					logfields.CIDR, cidr,
-					logfields.PrivateNetworkSubnet, subnet.Name,
-				)
-			} else {
-				routes[key] = entry
-			}
+func (r *Routes) extractRoutes(subnet tables.Subnet) map[tables.RouteKey]tables.Route {
+	routes := make(map[tables.RouteKey]tables.Route, 2+len(subnet.Routes))
+	for cidr := range subnet.CIDRs() {
+		entry := tables.Route{
+			Network:     subnet.Network,
+			Subnet:      subnet.Name,
+			Destination: cidr,
+		}
+		key := entry.Key()
+		if _, ok := routes[key]; ok {
+			r.log.Warn("Duplicate private network subnet CIDRs - this should never happen",
+				logfields.Network, subnet.Network,
+				logfields.CIDR, cidr,
+				logfields.PrivateNetworkSubnet, subnet.Name,
+			)
+		} else {
+			routes[key] = entry
 		}
 	}
 
-	for _, route := range privNet.Routes {
+	for _, route := range subnet.Routes {
 		entry := tables.Route{
-			Network:     privNet.Name,
+			Network:     subnet.Network,
+			Subnet:      subnet.Name,
 			Destination: route.Destination,
 			Gateway:     route.Gateway,
 			EVPNGateway: route.EVPNGateway,
 		}
 		key := entry.Key()
 		if _, ok := routes[key]; ok {
-			r.log.Warn("Duplicate route destination in private network definition",
-				logfields.Network, privNet.Name,
+			r.log.Warn("Duplicate route destination in private network subnet definition",
+				logfields.Network, subnet.Network,
+				logfields.PrivateNetworkSubnet, subnet.Name,
 				logfields.CIDR, route.Destination,
 			)
 			continue
@@ -193,12 +194,12 @@ func (r *Routes) extractRoutes(privNet tables.PrivateNetwork) map[tables.RouteKe
 	return routes
 }
 
-// upsertNetworkRoutes extracts the desired routes from the private network, removes all
-// routes no longer in the desired set, and then upserts all missing desired routes.
-func (r *Routes) upsertNetworkRoutes(txn statedb.WriteTxn, privNet tables.PrivateNetwork) error {
-	desiredRoutes := r.extractRoutes(privNet)
+// upsertNetworkRoutes extracts the desired routes from the subnet, removes all routes no longer
+// in the desired set, and then upserts all missing desired routes.
+func (r *Routes) upsertNetworkRoutes(txn statedb.WriteTxn, subnet tables.Subnet) error {
+	desiredRoutes := r.extractRoutes(subnet)
 	// iterate over the existing routes in the table to determine which ones to remove
-	for existing := range r.tbl.Prefix(txn, tables.RouteByNetwork(privNet.Name)) {
+	for existing := range r.tbl.Prefix(txn, tables.RoutesByNetworkSubnet(subnet.Network, subnet.Name)) {
 		routeKey := existing.Key()
 		desired, ok := desiredRoutes[routeKey]
 		if !ok {
@@ -225,9 +226,9 @@ func (r *Routes) upsertNetworkRoutes(txn statedb.WriteTxn, privNet tables.Privat
 	return nil
 }
 
-// deleteNetworkRoutes removes all routes belonging to a network
-func (r *Routes) deleteNetworkRoutes(txn statedb.WriteTxn, privNetName tables.NetworkName) error {
-	for entry := range r.tbl.Prefix(txn, tables.RouteByNetwork(privNetName)) {
+// deleteNetworkRoutes removes all routes belonging to a subnet
+func (r *Routes) deleteNetworkRoutes(txn statedb.WriteTxn, subnet tables.Subnet) error {
+	for entry := range r.tbl.Prefix(txn, tables.RoutesByNetworkSubnet(subnet.Network, subnet.Name)) {
 		_, _, err := r.tbl.Delete(txn, entry)
 		if err != nil {
 			return err
