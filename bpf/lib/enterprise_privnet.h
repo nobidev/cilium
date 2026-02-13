@@ -159,7 +159,7 @@ struct privnet_fib_key {
 	__u8 pad[3];
 	union {
 		struct {
-			__u32		ip4;
+			__be32		ip4;
 			__u32		pad1;
 			__u32		pad2;
 			__u32		pad3;
@@ -171,7 +171,7 @@ struct privnet_fib_key {
 struct privnet_fib_val {
 	union {
 		struct {
-			__u32		ip4;
+			__be32		ip4;
 			__u32		pad1;
 			__u32		pad2;
 			__u32		pad3;
@@ -197,7 +197,7 @@ struct privnet_pip_key {
 	__u8 pad[3];
 	union {
 		struct {
-			__u32		ip4;
+			__be32		ip4;
 			__u32		pad1;
 			__u32		pad2;
 			__u32		pad3;
@@ -210,7 +210,7 @@ struct privnet_pip_val {
 	union macaddr mac;
 	union {
 		struct {
-			__u32		ip4;
+			__be32		ip4;
 			__u32		pad1;
 			__u32		pad2;
 			__u32		pad3;
@@ -241,7 +241,7 @@ struct privnet_subnet_key {
 	__u8 pad[1];
 	union {
 		struct {
-			__u32		ip4;
+			__be32		ip4;
 			__u32		pad1;
 			__u32		pad2;
 			__u32		pad3;
