@@ -30,6 +30,7 @@ ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_one_addr }) /* set devi
 PKTGEN("tc", "01_privnet_evpn_ingress_v4")
 int privnet_evpn_ingress_v4_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
 	build_privnet_packet(ctx, NETIP_ICMP_REQ);
 	return 0;
 }
@@ -108,7 +109,8 @@ int privnet_evpn_ingress_v4_check(struct __ctx_buff *ctx)
 PKTGEN("tc", "02_privnet_evpn_ingress_v6")
 int privnet_evpn_ingress_v6_pktgen(struct __ctx_buff *ctx)
 {
-	build_privnet_packet(ctx, LXC_ICMP6_NA_LL);
+	BUF_DECL(EVPN_ICMPV6_REQ, evpn_icmpv6_req);
+	build_privnet_packet(ctx, EVPN_ICMPV6_REQ);
 	return 0;
 }
 
@@ -201,6 +203,7 @@ int privnet_evpn_ingress_v6_check(struct __ctx_buff *ctx)
 PKTGEN("tc", "03_privnet_evpn_ingress_non_ip")
 int privnet_evpn_ingress_non_ip_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETIP_ARP_REQ, privnet_net_ip_arp_req);
 	build_privnet_packet(ctx, NETIP_ARP_REQ);
 	return 0;
 }
