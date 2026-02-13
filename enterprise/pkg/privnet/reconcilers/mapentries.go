@@ -582,6 +582,8 @@ func (m *MapEntries) deleteEndpointEntry(txn statedb.WriteTxn, privNet tables.Sl
 	}
 
 	// Check if there is a route entry with the same target
+	// NOTE(glrf): This currently works as all duplicates are the same apart from the subnet field which we don't
+	//             consider yet. This needs to change once we do.
 	route, _, found := m.routes.Get(txn, tables.RouteByNetworkAndDestination(privNet.Name, epEntry.Target.CIDR))
 	if found {
 		// Insert the route entry which is now un-shadowed
