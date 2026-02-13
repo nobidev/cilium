@@ -53,8 +53,8 @@ func (ep Endpoint) MapEntryType() MapEntryType {
 }
 
 // ToMapEntry returns the MapEntry object created from the Endpoint and
-// PrivateNetwork information.
-func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork, bridgeMode, announce bool) *MapEntry {
+// subnet information.
+func (ep Endpoint) ToMapEntry(subnet SubnetSpec, bridgeMode, announce bool) *MapEntry {
 	// gneigh status is only relevant on the INB where it will be set as done by the gneigh
 	// reconciler.
 	gneighStatus := reconciler.StatusDone()
@@ -66,17 +66,19 @@ func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork, bridgeMode, announce b
 		Type: ep.MapEntryType(),
 
 		Target: MapEntryTarget{
-			NetworkName: privnet.Name,
-			NetworkID:   privnet.ID,
+			NetworkName: subnet.Network,
+			NetworkID:   subnet.NetworkID,
+			SubnetName:  subnet.Name,
+			SubnetID:    subnet.ID,
 			CIDR:        netip.PrefixFrom(ep.Network.IP, ep.Network.IP.BitLen()),
 			MAC:         ep.Network.MAC,
 		},
 
 		Routing: MapEntryRouting{
 			NextHop:       ep.IP,
-			EgressIfIndex: privnet.EgressIfIndex,
+			EgressIfIndex: subnet.EgressIfIndex,
 			// We cannot perform L2 announcements if the egress interface is not configured.
-			L2Announce: announce && privnet.EgressIfIndex > 0,
+			L2Announce: announce && subnet.EgressIfIndex > 0,
 		},
 
 		Status:       reconciler.StatusPending(),
@@ -87,7 +89,7 @@ func (ep Endpoint) ToMapEntry(privnet SlimPrivateNetwork, bridgeMode, announce b
 // ToMapEntryKey returns the key uniquely identifying the corresponding entry in
 // the map entries table.
 func (ep Endpoint) ToMapEntryKey() MapEntryKey {
-	return newMapEntryKey(NetworkName(ep.Network.Name), ep.MapEntryType(),
+	return newMapEntryKey(NetworkName(ep.Network.Name), ep.Subnet, ep.MapEntryType(),
 		netip.PrefixFrom(ep.Network.IP, ep.Network.IP.BitLen()))
 }
 
@@ -165,7 +167,7 @@ func newEndpointNetIPKey(network NetworkName, networkIP netip.Addr) endpointNetI
 	return newEndpointNetIPKeyFromNetwork(network) + endpointNetIPKey(networkIP.String())
 }
 
-// endpointNetNodeKey is <network>|<cluster>/<node>
+// endpointNetNodeKey is <network>|<subnet>|<cluster>/<node>
 type endpointNetNodeKey string
 
 func (key endpointNetNodeKey) Key() index.Key {
@@ -176,8 +178,12 @@ func newEndpointNetNodeKeyFromNetwork(network NetworkName) endpointNetNodeKey {
 	return endpointNetNodeKey(network) + indexDelimiter
 }
 
-func newEndpointNetNodeKey(network NetworkName, wn WorkloadNode) endpointNetNodeKey {
-	return newEndpointNetNodeKeyFromNetwork(network) + endpointNetNodeKey(wn.String())
+func newEndpointNetNodeKeyFromNetworkSubnet(network NetworkName, subnet SubnetName) endpointNetNodeKey {
+	return newEndpointNetNodeKeyFromNetwork(network) + endpointNetNodeKey(subnet) + indexDelimiter
+}
+
+func newEndpointNetNodeKey(network NetworkName, subnet SubnetName, wn WorkloadNode) endpointNetNodeKey {
+	return newEndpointNetNodeKeyFromNetworkSubnet(network, subnet) + endpointNetNodeKey(wn.String())
 }
 
 var (
@@ -216,7 +222,7 @@ var (
 		Name: "network-node",
 		FromObject: func(obj Endpoint) index.KeySet {
 			return index.NewKeySet(newEndpointNetNodeKey(
-				NetworkName(obj.Network.Name), WorkloadNode{
+				NetworkName(obj.Network.Name), obj.Subnet, WorkloadNode{
 					Cluster: ClusterName(obj.Source.Cluster),
 					Name:    NodeName(obj.NodeName),
 				}).Key())
@@ -229,7 +235,7 @@ var (
 	endpointsNetSubnetIndex = statedb.Index[Endpoint, SubnetKey]{
 		Name: "network-subnet",
 		FromObject: func(obj Endpoint) index.KeySet {
-			return index.NewKeySet(newSubnetKey(
+			return index.NewKeySet(NewSubnetKey(
 				NetworkName(obj.Network.Name), obj.Subnet,
 			).Key())
 		},
@@ -268,13 +274,13 @@ func EndpointsByNetworkIP(network NetworkName, networkIP netip.Addr) statedb.Que
 }
 
 // EndpointsByNetworkNode queries the endpoints table by network name and hosting node.
-func EndpointsByNetworkNode(network NetworkName, node WorkloadNode) statedb.Query[Endpoint] {
-	return endpointsNetNodeIndex.Query(newEndpointNetNodeKey(network, node))
+func EndpointsByNetworkSubnetNode(network NetworkName, subnet SubnetName, node WorkloadNode) statedb.Query[Endpoint] {
+	return endpointsNetNodeIndex.Query(newEndpointNetNodeKey(network, subnet, node))
 }
 
 // EndpointsByNetworkSubnet queries the endpoints table by network name and hosting node.
 func EndpointsByNetworkSubnet(network NetworkName, Subnet SubnetName) statedb.Query[Endpoint] {
-	return endpointsNetSubnetIndex.Query(newSubnetKey(network, Subnet))
+	return endpointsNetSubnetIndex.Query(NewSubnetKey(network, Subnet))
 }
 
 func NewEndpointsTable(db *statedb.DB) (statedb.RWTable[Endpoint], error) {

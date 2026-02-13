@@ -48,8 +48,8 @@ var MapEntriesCell = cell.Group(
 	),
 )
 
-// MapEntries is a reconciler which watches the private networks,
-// endpoints and routes tables and populates the map entries table.
+// MapEntries is a reconciler which watches the subnets, endpoints,
+// and routes tables and populates the map entries table.
 type MapEntries struct {
 	log *slog.Logger
 	jg  job.Group
@@ -58,15 +58,15 @@ type MapEntries struct {
 	local tables.INBNode
 
 	db        *statedb.DB
-	networks  statedb.Table[tables.PrivateNetwork]
+	subnets   statedb.Table[tables.Subnet]
 	endpoints statedb.Table[tables.Endpoint]
 	routes    statedb.Table[tables.Route]
 	inbs      statedb.Table[tables.INB]
 	actnets   statedb.Table[tables.ActiveNetwork]
 	tbl       statedb.RWTable[*tables.MapEntry]
 
-	// knownNetworks is not protected by a mutex as access is serialized by write transactions.
-	knownNetworks map[tables.NetworkName]tables.SlimPrivateNetwork
+	// knownSubnets is not protected by a mutex as access is serialized by write transactions.
+	knownSubnets map[tables.NetworkName]map[tables.SubnetName]subnetReconcileContext
 
 	// inbWatchesTracker tracks the associations between each watch channel and corresponding network
 	// names. It is not protected by a mutex as access is serialized by write transactions.
@@ -83,7 +83,7 @@ func newMapEntries(in struct {
 	ClusterInfo cmtypes.ClusterInfo
 
 	DB        *statedb.DB
-	Networks  statedb.Table[tables.PrivateNetwork]
+	Subnets   statedb.Table[tables.Subnet]
 	Endpoints statedb.Table[tables.Endpoint]
 	Routes    statedb.Table[tables.Route]
 	INBs      statedb.Table[tables.INB]
@@ -101,14 +101,14 @@ func newMapEntries(in struct {
 		},
 
 		db:        in.DB,
-		networks:  in.Networks,
+		subnets:   in.Subnets,
 		endpoints: in.Endpoints,
 		routes:    in.Routes,
 		inbs:      in.INBs,
 		actnets:   in.ActNets,
 		tbl:       in.Table,
 
-		knownNetworks:     make(map[tables.NetworkName]tables.SlimPrivateNetwork),
+		knownSubnets:      make(map[tables.NetworkName]map[tables.SubnetName]subnetReconcileContext),
 		inbWatchesTracker: newWatchesTracker[tables.NetworkName](),
 	}
 }
@@ -122,7 +122,7 @@ func (m *MapEntries) registerReconciler() {
 	initialized := m.tbl.RegisterInitializer(wtx, "mapentries-initialized")
 	wtx.Commit()
 
-	// This job watches the upstream endpoints, private networks and routes table
+	// This job watches the upstream endpoints, subnets, and routes table
 	// and pushes endpoint and routes entries into the downstream map entries table
 	m.jg.Add(job.OneShot("populate-mapentries-table", func(ctx context.Context, _ cell.Health) error {
 		var (
@@ -141,85 +141,86 @@ func (m *MapEntries) registerReconciler() {
 			return inb.Node
 		}
 
-		txn := m.db.WriteTxn(m.networks, m.endpoints, m.routes, m.actnets)
+		txn := m.db.WriteTxn(m.subnets, m.endpoints, m.routes, m.actnets)
 		epsChangeIter, _ := m.endpoints.Changes(txn)
-		netChangeIter, _ := m.networks.Changes(txn)
+		subnetChangeIter, _ := m.subnets.Changes(txn)
 		rtsChangeIter, _ := m.routes.Changes(txn)
 		actChangeIter, _ := m.actnets.Changes(txn)
 		txn.Commit()
 
 		for {
 			txn := m.db.WriteTxn(m.tbl)
-			netChanges, netWatch := netChangeIter.Next(txn)
+			subnetChanges, netWatch := subnetChangeIter.Next(txn)
 			epsChanges, epsWatch := epsChangeIter.Next(txn)
 			rtsChanges, rtsWatch := rtsChangeIter.Next(txn)
 			actChanges, actWatch := actChangeIter.Next(txn)
 			watchset.Add(netWatch, epsWatch, rtsWatch, actWatch)
 
-			// Handle network change events
-			upsertedNetworks := make(sets.Set[tables.NetworkName])
-			removedNetworks := make(sets.Set[tables.NetworkName])
+			// Handle subnet change events - track which subnets we already handled
+			// to avoid reprocessing them
+			upsertedSubnets := make(sets.Set[tables.SubnetKey])
+			removedSubnets := make(sets.Set[tables.SubnetKey])
 
-			for netChange := range netChanges {
+			for netChange := range subnetChanges {
 				m.log.Debug("Processing table event",
-					logfields.Table, m.networks.Name(),
+					logfields.Table, m.subnets.Name(),
 					logfields.Event, netChange,
 				)
 
-				network := netChange.Object.Name
+				subnet := netChange.Object
 				if netChange.Deleted {
-					if err := m.deleteAllNetworkEntries(txn, network); err != nil {
+					if err := m.deleteAllSubnetEntries(txn, subnet); err != nil {
 						txn.Abort()
 						return err
 					}
-					removedNetworks.Insert(network)
+					removedSubnets.Insert(subnet.Key())
 				} else {
 					// We need to process all endpoints and routes both if this
-					// is the first time that we see this network, and if something
-					// in the network spec changed (e.g., INB, interface), to adapt
+					// is the first time that we see this subnet, and if something
+					// in the subnet spec changed (e.g., INB, interface), to adapt
 					// all entries accordingly. Still, let's try to be a bit smart
 					// and skip updates that do not modify any relevant field.
 					// The deletion of possible stale entries is deferred to the
 					// processing of the corresponding endpoint/route deletion
 					// events, which are not filtered out below.
-					slim := netChange.Object.ToSlim(getActiveINB(txn, network))
-					if !m.skipNetworkEvent(slim) {
-						if err := m.upsertAllNetworkEntries(txn, slim); err != nil {
+					activeINB := getActiveINB(txn, subnet.Network)
+					sctx := subnetReconcileContext{
+						SubnetSpec: subnet.SubnetSpec,
+						activeINB:  activeINB,
+					}
+					if !m.skipSubnetUpdate(sctx) {
+						if err := m.upsertAllSubnetEntries(txn, sctx); err != nil {
 							txn.Abort()
 							return err
 						}
-						upsertedNetworks.Insert(network)
+						upsertedSubnets.Insert(subnet.Key())
 					}
 				}
 			}
 
 			// Handle changes of the active INBs.
 			for network := range m.inbWatchesTracker.Iter(closed) {
-				if upsertedNetworks.Has(network) {
-					// We already processed this network.
-					continue
-				}
-
-				slim, found := m.knownNetworks[network]
-				if !found {
-					// The network no longer exists, so nothing to do here.
-					continue
-				}
-
-				slim.ActiveINB = getActiveINB(txn, network)
-				if !m.skipNetworkEvent(slim) {
-					if err := m.upsertAllNetworkEntries(txn, slim); err != nil {
-						txn.Abort()
-						return err
+				for _, sctx := range m.knownSubnets[network] {
+					if upsertedSubnets.Has(sctx.key()) {
+						// We already processed this subnet.
+						continue
 					}
-					upsertedNetworks.Insert(network)
+
+					sctx.activeINB = getActiveINB(txn, network)
+					if !m.skipSubnetUpdate(sctx) {
+						if err := m.upsertAllSubnetEntries(txn, sctx); err != nil {
+							txn.Abort()
+							return err
+						}
+						upsertedSubnets.Insert(sctx.key())
+					}
 				}
 			}
 
 			// Handle route change events
 			for rtChange := range rtsChanges {
-				// Skip change event if it was already handled in {upsert,delete}AllNetworkEntries
-				if skipChangeEvent(rtChange, rtChange.Object.Network, upsertedNetworks, removedNetworks) {
+				// Skip change event if it was already handled in {upsert,delete}AllSubnetEntries
+				if skipChangeEvent(rtChange, rtChange.Object.Network, rtChange.Object.Subnet, upsertedSubnets, removedSubnets) {
 					continue
 				}
 
@@ -243,9 +244,9 @@ func (m *MapEntries) registerReconciler() {
 
 			// Handle endpoint change events
 			for epChange := range epsChanges {
-				// Skip change event if it was already handled in {upsert,delete}AllNetworkEntries
+				// Skip change event if it was already handled in {upsert,delete}AllSubnetEntries
 				epNetwork := tables.NetworkName(epChange.Object.Network.Name)
-				if skipChangeEvent(epChange, epNetwork, upsertedNetworks, removedNetworks) {
+				if skipChangeEvent(epChange, epNetwork, epChange.Object.Subnet, upsertedSubnets, removedSubnets) {
 					continue
 				}
 
@@ -265,31 +266,33 @@ func (m *MapEntries) registerReconciler() {
 
 			// Handle active networks change events
 			for actChange := range actChanges {
-				// Skip change event if the network has already been handled above.
-				// Regardless of whether the network got added or removed, we are
-				// guaranteed that all corresponding endpoints have already been
-				// processed, and [L2Announce] has already been set correctly.
 				network := actChange.Object.Network
-				if upsertedNetworks.Has(network) || removedNetworks.Has(network) {
-					continue
-				}
+				for _, sctx := range m.knownSubnets[network] {
+					// Skip change event if the subnet has already been handled above.
+					// Regardless of whether the subnet got added or removed, we are
+					// guaranteed that all corresponding endpoints have already been
+					// processed, and [L2Announce] has already been set correctly.
+					if upsertedSubnets.Has(sctx.key()) || removedSubnets.Has(sctx.key()) {
+						continue
+					}
 
-				m.log.Debug("Processing table event",
-					logfields.Table, m.actnets.Name(),
-					logfields.Event, actChange,
-				)
+					m.log.Debug("Processing table event",
+						logfields.Table, m.actnets.Name(),
+						logfields.Event, actChange,
+					)
 
-				query := tables.EndpointsByNetworkNode(network, actChange.Object.Node)
-				for endpoint := range m.endpoints.List(txn, query) {
-					// Process the endpoint again, to update [L2Announce] as appropriate.
-					// We assume that it is unlikely that the given endpoint also changed
-					// and got already processed in this reconciliation round. Hence, we
-					// don't explicitly track them to avoid increasing complexity further,
-					// as the performance benefits would be minimal.
-					err := m.handleEndpointChange(txn, endpoint)
-					if err != nil {
-						txn.Abort()
-						return err
+					query := tables.EndpointsByNetworkSubnetNode(network, sctx.Name, actChange.Object.Node)
+					for endpoint := range m.endpoints.List(txn, query) {
+						// Process the endpoint again, to update [L2Announce] as appropriate.
+						// We assume that it is unlikely that the given endpoint also changed
+						// and got already processed in this reconciliation round. Hence, we
+						// don't explicitly track them to avoid increasing complexity further,
+						// as the performance benefits would be minimal.
+						err := m.handleEndpointChange(txn, endpoint)
+						if err != nil {
+							txn.Abort()
+							return err
+						}
 					}
 				}
 			}
@@ -297,14 +300,14 @@ func (m *MapEntries) registerReconciler() {
 			// In order to be able to propagate initialization, we need to check if the upstream
 			// tables have already been initialized
 			if !initDone {
-				netInit, nw := m.networks.Initialized(txn)
+				subnetInit, nw := m.subnets.Initialized(txn)
 				epsInit, ew := m.endpoints.Initialized(txn)
 				rtsInit, rw := m.routes.Initialized(txn)
 				inbInit, iw := m.inbs.Initialized(txn)
 				actInit, aw := m.actnets.Initialized(txn)
 
 				switch {
-				case !netInit:
+				case !subnetInit:
 					watchset.Add(nw)
 				case !epsInit:
 					watchset.Add(ew)
@@ -330,15 +333,53 @@ func (m *MapEntries) registerReconciler() {
 	}))
 }
 
+// subnetReconcileContext is a collection of state related to subnet that the
+// reconciler needs to reconcile entries in that subnet
+type subnetReconcileContext struct {
+	tables.SubnetSpec
+	activeINB tables.INBNode
+}
+
+func (sctx subnetReconcileContext) key() tables.SubnetKey {
+	return tables.NewSubnetKey(sctx.Network, sctx.Name)
+}
+
+// getKnownSubnet get the cached subnet reconciliation context if we know it
+func (m *MapEntries) getKnownSubnet(network tables.NetworkName, subnet tables.SubnetName) (subnetReconcileContext, bool) {
+	if _, ok := m.knownSubnets[network]; !ok {
+		return subnetReconcileContext{}, false
+	}
+	sctx, ok := m.knownSubnets[network][subnet]
+	return sctx, ok
+}
+
+// setKnownSubnet caches the provided subnet reconciliation context for later use
+func (m *MapEntries) setKnownSubnet(sctx subnetReconcileContext) {
+	if _, ok := m.knownSubnets[sctx.Network]; !ok {
+		m.knownSubnets[sctx.Network] = map[tables.SubnetName]subnetReconcileContext{}
+	}
+	m.knownSubnets[sctx.Network][sctx.Name] = sctx
+}
+
+// removeKnownSubnet deletes the cached subnet reconciliation context
+func (m *MapEntries) removeKnownSubnet(network tables.NetworkName, subnet tables.SubnetName) {
+	if _, ok := m.knownSubnets[network]; ok {
+		delete(m.knownSubnets[network], subnet)
+		if len(m.knownSubnets[network]) == 0 {
+			delete(m.knownSubnets, network)
+		}
+	}
+}
+
 // handleEndpointChange deals with both added and deleted endpoints. It does this by
 // determining the active endpoint for the given endpoints network IP. If there is no
 // longer any active endpoint (e.g. because ep was deleted or changed to become inactive),
 // the corresponding entry is deleted. On the other hand, if there is a (new) active
 // endpoint, the new active endpoint is inserted.
 func (m *MapEntries) handleEndpointChange(txn statedb.WriteTxn, ep tables.Endpoint) error {
-	privNet, found := m.knownNetworks[tables.NetworkName(ep.Network.Name)]
+	sctx, found := m.getKnownSubnet(tables.NetworkName(ep.Network.Name), ep.Subnet)
 	if !found {
-		// We don't know anything yet about this private network
+		// We don't know anything yet about this subnet
 		return nil
 	}
 
@@ -351,7 +392,7 @@ func (m *MapEntries) handleEndpointChange(txn statedb.WriteTxn, ep tables.Endpoi
 	// logic to handle the change of the active INB.
 
 	// Try to find a new active endpoint for the given (net, netIP) pair
-	activeEp := m.determineActiveEndpointForNetworkIP(txn, privNet, ep.Network.IP)
+	activeEp := m.determineActiveEndpointForNetworkIP(txn, sctx, ep.Network.IP)
 
 	// Check if there already is an existing entry in the table for the endpoint to be upserted
 	current, _, found := m.tbl.Get(txn, tables.MapEntryByKey(ep.ToMapEntryKey()))
@@ -360,14 +401,14 @@ func (m *MapEntries) handleEndpointChange(txn statedb.WriteTxn, ep tables.Endpoi
 	if activeEp == nil {
 		m.log.Debug("No active endpoint for event", logfields.Event, ep)
 		if found {
-			err := m.deleteEndpointEntry(txn, privNet, current)
+			err := m.deleteEndpointEntry(txn, sctx, current)
 			return err
 		}
 		return nil
 	}
 
 	// Skip any further logic if the to-be-upserted entry is already present
-	desired := activeEp.ToMapEntry(privNet, m.cfg.EnabledAsBridge(), m.shouldL2Announce(txn, ep))
+	desired := activeEp.ToMapEntry(sctx.SubnetSpec, m.cfg.EnabledAsBridge(), m.shouldL2Announce(txn, ep))
 	if found && current.Equal(desired) {
 		return nil
 	}
@@ -378,7 +419,7 @@ func (m *MapEntries) handleEndpointChange(txn statedb.WriteTxn, ep tables.Endpoi
 			logfields.New, desired,
 			logfields.Old, conflictingEntry,
 		)
-		err := m.deleteEndpointEntry(txn, privNet, conflictingEntry)
+		err := m.deleteEndpointEntry(txn, sctx, conflictingEntry)
 		if err != nil {
 			return err
 		}
@@ -399,14 +440,18 @@ func (m *MapEntries) handleEndpointChange(txn statedb.WriteTxn, ep tables.Endpoi
 // determineActiveEndpointForNetworkIP checks the endpoint table to find the active endpoint for the given
 // network IP. The active endpoint is the one with the most recent "activatedAt" timestamp, filtering out
 // the ones advertised by non-active INBs.
-func (m *MapEntries) determineActiveEndpointForNetworkIP(txn statedb.ReadTxn, network tables.SlimPrivateNetwork, networkIP netip.Addr) (active *tables.Endpoint) {
-	for ep := range m.endpoints.List(txn, tables.EndpointsByNetworkIP(network.Name, networkIP)) {
+func (m *MapEntries) determineActiveEndpointForNetworkIP(txn statedb.ReadTxn, sctx subnetReconcileContext, networkIP netip.Addr) (active *tables.Endpoint) {
+	for ep := range m.endpoints.List(txn, tables.EndpointsByNetworkIP(sctx.Network, networkIP)) {
 		if ep.ActivatedAt.IsZero() {
 			continue // skip inactive endpoints
 		}
 
-		if m.shouldSkipExternalEndpoint(ep, network) {
+		if m.shouldSkipExternalEndpoint(ep, sctx.activeINB) {
 			continue // skip external endpoints advertised by non-active INBs.
+		}
+
+		if ep.Subnet == "" {
+			continue // skip endpoints that are not assigned to subnets
 		}
 
 		if active == nil || ep.ActivatedAt.After(active.ActivatedAt) {
@@ -422,11 +467,11 @@ func (m *MapEntries) determineActiveEndpointForNetworkIP(txn statedb.ReadTxn, ne
 // is not advertised by the currently active INB. This function always returns
 // false if the endpoint is not external, as well as for the external endpoints
 // advertised by the local node.
-func (m *MapEntries) shouldSkipExternalEndpoint(ep tables.Endpoint, privnet tables.SlimPrivateNetwork) bool {
+func (m *MapEntries) shouldSkipExternalEndpoint(ep tables.Endpoint, activeINB tables.INBNode) bool {
 	return ep.Flags.External &&
-		(!privnet.ActiveINB.IP.IsValid() ||
-			tables.ClusterName(ep.Source.Cluster) != privnet.ActiveINB.Cluster ||
-			tables.NodeName(ep.NodeName) != privnet.ActiveINB.Name) &&
+		(!activeINB.IP.IsValid() ||
+			tables.ClusterName(ep.Source.Cluster) != activeINB.Cluster ||
+			tables.NodeName(ep.NodeName) != activeINB.Name) &&
 		(tables.ClusterName(ep.Source.Cluster) != m.local.Cluster ||
 			tables.NodeName(ep.NodeName) != m.local.Name)
 }
@@ -470,20 +515,20 @@ func (m *MapEntries) findConflictingNATEntriesForActiveEP(txn statedb.ReadTxn, a
 	}
 }
 
-// upsertAllNetworkEntries queries the upstream endpoints and routes tables and performs an
-// upsert operation for each endpoint and route which belongs to the given network.
-func (m *MapEntries) upsertAllNetworkEntries(txn statedb.WriteTxn, network tables.SlimPrivateNetwork) error {
-	// Store the updated network information into the local cache.
-	m.knownNetworks[network.Name] = network
+// upsertAllSubnetEntries queries the upstream endpoints and routes tables and performs an
+// upsert operation for each endpoint and route which belongs to the given subnet.
+func (m *MapEntries) upsertAllSubnetEntries(txn statedb.WriteTxn, sctx subnetReconcileContext) error {
+	// Store the updated subnet information into the local cache.
+	m.setKnownSubnet(sctx)
 
-	for ep := range m.endpoints.Prefix(txn, tables.EndpointsByNetwork(network.Name)) {
+	for ep := range m.endpoints.Prefix(txn, tables.EndpointsByNetworkSubnet(sctx.Network, sctx.Name)) {
 		err := m.handleEndpointChange(txn, ep)
 		if err != nil {
 			return err
 		}
 	}
 
-	for rt := range m.routes.Prefix(txn, tables.RouteByNetwork(network.Name)) {
+	for rt := range m.routes.Prefix(txn, tables.RoutesByNetworkSubnet(sctx.Network, sctx.Name)) {
 		err := m.upsertRoute(txn, rt)
 		if err != nil {
 			return err
@@ -493,10 +538,10 @@ func (m *MapEntries) upsertAllNetworkEntries(txn statedb.WriteTxn, network table
 	return nil
 }
 
-// deleteAllNetworkEntries deletes all map entries associated with the given network
-func (m *MapEntries) deleteAllNetworkEntries(txn statedb.WriteTxn, privNetName tables.NetworkName) error {
-	delete(m.knownNetworks, privNetName)
-	for entry := range m.tbl.Prefix(txn, tables.MapEntriesByNetwork(privNetName)) {
+// deleteAllSubnetEntries deletes all map entries associated with the given subnet
+func (m *MapEntries) deleteAllSubnetEntries(txn statedb.WriteTxn, subnet tables.Subnet) error {
+	m.removeKnownSubnet(subnet.Network, subnet.Name)
+	for entry := range m.tbl.Prefix(txn, tables.MapEntriesByNetworkSubnet(subnet.Network, subnet.Name)) {
 		_, _, err := m.tbl.Delete(txn, entry)
 		if err != nil {
 			return err
@@ -505,38 +550,43 @@ func (m *MapEntries) deleteAllNetworkEntries(txn statedb.WriteTxn, privNetName t
 	return nil
 }
 
-// skipNetworkUpdate determines if the two networks are identical from the MapEntries
+// skipNetworkUpdate determines if the two subnets are identical from the MapEntries
 // reconciler point of view, and the event can be skipped.
-func (m *MapEntries) skipNetworkEvent(current tables.SlimPrivateNetwork) bool {
-	// * The network name is the primary key, so it cannot change.
+func (m *MapEntries) skipSubnetUpdate(current subnetReconcileContext) bool {
+	// * The network and subnet name is the primary key, so they cannot change.
 	// * We do not care about the INBs selectors.
-	// * We only care about the interface ID, not its name or the reconciliation status.
-	// * Route and subnet changes are already processed via the dedicated table.
-	old, ok := m.knownNetworks[current.Name]
+	// * We only care about the interface ID, not its reconciliation status.
+	// * Route changes are already processed via the dedicated table.
+	old, ok := m.getKnownSubnet(current.Network, current.Name)
+	if !ok {
+		return false
+	}
 	return ok && old == current
 }
 
 // skipChangeEvent is called for endpoint and route change events to determine if
 // it can safely be skipped to avoid duplicated work
-func skipChangeEvent[T any](changeEvent statedb.Change[T], network tables.NetworkName,
-	upsertedNetworks, removedNetworks sets.Set[tables.NetworkName]) bool {
-	// If the network of this change event has just been removed, then we can skip
+func skipChangeEvent[T any](changeEvent statedb.Change[T], network tables.NetworkName, subnet tables.SubnetName,
+	upsertedSubnets, removedSubnets sets.Set[tables.SubnetKey]) bool {
+
+	key := tables.NewSubnetKey(network, subnet)
+	// If the subnet of this change event has just been removed, then we can skip
 	// handling the change event:
 	//  - If `change` is an upsert event, we can no longer add it to the
-	//    downstream table without its network.
+	//    downstream table without its subnet.
 	//  - If `change` is a delete event, it was already removed from the
-	//    downstream table, as we removed all entries in deleteAllNetworkEntries
-	if removedNetworks.Has(network) {
+	//    downstream table, as we removed all entries in deleteAllSubnetEntries
+	if removedSubnets.Has(key) {
 		return true
 	}
 
-	// If the network of this change event has just been added, then we can skip
+	// If the subnet of this change event has just been added, then we can skip
 	// handling of upsert events (but not deletion events):
 	//  - If `change` is an upsert event, then we already added it to the
-	//    downstream table when in upsertAllNetworkEntries.
+	//    downstream table when in upsertAllSubnetEntries.
 	//  - If `change` is a delete event, then we still need to process it,
-	//    as it not handled in upsertAllNetworkEntries.
-	if !changeEvent.Deleted && upsertedNetworks.Has(network) {
+	//    as it not handled in upsertAllSubnetEntries
+	if !changeEvent.Deleted && upsertedSubnets.Has(key) {
 		return true
 	}
 
@@ -550,7 +600,7 @@ func (m *MapEntries) insertEndpointEntry(txn statedb.WriteTxn, epEntry *tables.M
 	// Check if there is a route entry (static or DCN) with the same target and delete it
 	for _, routeType := range []tables.MapEntryType{tables.MapEntryTypeDCNRoute, tables.MapEntryTypeStaticRoute} {
 		routeEntry, _, found := m.tbl.Get(txn,
-			tables.MapEntryByTypeNetworkCIDR(epEntry.Target.NetworkName, routeType, epEntry.Target.CIDR),
+			tables.MapEntryByTypeNetworkSubnetCIDR(epEntry.Target.NetworkName, epEntry.Target.SubnetName, routeType, epEntry.Target.CIDR),
 		)
 		if found {
 			// delete conflicting route entry
@@ -574,7 +624,7 @@ func (m *MapEntries) insertEndpointEntry(txn statedb.WriteTxn, epEntry *tables.M
 // deleteEndpointEntry deletes the map table entry associated with an endpoint. It checks
 // if the deleted endpoint entry shadowed a route entry with the same /32 or /128 target,
 // and re-inserts that route entry if so.
-func (m *MapEntries) deleteEndpointEntry(txn statedb.WriteTxn, privNet tables.SlimPrivateNetwork, epEntry *tables.MapEntry) error {
+func (m *MapEntries) deleteEndpointEntry(txn statedb.WriteTxn, sctx subnetReconcileContext, epEntry *tables.MapEntry) error {
 	// Delete the endpoint entry
 	_, _, err := m.tbl.Delete(txn, epEntry)
 	if err != nil {
@@ -582,12 +632,11 @@ func (m *MapEntries) deleteEndpointEntry(txn statedb.WriteTxn, privNet tables.Sl
 	}
 
 	// Check if there is a route entry with the same target
-	// NOTE(glrf): This currently works as all duplicates are the same apart from the subnet field which we don't
-	//             consider yet. This needs to change once we do.
-	route, _, found := m.routes.Get(txn, tables.RouteByNetworkAndDestination(privNet.Name, epEntry.Target.CIDR))
+
+	route, _, found := m.routes.Get(txn, tables.RouteByNetworkSubnetAndDestination(sctx.Network, sctx.Name, epEntry.Target.CIDR))
 	if found {
 		// Insert the route entry which is now un-shadowed
-		routeEntry := route.ToMapEntry(privNet, m.cfg.EnabledAsBridge())
+		routeEntry := route.ToMapEntry(sctx.SubnetSpec, sctx.activeINB, m.cfg.EnabledAsBridge())
 		if routeEntry == nil {
 			return nil
 		}
@@ -607,9 +656,9 @@ func (m *MapEntries) deleteEndpointEntry(txn statedb.WriteTxn, privNet tables.Sl
 // upsertRoute inserts a new route entry into the table. If an endpoint entry with the same target
 // already exists, we skip the insertion as the endpoint entry should take precedence.
 func (m *MapEntries) upsertRoute(txn statedb.WriteTxn, route tables.Route) error {
-	privNet, found := m.knownNetworks[route.Network]
+	sctx, found := m.getKnownSubnet(route.Network, route.Subnet)
 	if !found {
-		// We don't know anything yet about this private network
+		// We don't know anything yet about this subnet
 		return nil
 	}
 
@@ -627,11 +676,11 @@ func (m *MapEntries) upsertRoute(txn statedb.WriteTxn, route tables.Route) error
 	}
 
 	// Synthesize map entry from route spec and upsert it
-	desired := route.ToMapEntry(privNet, m.cfg.EnabledAsBridge())
+	desired := route.ToMapEntry(sctx.SubnetSpec, sctx.activeINB, m.cfg.EnabledAsBridge())
 
 	// Skip insert if entry already exists (this ensures downstream consumers are not woken up unnecessarily)
 	current, _, found := m.tbl.Get(txn,
-		tables.MapEntryByTypeNetworkCIDR(route.Network, route.MapEntryType(), route.Destination),
+		tables.MapEntryByTypeNetworkSubnetCIDR(route.Network, route.Subnet, route.MapEntryType(), route.Destination),
 	)
 
 	if desired == nil {
@@ -657,7 +706,7 @@ func (m *MapEntries) upsertRoute(txn statedb.WriteTxn, route tables.Route) error
 // we do not have to check the endpoint table as we do in upsertRoute.
 func (m *MapEntries) deleteRoute(txn statedb.WriteTxn, route tables.Route) error {
 	entry, _, found := m.tbl.Get(txn,
-		tables.MapEntryByTypeNetworkCIDR(route.Network, route.MapEntryType(), route.Destination),
+		tables.MapEntryByTypeNetworkSubnetCIDR(route.Network, route.Subnet, route.MapEntryType(), route.Destination),
 	)
 	if !found {
 		return nil

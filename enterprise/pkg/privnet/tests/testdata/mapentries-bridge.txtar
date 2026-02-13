@@ -294,85 +294,85 @@ default/foobar-worker-1   firefly   Healthy, Confirmed
 default/foobar-worker-1   maggot    Healthy, Confirmed
 
 -- mapentries.v1.table --
-Type   Network   CIDR                Nexthop       L2Ann
-D      firefly   192.168.251.0/24    0.0.0.0       No
-E      firefly   192.168.251.30/32   10.245.8.30   No
-E      firefly   192.168.251.31/32   10.245.8.31   No
-E      firefly   192.168.251.32/32   10.245.8.32   No
-X      firefly   192.168.251.39/32   10.245.8.39   No
-D      maggot    192.168.250.0/24    0.0.0.0       No
-D      maggot    192.168.251.0/24    0.0.0.0       No
-E      maggot    192.168.250.20/32   10.245.8.20   No
-E      maggot    192.168.250.21/32   10.245.8.21   No
-E      maggot    192.168.250.22/32   10.245.8.22   No
+Type   Network   Subnet    CIDR                Nexthop       L2Ann
+D      firefly   firefly1  192.168.251.0/24    0.0.0.0       No
+E      firefly   firefly1  192.168.251.30/32   10.245.8.30   No
+E      firefly   firefly1  192.168.251.31/32   10.245.8.31   No
+E      firefly   firefly1  192.168.251.32/32   10.245.8.32   No
+X      firefly   firefly1  192.168.251.39/32   10.245.8.39   No
+D      maggot    maggot1   192.168.250.0/24    0.0.0.0       No
+E      maggot    maggot1   192.168.250.20/32   10.245.8.20   No
+E      maggot    maggot1   192.168.250.21/32   10.245.8.21   No
+E      maggot    maggot1   192.168.250.22/32   10.245.8.22   No
+D      maggot    maggot2   192.168.251.0/24    0.0.0.0       No
 
 -- mapentries.v2.table --
-Type   Network   CIDR                Nexthop       L2Ann
-D      firefly   192.168.251.0/24    0.0.0.0       No
-E      firefly   192.168.251.30/32   10.245.8.30   No
-E      firefly   192.168.251.31/32   10.245.8.31   No
-E      firefly   192.168.251.32/32   10.245.8.32   Yes
-X      firefly   192.168.251.39/32   10.245.8.39   No
-D      maggot    192.168.250.0/24    0.0.0.0       No
-D      maggot    192.168.251.0/24    0.0.0.0       No
-E      maggot    192.168.250.20/32   10.245.8.20   No
-E      maggot    192.168.250.21/32   10.245.8.21   Yes
-E      maggot    192.168.250.22/32   10.245.8.22   Yes
+Type   Network   Subnet    CIDR                Nexthop       L2Ann
+D      firefly   firefly1  192.168.251.0/24    0.0.0.0       No
+E      firefly   firefly1  192.168.251.30/32   10.245.8.30   No
+E      firefly   firefly1  192.168.251.31/32   10.245.8.31   No
+E      firefly   firefly1  192.168.251.32/32   10.245.8.32   Yes
+X      firefly   firefly1  192.168.251.39/32   10.245.8.39   No
+D      maggot    maggot1   192.168.250.0/24    0.0.0.0       No
+E      maggot    maggot1   192.168.250.20/32   10.245.8.20   No
+E      maggot    maggot1   192.168.250.21/32   10.245.8.21   Yes
+E      maggot    maggot1   192.168.250.22/32   10.245.8.22   Yes
+D      maggot    maggot2   192.168.251.0/24    0.0.0.0       No
 
 -- mapentries.v3.table --
-Type   Network   CIDR                Nexthop       L2Ann
-D      firefly   192.168.251.0/24    0.0.0.0       No
-E      firefly   192.168.251.30/32   10.245.8.30   No
-E      firefly   192.168.251.31/32   10.245.8.31   No
-E      firefly   192.168.251.32/32   10.245.8.32   Yes
-X      firefly   192.168.251.39/32   10.245.8.39   No
-D      maggot    192.168.250.0/24    0.0.0.0       No
-D      maggot    192.168.251.0/24    0.0.0.0       No
-E      maggot    192.168.250.20/32   10.245.8.20   No
-E      maggot    192.168.250.21/32   10.245.8.21   No
-E      maggot    192.168.250.22/32   10.245.8.22   No
+Type   Network   Subnet    CIDR                Nexthop       L2Ann
+D      firefly   firefly1  192.168.251.0/24    0.0.0.0       No
+E      firefly   firefly1  192.168.251.30/32   10.245.8.30   No
+E      firefly   firefly1  192.168.251.31/32   10.245.8.31   No
+E      firefly   firefly1  192.168.251.32/32   10.245.8.32   Yes
+X      firefly   firefly1  192.168.251.39/32   10.245.8.39   No
+D      maggot    maggot1   192.168.250.0/24    0.0.0.0       No
+E      maggot    maggot1   192.168.250.20/32   10.245.8.20   No
+E      maggot    maggot1   192.168.250.21/32   10.245.8.21   No
+E      maggot    maggot1   192.168.250.22/32   10.245.8.22   No
+D      maggot    maggot2   192.168.251.0/24    0.0.0.0       No
 
 -- mapentries.v4.table --
-Type   Network   CIDR                Nexthop       L2Ann
-D      firefly   192.168.251.0/24    0.0.0.0       No
-E      firefly   192.168.251.30/32   10.245.8.30   No
-E      firefly   192.168.251.31/32   10.245.8.31   No
-E      firefly   192.168.251.32/32   10.245.8.32   Yes
-E      firefly   192.168.251.33/32   10.245.8.33   Yes
-X      firefly   192.168.251.39/32   10.245.8.39   No
-D      maggot    192.168.250.0/24    0.0.0.0       No
-D      maggot    192.168.251.0/24    0.0.0.0       No
-E      maggot    192.168.250.20/32   10.245.8.20   No
-E      maggot    192.168.250.21/32   10.245.8.21   Yes
-E      maggot    192.168.250.22/32   10.245.8.22   Yes
-E      maggot    192.168.250.23/32   10.245.8.23   Yes
+Type   Network   Subnet    CIDR                Nexthop       L2Ann
+D      firefly   firefly1  192.168.251.0/24    0.0.0.0       No
+E      firefly   firefly1  192.168.251.30/32   10.245.8.30   No
+E      firefly   firefly1  192.168.251.31/32   10.245.8.31   No
+E      firefly   firefly1  192.168.251.32/32   10.245.8.32   Yes
+E      firefly   firefly1  192.168.251.33/32   10.245.8.33   Yes
+X      firefly   firefly1  192.168.251.39/32   10.245.8.39   No
+D      maggot    maggot1   192.168.250.0/24    0.0.0.0       No
+E      maggot    maggot1   192.168.250.20/32   10.245.8.20   No
+E      maggot    maggot1   192.168.250.21/32   10.245.8.21   Yes
+E      maggot    maggot1   192.168.250.22/32   10.245.8.22   Yes
+E      maggot    maggot1   192.168.250.23/32   10.245.8.23   Yes
+D      maggot    maggot2   192.168.251.0/24    0.0.0.0       No
 
 -- mapentries.v5.table --
-Type   Network   CIDR                Nexthop       L2Ann
-D      firefly   192.168.251.0/24    0.0.0.0       No
-E      firefly   192.168.251.30/32   10.245.8.30   No
-E      firefly   192.168.251.31/32   10.245.8.31   Yes
-E      firefly   192.168.251.32/32   10.245.8.32   No
-E      firefly   192.168.251.33/32   10.245.8.33   No
-X      firefly   192.168.251.39/32   10.245.8.39   No
-D      maggot    192.168.250.0/24    0.0.0.0       No
-D      maggot    192.168.251.0/24    0.0.0.0       No
-E      maggot    192.168.250.20/32   10.245.8.20   No
-E      maggot    192.168.250.21/32   10.245.8.21   Yes
-E      maggot    192.168.250.22/32   10.245.8.22   Yes
-E      maggot    192.168.250.23/32   10.245.8.23   Yes
+Type   Network   Subnet    CIDR                Nexthop       L2Ann
+D      firefly   firefly1  192.168.251.0/24    0.0.0.0       No
+E      firefly   firefly1  192.168.251.30/32   10.245.8.30   No
+E      firefly   firefly1  192.168.251.31/32   10.245.8.31   Yes
+E      firefly   firefly1  192.168.251.32/32   10.245.8.32   No
+E      firefly   firefly1  192.168.251.33/32   10.245.8.33   No
+X      firefly   firefly1  192.168.251.39/32   10.245.8.39   No
+D      maggot    maggot1   192.168.250.0/24    0.0.0.0       No
+E      maggot    maggot1   192.168.250.20/32   10.245.8.20   No
+E      maggot    maggot1   192.168.250.21/32   10.245.8.21   Yes
+E      maggot    maggot1   192.168.250.22/32   10.245.8.22   Yes
+E      maggot    maggot1   192.168.250.23/32   10.245.8.23   Yes
+D      maggot    maggot2   192.168.251.0/24    0.0.0.0       No
 
 -- mapentries.v6.table --
-Type   Network   CIDR                Nexthop       L2Ann
-D      firefly   192.168.251.0/24    0.0.0.0       No
-E      firefly   192.168.251.30/32   10.245.8.30   No
-E      firefly   192.168.251.31/32   10.245.8.31   Yes
-E      firefly   192.168.251.32/32   10.245.8.32   No
-E      firefly   192.168.251.33/32   10.245.8.33   No
-X      firefly   192.168.251.39/32   10.245.8.39   No
-D      maggot    192.168.250.0/24    0.0.0.0       No
-D      maggot    192.168.251.0/24    0.0.0.0       No
-E      maggot    192.168.250.20/32   10.245.8.20   No
-E      maggot    192.168.250.21/32   10.245.8.21   No
-E      maggot    192.168.250.22/32   10.245.8.22   No
-E      maggot    192.168.250.23/32   10.245.8.23   No
+Type   Network   Subnet    CIDR                Nexthop       L2Ann
+D      firefly   firefly1  192.168.251.0/24    0.0.0.0       No
+E      firefly   firefly1  192.168.251.30/32   10.245.8.30   No
+E      firefly   firefly1  192.168.251.31/32   10.245.8.31   Yes
+E      firefly   firefly1  192.168.251.32/32   10.245.8.32   No
+E      firefly   firefly1  192.168.251.33/32   10.245.8.33   No
+X      firefly   firefly1  192.168.251.39/32   10.245.8.39   No
+D      maggot    maggot1   192.168.250.0/24    0.0.0.0       No
+E      maggot    maggot1   192.168.250.20/32   10.245.8.20   No
+E      maggot    maggot1   192.168.250.21/32   10.245.8.21   No
+E      maggot    maggot1   192.168.250.22/32   10.245.8.22   No
+E      maggot    maggot1   192.168.250.23/32   10.245.8.23   No
+D      maggot    maggot2   192.168.251.0/24    0.0.0.0       No

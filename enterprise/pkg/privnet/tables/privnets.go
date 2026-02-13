@@ -197,36 +197,6 @@ func (pn PrivateNetwork) Error() string {
 	return pn.Interface.Error
 }
 
-// ToSlim returns a [SlimPrivateNetwork] object for this private network.
-func (pn PrivateNetwork) ToSlim(activeINB INBNode) SlimPrivateNetwork {
-	return SlimPrivateNetwork{
-		Name:          pn.Name,
-		ID:            pn.ID,
-		EgressIfIndex: pn.Interface.Index,
-		ActiveINB:     activeINB,
-		VNI:           pn.VNI,
-	}
-}
-
-// SlimPrivateNetwork wraps the core private network information for MapEntry construction.
-type SlimPrivateNetwork struct {
-	// Name is the name of the private network.
-	Name NetworkName
-
-	// ID is the local-scoped numeric identifier of the private network.
-	ID NetworkID
-
-	// EgressIfIndex is the index of the network interface providing external
-	// connectivity to this private network.
-	EgressIfIndex int
-
-	// ActiveINB is the active INB node.
-	ActiveINB INBNode
-
-	// VNI associated with the private-network
-	VNI vni.VNI
-}
-
 var (
 	privateNetworksNameIndex = statedb.Index[PrivateNetwork, string]{
 		Name: "name",

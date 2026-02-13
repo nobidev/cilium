@@ -101,7 +101,7 @@ var (
 	subnetMappingsNetSubIndex = statedb.Index[SubnetMapping, SubnetKey]{
 		Name: "network-subnet",
 		FromObject: func(obj SubnetMapping) index.KeySet {
-			return index.NewKeySet(newSubnetKey(obj.NetworkName, obj.SubnetName).Key())
+			return index.NewKeySet(NewSubnetKey(obj.NetworkName, obj.SubnetName).Key())
 		},
 		FromKey:    SubnetKey.Key,
 		FromString: index.FromString,

@@ -57,13 +57,14 @@ func (me *MapEntry) Equal(other *MapEntry) bool {
 
 // Key returns the key uniquely identifying this endpoint in the nat table.
 func (me *MapEntry) Key() MapEntryKey {
-	return newMapEntryKey(me.Target.NetworkName, me.Type, me.Target.CIDR)
+	return newMapEntryKey(me.Target.NetworkName, me.Target.SubnetName, me.Type, me.Target.CIDR)
 }
 
 func (me MapEntry) String() string {
-	return fmt.Sprintf("%s %s/%s -> %s",
+	return fmt.Sprintf("%s %s/%s/%s -> %s",
 		me.Type,
 		me.Target.NetworkName,
+		me.Target.SubnetName,
 		me.Target.CIDR,
 		me.Routing.NextHop,
 	)
@@ -72,7 +73,7 @@ func (me MapEntry) String() string {
 var _ statedb.TableWritable = &MapEntry{}
 
 func (me *MapEntry) TableHeader() []string {
-	return []string{"Type", "Network", "CIDR", "Nexthop", "IfIndex", "MAC", "L2Ann", "VNI", "Status"}
+	return []string{"Type", "Network", "Subnet", "CIDR", "Nexthop", "IfIndex", "MAC", "L2Ann", "VNI", "Status"}
 }
 
 func (me MapEntry) TableRow() []string {
@@ -91,7 +92,7 @@ func (me MapEntry) TableRow() []string {
 
 	return []string{
 		me.Type.String(),
-		string(me.Target.NetworkName), me.Target.CIDR.String(),
+		string(me.Target.NetworkName), string(me.Target.SubnetName), me.Target.CIDR.String(),
 		me.Routing.NextHop.String(),
 		ifIndex,
 		mac,
@@ -171,6 +172,12 @@ type MapEntryTarget struct {
 	// NetworkID is the NetworkID of the target private network.
 	NetworkID NetworkID
 
+	// SubnetName is the name of the target subnet.
+	SubnetName SubnetName
+
+	// SubnetID is the local ID of the target subnet.
+	SubnetID SubnetID
+
 	// CIDR is the CIDR of the target endpoint/route.
 	CIDR netip.Prefix
 
@@ -183,6 +190,8 @@ type MapEntryTarget struct {
 func (met MapEntryTarget) Equal(other MapEntryTarget) bool {
 	return met.NetworkName == other.NetworkName &&
 		met.NetworkID == other.NetworkID &&
+		met.SubnetName == other.SubnetName &&
+		met.SubnetID == other.SubnetID &&
 		met.CIDR == other.CIDR &&
 		slices.Equal(met.MAC, other.MAC)
 }
@@ -213,7 +222,7 @@ type MapEntryRouting struct {
 	L2Announce bool
 }
 
-// MapEntryKey is <network>|<type>|<network-cidr>.
+// MapEntryKey is <network>|<subnet>|<type>|<network-cidr>.
 type MapEntryKey string
 
 func (key MapEntryKey) Key() index.Key {
@@ -223,24 +232,47 @@ func (key MapEntryKey) Key() index.Key {
 func newMapEntryKeyFromNetwork(network NetworkName) MapEntryKey {
 	return MapEntryKey(string(network) + indexDelimiter)
 }
-
-func newMapEntryKeyFromNetworkAndType(network NetworkName, typ MapEntryType) MapEntryKey {
-	return newMapEntryKeyFromNetwork(network) + MapEntryKey(typ.String()+indexDelimiter)
+func newMapEntryKeyFromNetworkSubnet(network NetworkName, subnet SubnetName) MapEntryKey {
+	return newMapEntryKeyFromNetwork(network) + MapEntryKey(subnet) + indexDelimiter
 }
 
-func newMapEntryKey(network NetworkName, typ MapEntryType, networkCIDR netip.Prefix) MapEntryKey {
-	return newMapEntryKeyFromNetworkAndType(network, typ) + MapEntryKey(networkCIDR.String())
+func newMapEntryKeyFromNetworkSubnetAndType(network NetworkName, subnet SubnetName, typ MapEntryType) MapEntryKey {
+	return newMapEntryKeyFromNetworkSubnet(network, subnet) + MapEntryKey(typ.String()+indexDelimiter)
+}
+
+func newMapEntryKey(network NetworkName, subnet SubnetName, typ MapEntryType, networkCIDR netip.Prefix) MapEntryKey {
+	return newMapEntryKeyFromNetworkSubnetAndType(network, subnet, typ) + MapEntryKey(networkCIDR.String())
+}
+
+// mapEntryNetTypeKey is <network>|<type>
+type mapEntryNetTypeKey string
+
+func (key mapEntryNetTypeKey) Key() index.Key {
+	return index.String(string(key))
+}
+
+func newMapEntryNetTypeKey(network NetworkName, typ MapEntryType) mapEntryNetTypeKey {
+	return mapEntryNetTypeKey(network) + indexDelimiter + mapEntryNetTypeKey(typ.String())
 }
 
 var (
 	mapEntriesTypeNetCIDRIndex = statedb.Index[*MapEntry, MapEntryKey]{
-		Name: "network-cidr",
+		Name: "network-subnet-cidr",
 		FromObject: func(obj *MapEntry) index.KeySet {
 			return index.NewKeySet(obj.Key().Key())
 		},
 		FromKey:    MapEntryKey.Key,
 		FromString: index.FromString,
 		Unique:     true,
+	}
+	mapEntriesNetTypeIndex = statedb.Index[*MapEntry, mapEntryNetTypeKey]{
+		Name: "network-type",
+		FromObject: func(obj *MapEntry) index.KeySet {
+			return index.NewKeySet(newMapEntryNetTypeKey(obj.Target.NetworkName, obj.Type).Key())
+		},
+		FromKey:    mapEntryNetTypeKey.Key,
+		FromString: index.FromString,
+		Unique:     false,
 	}
 
 	// MapEntryByKey queries the map entries table by entry type, network name and CIDR.
@@ -252,14 +284,24 @@ func MapEntriesByNetwork(network NetworkName) statedb.Query[*MapEntry] {
 	return mapEntriesTypeNetCIDRIndex.Query(newMapEntryKeyFromNetwork(network))
 }
 
-// MapEntriesByNetworkAndType queries the map entries table by network name and entry type.
-func MapEntriesByNetworkAndType(network NetworkName, typ MapEntryType) statedb.Query[*MapEntry] {
-	return mapEntriesTypeNetCIDRIndex.Query(newMapEntryKeyFromNetworkAndType(network, typ))
+// MapEntriesByNetworkSubnet queries the map entries table by network and subnet name.
+func MapEntriesByNetworkSubnet(network NetworkName, subnet SubnetName) statedb.Query[*MapEntry] {
+	return mapEntriesTypeNetCIDRIndex.Query(newMapEntryKeyFromNetworkSubnet(network, subnet))
 }
 
-// MapEntryByTypeNetworkCIDR queries the map entries table by entry type, network name and CIDR.
-func MapEntryByTypeNetworkCIDR(network NetworkName, typ MapEntryType, networkCIDR netip.Prefix) statedb.Query[*MapEntry] {
-	return MapEntryByKey(newMapEntryKey(network, typ, networkCIDR))
+// MapEntriesByNetworkSubnetAndType queries the map entries table by network and subnet name and entry type.
+func MapEntriesByNetworkSubnetAndType(network NetworkName, subnet SubnetName, typ MapEntryType) statedb.Query[*MapEntry] {
+	return mapEntriesTypeNetCIDRIndex.Query(newMapEntryKeyFromNetworkSubnetAndType(network, subnet, typ))
+}
+
+// MapEntriesByNetworkAndType queries the map entries table by network name and entry type.
+func MapEntriesByNetworkAndType(network NetworkName, typ MapEntryType) statedb.Query[*MapEntry] {
+	return mapEntriesNetTypeIndex.Query(newMapEntryNetTypeKey(network, typ))
+}
+
+// MapEntryByTypeNetworkSubnetCIDR queries the map entries table by entry type, network and subnet name and CIDR.
+func MapEntryByTypeNetworkSubnetCIDR(network NetworkName, subnet SubnetName, typ MapEntryType, networkCIDR netip.Prefix) statedb.Query[*MapEntry] {
+	return MapEntryByKey(newMapEntryKey(network, subnet, typ, networkCIDR))
 }
 
 func NewMapEntriesTable(db *statedb.DB) (statedb.RWTable[*MapEntry], error) {
@@ -267,5 +309,6 @@ func NewMapEntriesTable(db *statedb.DB) (statedb.RWTable[*MapEntry], error) {
 		db,
 		"privnet-mapentries",
 		mapEntriesTypeNetCIDRIndex,
+		mapEntriesNetTypeIndex,
 	)
 }

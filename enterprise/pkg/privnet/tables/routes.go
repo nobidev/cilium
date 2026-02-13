@@ -72,8 +72,8 @@ func (r Route) MapEntryType() MapEntryType {
 	return MapEntryTypeDCNRoute
 }
 
-func (r Route) ToMapEntry(privNet SlimPrivateNetwork, bridgeMode bool) *MapEntry {
-	nexthop := r.getNexthop(privNet, bridgeMode)
+func (r Route) ToMapEntry(subnet SubnetSpec, activeINB INBNode, bridgeMode bool) *MapEntry {
+	nexthop := r.getNexthop(activeINB, bridgeMode)
 	if !nexthop.IsValid() {
 		return nil
 	}
@@ -81,13 +81,15 @@ func (r Route) ToMapEntry(privNet SlimPrivateNetwork, bridgeMode bool) *MapEntry
 	return &MapEntry{
 		Type: r.MapEntryType(),
 		Target: MapEntryTarget{
-			NetworkName: privNet.Name,
-			NetworkID:   privNet.ID,
+			NetworkName: subnet.Network,
+			NetworkID:   subnet.NetworkID,
+			SubnetName:  subnet.Name,
+			SubnetID:    subnet.ID,
 			CIDR:        r.Destination,
 		},
 		Routing: MapEntryRouting{
 			NextHop: nexthop,
-			VNI:     r.getVNI(privNet),
+			VNI:     r.getVNI(subnet),
 		},
 
 		Status: reconciler.StatusPending(),
@@ -180,14 +182,14 @@ func NewRouteTable(db *statedb.DB) (statedb.RWTable[Route], error) {
 	)
 }
 
-func (r Route) getNexthop(privNet SlimPrivateNetwork, bridgeMode bool) netip.Addr {
+func (r Route) getNexthop(activeINB INBNode, bridgeMode bool) netip.Addr {
 	var nexthop netip.Addr
 
 	if r.EVPNGateway {
 		nexthop = r.unspecifiedNexthop()
 	} else if !bridgeMode {
-		if privNet.ActiveINB.IP.IsValid() {
-			nexthop = privNet.ActiveINB.IP
+		if activeINB.IP.IsValid() {
+			nexthop = activeINB.IP
 		}
 	} else {
 		switch r.MapEntryType() {
@@ -208,9 +210,9 @@ func (r Route) unspecifiedNexthop() netip.Addr {
 	return netip.IPv4Unspecified()
 }
 
-func (r Route) getVNI(privNet SlimPrivateNetwork) vni.VNI {
+func (r Route) getVNI(subnet SubnetSpec) vni.VNI {
 	if r.EVPNGateway {
-		return privNet.VNI
+		return subnet.VNI
 	}
 	return vni.MustFromUint32(0)
 }

@@ -103,7 +103,7 @@ func (s Subnet) TableRow() []string {
 }
 
 func (s Subnet) Key() SubnetKey {
-	return newSubnetKey(s.Network, s.Name)
+	return NewSubnetKey(s.Network, s.Name)
 }
 
 func (s Subnet) Equals(other Subnet) bool {
@@ -136,7 +136,7 @@ func newSubnetKeyFromNetwork(network NetworkName) SubnetKey {
 	return SubnetKey(string(network) + indexDelimiter)
 }
 
-func newSubnetKey(network NetworkName, subnet SubnetName) SubnetKey {
+func NewSubnetKey(network NetworkName, subnet SubnetName) SubnetKey {
 	return newSubnetKeyFromNetwork(network) + SubnetKey(subnet)
 }
 
@@ -159,7 +159,7 @@ func SubnetsByNetwork(network NetworkName) statedb.Query[Subnet] {
 
 // SubnetsByNetworkAndName queries the private network subnet table by network and subnet name
 func SubnetsByNetworkAndName(network NetworkName, subnet SubnetName) statedb.Query[Subnet] {
-	return subnetNameIndex.Query(newSubnetKey(network, subnet))
+	return subnetNameIndex.Query(NewSubnetKey(network, subnet))
 }
 
 func NewSubnetTable(db *statedb.DB) (statedb.RWTable[Subnet], error) {

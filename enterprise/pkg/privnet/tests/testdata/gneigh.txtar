@@ -267,40 +267,41 @@ nodeName: cricket
 }
 
 -- mapentries.v1.table --
-Type   Network        CIDR                   Nexthop            L2Ann
-D      blue-network   192.168.250.0/24       0.0.0.0            No
-D      blue-network   192.168.251.0/24       0.0.0.0            No
-D      blue-network   fc00:20:144:4::/64     ::                 No
-D      blue-network   fd00:10:244:5::/64     ::                 No
-E      blue-network   192.168.250.4/32       10.244.5.108       No
-E      blue-network   192.168.251.24/32      10.245.5.77        Yes
-E      blue-network   fc00:20:144:4::1/128   fd10:0:250::23     No
-E      blue-network   fd00:10:244:5::98/128  face:beed:4:5::77  Yes
-D      green-network  192.168.99.0/24        0.0.0.0            No
-E      green-network  192.168.99.49/32       10.224.1.33        Yes
-E      green-network  192.168.99.51/32       10.224.1.51        No
+Type   Network        Subnet   CIDR                   Nexthop            L2Ann
+D      blue-network   blue1    192.168.251.0/24       0.0.0.0            No
+D      blue-network   blue1    fd00:10:244:5::/64     ::                 No
+E      blue-network   blue1    192.168.251.24/32      10.245.5.77        Yes
+E      blue-network   blue1    fd00:10:244:5::98/128  face:beed:4:5::77  Yes
+D      blue-network   blue2    192.168.250.0/24       0.0.0.0            No
+D      blue-network   blue2    fc00:20:144:4::/64     ::                 No
+E      blue-network   blue2    192.168.250.4/32       10.244.5.108       No
+E      blue-network   blue2    fc00:20:144:4::1/128   fd10:0:250::23     No
+D      green-network  green1   192.168.99.0/24        0.0.0.0            No
+E      green-network  green1   192.168.99.49/32       10.224.1.33        Yes
+E      green-network  green1   192.168.99.51/32       10.224.1.51        No
+
 
 -- mapentries.v2.table --
-Type   Network        CIDR                   Nexthop            L2Ann
-D      blue-network   192.168.250.0/24       0.0.0.0            No
-D      blue-network   192.168.251.0/24       0.0.0.0            No
-D      blue-network   fc00:20:144:4::/64     ::                 No
-D      blue-network   fd00:10:244:5::/64     ::                 No
-E      blue-network   192.168.250.4/32       10.244.5.108       No
-E      blue-network   192.168.251.24/32      10.245.5.77        Yes
-E      blue-network   192.168.251.25/32      10.245.5.78        Yes
-E      blue-network   fc00:20:144:4::1/128   fd10:0:250::23     No
-E      blue-network   fd00:10:244:5::98/128  face:beed:4:5::77  Yes
-E      blue-network   fd00:10:244:5::99/128  face:beed:4:5::78  Yes
-D      green-network  192.168.99.0/24        0.0.0.0            No
-E      green-network  192.168.99.49/32       10.224.1.33        Yes
-E      green-network  192.168.99.51/32       10.224.1.51        No
+Type   Network        Subnet   CIDR                   Nexthop            L2Ann
+D      blue-network   blue1    192.168.251.0/24       0.0.0.0            No
+D      blue-network   blue1    fd00:10:244:5::/64     ::                 No
+E      blue-network   blue1    192.168.251.24/32      10.245.5.77        Yes
+E      blue-network   blue1    192.168.251.25/32      10.245.5.78        Yes
+E      blue-network   blue1    fd00:10:244:5::98/128  face:beed:4:5::77  Yes
+E      blue-network   blue1    fd00:10:244:5::99/128  face:beed:4:5::78  Yes
+D      blue-network   blue2    192.168.250.0/24       0.0.0.0            No
+D      blue-network   blue2    fc00:20:144:4::/64     ::                 No
+E      blue-network   blue2    192.168.250.4/32       10.244.5.108       No
+E      blue-network   blue2    fc00:20:144:4::1/128   fd10:0:250::23     No
+D      green-network  green1   192.168.99.0/24        0.0.0.0            No
+E      green-network  green1   192.168.99.49/32       10.224.1.33        Yes
+E      green-network  green1   192.168.99.51/32       10.224.1.51        No
 
 -- mapentries.v3.table --
-Type   Network        CIDR                   Nexthop            L2Ann
-D      green-network  192.168.99.0/24        0.0.0.0            No
-E      green-network  192.168.99.49/32       10.224.1.33        Yes
-E      green-network  192.168.99.51/32       10.224.1.51        No
+Type   Network        Subnet   CIDR                   Nexthop            L2Ann
+D      green-network  green1   192.168.99.0/24        0.0.0.0            No
+E      green-network  green1   192.168.99.49/32       10.224.1.33        Yes
+E      green-network  green1   192.168.99.51/32       10.224.1.51        No
 
 -- gneigh.expected.v1.table --
 Type   Interface   MAC               IP

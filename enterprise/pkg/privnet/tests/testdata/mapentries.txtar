@@ -399,118 +399,124 @@ nodeName: crayfish
 
 
 -- mapentries.v1.table --
-Type   Network        CIDR               Nexthop
-D      blue-network   192.168.24.24/32   172.128.0.6
-D      blue-network   192.168.250.0/24   172.128.0.6
-D      blue-network   fd10:0:224::24/128 172.128.0.6
-D      blue-network   fd10:0:250::/64    172.128.0.6
-E      blue-network   192.168.250.20/32  10.244.5.108
-E      blue-network   192.168.250.21/32  10.244.5.109
-E      blue-network   fd10:0:250::20/128 fd00:10:244:5::108
-E      blue-network   fd10:0:250::21/128 fd00:10:244:5::109
-X      blue-network   192.168.250.200/32 10.245.8.21
-X      blue-network   192.168.250.201/32 10.245.8.87
+Type   Network        Subnet   CIDR               Nexthop
+D      blue-network   blue1    192.168.250.0/24   172.128.0.6
+D      blue-network   blue1    fd10:0:250::/64    172.128.0.6
+E      blue-network   blue1    192.168.250.20/32  10.244.5.108
+E      blue-network   blue1    192.168.250.21/32  10.244.5.109
+E      blue-network   blue1    fd10:0:250::20/128 fd00:10:244:5::108
+E      blue-network   blue1    fd10:0:250::21/128 fd00:10:244:5::109
+X      blue-network   blue1    192.168.250.200/32 10.245.8.21
+X      blue-network   blue1    192.168.250.201/32 10.245.8.87
+D      blue-network   blue2    192.168.24.24/32   172.128.0.6
+D      blue-network   blue2    fd10:0:224::24/128 172.128.0.6
 
 -- mapentries.v2.table --
-Type   Network        CIDR                  Nexthop
-D      blue-network   192.168.24.24/32      172.128.0.6
-D      blue-network   192.168.250.0/24      172.128.0.6
-D      blue-network   fd10:0:224::24/128    172.128.0.6
-D      blue-network   fd10:0:250::/64       172.128.0.6
-E      blue-network   192.168.250.20/32     10.244.5.108
-E      blue-network   192.168.250.21/32     10.244.5.109
-E      blue-network   fd10:0:250::20/128    fd00:10:244:5::108
-E      blue-network   fd10:0:250::21/128    fd00:10:244:5::109
-X      blue-network   192.168.250.200/32    10.245.8.21
-X      blue-network   192.168.250.201/32    10.245.8.87
-D      green-network  10.0.100.0/24         172.128.0.7
-D      green-network  fd00:10:100::/64      172.128.0.7
-E      green-network  10.0.100.30/32        10.244.5.110
-E      green-network  10.0.100.31/32        10.244.5.111
-E      green-network  fd00:10:100::30/128   fd00:10:244:5::110
-E      green-network  fd00:10:100::31/128   fd00:10:244:5::111
+Type   Network        Subnet   CIDR                  Nexthop
+D      blue-network   blue1    192.168.250.0/24      172.128.0.6
+D      blue-network   blue1    fd10:0:250::/64       172.128.0.6
+E      blue-network   blue1    192.168.250.20/32     10.244.5.108
+E      blue-network   blue1    192.168.250.21/32     10.244.5.109
+E      blue-network   blue1    fd10:0:250::20/128    fd00:10:244:5::108
+E      blue-network   blue1    fd10:0:250::21/128    fd00:10:244:5::109
+X      blue-network   blue1    192.168.250.200/32    10.245.8.21
+X      blue-network   blue1    192.168.250.201/32    10.245.8.87
+D      blue-network   blue2    192.168.24.24/32      172.128.0.6
+D      blue-network   blue2    fd10:0:224::24/128    172.128.0.6
+D      green-network  green1   10.0.100.0/24         172.128.0.7
+D      green-network  green1   fd00:10:100::/64      172.128.0.7
+E      green-network  green1   10.0.100.30/32        10.244.5.110
+E      green-network  green1   10.0.100.31/32        10.244.5.111
+E      green-network  green1   fd00:10:100::30/128   fd00:10:244:5::110
+E      green-network  green1   fd00:10:100::31/128   fd00:10:244:5::111
 
 -- mapentries.v3.table --
-Type   Network        CIDR                  Nexthop
-D      blue-network   192.168.250.0/24      172.128.0.6
-D      blue-network   fd10:0:250::/64       172.128.0.6
-E      blue-network   192.168.24.24/32      10.244.5.107
-E      blue-network   192.168.250.20/32     10.244.6.150
-E      blue-network   192.168.250.23/32     10.244.5.109
-E      blue-network   fd10:0:224::24/128    fd00:10:244:5::107
-E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
-E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
-X      blue-network   192.168.250.200/32    10.245.8.21
-X      blue-network   192.168.250.201/32    10.245.8.87
-D      green-network  10.0.100.0/24         172.128.0.7
-D      green-network  fd00:10:100::/64      172.128.0.7
-E      green-network  10.0.100.30/32        10.244.5.110
-E      green-network  10.0.100.31/32        10.244.5.111
-E      green-network  fd00:10:100::30/128   fd00:10:244:5::110
-E      green-network  fd00:10:100::31/128   fd00:10:244:5::111
+Type   Network        Subnet   CIDR                  Nexthop
+D      blue-network   blue1    192.168.250.0/24      172.128.0.6
+D      blue-network   blue1    fd10:0:250::/64       172.128.0.6
+E      blue-network   blue1    192.168.250.20/32     10.244.6.150
+E      blue-network   blue1    192.168.250.23/32     10.244.5.109
+E      blue-network   blue1    fd10:0:250::20/128    fd00:10:244:6::150
+E      blue-network   blue1    fd10:0:250::23/128    fd00:10:244:5::109
+X      blue-network   blue1    192.168.250.200/32    10.245.8.21
+X      blue-network   blue1    192.168.250.201/32    10.245.8.87
+E      blue-network   blue2    192.168.24.24/32      10.244.5.107
+E      blue-network   blue2    fd10:0:224::24/128    fd00:10:244:5::107
+D      green-network  green1   10.0.100.0/24         172.128.0.7
+D      green-network  green1   fd00:10:100::/64      172.128.0.7
+E      green-network  green1   10.0.100.30/32        10.244.5.110
+E      green-network  green1   10.0.100.31/32        10.244.5.111
+E      green-network  green1   fd00:10:100::30/128   fd00:10:244:5::110
+E      green-network  green1   fd00:10:100::31/128   fd00:10:244:5::111
 
 -- mapentries.v4.table --
-Type   Network        CIDR                  Nexthop
-D      blue-network   192.168.250.0/24      172.128.0.6
-D      blue-network   fd10:0:250::/64       172.128.0.6
-E      blue-network   192.168.24.24/32      10.244.5.107
-E      blue-network   192.168.250.20/32     10.244.6.150
-E      blue-network   192.168.250.23/32     10.244.5.109
-E      blue-network   fd10:0:224::24/128    fd00:10:244:5::107
-E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
-E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
-X      blue-network   192.168.250.200/32    10.245.8.21
-X      blue-network   192.168.250.202/32    10.245.8.92
-D      green-network  10.0.100.0/24         172.128.0.7
-D      green-network  fd00:10:100::/64      172.128.0.7
-E      green-network  10.0.100.30/32        10.244.6.151
-E      green-network  fd00:10:100::30/128   fd00:10:244:6::151
+Type   Network        Subnet   CIDR                  Nexthop
+D      blue-network   blue1    192.168.250.0/24      172.128.0.6
+D      blue-network   blue1    fd10:0:250::/64       172.128.0.6
+E      blue-network   blue1    192.168.250.20/32     10.244.6.150
+E      blue-network   blue1    192.168.250.23/32     10.244.5.109
+E      blue-network   blue1    fd10:0:250::20/128    fd00:10:244:6::150
+E      blue-network   blue1    fd10:0:250::23/128    fd00:10:244:5::109
+X      blue-network   blue1    192.168.250.200/32    10.245.8.21
+X      blue-network   blue1    192.168.250.202/32    10.245.8.92
+E      blue-network   blue2    192.168.24.24/32      10.244.5.107
+E      blue-network   blue2    fd10:0:224::24/128    fd00:10:244:5::107
+D      green-network  green1   10.0.100.0/24         172.128.0.7
+D      green-network  green1   fd00:10:100::/64      172.128.0.7
+E      green-network  green1   10.0.100.30/32        10.244.6.151
+E      green-network  green1   fd00:10:100::30/128   fd00:10:244:6::151
 
 -- mapentries.v5.table --
-Type   Network        CIDR                  Nexthop
-D      blue-network   192.168.250.0/24      172.128.0.6
-D      blue-network   fd10:0:250::/64       172.128.0.6
-E      blue-network   192.168.24.24/32      10.244.5.107
-E      blue-network   192.168.250.20/32     10.244.6.150
-E      blue-network   192.168.250.23/32     10.244.5.109
-E      blue-network   fd10:0:224::24/128    fd00:10:244:5::107
-E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
-E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
-X      blue-network   192.168.250.200/32    10.245.8.21
-X      blue-network   192.168.250.202/32    10.245.8.92
+Type   Network        Subnet   CIDR                  Nexthop
+D      blue-network   blue1    192.168.250.0/24      172.128.0.6
+D      blue-network   blue1    fd10:0:250::/64       172.128.0.6
+E      blue-network   blue1    192.168.250.20/32     10.244.6.150
+E      blue-network   blue1    192.168.250.23/32     10.244.5.109
+E      blue-network   blue1    fd10:0:250::20/128    fd00:10:244:6::150
+E      blue-network   blue1    fd10:0:250::23/128    fd00:10:244:5::109
+X      blue-network   blue1    192.168.250.200/32    10.245.8.21
+X      blue-network   blue1    192.168.250.202/32    10.245.8.92
+E      blue-network   blue2    192.168.24.24/32      10.244.5.107
+E      blue-network   blue2    fd10:0:224::24/128    fd00:10:244:5::107
 
 -- mapentries.v6.table --
-Type   Network        CIDR                 Nexthop
-D      blue-network   192.168.250.0/23     172.128.0.6
-D      blue-network   fd10:0:250::/64      172.128.0.6
-E      blue-network   192.168.24.24/32     10.244.5.107
-E      blue-network   192.168.250.20/32    10.244.6.150
-E      blue-network   192.168.250.23/32    10.244.5.109
-E      blue-network   fd10:0:224::24/128   fd00:10:244:5::107
-E      blue-network   fd10:0:250::20/128   fd00:10:244:6::150
-E      blue-network   fd10:0:250::23/128   fd00:10:244:5::109
-S      blue-network   0.0.0.0/0            172.128.0.6
-S      blue-network   192.168.252.0/24     172.128.0.6
-X      blue-network   192.168.250.200/32   10.245.8.21
-X      blue-network   192.168.250.202/32   10.245.8.92
+Type   Network        Subnet   CIDR                 Nexthop
+D      blue-network   blue1    192.168.250.0/23     172.128.0.6
+D      blue-network   blue1    fd10:0:250::/64      172.128.0.6
+E      blue-network   blue1    192.168.250.20/32    10.244.6.150
+E      blue-network   blue1    192.168.250.23/32    10.244.5.109
+E      blue-network   blue1    fd10:0:250::20/128   fd00:10:244:6::150
+E      blue-network   blue1    fd10:0:250::23/128   fd00:10:244:5::109
+S      blue-network   blue1    0.0.0.0/0            172.128.0.6
+S      blue-network   blue1    192.168.252.0/24     172.128.0.6
+X      blue-network   blue1    192.168.250.200/32   10.245.8.21
+X      blue-network   blue1    192.168.250.202/32   10.245.8.92
+E      blue-network   blue2    192.168.24.24/32     10.244.5.107
+E      blue-network   blue2    fd10:0:224::24/128   fd00:10:244:5::107
+S      blue-network   blue2    0.0.0.0/0            172.128.0.6
+S      blue-network   blue2    192.168.252.0/24     172.128.0.6
 
 -- mapentries.v7.table --
-Type   Network        CIDR                 Nexthop
-D      blue-network   192.168.24.24/32     172.128.0.6
-D      blue-network   192.168.250.0/23     172.128.0.6
-D      blue-network   fd10:0:224::24/128   172.128.0.6
-D      blue-network   fd10:0:250::/64      172.128.0.6
-S      blue-network   0.0.0.0/0            172.128.0.6
-S      blue-network   192.168.252.0/24     172.128.0.6
-X      blue-network   192.168.250.200/32   10.245.8.21
-X      blue-network   192.168.250.202/32   10.245.8.92
+Type   Network        Subnet   CIDR                 Nexthop
+D      blue-network   blue1    192.168.250.0/23     172.128.0.6
+D      blue-network   blue1    fd10:0:250::/64      172.128.0.6
+S      blue-network   blue1    0.0.0.0/0            172.128.0.6
+S      blue-network   blue1    192.168.252.0/24     172.128.0.6
+X      blue-network   blue1    192.168.250.200/32   10.245.8.21
+X      blue-network   blue1    192.168.250.202/32   10.245.8.92
+D      blue-network   blue2    192.168.24.24/32     172.128.0.6
+D      blue-network   blue2    fd10:0:224::24/128   172.128.0.6
+S      blue-network   blue2    0.0.0.0/0            172.128.0.6
+S      blue-network   blue2    192.168.252.0/24     172.128.0.6
 
 -- mapentries.v8.table --
-Type   Network        CIDR                 Nexthop
-D      blue-network   192.168.24.24/32     172.128.0.7
-D      blue-network   192.168.250.0/23     172.128.0.7
-D      blue-network   fd10:0:224::24/128   172.128.0.7
-D      blue-network   fd10:0:250::/64      172.128.0.7
-S      blue-network   0.0.0.0/0            172.128.0.7
-S      blue-network   192.168.252.0/24     172.128.0.7
-X      blue-network   192.168.250.201/32   10.245.9.41
+Type   Network        Subnet   CIDR                 Nexthop
+D      blue-network   blue1    192.168.250.0/23     172.128.0.7
+D      blue-network   blue1    fd10:0:250::/64      172.128.0.7
+S      blue-network   blue1    0.0.0.0/0            172.128.0.7
+S      blue-network   blue1    192.168.252.0/24     172.128.0.7
+X      blue-network   blue1    192.168.250.201/32   10.245.9.41
+D      blue-network   blue2    192.168.24.24/32     172.128.0.7
+D      blue-network   blue2    fd10:0:224::24/128   172.128.0.7
+S      blue-network   blue2    0.0.0.0/0            172.128.0.7
+S      blue-network   blue2    192.168.252.0/24     172.128.0.7
