@@ -63,6 +63,9 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 
 	node.EventsMapRateLimit = option.Config.BPFEventsDefaultRateLimit
 	node.EventsMapBurstLimit = option.Config.BPFEventsDefaultBurstLimit
+	if node.EventsMapRateLimit > 0 && node.EventsMapBurstLimit == 0 {
+		node.EventsMapBurstLimit = node.EventsMapRateLimit
+	}
 
 	return node
 }
