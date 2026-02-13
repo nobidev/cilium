@@ -13,6 +13,8 @@
 
 #include "enterprise_privnet_config.h"
 #include "enterprise_ext_eps_policy.h"
+#include "lib/drop_reasons.h"
+#include "lib/local_delivery.h"
 
 /*
  * Privnet datapath for communication between kubernetes cluster and Isovalent Network Bridge.
@@ -966,6 +968,94 @@ out:
 	return (net_id == 0) ?
 		enforce_privnet_ingress_segmentation_at_inb(unknown_flow, sip_val, dip_val) :
 		enforce_privnet_ingress_segmentation_at_lxc(unknown_flow, net_id, sip_val, dip_val);
+}
+
+static __always_inline int
+privnet_evpn_ingress_ipv4(struct __ctx_buff *ctx, __u16 net_id)
+{
+	const struct privnet_fib_val *dip_val;
+	const struct endpoint_info *ep;
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u16 subnet_id;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	subnet_id = privnet_subnet_id_lookup4(net_id, ip4->daddr);
+
+	dip_val = privnet_fib_lookup4(net_id, subnet_id, ip4->daddr);
+	if (!dip_val)
+		return DROP_UNROUTABLE;
+
+	/* We only want to handle EVPN => Endpoint ingress at this
+	 * point. Drop in any other case for now.
+	 */
+	if (is_privnet_route_entry(dip_val))
+		return DROP_UNROUTABLE;
+
+	/* When we don't have an endpoint, don't route further. */
+	ep = __lookup_ip4_endpoint(dip_val->ip4);
+	if (!ep)
+		return DROP_UNROUTABLE;
+
+	return redirect_ep(ctx, ep->ifindex, true, false);
+}
+
+static __always_inline int
+privnet_evpn_ingress_ipv6(struct __ctx_buff *ctx, __u16 net_id)
+{
+	const struct privnet_fib_val *dip_val;
+	const struct endpoint_info *ep;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	union v6addr daddr;
+	__u16 subnet_id;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
+
+	subnet_id = privnet_subnet_id_lookup6(net_id, daddr);
+
+	dip_val = privnet_fib_lookup6(net_id, subnet_id, daddr);
+	if (!dip_val)
+		return DROP_UNROUTABLE;
+
+	/* We only want to handle EVPN => Endpoint ingress at this
+	 * point. Drop in any other case for now.
+	 */
+	if (is_privnet_route_entry(dip_val))
+		return DROP_UNROUTABLE;
+
+	/* When we don't have an endpoint, don't route further. */
+	ep = __lookup_ip6_endpoint((const union v6addr *)&dip_val->ip6);
+	if (!ep)
+		return DROP_UNROUTABLE;
+
+	return redirect_ep(ctx, ep->ifindex, true, false);
+}
+
+static __always_inline int
+__privnet_evpn_ingress(struct __ctx_buff *ctx, const __u16 net_id)
+{
+	__u16 proto;
+
+	if (!CONFIG(privnet_enable))
+		return CTX_ACT_DROP;
+
+	if (!validate_ethertype(ctx, &proto))
+		return DROP_INVALID;
+
+	switch (proto) {
+	case bpf_htons(ETH_P_IP):
+		return privnet_evpn_ingress_ipv4(ctx, net_id);
+	case bpf_htons(ETH_P_IPV6):
+		return privnet_evpn_ingress_ipv6(ctx, net_id);
+	default:
+		return DROP_UNKNOWN_L3;
+	}
 }
 
 static __always_inline int
