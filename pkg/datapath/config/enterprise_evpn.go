@@ -41,6 +41,7 @@ func EvpnEnterprise(lnc *datapath.LocalNodeConfiguration, evpnCfg evpnConfig.Con
 
 	cfg.PrivnetEnable = privnetCfg.Enabled
 	cfg.PrivnetBridgeEnable = privnetCfg.EnabledAsBridge()
+	cfg.PrivnetLocalAccessEnable = privnetCfg.EnabledAsLocalAccess()
 	cfg.PrivnetUnknownSecID = uint32(identity.ReservedPrivnetUnknownFlow)
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded

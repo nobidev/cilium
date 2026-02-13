@@ -21,10 +21,12 @@ type BPFEvpnEnterprise struct {
 	PrivnetBridgeEnable bool `config:"privnet_bridge_enable"`
 	// True if the endpoint is in a non-default network.
 	PrivnetEnable bool `config:"privnet_enable"`
+	// True if running in local access mode.
+	PrivnetLocalAccessEnable bool `config:"privnet_local_access_enable"`
 	// The security identifier for unknown network traffic.
 	PrivnetUnknownSecID uint32 `config:"privnet_unknown_sec_id"`
 }
 
 func NewBPFEvpnEnterprise() *BPFEvpnEnterprise {
-	return &BPFEvpnEnterprise{false, false, false, false, false, false, 0x0}
+	return &BPFEvpnEnterprise{false, false, false, false, false, false, false, 0x0}
 }

@@ -71,6 +71,7 @@ func (l *EnterpriseLoader) registerEndpointConfig(pd *privnetDHCPDevice) {
 			if ok {
 				cfg.PrivnetEnable = true
 				cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()
+				cfg.PrivnetLocalAccessEnable = l.privnetConfig.EnabledAsLocalAccess()
 
 				cfg.CiliumDhcpIfIndex = uint32(pd.getIfindex())
 			}
@@ -86,6 +87,7 @@ func (l *EnterpriseLoader) registerOverlayConfig() {
 
 		cfg.PrivnetEnable = l.privnetConfig.Enabled
 		cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()
+		cfg.PrivnetLocalAccessEnable = l.privnetConfig.EnabledAsLocalAccess()
 		cfg.PrivnetUnknownSecID = uint32(identity.ReservedPrivnetUnknownFlow)
 
 		cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
@@ -102,6 +104,7 @@ func (l *EnterpriseLoader) registerNetdevConfig() {
 
 		cfg.PrivnetEnable = l.privnetConfig.Enabled
 		cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()
+		cfg.PrivnetLocalAccessEnable = l.privnetConfig.EnabledAsLocalAccess()
 		cfg.PrivnetUnknownSecID = uint32(identity.ReservedPrivnetUnknownFlow)
 
 		return cfg
@@ -114,6 +117,7 @@ func (l *EnterpriseLoader) registerWireguardConfig() {
 
 		cfg.PrivnetEnable = l.privnetConfig.Enabled
 		cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()
+		cfg.PrivnetLocalAccessEnable = l.privnetConfig.EnabledAsLocalAccess()
 		cfg.PrivnetUnknownSecID = uint32(identity.ReservedPrivnetUnknownFlow)
 
 		return cfg
