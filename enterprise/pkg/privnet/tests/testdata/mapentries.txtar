@@ -103,6 +103,7 @@ spec:
     cidrv6: fd10:0:250::0/64
   - name: blue2
     cidrv4: 192.168.24.24/32
+    cidrv6: fd10:0:224::24/128
 
 -- icpn-blue.v2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -123,6 +124,7 @@ spec:
     cidrv6: fd10:0:250::0/64
   - name: blue2
     cidrv4: 192.168.24.24/32
+    cidrv6: fd10:0:224::24/128
 
 -- icpn-blue.v4.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -141,6 +143,7 @@ spec:
     cidrv6: fd10:0:250::0/64
   - name: blue2
     cidrv4: 192.168.24.24/32
+    cidrv6: fd10:0:224::24/128
 
 -- icpn-green.v1.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -274,7 +277,7 @@ endpoints:
   interface:
     addressing:
       ipv4: 192.168.24.24
-      ipv6: fd10:0:250::24
+      ipv6: fd10:0:224::24
     mac: 00:50:56:ad:11:97
     network: blue-network
 - activatedAt: "2025-06-20T16:25:00.000000Z"
@@ -399,6 +402,7 @@ nodeName: crayfish
 Type   Network        CIDR               Nexthop
 D      blue-network   192.168.24.24/32   172.128.0.6
 D      blue-network   192.168.250.0/24   172.128.0.6
+D      blue-network   fd10:0:224::24/128 172.128.0.6
 D      blue-network   fd10:0:250::/64    172.128.0.6
 E      blue-network   192.168.250.20/32  10.244.5.108
 E      blue-network   192.168.250.21/32  10.244.5.109
@@ -411,6 +415,7 @@ X      blue-network   192.168.250.201/32 10.245.8.87
 Type   Network        CIDR                  Nexthop
 D      blue-network   192.168.24.24/32      172.128.0.6
 D      blue-network   192.168.250.0/24      172.128.0.6
+D      blue-network   fd10:0:224::24/128    172.128.0.6
 D      blue-network   fd10:0:250::/64       172.128.0.6
 E      blue-network   192.168.250.20/32     10.244.5.108
 E      blue-network   192.168.250.21/32     10.244.5.109
@@ -432,9 +437,9 @@ D      blue-network   fd10:0:250::/64       172.128.0.6
 E      blue-network   192.168.24.24/32      10.244.5.107
 E      blue-network   192.168.250.20/32     10.244.6.150
 E      blue-network   192.168.250.23/32     10.244.5.109
+E      blue-network   fd10:0:224::24/128    fd00:10:244:5::107
 E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
 E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
-E      blue-network   fd10:0:250::24/128    fd00:10:244:5::107
 X      blue-network   192.168.250.200/32    10.245.8.21
 X      blue-network   192.168.250.201/32    10.245.8.87
 D      green-network  10.0.100.0/24         172.128.0.7
@@ -451,9 +456,9 @@ D      blue-network   fd10:0:250::/64       172.128.0.6
 E      blue-network   192.168.24.24/32      10.244.5.107
 E      blue-network   192.168.250.20/32     10.244.6.150
 E      blue-network   192.168.250.23/32     10.244.5.109
+E      blue-network   fd10:0:224::24/128    fd00:10:244:5::107
 E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
 E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
-E      blue-network   fd10:0:250::24/128    fd00:10:244:5::107
 X      blue-network   192.168.250.200/32    10.245.8.21
 X      blue-network   192.168.250.202/32    10.245.8.92
 D      green-network  10.0.100.0/24         172.128.0.7
@@ -468,9 +473,9 @@ D      blue-network   fd10:0:250::/64       172.128.0.6
 E      blue-network   192.168.24.24/32      10.244.5.107
 E      blue-network   192.168.250.20/32     10.244.6.150
 E      blue-network   192.168.250.23/32     10.244.5.109
+E      blue-network   fd10:0:224::24/128    fd00:10:244:5::107
 E      blue-network   fd10:0:250::20/128    fd00:10:244:6::150
 E      blue-network   fd10:0:250::23/128    fd00:10:244:5::109
-E      blue-network   fd10:0:250::24/128    fd00:10:244:5::107
 X      blue-network   192.168.250.200/32    10.245.8.21
 X      blue-network   192.168.250.202/32    10.245.8.92
 
@@ -481,9 +486,9 @@ D      blue-network   fd10:0:250::/64      172.128.0.6
 E      blue-network   192.168.24.24/32     10.244.5.107
 E      blue-network   192.168.250.20/32    10.244.6.150
 E      blue-network   192.168.250.23/32    10.244.5.109
+E      blue-network   fd10:0:224::24/128   fd00:10:244:5::107
 E      blue-network   fd10:0:250::20/128   fd00:10:244:6::150
 E      blue-network   fd10:0:250::23/128   fd00:10:244:5::109
-E      blue-network   fd10:0:250::24/128   fd00:10:244:5::107
 S      blue-network   0.0.0.0/0            172.128.0.6
 S      blue-network   192.168.252.0/24     172.128.0.6
 X      blue-network   192.168.250.200/32   10.245.8.21
@@ -493,6 +498,7 @@ X      blue-network   192.168.250.202/32   10.245.8.92
 Type   Network        CIDR                 Nexthop
 D      blue-network   192.168.24.24/32     172.128.0.6
 D      blue-network   192.168.250.0/23     172.128.0.6
+D      blue-network   fd10:0:224::24/128   172.128.0.6
 D      blue-network   fd10:0:250::/64      172.128.0.6
 S      blue-network   0.0.0.0/0            172.128.0.6
 S      blue-network   192.168.252.0/24     172.128.0.6
@@ -503,6 +509,7 @@ X      blue-network   192.168.250.202/32   10.245.8.92
 Type   Network        CIDR                 Nexthop
 D      blue-network   192.168.24.24/32     172.128.0.7
 D      blue-network   192.168.250.0/23     172.128.0.7
+D      blue-network   fd10:0:224::24/128   172.128.0.7
 D      blue-network   fd10:0:250::/64      172.128.0.7
 S      blue-network   0.0.0.0/0            172.128.0.7
 S      blue-network   192.168.252.0/24     172.128.0.7

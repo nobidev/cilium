@@ -100,7 +100,10 @@ spec:
   subnets:
   - name: blue1
     cidrv4: 192.168.251.0/24
-    cidrv6: fd00:10:244::0/64
+    cidrv6: fd00:10:244:5::0/64
+  - name: blue2
+    cidrv4: 192.168.250.0/24
+    cidrv6: fc00:20:144:4::0/64
 
 -- icpn-2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -117,7 +120,7 @@ spec:
 
 -- privnet.v1.table --
 Name          ID    Interface   INBClusters    Subnets
-blue-network  0x1   eth1        N/A            1
+blue-network  0x1   eth1        N/A            2
 green-network 0x2   eth2        N/A            1
 
 -- privnet.v2.table --
@@ -126,7 +129,8 @@ green-network 0x2   eth2        N/A            1
 
 -- subnets.v1.table --
 Network         Name      CIDRv4            CIDRv6
-blue-network    blue1     192.168.251.0/24  fd00:10:244::/64
+blue-network    blue1     192.168.251.0/24  fd00:10:244:5::/64
+blue-network    blue2     192.168.250.0/24  fc00:20:144:4::/64
 green-network   green1    192.168.99.0/24   -
 
 -- subnets.v2.table --
@@ -264,8 +268,10 @@ nodeName: cricket
 
 -- mapentries.v1.table --
 Type   Network        CIDR                   Nexthop            L2Ann
+D      blue-network   192.168.250.0/24       0.0.0.0            No
 D      blue-network   192.168.251.0/24       0.0.0.0            No
-D      blue-network   fd00:10:244::/64       ::                 No
+D      blue-network   fc00:20:144:4::/64     ::                 No
+D      blue-network   fd00:10:244:5::/64     ::                 No
 E      blue-network   192.168.250.4/32       10.244.5.108       No
 E      blue-network   192.168.251.24/32      10.245.5.77        Yes
 E      blue-network   fc00:20:144:4::1/128   fd10:0:250::23     No
@@ -276,8 +282,10 @@ E      green-network  192.168.99.51/32       10.224.1.51        No
 
 -- mapentries.v2.table --
 Type   Network        CIDR                   Nexthop            L2Ann
+D      blue-network   192.168.250.0/24       0.0.0.0            No
 D      blue-network   192.168.251.0/24       0.0.0.0            No
-D      blue-network   fd00:10:244::/64       ::                 No
+D      blue-network   fc00:20:144:4::/64     ::                 No
+D      blue-network   fd00:10:244:5::/64     ::                 No
 E      blue-network   192.168.250.4/32       10.244.5.108       No
 E      blue-network   192.168.251.24/32      10.245.5.77        Yes
 E      blue-network   192.168.251.25/32      10.245.5.78        Yes
