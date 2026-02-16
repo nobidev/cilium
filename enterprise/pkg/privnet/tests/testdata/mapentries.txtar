@@ -96,7 +96,6 @@ metadata:
 spec:
   networkBridges:
   - cluster: felidae
-  routes: []
   subnets:
   - name: blue1
     cidrv4: 192.168.250.0/24
@@ -113,18 +112,23 @@ metadata:
 spec:
   networkBridges:
   - cluster: felidae
-  routes:
-  - destination: 192.168.252.0/24
-    gateway: 192.168.250.2
-  - destination: 0.0.0.0/0
-    gateway: 192.168.250.1
   subnets:
   - name: blue1
     cidrv4: 192.168.250.0/23
     cidrv6: fd10:0:250::0/64
+    routes:
+    - destination: 192.168.252.0/24
+      gateway: 192.168.250.2
+    - destination: 0.0.0.0/0
+      gateway: 192.168.250.1
   - name: blue2
     cidrv4: 192.168.24.24/32
     cidrv6: fd10:0:224::24/128
+    routes:
+    - destination: 192.168.252.0/24
+      gateway: 192.168.250.2
+    - destination: 0.0.0.0/0
+      gateway: 192.168.250.1
 
 -- icpn-blue.v4.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -132,18 +136,23 @@ kind: ClusterwidePrivateNetwork
 metadata:
   name: blue-network
 spec:
-  routes:
-  - destination: 192.168.252.0/24
-    gateway: 192.168.250.2
-  - destination: 0.0.0.0/0
-    gateway: 192.168.250.1
   subnets:
   - name: blue1
     cidrv4: 192.168.250.0/23
     cidrv6: fd10:0:250::0/64
+    routes:
+    - destination: 192.168.252.0/24
+      gateway: 192.168.250.2
+    - destination: 0.0.0.0/0
+      gateway: 192.168.250.1
   - name: blue2
     cidrv4: 192.168.24.24/32
     cidrv6: fd10:0:224::24/128
+    routes:
+    - destination: 192.168.252.0/24
+      gateway: 192.168.250.2
+    - destination: 0.0.0.0/0
+      gateway: 192.168.250.1
 
 -- icpn-green.v1.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -153,7 +162,6 @@ metadata:
 spec:
   networkBridges:
   - cluster: camelidae
-  routes: []
   subnets:
   - name: green1
     cidrv4: 10.0.100.0/24

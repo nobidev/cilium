@@ -22,21 +22,21 @@ kind: ClusterwidePrivateNetwork
 metadata:
   name: icpn-evpn
 spec:
-  routes:
-  - destination: 0.0.0.0/0
-    gateway: EVPN
-  - destination: ::/0
-    gateway: EVPN
   subnets:
   - name: subnet1
     cidrv4: 192.168.250.0/24
     cidrv6: fd10:0:250::0/64
+    routes:
+    - destination: 0.0.0.0/0
+      gateway: EVPN
+    - destination: ::/0
+      gateway: EVPN
 status:
   vni: 100
 
 -- privnet.table --
-Name        ID    VNI  Subnets  Routes
-icpn-evpn   0x1   100  1        2
+Name        ID    VNI  Subnets
+icpn-evpn   0x1   100  1
 
 -- routes.table --
 Network     Destination        Gateway

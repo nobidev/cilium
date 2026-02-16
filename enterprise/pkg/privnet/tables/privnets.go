@@ -72,9 +72,6 @@ type PrivateNetwork struct {
 	// network. Applies to the Isovalent Network Bridge cluster only.
 	Interface PrivateNetworkInterface
 
-	// The set of routes configured for this private network.
-	Routes []PrivateNetworkRoute
-
 	// The set of subnets (that is, L2 domains) associated with, and directly
 	// reachable, from this private network.
 	Subnets []PrivateNetworkSubnet
@@ -149,6 +146,8 @@ type PrivateNetworkSubnet struct {
 	CIDRv4 netip.Prefix
 	// CIDRv6 defines the IPv6 subnet
 	CIDRv6 netip.Prefix
+	// The set of routes configured for this subnet.
+	Routes []PrivateNetworkRoute
 }
 
 func (sub PrivateNetworkSubnet) CIDRs() iter.Seq[netip.Prefix] {
@@ -169,7 +168,7 @@ func (sub PrivateNetworkSubnet) CIDRs() iter.Seq[netip.Prefix] {
 var _ statedb.TableWritable = PrivateNetwork{}
 
 func (pn PrivateNetwork) TableHeader() []string {
-	return []string{"Name", "ID", "VNI", "Interface", "INBClusters", "Subnets", "Routes"}
+	return []string{"Name", "ID", "VNI", "Interface", "INBClusters", "Subnets"}
 }
 
 func (pn PrivateNetwork) TableRow() []string {
@@ -183,7 +182,6 @@ func (pn PrivateNetwork) TableRow() []string {
 				func(cn ClusterName) string { return string(cn) },
 			)), ","), "N/A"),
 		strconv.FormatInt(int64(len(pn.Subnets)), 10),
-		strconv.FormatInt(int64(len(pn.Routes)), 10),
 	}
 }
 

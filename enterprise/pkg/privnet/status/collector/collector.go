@@ -68,12 +68,6 @@ func (sc *statusCollector) collectNodeStatus() status.NodeStatus {
 		}
 		pns := status.NetworkStatus{
 			Name: pn.Name,
-			Routes: cslices.Map(pn.Routes, func(r tables.PrivateNetworkRoute) status.Route {
-				return status.Route{
-					Destination: r.Destination,
-					Gateway:     r.Gateway,
-				}
-			}),
 			Subnets: cslices.Map(pn.Subnets, func(s tables.PrivateNetworkSubnet) status.Subnet {
 				return status.Subnet{
 					Name:   s.Name,
@@ -82,6 +76,15 @@ func (sc *statusCollector) collectNodeStatus() status.NodeStatus {
 				}
 			}),
 			Errors: errs,
+		}
+
+		for _, subnet := range pn.Subnets {
+			for _, route := range subnet.Routes {
+				pns.Routes = append(pns.Routes, status.Route{
+					Destination: route.Destination,
+					Gateway:     route.Gateway,
+				})
+			}
 		}
 
 		var ok bool

@@ -298,7 +298,6 @@ func (t *TestRun) renderClusterNetworkTopology(network NetworkName, ndata Networ
 	data := networkTemplateData{
 		Network:  network,
 		Prefixes: ndata.Prefixes,
-		Routes:   ndata.Routes,
 	}
 
 	for _, inb := range ndata.INBs {
@@ -365,7 +364,6 @@ func (t *TestRun) applyINBNetworkTopology(ctx context.Context, network NetworkNa
 			Network:      network,
 			Prefixes:     ndata.Prefixes,
 			INBInterface: inb.Interface,
-			Routes:       ndata.Routes,
 		}
 
 		networkYAML, err := renderTemplate(privateNetworkTemplate, data)

@@ -5678,23 +5678,6 @@ func (in *PrivateNetworkSpec) DeepEqual(other *PrivateNetworkSpec) bool {
 		return false
 	}
 
-	if ((in.Routes != nil) && (other.Routes != nil)) || ((in.Routes == nil) != (other.Routes == nil)) {
-		in, other := &in.Routes, &other.Routes
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
-		}
-	}
-
 	if ((in.Subnets != nil) && (other.Subnets != nil)) || ((in.Subnets == nil) != (other.Subnets == nil)) {
 		in, other := &in.Subnets, &other.Subnets
 		if other == nil {
@@ -5779,6 +5762,22 @@ func (in *SubnetSpec) DeepEqual(other *SubnetSpec) bool {
 	}
 	if in.CIDRv6 != other.CIDRv6 {
 		return false
+	}
+	if ((in.Routes != nil) && (other.Routes != nil)) || ((in.Routes == nil) != (other.Routes == nil)) {
+		in, other := &in.Routes, &other.Routes
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
 	}
 
 	return true

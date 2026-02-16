@@ -114,7 +114,6 @@ metadata:
 spec:
   interface:
     name: ""
-  routes: []
   subnets:
   - name: foo
     cidrv4: 192.168.250.0/24
@@ -127,7 +126,6 @@ metadata:
 spec:
   interface:
     name: eth2
-  routes: []
   subnets:
   - name: bar
     cidrv4: 192.168.251.0/24
@@ -140,7 +138,6 @@ metadata:
 spec:
   interface:
     name: eth2
-  routes: []
   subnets:
   - name: foo
     cidrv4: 192.168.252.0/24
@@ -166,11 +163,11 @@ interface:
     index: 0
     error: ""
     conflict: false
-routes: []
 subnets:
     - name: foo
       cidrv4: 192.168.250.0/24
       cidrv6: ""
+      routes: []
 ---
 name: united-firefly
 id: 2
@@ -182,11 +179,11 @@ interface:
     index: 0
     error: Interface "eth2" has "lower-layer-down" operational status
     conflict: false
-routes: []
 subnets:
     - name: bar
       cidrv4: 192.168.251.0/24
       cidrv6: ""
+      routes: []
 -- privnet.expected.v2.yaml --
 name: direct-maggot
 id: 1
@@ -198,11 +195,11 @@ interface:
     index: 10
     error: ""
     conflict: false
-routes: []
 subnets:
     - name: foo
       cidrv4: 192.168.250.0/24
       cidrv6: ""
+      routes: []
 ---
 name: united-firefly
 id: 2
@@ -214,11 +211,11 @@ interface:
     index: 0
     error: Interface "eth2" has "lower-layer-down" operational status
     conflict: false
-routes: []
 subnets:
     - name: bar
       cidrv4: 192.168.251.0/24
       cidrv6: ""
+      routes: []
 -- privnet.expected.v3.yaml --
 name: direct-maggot
 id: 1
@@ -230,11 +227,11 @@ interface:
     index: 10
     error: ""
     conflict: false
-routes: []
 subnets:
     - name: foo
       cidrv4: 192.168.250.0/24
       cidrv6: ""
+      routes: []
 ---
 name: united-firefly
 id: 2
@@ -246,11 +243,11 @@ interface:
     index: 0
     error: 'Interface "eth2" not selected by Cilium: not matching user filter'
     conflict: false
-routes: []
 subnets:
     - name: bar
       cidrv4: 192.168.251.0/24
       cidrv6: ""
+      routes: []
 -- privnet.expected.v4.yaml --
 name: direct-maggot
 id: 1
@@ -262,11 +259,11 @@ interface:
     index: 10
     error: ""
     conflict: false
-routes: []
 subnets:
     - name: foo
       cidrv4: 192.168.250.0/24
       cidrv6: ""
+      routes: []
 ---
 name: united-firefly
 id: 2
@@ -278,11 +275,11 @@ interface:
     index: 11
     error: ""
     conflict: false
-routes: []
 subnets:
     - name: bar
       cidrv4: 192.168.251.0/24
       cidrv6: ""
+      routes: []
 -- privnet.expected.v5.yaml --
 name: direct-maggot
 id: 1
@@ -294,11 +291,11 @@ interface:
     index: 0
     error: Interface "eth1" not found
     conflict: false
-routes: []
 subnets:
     - name: foo
       cidrv4: 192.168.250.0/24
       cidrv6: ""
+      routes: []
 ---
 name: united-firefly
 id: 2
@@ -310,11 +307,11 @@ interface:
     index: 11
     error: ""
     conflict: false
-routes: []
 subnets:
     - name: bar
       cidrv4: 192.168.251.0/24
       cidrv6: ""
+      routes: []
 -- privnet.expected.v6.yaml --
 name: direct-maggot
 id: 1
@@ -326,11 +323,11 @@ interface:
     index: 10
     error: ""
     conflict: false
-routes: []
 subnets:
     - name: foo
       cidrv4: 192.168.250.0/24
       cidrv6: ""
+      routes: []
 ---
 name: outgoing-peacock
 id: 3
@@ -342,11 +339,11 @@ interface:
     index: 0
     error: Interface "eth2" is selected by multiple private networks
     conflict: true
-routes: []
 subnets:
     - name: foo
       cidrv4: 192.168.252.0/24
       cidrv6: ""
+      routes: []
 ---
 name: united-firefly
 id: 2
@@ -358,11 +355,11 @@ interface:
     index: 0
     error: Interface "eth2" is selected by multiple private networks
     conflict: true
-routes: []
 subnets:
     - name: bar
       cidrv4: 192.168.251.0/24
       cidrv6: ""
+      routes: []
 -- privnet.expected.v7.yaml --
 name: direct-maggot
 id: 1
@@ -374,11 +371,11 @@ interface:
     index: 10
     error: ""
     conflict: false
-routes: []
 subnets:
     - name: foo
       cidrv4: 192.168.250.0/24
       cidrv6: ""
+      routes: []
 ---
 name: outgoing-peacock
 id: 3
@@ -390,11 +387,11 @@ interface:
     index: 0
     error: Interface "eth3" not found
     conflict: false
-routes: []
 subnets:
     - name: foo
       cidrv4: 192.168.252.0/24
       cidrv6: ""
+      routes: []
 ---
 name: united-firefly
 id: 2
@@ -406,11 +403,11 @@ interface:
     index: 11
     error: ""
     conflict: false
-routes: []
 subnets:
     - name: bar
       cidrv4: 192.168.251.0/24
       cidrv6: ""
+      routes: []
 -- privnet.expected.v8.yaml --
 name: direct-maggot
 id: 1
@@ -422,11 +419,11 @@ interface:
     index: 10
     error: ""
     conflict: false
-routes: []
 subnets:
     - name: foo
       cidrv4: 192.168.250.0/24
       cidrv6: ""
+      routes: []
 ---
 name: united-firefly
 id: 2
@@ -438,11 +435,11 @@ interface:
     index: 11
     error: ""
     conflict: false
-routes: []
 subnets:
     - name: bar
       cidrv4: 192.168.251.0/24
       cidrv6: ""
+      routes: []
 -- subnets.expected.yaml --
 network: direct-maggot
 networkid: 1

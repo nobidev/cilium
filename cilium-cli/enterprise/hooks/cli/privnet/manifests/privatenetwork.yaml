@@ -14,6 +14,15 @@ spec:
     - name: subnet-{{ $index }}
       cidrv4: {{ $subnet.CIDRv4 }}
       cidrv6: {{ $subnet.CIDRv6 }}
+      {{- if $subnet.Routes }}
+      routes:
+        {{- range $subnet.Routes }}
+        - destination: {{ .Destination }}
+          gateway: {{ .Gateway }}
+        {{- end }}
+      {{- else }}
+      routes: []
+      {{- end }}
     {{- end }}
   {{- if .INBClusterNames }}
   networkBridges:
@@ -22,13 +31,4 @@ spec:
     {{- end }}
   {{- else }}
   networkBridges: []
-  {{- end }}
-  {{- if .Routes }}
-  routes:
-    {{- range .Routes }}
-    - destination: {{ .Destination }}
-      gateway: {{ .Gateway }}
-    {{- end }}
-  {{- else }}
-  routes: []
   {{- end }}

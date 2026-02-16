@@ -209,7 +209,7 @@ func (r *Subnets) extractSubnets(privNet tables.PrivateNetwork) map[tables.Subne
 				EgressIfIndex: privNet.Interface.Index,
 				EgressIfName:  privNet.Interface.Name,
 			},
-			Routes: privNet.Routes, // Just duplicate all of them for now to keep the existing API
+			Routes: subnet.Routes,
 		}
 		if hasConflicts(entry) {
 			continue

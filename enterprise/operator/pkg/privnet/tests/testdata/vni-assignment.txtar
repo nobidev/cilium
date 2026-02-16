@@ -194,10 +194,10 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
-  routes: null
   subnets:
   - cidrv4: 10.0.0.0/24
     name: subnet0
+    routes: null
   vni: 100
 status:
   conditions:
@@ -215,10 +215,10 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
-  routes: null
   subnets:
   - cidrv4: 10.0.0.0/24
     name: subnet0
+    routes: null
   vni: 200
 status:
   conditions:
@@ -236,10 +236,10 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
-  routes: null
   subnets:
   - cidrv4: 10.0.0.0/24
     name: subnet0
+    routes: null
   vni: 100
 status:
   conditions:
@@ -257,10 +257,10 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
-  routes: null
   subnets:
   - cidrv4: 10.0.0.0/24
     name: subnet0
+    routes: null
   vni: 200
 status:
   conditions:
@@ -278,10 +278,10 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
-  routes: null
   subnets:
   - cidrv4: 10.0.0.0/24
     name: subnet0
+    routes: null
   vni: 200
 status:
   conditions:
@@ -298,10 +298,10 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
-  routes: null
   subnets:
   - cidrv4: 10.0.0.0/24
     name: subnet0
+    routes: null
   vni: 200
 status:
   conditions:
@@ -318,10 +318,10 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
-  routes: null
   subnets:
   - cidrv4: 10.0.0.0/24
     name: subnet0
+    routes: null
 -- test1-no-request.expected.yaml --
 apiVersion: isovalent.com/v1alpha1
 kind: ClusterwidePrivateNetwork
@@ -330,8 +330,8 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
-  routes: null
   subnets:
   - cidrv4: 10.0.0.0/24
     name: subnet0
+    routes: null
 status: {}

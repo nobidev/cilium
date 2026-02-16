@@ -146,29 +146,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - cluster
                 x-kubernetes-list-type: map
-              routes:
-                description: The set of routes configured for this private network.
-                items:
-                  description: PrivateNetworkRouteSpec defines a route in the private
-                    network.
-                  properties:
-                    destination:
-                      description: The destination network.
-                      format: cidr
-                      type: string
-                    gateway:
-                      description: Gateway is the route's nexthop.
-                      maxLength: 45
-                      type: string
-                      x-kubernetes-validations:
-                      - message: must be a valid IP or 'EVPN'
-                        rule: self == 'EVPN' || isIP(self)
-                  required:
-                  - destination
-                  - gateway
-                  type: object
-                maxItems: 1000
-                type: array
               subnets:
                 description: |-
                   The set of subnets (that is, L2 domains) associated with, and directly
@@ -201,6 +178,29 @@ spec:
                       minLength: 1
                       pattern: ^([a-z0-9][-a-z0-9]*)?[a-z0-9]$
                       type: string
+                    routes:
+                      description: The set of routes configured for this subnet.
+                      items:
+                        description: PrivateNetworkRouteSpec defines a route in the
+                          private network.
+                        properties:
+                          destination:
+                            description: The destination network.
+                            format: cidr
+                            type: string
+                          gateway:
+                            description: Gateway is the route's nexthop.
+                            maxLength: 45
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid IP or 'EVPN'
+                              rule: self == 'EVPN' || isIP(self)
+                        required:
+                        - destination
+                        - gateway
+                        type: object
+                      maxItems: 64
+                      type: array
                   required:
                   - name
                   type: object

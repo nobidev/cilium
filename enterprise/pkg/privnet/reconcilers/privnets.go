@@ -185,7 +185,6 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *idpool.NetworkIDPool, sy
 
 			vni := pn.extractVNI(privnet)
 			inbs := pn.extractINBs(privnet)
-			routes := pn.extractRoutes(privnet)
 			subnets := pn.extractSubnets(privnet)
 
 			return tables.PrivateNetwork{
@@ -194,7 +193,6 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *idpool.NetworkIDPool, sy
 				ID:        id,
 				INBs:      inbs,
 				Interface: iface,
-				Routes:    routes,
 				Subnets:   subnets,
 			}, true
 		},
@@ -227,15 +225,16 @@ func (pn *PrivateNetworks) extractINBs(privnet *iso_v1alpha1.ClusterwidePrivateN
 	return tables.PrivateNetworkINBs{Selectors: selectors}
 }
 
-func (pn *PrivateNetworks) extractRoutes(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) []tables.PrivateNetworkRoute {
-	routes := make([]tables.PrivateNetworkRoute, 0, len(privnet.Spec.Routes))
-	for _, routeSpec := range privnet.Spec.Routes {
+func (pn *PrivateNetworks) extractRoutes(privnet tables.NetworkName, subnet iso_v1alpha1.SubnetSpec) []tables.PrivateNetworkRoute {
+	routes := make([]tables.PrivateNetworkRoute, 0, len(subnet.Routes))
+	for _, routeSpec := range subnet.Routes {
 		dst, err := netip.ParsePrefix(string(routeSpec.Destination))
 		if err != nil {
 			pn.log.Error("Encountered invalid route destination in private network spec",
 				logfields.CIDR, routeSpec.Destination,
 				logfields.Error, err,
-				logfields.ClusterwidePrivateNetwork, privnet.Name,
+				logfields.ClusterwidePrivateNetwork, privnet,
+				logfields.PrivateNetworkSubnet, subnet.Name,
 			)
 			continue
 		}
@@ -253,7 +252,8 @@ func (pn *PrivateNetworks) extractRoutes(privnet *iso_v1alpha1.ClusterwidePrivat
 			pn.log.Error("Encountered invalid route gateway in private network spec",
 				logfields.IPAddr, routeSpec.Gateway,
 				logfields.Error, err,
-				logfields.ClusterwidePrivateNetwork, privnet.Name,
+				logfields.ClusterwidePrivateNetwork, privnet,
+				logfields.PrivateNetworkSubnet, subnet.Name,
 			)
 			continue
 		}
@@ -300,6 +300,8 @@ func (pn *PrivateNetworks) extractSubnets(privnet *iso_v1alpha1.ClusterwidePriva
 				subnet.CIDRv6 = cidrv6
 			}
 		}
+
+		subnet.Routes = pn.extractRoutes(tables.NetworkName(privnet.Name), subnetPrefix)
 
 		if subnet.CIDRv4.IsValid() || subnet.CIDRv6.IsValid() {
 			subnets = append(subnets, subnet)

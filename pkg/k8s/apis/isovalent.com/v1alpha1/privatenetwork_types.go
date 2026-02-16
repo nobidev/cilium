@@ -75,12 +75,6 @@ type PrivateNetworkSpec struct {
 	// +kubebuilder:validation:Optional
 	Interface InterfaceSpec `json:"interface"`
 
-	// The set of routes configured for this private network.
-	//
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:MaxItems=1000
-	Routes []PrivateNetworkRouteSpec `json:"routes"`
-
 	// The set of subnets (that is, L2 domains) associated with, and directly
 	// reachable, from this private network.
 	//
@@ -104,6 +98,12 @@ type SubnetSpec struct {
 
 	// The IPv6 CIDR associated with the private network.
 	CIDRv6 NetworkCIDRv6 `json:"cidrv6,omitempty"`
+
+	// The set of routes configured for this subnet.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxItems=64
+	Routes []PrivateNetworkRouteSpec `json:"routes"`
 }
 
 // NetworkCIDRv4 is an IPv4 network CIDR.

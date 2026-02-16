@@ -95,13 +95,13 @@ type Route struct {
 type Subnet struct {
 	CIDRv4 string
 	CIDRv6 string
+	Routes []Route
 }
 
 type NetworkData struct {
 	Prefixes []Subnet
 	INBs     []INBInfo
 	VMs      []VM
-	Routes   []Route
 }
 
 var networkTopology = map[NetworkName]NetworkData{
@@ -110,6 +110,24 @@ var networkTopology = map[NetworkName]NetworkData{
 			{
 				CIDRv4: "192.168.250.0/24",
 				CIDRv6: "fd10:0:250::0/64",
+				Routes: []Route{
+					{
+						Destination: netip.MustParsePrefix("192.168.252.0/24"),
+						Gateway:     netip.MustParseAddr("192.168.250.254"),
+					},
+					{
+						Destination: netip.MustParsePrefix("fd10:0:252::/64"),
+						Gateway:     netip.MustParseAddr("fd10:0:250::fffe"),
+					},
+					{
+						Destination: netip.MustParsePrefix("192.168.255.0/24"),
+						Gateway:     netip.MustParseAddr("192.168.250.200"),
+					},
+					{
+						Destination: netip.MustParsePrefix("fd10:0:255::/64"),
+						Gateway:     netip.MustParseAddr("fd10:0:250::200"),
+					},
+				},
 			},
 		},
 		INBs: []INBInfo{
@@ -158,24 +176,6 @@ var networkTopology = map[NetworkName]NetworkData{
 				NetMAC:         "be:68:f6:fc:6a:4a",
 				Affinity:       OtherNode,
 				Kind:           VMKindEcho,
-			},
-		},
-		Routes: []Route{
-			{
-				Destination: netip.MustParsePrefix("192.168.252.0/24"),
-				Gateway:     netip.MustParseAddr("192.168.250.254"),
-			},
-			{
-				Destination: netip.MustParsePrefix("fd10:0:252::/64"),
-				Gateway:     netip.MustParseAddr("fd10:0:250::fffe"),
-			},
-			{
-				Destination: netip.MustParsePrefix("192.168.255.0/24"),
-				Gateway:     netip.MustParseAddr("192.168.250.200"),
-			},
-			{
-				Destination: netip.MustParsePrefix("fd10:0:255::/64"),
-				Gateway:     netip.MustParseAddr("fd10:0:250::200"),
 			},
 		},
 	},
@@ -227,6 +227,16 @@ var networkTopology = map[NetworkName]NetworkData{
 			{
 				CIDRv4: "192.168.252.0/24",
 				CIDRv6: "fd10:0:252::/64",
+				Routes: []Route{
+					{
+						Destination: netip.MustParsePrefix("0.0.0.0/0"),
+						Gateway:     netip.MustParseAddr("192.168.252.254"),
+					},
+					{
+						Destination: netip.MustParsePrefix("::/0"),
+						Gateway:     netip.MustParseAddr("fd10:0:252::fffe"),
+					},
+				},
 			},
 		},
 		INBs: []INBInfo{
@@ -260,22 +270,22 @@ var networkTopology = map[NetworkName]NetworkData{
 				Kind:           VMKindEcho,
 			},
 		},
-		Routes: []Route{
-			{
-				Destination: netip.MustParsePrefix("0.0.0.0/0"),
-				Gateway:     netip.MustParseAddr("192.168.252.254"),
-			},
-			{
-				Destination: netip.MustParsePrefix("::/0"),
-				Gateway:     netip.MustParseAddr("fd10:0:252::fffe"),
-			},
-		},
 	},
 	NetworkD: {
 		Prefixes: []Subnet{
 			{
 				CIDRv4: "192.168.252.0/24",
 				CIDRv6: "fd10:0:252::/64",
+				Routes: []Route{
+					{
+						Destination: netip.MustParsePrefix("0.0.0.0/0"),
+						Gateway:     netip.MustParseAddr("192.168.252.254"),
+					},
+					{
+						Destination: netip.MustParsePrefix("::/0"),
+						Gateway:     netip.MustParseAddr("fd10:0:252::fffe"),
+					},
+				},
 			},
 		},
 		INBs: []INBInfo{
@@ -295,16 +305,6 @@ var networkTopology = map[NetworkName]NetworkData{
 				NetMAC:         "d2:32:c6:44:58:86",
 				Affinity:       SameNode,
 				Kind:           VMKindClient,
-			},
-		},
-		Routes: []Route{
-			{
-				Destination: netip.MustParsePrefix("0.0.0.0/0"),
-				Gateway:     netip.MustParseAddr("192.168.252.254"),
-			},
-			{
-				Destination: netip.MustParsePrefix("::/0"),
-				Gateway:     netip.MustParseAddr("fd10:0:252::fffe"),
 			},
 		},
 	},
