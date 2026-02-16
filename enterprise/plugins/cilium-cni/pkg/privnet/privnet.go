@@ -11,6 +11,7 @@
 package privnet
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/netip"
@@ -35,6 +36,7 @@ type addHooks struct {
 	// Set in OnConfigReady
 	ceeClient      *client.EnterpriseClient
 	privNetEnabled bool
+	cniCfg         CNIConfig
 	cniArgs        *types.ArgsSpec
 	daemonConf     *models.DaemonConfigurationStatus
 
@@ -49,7 +51,7 @@ func NewAddHooks() *addHooks {
 	return &addHooks{}
 }
 
-func (h *addHooks) OnConfigReady(_ *skel.CmdArgs, cniArgs *types.ArgsSpec, conf *models.DaemonConfigurationStatus) error {
+func (h *addHooks) OnConfigReady(args *skel.CmdArgs, cniArgs *types.ArgsSpec, conf *models.DaemonConfigurationStatus) error {
 	ceeClient, err := client.NewDefaultClient()
 	if err != nil {
 		return fmt.Errorf("unable to create enterprise API client: %w", err)
@@ -60,13 +62,33 @@ func (h *addHooks) OnConfigReady(_ *skel.CmdArgs, cniArgs *types.ArgsSpec, conf 
 		return fmt.Errorf("unable to get enterprise configuration: %w", err)
 	}
 
+	cniCfg, err := h.parseCNIConfig(args.StdinData)
+	if err != nil {
+		return fmt.Errorf("unable to parse private networks CNI configuration: %w", err)
+	}
+
+	var enabled = config.PrivateNetworks != nil && config.PrivateNetworks.Enabled
+	if err := cniCfg.Validate(enabled); err != nil {
+		return fmt.Errorf("invalid private networks CNI configuration: %w", err)
+	}
+
 	// Store for later callbacks
 	h.ceeClient = ceeClient
-	h.privNetEnabled = config.PrivateNetworks != nil && config.PrivateNetworks.Enabled
+	h.privNetEnabled = enabled
+	h.cniCfg = cniCfg
 	h.cniArgs = cniArgs
 	h.daemonConf = conf
 
 	return nil
+}
+
+func (h *addHooks) parseCNIConfig(data []byte) (CNIConfig, error) {
+	var out struct {
+		Conf CNIConfig `json:"private-networks"`
+	}
+
+	err := json.Unmarshal(data, &out)
+	return out.Conf, err
 }
 
 func (h *addHooks) OnIPAMReady(ipam *models.IPAMResponse) error {
@@ -206,4 +228,24 @@ func (h *addHooks) OnInterfaceConfigReady(state *cmd.CmdState, ep *models.Endpoi
 	}
 
 	return nil
+}
+
+type CNIConfig struct {
+	Network string `json:"network"`
+	Subnet  string `json:"subnet"`
+}
+
+func (c CNIConfig) Validate(enabled bool) error {
+	switch {
+	case c.Network == "" && c.Subnet == "":
+		return nil
+	case c.Network == "":
+		return fmt.Errorf("missing network")
+	case c.Subnet == "":
+		return fmt.Errorf("missing subnet")
+	case !enabled:
+		return fmt.Errorf("private networks is not enabled")
+	default:
+		return nil
+	}
 }
