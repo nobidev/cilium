@@ -156,7 +156,7 @@ jobs:
 
       - name: Build and push ${{ matrix.component }} image
         if: ${{ steps.version.outputs.rebuild == 'true' }}
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: ${{ matrix.docker-context }}
           file: ${{ matrix.dockerfile }}
@@ -385,7 +385,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.7
+          go-version: 1.26.0
 
       - name: Getting image tag
         id: tag
@@ -448,7 +448,7 @@ jobs:
         working-directory: ./enterprise/olm
         env:
           # renovate: datasource=github-releases depName=mikefarah/yq
-          yq_version: 4.52.2
+          yq_version: 4.52.4
           # renovate: datasource=github-releases depName=operator-framework/operator-registry
           opm_version: 1.63.0
           VERSION: "${{ steps.tag.outputs.tag }}"

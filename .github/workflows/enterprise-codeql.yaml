@@ -30,14 +30,14 @@ jobs:
 
       - name: Initialize CodeQL=======
         if: matrix.config.language == 'go'
-        uses: github/codeql-action/init@45cbd0c69e560cd9e7cd7f8c32362050c9b7ded2 # v4
+        uses: github/codeql-action/init@9e907b5e64f6b83e7804b09294d44122997950d6 # v4
         with:
           languages: ${{ matrix.config.language }}
           build-mode: manual
 
       - name: Initialize CodeQL
         if: matrix.config.language != 'go'
-        uses: github/codeql-action/init@45cbd0c69e560cd9e7cd7f8c32362050c9b7ded2 # v4
+        uses: github/codeql-action/init@9e907b5e64f6b83e7804b09294d44122997950d6 # v4
         with:
           languages: ${{ matrix.config.language }}
 
@@ -63,9 +63,9 @@ jobs:
 
       - name: Autobuild
         if: matrix.config.language != 'go'
-        uses: github/codeql-action/autobuild@45cbd0c69e560cd9e7cd7f8c32362050c9b7ded2 # v4
+        uses: github/codeql-action/autobuild@9e907b5e64f6b83e7804b09294d44122997950d6 # v4
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@45cbd0c69e560cd9e7cd7f8c32362050c9b7ded2 # v4
+        uses: github/codeql-action/analyze@9e907b5e64f6b83e7804b09294d44122997950d6 # v4
         with:
           category: '/language:${{matrix.config.language}}'
