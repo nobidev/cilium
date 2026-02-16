@@ -4,7 +4,6 @@
 package v1
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -93,59 +92,6 @@ type IsovalentNetworkPolicyRule struct {
 
 	// Order specifies the order in which the policy is applied.
 	Order *float32 `json:"order,omitempty"`
-}
-
-// MarshalJSON returns the JSON encoding of r. It is like api.Rule.MarshalJSON (which would be used
-// without this method being defined because api.Rule is embedded) but also marshals the Order field.
-func (r *IsovalentNetworkPolicyRule) MarshalJSON() ([]byte, error) {
-	type common struct {
-		Ingress           []api.IngressRule      `json:"ingress,omitempty"`
-		IngressDeny       []api.IngressDenyRule  `json:"ingressDeny,omitempty"`
-		Egress            []api.EgressRule       `json:"egress,omitempty"`
-		EgressDeny        []api.EgressDenyRule   `json:"egressDeny,omitempty"`
-		Labels            labels.LabelArray      `json:"labels,omitempty"`
-		EnableDefaultDeny *api.DefaultDenyConfig `json:"enableDefaultDeny,omitempty"`
-		Description       string                 `json:"description,omitempty"`
-		Order             *float32               `json:"order,omitempty"`
-	}
-
-	var a any
-	ruleCommon := common{
-		Ingress:     r.Ingress,
-		IngressDeny: r.IngressDeny,
-		Egress:      r.Egress,
-		EgressDeny:  r.EgressDeny,
-		Labels:      r.Labels,
-		Description: r.Description,
-		Order:       r.Order,
-	}
-
-	// TODO: convert this to `omitzero` when Go v1.24 is released
-	if r.EnableDefaultDeny.Egress != nil || r.EnableDefaultDeny.Ingress != nil {
-		ruleCommon.EnableDefaultDeny = &r.EnableDefaultDeny
-	}
-
-	// Only one of endpointSelector or nodeSelector is permitted.
-	switch {
-	case r.EndpointSelector.LabelSelector != nil:
-		a = struct {
-			EndpointSelector api.EndpointSelector `json:"endpointSelector,omitempty"`
-			common
-		}{
-			EndpointSelector: r.EndpointSelector,
-			common:           ruleCommon,
-		}
-	case r.NodeSelector.LabelSelector != nil:
-		a = struct {
-			NodeSelector api.EndpointSelector `json:"nodeSelector,omitempty"`
-			common
-		}{
-			NodeSelector: r.NodeSelector,
-			common:       ruleCommon,
-		}
-	}
-
-	return json.Marshal(a)
 }
 
 func (r *IsovalentNetworkPolicyRule) DeepEqual(o *IsovalentNetworkPolicyRule) bool {

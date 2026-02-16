@@ -4,12 +4,7 @@
 package v1alpha1
 
 import (
-	"fmt"
-	"log/slog"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // +genclient
@@ -72,41 +67,4 @@ type IsovalentClusterwideNetworkPolicyList struct {
 
 	// Items is a list of IsovalentClusterwideNetworkPolicies.
 	Items []IsovalentClusterwideNetworkPolicy `json:"items"`
-}
-
-// Parse parses an IsovalentClusterwideNetworkPolicy and returns a list of cilium
-// policy rules.
-func (r *IsovalentClusterwideNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
-	if r.ObjectMeta.Name == "" {
-		return nil, NewErrParse("IsovalentClusterwideNetworkPolicy must have name")
-	}
-
-	name := r.ObjectMeta.Name
-	uid := r.ObjectMeta.UID
-
-	retRules := api.Rules{}
-
-	if r.Spec == nil && r.Specs == nil {
-		return nil, ErrEmptyICNP
-	}
-
-	if r.Spec != nil {
-		if err := r.Spec.Sanitize(); err != nil {
-			return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentClusterwideNetworkPolicy spec: %s", err))
-		}
-		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, clusterName, "", name, uid)
-		retRules = append(retRules, cr)
-	}
-	if r.Specs != nil {
-		for _, rule := range r.Specs {
-			if err := rule.Sanitize(); err != nil {
-				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentClusterwideNetworkPolicy specs: %s", err))
-
-			}
-			cr := rule.parseToIsovalentNetworkPolicyRule(logger, clusterName, "", name, uid)
-			retRules = append(retRules, cr)
-		}
-	}
-
-	return retRules, nil
 }

@@ -4,20 +4,13 @@
 package v1alpha1
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"log/slog"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/comparator"
-	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -92,59 +85,6 @@ type IsovalentNetworkPolicyRule struct {
 	Order *float32 `json:"order,omitempty"`
 }
 
-// MarshalJSON returns the JSON encoding of r. It is like api.Rule.MarshalJSON (which would be used
-// without this method being defined because api.Rule is embedded) but also marshals the Order field.
-func (r *IsovalentNetworkPolicyRule) MarshalJSON() ([]byte, error) {
-	type common struct {
-		Ingress           []api.IngressRule      `json:"ingress,omitempty"`
-		IngressDeny       []api.IngressDenyRule  `json:"ingressDeny,omitempty"`
-		Egress            []api.EgressRule       `json:"egress,omitempty"`
-		EgressDeny        []api.EgressDenyRule   `json:"egressDeny,omitempty"`
-		Labels            labels.LabelArray      `json:"labels,omitempty"`
-		EnableDefaultDeny *api.DefaultDenyConfig `json:"enableDefaultDeny,omitempty"`
-		Description       string                 `json:"description,omitempty"`
-		Order             *float32               `json:"order,omitempty"`
-	}
-
-	var a any
-	ruleCommon := common{
-		Ingress:     r.Ingress,
-		IngressDeny: r.IngressDeny,
-		Egress:      r.Egress,
-		EgressDeny:  r.EgressDeny,
-		Labels:      r.Labels,
-		Description: r.Description,
-		Order:       r.Order,
-	}
-
-	// TODO: convert this to `omitzero` when Go v1.24 is released
-	if r.EnableDefaultDeny.Egress != nil || r.EnableDefaultDeny.Ingress != nil {
-		ruleCommon.EnableDefaultDeny = &r.EnableDefaultDeny
-	}
-
-	// Only one of endpointSelector or nodeSelector is permitted.
-	switch {
-	case r.EndpointSelector.LabelSelector != nil:
-		a = struct {
-			EndpointSelector api.EndpointSelector `json:"endpointSelector,omitempty"`
-			common
-		}{
-			EndpointSelector: r.EndpointSelector,
-			common:           ruleCommon,
-		}
-	case r.NodeSelector.LabelSelector != nil:
-		a = struct {
-			NodeSelector api.EndpointSelector `json:"nodeSelector,omitempty"`
-			common
-		}{
-			NodeSelector: r.NodeSelector,
-			common:       ruleCommon,
-		}
-	}
-
-	return json.Marshal(a)
-}
-
 func (r *IsovalentNetworkPolicyRule) DeepEqual(o *IsovalentNetworkPolicyRule) bool {
 	switch {
 	case (r == nil) != (o == nil):
@@ -205,22 +145,6 @@ type IsovalentNetworkPolicyNodeStatus struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-// CreateINPNodeStatus returns an IsovalentNetworkPolicyNodeStatus created from the
-// provided fields.
-func CreateINPNodeStatus(enforcing, ok bool, inpError error, rev uint64, annotations map[string]string) IsovalentNetworkPolicyNodeStatus {
-	inpns := IsovalentNetworkPolicyNodeStatus{
-		Enforcing:   enforcing,
-		Revision:    rev,
-		OK:          ok,
-		LastUpdated: slimv1.Now(),
-		Annotations: annotations,
-	}
-	if inpError != nil {
-		inpns.Error = inpError.Error()
-	}
-	return inpns
-}
-
 func (r *IsovalentNetworkPolicy) String() string {
 	result := ""
 	result += fmt.Sprintf("TypeMeta: %s, ", r.TypeMeta.String())
@@ -233,123 +157,6 @@ func (r *IsovalentNetworkPolicy) String() string {
 	}
 	result += fmt.Sprintf("Status: %v", r.Status)
 	return result
-}
-
-// SetDerivedPolicyStatus set the derivative policy status for the given
-// derivative policy name.
-func (r *IsovalentNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName string, status IsovalentNetworkPolicyNodeStatus) {
-	if r.Status.DerivativePolicies == nil {
-		r.Status.DerivativePolicies = map[string]IsovalentNetworkPolicyNodeStatus{}
-	}
-	r.Status.DerivativePolicies[derivativePolicyName] = status
-}
-
-// Parse parses an IsovalentNetworkPolicy and returns a list of cilium policy
-// rules.
-func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
-	if r.ObjectMeta.Name == "" {
-		return nil, NewErrParse("IsovalentNetworkPolicy must have name")
-	}
-
-	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
-	// Temporary fix for ICNPs. See #12834 (which refers to CCNPs).
-	// TL;DR. ICNPs are converted into SlimINPs and end up here so we need to
-	// convert them back to ICNPs to allow proper parsing.
-	if namespace == "" {
-		icnp := IsovalentClusterwideNetworkPolicy{
-			TypeMeta:   r.TypeMeta,
-			ObjectMeta: r.ObjectMeta,
-			Spec:       r.Spec,
-			Specs:      r.Specs,
-			Status:     r.Status,
-		}
-		return icnp.Parse(logger, clusterName)
-	}
-	name := r.ObjectMeta.Name
-	uid := r.ObjectMeta.UID
-
-	retRules := api.Rules{}
-
-	if r.Spec == nil && r.Specs == nil {
-		return nil, ErrEmptyINP
-	}
-
-	if r.Spec != nil {
-		if err := r.Spec.Sanitize(); err != nil {
-			return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy spec: %s", err))
-		}
-		if r.Spec.NodeSelector.LabelSelector != nil {
-			return nil, NewErrParse("Invalid IsovalentNetworkPolicy spec: rule cannot have NodeSelector")
-		}
-		if err := r.Spec.SanitizeOrder(); err != nil {
-			return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy spec: %s", err))
-		}
-		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, clusterName, namespace, name, uid)
-		retRules = append(retRules, cr)
-	}
-	if r.Specs != nil {
-		for _, rule := range r.Specs {
-			if err := rule.Sanitize(); err != nil {
-				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
-
-			}
-			if err := rule.SanitizeOrder(); err != nil {
-				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
-			}
-			cr := rule.parseToIsovalentNetworkPolicyRule(logger, clusterName, namespace, name, uid)
-			retRules = append(retRules, cr)
-		}
-	}
-
-	return retRules, nil
-}
-
-func (r *IsovalentNetworkPolicyRule) SanitizeOrder() error {
-	if order := r.Order; order != nil && *order < 0 {
-		return errors.New("rule order must be ≥ 0")
-	}
-	return nil
-}
-
-func (r *IsovalentNetworkPolicyRule) parseToIsovalentNetworkPolicyRule(logger *slog.Logger, clusterName, namespace, name string, uid types.UID) *api.Rule {
-	cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, &r.Rule)
-	// TODO: uncomment in ft/main-ce/ordered-policy, check for order ≥ 0 for INP (but not ICNP)
-	// cr.OrderCEEOnly = r.Spec.Order
-	return cr
-}
-
-// GetIdentityLabels returns all rule labels in the IsovalentNetworkPolicy.
-func (r *IsovalentNetworkPolicy) GetIdentityLabels() labels.LabelArray {
-	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
-	name := r.ObjectMeta.Name
-	uid := r.ObjectMeta.UID
-
-	// Even though the struct represents IsovalentNetworkPolicy, we use it both for
-	// IsovalentNetworkPolicy and IsovalentClusterwideNetworkPolicy, so here we check for namespace
-	// to send correct derivedFrom label to get the correct policy labels.
-	derivedFrom := IsovalentNetworkPolicyKindDefinition
-	if namespace == "" {
-		derivedFrom = IsovalentClusterwideNetworkPolicyKindDefinition
-	}
-	return k8sCiliumUtils.GetPolicyLabels(namespace, name, uid, derivedFrom)
-}
-
-// RequiresDerivative return true if the CNP has any rule that will create a new
-// derivative rule.
-func (r *IsovalentNetworkPolicy) RequiresDerivative() bool {
-	if r.Spec != nil {
-		if r.Spec.RequiresDerivative() {
-			return true
-		}
-	}
-	if r.Specs != nil {
-		for _, rule := range r.Specs {
-			if rule.RequiresDerivative() {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
