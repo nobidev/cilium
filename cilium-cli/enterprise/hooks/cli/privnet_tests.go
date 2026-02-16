@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -122,8 +123,33 @@ func newCmdPrivNetTest() *cobra.Command {
 			// Network C has default route via the INB, which can exit to the world.
 			t.Run(ctx, privnet.NewClientToWorld(t, vmClientC, externalTarget), privnet.ExpectationOK)
 
+			// Test multi subnet privnet communication
+			vmClientB2 := t.VM(privnet.NetworkB, privnet.ClientVM(privnet.NetworkB)+"-2")
+			vmEchoExtB1 := t.ExtVM(privnet.NetworkB, "privnet-vm-net-b1")
+			vmEchoExtB2 := t.ExtVM(privnet.NetworkB, "privnet-vm-net-b2")
+
+			// Network B subnet-2 has default route via the INB, which can exit to the world.
+			t.Run(ctx, privnet.NewClientToWorld(t, vmClientB2, externalTarget), privnet.ExpectationOK)
+			//// Network B subnet-1 has no route via the INB. Traffic should be dropped.
+			t.Run(ctx, privnet.NewClientToWorld(t, vmClientB, externalTarget), privnet.ExpectationCurlTimeout)
+
+			// Network B subnet-1 to external endpoint in subnet-1 should work
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientB, vmEchoExtB1), privnet.ExpectationOK)
+			// Network B subnet-1 to external endpoint in subnet-2 should fail
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientB, vmEchoExtB2), privnet.ExpectationCurlTimeout)
+
+			// Network B subnet-2 to external endpoint in subnet-2 should work
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientB, vmEchoExtB1), privnet.ExpectationOK)
+			// Traffic to an external endpoint in subnet-1 should work via unknown flow
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientB2, vmEchoExtB2), privnet.ExpectationOK)
+
 			// Ensure traffic via P-IP is dropped
 			t.Run(ctx, privnet.NewClientToPod(t, vmClientA, podEchoOtherC), privnet.ExpectationCurlTimeout)
+
+			// A list of extEPs that are not reachable from the client VM
+			ignoreExternal := []string{
+				"privnet-vm-net-b2",
+			}
 
 			// Allow EchoServerPort as toPort in ingress policy for ext VMs
 			if err := t.ApplyExternalEndpointIngressPolicies(ctx, privnet.EchoServerPort); err != nil {
@@ -131,6 +157,9 @@ func newCmdPrivNetTest() *cobra.Command {
 			}
 			for net := range t.Networks() {
 				for ext := range t.External(net) {
+					if slices.Contains(ignoreExternal, ext.Name.String()) {
+						continue
+					}
 					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), ext), privnet.ExpectationOK)
 				}
 			}
@@ -142,6 +171,9 @@ func newCmdPrivNetTest() *cobra.Command {
 			// connectivity fails
 			for net := range t.Networks() {
 				for ext := range t.External(net) {
+					if slices.Contains(ignoreExternal, ext.Name.String()) {
+						continue
+					}
 					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), ext), privnet.ExpectationCurlTimeout)
 				}
 			}
@@ -168,6 +200,9 @@ func newCmdPrivNetTest() *cobra.Command {
 			// Check connectivity to external endpoints again.
 			for net := range t.Networks() {
 				for ext := range t.External(net) {
+					if slices.Contains(ignoreExternal, ext.Name.String()) {
+						continue
+					}
 					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), ext), privnet.ExpectationOK)
 				}
 			}

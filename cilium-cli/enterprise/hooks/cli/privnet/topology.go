@@ -185,6 +185,20 @@ var networkTopology = map[NetworkName]NetworkData{
 				CIDRv4: "192.168.251.0/24",
 				CIDRv6: "fd10:0:251::/64",
 			},
+			{
+				CIDRv4: "192.168.253.0/24",
+				CIDRv6: "fd10:0:253::/64",
+				Routes: []Route{
+					{
+						Destination: netip.MustParsePrefix("0.0.0.0/0"),
+						Gateway:     netip.MustParseAddr("192.168.253.254"),
+					},
+					{
+						Destination: netip.MustParsePrefix("::/0"),
+						Gateway:     netip.MustParseAddr("fd10:0:253::fffe"),
+					},
+				},
+			},
 		},
 		INBs: []INBInfo{
 			{
@@ -219,6 +233,17 @@ var networkTopology = map[NetworkName]NetworkData{
 				NetMAC:         "0e:13:85:69:e9:f7",
 				Affinity:       OtherNode,
 				Kind:           VMKindEcho,
+			},
+			{
+				Name:           ClientVM(NetworkB) + "-2",
+				NetName:        NetworkB,
+				NetIPv4:        netip.MustParseAddr("192.168.253.10"),
+				NetIPv6:        netip.MustParseAddr("fd10:0:253::10"),
+				NetIPv6Gateway: netip.MustParseAddr("fe80::100"),
+				NetDNSServer:   netip.MustParseAddr("192.168.253.254"),
+				NetMAC:         "42:f9:eb:33:1a:83",
+				Affinity:       OtherNode,
+				Kind:           VMKindClient,
 			},
 		},
 	},

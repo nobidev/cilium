@@ -469,6 +469,9 @@ func (t *TestRun) VM(network NetworkName, vmName VMName) VM {
 func (t *TestRun) External(network NetworkName) iter.Seq[VM] {
 	return maps.Values(t.ext[network])
 }
+func (t *TestRun) ExtVM(network NetworkName, vmName VMName) VM {
+	return t.ext[network][vmName]
+}
 
 func (t *TestRun) VirtLauncherPodForVM(vm VM) *corev1.Pod {
 	return t.pod[vm.Name]
