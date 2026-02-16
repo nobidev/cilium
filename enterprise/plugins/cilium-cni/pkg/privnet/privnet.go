@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/netip"
 
+	"github.com/containernetworking/cni/pkg/skel"
 	cniTypesV1 "github.com/containernetworking/cni/pkg/types/100"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -48,7 +49,7 @@ func NewAddHooks() *addHooks {
 	return &addHooks{}
 }
 
-func (h *addHooks) OnConfigReady(netConf *types.NetConf, cniArgs *types.ArgsSpec, conf *models.DaemonConfigurationStatus) error {
+func (h *addHooks) OnConfigReady(_ *skel.CmdArgs, cniArgs *types.ArgsSpec, conf *models.DaemonConfigurationStatus) error {
 	ceeClient, err := client.NewDefaultClient()
 	if err != nil {
 		return fmt.Errorf("unable to create enterprise API client: %w", err)
