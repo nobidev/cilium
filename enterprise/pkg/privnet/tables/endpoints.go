@@ -232,18 +232,6 @@ var (
 		Unique:     false,
 	}
 
-	endpointsNetSubnetIndex = statedb.Index[Endpoint, SubnetKey]{
-		Name: "network-subnet",
-		FromObject: func(obj Endpoint) index.KeySet {
-			return index.NewKeySet(NewSubnetKey(
-				NetworkName(obj.Network.Name), obj.Subnet,
-			).Key())
-		},
-		FromKey:    SubnetKey.Key,
-		FromString: index.FromString,
-		Unique:     false,
-	}
-
 	// EndpointsByPIP queries the endpoints table by Pod IP.
 	EndpointsByPIP = endpointsPIPIndex.Query
 )
@@ -279,8 +267,8 @@ func EndpointsByNetworkSubnetNode(network NetworkName, subnet SubnetName, node W
 }
 
 // EndpointsByNetworkSubnet queries the endpoints table by network name and hosting node.
-func EndpointsByNetworkSubnet(network NetworkName, Subnet SubnetName) statedb.Query[Endpoint] {
-	return endpointsNetSubnetIndex.Query(NewSubnetKey(network, Subnet))
+func EndpointsByNetworkSubnet(network NetworkName, subnet SubnetName) statedb.Query[Endpoint] {
+	return endpointsNetNodeIndex.Query(newEndpointNetNodeKeyFromNetworkSubnet(network, subnet))
 }
 
 func NewEndpointsTable(db *statedb.DB) (statedb.RWTable[Endpoint], error) {
@@ -291,6 +279,5 @@ func NewEndpointsTable(db *statedb.DB) (statedb.RWTable[Endpoint], error) {
 		endpointsPIPIndex,
 		endpointsNetIPIndex,
 		endpointsNetNodeIndex,
-		endpointsNetSubnetIndex,
 	)
 }

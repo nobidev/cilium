@@ -122,16 +122,6 @@ func newRouteKey(network NetworkName, subnet SubnetName, destination netip.Prefi
 	return newRouteKeyFromNetworkSubnet(network, subnet) + RouteKey(destination.Masked().String())
 }
 
-// RouteKey is <network>|<destination>
-type routeNetworkDestinationKey string
-
-func (key routeNetworkDestinationKey) Key() index.Key {
-	return index.String(string(key))
-}
-func newRouteNetworkDestinationKey(network NetworkName, destination netip.Prefix) routeNetworkDestinationKey {
-	return routeNetworkDestinationKey(network) + indexDelimiter + routeNetworkDestinationKey(destination.Masked().String())
-}
-
 var (
 	routeIndex = statedb.Index[Route, RouteKey]{
 		Name: "network-subnet-cidr",
@@ -141,15 +131,6 @@ var (
 		FromKey:    RouteKey.Key,
 		FromString: index.FromString,
 		Unique:     true,
-	}
-
-	routeNetDestinationIndex = statedb.Index[Route, routeNetworkDestinationKey]{
-		Name: "network-cidr",
-		FromObject: func(obj Route) index.KeySet {
-			return index.NewKeySet(newRouteNetworkDestinationKey(obj.Network, obj.Destination).Key())
-		},
-		FromKey:    routeNetworkDestinationKey.Key,
-		FromString: index.FromString,
 	}
 )
 
@@ -168,17 +149,11 @@ func RouteByNetworkSubnetAndDestination(network NetworkName, subnet SubnetName, 
 	return routeIndex.Query(newRouteKey(network, subnet, cidr))
 }
 
-// RouteByNetworkAndDestination queries the private network route table by network name and route destination
-func RouteByNetworkAndDestination(network NetworkName, cidr netip.Prefix) statedb.Query[Route] {
-	return routeNetDestinationIndex.Query(newRouteNetworkDestinationKey(network, cidr))
-}
-
 func NewRouteTable(db *statedb.DB) (statedb.RWTable[Route], error) {
 	return statedb.NewTable(
 		db,
 		"privnet-routes",
 		routeIndex,
-		routeNetDestinationIndex,
 	)
 }
 

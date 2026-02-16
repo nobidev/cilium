@@ -299,7 +299,7 @@ func (ep *Endpoints) registerSubnetAssignmentReconciler() {
 					name   string
 				}
 				enforcedEps := sets.Set[epSourceName]{}
-				enforceSubnetConsistencyForList := func(prefix iter.Seq2[tables.Endpoint, statedb.Revision]) {
+				enforceSubnetConsistencyForPrefix := func(prefix iter.Seq2[tables.Endpoint, statedb.Revision]) {
 					for e := range prefix {
 						key := epSourceName{
 							source: e.Source,
@@ -316,12 +316,12 @@ func (ep *Endpoints) registerSubnetAssignmentReconciler() {
 				sub := change.Object
 				if change.Deleted {
 					// Reassign things
-					enforceSubnetConsistencyForList(ep.tbl.List(txn, tables.EndpointsByNetworkSubnet(sub.Network, sub.Name)))
+					enforceSubnetConsistencyForPrefix(ep.tbl.Prefix(txn, tables.EndpointsByNetworkSubnet(sub.Network, sub.Name)))
 				} else {
 					// Check if we can adopt some endpoints
-					enforceSubnetConsistencyForList(ep.tbl.List(txn, tables.EndpointsByNetworkSubnet(sub.Network, "")))
+					enforceSubnetConsistencyForPrefix(ep.tbl.Prefix(txn, tables.EndpointsByNetworkSubnet(sub.Network, "")))
 					// Check if we need to orphan some endpoints
-					enforceSubnetConsistencyForList(ep.tbl.List(txn, tables.EndpointsByNetworkSubnet(sub.Network, sub.Name)))
+					enforceSubnetConsistencyForPrefix(ep.tbl.Prefix(txn, tables.EndpointsByNetworkSubnet(sub.Network, sub.Name)))
 				}
 			}
 
