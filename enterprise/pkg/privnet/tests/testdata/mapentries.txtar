@@ -125,10 +125,10 @@ spec:
     cidrv4: 192.168.24.24/32
     cidrv6: fd10:0:224::24/128
     routes:
-    - destination: 192.168.252.0/24
-      gateway: 192.168.250.2
+    - destination: 192.168.251.0/24
+      gateway: 192.168.24.2
     - destination: 0.0.0.0/0
-      gateway: 192.168.250.1
+      gateway: 192.168.24.162
 
 -- icpn-blue.v4.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -149,10 +149,10 @@ spec:
     cidrv4: 192.168.24.24/32
     cidrv6: fd10:0:224::24/128
     routes:
-    - destination: 192.168.252.0/24
-      gateway: 192.168.250.2
+    - destination: 192.168.251.0/24
+      gateway: 192.168.24.12
     - destination: 0.0.0.0/0
-      gateway: 192.168.250.1
+      gateway: 192.168.24.24
 
 -- icpn-green.v1.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -502,7 +502,7 @@ X      blue-network   blue1    192.168.250.202/32   10.245.8.92
 E      blue-network   blue2    192.168.24.24/32     10.244.5.107
 E      blue-network   blue2    fd10:0:224::24/128   fd00:10:244:5::107
 S      blue-network   blue2    0.0.0.0/0            172.128.0.6
-S      blue-network   blue2    192.168.252.0/24     172.128.0.6
+S      blue-network   blue2    192.168.251.0/24     172.128.0.6
 
 -- mapentries.v7.table --
 Type   Network        Subnet   CIDR                 Nexthop
@@ -515,7 +515,7 @@ X      blue-network   blue1    192.168.250.202/32   10.245.8.92
 D      blue-network   blue2    192.168.24.24/32     172.128.0.6
 D      blue-network   blue2    fd10:0:224::24/128   172.128.0.6
 S      blue-network   blue2    0.0.0.0/0            172.128.0.6
-S      blue-network   blue2    192.168.252.0/24     172.128.0.6
+S      blue-network   blue2    192.168.251.0/24     172.128.0.6
 
 -- mapentries.v8.table --
 Type   Network        Subnet   CIDR                 Nexthop
@@ -527,4 +527,4 @@ X      blue-network   blue1    192.168.250.201/32   10.245.9.41
 D      blue-network   blue2    192.168.24.24/32     172.128.0.7
 D      blue-network   blue2    fd10:0:224::24/128   172.128.0.7
 S      blue-network   blue2    0.0.0.0/0            172.128.0.7
-S      blue-network   blue2    192.168.252.0/24     172.128.0.7
+S      blue-network   blue2    192.168.251.0/24     172.128.0.7

@@ -116,9 +116,9 @@ spec:
     cidrv6: fd10:0:251::/64
     routes:
     - destination: 0.0.0.0/0
-      gateway: 192.168.252.1
+      gateway: 192.168.251.1
     - destination: ::/0
-      gateway: fd10:0:252::1
+      gateway: fd10:0:251::1
     # Should be filtered out because it's the same key, just different
     - destination: 0.0.1.2/0
       gateway: 192.168.252.8
@@ -130,10 +130,6 @@ spec:
       gateway: 192.168.252.1
     - destination: ::/0
       gateway: fd10:0:252::1
-    # Should be filtered out because it's the same key, just different
-    - destination: 0.0.1.2/0
-      gateway: 192.168.252.8
-
 
 -- icpn-vpc-2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -149,9 +145,9 @@ spec:
     cidrv6: fd10:0:251::/64
     routes:
     - destination: 0.0.0.0/0
-      gateway: 192.168.252.2
+      gateway: 192.168.251.2
     - destination: ::/0
-      gateway: fd10:0:252::2
+      gateway: fd10:0:251::2
   - name: red
     cidrv4: 192.168.252.0/24
     cidrv6: fd10:0:252::/64
@@ -164,10 +160,10 @@ spec:
     cidrv4: 192.168.253.0/24
     cidrv6: fd10:0:253::/64
     routes:
-    - destination: 0.0.0.0/0
-      gateway: 192.168.252.2
+    - destination: 10.0.0.0/8
+      gateway: 192.168.253.2
     - destination: ::/0
-      gateway: fd10:0:252::2
+      gateway: fd10:0:253::2
 
 -- icpn-vpc-3.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -236,7 +232,6 @@ united-firefly   0x2   200  N/A         camelidae                1
 Network          Name      CIDRv4            CIDRv6           Routes
 direct-maggot    subnet1   192.168.250.0/24  fd10:0:250::/64  4
 united-firefly   subnet2   192.168.251.0/24  -                0
-
 
 -- subnets.table.v2 --
 Network         Name      ID    CIDRv4            CIDRv6           Routes
@@ -318,9 +313,9 @@ direct-maggot    subnet1   fd10:0:250::/64    N/A
 direct-maggot    subnet1   fd10:0:252::/64    fd10:0:250::fffe
 direct-maggot    subnet1   fd10:0:255::/64    fd10:0:250::200
 united-firefly   subnet2   192.168.252.0/24   N/A
-vpc              blue      0.0.0.0/0          192.168.252.1
+vpc              blue      0.0.0.0/0          192.168.251.1
 vpc              blue      192.168.251.0/24   N/A
-vpc              blue      ::/0               fd10:0:252::1
+vpc              blue      ::/0               fd10:0:251::1
 vpc              blue      fd10:0:251::/64    N/A
 vpc              red       0.0.0.0/0          192.168.252.1
 vpc              red       192.168.252.0/24   N/A
@@ -336,13 +331,13 @@ direct-maggot    subnet1   fd10:0:250::/64    N/A
 direct-maggot    subnet1   fd10:0:252::/64    fd10:0:250::fffe
 direct-maggot    subnet1   fd10:0:255::/64    fd10:0:250::200
 united-firefly   subnet2   192.168.252.0/24   N/A
-vpc              blue      0.0.0.0/0          192.168.252.2
+vpc              blue      0.0.0.0/0          192.168.251.2
 vpc              blue      192.168.251.0/24   N/A
-vpc              blue      ::/0               fd10:0:252::2
+vpc              blue      ::/0               fd10:0:251::2
 vpc              blue      fd10:0:251::/64    N/A
-vpc              green     0.0.0.0/0          192.168.252.2
+vpc              green     10.0.0.0/8         192.168.253.2
 vpc              green     192.168.253.0/24   N/A
-vpc              green     ::/0               fd10:0:252::2
+vpc              green     ::/0               fd10:0:253::2
 vpc              green     fd10:0:253::/64    N/A
 vpc              red       0.0.0.0/0          192.168.252.2
 vpc              red       192.168.252.0/24   N/A

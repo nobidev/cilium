@@ -31,21 +31,35 @@ spec:
       gateway: EVPN
     - destination: ::/0
       gateway: EVPN
+  - name: subnet2
+    cidrv4: 192.168.252.0/24
+    cidrv6: fd10:0:252::0/64
+    routes:
+    - destination: 10.0.0.0/8
+      gateway: EVPN
+    - destination: 10::/8
+      gateway: EVPN
 status:
   vni: 100
 
 -- privnet.table --
 Name        ID    VNI  Subnets
-icpn-evpn   0x1   100  1
+icpn-evpn   0x1   100  2
 
 -- routes.table --
-Network     Destination        Gateway
-icpn-evpn   0.0.0.0/0          evpn
-icpn-evpn   192.168.250.0/24   N/A
-icpn-evpn   ::/0               evpn
-icpn-evpn   fd10:0:250::/64    N/A
+Network     Subnet   Destination        Gateway
+icpn-evpn   subnet1  0.0.0.0/0          evpn
+icpn-evpn   subnet1  192.168.250.0/24   N/A
+icpn-evpn   subnet1  ::/0               evpn
+icpn-evpn   subnet1  fd10:0:250::/64    N/A
+icpn-evpn   subnet2  10.0.0.0/8         evpn
+icpn-evpn   subnet2  192.168.252.0/24   N/A
+icpn-evpn   subnet2  10::/8             evpn
+icpn-evpn   subnet2  fd10:0:252::/64    N/A
 
 -- mapentries.v1.table --
-Type   Network     CIDR         Nexthop   VNI
-V      icpn-evpn   0.0.0.0/0    0.0.0.0   100
-V      icpn-evpn   ::/0         ::        100
+Type   Network     Subnet    CIDR         Nexthop   VNI
+V      icpn-evpn   subnet1   0.0.0.0/0    0.0.0.0   100
+V      icpn-evpn   subnet1   ::/0         ::        100
+V      icpn-evpn   subnet2   10.0.0.0/8   0.0.0.0   100
+V      icpn-evpn   subnet2   10::/8       ::        100
