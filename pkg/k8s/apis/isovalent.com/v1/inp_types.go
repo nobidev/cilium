@@ -19,6 +19,8 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/policy/utils"
 )
 
 // +genclient
@@ -247,7 +249,7 @@ func (r *IsovalentNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName str
 
 // Parse parses an IsovalentNetworkPolicy and returns a list of cilium policy
 // rules.
-func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
+func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (policytypes.PolicyEntries, error) {
 	if r.ObjectMeta.Name == "" {
 		return nil, NewErrParse("IsovalentNetworkPolicy must have name")
 	}
@@ -269,7 +271,7 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) 
 	name := r.ObjectMeta.Name
 	uid := r.ObjectMeta.UID
 
-	retRules := api.Rules{}
+	retRules := make(policytypes.PolicyEntries, 0, len(r.Specs)+1)
 
 	if r.Spec == nil && r.Specs == nil {
 		return nil, ErrEmptyINP
@@ -287,7 +289,13 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) 
 		}
 
 		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, clusterName, namespace, name, uid)
-		retRules = append(retRules, cr)
+		cre := utils.RulesToPolicyEntries(api.Rules{cr})
+		for _, re := range cre {
+			if r.Spec.Order != nil {
+				re.Priority = float64(*r.Spec.Order)
+			}
+			retRules = append(retRules, re)
+		}
 	}
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
@@ -301,7 +309,13 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) 
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
 			}
 			cr := rule.parseToIsovalentNetworkPolicyRule(logger, clusterName, namespace, name, uid)
-			retRules = append(retRules, cr)
+			cre := utils.RulesToPolicyEntries(api.Rules{cr})
+			for _, re := range cre {
+				if rule.Order != nil {
+					re.Priority = float64(*rule.Order)
+				}
+				retRules = append(retRules, re)
+			}
 		}
 	}
 
@@ -346,8 +360,6 @@ func (r *IsovalentNetworkPolicyRule) SanitizeINP() error {
 
 func (r *IsovalentNetworkPolicyRule) parseToIsovalentNetworkPolicyRule(logger *slog.Logger, clusterName, namespace, name string, uid types.UID) *api.Rule {
 	cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, &r.Rule)
-	// TODO: uncomment in ft/main-ce/ordered-policy, check for order ≥ 0 for INP (but not ICNP)
-	// cr.OrderCEEOnly = r.Spec.Order
 	return cr
 }
 

@@ -10,6 +10,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/policy/utils"
 )
 
 // +genclient
@@ -77,7 +79,7 @@ type IsovalentClusterwideNetworkPolicyList struct {
 
 // Parse parses an IsovalentClusterwideNetworkPolicy and returns a list of cilium
 // policy rules.
-func (r *IsovalentClusterwideNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
+func (r *IsovalentClusterwideNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (policytypes.PolicyEntries, error) {
 	if r.ObjectMeta.Name == "" {
 		return nil, NewErrParse("IsovalentClusterwideNetworkPolicy must have name")
 	}
@@ -85,7 +87,7 @@ func (r *IsovalentClusterwideNetworkPolicy) Parse(logger *slog.Logger, clusterNa
 	name := r.ObjectMeta.Name
 	uid := r.ObjectMeta.UID
 
-	retRules := api.Rules{}
+	retRules := make(policytypes.PolicyEntries, 0, len(r.Specs)+1)
 
 	if r.Spec == nil && r.Specs == nil {
 		return nil, ErrEmptyICNP
@@ -96,7 +98,13 @@ func (r *IsovalentClusterwideNetworkPolicy) Parse(logger *slog.Logger, clusterNa
 			return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentClusterwideNetworkPolicy spec: %s", err))
 		}
 		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, clusterName, "", name, uid)
-		retRules = append(retRules, cr)
+		cre := utils.RulesToPolicyEntries(api.Rules{cr})
+		for _, re := range cre {
+			if r.Spec.Order != nil {
+				re.Priority = float64(*r.Spec.Order)
+			}
+			retRules = append(retRules, re)
+		}
 	}
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
@@ -105,7 +113,13 @@ func (r *IsovalentClusterwideNetworkPolicy) Parse(logger *slog.Logger, clusterNa
 
 			}
 			cr := rule.parseToIsovalentNetworkPolicyRule(logger, clusterName, "", name, uid)
-			retRules = append(retRules, cr)
+			cre := utils.RulesToPolicyEntries(api.Rules{cr})
+			for _, re := range cre {
+				if rule.Order != nil {
+					re.Priority = float64(*rule.Order)
+				}
+				retRules = append(retRules, re)
+			}
 		}
 	}
 
