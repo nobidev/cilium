@@ -113,6 +113,7 @@ var (
 		"@isovalent/openshift":                  {},
 		"@isovalent/policy-identity-networking": {},
 		"@isovalent/private-networking":         {},
+		"@isovalent/qa":                         {},
 		"@isovalent/release-managers":           {},
 		"@isovalent/scalability-performance":    {},
 		"@isovalent/security":                   {},

@@ -807,6 +807,8 @@ Makefile* @cilium/build
 #   Responsible for maintaining CI/CD pipelines
 # - @isovalent/openshift
 #   Responsible for maintaining OpenShift related code and pipelines.
+# - @isovalent/qa
+#   Responsible for qa or customer0 activities and release-notes review.
 # - @isovalent/policy-identity-networking
 #   Responsible for maintaining Cilium policy and identity subsystems.
 # - @isovalent/private-networking
@@ -1078,5 +1080,6 @@ Makefile* @cilium/build
 /pkg/maps/ipcache/*enterprise* @isovalent/dns-proxy
 /pkg/option/enterprise_* @isovalent/cilium-agent @isovalent/cli
 /plugins/cilium-cni/cmd/enterprise_* @isovalent/cilium-agent
+/RELEASE-NOTES* @isovalent/qa @isovalent/release-managers
 /TESTOWNERS.enterprise @isovalent/core-structure
 /vendor/ @isovalent/core-structure
