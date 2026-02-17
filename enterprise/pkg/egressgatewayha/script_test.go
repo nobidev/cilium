@@ -240,12 +240,17 @@ var testCell = cell.Group(
 	),
 )
 
-type mockHealthChecker struct{}
+type mockHealthChecker struct {
+	m map[string]healthcheck.NodeHealth
+}
 
 func (m *mockHealthChecker) UpdateNodeList(nodes map[string]nodeTypes.Node, healthy, active sets.Set[string]) {
 }
 
 func (m *mockHealthChecker) NodeHealth(nodeName string) healthcheck.NodeHealth {
+	if nh, ok := m.m[nodeName]; ok {
+		return nh
+	}
 	return healthcheck.NodeHealth{Reachable: true, AgentUp: true}
 }
 

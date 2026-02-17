@@ -811,7 +811,7 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 	zoneHasAnyLocalGateway := make(map[string]bool)
 	selectionMetricsList := make([]gatewaySelectionMetrics, 0, len(config.groupConfigs))
 
-	policyHealthyGatewayIPs, policyHealthyGatewayIPsByAZ := config.preComputePolicyHealthyGateways(operatorManager, nodeToAZFn(config.azAffinity, config.uid))
+	allAZs, policyHealthyGatewayIPs := config.preComputePolicyHealthyGateways(operatorManager)
 
 	for i, gc := range config.groupConfigs {
 		var status *groupStatus
@@ -825,7 +825,7 @@ func (config *PolicyConfig) updateGroupStatuses(operatorManager *OperatorManager
 			healthyGateways:    0,
 		}
 
-		availableHealthyGatewayIPsByAZ := computeAvailableHealthyGatewaysByAZ(policyHealthyGatewayIPsByAZ, true, i)
+		availableHealthyGatewayIPsByAZ := computeAvailableHealthyGatewaysByAZ(allAZs, policyHealthyGatewayIPs, i)
 
 		gs := gc.computeGroupStatus(operatorManager, config, status,
 			availableHealthyGatewayIPsByAZ, &sm, i)

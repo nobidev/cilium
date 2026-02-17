@@ -15,17 +15,18 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/healthcheck"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
-
 	"github.com/cilium/hive/hivetest"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func parseNetIPs(t *testing.T, ss ...string) []netip.Addr {
@@ -36,84 +37,81 @@ func parseNetIPs(t *testing.T, ss ...string) []netip.Addr {
 	return out
 }
 
-/*
 func Test_computeHealthyGateways(t *testing.T) {
 	policyHealthyGatewayIPs := []gatewayNodeIP{
 		{
 			ip:                    netip.MustParseAddr("10.0.0.1"),
 			selectingGroupIndices: []int{0},
-			zone:                  true,
+			zone:                  "az0",
 			available:             true,
 		},
 		{
 			ip:                    netip.MustParseAddr("10.0.0.2"),
 			selectingGroupIndices: []int{3, 2, 1},
-			zone:                  true,
+			zone:                  "az0",
 			available:             true,
 		},
 		{
 			ip:                    netip.MustParseAddr("10.0.0.3"),
 			selectingGroupIndices: []int{},
-			zone:                  true,
+			zone:                  "az0",
 			available:             false,
 		},
 		{
 			ip:                    netip.MustParseAddr("10.0.0.4"),
 			selectingGroupIndices: []int{3, 2, 0},
-			zone:                  false,
+			zone:                  "",
 			available:             true,
 		},
 	}
 	assert.Equal(t, parseNetIPs(t,
 		"10.0.0.1", "10.0.0.4"), computeHealthyGateways(policyHealthyGatewayIPs, false, 0))
 
-}*/
+}
 
 func Test_computeAvailableHealthyGatewaysByAZ(t *testing.T) {
-	policyHealthyGatewayIPs := map[string][]gatewayNodeIP{
-		"az-0": {
-			{
-				ip:                    netip.MustParseAddr("10.0.0.1"),
-				selectingGroupIndices: []int{0},
-				zone:                  true,
-				available:             true,
-			},
-			{
-				ip:                    netip.MustParseAddr("10.0.0.2"),
-				selectingGroupIndices: []int{3, 2, 1},
-				zone:                  true,
-				available:             true,
-			},
-			{
-				ip:                    netip.MustParseAddr("10.0.0.3"),
-				selectingGroupIndices: []int{},
-				zone:                  true,
-				available:             true,
-			},
-			{
-				ip:                    netip.MustParseAddr("10.0.0.4"),
-				selectingGroupIndices: []int{3, 2, 0},
-				zone:                  false,
-				available:             true,
-			},
+	policyHealthyGatewayIPs := []gatewayNodeIP{
+		{
+			ip:                    netip.MustParseAddr("10.0.0.1"),
+			selectingGroupIndices: []int{0},
+			zone:                  "az-0",
+			available:             true,
 		},
-		"az-1": {
-			{
-				ip:                    netip.MustParseAddr("10.0.0.5"),
-				selectingGroupIndices: []int{0, 2, 3},
-				zone:                  false,
-				available:             true,
-			},
+		{
+			ip:                    netip.MustParseAddr("10.0.0.2"),
+			selectingGroupIndices: []int{3, 2, 1},
+			zone:                  "az-0",
+			available:             true,
+		},
+		{
+			ip:                    netip.MustParseAddr("10.0.0.3"),
+			selectingGroupIndices: []int{},
+			zone:                  "az-0",
+			available:             true,
+		},
+		{
+			ip:                    netip.MustParseAddr("10.0.0.4"),
+			selectingGroupIndices: []int{0, 2, 3},
+			zone:                  "",
+			available:             true,
+		},
+		{
+			ip:                    netip.MustParseAddr("10.0.0.5"),
+			selectingGroupIndices: []int{0},
+			zone:                  "az-0",
+			available:             false,
 		},
 	}
-	out := computeAvailableHealthyGatewaysByAZ(policyHealthyGatewayIPs, false, 0)
-	assert.Equal(t, map[string][]netip.Addr{
-		"az-0": parseNetIPs(t, "10.0.0.1", "10.0.0.4"),
-		"az-1": parseNetIPs(t, "10.0.0.5"),
-	}, out)
-	out = computeAvailableHealthyGatewaysByAZ(policyHealthyGatewayIPs, true, 0)
+	allAZs := sets.New[string]() // as empty, we still expect all valid gws in az-0
+	out := computeAvailableHealthyGatewaysByAZ(allAZs, policyHealthyGatewayIPs, 0)
 	assert.Equal(t, map[string][]netip.Addr{
 		"az-0": parseNetIPs(t, "10.0.0.1"),
+	}, out)
+
+	allAZs = sets.New[string]("az-0", "az-1") // now we span all AZs
+	out = computeAvailableHealthyGatewaysByAZ(allAZs, policyHealthyGatewayIPs, 1)
+	assert.Equal(t, map[string][]netip.Addr{
+		"az-0": parseNetIPs(t, "10.0.0.2"),
 		"az-1": {},
 	}, out)
 }
@@ -123,8 +121,10 @@ func Test_preComputePolicyHealthyGatewaysWithAZAffinity(t *testing.T) {
 		name           string
 		nodes          []nodeTypes.Node
 		policyConfig   *PolicyConfig
-		expectedAZKeys []string
-		expectedGWs    map[azAffinityMode]map[string][]gatewayNodeIP
+		expectedAZKeys sets.Set[string]
+		expectedGWs    []gatewayNodeIP
+
+		healthOverrides map[string]healthcheck.NodeHealth
 	}{
 		{
 			name: "basic multiple groups with overlapping and distinct selectors",
@@ -193,43 +193,21 @@ func Test_preComputePolicyHealthyGatewaysWithAZAffinity(t *testing.T) {
 					},
 				},
 			},
-			expectedGWs: map[azAffinityMode]map[string][]gatewayNodeIP{
-				azAffinityDisabled: {
-					"0": {
-						{
-							ip:                    netip.MustParseAddr("10.0.0.1"),
-							selectingGroupIndices: []int{0, 1}, // selected multiple times by first two groupConfigs.
-							zone:                  true,
-							available:             true,
-						},
-						{
-							ip:                    netip.MustParseAddr("10.0.0.2"),
-							selectingGroupIndices: []int{2}, // only selected by last groupConfig.
-							zone:                  true,
-							available:             true,
-						},
-					},
+			expectedGWs: []gatewayNodeIP{
+				{
+					ip:                    netip.MustParseAddr("10.0.0.1"),
+					selectingGroupIndices: []int{0, 1},
+					available:             true,
+					zone:                  "a",
 				},
-				azAffinityLocalOnly: {
-					"a": {
-						{
-							ip:                    netip.MustParseAddr("10.0.0.1"),
-							selectingGroupIndices: []int{0, 1},
-							available:             true,
-							zone:                  true,
-						},
-					},
-					"b": {
-						{
-							ip:                    netip.MustParseAddr("10.0.0.2"),
-							selectingGroupIndices: []int{2},
-							available:             true,
-							zone:                  true,
-						},
-					},
-					"c": {},
+				{
+					ip:                    netip.MustParseAddr("10.0.0.2"),
+					selectingGroupIndices: []int{2},
+					available:             true,
+					zone:                  "b",
 				},
 			},
+			expectedAZKeys: sets.New("a", "b", "c"), // no matched nodes, but should still span 'c'.
 		},
 		{
 			name:  "empty nodes list",
@@ -248,10 +226,7 @@ func Test_preComputePolicyHealthyGatewaysWithAZAffinity(t *testing.T) {
 					},
 				},
 			},
-			expectedGWs: map[azAffinityMode]map[string][]gatewayNodeIP{
-				azAffinityDisabled:  {},
-				azAffinityLocalOnly: {},
-			},
+			expectedGWs: []gatewayNodeIP{},
 		},
 		{
 			name: "no matching nodes",
@@ -282,14 +257,8 @@ func Test_preComputePolicyHealthyGatewaysWithAZAffinity(t *testing.T) {
 					},
 				},
 			},
-			expectedGWs: map[azAffinityMode]map[string][]gatewayNodeIP{
-				azAffinityDisabled: {
-					"0": {},
-				},
-				azAffinityLocalOnly: {
-					"a": {},
-				},
-			},
+			expectedGWs:    []gatewayNodeIP{},
+			expectedAZKeys: sets.New("a"),
 		},
 		{
 			name: "node with no internal IP address should not be added to output",
@@ -320,14 +289,8 @@ func Test_preComputePolicyHealthyGatewaysWithAZAffinity(t *testing.T) {
 					},
 				},
 			},
-			expectedGWs: map[azAffinityMode]map[string][]gatewayNodeIP{
-				azAffinityDisabled: {
-					"1": {},
-				},
-				azAffinityLocalOnly: {
-					"a": {},
-				},
-			},
+			expectedGWs:    []gatewayNodeIP{},
+			expectedAZKeys: sets.New("a"),
 		},
 		{
 			name: "single node matching all groups",
@@ -374,28 +337,15 @@ func Test_preComputePolicyHealthyGatewaysWithAZAffinity(t *testing.T) {
 					},
 				},
 			},
-			expectedGWs: map[azAffinityMode]map[string][]gatewayNodeIP{
-				azAffinityDisabled: {
-					"5": {
-						{
-							ip:                    netip.MustParseAddr("10.0.0.1"),
-							selectingGroupIndices: []int{0, 1, 2},
-							available:             true,
-							zone:                  true,
-						},
-					},
-				},
-				azAffinityLocalOnly: {
-					"x": {
-						{
-							ip:                    netip.MustParseAddr("10.0.0.1"),
-							selectingGroupIndices: []int{0, 1, 2},
-							available:             true,
-							zone:                  true,
-						},
-					},
+			expectedGWs: []gatewayNodeIP{
+				{
+					ip:                    netip.MustParseAddr("10.0.0.1"),
+					selectingGroupIndices: []int{0, 1, 2},
+					available:             true,
+					zone:                  "x",
 				},
 			},
+			expectedAZKeys: sets.New("x"),
 		},
 		{
 			name: "empty group configs",
@@ -418,14 +368,8 @@ func Test_preComputePolicyHealthyGatewaysWithAZAffinity(t *testing.T) {
 				uid:          "000",
 				groupConfigs: []groupConfig{},
 			},
-			expectedGWs: map[azAffinityMode]map[string][]gatewayNodeIP{
-				azAffinityDisabled: {
-					"000": {},
-				},
-				azAffinityLocalOnly: {
-					"x": {},
-				},
-			},
+			expectedGWs:    []gatewayNodeIP{},
+			expectedAZKeys: sets.New("x"),
 		},
 		{
 			name: "nodes with nil labels",
@@ -453,12 +397,167 @@ func Test_preComputePolicyHealthyGatewaysWithAZAffinity(t *testing.T) {
 					},
 				},
 			},
-			expectedGWs: map[azAffinityMode]map[string][]gatewayNodeIP{
-				azAffinityDisabled: {
-					"000": {},
+			expectedGWs:    []gatewayNodeIP{},
+			expectedAZKeys: sets.New[string](),
+		},
+		{
+			name: "reachable and unreachable nodes",
+			nodes: []nodeTypes.Node{
+				{
+					Labels: map[string]string{
+						"foo":                     "bar",
+						core_v1.LabelTopologyZone: "az0",
+					},
+					Name: "node0",
+					IPAddresses: []nodeTypes.Address{
+						{
+							Type: addressing.NodeInternalIP,
+							IP:   net.IP{10, 0, 0, 1},
+						},
+					},
 				},
-				azAffinityLocalOnly: {},
+				{
+					// This one is reachable, but unavailable.
+					Labels: map[string]string{
+						"foo":                     "bar",
+						core_v1.LabelTopologyZone: "az0",
+					},
+					Name: "node1",
+					IPAddresses: []nodeTypes.Address{
+						{
+							Type: addressing.NodeInternalIP,
+							IP:   net.IP{10, 0, 0, 2},
+						},
+					},
+				},
 			},
+			policyConfig: &PolicyConfig{
+				id: types.NamespacedName{Name: "p7", Namespace: "default"},
+				groupConfigs: []groupConfig{
+					{
+						nodeSelector: policyTypes.NewLabelSelector(api.EndpointSelector{
+							LabelSelector: &slimv1.LabelSelector{
+								MatchLabels: map[string]string{"foo": "bar"},
+							},
+						}),
+					},
+				},
+			},
+			expectedGWs: []gatewayNodeIP{
+				{ip: netip.MustParseAddr("10.0.0.2"), selectingGroupIndices: []int{0}, available: false, zone: "az0"},
+			},
+			healthOverrides: map[string]healthcheck.NodeHealth{
+				"node0": {Reachable: false, AgentUp: false},
+				"node1": {Reachable: true, AgentUp: false},
+			},
+			expectedAZKeys: sets.New("az0"),
+		},
+		{
+			name: "invalid nodes",
+			nodes: []nodeTypes.Node{
+				{
+					Labels: map[string]string{
+						"foo":                     "bar",
+						core_v1.LabelTopologyZone: "az0",
+					},
+					IPAddresses: []nodeTypes.Address{},
+				},
+			},
+			policyConfig: &PolicyConfig{
+				id: types.NamespacedName{Name: "p6", Namespace: "default"},
+				groupConfigs: []groupConfig{
+					{
+						nodeSelector: policyTypes.NewLabelSelector(api.EndpointSelector{
+							LabelSelector: &slimv1.LabelSelector{
+								MatchLabels: map[string]string{"foo": "bar"},
+							},
+						}),
+					},
+				},
+			},
+			expectedGWs:    []gatewayNodeIP{},
+			expectedAZKeys: sets.New("az0"),
+		},
+		{
+			name: "nodes with nil labels",
+			nodes: []nodeTypes.Node{
+				{
+					Labels: nil,
+					IPAddresses: []nodeTypes.Address{
+						{
+							Type: addressing.NodeInternalIP,
+							IP:   net.IP{10, 0, 0, 1},
+						},
+					},
+				},
+			},
+			policyConfig: &PolicyConfig{
+				id:  types.NamespacedName{Name: "p7", Namespace: "default"},
+				uid: "000",
+				groupConfigs: []groupConfig{
+					{
+						nodeSelector: policyTypes.NewLabelSelector(api.EndpointSelector{
+							LabelSelector: &slimv1.LabelSelector{
+								MatchLabels: map[string]string{"foo": "bar"},
+							},
+						}),
+					},
+				},
+			},
+			expectedGWs:    []gatewayNodeIP{},
+			expectedAZKeys: sets.New[string](),
+		},
+		{
+			name: "reachable and unreachable nodes",
+			nodes: []nodeTypes.Node{
+				{
+					Labels: map[string]string{
+						"foo":                     "bar",
+						core_v1.LabelTopologyZone: "az0",
+					},
+					Name: "node0",
+					IPAddresses: []nodeTypes.Address{
+						{
+							Type: addressing.NodeInternalIP,
+							IP:   net.IP{10, 0, 0, 1},
+						},
+					},
+				},
+				{
+					// This one is reachable, but unavailable.
+					Labels: map[string]string{
+						"foo":                     "bar",
+						core_v1.LabelTopologyZone: "az0",
+					},
+					Name: "node1",
+					IPAddresses: []nodeTypes.Address{
+						{
+							Type: addressing.NodeInternalIP,
+							IP:   net.IP{10, 0, 0, 2},
+						},
+					},
+				},
+			},
+			policyConfig: &PolicyConfig{
+				id: types.NamespacedName{Name: "p7", Namespace: "default"},
+				groupConfigs: []groupConfig{
+					{
+						nodeSelector: policyTypes.NewLabelSelector(api.EndpointSelector{
+							LabelSelector: &slimv1.LabelSelector{
+								MatchLabels: map[string]string{"foo": "bar"},
+							},
+						}),
+					},
+				},
+			},
+			expectedGWs: []gatewayNodeIP{
+				{ip: netip.MustParseAddr("10.0.0.2"), selectingGroupIndices: []int{0}, available: false, zone: "az0"},
+			},
+			healthOverrides: map[string]healthcheck.NodeHealth{
+				"node0": {Reachable: false, AgentUp: false},
+				"node1": {Reachable: true, AgentUp: false},
+			},
+			expectedAZKeys: sets.New("az0"),
 		},
 		// TODO: Re-enable when you figure out empty selector behavior:
 		/*{
@@ -501,17 +600,23 @@ func Test_preComputePolicyHealthyGatewaysWithAZAffinity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			hc := &mockHealthChecker{m: tt.healthOverrides}
 			m := &OperatorManager{
 				logger:        hivetest.Logger(t),
 				nodes:         tt.nodes,
-				healthchecker: &mockHealthChecker{},
+				healthchecker: hc,
 			}
 
-			for _, mode := range []azAffinityMode{azAffinityDisabled, azAffinityLocalOnly} {
-				tt.policyConfig.azAffinity = mode
-				nToAZ := nodeToAZFn(tt.policyConfig.azAffinity, tt.policyConfig.uid)
-				_, availByAZ := tt.policyConfig.preComputePolicyHealthyGateways(m, nToAZ)
-				assert.Equal(t, tt.expectedGWs[mode], availByAZ, "Gateway mappings mismatch")
+			azs, actual := tt.policyConfig.preComputePolicyHealthyGateways(m)
+			require.Len(t, actual, len(tt.expectedGWs))
+			for i, gw := range actual {
+				expected := tt.expectedGWs[i]
+				gw.Node = nil // make comparison easy, avoid checking embedded *Node.
+				assert.Equal(t, expected, gw)
+			}
+
+			if tt.expectedAZKeys != nil {
+				assert.Equal(t, tt.expectedAZKeys, azs)
 			}
 		})
 	}
