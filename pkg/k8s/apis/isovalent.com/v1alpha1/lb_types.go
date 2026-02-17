@@ -68,6 +68,12 @@ type LBServiceSpec struct {
 	//
 	// +kubebuilder:validation:Required
 	Applications LBServiceApplications `json:"applications"`
+
+	// The configuration for traffic policy behavior, such as zone-aware
+	// routing. If unspecified, traffic policy will be disabled.
+	//
+	// +kubebuilder:validation:Optional
+	TrafficPolicy *LBTrafficPolicy `json:"trafficPolicy,omitempty"`
 }
 
 func (r LBServiceSpec) ConfiguresTCPT1OnlyOrAuto() bool {
@@ -1791,6 +1797,38 @@ func (r *LBService) AllStatusConditionsMet() bool {
 
 	return true
 }
+
+type LBTrafficPolicy struct {
+	// The zone-aware routing configuration for this service.
+	//
+	// +kubebuilder:validation:Optional
+	ZoneAware *LBZoneAware `json:"zoneAware,omitempty"`
+}
+
+type LBZoneAware struct {
+	// Configures zone-aware routing for this service. When enabled,
+	// backend selection prefers or requires endpoints in the same
+	// zone as the traffic source, depending on the selected mode.
+	//
+	// Following options are available:
+	//
+	// preferSameZone : Prefer backends in the same zone, but fall back to
+	//                  other zones if none are available.
+	//
+	// requireSameZone : Only use backends in the same zone. If no compatible
+	//                  backends exist, an error will be reported.
+	//
+	// +kubebuilder:validation:Required
+	Mode LBZoneAwareModeType `json:"mode"`
+}
+
+// +kubebuilder:validation:Enum=preferSameZone;requireSameZone
+type LBZoneAwareModeType string
+
+const (
+	LBZoneAwareModePreferSameZone  LBZoneAwareModeType = "preferSameZone"
+	LBZoneAwareModeRequireSameZone LBZoneAwareModeType = "requireSameZone"
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
