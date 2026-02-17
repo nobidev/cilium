@@ -203,7 +203,7 @@ Allow packagers to add init containers to the cilium-envoy pods.
 {{- if and .Values.envoy.gracefulRestart .Values.envoy.gracefulRestart.enabled }}
 initContainers:
 - name: get-hot-restart-epoch
-  image: gcr.io/cloud-builders/kubectl:latest
+  image: {{ include "cilium.image" .Values.envoy.kubectl.image }}
   env:
   - name: POD_TEMPLATE_GENERATION
     valueFrom:
