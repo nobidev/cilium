@@ -22,6 +22,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/stretchr/testify/assert"
 	k8stypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/api/v1/models"
@@ -174,6 +175,8 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 	activatedAtInactive := time.Time{}
 
 	type override struct {
+		network   *string
+		subnet    *string
 		namespace string
 		name      string
 		uid       string
@@ -403,6 +406,67 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			),
 			wantErr: "requested IP fd10:0:150::11 not in range of the subnet of the IP 192.168.10.11",
 		},
+		{
+			name:     "CNI configuration specifies network, but subnet is missing",
+			override: override{network: ptr.To("green-network")},
+			pod:      newPod("default", "client", "uid", nil),
+			wantErr:  "both network and subnet must be set in CNI configuration if one is provided",
+		},
+		{
+			name:     "CNI configuration specifies subnet, but network is missing",
+			override: override{subnet: ptr.To("subnet1")},
+			pod:      newPod("default", "client", "uid", nil),
+			wantErr:  "both network and subnet must be set in CNI configuration if one is provided",
+		},
+		{
+			name:     "CNI configuration specifies network, but private networks is disabled",
+			cfg:      &cfgPrivNetDisabled,
+			override: override{network: ptr.To("green-network"), subnet: ptr.To("subnet1")},
+			pod:      newPod("default", "client", "uid", nil),
+			wantErr:  "target network set in CNI configuration, but private networks is disabled",
+		},
+		{
+			name:     "CNI configuration specifies network, but attachment is missing",
+			override: override{network: ptr.To("green-network"), subnet: ptr.To("subnet1")},
+			pod:      newPod("default", "client", "uid", nil),
+			wantErr:  fmt.Sprintf(`target network set in CNI configuration, but %q annotation is missing on pod default/client`, types.PrivateNetworkAnnotation),
+		},
+		{
+			name:     "mismatching CNI configuration and attachment network",
+			override: override{network: ptr.To("blue-network"), subnet: ptr.To("subnet1")},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+				}),
+			wantErr: fmt.Sprintf(`mismatching target network in CNI configuration ("blue-network") and %q annotation on pod default/client ("green-network")`, types.PrivateNetworkAnnotation),
+		},
+		{
+			name:     "mismatching CNI configuration and target subnet network",
+			override: override{network: ptr.To("green-network"), subnet: ptr.To("subnet2")},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+				}),
+			wantErr: `requested IPs are not in range of the requested subnet ("subnet2")`,
+		},
+		{
+			name:     "valid network attachment annotation, matching CNI configuration",
+			override: override{network: ptr.To("green-network"), subnet: ptr.To("subnet1")},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+				},
+			),
+			wantAddressing: &models.PrivateNetworkAddressing{
+				ActivatedAt: strfmt.DateTime(activatedAtActive),
+				Network:     "green-network",
+				Address: &models.AddressPair{
+					IPV4: "192.168.11.11",
+					IPV6: "fd10:0:150::11",
+				},
+				Mac: "00:50:56:ad:11:02",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -416,6 +480,8 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				namespace := cmp.Or(tt.override.namespace, tt.pod.Namespace)
 				uid := cmp.Or(tt.override.uid, string(tt.pod.UID))
 				addressing, err := n.GetPrivateNetworkAddressing(network.GetNetworkPrivateAddressingParams{
+					Network:      tt.override.network,
+					Subnet:       tt.override.subnet,
 					PodName:      name,
 					PodNamespace: namespace,
 					PodUID:       uid,

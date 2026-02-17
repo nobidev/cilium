@@ -11,6 +11,7 @@
 package addressing
 
 import (
+	"cmp"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -84,7 +85,15 @@ func newPrivNetAPI(p apiParams) *PrivNetAPI {
 }
 
 func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddressingParams) (*models.PrivateNetworkAddressing, error) {
+	if (p.Network == nil) != (p.Subnet == nil) {
+		return nil, fmt.Errorf("both network and subnet must be set in CNI configuration if one is provided")
+	}
+
 	if !n.cfg.privateNetworkConfig.Enabled {
+		if p.Network != nil {
+			return nil, fmt.Errorf("target network set in CNI configuration, but private networks is disabled")
+		}
+
 		// Don't look at network attachment annotations if privnet is disabled, attach to
 		// default network.
 		return nil, nil
@@ -105,8 +114,20 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 	if err != nil {
 		return nil, err
 	} else if attachment == nil {
+		if p.Network != nil {
+			return nil, fmt.Errorf("target network set in CNI configuration, but %q annotation is missing on pod %s",
+				types.PrivateNetworkAnnotation, podNamespaceName,
+			)
+		}
+
 		// Annotation not found, attach to default network.
 		return nil, nil
+	}
+
+	if p.Network != nil && *p.Network != attachment.Network {
+		return nil, fmt.Errorf("mismatching target network in CNI configuration (%q) and %q annotation on pod %s (%q)",
+			*p.Network, types.PrivateNetworkAnnotation, podNamespaceName, attachment.Network,
+		)
 	}
 
 	privnet, _, found := n.privateNetworks.Get(txn, tables.PrivateNetworkByName(tables.NetworkName(attachment.Network)))
@@ -153,14 +174,14 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 		ipv6 = attachment.IPv6
 	}
 
-	if err = n.validAttachment(txn, privnet.Name, ipv4, ipv6); err != nil {
+	if err = n.validAttachment(txn, privnet.Name, (*tables.SubnetName)(p.Subnet), ipv4, ipv6); err != nil {
 		return nil, err
 	}
 
 	return addressing, nil
 }
 
-func (n *PrivNetAPI) validAttachment(txn statedb.ReadTxn, privnet tables.NetworkName, ipv4, ipv6 netip.Addr) error {
+func (n *PrivNetAPI) validAttachment(txn statedb.ReadTxn, privnet tables.NetworkName, sname *tables.SubnetName, ipv4, ipv6 netip.Addr) error {
 	var subnetv4, subnetv6 tables.SubnetName
 
 	if ipv4.IsValid() {
@@ -181,6 +202,8 @@ func (n *PrivNetAPI) validAttachment(txn statedb.ReadTxn, privnet tables.Network
 		return fmt.Errorf("requested IP %s not in range of defined subnets", ipv6)
 	case ipv4.IsValid() && ipv6.IsValid() && subnetv4 != subnetv6:
 		return fmt.Errorf("requested IP %s not in range of the subnet of the IP %s", ipv6, ipv4)
+	case sname != nil && *sname != cmp.Or(subnetv4, subnetv6):
+		return fmt.Errorf("requested IPs are not in range of the requested subnet (%q)", *sname)
 	default:
 		return nil
 	}
