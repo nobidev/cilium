@@ -37,6 +37,9 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 )
 
+// PrivateNetworksCell groups the private networks reconciliation operations that
+// need to be performed by all operator replicas. Any operation that depends on
+// leader election must be configured in a separate cell.
 var PrivateNetworksCell = cell.Group(
 	cell.ProvidePrivate(
 		// Provides the ReadWrite PrivateNetworks table.

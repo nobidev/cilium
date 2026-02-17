@@ -43,6 +43,11 @@ var (
 
 		// enterprise-only cells here
 
+		// Part of the private-networks functionalities need to run in all
+		// replicas, and not just the leader. Hence, the Lifecycle
+		// decoration is performed internally.
+		privnet.Cell,
+
 		cell.Decorate(
 			func(lc *cmd.LeaderLifecycle) cell.Lifecycle {
 				return lc
@@ -77,8 +82,6 @@ var (
 			phantom.Cell,
 
 			metricsFeatures.EnterpriseCell,
-
-			privnet.Cell,
 		),
 	)
 )

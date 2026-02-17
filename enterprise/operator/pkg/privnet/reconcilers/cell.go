@@ -16,7 +16,14 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/reconcilers/status"
 )
 
-var Cell = cell.Group(
-	PrivateNetworksCell,
-	status.Cell,
+var (
+	// Cells that do not depend on leader election.
+	Cell = cell.Group(
+		PrivateNetworksCell,
+	)
+
+	// Cells that do depend on leader election.
+	LeaderCell = cell.Group(
+		status.Cell,
+	)
 )

@@ -15,12 +15,21 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/reconcilers"
+	"github.com/cilium/cilium/operator/cmd"
 )
 
 var Cell = cell.Module(
 	"private-networks",
 	"Support for Private Networks",
 
+	// Cells that do not depend on leader election.
 	config.Cell,
 	reconcilers.Cell,
+
+	// Cells that do depend on leader election.
+	cell.Decorate(
+		func(lc *cmd.LeaderLifecycle) cell.Lifecycle { return lc },
+
+		reconcilers.LeaderCell,
+	),
 )
