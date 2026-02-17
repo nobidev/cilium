@@ -13,7 +13,6 @@ ARGS=()
 # the mindfulness of the change compared with the merge-base of the upstream
 # tree.
 IGNORE_HUNK_REGEXES=(
-  -I '^.*CODEOWNERS_PATH.*$' # Ignore CODEOWNERS diffs
   -I '^.*configurationFile.*renovate.*$' # Ignore local renovate configuration
   -I $'^(.*[Ee]nterprise.*)|(\`\n\\\')$' # Ignore direct references to enterprise
   -I $'^(.*[Ee]nterprise.*)|(\`\n\\\')|(.*dnsproxy.*)$' # Enterprise dnsproxy image builds
