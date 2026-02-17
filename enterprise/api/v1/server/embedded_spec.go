@@ -281,18 +281,6 @@ func init() {
         "addressing": {
           "description": "Optional network addressing information. Empty if the endpoint is not attached to a specific private network.\n",
           "$ref": "#/definitions/PrivateNetworkAddressing"
-        },
-        "pod-name": {
-          "description": "Name of the pod which is attached to these networks",
-          "type": "string"
-        },
-        "pod-namespace": {
-          "description": "Namespace of the pod which is attached to these networks",
-          "type": "string"
-        },
-        "pod-uid": {
-          "description": "UID of the pod which is attached to these networks",
-          "type": "string"
         }
       }
     },
@@ -612,18 +600,6 @@ func init() {
         "addressing": {
           "description": "Optional network addressing information. Empty if the endpoint is not attached to a specific private network.\n",
           "$ref": "#/definitions/PrivateNetworkAddressing"
-        },
-        "pod-name": {
-          "description": "Name of the pod which is attached to these networks",
-          "type": "string"
-        },
-        "pod-namespace": {
-          "description": "Namespace of the pod which is attached to these networks",
-          "type": "string"
-        },
-        "pod-uid": {
-          "description": "UID of the pod which is attached to these networks",
-          "type": "string"
         }
       }
     },

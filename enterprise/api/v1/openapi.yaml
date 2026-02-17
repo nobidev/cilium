@@ -164,15 +164,6 @@ definitions:
     description: |-
       Contains the endpoint's private network specific information
     properties:
-      pod-name:
-        description: Name of the pod which is attached to these networks
-        type: string
-      pod-namespace:
-        description: Namespace of the pod which is attached to these networks
-        type: string
-      pod-uid:
-        description: UID of the pod which is attached to these networks
-        type: string
       addressing:
         description: >
           Optional network addressing information. Empty if the endpoint is not

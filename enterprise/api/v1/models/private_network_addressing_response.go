@@ -32,15 +32,6 @@ type PrivateNetworkAddressingResponse struct {
 	// Optional network addressing information. Empty if the endpoint is not attached to a specific private network.
 	//
 	Addressing *PrivateNetworkAddressing `json:"addressing,omitempty"`
-
-	// Name of the pod which is attached to these networks
-	PodName string `json:"pod-name,omitempty"`
-
-	// Namespace of the pod which is attached to these networks
-	PodNamespace string `json:"pod-namespace,omitempty"`
-
-	// UID of the pod which is attached to these networks
-	PodUID string `json:"pod-uid,omitempty"`
 }
 
 // Validate validates this private network addressing response

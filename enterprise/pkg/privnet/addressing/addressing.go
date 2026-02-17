@@ -195,10 +195,7 @@ func newPrivNetAPIHandler(n *PrivNetAPI) network.GetNetworkPrivateAddressingHand
 		}
 
 		return network.NewGetNetworkPrivateAddressingOK().WithPayload(&models.PrivateNetworkAddressingResponse{
-			Addressing:   addressing,
-			PodName:      p.PodName,
-			PodNamespace: p.PodNamespace,
-			PodUID:       p.PodUID,
+			Addressing: addressing,
 		})
 	})
 }
