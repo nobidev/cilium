@@ -44,7 +44,8 @@ ASSIGN_CONFIG(__u32, interface_ifindex, IFINDEX)
 ASSIGN_CONFIG(__u32, cilium_dhcp_ifindex, CILIUM_DHCP_IFINDEX)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr}) /* set lxc mac */
 
-static const union v4addr lxc_privnet_ipv4 = { .be32 = V4_NET_IP_2 };
+static const union v4addr lxc_privnet_ipv4 = { .be32 = V4_NET_IP_1 };
+static const union v4addr lxc_privnet_ipv4_other = { .be32 = V4_NET_IP_2 };
 static const union v6addr lxc_privnet_ipv6 = { .addr = v6_svc_one_addr };
 
 PKTGEN("tc", "01_icmp_from_container_nat_src_dst")
@@ -595,7 +596,7 @@ int privnet_arp_from_container_privnet_ip_mismatch_pktgen(struct __ctx_buff *ctx
 SETUP("tc", "14_arp_from_container_privnet_ip_match")
 int privnet_arp_from_container_privnet_ip_mismatch_setup(struct __ctx_buff *ctx)
 {
-	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4,
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4_other,
 				 &lxc_privnet_ipv6);
 	return pod_send_packet(ctx);
 }
@@ -668,5 +669,61 @@ int privnet_dhcp_from_container_unicast_redirect_check(struct __ctx_buff *ctx)
 			   CILIUM_DHCP_IFINDEX, redirect_target_ifindex);
 
 	privnet_del_device_entry(IFINDEX);
+	test_finish();
+}
+
+PKTGEN("tc", "17_tcp_from_container_spoofed_drop")
+int privnet_tcp_from_container_spoofed_drop_pktgen(struct __ctx_buff *ctx)
+{
+	build_privnet_packet(ctx, NETIP_TCP_SYN);
+
+	return 0;
+}
+
+SETUP("tc", "17_tcp_from_container_spoofed_drop")
+int privnet_tcp_from_container_spoofed_drop_setup(struct __ctx_buff *ctx)
+{
+	struct metrics_key key = {
+		.reason = (__u8)-DROP_UNROUTABLE,
+		.dir = METRIC_EGRESS,
+	};
+	map_delete_elem(&cilium_metrics, &key);
+
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4_other, &lxc_privnet_ipv6);
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+
+	return pod_send_packet(ctx);
+}
+
+CHECK("tc", "17_tcp_from_container_spoofed_drop")
+int privnet_tcp_from_container_spoofed_drop_check(struct __ctx_buff *ctx)
+{
+	struct metrics_key key = {
+		.reason = (__u8)-DROP_UNROUTABLE,
+		.dir = METRIC_EGRESS,
+	};
+	struct metrics_value *entry = NULL;
+	__u64 count = 1;
+
+	test_init();
+
+	/* dropped due to source address mismatch */
+	assert_status_code(ctx, CTX_ACT_DROP);
+
+	/* check reason for drop */
+	entry = map_lookup_elem(&cilium_metrics, &key);
+	if (!entry)
+		test_fatal("metrics entry not found");
+
+	assert_privnet_net_ids(NET_ID, NET_ID);
+
+	assert_metrics_count(key, count);
+
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
+	privnet_del_device_entry(IFINDEX);
+
 	test_finish();
 }

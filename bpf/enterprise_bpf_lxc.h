@@ -59,6 +59,11 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 			return handle_privnet_ns(ctx, net_id, &dev_val->ipv6);
 
 		ipv6_addr_copy(&sip6, (union v6addr *)&ip6->saddr);
+
+		/* Protect against source address spoofing */
+		if (!ipv6_addr_equals(&sip6, &dev_val->ipv6))
+			return DROP_UNROUTABLE;
+
 		ret = privnet_egress_ipv6(ctx, net_id,
 					  privnet_subnet_id_lookup6(net_id, sip6),
 					  NULL, &dip_val);
@@ -102,8 +107,13 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		if (!dev_val->ipv4.be32)
 			return DROP_INVALID;
 
-		if (unlikely(!revalidate_data(ctx, &data, &data_end, &ip4)))
+		/* revalidate data before accessing ip4, otherwise verifier will not be happy. */
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
+
+		/* Protect against source address spoofing */
+		if (ip4->saddr != dev_val->ipv4.be32)
+			return DROP_UNROUTABLE;
 
 		ret = privnet_egress_ipv4(ctx, net_id,
 					  privnet_subnet_id_lookup4(net_id, ip4->saddr),
