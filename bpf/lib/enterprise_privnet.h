@@ -1201,8 +1201,7 @@ static __always_inline bool ipv6_addr_is_link_local(const union v6addr *ip6addr)
 
 static __always_inline int
 handle_privnet_ns(struct __ctx_buff *ctx, const __u16 net_id,
-		  const union v6addr *ep_addr __maybe_unused,
-		  bool from_lxc)
+		  const union v6addr *ep_addr)
 {
 	union macaddr mac = CONFIG(interface_mac);
 	const struct privnet_fib_val *val;
@@ -1217,7 +1216,7 @@ handle_privnet_ns(struct __ctx_buff *ctx, const __u16 net_id,
 			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)
 		return CTX_ACT_OK;
 
-	if (from_lxc && ipv6_addr_is_link_local(&tip)) {
+	if (is_defined(IS_BPF_LXC) && ipv6_addr_is_link_local(&tip)) {
 		/*
 		 * Only applicable for LXC.
 		 * We are expecting default route from inside the VM as 'default via <some-link-local-address>.
@@ -1236,12 +1235,12 @@ handle_privnet_ns(struct __ctx_buff *ctx, const __u16 net_id,
 	 * be out of sync, and we may conflict with the newly activated INB.
 	 */
 	if (!val || is_privnet_route_entry(val) ||
-	    !(from_lxc || (val->flag_l2_announce && privnet_agent_alive())) ||
-	    (!from_lxc && CONFIG(privnet_local_access_enable) &&
+	    !(is_defined(IS_BPF_LXC) || (val->flag_l2_announce && privnet_agent_alive())) ||
+	    (!is_defined(IS_BPF_LXC) && CONFIG(privnet_local_access_enable) &&
 	     val->ifindex != CONFIG(interface_ifindex)))
 		return CTX_ACT_OK;
 
-	if (from_lxc && ep_addr) {
+	if (is_defined(IS_BPF_LXC) && ep_addr) {
 		/*
 		 * Don't reply to neighbor solicitations for the IPv6 address
 		 * associated with the local endpoint, to avoid issues caused

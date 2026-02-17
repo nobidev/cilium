@@ -56,7 +56,7 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 			return DROP_INVALID;
 
 		if (is_icmp6_ndp(ctx, ip6, ETH_HLEN))
-			return handle_privnet_ns(ctx, net_id, &dev_val->ipv6, true);
+			return handle_privnet_ns(ctx, net_id, &dev_val->ipv6);
 
 		ipv6_addr_copy(&sip6, (union v6addr *)&ip6->saddr);
 		ret = privnet_egress_ipv6(ctx, net_id,
