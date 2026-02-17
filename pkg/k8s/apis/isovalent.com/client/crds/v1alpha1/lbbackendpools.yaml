@@ -120,6 +120,12 @@ spec:
                       maximum: 4294967295
                       minimum: 1
                       type: integer
+                    zone:
+                      description: |-
+                        The zone of the backend used for zone-aware routing decisions.
+                        Needs to be configured if the referencing LBService configures
+                        zone-awareness. If backend is in-cluster, it will be ignored.
+                      type: string
                   required:
                   - port
                   type: object

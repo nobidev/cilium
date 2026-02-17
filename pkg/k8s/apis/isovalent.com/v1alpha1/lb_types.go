@@ -2056,6 +2056,13 @@ type Backend struct {
 	// +kubebuilder:validation:Maximum=4294967295
 	Weight *uint32 `json:"weight,omitempty"`
 
+	// The zone of the backend used for zone-aware routing decisions.
+	// Needs to be configured if the referencing LBService configures
+	// zone-awareness. If backend is in-cluster, it will be ignored.
+	//
+	// +kubebuilder:validation:Optional
+	Zone *string `json:"zone,omitempty"`
+
 	// The status of that backend.
 	//
 	// If not defined, active health checking is used to determione the

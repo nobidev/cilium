@@ -463,6 +463,14 @@ func (in *Backend) DeepEqual(other *Backend) bool {
 		}
 	}
 
+	if (in.Zone == nil) != (other.Zone == nil) {
+		return false
+	} else if in.Zone != nil {
+		if *in.Zone != *other.Zone {
+			return false
+		}
+	}
+
 	if (in.Status == nil) != (other.Status == nil) {
 		return false
 	} else if in.Status != nil {
