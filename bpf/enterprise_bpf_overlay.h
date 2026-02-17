@@ -20,7 +20,6 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 	struct bpf_tunnel_key tunnel_key __maybe_unused = {};
 	bool unknown_flow __maybe_unused = false;
 	int privnet_ifindex __maybe_unused;
-	struct bpf_redir_neigh nh_params __maybe_unused = {};
 	int ret __maybe_unused = CTX_ACT_OK;
 
 	if (!CONFIG(privnet_enable)) {
@@ -114,23 +113,13 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 			__u16 sn_id;
 
 			ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
-			nh_params.nh_family = AF_INET6;
 
 			/* network and subnet IDs are based on original source ip (pip). */
 			sn_id = privnet_subnet_id_lookup6(src_pip_val->net_id, src_pip_val->ip6);
 			dip_fib_val = privnet_fib_lookup6(src_pip_val->net_id, sn_id, daddr);
-			if (dip_fib_val && dip_fib_val->flag_is_static_route) {
-				__bpf_memcpy_builtin(&nh_params.ipv6_nh, &dip_fib_val->ip6,
-						     sizeof(nh_params.ipv6_nh));
-			} else if (dip_fib_val && dip_fib_val->flag_is_subnet_route) {
-				__bpf_memcpy_builtin(&nh_params.ipv6_nh, &ip6->daddr,
-						     sizeof(nh_params.ipv6_nh));
-			} else {
-				/* No route found for dst ip, it is better to drop instead of sending it out. */
-				return DROP_UNROUTABLE;
-			}
 
-			return redirect_neigh(privnet_ifindex, &nh_params, sizeof(nh_params), 0);
+			return privnet_redirect_neigh_fib_ipv6(dip_fib_val, &daddr,
+							       privnet_ifindex);
 		}
 
 		break;
@@ -209,25 +198,14 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 			if (!revalidate_data(ctx, &data, &data_end, &ip4))
 				return DROP_INVALID;
 
-			__u32 ipv4_nh;
 			__u16 sn_id;
 
 			/* network and subnet IDs are based on original source ip (pip). */
 			sn_id = privnet_subnet_id_lookup4(src_pip_val->net_id, src_pip_val->ip4);
 			dip_fib_val = privnet_fib_lookup4(src_pip_val->net_id, sn_id, ip4->daddr);
-			if (dip_fib_val && dip_fib_val->flag_is_static_route) {
-				ipv4_nh = dip_fib_val->ip4;
-			} else if (dip_fib_val && dip_fib_val->flag_is_subnet_route) {
-				ipv4_nh = ip4->daddr;
-			} else {
-				/* No route found for dst ip, it is better to drop instead of sending it out. */
-				return DROP_UNROUTABLE;
-			}
 
-			nh_params.nh_family = AF_INET;
-			nh_params.ipv4_nh = ipv4_nh;
-
-			return redirect_neigh(privnet_ifindex, &nh_params, sizeof(nh_params), 0);
+			return privnet_redirect_neigh_fib_ipv4(dip_fib_val, ip4->daddr,
+							       privnet_ifindex);
 		}
 
 		break;

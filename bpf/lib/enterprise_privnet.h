@@ -493,41 +493,62 @@ enforce_privnet_egress_segmentation(const struct privnet_fib_val *sip_val,
 	return CTX_ACT_OK;
 }
 
+/* privnet_redirect_neigh_fib_ipv4() - redirect packet to the specified
+ * interface based on the given FIB map entry.
+ * @dip_val: FIB map entry
+ * @daddr: destination address extracted from the packet
+ * @ifindex: ifindex of the interface to redirect the packet to
+ *
+ * The packet is redirected using redirect_neigh(). The neigh lookup is for the
+ * given destination IP address if the FIB map entry is a subnet route or for
+ * the nexthop IP in case of a static route.
+ *
+ * Return: CTX_ACT_REDIRECT if the packet was redirected, DROP_UNROUTABLE if no
+ *         route was found for the destination IP and the packet should be
+ *         dropped.
+ */
+static __always_inline int
+privnet_redirect_neigh_fib_ipv4(const struct privnet_fib_val *dip_val, __be32 daddr,
+				__u32 ifindex)
+{
+	struct bpf_redir_neigh nh_params = {
+		.nh_family = AF_INET,
+	};
+
+	if (!dip_val)
+		return DROP_UNROUTABLE;
+
+	if (dip_val->flag_is_subnet_route)
+		/* Subnet route: neigh lookup for destination IP */
+		nh_params.ipv4_nh = daddr;
+	else if (dip_val->flag_is_static_route)
+		/* Subnet route: neigh lookup for nexthop IP */
+		nh_params.ipv4_nh = dip_val->ip4;
+	else
+		/* No route found for destination IP */
+		return DROP_UNROUTABLE;
+
+	return redirect_neigh(ifindex, &nh_params, sizeof(nh_params), 0);
+}
+
 /* privnet_local_access_egress_ipv4() - redirect packet to the connected local
  * access interface, if specified in the given FIB map entry.
  * @dip_val: FIB map entry
  * @daddr: destination address extracted from the packet
  *
- * The packet is redirected using redirect_neigh(). The neigh lookup is for the
- * given destination IP address if the FIB map entry is a subnet route or for
- * the nexthop IP in case of a static route.
+ * The packet is redirected using privnet_redirect_neigh_fib_ipv4().
  *
  * Return: CTX_ACT_REDIRECT if the packet was redirected, CTX_ACT_OK if no action
  *         was taken, DROP_UNROUTABLE if no route was found for the destination
  *         IP and the packet should be dropped.
  */
 static __always_inline int
-privnet_local_access_egress_ipv4(const struct privnet_fib_val *dip_val, __u32 daddr)
+privnet_local_access_egress_ipv4(const struct privnet_fib_val *dip_val, __be32 daddr)
 {
 	__u32 ifindex = dip_val->ifindex;
 
-	if (CONFIG(privnet_local_access_enable) && ifindex != 0) {
-		struct bpf_redir_neigh nh_params = {
-			.nh_family = AF_INET,
-		};
-
-		if (dip_val->flag_is_subnet_route)
-			/* Subnet route: neigh lookup for destination IP */
-			nh_params.ipv4_nh = daddr;
-		else if (dip_val->flag_is_static_route)
-			/* Subnet route: neigh lookup for nexthop IP */
-			nh_params.ipv4_nh = dip_val->ip4;
-		else
-			/* No route found for destination IP */
-			return DROP_UNROUTABLE;
-
-		return redirect_neigh(ifindex, &nh_params, sizeof(nh_params), 0);
-	}
+	if (CONFIG(privnet_local_access_enable) && ifindex != 0)
+		return privnet_redirect_neigh_fib_ipv4(dip_val, daddr, ifindex);
 
 	return CTX_ACT_OK;
 }
@@ -618,31 +639,41 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 	return enforce_privnet_egress_segmentation(sip_val, dip_val);
 }
 
+/* See comment for privnet_redirect_neigh_fib_ipv4() */
+static __always_inline int
+privnet_redirect_neigh_fib_ipv6(const struct privnet_fib_val *dip_val, const union v6addr *daddr,
+				__u32 ifindex)
+{
+	struct bpf_redir_neigh nh_params = {
+		.nh_family = AF_INET6,
+	};
+
+	if (!dip_val)
+		return DROP_UNROUTABLE;
+
+	if (dip_val->flag_is_subnet_route)
+		/* Subnet route: neigh lookup for destination IP */
+		__bpf_memcpy_builtin(&nh_params.ipv6_nh, daddr,
+				     sizeof(nh_params.ipv6_nh));
+	else if (dip_val->flag_is_static_route)
+		/* Subnet route: neigh lookup for nexthop IP */
+		__bpf_memcpy_builtin(&nh_params.ipv6_nh, &dip_val->ip6,
+				     sizeof(nh_params.ipv6_nh));
+	else
+		/* No route found for destination IP */
+		return DROP_UNROUTABLE;
+
+	return redirect_neigh(ifindex, &nh_params, sizeof(nh_params), 0);
+}
+
 /* See comment for privnet_local_access_egress_ipv4() */
 static __always_inline int
 privnet_local_access_egress_ipv6(const struct privnet_fib_val *dip_val, const union v6addr *daddr)
 {
 	__u32 ifindex = dip_val->ifindex;
 
-	if (CONFIG(privnet_local_access_enable) && ifindex != 0) {
-		struct bpf_redir_neigh nh_params = {
-			.nh_family = AF_INET6,
-		};
-
-		if (dip_val->flag_is_subnet_route)
-			/* Subnet route: neigh lookup for destination IP */
-			__bpf_memcpy_builtin(&nh_params.ipv6_nh, daddr,
-					     sizeof(nh_params.ipv6_nh));
-		else if (dip_val->flag_is_static_route)
-			/* Subnet route: neigh lookup for nexthop IP */
-			__bpf_memcpy_builtin(&nh_params.ipv6_nh, &dip_val->ip6,
-					     sizeof(nh_params.ipv6_nh));
-		else
-			/* No route found for destination IP */
-			return DROP_UNROUTABLE;
-
-		return redirect_neigh(ifindex, &nh_params, sizeof(nh_params), 0);
-	}
+	if (CONFIG(privnet_local_access_enable) && ifindex != 0)
+		return privnet_redirect_neigh_fib_ipv6(dip_val, daddr, ifindex);
 
 	return CTX_ACT_OK;
 }
