@@ -30,6 +30,9 @@ PRIVNET_KUBEVIRT_VERSION ?= v1.7.0
 # renovate: datasource=github-tags depName=kubev2v/forklift
 PRIVNET_FORKLIFT_VERSION ?= v2.10.5
 
+# renovate: datasource=github-releases depName=k8snetworkplumbingwg/multus-cni
+PRIVNET_MULTUS_VERSION ?= v4.2.3
+
 PRIVNET_DNS_SERVER ?= 8.8.8.8
 
 .PHONY: kind-privnet-all
@@ -184,10 +187,11 @@ kind-privnet-load-images: kind-privnet-ready
 	$(call privnet_pull_image,quay.io/jetstack/cert-manager-controller:$(PRIVNET_CERT_MANAGER_VERSION))
 	$(call privnet_pull_image,quay.io/jetstack/cert-manager-cainjector:$(PRIVNET_CERT_MANAGER_VERSION))
 	$(call privnet_pull_image,quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION))
+	$(call privnet_pull_image,ghcr.io/k8snetworkplumbingwg/multus-cni:$(PRIVNET_MULTUS_VERSION)-thick)
 
 	$(call privnet_load_images, privnet-cluster, $(LOCAL_AGENT_IMAGE) $(LOCAL_OPERATOR_IMAGE) $(LOCAL_CLUSTERMESH_IMAGE) $(PRIVNET_ENVOY_IMAGE) \
 		quay.io/jetstack/cert-manager-controller:$(PRIVNET_CERT_MANAGER_VERSION) quay.io/jetstack/cert-manager-cainjector:$(PRIVNET_CERT_MANAGER_VERSION) \
-		quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION))
+		quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION) ghcr.io/k8snetworkplumbingwg/multus-cni:$(PRIVNET_MULTUS_VERSION)-thick)
 	$(call privnet_load_images, privnet-inb0, $(LOCAL_AGENT_IMAGE) $(LOCAL_OPERATOR_IMAGE) $(LOCAL_CLUSTERMESH_IMAGE) $(PRIVNET_ENVOY_IMAGE) \
 		quay.io/jetstack/cert-manager-controller:$(PRIVNET_CERT_MANAGER_VERSION) quay.io/jetstack/cert-manager-cainjector:$(PRIVNET_CERT_MANAGER_VERSION) \
 		quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION))
@@ -212,6 +216,7 @@ KIND_PRIVNET_VALUES_FILES ?= ""
 kind-privnet-install: kind-privnet-forklift-crds  ## Install a local Cilium version into the clusters
 	$(MAKE) kind-privnet-uninstall
 	$(MAKE) kind-privnet-install-common
+	$(MAKE) kind-privnet-install-multus
 	$(MAKE) kind-privnet-install-cert-manager
 	$(MAKE) kind-privnet-connect-clustermesh
 
@@ -225,6 +230,7 @@ kind-privnet-install-fast: kind-privnet-forklift-crds  ## Install a local Cilium
 	"
 
 	$(MAKE) kind-privnet-images-fast
+	$(MAKE) kind-privnet-install-multus
 	$(MAKE) kind-privnet-install-cert-manager
 	$(MAKE) kind-privnet-connect-clustermesh
 
@@ -257,6 +263,7 @@ kind-privnet-install-common: kind-privnet-jetstack-repo
 		--set ipv4NativeRoutingCIDR=10.196.0.0/16 \
 		--set ipv6NativeRoutingCIDR=fd00:10:196::/56 \
 		--set enterprise.clustermesh.mixedRoutingMode.enabled=true \
+		--set cni.exclusive=false --set cni.confPath=/etc/cni/net.d/delegates \
 		$(KIND_PRIVNET_VALUES_FILES) \
 		--version=
 
@@ -317,6 +324,24 @@ kind-privnet-install-cert-manager:
 	$(QUIET) kubectl --context kind-privnet-inb0 wait certificate -n kube-system --all --for condition=Ready >/dev/null
 	$(QUIET) kubectl --context kind-privnet-inb1 wait certificate -n kube-system --all --for condition=Ready >/dev/null
 
+.PHONY: kind-privnet-install-multus
+kind-privnet-install-multus: kind-privnet-generate-multus-kustomization
+	$(QUIET) kubectl kustomize $(ROOT_DIR)/contrib/testing/privnet/multus | \
+		$(SED) '/multusAutoconfigDir/ s|net.d|net.d/delegates|' | \
+		kubectl --context kind-privnet-cluster apply -f -
+	$(QUIET) kubectl --context kind-privnet-cluster rollout status daemonset -n kube-system kube-multus-ds --watch >/dev/null
+
+.PHONY: kind-privnet-uninstall-multus
+kind-privnet-uninstall-multus: kind-privnet-generate-multus-kustomization
+	$(QUIET) kubectl kustomize $(ROOT_DIR)/contrib/testing/privnet/multus | kubectl --context kind-privnet-cluster delete -f - --ignore-not-found
+	$(QUIET) kubectl --context kind-privnet-cluster wait pod -n kube-system -l app=multus --for delete >/dev/null
+
+.PHONY: kind-privnet-generate-multus-kustomization
+kind-privnet-generate-multus-kustomization:
+	$(QUIET) MULTUS_VERSION=$(PRIVNET_MULTUS_VERSION) envsubst \
+		< $(ROOT_DIR)/contrib/testing/privnet/multus/kustomization.yaml.tmpl \
+		> $(ROOT_DIR)/contrib/testing/privnet/multus/kustomization.yaml
+
 define privnet_uninstall
 	-$(QUIET) helm uninstall --kube-context $(1) -n cert-manager cert-manager >/dev/null 2>&1
 	$(QUIET) kubectl --context $(1) delete crds -l app.kubernetes.io/name=cert-manager --ignore-not-found >/dev/null
@@ -333,6 +358,7 @@ kind-privnet-uninstall:  ## Uninstall Cilium from the clusters
 	$(call privnet_uninstall,kind-privnet-cluster)
 	$(call privnet_uninstall,kind-privnet-inb0)
 	$(call privnet_uninstall,kind-privnet-inb1)
+	$(MAKE) kind-privnet-uninstall-multus
 
 .PHONY: kind-privnet-connect-clustermesh
 kind-privnet-connect-clustermesh:  ## Mesh the clusters via Cluster Mesh
