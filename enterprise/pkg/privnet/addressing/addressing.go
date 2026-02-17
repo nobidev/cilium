@@ -180,6 +180,7 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 		return nil, err
 	}
 
+	addressing.Routes = n.routes()
 	return addressing, nil
 }
 
@@ -209,6 +210,33 @@ func (n *PrivNetAPI) validAttachment(txn statedb.ReadTxn, privnet tables.Network
 	default:
 		return nil
 	}
+}
+
+// routes returns the list of routes to be configured for a private networks enabled endpoint.
+// Specifically, for each IP family that is enabled, we configure the following routes.
+//
+// * For the primary interface:
+//   - A route towards a link local address -- $link_local_address via $iface
+//   - A default route -- default via $link_local_address
+//
+// We leverage a link local address as nexthop, rather than simply setting the default route
+// via the egress interface, to avoid the need for a neighbor lookup for every destination IP.
+func (n *PrivNetAPI) routes() (out []*models.NetworkAttachmentRoute) {
+	if n.cfg.enableIPv4 {
+		out = append(out,
+			&models.NetworkAttachmentRoute{Destination: "169.254.0.1/32"},
+			&models.NetworkAttachmentRoute{Destination: "0.0.0.0/0", Gateway: "169.254.0.1"},
+		)
+	}
+
+	if n.cfg.enableIPv6 {
+		out = append(out,
+			&models.NetworkAttachmentRoute{Destination: "fe80::1/128"},
+			&models.NetworkAttachmentRoute{Destination: "::/0", Gateway: "fe80::1"},
+		)
+	}
+
+	return out
 }
 
 // newPrivNetAPIHandler returns a default handler for the /network/private/addressing API endpoint

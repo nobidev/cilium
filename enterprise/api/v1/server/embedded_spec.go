@@ -281,6 +281,13 @@ func init() {
         "network": {
           "description": "Private network name",
           "type": "string"
+        },
+        "routes": {
+          "description": "Network routes to configure for this endpoint",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NetworkAttachmentRoute"
+          }
         }
       }
     },
@@ -638,6 +645,13 @@ func init() {
         "network": {
           "description": "Private network name",
           "type": "string"
+        },
+        "routes": {
+          "description": "Network routes to configure for this endpoint",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NetworkAttachmentRoute"
+          }
         }
       }
     },

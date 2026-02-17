@@ -207,6 +207,11 @@ definitions:
         description: Time timestamp when the pod was activated
         type: string
         format: date-time
+      routes:
+        description: Network routes to configure for this endpoint
+        type: array
+        items:
+          "$ref": "#/definitions/NetworkAttachmentRoute"
   AddressPair:
     description: Addressing information of an endpoint
     type: object

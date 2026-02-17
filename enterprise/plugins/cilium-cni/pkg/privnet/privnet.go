@@ -26,7 +26,6 @@ import (
 	privnetTypes "github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
-	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/plugins/cilium-cni/cmd"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -131,22 +130,6 @@ func (h *addHooks) OnLinkConfigReady(linkConfig *datapathTypes.LinkConfig) error
 	return nil
 }
 
-var (
-	// defaultV4Route is the default IPv4 route 0.0.0.0/0
-	defaultV4Route = net.IPNet{
-		IP:   net.IPv4zero,
-		Mask: net.CIDRMask(0, 8*net.IPv4len),
-	}
-	// defaultV6Route is the default IPv6 route ::/0
-	defaultV6Route = net.IPNet{
-		IP:   net.IPv6zero,
-		Mask: net.CIDRMask(0, 8*net.IPv6len),
-	}
-
-	linkLocalV4Prefix = net.ParseIP("169.254.0.1")
-	linkLocalV6Prefix = net.ParseIP("fe80::1")
-)
-
 func (h *addHooks) OnInterfaceConfigReady(state *cmd.CmdState, ep *models.EndpointChangeRequest, res *cniTypesV1.Result) error {
 	// privnet not enabled or not a privnet-attached endpoint, don't modify
 	if !h.privNetEnabled || h.privNetAddressing == nil || h.privNetAddressing.Network == "" || h.ipam == nil {
@@ -161,36 +144,32 @@ func (h *addHooks) OnInterfaceConfigReady(state *cmd.CmdState, ep *models.Endpoi
 	ipv4Enabled := cmd.IPv4IsEnabled(h.ipam)
 	ipv6Enabled := cmd.IPv6IsEnabled(h.ipam)
 
-	routeMTU := int(h.daemonConf.RouteMTU)
-	if ipv4Enabled {
-		// add default route with link local nexthop
-		state.IP4routes = append(state.IP4routes, route.Route{
-			Prefix:  defaultV4Route,
-			Nexthop: &linkLocalV4Prefix,
-			MTU:     routeMTU,
-		})
+	for _, r := range h.privNetAddressing.Routes {
+		dstIP, dstPrefix, err := net.ParseCIDR(r.Destination)
+		if err != nil {
+			return fmt.Errorf("invalid route destination %q: %w", r.Destination, err)
+		}
 
-		// add link-local route
-		state.IP4routes = append(state.IP4routes, route.Route{
-			Prefix: *iputil.IPToPrefix(linkLocalV4Prefix),
-			MTU:    routeMTU,
-		})
+		rte := route.Route{
+			Prefix: *dstPrefix,
+			MTU:    int(h.daemonConf.RouteMTU),
+		}
 
-	}
+		if r.Gateway != "" {
+			gwIP := net.ParseIP(r.Gateway)
+			if gwIP == nil {
+				return fmt.Errorf("invalid route gateway %q", r.Gateway)
+			}
 
-	if ipv6Enabled {
-		// add default route with link local nexthop
-		state.IP6routes = append(state.IP6routes, route.Route{
-			Prefix:  defaultV6Route,
-			Nexthop: &linkLocalV6Prefix,
-			MTU:     routeMTU,
-		})
+			rte.Nexthop = &gwIP
+		}
 
-		// add link-local route
-		state.IP6routes = append(state.IP6routes, route.Route{
-			Prefix: *iputil.IPToPrefix(linkLocalV6Prefix),
-			MTU:    routeMTU,
-		})
+		switch {
+		case ipv4Enabled && dstIP.To4() != nil:
+			state.IP4routes = append(state.IP4routes, rte)
+		case ipv6Enabled && dstIP.To4() == nil:
+			state.IP6routes = append(state.IP6routes, rte)
+		}
 	}
 
 	if ep.Properties == nil {

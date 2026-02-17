@@ -18,6 +18,7 @@ package models
 import (
 	"context"
 	stderrors "errors"
+	"strconv"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -42,6 +43,9 @@ type PrivateNetworkAddressing struct {
 
 	// Private network name
 	Network string `json:"network,omitempty"`
+
+	// Network routes to configure for this endpoint
+	Routes []*NetworkAttachmentRoute `json:"routes"`
 }
 
 // Validate validates this private network addressing
@@ -53,6 +57,10 @@ func (m *PrivateNetworkAddressing) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateAddress(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateRoutes(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -97,11 +105,45 @@ func (m *PrivateNetworkAddressing) validateAddress(formats strfmt.Registry) erro
 	return nil
 }
 
+func (m *PrivateNetworkAddressing) validateRoutes(formats strfmt.Registry) error {
+	if swag.IsZero(m.Routes) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.Routes); i++ {
+		if swag.IsZero(m.Routes[i]) { // not required
+			continue
+		}
+
+		if m.Routes[i] != nil {
+			if err := m.Routes[i].Validate(formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("routes" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("routes" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 // ContextValidate validate this private network addressing based on the context it is used
 func (m *PrivateNetworkAddressing) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.contextValidateAddress(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateRoutes(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -131,6 +173,35 @@ func (m *PrivateNetworkAddressing) contextValidateAddress(ctx context.Context, f
 
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *PrivateNetworkAddressing) contextValidateRoutes(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Routes); i++ {
+
+		if m.Routes[i] != nil {
+
+			if swag.IsZero(m.Routes[i]) { // not required
+				return nil
+			}
+
+			if err := m.Routes[i].ContextValidate(ctx, formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("routes" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("routes" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
 	}
 
 	return nil

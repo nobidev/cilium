@@ -213,6 +213,12 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					IPV6: "fd10:0:150::11",
 				},
 				Mac: "00:50:56:ad:11:02",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.1/32"},
+					{Destination: "0.0.0.0/0", Gateway: "169.254.0.1"},
+					{Destination: "fe80::1/128"},
+					{Destination: "::/0", Gateway: "fe80::1"},
+				},
 			},
 		},
 		{
@@ -231,6 +237,12 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					IPV6: "fd10:0:150::13",
 				},
 				Mac: "00:69:af:ca:8e:34",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.1/32"},
+					{Destination: "0.0.0.0/0", Gateway: "169.254.0.1"},
+					{Destination: "fe80::1/128"},
+					{Destination: "::/0", Gateway: "fe80::1"},
+				},
 			},
 		},
 		{
@@ -369,6 +381,10 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					IPV6: "fd10:0:150::11",
 				},
 				Mac: "00:50:56:ad:11:02",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "fe80::1/128"},
+					{Destination: "::/0", Gateway: "fe80::1"},
+				},
 			},
 		},
 		{
@@ -386,6 +402,10 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					IPV4: "192.168.11.11",
 				},
 				Mac: "00:50:56:ad:11:02",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.1/32"},
+					{Destination: "0.0.0.0/0", Gateway: "169.254.0.1"},
+				},
 			},
 		},
 		{
@@ -465,6 +485,12 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					IPV6: "fd10:0:150::11",
 				},
 				Mac: "00:50:56:ad:11:02",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.1/32"},
+					{Destination: "0.0.0.0/0", Gateway: "169.254.0.1"},
+					{Destination: "fe80::1/128"},
+					{Destination: "::/0", Gateway: "fe80::1"},
+				},
 			},
 		},
 	}
