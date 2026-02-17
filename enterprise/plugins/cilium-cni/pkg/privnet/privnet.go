@@ -38,6 +38,7 @@ type addHooks struct {
 	privNetEnabled bool
 	cniCfg         CNIConfig
 	cniArgs        *types.ArgsSpec
+	ifname         string
 	daemonConf     *models.DaemonConfigurationStatus
 
 	// Set in OnIPAMReady
@@ -77,6 +78,7 @@ func (h *addHooks) OnConfigReady(args *skel.CmdArgs, cniArgs *types.ArgsSpec, co
 	h.privNetEnabled = enabled
 	h.cniCfg = cniCfg
 	h.cniArgs = cniArgs
+	h.ifname = args.IfName
 	h.daemonConf = conf
 
 	return nil
@@ -105,9 +107,11 @@ func (h *addHooks) OnLinkConfigReady(linkConfig *datapathTypes.LinkConfig) error
 	}
 
 	privNetAddressing, err := h.ceeClient.PrivateNetworkAddressing(
+		h.cniCfg.Network, h.cniCfg.Subnet,
 		string(h.cniArgs.K8S_POD_NAMESPACE),
 		string(h.cniArgs.K8S_POD_NAME),
 		string(h.cniArgs.K8S_POD_UID),
+		h.ifname,
 	)
 	if err != nil {
 		return fmt.Errorf("unable to determine private network: %w", err)

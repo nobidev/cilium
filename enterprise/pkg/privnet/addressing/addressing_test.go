@@ -419,6 +419,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					PodName:      name,
 					PodNamespace: namespace,
 					PodUID:       uid,
+					Ifname:       "eth0",
 				})
 				if tt.wantErr != "" {
 					assert.ErrorContains(t, err, tt.wantErr)

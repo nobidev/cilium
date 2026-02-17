@@ -71,6 +71,18 @@ GetNetworkPrivateAddressingParams contains all the parameters to send to the API
 */
 type GetNetworkPrivateAddressingParams struct {
 
+	/* Ifname.
+
+	   Interface name, used to identify the network attachment in case of multi-NIC pods
+	*/
+	Ifname string
+
+	/* Network.
+
+	   Name of the target private network, if provided via CNI configuration
+	*/
+	Network *string
+
 	/* PodName.
 
 	   Kubernetes pod name for which to query the network attachment
@@ -88,6 +100,12 @@ type GetNetworkPrivateAddressingParams struct {
 	   Kubernetes pod uid for which to query the network attachment
 	*/
 	PodUID string
+
+	/* Subnet.
+
+	   Name of the target subnet in the private network, if provided via CNI configuration
+	*/
+	Subnet *string
 
 	timeout    time.Duration
 	Context    context.Context
@@ -142,6 +160,28 @@ func (o *GetNetworkPrivateAddressingParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithIfname adds the ifname to the get network private addressing params
+func (o *GetNetworkPrivateAddressingParams) WithIfname(ifname string) *GetNetworkPrivateAddressingParams {
+	o.SetIfname(ifname)
+	return o
+}
+
+// SetIfname adds the ifname to the get network private addressing params
+func (o *GetNetworkPrivateAddressingParams) SetIfname(ifname string) {
+	o.Ifname = ifname
+}
+
+// WithNetwork adds the network to the get network private addressing params
+func (o *GetNetworkPrivateAddressingParams) WithNetwork(network *string) *GetNetworkPrivateAddressingParams {
+	o.SetNetwork(network)
+	return o
+}
+
+// SetNetwork adds the network to the get network private addressing params
+func (o *GetNetworkPrivateAddressingParams) SetNetwork(network *string) {
+	o.Network = network
+}
+
 // WithPodName adds the podName to the get network private addressing params
 func (o *GetNetworkPrivateAddressingParams) WithPodName(podName string) *GetNetworkPrivateAddressingParams {
 	o.SetPodName(podName)
@@ -175,6 +215,17 @@ func (o *GetNetworkPrivateAddressingParams) SetPodUID(podUID string) {
 	o.PodUID = podUID
 }
 
+// WithSubnet adds the subnet to the get network private addressing params
+func (o *GetNetworkPrivateAddressingParams) WithSubnet(subnet *string) *GetNetworkPrivateAddressingParams {
+	o.SetSubnet(subnet)
+	return o
+}
+
+// SetSubnet adds the subnet to the get network private addressing params
+func (o *GetNetworkPrivateAddressingParams) SetSubnet(subnet *string) {
+	o.Subnet = subnet
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetNetworkPrivateAddressingParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -182,6 +233,33 @@ func (o *GetNetworkPrivateAddressingParams) WriteToRequest(r runtime.ClientReque
 		return err
 	}
 	var res []error
+
+	// query param ifname
+	qrIfname := o.Ifname
+	qIfname := qrIfname
+	if qIfname != "" {
+
+		if err := r.SetQueryParam("ifname", qIfname); err != nil {
+			return err
+		}
+	}
+
+	if o.Network != nil {
+
+		// query param network
+		var qrNetwork string
+
+		if o.Network != nil {
+			qrNetwork = *o.Network
+		}
+		qNetwork := qrNetwork
+		if qNetwork != "" {
+
+			if err := r.SetQueryParam("network", qNetwork); err != nil {
+				return err
+			}
+		}
+	}
 
 	// query param pod-name
 	qrPodName := o.PodName
@@ -210,6 +288,23 @@ func (o *GetNetworkPrivateAddressingParams) WriteToRequest(r runtime.ClientReque
 
 		if err := r.SetQueryParam("pod-uid", qPodUID); err != nil {
 			return err
+		}
+	}
+
+	if o.Subnet != nil {
+
+		// query param subnet
+		var qrSubnet string
+
+		if o.Subnet != nil {
+			qrSubnet = *o.Subnet
+		}
+		qSubnet := qrSubnet
+		if qSubnet != "" {
+
+			if err := r.SetQueryParam("subnet", qSubnet); err != nil {
+				return err
+			}
 		}
 	}
 

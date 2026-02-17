@@ -41,6 +41,17 @@ type GetNetworkPrivateAddressingParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
+	/*Interface name, used to identify the network attachment in case of multi-NIC pods
+	  Required: true
+	  In: query
+	*/
+	Ifname string
+
+	/*Name of the target private network, if provided via CNI configuration
+	  In: query
+	*/
+	Network *string
+
 	/*Kubernetes pod name for which to query the network attachment
 	  Required: true
 	  In: query
@@ -58,6 +69,11 @@ type GetNetworkPrivateAddressingParams struct {
 	  In: query
 	*/
 	PodUID string
+
+	/*Name of the target subnet in the private network, if provided via CNI configuration
+	  In: query
+	*/
+	Subnet *string
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
@@ -69,6 +85,16 @@ func (o *GetNetworkPrivateAddressingParams) BindRequest(r *http.Request, route *
 
 	o.HTTPRequest = r
 	qs := runtime.Values(r.URL.Query())
+
+	qIfname, qhkIfname, _ := qs.GetOK("ifname")
+	if err := o.bindIfname(qIfname, qhkIfname, route.Formats); err != nil {
+		res = append(res, err)
+	}
+
+	qNetwork, qhkNetwork, _ := qs.GetOK("network")
+	if err := o.bindNetwork(qNetwork, qhkNetwork, route.Formats); err != nil {
+		res = append(res, err)
+	}
 
 	qPodName, qhkPodName, _ := qs.GetOK("pod-name")
 	if err := o.bindPodName(qPodName, qhkPodName, route.Formats); err != nil {
@@ -84,9 +110,53 @@ func (o *GetNetworkPrivateAddressingParams) BindRequest(r *http.Request, route *
 	if err := o.bindPodUID(qPodUID, qhkPodUID, route.Formats); err != nil {
 		res = append(res, err)
 	}
+
+	qSubnet, qhkSubnet, _ := qs.GetOK("subnet")
+	if err := o.bindSubnet(qSubnet, qhkSubnet, route.Formats); err != nil {
+		res = append(res, err)
+	}
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+// bindIfname binds and validates parameter Ifname from query.
+func (o *GetNetworkPrivateAddressingParams) bindIfname(rawData []string, hasKey bool, formats strfmt.Registry) error {
+	if !hasKey {
+		return errors.Required("ifname", "query", rawData)
+	}
+	var raw string
+	if len(rawData) > 0 {
+		raw = rawData[len(rawData)-1]
+	}
+
+	// Required: true
+	// AllowEmptyValue: false
+
+	if err := validate.RequiredString("ifname", "query", raw); err != nil {
+		return err
+	}
+	o.Ifname = raw
+
+	return nil
+}
+
+// bindNetwork binds and validates parameter Network from query.
+func (o *GetNetworkPrivateAddressingParams) bindNetwork(rawData []string, hasKey bool, formats strfmt.Registry) error {
+	var raw string
+	if len(rawData) > 0 {
+		raw = rawData[len(rawData)-1]
+	}
+
+	// Required: false
+	// AllowEmptyValue: false
+
+	if raw == "" { // empty values pass all other validations
+		return nil
+	}
+	o.Network = &raw
+
 	return nil
 }
 
@@ -149,6 +219,24 @@ func (o *GetNetworkPrivateAddressingParams) bindPodUID(rawData []string, hasKey 
 		return err
 	}
 	o.PodUID = raw
+
+	return nil
+}
+
+// bindSubnet binds and validates parameter Subnet from query.
+func (o *GetNetworkPrivateAddressingParams) bindSubnet(rawData []string, hasKey bool, formats strfmt.Registry) error {
+	var raw string
+	if len(rawData) > 0 {
+		raw = rawData[len(rawData)-1]
+	}
+
+	// Required: false
+	// AllowEmptyValue: false
+
+	if raw == "" { // empty values pass all other validations
+		return nil
+	}
+	o.Subnet = &raw
 
 	return nil
 }

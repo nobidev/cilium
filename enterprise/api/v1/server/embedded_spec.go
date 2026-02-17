@@ -122,6 +122,12 @@ func init() {
         "summary": "Retrieve the private network for the pod",
         "parameters": [
           {
+            "$ref": "#/parameters/network-name"
+          },
+          {
+            "$ref": "#/parameters/network-subnet"
+          },
+          {
             "$ref": "#/parameters/network-pod-name"
           },
           {
@@ -129,6 +135,9 @@ func init() {
           },
           {
             "$ref": "#/parameters/network-pod-uid"
+          },
+          {
+            "$ref": "#/parameters/network-ifname"
           }
         ],
         "responses": {
@@ -300,6 +309,19 @@ func init() {
     }
   },
   "parameters": {
+    "network-ifname": {
+      "type": "string",
+      "description": "Interface name, used to identify the network attachment in case of multi-NIC pods",
+      "name": "ifname",
+      "in": "query",
+      "required": true
+    },
+    "network-name": {
+      "type": "string",
+      "description": "Name of the target private network, if provided via CNI configuration",
+      "name": "network",
+      "in": "query"
+    },
     "network-pod-name": {
       "type": "string",
       "description": "Kubernetes pod name for which to query the network attachment",
@@ -320,6 +342,12 @@ func init() {
       "name": "pod-uid",
       "in": "query",
       "required": true
+    },
+    "network-subnet": {
+      "type": "string",
+      "description": "Name of the target subnet in the private network, if provided via CNI configuration",
+      "name": "subnet",
+      "in": "query"
     }
   },
   "x-schemes": [
@@ -430,6 +458,18 @@ func init() {
         "parameters": [
           {
             "type": "string",
+            "description": "Name of the target private network, if provided via CNI configuration",
+            "name": "network",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "Name of the target subnet in the private network, if provided via CNI configuration",
+            "name": "subnet",
+            "in": "query"
+          },
+          {
+            "type": "string",
             "description": "Kubernetes pod name for which to query the network attachment",
             "name": "pod-name",
             "in": "query",
@@ -446,6 +486,13 @@ func init() {
             "type": "string",
             "description": "Kubernetes pod uid for which to query the network attachment",
             "name": "pod-uid",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "Interface name, used to identify the network attachment in case of multi-NIC pods",
+            "name": "ifname",
             "in": "query",
             "required": true
           }
@@ -619,6 +666,19 @@ func init() {
     }
   },
   "parameters": {
+    "network-ifname": {
+      "type": "string",
+      "description": "Interface name, used to identify the network attachment in case of multi-NIC pods",
+      "name": "ifname",
+      "in": "query",
+      "required": true
+    },
+    "network-name": {
+      "type": "string",
+      "description": "Name of the target private network, if provided via CNI configuration",
+      "name": "network",
+      "in": "query"
+    },
     "network-pod-name": {
       "type": "string",
       "description": "Kubernetes pod name for which to query the network attachment",
@@ -639,6 +699,12 @@ func init() {
       "name": "pod-uid",
       "in": "query",
       "required": true
+    },
+    "network-subnet": {
+      "type": "string",
+      "description": "Name of the target subnet in the private network, if provided via CNI configuration",
+      "name": "subnet",
+      "in": "query"
     }
   },
   "x-schemes": [
