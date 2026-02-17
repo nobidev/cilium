@@ -29,6 +29,7 @@ func EvpnBase(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
 	cfg.InterfaceMAC = mac.MAC(link.Attrs().HardwareAddr).As8()
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
 	return cfg
 }

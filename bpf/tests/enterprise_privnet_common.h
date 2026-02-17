@@ -28,7 +28,9 @@ const __u8 __subnet_v6[16] = {0xfd, 0x10};
 #define V6_NET_IP_2 v6_net_two
 #define V6_POD_IP_2 v6_pod_two
 #define INB_IP v4_ext_one
+#define GATEWAY_IP v4_ext_two
 #define NODE_IP v4_node_one
+#define V6_EXT_IP v6_ext_node_one
 #define IFINDEX 0x42
 
 /* Scapy packet definitions */

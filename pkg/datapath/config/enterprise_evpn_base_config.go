@@ -11,6 +11,8 @@ package config
 type BPFEvpnBase struct {
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Use netkit devices for pods.
+	EnableNetkit bool `config:"enable_netkit"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
@@ -24,6 +26,6 @@ type BPFEvpnBase struct {
 }
 
 func NewBPFEvpnBase(node Node) *BPFEvpnBase {
-	return &BPFEvpnBase{false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0,
-		0x0, node}
+	return &BPFEvpnBase{false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		0x0, 0x0, node}
 }

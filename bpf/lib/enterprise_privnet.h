@@ -6,8 +6,10 @@
 #include "arp.h"
 #include "conntrack.h"
 #include "conntrack_map.h"
+#include "eps.h"
 #include "icmp6.h"
 #include "l4.h"
+#include "local_delivery.h"
 
 #include "enterprise_privnet_config.h"
 #include "enterprise_ext_eps_policy.h"
@@ -491,6 +493,45 @@ enforce_privnet_egress_segmentation(const struct privnet_fib_val *sip_val,
 	return CTX_ACT_OK;
 }
 
+/* privnet_local_access_egress_ipv4() - redirect packet to the connected local
+ * access interface, if specified in the given FIB map entry.
+ * @dip_val: FIB map entry
+ * @daddr: destination address extracted from the packet
+ *
+ * The packet is redirected using redirect_neigh(). The neigh lookup is for the
+ * given destination IP address if the FIB map entry is a subnet route or for
+ * the nexthop IP in case of a static route.
+ *
+ * Return: CTX_ACT_REDIRECT if the packet was redirected, CTX_ACT_OK if no action
+ *         was taken, DROP_UNROUTABLE if no route was found for the destination
+ *         IP and the packet should be dropped.
+ */
+static __always_inline int
+privnet_local_access_egress_ipv4(const struct privnet_fib_val *dip_val, __u32 daddr)
+{
+	__u32 ifindex = dip_val->ifindex;
+
+	if (CONFIG(privnet_local_access_enable) && ifindex != 0) {
+		struct bpf_redir_neigh nh_params = {
+			.nh_family = AF_INET,
+		};
+
+		if (dip_val->flag_is_subnet_route)
+			/* Subnet route: neigh lookup for destination IP */
+			nh_params.ipv4_nh = daddr;
+		else if (dip_val->flag_is_static_route)
+			/* Subnet route: neigh lookup for nexthop IP */
+			nh_params.ipv4_nh = dip_val->ip4;
+		else
+			/* No route found for destination IP */
+			return DROP_UNROUTABLE;
+
+		return redirect_neigh(ifindex, &nh_params, sizeof(nh_params), 0);
+	}
+
+	return CTX_ACT_OK;
+}
+
 /* privnet_egress_ipv4 can be called as traffic comes from pod to lxc, it should be
  * the first thing to happen before processing the packet further in bpf_lxc.
  *
@@ -500,7 +541,9 @@ enforce_privnet_egress_segmentation(const struct privnet_fib_val *sip_val,
  *
  * Following operations are done at egress
  * - FIB lookup for source and destination in privnet_fib map.
- * - If lookup contains endpoint entries, it will do stateless nat based on the entry.
+ * - If lookup contains endpoint entries, it will do stateless NAT based on the entry.
+ * - In local access mode, the packet may be redirected directly to the network
+ *   device given in the FIB map entry ifindex.
  * - Basic segmentation check.
  * - Returns lookup result for source and destination.
  */
@@ -522,6 +565,10 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 	if (dip_val) {
 		if (dst_privnet_entry)
 			*dst_privnet_entry = dip_val;
+
+		ret = privnet_local_access_egress_ipv4(dip_val, ip4->daddr);
+		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+			return ret;
 
 		if (!is_privnet_route_entry(dip_val)) {
 			/* Only nat if entry is for the endpoint, for route
@@ -571,6 +618,35 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 	return enforce_privnet_egress_segmentation(sip_val, dip_val);
 }
 
+/* See comment for privnet_local_access_egress_ipv4() */
+static __always_inline int
+privnet_local_access_egress_ipv6(const struct privnet_fib_val *dip_val, const union v6addr *daddr)
+{
+	__u32 ifindex = dip_val->ifindex;
+
+	if (CONFIG(privnet_local_access_enable) && ifindex != 0) {
+		struct bpf_redir_neigh nh_params = {
+			.nh_family = AF_INET6,
+		};
+
+		if (dip_val->flag_is_subnet_route)
+			/* Subnet route: neigh lookup for destination IP */
+			__bpf_memcpy_builtin(&nh_params.ipv6_nh, daddr,
+					     sizeof(nh_params.ipv6_nh));
+		else if (dip_val->flag_is_static_route)
+			/* Subnet route: neigh lookup for nexthop IP */
+			__bpf_memcpy_builtin(&nh_params.ipv6_nh, &dip_val->ip6,
+					     sizeof(nh_params.ipv6_nh));
+		else
+			/* No route found for destination IP */
+			return DROP_UNROUTABLE;
+
+		return redirect_neigh(ifindex, &nh_params, sizeof(nh_params), 0);
+	}
+
+	return CTX_ACT_OK;
+}
+
 /* see ipv4 comment */
 static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 					       __u16 net_id, __u16 subnet_id,
@@ -594,6 +670,10 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 	if (dip_val) {
 		if (dst_privnet_entry)
 			*dst_privnet_entry = dip_val;
+
+		ret = privnet_local_access_egress_ipv6(dip_val, &orig_dip);
+		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+			return ret;
 
 		if (!is_privnet_route_entry(dip_val)) {
 			ret = nat_v6_addr(ctx, IPV6_DADDR_OFF, &dip_val->ip6);
@@ -1156,7 +1236,9 @@ handle_privnet_ns(struct __ctx_buff *ctx, const __u16 net_id,
 	 * be out of sync, and we may conflict with the newly activated INB.
 	 */
 	if (!val || is_privnet_route_entry(val) ||
-	    !(from_lxc || (val->flag_l2_announce && privnet_agent_alive())))
+	    !(from_lxc || (val->flag_l2_announce && privnet_agent_alive())) ||
+	    (!from_lxc && CONFIG(privnet_local_access_enable) &&
+	     val->ifindex != CONFIG(interface_ifindex)))
 		return CTX_ACT_OK;
 
 	if (from_lxc && ep_addr) {
@@ -1230,11 +1312,12 @@ handle_privnet_arp(struct __ctx_buff *ctx, const __u16 net_id,
 	/* Don't reply to ARPs if the agent is not alive, as the map state may
 	 * be out of sync, and we may conflict with the newly activated INB.
 	 */
-	if (!val || !val->flag_l2_announce || !privnet_agent_alive())
+	if (!val || !val->flag_l2_announce || !privnet_agent_alive() ||
+	    (CONFIG(privnet_local_access_enable) && val->ifindex != CONFIG(interface_ifindex)))
 		return CTX_ACT_OK;
 
 	return arp_respond(ctx, &mac, tip, &smac, sip, 0);
-};
+}
 
 #ifdef IS_BPF_LXC
 #define DHCP_SERVER_PORT 67
@@ -1287,3 +1370,100 @@ privnet_redirect_dhcp(struct __ctx_buff *ctx, struct iphdr *ip4)
 	return ctx_redirect(ctx, dhcp_ifindex, 0);
 }
 #endif /* IS_BPF_LXC */
+
+static __always_inline bool
+is_privnet_local_access_ingress(const struct privnet_fib_val *val)
+{
+	/* local access ingress for this device and for an endpoint */
+	return val &&
+		val->ifindex == CONFIG(interface_ifindex) &&
+		!is_privnet_route_entry(val);
+}
+
+/* privnet_local_access_ingress_ipv4() - redirect packet to the endpoint's lxc
+ * interface if a local access the FIB map entry exists.
+ * @ctx: packet buffer
+ * @net_id: network ID
+ * @subnet_id: sub-network ID
+ *
+ * Return: CTX_ACT_REDIRECT if the packet was redirected, CTX_ACT_OK if no action
+ *         was taken, DROP_UNROUTABLE if no route was found for the destination
+ *         IP and the packet should be dropped.
+ */
+static __always_inline int
+privnet_local_access_ingress_ipv4(struct __ctx_buff *ctx, const __u16 net_id,
+				  const __u16 subnet_id)
+{
+	void *data, *data_end;
+	struct iphdr *ip4;
+	const struct privnet_fib_val *dip_val = NULL;
+	const struct endpoint_info *ep = NULL;
+
+	if (!CONFIG(privnet_local_access_enable))
+		return CTX_ACT_OK;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	dip_val = privnet_fib_lookup4(net_id, subnet_id, ip4->daddr);
+	if (is_privnet_local_access_ingress(dip_val)) {
+		/* Found endpoint FIB map entry with local access ifindex for
+		 * destination address. This implies local access N/S traffic.
+		 * Look up local endpoint for destination NetIP address.
+		 */
+		ep = __lookup_ip4_endpoint(dip_val->ip4);
+		if (ep) {
+			/* Redirect to the corresponding endpoint's lxc interface without policy. */
+			return redirect_ep(ctx, ep->ifindex, true, false);
+		}
+
+		/* No local endpoint found to redirect to. */
+		return DROP_UNROUTABLE;
+	}
+
+	/* No local access FIB map entry found. Continue the regular bpf_host
+	 * packet flow and let it decide on this packet's fate.
+	 */
+	return CTX_ACT_OK;
+}
+
+/* See comment for privnet_local_access_ingress_ipv4() */
+static __always_inline int
+privnet_local_access_ingress_ipv6(struct __ctx_buff *ctx, const __u16 net_id,
+				  const __u16 subnet_id)
+{
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	union v6addr daddr;
+	const struct privnet_fib_val *dip_val = NULL;
+	const struct endpoint_info *ep = NULL;
+
+	if (!CONFIG(privnet_local_access_enable))
+		return CTX_ACT_OK;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
+
+	dip_val = privnet_fib_lookup6(net_id, subnet_id, daddr);
+	if (is_privnet_local_access_ingress(dip_val)) {
+		/* Found endpoint FIB map entry with local access ifindex for
+		 * destination address. This implies local access N/S traffic.
+		 * Look up local endpoint for destination NetIP address.
+		 */
+		ep = __lookup_ip6_endpoint(&dip_val->ip6);
+		if (ep) {
+			/* Redirect to the corresponding endpoint's lxc interface without policy. */
+			return redirect_ep(ctx, ep->ifindex, true, false);
+		}
+
+		/* No local endpoint found to redirect to. */
+		return DROP_UNROUTABLE;
+	}
+
+	/* No local access FIB map entry found. Continue the regular bpf_host
+	 * packet flow and let it decide on this packet's fate.
+	 */
+	return CTX_ACT_OK;
+}

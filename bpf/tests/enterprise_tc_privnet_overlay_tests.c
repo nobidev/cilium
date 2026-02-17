@@ -50,6 +50,7 @@ mock_ext_eps_policy_can_access(struct __ctx_buff __maybe_unused *ctx,
 
 /* Enable privnet */
 ASSIGN_CONFIG(bool, privnet_enable, true)
+ASSIGN_CONFIG(bool, privnet_local_access_enable, false)
 ASSIGN_CONFIG(bool, privnet_bridge_enable, true)
 ASSIGN_CONFIG(__u32, privnet_unknown_sec_id, 99) /* tunnel id 99 is reserved for unknown privnet flow */
 

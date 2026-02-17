@@ -60,6 +60,7 @@ static __always_inline int privnet_watchdog_set(__u64 last, __u64 timeout)
 
 /* Enable privnet */
 ASSIGN_CONFIG(bool, privnet_enable, true)
+ASSIGN_CONFIG(bool, privnet_local_access_enable, false)
 ASSIGN_CONFIG(__u32, privnet_unknown_sec_id, 99) /* tunnel id 99 is reserved for unknown privnet flow */
 ASSIGN_CONFIG(__u32, interface_ifindex, IFINDEX)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr}) /* set device mac */

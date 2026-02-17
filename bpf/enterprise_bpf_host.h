@@ -30,6 +30,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 	__s8 __maybe_unused ext_err = 0;
 	int ret = CTX_ACT_OK;
 	const __u16 *net_id;
+	__u16 __maybe_unused subnet_id;
 
 	if (!CONFIG(privnet_enable))
 		return ret;
@@ -65,8 +66,13 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 		}
 
 		ipv6_addr_copy(&dip6, (union v6addr *)&ip6->daddr);
-		ret = privnet_egress_ipv6(ctx, *net_id,
-					  privnet_subnet_id_lookup6(*net_id, dip6),
+		subnet_id = privnet_subnet_id_lookup6(*net_id, dip6);
+
+		ret = privnet_local_access_ingress_ipv6(ctx, *net_id, subnet_id);
+		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+			return ret;
+
+		ret = privnet_egress_ipv6(ctx, *net_id, subnet_id,
 					  &sip_val, &dip_val);
 		if (IS_ERR(ret))
 			return ret;
@@ -112,8 +118,13 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 							METRIC_INGRESS);
 
-		ret = privnet_egress_ipv4(ctx, *net_id,
-					  privnet_subnet_id_lookup4(*net_id, ip4->daddr),
+		subnet_id = privnet_subnet_id_lookup4(*net_id, ip4->daddr);
+
+		ret = privnet_local_access_ingress_ipv4(ctx, *net_id, subnet_id);
+		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+			return ret;
+
+		ret = privnet_egress_ipv4(ctx, *net_id, subnet_id,
 					  &sip_val, &dip_val);
 		if (IS_ERR(ret))
 			return ret;

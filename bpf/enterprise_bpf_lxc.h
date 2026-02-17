@@ -62,7 +62,7 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		ret = privnet_egress_ipv6(ctx, net_id,
 					  privnet_subnet_id_lookup6(net_id, sip6),
 					  NULL, &dip_val);
-		if (IS_ERR(ret))
+		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
 #ifdef TUNNEL_MODE
 		if (dip_val && is_privnet_route_entry(dip_val)) {
@@ -108,7 +108,7 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		ret = privnet_egress_ipv4(ctx, net_id,
 					  privnet_subnet_id_lookup4(net_id, ip4->saddr),
 					  NULL, &dip_val);
-		if (IS_ERR(ret))
+		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
 
 #ifdef TUNNEL_MODE
