@@ -36,7 +36,7 @@ FROM ${CILIUM_RUNTIME_IMAGE} AS release
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
-LABEL maintainer="maintainer@cilium.io"
+LABEL maintainer="support@isovalent.com"
 COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH}/usr/bin/dnsproxy /usr/bin/dnsproxy
 WORKDIR /
 ENV GOPS_CONFIG_DIR=/

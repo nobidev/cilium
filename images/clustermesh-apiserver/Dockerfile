@@ -61,7 +61,7 @@ FROM ${BASE_IMAGE} AS release
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
-LABEL maintainer="maintainer@cilium.io"
+LABEL maintainer="support@isovalent.com"
 COPY --from=gops /out /
 # While the etcd image uses /usr/local/bin, we're moving it to /usr/bin to keep consistency with the rest of our images.
 # We also don't grab the etcdctl or etcdutl binaries, as we don't need them for our application.

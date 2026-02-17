@@ -97,7 +97,7 @@ FROM ${CILIUM_RUNTIME_IMAGE} AS release
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
-LABEL maintainer="maintainer@cilium.io"
+LABEL maintainer="support@isovalent.com"
 RUN echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
 COPY --from=cilium-envoy /usr/lib/libcilium.so /usr/lib/libcilium.so
 COPY --from=cilium-envoy /usr/bin/cilium-envoy /usr/bin/cilium-envoy-starter /usr/bin/

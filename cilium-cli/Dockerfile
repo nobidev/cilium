@@ -30,7 +30,7 @@ FROM ${BASE_IMAGE} AS release
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
-LABEL maintainer="maintainer@cilium.io"
+LABEL maintainer="support@isovalent.com"
 WORKDIR /root/app
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/local/bin/cilium /usr/local/bin/cilium
 
