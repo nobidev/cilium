@@ -16,6 +16,9 @@ spec:
   template:
     metadata:
       name: "{{ .Name }}"
+      labels:
+        name: "{{ .Name }}"
+        kind: echo
       {{- if .NeedsAnnotation }}
       annotations:
         "privnet.isovalent.com/network-attachment": '{"network":"{{ .NetName }}","ipv4":"{{ .NetIPv4 }}","ipv6":"{{ .NetIPv6 }}","mac":"{{ .NetMAC }}"}'

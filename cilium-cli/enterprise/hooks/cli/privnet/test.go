@@ -21,7 +21,9 @@ import (
 	"maps"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -58,9 +60,6 @@ var (
 	//go:embed manifests/vm-echo-script.py
 	vmEchoScript string
 
-	//go:embed manifests/external-endpoint-policy.yaml
-	externalEndpointPolicyTemplate string
-
 	//go:embed manifests/nodeattachment.yaml
 	nodeAttachmentTemplate string
 )
@@ -95,7 +94,8 @@ type TestRun struct {
 
 	pod map[VMName]*corev1.Pod
 
-	policies map[string]k8s.Object
+	// indexed by context name
+	policies map[string][]k8s.Object
 
 	cancel context.CancelFunc
 	failed bool
@@ -125,9 +125,11 @@ func NewTestRun(
 		ext:        map[NetworkName]map[VMName]VM{},
 		unk:        map[NetworkName]map[VMName]VM{},
 		pod:        map[VMName]*corev1.Pod{},
-		policies:   map[string]k8s.Object{},
-		cancel:     cancel,
-		failed:     false,
+
+		policies: map[string][]k8s.Object{},
+
+		cancel: cancel,
+		failed: false,
 	}
 }
 
@@ -250,6 +252,21 @@ func (t *TestRun) retrieveCiliumPods(ctx context.Context) error {
 	return nil
 }
 
+func (t *TestRun) allCiliumPods() iter.Seq2[NodeName, check.Pod] {
+	return func(yield func(NodeName, check.Pod) bool) {
+		for node, pod := range t.ciliumPodsCluster {
+			if !yield(node, pod) {
+				return
+			}
+		}
+		for node, pod := range t.ciliumPodsINBs {
+			if !yield(node, pod) {
+				return
+			}
+		}
+	}
+}
+
 func (t *TestRun) createNamespace(ctx context.Context, client *enterpriseK8s.EnterpriseClient) error {
 	_, err := client.GetNamespace(ctx, t.params.TestNamespace, metav1.GetOptions{})
 	if err != nil {
@@ -269,17 +286,8 @@ func (t *TestRun) createNamespace(ctx context.Context, client *enterpriseK8s.Ent
 	return nil
 }
 
-func (t *TestRun) renderNetworkPolicies(epName string, dstPort int) ([]k8s.Object, error) {
-	data := struct {
-		Name          string
-		TestNamespace string
-		Port          int
-	}{
-		Name:          epName,
-		TestNamespace: t.params.TestNamespace,
-		Port:          dstPort,
-	}
-	policyYaml, err := renderTemplate(externalEndpointPolicyTemplate, data)
+func renderNetworkPolicy(tmpl string, params PolicyParams) ([]k8s.Object, error) {
+	policyYaml, err := renderTemplate(tmpl, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render IsovalentNetworkPolicy template: %w", err)
 	}
@@ -401,7 +409,7 @@ func (t *TestRun) applyINBNetworkTopology(ctx context.Context, network NetworkNa
 		objs := append(toK8sObjects(networkObjs), toK8sObjects(attachmentObjs)...)
 		for _, client := range t.inbClients {
 			if client.ClusterName() == "kind-"+inb.ClusterName {
-				if err := t.applyObjs(ctx, client, objs); err != nil {
+				if _, _, err := t.applyObjs(ctx, client, objs); err != nil {
 					return err
 				}
 			}
@@ -489,14 +497,22 @@ func (t *TestRun) VM(network NetworkName, vmName VMName) VM {
 	return t.vms[network][vmName]
 }
 
-func (t *TestRun) External(network NetworkName) iter.Seq[VM] {
+func (t *TestRun) ExternalVM(network NetworkName, vmName VMName) VM {
+	return t.ext[network][vmName]
+}
+
+func (t *TestRun) AllExternalVMs(network NetworkName) iter.Seq[VM] {
 	return maps.Values(t.ext[network])
 }
 func (t *TestRun) ExtVM(network NetworkName, vmName VMName) VM {
 	return t.ext[network][vmName]
 }
 
-func (t *TestRun) Unknown(network NetworkName) iter.Seq[VM] {
+func (t *TestRun) UnknownVM(network NetworkName, vmName VMName) VM {
+	return t.unk[network][vmName]
+}
+
+func (t *TestRun) AllUnknownVMs(network NetworkName) iter.Seq[VM] {
 	return maps.Values(t.unk[network])
 }
 
@@ -529,7 +545,7 @@ func (t *TestRun) SetupAndValidate(ctx context.Context) error {
 		updateNetworkMap(t.vms, networkData.VMs)
 	}
 
-	if err := t.applyObjs(ctx, t.client, toApply); err != nil {
+	if _, _, err := t.applyObjs(ctx, t.client, toApply); err != nil {
 		return err
 	}
 
@@ -604,31 +620,47 @@ func (t *TestRun) Failed() bool {
 }
 
 func (t *TestRun) Cleanup(ctx context.Context) {
-	var success = true
-
+	inbSuccess := true
 	for _, client := range t.inbClients {
-		for _, obj := range t.policies {
-			kind := obj.GetObjectKind().GroupVersionKind().Kind
-			name := obj.GetName()
-			if obj.GetNamespace() != "" {
-				name = obj.GetNamespace() + "/" + name
-			}
-
-			t.log.Info(fmt.Sprintf("📜 Removing %s %s", kind, name))
-			err := client.DeleteGeneric(ctx, obj)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				t.log.Warn(fmt.Sprintf("⚠️ Failed removing %s %s: %v", kind, name, err))
-				success = false
+		for _, obj := range t.policies[client.ContextName()] {
+			if !t.cleanupObj(ctx, client, obj) {
+				inbSuccess = false
 			}
 		}
 	}
-
+	clusterSuccess := true
+	for _, obj := range t.policies[t.client.ContextName()] {
+		if !t.cleanupObj(ctx, t.client, obj) {
+			clusterSuccess = false
+		}
+	}
 	// Reset the map, so that a subsequent call to Cleanup doesn't attempt
 	// to remove the same policies again. Unless something went wrong in the
 	// cleanup, in which case we keep the map content intact.
-	if success {
-		t.policies = make(map[string]k8s.Object)
+	if inbSuccess {
+		for _, client := range t.inbClients {
+			delete(t.policies, client.ContextName())
+		}
 	}
+	if clusterSuccess {
+		delete(t.policies, t.client.ContextName())
+	}
+}
+
+func (t *TestRun) cleanupObj(ctx context.Context, client *enterpriseK8s.EnterpriseClient, obj k8s.Object) bool {
+	kind := obj.GetObjectKind().GroupVersionKind().Kind
+	name := obj.GetName()
+	if obj.GetNamespace() != "" {
+		name = obj.GetNamespace() + "/" + name
+	}
+
+	t.log.Info(fmt.Sprintf("📜 Removing %s %s", kind, name))
+	err := client.DeleteGeneric(ctx, obj)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		t.log.Warn(fmt.Sprintf("⚠️ Failed removing %s %s: %v", kind, name, err))
+		return false
+	}
+	return true
 }
 
 var networks = []NetworkName{NetworkA, NetworkB, NetworkC, NetworkD}
@@ -641,34 +673,101 @@ func (t *TestRun) INBNodeNames() iter.Seq[NodeName] {
 	return maps.Keys(t.ciliumPodsINBs)
 }
 
-func (t *TestRun) ApplyExternalEndpointIngressPolicies(ctx context.Context, allowPort int) error {
+// getCiliumPolicyRevision returns the current policy revision of a Cilium pod.
+func getCiliumPolicyRevision(ctx context.Context, pod check.Pod) (int, error) {
+	stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name,
+		defaults.AgentContainerName, []string{"cilium-dbg", "policy", "get", "-o", "jsonpath='{.revision}'"})
+	if err != nil {
+		return 0, err
+	}
+	revision, err := strconv.Atoi(strings.Trim(stdout.String(), "'\n"))
+	if err != nil {
+		return 0, fmt.Errorf("revision %q is not valid: %w", stdout.String(), err)
+	}
+	return revision, nil
+}
+
+// waitCiliumPolicyRevision waits for a Cilium pod to reach at least a given policy revision.
+func waitCiliumPolicyRevision(ctx context.Context, pod check.Pod, rev int, timeout time.Duration) error {
+	timeoutStr := strconv.Itoa(int(timeout.Seconds()))
+	_, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name,
+		defaults.AgentContainerName, []string{"cilium-dbg", "policy", "wait", strconv.Itoa(rev), "--max-wait-time", timeoutStr})
+	return err
+}
+
+func (t *TestRun) applyPolicies(ctx context.Context, policies ...PolicyParams) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("previous test operation failed: %w", err)
 	}
 
-	for _, client := range t.inbClients {
-		networkPolicies := []k8s.Object{}
-
-		for _, nets := range t.ext {
-			for _, vm := range nets {
-				policies, err := t.renderNetworkPolicies(string(vm.Name), allowPort)
-				if err != nil {
-					return err
-				}
-				networkPolicies = append(networkPolicies, policies...)
-				for _, policy := range policies {
-					t.policies[policy.GetNamespace()+"/"+policy.GetName()] = policy
-				}
-			}
-		}
-		if err := t.applyObjs(ctx, client, networkPolicies); err != nil {
+	clusterPolicies := []k8s.Object{}
+	inbPolicies := []k8s.Object{}
+	for _, params := range policies {
+		manifest, err := policyManifests.ReadFile(filepath.Join(policyDir, params.Manifest))
+		if err != nil {
 			return err
 		}
+		policy, err := renderNetworkPolicy(string(manifest), params)
+		if err != nil {
+			return err
+		}
+		if params.ApplyOnINB {
+			inbPolicies = append(inbPolicies, policy...)
+		} else {
+			clusterPolicies = append(clusterPolicies, policy...)
+		}
 	}
+
+	policyRevisions := map[check.Pod]int{}
+	for _, ciliumPod := range t.allCiliumPods() {
+		rev, err := getCiliumPolicyRevision(ctx, ciliumPod)
+		if err != nil {
+			return fmt.Errorf("failed getting cilium policy revision: %w", err)
+		}
+		policyRevisions[ciliumPod] = rev
+	}
+
+	// Apply policies to INB clusters
+	changedPolicies := map[string]int{}
+	for _, client := range t.inbClients {
+		changes, successful, err := t.applyObjs(ctx, client, inbPolicies)
+		t.policies[client.ContextName()] = append(t.policies[client.ContextName()], successful...)
+		if err != nil {
+			return err
+		}
+		changedPolicies[client.ContextName()] = changes
+	}
+
+	// Apply policies to workload cluster
+	changes, successful, err := t.applyObjs(ctx, t.client, clusterPolicies)
+	t.policies[t.client.ContextName()] = append(t.policies[t.client.ContextName()], successful...)
+	if err != nil {
+		return err
+	}
+	changedPolicies[t.client.ContextName()] = changes
+
+	for _, ciliumPod := range t.allCiliumPods() {
+		expectedRev := policyRevisions[ciliumPod] + changedPolicies[ciliumPod.K8sClient.ContextName()]
+		err := waitCiliumPolicyRevision(ctx, ciliumPod, expectedRev, 30*time.Second)
+		if err != nil {
+			return fmt.Errorf("failed waiting for cilium policy revision: %w", err)
+		}
+	}
+
 	return nil
 }
 
-func (t *TestRun) applyObjs(ctx context.Context, client *enterpriseK8s.EnterpriseClient, toApply []k8s.Object) error {
+func (t *TestRun) ApplyPolicies(ctx context.Context, policies ...PolicyParams) {
+	err := t.applyPolicies(ctx, policies...)
+	if err != nil && t.cancel != nil {
+		t.log.Error(fmt.Sprintf("Failed to apply network policies: %s", err))
+		t.cancel()
+		t.cancel = nil
+		t.failed = true
+	}
+}
+
+func (t *TestRun) applyObjs(ctx context.Context, client *enterpriseK8s.EnterpriseClient, toApply []k8s.Object) (changes int, successful []k8s.Object, err error) {
 	for _, obj := range toApply {
 		kind := obj.GetObjectKind().GroupVersionKind().Kind
 		name := obj.GetName()
@@ -676,12 +775,23 @@ func (t *TestRun) applyObjs(ctx context.Context, client *enterpriseK8s.Enterpris
 			name = namespace + "/" + name
 		}
 		t.log.Info(fmt.Sprintf("📜 Applying %s %s on cluster %s", kind, name, client.ClusterName()))
-		_, err := client.ApplyGeneric(ctx, obj)
-		if err != nil {
-			return fmt.Errorf("failed applying %s %s on cluster %s: %w", kind, name, client.ClusterName(), err)
+		existing, err := client.GetGeneric(ctx, obj.GetNamespace(), obj.GetName(), obj)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return changes, successful, fmt.Errorf("failed to retrieve %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 		}
+
+		applied, err := client.ApplyGeneric(ctx, obj)
+		if err != nil {
+			return changes, successful, fmt.Errorf("failed applying %s %s on cluster %s: %w", kind, name, client.ClusterName(), err)
+		}
+
+		if existing == nil || existing.GetGeneration() != applied.GetGeneration() {
+			changes++
+		}
+
+		successful = append(successful, applied)
 	}
-	return nil
+	return changes, successful, nil
 }
 
 func (t *TestRun) theFamilies(overrides ...features.IPFamily) iter.Seq[features.IPFamily] {

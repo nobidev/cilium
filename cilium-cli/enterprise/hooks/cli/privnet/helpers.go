@@ -11,15 +11,29 @@
 package privnet
 
 import (
+	"context"
 	"errors"
+	"io"
 
-	"k8s.io/client-go/util/exec"
+	"github.com/cilium/cilium/pkg/command/exec"
 )
 
 func extractExitCode(err error) (exitCode int, ok bool) {
-	var execErr exec.ExitError
-	if errors.As(err, &execErr) {
-		exitCode = execErr.ExitStatus()
+	// implemeneted by exec.ExitError
+	var errCode interface {
+		error
+		ExitCode() int
+	}
+	// implemented by client-go ExitError
+	var errStatus interface {
+		error
+		ExitStatus() int
+	}
+
+	if errors.As(err, &errStatus) {
+		exitCode = errStatus.ExitStatus()
+	} else if errors.As(err, &errCode) {
+		exitCode = errCode.ExitCode()
 	} else if err != nil {
 		return 0, false
 	}
@@ -30,4 +44,14 @@ func curlCmd(destination string) []string {
 	return []string{
 		"curl", "--silent", "--fail", "--show-error", "--connect-timeout", "2", "--max-time", "10", destination,
 	}
+}
+
+func dockerExec(ctx context.Context, container string, command []string, stdout, stderr io.Writer) error {
+	args := append([]string{"exec", container}, command...)
+
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+
+	return cmd.Run()
 }

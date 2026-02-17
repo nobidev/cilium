@@ -17,6 +17,7 @@ spec:
     metadata:
       name: "{{ .Name }}"
       labels:
+        name: "{{ .Name }}"
         kind: client
       {{- if .NeedsAnnotation }}
       annotations:

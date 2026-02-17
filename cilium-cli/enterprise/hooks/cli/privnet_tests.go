@@ -103,6 +103,8 @@ func newCmdPrivNetTest() *cobra.Command {
 			vmEchoOtherC := t.VM(privnet.NetworkC, privnet.EchoOtherVM(privnet.NetworkC))
 			podEchoOtherC := t.VirtLauncherPodForVM(vmEchoOtherC)
 
+			vmClientD := t.VM(privnet.NetworkD, privnet.ClientVM(privnet.NetworkD))
+
 			externalTarget := params.ExternalTarget
 			externalIPTarget := params.ExternalIPTarget
 
@@ -158,39 +160,108 @@ func newCmdPrivNetTest() *cobra.Command {
 				"privnet-vm-net-b2",
 			}
 
-			// Allow EchoServerPort as toPort in ingress policy for ext VMs
-			if err := t.ApplyExternalEndpointIngressPolicies(ctx, privnet.EchoServerPort); err != nil {
-				return err
-			}
+			// Test access to external endpoints and unknown VMs
 			for net := range t.Networks() {
-				for ext := range t.External(net) {
+				for ext := range t.AllExternalVMs(net) {
 					if slices.Contains(ignoreExternal, ext.Name.String()) {
 						continue
 					}
 					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), ext), privnet.ExpectationOK)
 				}
-			}
-
-			// change port to not match on client connection.
-			if err := t.ApplyExternalEndpointIngressPolicies(ctx, 9999); err != nil {
-				return err
-			}
-			// connectivity fails
-			for net := range t.Networks() {
-				for ext := range t.External(net) {
-					if slices.Contains(ignoreExternal, ext.Name.String()) {
-						continue
-					}
-					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), ext), privnet.ExpectationCurlTimeout)
+				for unk := range t.AllUnknownVMs(net) {
+					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), unk), privnet.ExpectationOK)
 				}
 			}
 
-			// Ensure traffic to unknown destinations works (policies don't apply here).
-			for net := range t.Networks() {
-				for dst := range t.Unknown(net) {
-					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), dst), privnet.ExpectationOK)
-				}
-			}
+			// Policy tests using specific external and unknown VMs
+			vmExtA1 := t.ExternalVM(privnet.NetworkA, "privnet-vm-net-a1")
+			vmExtA2 := t.ExternalVM(privnet.NetworkA, "privnet-vm-net-a2")
+			vmExtB1 := t.ExternalVM(privnet.NetworkB, "privnet-vm-net-b1")
+			vmExtC1 := t.ExternalVM(privnet.NetworkC, "privnet-vm-net-c1")
+
+			vmUnknownA1 := t.UnknownVM(privnet.NetworkA, "privnet-vm-net-a1") // using alt interface
+			vmUnknownA2 := t.UnknownVM(privnet.NetworkA, "privnet-vm-net-c1") // using router
+			vmUnknownC1 := t.UnknownVM(privnet.NetworkC, "privnet-vm-net-a1") // using router
+			vmUnknownC2 := t.UnknownVM(privnet.NetworkC, "privnet-vm-net-c1") // using alt interface
+			vmUnknownD1 := t.UnknownVM(privnet.NetworkD, "privnet-vm-net-d1") // using alt interface
+
+			//
+			// Network A
+			//
+			t.ApplyPolicies(ctx,
+				t.PolicyFor(vmClientA, "allow-egress-all-endpoints.yaml"),
+				t.PolicyFor(vmEchoA, "allow-ingress-l4.yaml", privnet.WithPolicyPort(privnet.EchoServerPort)),
+				t.PolicyFor(vmEchoOtherA, "allow-ingress-cidr.yaml", privnet.WithPolicyCIDRsForVM(vmUnknownA1)),
+				t.PolicyFor(vmExtA1, "allow-ingress-l4.yaml", privnet.WithPolicyPort(privnet.EchoServerPort)),
+				t.PolicyFor(vmExtA2, "allow-ingress-all-endpoints.yaml"),
+				t.PolicyFor(vmExtA2, "deny-egress.yaml"),
+			)
+
+			// egress allowed by toEndpoints, ingress allowed by toPorts
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientA, vmEchoA), privnet.ExpectationOK)
+			// egress allowed by toEndpoints, ingress denied by fromCIDR
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientA, vmEchoOtherA), privnet.ExpectationCurlTimeout)
+
+			// egress allowed by toEndpoints, ingress allowed by toPorts
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientA, vmExtA1), privnet.ExpectationOK)
+			// egress allowed by toEndpoints, ingress allowed by fromEndpoints
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientA, vmExtA2), privnet.ExpectationOK)
+
+			// egress denied by toEndpoints for both
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientA, vmUnknownA1), privnet.ExpectationCurlTimeout)
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientA, vmUnknownA2), privnet.ExpectationCurlTimeout)
+
+			// egress allowed because no policy, ingress allowed by toPorts
+			t.Run(ctx, privnet.NewExtVMToEcho(t, vmExtA1, vmEchoA), privnet.ExpectationOK)
+			// egress allowed because no policy, ingress denied by fromCIDR
+			t.Run(ctx, privnet.NewExtVMToEcho(t, vmExtA1, vmEchoOtherA), privnet.ExpectationCurlTimeout)
+			// egress denied by catch-all
+			t.Run(ctx, privnet.NewExtVMToEcho(t, vmExtA2, vmEchoA), privnet.ExpectationCurlTimeout)
+
+			//
+			// Network B
+			//
+			t.ApplyPolicies(ctx,
+				t.PolicyFor(vmClientB, "allow-egress-endpoint.yaml", privnet.WithPolicyPeer(vmEchoOtherB)),
+				t.PolicyFor(vmExtB1, "allow-egress-endpoint.yaml", privnet.WithPolicyPeer(vmClientB)),
+			)
+
+			// egress allowed by toEndpoints, ingress allowed because no policy
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientB, vmEchoOtherB), privnet.ExpectationOK)
+			// egress denied by toEndpoints (only matches echo-other)
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientB, vmExtB1), privnet.ExpectationCurlTimeout)
+			// egress denied by toEndpoints (only matches client-b)
+			t.Run(ctx, privnet.NewExtVMToEcho(t, vmExtB1, vmEchoOtherB), privnet.ExpectationCurlTimeout)
+
+			//
+			// Network C
+			//
+			t.ApplyPolicies(ctx,
+				t.PolicyFor(vmClientC, "allow-egress-cidr.yaml", privnet.WithPolicyCIDRsForVM(vmUnknownC1)),
+				t.PolicyFor(vmEchoOtherC, "allow-ingress-all-endpoints.yaml"),
+			)
+			// egress denied by toCIDR
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientC, vmExtC1), privnet.ExpectationCurlTimeout)
+			// egress allowed by toCIDR, ingress (unknown-c1 is alias of a1) allowed by toPorts
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientC, vmUnknownC1), privnet.ExpectationOK)
+			// egress denied by toCIDR
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientC, vmUnknownC2), privnet.ExpectationCurlTimeout)
+
+			// ingress denied by fromEndpoints
+			t.Run(ctx, privnet.NewExtVMToEcho(t, vmExtC1, vmEchoOtherC), privnet.ExpectationCurlTimeout)
+			// ingress allowed by toPort
+			t.Run(ctx, privnet.NewExtVMToEcho(t, vmExtC1, vmEchoA), privnet.ExpectationOK)
+			// ingress denied by fromCIDR
+			t.Run(ctx, privnet.NewExtVMToEcho(t, vmExtC1, vmEchoOtherA), privnet.ExpectationCurlTimeout)
+
+			//
+			// Network D
+			//
+			t.ApplyPolicies(ctx,
+				t.PolicyFor(vmClientD, "allow-egress-l7.yaml", privnet.WithPolicyPort(privnet.EchoServerPort)),
+			)
+			// egress denied by toPorts (unknown flow drops L7)
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientD, vmUnknownD1), privnet.ExpectationCurlTimeout)
 
 			// Remove all policies before proceeding with the INB failover tests,
 			// unless the context got canceled, in which case we let the deferred
@@ -206,10 +277,11 @@ func newCmdPrivNetTest() *cobra.Command {
 
 			// Check connectivity to external endpoints again.
 			for net := range t.Networks() {
-				for ext := range t.External(net) {
+				for ext := range t.AllExternalVMs(net) {
 					if slices.Contains(ignoreExternal, ext.Name.String()) {
 						continue
 					}
+
 					t.Run(ctx, privnet.NewClientToEcho(t, t.VM(net, privnet.ClientVM(net)), ext), privnet.ExpectationOK)
 				}
 			}

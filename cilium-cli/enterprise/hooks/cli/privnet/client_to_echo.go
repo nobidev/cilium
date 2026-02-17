@@ -15,6 +15,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"maps"
 	"net/netip"
 
@@ -27,6 +28,8 @@ type clientToEcho struct {
 
 	src VM
 	dst VM
+
+	clientExec func(ctx context.Context, src VM, cmd []string, stdout io.Writer, stderr io.Writer) error
 }
 
 func NewClientToEcho(t *TestRun, src, dst VM) Scenario {
@@ -35,6 +38,21 @@ func NewClientToEcho(t *TestRun, src, dst VM) Scenario {
 		scenario: scenario{t: t, name: name},
 		src:      src,
 		dst:      dst,
+		clientExec: func(ctx context.Context, src VM, cmd []string, stdout io.Writer, stderr io.Writer) error {
+			return t.client.ExecInVMWithWriters(ctx, t.params.TestNamespace, src.Name.String(), cmd, stdout, stderr)
+		},
+	}
+}
+
+func NewExtVMToEcho(t *TestRun, src, dst VM) Scenario {
+	name := fmt.Sprintf("curl-%s-to-%s", src.Name, dst.Name)
+	return &clientToEcho{
+		scenario: scenario{t: t, name: name},
+		src:      src,
+		dst:      dst,
+		clientExec: func(ctx context.Context, src VM, cmd []string, stdout io.Writer, stderr io.Writer) error {
+			return dockerExec(ctx, src.Name.String(), cmd, stdout, stderr)
+		},
 	}
 }
 
@@ -50,9 +68,7 @@ func (s *clientToEcho) run(ctx context.Context, exp Expectation, family features
 	srcIP := s.src.IP(family)
 
 	s.t.log.Info(fmt.Sprintf("🧐 Executing curl %s (%v) %s %s (%v:%v)", s.src.DescName(), srcIP, exp, s.dst.DescName(), dstIP, EchoServerPort))
-	err := s.t.client.ExecInVMWithWriters(ctx, s.t.params.TestNamespace, s.src.Name.String(),
-		curlCmd(netip.AddrPortFrom(dstIP, EchoServerPort).String()),
-		&stdout, &stderr)
+	err := s.clientExec(ctx, s.src, curlCmd(netip.AddrPortFrom(dstIP, EchoServerPort).String()), &stdout, &stderr)
 
 	exitCode, ok := extractExitCode(err)
 	if !ok {

@@ -1,0 +1,14 @@
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentNetworkPolicy
+metadata:
+  name: deny-egress-{{ .SubjectName }}
+  namespace: {{ .TestNamespace }}
+  labels:
+    app.kubernetes.io/part-of: cilium-cli-privnet
+spec:
+  endpointSelector:
+    matchLabels:
+      name: {{ .SubjectName }}
+      "cni:com.isovalent.private-network.name": {{ .Network }}
+  egress:
+    - {}

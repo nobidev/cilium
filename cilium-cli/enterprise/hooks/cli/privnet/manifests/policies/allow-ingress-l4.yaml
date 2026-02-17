@@ -1,0 +1,17 @@
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentNetworkPolicy
+metadata:
+  name: allow-ingress-l4-{{ .SubjectName }}-on-tcp-{{ .Port }}
+  namespace: {{ .TestNamespace }}
+  labels:
+    app.kubernetes.io/part-of: cilium-cli-privnet
+spec:
+  endpointSelector:
+    matchLabels:
+      name: {{ .SubjectName }}
+      "cni:com.isovalent.private-network.name": {{ .Network }}
+  ingress:
+    - toPorts:
+        - ports:
+            - port: "{{ .Port }}"
+              protocol: TCP

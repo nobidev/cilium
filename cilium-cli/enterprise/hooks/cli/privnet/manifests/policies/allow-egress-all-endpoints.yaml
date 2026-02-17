@@ -1,0 +1,17 @@
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentNetworkPolicy
+metadata:
+  name: allow-egress-all-endpoints-{{ .SubjectName }}
+  namespace: {{ .TestNamespace }}
+  labels:
+    app.kubernetes.io/part-of: cilium-cli-privnet
+spec:
+  endpointSelector:
+    matchLabels:
+      name: {{ .SubjectName }}
+      "cni:com.isovalent.private-network.name": {{ .Network }}
+  egress:
+    - toEndpoints:
+      - matchExpressions:
+        - key: io.cilium.k8s.policy.cluster
+          operator: Exists
