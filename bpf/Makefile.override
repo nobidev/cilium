@@ -1,8 +1,5 @@
 # Enterprise specific defines
 
-# Default to the 'all' build target, not the first target included in this file.
-.DEFAULT_GOAL := all
-
 LB_OPTIONS += \
 	-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DENABLE_NODEPORT:-DENABLE_NODEPORT_ACCELERATION:-DENABLE_L7_LB:-DENABLE_EGRESS_GATEWAY_HA:-DENABLE_MASQUERADE_IPV4:-DENABLE_MASQUERADE_IPV6:
 
@@ -23,7 +20,3 @@ MAX_XDP_OPTIONS += \
 	-DLB_FLOW_LOGS_ENABLED
 
 BPF += enterprise_bpf_evpn.o
-
-enterprise_bpf_evpn.o:: enterprise_bpf_evpn.c $(LIB)
-	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
