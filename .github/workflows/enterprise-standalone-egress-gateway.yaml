@@ -202,7 +202,6 @@ jobs:
                 --enable-local-node-route=false \
                 --enable-well-known-identities=false \
                 --identity-allocation-mode=crd \
-                --install-iptables-rules=false \
                 --ipv4-native-routing-cidr=10.255.255.252/30 \
                 --ipv4-range=10.255.255.252/30 \
                 --mesh-auth-enabled=false \
