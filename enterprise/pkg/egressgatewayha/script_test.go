@@ -256,6 +256,10 @@ func (m *mockHealthChecker) Events() chan healthcheck.Event {
 
 type mockNodeSync struct{}
 
+func (m *mockNodeSync) WaitForNodeInformation(ctx context.Context, store *node.LocalNodeStore) error {
+	return nil
+}
+
 func (m *mockNodeSync) InitLocalNode(ctx context.Context, n *node.LocalNode) error {
 	n.Node = nodeTypes.Node{
 		Name: "localnode1",

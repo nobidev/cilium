@@ -68,6 +68,7 @@ ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr}) /* set devic
 PKTGEN("tc", "01_icmp_from_netdev_nat_src_dst")
 int privnet_icmp_from_netdev_nat_src_dst_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
 	build_privnet_packet(ctx, NETIP_ICMP_REQ);
 	return 0;
 }
@@ -94,6 +95,7 @@ int privnet_icmp_from_netdev_nat_src_dst_check(struct __ctx_buff *ctx)
 	/* packets are redirected to tunnel device */
 	assert_status_code(ctx, TC_ACT_REDIRECT);
 
+	BUF_DECL(PODIP_ICMP_REQ, privnet_pod_ip_icmp_req);
 	ASSERT_CTX_BUF_OFF("privnet_icmp_from_netdev_nat_src_dst", "IP", ctx,
 			   sizeof(__u32), PODIP_ICMP_REQ,
 			   sizeof(BUF(PODIP_ICMP_REQ)));
@@ -111,6 +113,8 @@ int privnet_icmp_from_netdev_nat_src_dst_check(struct __ctx_buff *ctx)
 PKTGEN("tc", "02_icmp_from_netdev_respond_arp")
 int privnet_icmp_from_netdev_respond_arp_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETIP_ARP_REQ, privnet_net_ip_arp_req);
+
 	build_privnet_packet(ctx, NETIP_ARP_REQ);
 	return 0;
 }
@@ -134,6 +138,7 @@ int privnet_icmp_from_netdev_respond_arp_check(struct __ctx_buff *ctx)
 	/* The ARP response should be redirected back */
 	assert_status_code(ctx, TC_ACT_REDIRECT);
 
+	BUF_DECL(NETIP_ARP_RES, privnet_net_ip_arp_res);
 	ASSERT_CTX_BUF_OFF("privnet_icmp_from_netdev_respond_arp", "Ether", ctx,
 			   sizeof(__u32), NETIP_ARP_RES,
 			   sizeof(BUF(NETIP_ARP_RES)));
@@ -150,6 +155,7 @@ int privnet_icmp_from_netdev_respond_arp_check(struct __ctx_buff *ctx)
 PKTGEN("tc", "03_icmp_from_netdev_respond_arp_agent_down")
 int privnet_icmp_from_netdev_respond_arp_pktgen_agent_down(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETIP_ARP_REQ, privnet_net_ip_arp_req);
 	build_privnet_packet(ctx, NETIP_ARP_REQ);
 	return 0;
 }
@@ -184,6 +190,7 @@ int privnet_icmp_from_netdev_respond_arp_check_agent_down(struct __ctx_buff *ctx
 PKTGEN("tc", "04_icmp6_from_netdev_respond_ns")
 int privnet_icmp6_from_netdev_respond_ns_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETDEV_ICMP6_NS, privnet_netdev_ns);
 	build_privnet_packet(ctx, NETDEV_ICMP6_NS);
 	return 0;
 }
@@ -208,6 +215,7 @@ int privnet_icmp6_from_netdev_respond_ns_check(struct __ctx_buff *ctx)
 	/* packets are redirected back to device */
 	assert_status_code(ctx, TC_ACT_REDIRECT);
 
+	BUF_DECL(NETDEV_ICMP6_NA, privnet_netdev_na);
 	ASSERT_CTX_BUF_OFF("privnet_icmp6_from_netdev_respond_ns", "Ether", ctx,
 			   sizeof(__u32), NETDEV_ICMP6_NA,
 			   sizeof(BUF(NETDEV_ICMP6_NA)));
@@ -226,6 +234,7 @@ int privnet_icmp6_from_netdev_respond_ns_check(struct __ctx_buff *ctx)
 PKTGEN("tc", "05_icmp6_from_netdev_respond_ns_agent_down")
 int privnet_icmp6_from_netdev_respond_ns_pktgen_agent_down(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETDEV_ICMP6_NS, privnet_netdev_ns);
 	build_privnet_packet(ctx, NETDEV_ICMP6_NS);
 	return 0;
 }
@@ -264,6 +273,7 @@ int privnet_icmp6_from_netdev_respond_ns_check_agent_down(struct __ctx_buff *ctx
 PKTGEN("tc", "06_icmp_from_netdev_miss_src")
 int privnet_icmp_from_netdev_miss_src_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
 	build_privnet_packet(ctx, NETIP_ICMP_REQ);
 	return 0;
 }
@@ -298,6 +308,7 @@ int privnet_icmp_from_netdev_miss_src_check(struct __ctx_buff *ctx)
 PKTGEN("tc", "07_icmp_from_netdev_miss_dst")
 int privnet_icmp_from_netdev_miss_dst_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
 	build_privnet_packet(ctx, NETIP_ICMP_REQ);
 	return 0;
 }
@@ -332,6 +343,7 @@ int privnet_icmp_from_netdev_miss_dst_check(struct __ctx_buff *ctx)
 PKTGEN("tc", "08_icmp_from_netdev_miss_net_id")
 int privnet_icmp_from_netdev_miss_net_id_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
 	build_privnet_packet(ctx, NETIP_ICMP_REQ);
 	return 0;
 }

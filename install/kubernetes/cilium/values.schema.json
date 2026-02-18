@@ -1522,10 +1522,10 @@
           },
           "type": "object"
         },
-        "enableEndpointSliceSynchronization": {
+        "defaultGlobalNamespace": {
           "type": "boolean"
         },
-        "enableMCSAPISupport": {
+        "enableEndpointSliceSynchronization": {
           "type": "boolean"
         },
         "maxConnectedClusters": {
@@ -5930,6 +5930,14 @@
             "null",
             "integer"
           ]
+        }
+      },
+      "type": "object"
+    },
+    "k8sClusterNetworkPolicy": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
         }
       },
       "type": "object"

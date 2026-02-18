@@ -34,21 +34,6 @@ const __u8 __subnet_v6[16] = {0xfd, 0x10};
 #define IFINDEX 0x42
 
 /* Scapy packet definitions */
-BUF_DECL(NETIP_ARP_REQ, privnet_net_ip_arp_req);
-BUF_DECL(NETIP_ARP_RES, privnet_net_ip_arp_res);
-BUF_DECL(NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
-BUF_DECL(NETIP_TCP_SYN, privnet_net_ip_tcp_syn);
-BUF_DECL(PODIP_ICMP_REQ, privnet_pod_ip_icmp_req);
-BUF_DECL(PODIP_TCP_SYN, privnet_pod_ip_tcp_syn);
-BUF_DECL(UNKNOWN_ICMP_REQ, privnet_unknown_flow_icmp_req);
-BUF_DECL(LXC_ICMP6_NS_LL, privnet_lxc_ns_ll);
-BUF_DECL(LXC_ICMP6_NA_LL, privnet_lxc_na_ll);
-BUF_DECL(LXC_ICMP6_NS_EP1, privnet_lxc_ns_ep1);
-BUF_DECL(LXC_ICMP6_NA_EP1, privnet_lxc_na_ep1);
-BUF_DECL(LXC_ICMP6_NS_EP2, privnet_lxc_ns_ep2);
-BUF_DECL(LXC_ICMP6_NS_SELF, privnet_lxc_ns_self);
-BUF_DECL(NETDEV_ICMP6_NS, privnet_netdev_ns);
-BUF_DECL(NETDEV_ICMP6_NA, privnet_netdev_na);
 
 #define build_privnet_packet(ctx, buf_name)		\
 	do {						\

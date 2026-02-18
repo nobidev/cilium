@@ -254,7 +254,7 @@ func (s *SimpleSelector) String() string {
 	return s.name
 }
 
-func (s *SimpleSelector) GetMetadataLabels() labels.LabelArray {
+func (s *SimpleSelector) GetMetadataLabels() labels.LabelArrayList {
 	return nil
 }
 

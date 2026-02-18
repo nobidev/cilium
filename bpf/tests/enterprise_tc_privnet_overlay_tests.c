@@ -57,6 +57,7 @@ ASSIGN_CONFIG(__u32, privnet_unknown_sec_id, 99) /* tunnel id 99 is reserved for
 PKTGEN("tc", "01_icmp_from_overlay_nat_src_dst")
 int privnet_icmp_from_overlay_nat_src_dst_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(PODIP_ICMP_REQ, privnet_pod_ip_icmp_req);
 	build_privnet_packet(ctx, PODIP_ICMP_REQ);
 	return 0;
 }
@@ -81,6 +82,7 @@ int privnet_icmp_from_overlay_nat_src_dst_check(struct __ctx_buff *ctx)
 	/* packets are redirected to tunnel device */
 	assert_status_code(ctx, TC_ACT_REDIRECT);
 
+	BUF_DECL(NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
 	ASSERT_CTX_BUF_OFF("privnet_icmp_from_overlay_nat_src_dst", "IP", ctx,
 			   sizeof(__u32), NETIP_ICMP_REQ,
 			   sizeof(BUF(NETIP_ICMP_REQ)));

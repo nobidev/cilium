@@ -186,6 +186,9 @@
 /install/kubernetes/cilium/templates/clustermesh* @isovalent/clustermesh
 /install/kubernetes/cilium/templates/hubble* @isovalent/hubble
 /install/kubernetes/cilium/templates/standalone-dns-proxy* @isovalent/dns-proxy
+/operator/auth @isovalent/service-mesh
+/operator/endpointgc @isovalent/policy-identity-networking
+/operator/identitygc @isovalent/policy-identity-networking
 /operator/pkg/bgp @isovalent/traffic-engineering
 /operator/pkg/ciliumendpointslice @isovalent/scalability-performance
 /operator/pkg/ciliumenvoyconfig @isovalent/service-mesh
@@ -198,9 +201,13 @@
 /operator/pkg/ipam/azure.go @isovalent/networking-framework @isovalent/infrastructure
 /operator/pkg/lbipam @isovalent/isovalent-loadbalancer
 /operator/pkg/model @isovalent/service-mesh
+/operator/pkg/multipool @isovalent/networking-framework
 /operator/pkg/networkpolicy @isovalent/policy-identity-networking
+/operator/pkg/nodeipam @isovalent/isovalent-loadbalancer
 /operator/pkg/secretsync @isovalent/service-mesh @isovalent/service-mesh
 /operator/pkg/ztunnel @isovalent/encryption
+/operator/policyderivative @isovalent/policy-identity-networking
+/operator/watchers @isovalent/sig-k8s
 /pkg/act/ @isovalent/cni
 /pkg/annotation @isovalent/sig-k8s
 /pkg/alibabacloud/ @isovalent/infrastructure
@@ -366,7 +373,6 @@
 /standalone-dns-proxy/ @isovalent/dns-proxy
 /test/k8s/services.go @isovalent/isovalent-loadbalancer
 /test/k8s/lrp.go @isovalent/isovalent-loadbalancer
-/test/k8s/bandwidth.go @isovalent/cni
 /test/k8s/datapath_configuration.go @isovalent/cni
 /test/k8s/chaos.go @isovalent/policy-identity-networking
 /test/k8s/net_policies.go @isovalent/policy-identity-networking

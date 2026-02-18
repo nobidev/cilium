@@ -175,34 +175,13 @@ func setDefaultPrefix(logger *slog.Logger, cfg *option.DaemonConfig, device stri
 	}
 }
 
-func clone(ip net.IP) net.IP {
-	if ip == nil {
-		return nil
-	}
-	dup := make(net.IP, len(ip))
-	copy(dup, ip)
-	return dup
-}
-
-// GetIPv4 returns one of the IPv4 node address available with the following
-// priority:
-// - NodeInternalIP
-// - NodeExternalIP
-// - other IP address type.
-// It must be reachable on the network.
-func GetIPv4(logger *slog.Logger) net.IP {
-	n := getLocalNode(logger)
-	return clone(n.GetNodeIP(false))
-}
-
 // GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints
 // running on this node.
-func GetCiliumEndpointNodeIP(logger *slog.Logger) string {
-	n := getLocalNode(logger)
-	if option.Config.EnableIPv4 && n.Local.UnderlayProtocol == tunnel.IPv4 {
-		return n.GetNodeIP(false).String()
+func GetCiliumEndpointNodeIP(localNode LocalNode) string {
+	if option.Config.EnableIPv4 && localNode.Local.UnderlayProtocol == tunnel.IPv4 {
+		return localNode.GetNodeIP(false).String()
 	}
-	return n.GetNodeIP(true).String()
+	return localNode.GetNodeIP(true).String()
 }
 
 // GetRouterInfo returns additional information for the router, the cilium_host interface.
@@ -273,12 +252,6 @@ func ValidatePostInit(logger *slog.Logger) error {
 	return nil
 }
 
-// GetIPv6 returns the IPv6 address of the node
-func GetIPv6(logger *slog.Logger) net.IP {
-	n := getLocalNode(logger)
-	return clone(n.GetNodeIP(true))
-}
-
 // GetEndpointEncryptKeyIndex returns the encryption key value for an endpoint
 // owned by the given local node.
 // With IPSec encryption, this is the ID of the currently loaded key.
@@ -295,18 +268,4 @@ func GetEndpointEncryptKeyIndex(localNode LocalNode, wgEnabled, ipsecEnabled boo
 
 	}
 	return 0
-}
-
-func SetTestLocalNodeStore() {
-	if localNode != nil {
-		panic("localNode already set")
-	}
-
-	// Set the localNode global variable temporarily so that the legacy getters
-	// and setters can access it.
-	localNode = NewTestLocalNodeStore(LocalNode{})
-}
-
-func UnsetTestLocalNodeStore() {
-	localNode = nil
 }

@@ -232,6 +232,7 @@ func SyncOSSResourcesCommand(clientSet *client.FakeClientset) script.Cmd {
 // resourceClient is a common interface of typed k8s resource clients.
 type resourceClient[T any] interface {
 	Create(ctx context.Context, r *T, opts metav1.CreateOptions) (*T, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*T, error)
 	Update(ctx context.Context, r *T, opts metav1.UpdateOptions) (*T, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 }
@@ -249,7 +250,20 @@ func syncResources[T any](ctx context.Context, srcResources map[string]any, dstR
 		if _, exists := dstResources[name]; !exists {
 			_, err = dstClient.Create(ctx, &dst, metav1.CreateOptions{FieldValidation: "Ignore"})
 		} else {
+			current, err := dstClient.Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			rv, err := getResourceVersion(current)
+			if err != nil {
+				return err
+			}
+			err = setResourceVersion(&dst, rv)
+			if err != nil {
+				return err
+			}
 			_, err = dstClient.Update(ctx, &dst, metav1.UpdateOptions{FieldValidation: "Ignore"})
+			return err
 		}
 		if err != nil {
 			return err
@@ -276,6 +290,23 @@ func copyResourceContent(src, dst any) error {
 	}
 	dstUnstructured.SetUnstructuredContent(srcUnstructured.UnstructuredContent())
 	return convertFromUnstructured(dstUnstructured, dst)
+}
+
+func getResourceVersion(obj any) (string, error) {
+	unstructuredObj, err := convertToUnstructured(obj)
+	if err != nil {
+		return "", err
+	}
+	return unstructuredObj.GetResourceVersion(), nil
+}
+
+func setResourceVersion(obj any, rv string) error {
+	unstructuredObj, err := convertToUnstructured(obj)
+	if err != nil {
+		return err
+	}
+	unstructuredObj.SetResourceVersion(rv)
+	return convertFromUnstructured(unstructuredObj, obj)
 }
 
 func convertToUnstructured(obj any) (*unstructured.Unstructured, error) {

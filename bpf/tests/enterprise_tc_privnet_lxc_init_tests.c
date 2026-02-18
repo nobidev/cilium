@@ -55,6 +55,7 @@ static const union v6addr lxc_privnet_ipv6 = { .addr = v6_svc_one_addr };
 PKTGEN("tc", "01_arp_from_container_privnet_ip_unset")
 int privnet_arp_from_container_privnet_ip_unset_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETIP_ARP_REQ, privnet_net_ip_arp_req);
 	build_privnet_packet(ctx, NETIP_ARP_REQ);
 	return 0;
 }

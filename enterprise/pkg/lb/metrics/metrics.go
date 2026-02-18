@@ -353,7 +353,7 @@ func (mc *lbMetricsCollector) getOrAddEntry(svcName loadbalancer.ServiceName, ad
 
 func svcKeyToAddr(svcKey lbmaps.ServiceKey) loadbalancer.L3n4Addr {
 	feIP := svcKey.GetAddress()
-	feAddrCluster := cmtypes.MustAddrClusterFromIP(feIP)
+	feAddrCluster := cmtypes.AddrClusterFrom(feIP, 0)
 	proto := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
 	feL3n4Addr := loadbalancer.NewL3n4Addr(proto, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
 	return feL3n4Addr

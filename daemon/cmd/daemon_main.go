@@ -24,7 +24,6 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/daemon/infraendpoints"
-	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/common"
@@ -59,6 +58,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
@@ -84,11 +84,6 @@ const (
 	// fatalSleep is the duration Cilium should sleep before existing in case
 	// of a log.Fatal is issued or a CLI flag is specified but does not exist.
 	fatalSleep = 2 * time.Second
-)
-
-var (
-	bootstrapTimestamp = time.Now()
-	bootstrapStats     = bootstrapStatistics{}
 )
 
 func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
@@ -779,6 +774,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableK8sNetworkPolicy)
 	option.BindEnv(vp, option.EnableK8sNetworkPolicy)
 
+	flags.Bool(option.EnableK8sClusterNetworkPolicy, defaults.EnableK8sClusterNetworkPolicy, "Enable support for K8s ClusterNetworkPolicy")
+	flags.MarkHidden(option.EnableK8sClusterNetworkPolicy)
+	option.BindEnv(vp, option.EnableK8sClusterNetworkPolicy)
+
 	flags.Bool(option.EnableCiliumNetworkPolicy, defaults.EnableCiliumNetworkPolicy, "Enable support for Cilium Network Policy")
 	flags.MarkHidden(option.EnableCiliumNetworkPolicy)
 	option.BindEnv(vp, option.EnableCiliumNetworkPolicy)
@@ -876,9 +875,6 @@ func initDaemonConfigAndLogging(vp *viper.Viper) {
 }
 
 func initEnv(logger *slog.Logger, vp *viper.Viper) {
-	bootstrapStats.earlyInit.Start()
-	defer bootstrapStats.earlyInit.End(true)
-
 	var debugDatapath bool
 
 	option.LogRegisteredSlogOptions(vp, logger)
@@ -1215,8 +1211,7 @@ type daemonParams struct {
 	Clientset           k8sClient.Clientset
 	KVStoreClient       kvstore.Client
 	WGAgent             wgTypes.WireguardAgent
-	LocalNodeRes        k8s.LocalNodeResource
-	LocalCiliumNodeRes  k8s.LocalCiliumNodeResource
+	LocalNodeStore      *node.LocalNodeStore
 	K8sWatcher          *watchers.K8sWatcher
 	NodeHandler         datapath.NodeHandler
 	EndpointManager     endpointmanager.EndpointManager
@@ -1296,7 +1291,7 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 				return fmt.Errorf("daemon configuration failed: %w", err)
 			}
 
-			params.Logger.Info("Daemon initialization completed", logfields.BootstrapTime, time.Since(bootstrapTimestamp))
+			params.Logger.Info("Daemon initialization completed")
 
 			if err := params.MonitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
 				params.Logger.Warn("Failed to send agent start monitor message", logfields.Error, err)

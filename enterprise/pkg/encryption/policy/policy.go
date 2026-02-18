@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	networkPolicy "github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/types"
@@ -145,6 +146,10 @@ func (n *identityNotifier) IsPeerSelector() bool {
 	return true
 }
 
+func (n *identityNotifier) GetRuleLabels(cs types.CachedSelector) labels.LabelArrayList {
+	return nil // not used for encryption policy
+}
+
 func (e *Engine) newIdentityNotifier(rule *encryptionRule, isSubject bool) *identityNotifier {
 	return &identityNotifier{
 		rule:      rule,
@@ -161,14 +166,14 @@ func (e *Engine) newRule(key RuleKey, rule parsedSelectorRule) *encryptionRule {
 	}
 
 	r.subjectNotifier = e.newIdentityNotifier(r, true)
-	css, _ := e.selectorCache.AddSelectors(r.subjectNotifier, networkPolicy.EmptyStringLabels, rule.subject)
+	css, _ := e.selectorCache.AddSelectors(r.subjectNotifier, rule.subject)
 	if css.Len() != 1 {
 		panic(fmt.Sprintf("unexpected length of selectors for subjectNotifier 1 != %d", css.Len()))
 	}
 	r.subjectSelector = css[0]
 
 	r.peerNotifier = e.newIdentityNotifier(r, false)
-	css, _ = e.selectorCache.AddSelectors(r.peerNotifier, networkPolicy.EmptyStringLabels, rule.peer)
+	css, _ = e.selectorCache.AddSelectors(r.peerNotifier, rule.peer)
 	if css.Len() != 1 {
 		panic(fmt.Sprintf("unexpected length of selectors for peerNotifier 1 != %d", css.Len()))
 	}

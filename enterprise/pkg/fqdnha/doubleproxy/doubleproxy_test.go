@@ -176,7 +176,7 @@ func (m mockCachedSelector) GetSelections() identity.NumericIdentitySlice {
 func (m mockCachedSelector) GetSelectionsAt(_ policy.SelectorSnapshot) identity.NumericIdentitySlice {
 	return []identity.NumericIdentity{1, 2, 3}
 }
-func (m mockCachedSelector) GetMetadataLabels() labels.LabelArray { panic("not impl") }
+func (m mockCachedSelector) GetMetadataLabels() labels.LabelArrayList { panic("not impl") }
 func (m mockCachedSelector) Selects(_ identity.NumericIdentity) bool {
 	panic("not impl")
 }

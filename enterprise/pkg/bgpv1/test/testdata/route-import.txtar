@@ -64,11 +64,11 @@ gobgp/routes -s v6 -o gobgp-rib-v6.actual ipv6 unicast
 * cmp gobgp-rib-v6.expected gobgp-rib-v6.actual
 
 # Ensure expected v4 routes are imported
-bgp/routes -o bgp-rib-v4.actual available ipv4 unicast
+bgp/routes -o bgp-rib-v4.actual --no-age loc ipv4 unicast
 * cmp bgp-rib-v4.expected bgp-rib-v4.actual
 
 # Ensure expected v6 routes are imported
-bgp/routes -o bgp-rib-v6.actual available ipv6 unicast
+bgp/routes -o bgp-rib-v6.actual --no-age loc ipv6 unicast
 * cmp bgp-rib-v6.expected bgp-rib-v6.actual
 
 # Ensure routes are written into the RIB
@@ -79,9 +79,9 @@ gobgp/delete-server v4
 gobgp/delete-server v6
 
 # Ensure routes are deleted
-bgp/routes -o bgp-rib-v4.actual available ipv4 unicast
+bgp/routes -o bgp-rib-v4.actual --no-age loc ipv4 unicast
 * cmp bgp-rib-empty.expected bgp-rib-v4.actual
-bgp/routes -o bgp-rib-v6.actual available ipv6 unicast
+bgp/routes -o bgp-rib-v6.actual --no-age loc ipv6 unicast
 * cmp bgp-rib-empty.expected bgp-rib-v6.actual
 
 # Ensure routes are removed from the RIB
@@ -249,21 +249,21 @@ Prefix            NextHop   Attrs
 2001:db8::/81     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/81]}}]
 ::/0              ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [::/0]}}]
 -- bgp-rib-v4.expected --
-VRouter   Prefix        NextHop        Attrs
-65001     0.0.0.0/0     10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
-65001     10.0.0.0/24   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
-65001     10.0.0.0/26   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
-65001     10.0.0.0/28   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100}]
-65001     10.1.0.0/24   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100} {Communities: 65001:100}]
-65001     10.2.0.0/24   10.100.100.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.100.1} {LocalPref: 100} {Communities: 65001:200, 65001:201} {LargeCommunity: [ 65001:200:200]}]
+Instance    Prefix        NextHop        Best   Age
+instance0   0.0.0.0/0     10.100.100.1   true   -
+            10.0.0.0/24   10.100.100.1   true   -
+            10.0.0.0/26   10.100.100.1   true   -
+            10.0.0.0/28   10.100.100.1   true   -
+            10.1.0.0/24   10.100.100.1   true   -
+            10.2.0.0/24   10.100.100.1   true   -
 -- bgp-rib-v6.expected --
-VRouter   Prefix            NextHop              Attrs
-65001     2001:db8:1::/64   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8:1::/64]}}]
-65001     2001:db8:2::/64   fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {Communities: 65001:200, 65001:201} {LargeCommunity: [ 65001:200:200]} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8:2::/64]}}]
-65001     2001:db8::/64     fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/64]}}]
-65001     2001:db8::/72     fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/72]}}]
-65001     2001:db8::/80     fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [2001:db8::/80]}}]
-65001     ::/0              fd00:10:100:100::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:100::1, NLRIs: [::/0]}}]
+Instance    Prefix            NextHop              Best   Age
+instance0   2001:db8:1::/64   fd00:10:100:100::1   true   -
+            2001:db8:2::/64   fd00:10:100:100::1   true   -
+            2001:db8::/64     fd00:10:100:100::1   true   -
+            2001:db8::/72     fd00:10:100:100::1   true   -
+            2001:db8::/80     fd00:10:100:100::1   true   -
+            ::/0              fd00:10:100:100::1   true   -
 -- desired-routes.expected --
 Owner           Table        Prefix            Priority   AD    Selected   Nexthop              Src    Device   MultiPath   MTU    Scope      Type
 bgp-instance0   main (254)   ::/0              none       200   true       fd00:10:100:100::1   none   none     none        none   universe   unicast
@@ -279,6 +279,6 @@ bgp-instance0   main (254)   2001:db8::/80     none       200   true       fd00:
 bgp-instance0   main (254)   2001:db8:1::/64   none       200   true       fd00:10:100:100::1   none   none     none        none   universe   unicast
 bgp-instance0   main (254)   2001:db8:2::/64   none       200   true       fd00:10:100:100::1   none   none     none        none   universe   unicast
 -- bgp-rib-empty.expected --
-VRouter   Prefix   NextHop   Attrs
+Instance   Prefix   NextHop   Best   Age
 -- desired-routes-empty.expected --
 Owner             Table        Prefix          Priority   AD    Selected   Nexthop              Src    Device   MTU    Scope      Type
