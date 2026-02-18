@@ -318,6 +318,7 @@ jobs:
              --helm-set-string=extraConfig.loadbalancer-cp-t1-hc-probe-timeout-seconds=10 \
              --helm-set-string=extraConfig.loadbalancer-flow-logs-enabled=true \
              --helm-set-string=extraConfig.loadbalancer-flow-logs-sender=stdout \
+             --helm-set-string=extraConfig.loadbalancer-extlb-enabled=true \
              $EXTRA
 
           cilium status --wait

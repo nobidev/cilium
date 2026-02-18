@@ -55,6 +55,20 @@ func (c *dockerCli) GetContainerIPs(ctx context.Context, containerName string) (
 	return "", "", fmt.Errorf("no network found")
 }
 
+func (c *dockerCli) GetContainerIPsOnNetwork(ctx context.Context, containerName string, networkName string) (ipv4 string, ipv6 string, err error) {
+	obj, err := c.ContainerInspect(ctx, containerName)
+	if err != nil {
+		return "", "", err
+	}
+
+	net, ok := obj.NetworkSettings.Networks[networkName]
+	if !ok {
+		return "", "", fmt.Errorf("container %q is not connected to network %q", containerName, networkName)
+	}
+
+	return net.IPAddress, net.GlobalIPv6Address, nil
+}
+
 func (c *dockerCli) ContainerExec(ctx context.Context, name string, cmds []string) (string, string, error) {
 	var stdout, stderr bytes.Buffer
 

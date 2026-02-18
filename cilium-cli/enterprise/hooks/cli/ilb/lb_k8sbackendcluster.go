@@ -11,6 +11,10 @@
 package ilb
 
 func TestLBK8sBackendClusterConnectivity(t T) {
+	if skipIfOnSingleNode("backend kind clusters require a shared Docker network") {
+		return
+	}
+
 	testName := "lbk8sbackend-connect"
 	backendClusterName := "ilb-backend"
 
@@ -38,6 +42,10 @@ func TestLBK8sBackendClusterConnectivity(t T) {
 }
 
 func TestLBK8sBackendClusterMultiple(t T) {
+	if skipIfOnSingleNode("backend kind clusters require a shared Docker network") {
+		return
+	}
+
 	testName := "lbk8sbackend-multiple"
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
@@ -73,6 +81,10 @@ func TestLBK8sBackendClusterMultiple(t T) {
 }
 
 func TestLBK8sBackendClusterReconnect(t T) {
+	if skipIfOnSingleNode("backend kind clusters require a shared Docker network") {
+		return
+	}
+
 	testName := "lbk8sbackend-reconnect"
 	backendClusterName := "ilb-backend-reconnect"
 
@@ -99,7 +111,9 @@ func TestLBK8sBackendClusterReconnect(t T) {
 	scenario.waitForLBK8sBackendClusterConnected(lbK8sBackendClusterName)
 
 	t.Log("Deleting backend kind cluster...")
-	scenario.deleteBackendKindCluster(backendCluster.Name)
+	if err := scenario.deleteBackendKindCluster(backendCluster.Name); err != nil {
+		t.Failedf("failed to delete backend kind cluster: %s", err)
+	}
 
 	t.Log("Waiting for LBK8sBackendCluster to disconnect...")
 	scenario.waitForLBK8sBackendClusterDisconnected(lbK8sBackendClusterName)

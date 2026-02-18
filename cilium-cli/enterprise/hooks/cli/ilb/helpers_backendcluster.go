@@ -27,22 +27,16 @@ import (
 )
 
 const (
-	// backendClusterNetworkName is the Docker network name used by kind clusters.
-	// Using KIND_EXPERIMENTAL_DOCKER_NETWORK="kind-cilium" places the cluster on
-	// the same network as the main Cilium cluster.
-	backendClusterNetworkName = "kind-cilium"
-
 	backendClusterReadyTimeout = 5 * time.Minute
 )
 
 type backendKindCluster struct {
-	Name       string
-	kubeconfig string
+	Name string
 }
 
 func (r *lbTestScenario) createBackendKindCluster(clusterName string) *backendKindCluster {
 	env := os.Environ()
-	env = append(env, fmt.Sprintf("KIND_EXPERIMENTAL_DOCKER_NETWORK=%s", backendClusterNetworkName))
+	env = append(env, fmt.Sprintf("KIND_EXPERIMENTAL_DOCKER_NETWORK=%s", FlagNetworkName))
 
 	// Create a temp file for the kubeconfig to prevent kind from overwriting the default kubeconfig
 	tmpKubeconfig, err := os.CreateTemp("", "kind-kubeconfig-*")
@@ -67,8 +61,6 @@ func (r *lbTestScenario) createBackendKindCluster(clusterName string) *backendKi
 	r.t.RegisterCleanup(func(ctx context.Context) error {
 		return r.deleteBackendKindCluster(clusterName)
 	})
-
-	cluster.kubeconfig = r.getBackendKindClusterKubeconfig(clusterName)
 
 	return cluster
 }
@@ -105,11 +97,13 @@ func (r *lbTestScenario) getBackendKindClusterInternalKubeconfig(clusterName str
 	// Get the standard kubeconfig
 	kubeconfig := r.getBackendKindClusterKubeconfig(clusterName)
 
-	// Get the control plane container IP on the kind-cilium network
+	// Get the control plane container IP on the kind-cilium network.
+	// We must look up the IP on the specific network rather than using
+	// GetContainerIPs, which returns a random network's IP from the map.
 	containerName := fmt.Sprintf("%s-control-plane", clusterName)
-	ipv4, _, err := r.dockerCli.GetContainerIPs(r.t.Context(), containerName)
+	ipv4, _, err := r.dockerCli.GetContainerIPsOnNetwork(r.t.Context(), containerName, FlagNetworkName)
 	if err != nil {
-		r.t.Failedf("failed to get container IP for %q: %s", containerName, err)
+		r.t.Failedf("failed to get container IP for %q on network %q: %s", containerName, FlagNetworkName, err)
 	}
 
 	// Replace the localhost:port with the container IP:6443
@@ -125,24 +119,24 @@ func (r *lbTestScenario) getBackendKindClusterInternalKubeconfig(clusterName str
 }
 
 func (r *lbTestScenario) waitForBackendKindClusterReady(cluster *backendKindCluster) {
+	containerName := fmt.Sprintf("%s-control-plane", cluster.Name)
 	eventually(r.t, func() error {
-		cmd := exec.CommandContext(r.t.Context(), "kubectl",
-			"--kubeconfig=/dev/stdin",
-			"get", "nodes",
-			"-o", "jsonpath={.items[*].status.conditions[?(@.type==\"Ready\")].status}")
-		cmd.Stdin = strings.NewReader(cluster.kubeconfig)
+		// Use docker exec to run kubectl inside the control-plane container
+		// rather than running kubectl directly from the test runner. This is
+		// necessary in CI where the backend kind cluster's API server port is
+		// only accessible inside the LVH VM, not from the GHA runner.
+		cmd := exec.CommandContext(r.t.Context(), "docker", "exec", containerName,
+			"kubectl", "--kubeconfig=/etc/kubernetes/admin.conf",
+			"get", "namespaces",
+			"-o", "jsonpath={.items[0].metadata.name}")
 
 		output, err := cmd.Output()
 		if err != nil {
-			return fmt.Errorf("failed to get node status: %w", err)
+			return fmt.Errorf("API server not reachable: %w", err)
 		}
 
-		if !strings.Contains(string(output), "True") {
-			return fmt.Errorf("no ready nodes found: %s", string(output))
-		}
-
-		if strings.Contains(string(output), "False") {
-			return fmt.Errorf("some nodes not ready yet: %s", string(output))
+		if len(output) == 0 {
+			return fmt.Errorf("API server returned no namespaces")
 		}
 
 		return nil
@@ -219,6 +213,10 @@ func (r *lbTestScenario) waitForLBK8sBackendClusterConnected(name string) {
 			return fmt.Errorf("failed to get LBK8sBackendCluster: %w", err)
 		}
 
+		if lbK8sBackendCluster.Status == nil {
+			return fmt.Errorf("status not yet set")
+		}
+
 		// Verify the Connected condition
 		var connectedCondition *metav1.Condition
 		for i := range lbK8sBackendCluster.Status.Conditions {
@@ -233,7 +231,9 @@ func (r *lbTestScenario) waitForLBK8sBackendClusterConnected(name string) {
 		}
 
 		if connectedCondition.Status != metav1.ConditionTrue {
-			return fmt.Errorf("Connected condition status is %q, expected %q", connectedCondition.Status, metav1.ConditionTrue)
+			return fmt.Errorf("Connected condition status is %q, expected %q (reason=%q, message=%q)",
+				connectedCondition.Status, metav1.ConditionTrue,
+				connectedCondition.Reason, connectedCondition.Message)
 		}
 
 		return nil
@@ -260,6 +260,10 @@ func (r *lbTestScenario) waitForLBK8sBackendClusterDisconnected(name string) {
 		lbK8sBackendCluster, err := r.ciliumCli.IsovalentV1alpha1().LBK8sBackendClusters().Get(r.t.Context(), name, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get LBK8sBackendCluster: %w", err)
+		}
+
+		if lbK8sBackendCluster.Status == nil {
+			return fmt.Errorf("status not yet set")
 		}
 
 		var connectedCondition *metav1.Condition
