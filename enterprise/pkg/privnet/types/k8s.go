@@ -46,10 +46,11 @@ const (
 
 // NetworkAttachment is the value of PrivateNetworkAnnotation (encoded as JSON)
 type NetworkAttachment struct {
-	Network string     `json:"network"`
-	IPv4    netip.Addr `json:"ipv4,omitzero"`
-	IPv6    netip.Addr `json:"ipv6,omitzero"`
-	MAC     mac.MAC    `json:"mac,omitempty"`
+	Network   string     `json:"network"`
+	Interface string     `json:"interface,omitzero"`
+	IPv4      netip.Addr `json:"ipv4,omitzero"`
+	IPv6      netip.Addr `json:"ipv6,omitzero"`
+	MAC       mac.MAC    `json:"mac,omitempty"`
 }
 
 type annotatedObject interface {
@@ -80,6 +81,7 @@ func ExtractNetworkAttachmentAnnotation(obj annotatedObject) ([]NetworkAttachmen
 	if err != nil {
 		return nil, fmt.Errorf("invalid value in %q annotation: %w", PrivateNetworkAnnotation, err)
 	}
+	primary.Interface = ""
 
 	if !foundSec {
 		return []NetworkAttachment{primary}, nil
@@ -89,6 +91,15 @@ func ExtractNetworkAttachmentAnnotation(obj annotatedObject) ([]NetworkAttachmen
 	err = json.Unmarshal([]byte(rawSec), &secondary)
 	if err != nil {
 		return nil, fmt.Errorf("invalid value in %q annotation: %w", PrivateNetworkSecondaryAttachmentsAnnotation, err)
+	}
+
+	var with, without bool
+	for _, attachment := range secondary {
+		with, without = with || attachment.Interface != "", without || attachment.Interface == ""
+		if with && without {
+			return nil, fmt.Errorf("invalid value in %q annotation: interface must be specified for either none or all secondary attachments",
+				PrivateNetworkSecondaryAttachmentsAnnotation)
+		}
 	}
 
 	return append([]NetworkAttachment{primary}, secondary...), nil

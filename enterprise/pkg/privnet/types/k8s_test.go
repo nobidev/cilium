@@ -54,6 +54,16 @@ func TestExtractNetworkAttachmentAnnotation(t *testing.T) {
 			}},
 		},
 		{
+			name: "primary-with-interface",
+			annotations: map[string]string{
+				types.PrivateNetworkAnnotation: `{ "network": "blue", "ipv4": "192.168.1.10", "interface": "foo" }`,
+			},
+			want: []types.NetworkAttachment{{
+				Network: "blue",
+				IPv4:    netip.MustParseAddr("192.168.1.10"),
+			}},
+		},
+		{
 			name: "primary+secondary",
 			annotations: map[string]string{
 				types.PrivateNetworkAnnotation: `{ "network": "blue", "ipv4": "192.168.1.10", "ipv6": "fd10::10", "mac": "f2:54:1c:1f:84:94" }`,
@@ -78,6 +88,32 @@ func TestExtractNetworkAttachmentAnnotation(t *testing.T) {
 				IPv6:    netip.MustParseAddr("fd10::12"),
 				MAC:     mac.MustParseMAC("f2:54:1c:1f:84:96"),
 			}},
+		},
+		{
+			name: "secondary-with-interface",
+			annotations: map[string]string{
+				types.PrivateNetworkAnnotation: `{ "network": "blue", "ipv4": "192.168.1.10" }`,
+				types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+					{ "network": "green", "ipv4": "192.168.1.11", "interface": "foo" },
+					{ "network": "yellow", "ipv4": "192.168.1.12", "interface": "bar" }
+				]`,
+			},
+			want: []types.NetworkAttachment{
+				{Network: "blue", IPv4: netip.MustParseAddr("192.168.1.10")},
+				{Network: "green", IPv4: netip.MustParseAddr("192.168.1.11"), Interface: "foo"},
+				{Network: "yellow", IPv4: netip.MustParseAddr("192.168.1.12"), Interface: "bar"},
+			},
+		},
+		{
+			name: "secondary-interface-mixed",
+			annotations: map[string]string{
+				types.PrivateNetworkAnnotation: `{ "network": "blue", "ipv4": "192.168.1.10" }`,
+				types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+					{ "network": "green", "ipv4": "192.168.1.11", "interface": "foo" },
+					{ "network": "yellow", "ipv4": "192.168.1.12" }
+				]`,
+			},
+			wantErr: `interface must be specified for either none or all secondary attachments`,
 		},
 		{
 			name: "secondary-only",
