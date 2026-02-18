@@ -2826,11 +2826,17 @@
           "properties": {
             "image": {
               "properties": {
+                "digest": {
+                  "type": "string"
+                },
                 "override": {
                   "type": [
                     "null",
                     "string"
                   ]
+                },
+                "pullPolicy": {
+                  "type": "string"
                 },
                 "repository": {
                   "type": "string"

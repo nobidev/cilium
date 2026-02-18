@@ -1880,10 +1880,18 @@
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
      - ``30``
+   * - :spelling:ignore:`envoy.kubectl.image.digest`
+     - 
+     - string
+     - ``""``
    * - :spelling:ignore:`envoy.kubectl.image.override`
      - 
      - string
      - ``nil``
+   * - :spelling:ignore:`envoy.kubectl.image.pullPolicy`
+     - 
+     - string
+     - ``"Always"``
    * - :spelling:ignore:`envoy.kubectl.image.repository`
      - 
      - string

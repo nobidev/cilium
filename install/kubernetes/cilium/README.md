@@ -516,7 +516,9 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.image | object | `{"digest":"sha256:516becccd185e190893ff2e4bde656c7ce16d2d3901de056e852ce01c3ae271d","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1770892622-f97ae52c05a1edbbdaa6393f8595431259cf2ca1","useDigest":true}` | Envoy container image. |
 | envoy.initContainers | list | `[]` | Init containers added to the cilium Envoy DaemonSet. |
 | envoy.initialFetchTimeoutSeconds | int | `30` | Time in seconds after which the initial fetch on an xDS stream is considered timed out |
+| envoy.kubectl.image.digest | string | `""` |  |
 | envoy.kubectl.image.override | string | `nil` |  |
+| envoy.kubectl.image.pullPolicy | string | `"Always"` |  |
 | envoy.kubectl.image.repository | string | `"quay.io/isovalent/kubectl"` |  |
 | envoy.kubectl.image.tag | string | `"1.0.1"` |  |
 | envoy.kubectl.image.useDigest | bool | `false` |  |
