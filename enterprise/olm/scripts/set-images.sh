@@ -65,11 +65,11 @@ yq_replace ".preflight.image.tag = \"${tag}\""
 yq_replace ".operator.image.tag = \"${tag}\""
 yq_replace ".hubble.relay.image.tag = \"${tag}\""
 yq_replace ".clustermesh.apiserver.image.tag = \"${tag}\""
-yq_replace ".envoy.kubectl.image.tag = \"${tag}\""
 if [ "${is_ci}" != "true" ]; then
   yq_replace ".nodeinit.image.tag = \"${tag}\""
   yq_replace ".certgen.image.tag = \"${tag}\""
   yq_replace ".envoy.image.tag = \"${tag}\""
+  yq_replace ".envoy.kubectl.image.tag = \"${tag}\""
 fi
 # Set the image repositories
 yq_replace ".image.repository = \"${registry}/cilium${suffix}\""
@@ -79,6 +79,7 @@ yq_replace ".clustermesh.apiserver.image.repository = \"${registry}/clustermesh-
 yq_replace ".nodeinit.image.repository = \"${registry}/startup-script${suffix}\""
 yq_replace ".certgen.image.repository = \"${registry}/certgen${suffix}\""
 yq_replace ".envoy.image.repository = \"${registry}/cilium-envoy${suffix}\""
+yq_replace ".envoy.kubectl.image.repository = \"${registry}/kubectl${suffix}\""
 yq_replace ".operator.image.repository = \"${registry}/operator\""
 yq_replace ".operator.image.suffix = \"${suffix}\""
 # cilium agent
@@ -149,7 +150,6 @@ yq_replace ".certgen.image.useDigest = true"
 echo "Process envoy"
 yq_get ".envoy.image.repository"
 img=${yq_get_result}
-echo "Process envoy"
 yq_get ".envoy.image.tag"
 envoy_tag=${yq_get_result}
 echo "get digest: ${img} ${envoy_tag}"
@@ -158,6 +158,18 @@ digest=${get_digest_result}
 echo "digest: ${digest}"
 yq_replace ".envoy.image.digest = \"${digest}\""
 yq_replace ".envoy.image.useDigest = true"
+# kubectl
+echo "Process kubectl"
+yq_get ".envoy.kubectl.image.repository"
+img=${yq_get_result}
+yq_get ".envoy.kubectl.image.tag"
+kubectl_tag=${yq_get_result}
+echo "get digest: ${img} ${kubectl_tag}"
+get_digest "${img}" "${kubectl_tag}"
+digest=${get_digest_result}
+echo "digest: ${digest}"
+yq_replace ".envoy.kubectl.image.digest = \"${digest}\""
+yq_replace ".envoy.kubectl.image.useDigest = true"
 # operator
 echo "Process operator"
 yq_get ".operator.image.repository"
