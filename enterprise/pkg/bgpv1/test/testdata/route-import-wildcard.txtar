@@ -28,11 +28,11 @@ gobgp/add-route -s v6 ::/0
 gobgp/add-route -s v6 fd00::/64
 
 # Ensure expected v4 routes are imported
-bgp/routes -o bgp-rib-v4.actual available ipv4 unicast
+bgp/routes -o bgp-rib-v4.actual --no-age loc ipv4 unicast
 * cmp bgp-rib-v4.expected bgp-rib-v4.actual
 
 # Ensure expected v6 routes are imported
-bgp/routes -o bgp-rib-v6.actual available ipv6 unicast
+bgp/routes -o bgp-rib-v6.actual --no-age loc ipv6 unicast
 * cmp bgp-rib-v6.expected bgp-rib-v6.actual
 
 # Ensure routes are written into the RIB
@@ -130,13 +130,13 @@ instance0   allow-local                                import                   
 instance0   import-user-defined-peer-v4-ipv4-unicast   import   10.100.101.1         ipv4/unicast     0.0.0.0/0 (0..32)                                   accept       
 instance0   import-user-defined-peer-v6-ipv6-unicast   import   fd00:10:100:101::1   ipv6/unicast     ::/0 (0..128)                                       accept       
 -- bgp-rib-v4.expected --
-VRouter   Prefix        NextHop        Attrs
-65001     0.0.0.0/0     10.100.101.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.101.1} {LocalPref: 100}]
-65001     10.0.0.0/24   10.100.101.1   [{Origin: i} {AsPath: } {Nexthop: 10.100.101.1} {LocalPref: 100}]
+Instance    Prefix        NextHop        Best   Age
+instance0   0.0.0.0/0     10.100.101.1   true   -
+            10.0.0.0/24   10.100.101.1   true   -
 -- bgp-rib-v6.expected --
-VRouter   Prefix      NextHop              Attrs
-65001     ::/0        fd00:10:100:101::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:101::1, NLRIs: [::/0]}}]
-65001     fd00::/64   fd00:10:100:101::1   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:100:101::1, NLRIs: [fd00::/64]}}]
+Instance    Prefix      NextHop              Best   Age
+instance0   ::/0        fd00:10:100:101::1   true   -
+            fd00::/64   fd00:10:100:101::1   true   -
 -- desired-routes.expected --
 Owner           Table        Prefix            Priority   AD    Selected   Nexthop              Src    Device   MultiPath   MTU    Scope      Type
 bgp-instance0   main (254)   ::/0              none       200   true       fd00:10:100:101::1   none   none     none        none   universe   unicast

@@ -123,6 +123,10 @@ const (
 	RHEL Feature = "rhel"
 
 	ExternalEnvoyProxy Feature = "external-envoy-proxy"
+
+	Ztunnel Feature = "enable-ztunnel"
+
+	DefaultGlobalNamespace Feature = "clustermesh-default-global-namespace"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -416,6 +420,14 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 	}
 
 	fs[Tunnel], fs[TunnelPort] = ExtractTunnelFeatureFromConfigMap(cm)
+
+	fs[Ztunnel] = Status{
+		Enabled: cm.Data["enable-ztunnel"] == "true",
+	}
+
+	fs[DefaultGlobalNamespace] = Status{
+		Enabled: cm.Data[string(DefaultGlobalNamespace)] == "true",
+	}
 }
 
 func (fs Set) ExtractFromNodes(nodesWithoutCilium map[string]struct{}) {

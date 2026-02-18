@@ -431,9 +431,11 @@ custom-lint: ## Run extra local linters
 golangci-lint: ## Run golangci-lint
 ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION:v%=%),$(GOLANGCILINT_VERSION)))
 	@$(ECHO_CHECK) golangci-lint $(GOLANGCI_LINT_ARGS)
-	$(QUIET) GOLANGCI_LINT_ARGS="$(GOLANGCI_LINT_ARGS)" ./contrib/scripts/golangci-lint.sh
+	$(QUIET) ./contrib/scripts/golangci-lint.sh $(GOLANGCI_LINT_ARGS)
 else
-	$(QUIET) $(CONTAINER_ENGINE) run --rm -v `pwd`:/app -w /app -e GOLANGCI_LINT_ARGS="$(GOLANGCI_LINT_ARGS)" docker.io/golangci/golangci-lint:$(GOLANGCILINT_WANT_VERSION)@$(GOLANGCILINT_IMAGE_SHA) ./contrib/scripts/golangci-lint.sh
+	$(QUIET) $(CONTAINER_ENGINE) run --rm -ti -v `pwd`:/app -w /app \
+	docker.io/golangci/golangci-lint:$(GOLANGCILINT_WANT_VERSION)@$(GOLANGCILINT_IMAGE_SHA) \
+	./contrib/scripts/golangci-lint.sh $(GOLANGCI_LINT_ARGS)
 endif
 
 golangci-lint-fix: ## Run golangci-lint to automatically fix warnings
@@ -589,15 +591,21 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 .PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder gateway-api-conformance
 force :;
 
+KIND_NET_CIDR ?= $(shell docker network inspect kind-cilium -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
+GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES?=$(shell echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.206@")
+GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES?=$(shell echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.216@")
+GATEWAY_API_CONFORMANCE_TEST_NAME ?= TestConformance
 gateway-api-conformance: ## Run Gateway API conformance tests.
 	@$(ECHO_CHECK) running Gateway API conformance tests...
 	GATEWAY_API_CONFORMANCE_TESTS=1 \
-	GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES} \
-	GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES} \
 	$(GO_TEST) $(GO_TEST_FLAGS) -p 4 -v ./operator/pkg/gateway-api \
 		$(GATEWAY_TEST_FLAGS) \
-		-test.run "TestConformance" \
+		-test.run $(GATEWAY_API_CONFORMANCE_TEST_NAME) \
 		-test.timeout=29m \
+		--gateway-class cilium \
+		--all-features \
+		--allow-crds-mismatch\
+		--cleanup-base-resources=false \
 	| $(GOTEST_FORMATTER)
 
 BPF_TEST ?= ""

@@ -50,6 +50,7 @@ static const union v6addr lxc_privnet_ipv6 = { .addr = v6_svc_one_addr };
 PKTGEN("tc", "01_local_access_egress_from_lxc")
 int privnet_local_access_egress_from_lxc_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
 	build_privnet_packet(ctx, NETIP_ICMP_REQ);
 	return 0;
 }
@@ -79,6 +80,7 @@ int privnet_local_access_egress_from_lxc_check(struct __ctx_buff *ctx)
 			   redirect_target_ifindex, NETDEV_IFINDEX);
 
 	/* check inner packet headers, src & dst should remain untranslated */
+	BUF_DECL(NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
 	ASSERT_CTX_BUF_OFF("privnet_local_access_icmp_from_container_no_nat", "IP", ctx,
 			   sizeof(__u32), NETIP_ICMP_REQ,
 			   sizeof(BUF(NETIP_ICMP_REQ)));

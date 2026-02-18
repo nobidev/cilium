@@ -214,15 +214,15 @@ var (
 	testSelectorCache       = policy.NewSelectorCache(logging.DefaultSlogLogger, cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &testpolicy.DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
-	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, DstID1Selector)
+	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID1Selector)
 	DstID2Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst2=test"))
-	cachedDstID2Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, DstID2Selector)
+	cachedDstID2Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID2Selector)
 	DstID3Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst3=test"))
-	cachedDstID3Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, DstID3Selector)
+	cachedDstID3Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID3Selector)
 	DstID4Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst4=test"))
-	cachedDstID4Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, DstID4Selector)
+	cachedDstID4Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID4Selector)
 
-	cachedWildcardSelector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, api.WildcardEndpointSelector)
+	cachedWildcardSelector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, api.WildcardEndpointSelector)
 
 	epID1            = uint64(111)
 	epID2            = uint64(222)
@@ -901,7 +901,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	ep1.Start(uint16(model.ID))
 	t.Cleanup(ep1.Stop)
 
-	ep1.DNSRulesV2 = restored1
+	ep1.DNSRules = restored1
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
 	require.True(t, exists)
@@ -953,7 +953,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	ep3.Start(uint16(modelEP3.ID))
 	t.Cleanup(ep3.Stop)
 
-	ep3.DNSRulesV2 = restored3
+	ep3.DNSRules = restored3
 	s.proxy.RestoreRules(ep3)
 	_, exists = s.proxy.restored[epID3]
 	require.True(t, exists)
@@ -1043,7 +1043,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	require.NoError(t, err, "Could not marshal restored rules to json")
 	require.Equal(t, pretty.String(), string(jsn2))
 
-	ep1.DNSRulesV2 = rules
+	ep1.DNSRules = rules
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
 	require.True(t, exists)
@@ -1167,7 +1167,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 
 	ep1.IPv4 = netip.MustParseAddr("127.0.0.1")
 	ep1.IPv6 = netip.MustParseAddr("::1")
-	ep1.DNSRulesV2 = restored
+	ep1.DNSRules = restored
 	s.proxy.RestoreRules(ep1)
 	_, exists := s.proxy.restored[epID1]
 	require.True(t, exists)
@@ -1200,7 +1200,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 		restore.IPRule{Re: restore.RuleRegex{Pattern: &invalidRePattern}},
 		restore.IPRule{Re: restore.RuleRegex{Pattern: &validRePattern}},
 	)
-	ep1.DNSRulesV2 = restored
+	ep1.DNSRules = restored
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
 	require.True(t, exists)
@@ -1447,7 +1447,7 @@ func (t selectorMock) GetSelectionsAt(types.SelectorSnapshot) identity.NumericId
 	panic("implement me")
 }
 
-func (t selectorMock) GetMetadataLabels() labels.LabelArray {
+func (t selectorMock) GetMetadataLabels() labels.LabelArrayList {
 	panic("implement me")
 }
 

@@ -80,6 +80,7 @@ ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr}) /* set devic
 PKTGEN("tc", "01_local_access_ingress_from_netdev")
 int privnet_local_access_ingress_from_netdev_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETIP_TCP_SYN, privnet_net_ip_tcp_syn);
 	build_privnet_packet(ctx, NETIP_TCP_SYN);
 	return 0;
 }
@@ -111,6 +112,7 @@ int privnet_local_access_ingress_from_netdev_check(struct __ctx_buff *ctx)
 			   redirect_target_ifindex, LXC_IFINDEX);
 
 	/* check inner packet headers, src & dst should remain untranslated */
+	BUF_DECL(NETIP_TCP_SYN, privnet_net_ip_tcp_syn);
 	ASSERT_CTX_BUF_OFF("privnet_local_access_from_netdev_no_nat", "IP", ctx,
 			   sizeof(__u32), NETIP_TCP_SYN,
 			   sizeof(BUF(NETIP_TCP_SYN)));
@@ -133,6 +135,7 @@ int privnet_local_access_ingress_from_netdev_check(struct __ctx_buff *ctx)
 PKTGEN("tc", "02_local_access_icmpv6_ns_ingress_from_netdev")
 int privnet_local_access_icmpv6_ns_ingress_from_netdev_pktgen(struct __ctx_buff *ctx)
 {
+	BUF_DECL(NETDEV_ICMP6_NS, privnet_netdev_ns);
 	build_privnet_packet(ctx, NETDEV_ICMP6_NS);
 	return 0;
 }
@@ -170,6 +173,7 @@ int privnet_local_access_icmpv6_ns_ingress_from_netdev_check(struct __ctx_buff *
 		test_fatal("packet unexpectedly redirected to ifindex %d)",
 			   redirect_target_ifindex);
 
+	BUF_DECL(NETDEV_ICMP6_NS, privnet_netdev_ns);
 	ASSERT_CTX_BUF_OFF("privnet_local_access_icmpv6_ns_ingress_from_netdev_no_nat",
 			   "Ether", ctx,
 			   sizeof(__u32), NETDEV_ICMP6_NS,

@@ -968,6 +968,9 @@ data:
 {{- if hasKey .Values.k8sNetworkPolicy "enabled" }}
   enable-k8s-networkpolicy: {{ .Values.k8sNetworkPolicy.enabled | quote }}
 {{- end }}
+{{- if .Values.k8sClusterNetworkPolicy.enabled }}
+  enable-k8s-cluster-network-policy: "true"
+{{- end }}
   enable-endpoint-lockdown-on-policy-overflow: {{ .Values.endpointLockdownOnMapOverflow | quote }}
 {{- if .Values.cni.configMap }}
   read-cni-conf: {{ .Values.cni.confFileMountPath }}/{{ .Values.cni.configMapKey }}
@@ -1498,8 +1501,9 @@ data:
 {{- end }}
   clustermesh-cache-ttl: {{ .Values.clustermesh.cacheTTL | quote }}
   clustermesh-enable-endpoint-sync: {{ .Values.clustermesh.enableEndpointSliceSynchronization | quote }}
-  clustermesh-enable-mcs-api: {{ (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) | quote }}
+  clustermesh-enable-mcs-api: {{ .Values.clustermesh.mcsapi.enabled | quote }}
   clustermesh-mcs-api-install-crds: {{ .Values.clustermesh.mcsapi.installCRDs | quote }}
+  clustermesh-default-global-namespace: {{ .Values.clustermesh.defaultGlobalNamespace | quote }}
   policy-default-local-cluster: {{ .Values.clustermesh.policyDefaultLocalCluster | quote }}
 
   nat-map-stats-entries: {{ .Values.nat.mapStatsEntries | quote }}

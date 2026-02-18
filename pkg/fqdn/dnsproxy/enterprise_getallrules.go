@@ -27,17 +27,6 @@ func (p *DNSProxy) GetAllRules() (map[uint64]restore.DNSRules, error) {
 		if err != nil {
 			return nil, err
 		}
-		// Insert the V1 Rules for older versions of DNSProxy.
-		// TODO: This can be removed when 1.15 is deprecated.
-		for portProto, ipRules := range rules {
-			if portProto.IsPortV2() {
-				proto := portProto.Protocol()
-				// Only add protocols that support DNS.
-				if proto == uint8(u8proto.TCP) || proto == uint8(u8proto.UDP) {
-					rules[portProto.ToV1()] = ipRules
-				}
-			}
-		}
 		result[epID] = rules
 	}
 

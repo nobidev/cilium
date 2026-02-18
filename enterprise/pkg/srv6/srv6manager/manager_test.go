@@ -821,7 +821,11 @@ func TestPrivilegedSRv6Manager(t *testing.T) {
 			}
 
 			for _, ep := range epsToUpdate {
-				_, err := cs.CiliumV2().CiliumEndpoints(ep.Namespace).Update(context.TODO(), ep.DeepCopy(), metav1.UpdateOptions{})
+				current, err := cs.CiliumV2().CiliumEndpoints(ep.Namespace).Get(t.Context(), ep.Name, metav1.GetOptions{})
+				require.NoError(t, err)
+				updated := ep.DeepCopy()
+				updated.SetResourceVersion(current.GetResourceVersion())
+				_, err = cs.CiliumV2().CiliumEndpoints(ep.Namespace).Update(t.Context(), updated, metav1.UpdateOptions{})
 				require.NoError(t, err)
 			}
 
@@ -839,7 +843,11 @@ func TestPrivilegedSRv6Manager(t *testing.T) {
 			}
 
 			for _, vrf := range vrfsToUpdate {
-				_, err := cs.IsovalentV1alpha1().IsovalentVRFs().Update(context.TODO(), vrf.DeepCopy(), metav1.UpdateOptions{})
+				current, err := cs.IsovalentV1alpha1().IsovalentVRFs().Get(t.Context(), vrf.Name, metav1.GetOptions{})
+				require.NoError(t, err)
+				updated := vrf.DeepCopy()
+				updated.SetResourceVersion(current.GetResourceVersion())
+				_, err = cs.IsovalentV1alpha1().IsovalentVRFs().Update(t.Context(), updated, metav1.UpdateOptions{})
 				require.NoError(t, err)
 			}
 
@@ -857,7 +865,11 @@ func TestPrivilegedSRv6Manager(t *testing.T) {
 			}
 
 			for _, policy := range policiesToUpdate {
-				_, err := cs.IsovalentV1alpha1().IsovalentSRv6EgressPolicies().Update(context.TODO(), policy.DeepCopy(), metav1.UpdateOptions{})
+				current, err := cs.IsovalentV1alpha1().IsovalentSRv6EgressPolicies().Get(t.Context(), policy.Name, metav1.GetOptions{})
+				require.NoError(t, err)
+				updated := policy.DeepCopy()
+				updated.SetResourceVersion(current.GetResourceVersion())
+				_, err = cs.IsovalentV1alpha1().IsovalentSRv6EgressPolicies().Update(t.Context(), updated, metav1.UpdateOptions{})
 				require.NoError(t, err)
 			}
 
@@ -1056,9 +1068,12 @@ func TestPrivilegedSRv6ManagerWithSIDManager(t *testing.T) {
 	})
 
 	t.Run("TestUpdateLocator", func(t *testing.T) {
+		current, err := c.IsovalentV1alpha1().IsovalentSRv6SIDManagers().Get(context.TODO(), sidmanager1.Name, metav1.GetOptions{})
+		require.NoError(t, err)
 		sidmanager := sidmanager1.DeepCopy()
 		sidmanager.Spec.LocatorAllocations[0].Locators[0].Prefix = "fd00:1:2::/48"
-		_, err := c.IsovalentV1alpha1().IsovalentSRv6SIDManagers().Update(context.TODO(), sidmanager, metav1.UpdateOptions{})
+		sidmanager.SetResourceVersion(current.GetResourceVersion())
+		_, err = c.IsovalentV1alpha1().IsovalentSRv6SIDManagers().Update(context.TODO(), sidmanager, metav1.UpdateOptions{})
 		require.NoError(t, err)
 
 		// Get allocated SID from status field
@@ -1115,9 +1130,12 @@ func TestPrivilegedSRv6ManagerWithSIDManager(t *testing.T) {
 	})
 
 	t.Run("TestDeleteLocator", func(t *testing.T) {
+		current, err := c.IsovalentV1alpha1().IsovalentSRv6SIDManagers().Get(context.TODO(), sidmanager1.Name, metav1.GetOptions{})
+		require.NoError(t, err)
 		sidmanager := sidmanager1.DeepCopy()
 		sidmanager.Spec.LocatorAllocations = []*v1alpha1.IsovalentSRv6LocatorAllocation{}
-		_, err := c.IsovalentV1alpha1().IsovalentSRv6SIDManagers().Update(context.TODO(), sidmanager, metav1.UpdateOptions{})
+		sidmanager.SetResourceVersion(current.GetResourceVersion())
+		_, err = c.IsovalentV1alpha1().IsovalentSRv6SIDManagers().Update(context.TODO(), sidmanager, metav1.UpdateOptions{})
 		require.NoError(t, err)
 
 		// Now the SID deletion from SIDManager should happen and old SIDMap entry should disappear

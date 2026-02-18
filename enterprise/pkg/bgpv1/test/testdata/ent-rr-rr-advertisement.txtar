@@ -56,7 +56,7 @@ gobgp/add-route -s rr-v4     10.244.4.0/24
 gobgp/add-route -s rr-v6     10.244.5.0/24
 
 # Cilium (route-reflector in this case) should receive the routes from the clients and route-reflectors
-bgp/routes -o cilium-routes.actual
+bgp/routes -o cilium-routes.actual --no-age loc ipv4 unicast
 * cmp cilium-routes.actual cilium-routes.expected
 
 # Ensure the routes are not imported into the Cilium RIB. Route import with RR is not supported yet.
@@ -214,12 +214,12 @@ spec:
         - { key: "true", operator: In, values: [ advertise ] }
 
 -- cilium-routes.expected --
-VRouter   Prefix          NextHop             Attrs
-65010     10.244.1.0/24   0.0.0.0             [{Origin: i} {Nexthop: 0.0.0.0}]
-65010     10.244.2.0/24   10.99.102.2         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.2} {LocalPref: 100}]
-65010     10.244.3.0/24   fc00:10:99:102::2   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::2, NLRIs: [10.244.3.0/24]}}]
-65010     10.244.4.0/24   10.99.102.3         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.3} {LocalPref: 100}]
-65010     10.244.5.0/24   fc00:10:99:102::3   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fc00:10:99:102::3, NLRIs: [10.244.5.0/24]}}]
+Instance          Prefix          NextHop             Best   Age
+route-reflector   10.244.1.0/24   0.0.0.0             true   -
+                  10.244.2.0/24   10.99.102.2         true   -
+                  10.244.3.0/24   fc00:10:99:102::2   true   -
+                  10.244.4.0/24   10.99.102.3         true   -
+                  10.244.5.0/24   fc00:10:99:102::3   true   -
 -- client-v4-routes.expected --
 Prefix          NextHop             Attrs
 10.244.1.0/24   10.99.102.1         [{Origin: i} {AsPath: } {Nexthop: 10.99.102.1} {LocalPref: 100} {Originator: 1.0.0.1} {ClusterList: [255.0.0.1]}]
