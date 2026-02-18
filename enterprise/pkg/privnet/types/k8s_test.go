@@ -25,7 +25,7 @@ func TestExtractNetworkAttachmentAnnotation(t *testing.T) {
 	tests := []struct {
 		name        string
 		annotations map[string]string
-		want        *types.NetworkAttachment
+		want        []types.NetworkAttachment
 		wantErr     string
 	}{
 		{
@@ -46,12 +46,54 @@ func TestExtractNetworkAttachmentAnnotation(t *testing.T) {
 			annotations: map[string]string{
 				types.PrivateNetworkAnnotation: `{ "network": "blue", "ipv4": "192.168.1.10", "ipv6": "fd10::10", "mac": "f2:54:1c:1f:84:94" }`,
 			},
-			want: &types.NetworkAttachment{
+			want: []types.NetworkAttachment{{
 				Network: "blue",
 				IPv4:    netip.MustParseAddr("192.168.1.10"),
 				IPv6:    netip.MustParseAddr("fd10::10"),
 				MAC:     mac.MustParseMAC("f2:54:1c:1f:84:94"),
+			}},
+		},
+		{
+			name: "primary+secondary",
+			annotations: map[string]string{
+				types.PrivateNetworkAnnotation: `{ "network": "blue", "ipv4": "192.168.1.10", "ipv6": "fd10::10", "mac": "f2:54:1c:1f:84:94" }`,
+				types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+					{ "network": "green", "ipv4": "192.168.1.11", "ipv6": "fd10::11", "mac": "f2:54:1c:1f:84:95" },
+					{ "network": "yellow", "ipv4": "192.168.1.12", "ipv6": "fd10::12", "mac": "f2:54:1c:1f:84:96" }
+				]`,
 			},
+			want: []types.NetworkAttachment{{
+				Network: "blue",
+				IPv4:    netip.MustParseAddr("192.168.1.10"),
+				IPv6:    netip.MustParseAddr("fd10::10"),
+				MAC:     mac.MustParseMAC("f2:54:1c:1f:84:94"),
+			}, {
+				Network: "green",
+				IPv4:    netip.MustParseAddr("192.168.1.11"),
+				IPv6:    netip.MustParseAddr("fd10::11"),
+				MAC:     mac.MustParseMAC("f2:54:1c:1f:84:95"),
+			}, {
+				Network: "yellow",
+				IPv4:    netip.MustParseAddr("192.168.1.12"),
+				IPv6:    netip.MustParseAddr("fd10::12"),
+				MAC:     mac.MustParseMAC("f2:54:1c:1f:84:96"),
+			}},
+		},
+		{
+			name: "secondary-only",
+			annotations: map[string]string{types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+				{ "network": "green", "ipv4": "192.168.1.11", "ipv6": "fd10::11", "mac": "f2:54:1c:1f:84:95" }
+			]`},
+			wantErr: `found "privnet.isovalent.com/secondary-network-attachments" annotation, but`,
+		},
+		{
+			name: "secondary-invalid",
+			annotations: map[string]string{
+				types.PrivateNetworkAnnotation: `{ "network": "blue", "ipv4": "192.168.1.10", "ipv6": "fd10::10" }`,
+				types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+					{ "network? }
+				]`},
+			wantErr: `invalid value in "privnet.isovalent.com/secondary-network-attachments" annotation: invalid character`,
 		},
 	}
 

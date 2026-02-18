@@ -110,10 +110,10 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 			podNamespaceName, pod.UID, p.PodUID)
 	}
 
-	attachment, err := types.ExtractNetworkAttachmentAnnotation(pod)
+	attachments, err := types.ExtractNetworkAttachmentAnnotation(pod)
 	if err != nil {
 		return nil, err
-	} else if attachment == nil {
+	} else if len(attachments) == 0 {
 		if p.Network != nil {
 			return nil, fmt.Errorf("target network set in CNI configuration, but %q annotation is missing on pod %s",
 				types.PrivateNetworkAnnotation, podNamespaceName,
@@ -123,6 +123,8 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 		// Annotation not found, attach to default network.
 		return nil, nil
 	}
+
+	var attachment = attachments[0]
 
 	if p.Network != nil && *p.Network != attachment.Network {
 		return nil, fmt.Errorf("mismatching target network in CNI configuration (%q) and %q annotation on pod %s (%q)",

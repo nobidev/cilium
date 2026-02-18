@@ -28,6 +28,10 @@ const (
 	// private network.
 	PrivateNetworkAnnotation = PrivateNetworkAnnotationPrefix + "/network-attachment"
 
+	// PrivateNetworkSecondaryAttachmentsAnnotation is the name of the annotation to configure
+	// the network attachments for secondary interfaces.
+	PrivateNetworkSecondaryAttachmentsAnnotation = PrivateNetworkAnnotationPrefix + "/secondary-network-attachments"
+
 	// PrivateNetworkAnnotationLegacy is the name of the legacy annotation to attach pods to a
 	// particular private network.
 	PrivateNetworkAnnotationLegacy = "network.v1alpha1.isovalent.com/network-attachment"
@@ -57,19 +61,37 @@ func HasNetworkAttachmentAnnotation(obj annotatedObject) bool {
 	return found
 }
 
-func ExtractNetworkAttachmentAnnotation(obj annotatedObject) (*NetworkAttachment, error) {
+func ExtractNetworkAttachmentAnnotation(obj annotatedObject) ([]NetworkAttachment, error) {
 	raw, found := annotation.Get(obj, PrivateNetworkAnnotation, PrivateNetworkAnnotationLegacy)
+	rawSec, foundSec := annotation.Get(obj, PrivateNetworkSecondaryAttachmentsAnnotation)
+
 	if !found {
+		if foundSec {
+			return nil, fmt.Errorf("found %q annotation, but %q is missing",
+				PrivateNetworkSecondaryAttachmentsAnnotation, PrivateNetworkAnnotation,
+			)
+		}
+
 		return nil, nil // not found
 	}
 
-	attachment := &NetworkAttachment{}
-	err := json.Unmarshal([]byte(raw), attachment)
+	var primary NetworkAttachment
+	err := json.Unmarshal([]byte(raw), &primary)
 	if err != nil {
 		return nil, fmt.Errorf("invalid value in %q annotation: %w", PrivateNetworkAnnotation, err)
 	}
 
-	return attachment, nil
+	if !foundSec {
+		return []NetworkAttachment{primary}, nil
+	}
+
+	var secondary []NetworkAttachment
+	err = json.Unmarshal([]byte(rawSec), &secondary)
+	if err != nil {
+		return nil, fmt.Errorf("invalid value in %q annotation: %w", PrivateNetworkSecondaryAttachmentsAnnotation, err)
+	}
+
+	return append([]NetworkAttachment{primary}, secondary...), nil
 }
 
 func ExtractInactiveAnnotation(obj annotatedObject) (inactive bool, err error) {
