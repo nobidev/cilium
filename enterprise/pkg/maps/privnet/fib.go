@@ -68,6 +68,8 @@ const (
 	FIBFlagStaticRoute
 	// FIBFlagVxlanRoute is set if the route is a VXLAN route.
 	FIBFlagVxlanRoute
+	// FIBFlagExternalEndpoint is set if the entry is for an external endpoint.
+	FIBFlagExternalEndpoint
 )
 
 // FIBVal is the FIB map value.

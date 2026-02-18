@@ -194,7 +194,8 @@ struct privnet_fib_val {
 		flag_is_subnet_route:1,
 		flag_is_static_route:1,
 		flag_is_vxlan_route:1,
-		pad:4;
+		flag_is_external_ep:1,
+		pad:3;
 	__u8 family;
 	__u32 ifindex;
 	__u32 vni;

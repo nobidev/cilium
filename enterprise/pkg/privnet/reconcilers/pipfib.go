@@ -145,7 +145,12 @@ func (pmo *pipFIBMapOps) FIBFlags(typ tables.MapEntryType, l2ann bool) pnmaps.FI
 	var flags pnmaps.FIBFlags
 
 	switch typ {
-	case tables.MapEntryTypeEndpoint, tables.MapEntryTypeExternalEndpoint:
+	case tables.MapEntryTypeEndpoint:
+		if l2ann {
+			flags |= pnmaps.FIBFlagL2Announce
+		}
+	case tables.MapEntryTypeExternalEndpoint:
+		flags |= pnmaps.FIBFlagExternalEndpoint
 		if l2ann {
 			flags |= pnmaps.FIBFlagL2Announce
 		}
