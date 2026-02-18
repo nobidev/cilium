@@ -16,7 +16,11 @@ struct privnet_net_id {
 
 /* Scratch map containing current src and dst net ID */
 struct {
+#ifndef BPF_TEST
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+#else
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+#endif
 	__uint(max_entries, 1);
 	__type(key, __u32);		      /* only one key */
 	__type(value, struct privnet_net_id);
