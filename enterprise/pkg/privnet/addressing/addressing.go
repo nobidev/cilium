@@ -37,6 +37,14 @@ var Cell = cell.Group(
 	cell.Provide(newPrivNetAPIHandler),
 )
 
+// vNICIndex represents the index of a vNIC. The zero index represents the primary
+// interface, and subsequent ones correspond to secondary interfaces, computed based
+// on the position of the corresponding entry in the Multus network attachment annotation.
+type vNICIndex uint
+
+// Primary returns whether the index corresponds to the primary interface.
+func (idx vNICIndex) Primary() bool { return idx == 0 }
+
 type apiParams struct {
 	cell.In
 
@@ -176,39 +184,43 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 		ipv6 = attachment.IPv6
 	}
 
-	if err = n.validAttachment(txn, privnet.Name, (*tables.SubnetName)(p.Subnet), ipv4, ipv6); err != nil {
+	subnet, err := n.subnetForIPs(txn, privnet.Name, (*tables.SubnetName)(p.Subnet), ipv4, ipv6)
+	if err != nil {
 		return nil, err
 	}
 
-	addressing.Routes = n.routes()
+	addressing.Routes = n.routes(0, subnet)
 	return addressing, nil
 }
 
-func (n *PrivNetAPI) validAttachment(txn statedb.ReadTxn, privnet tables.NetworkName, sname *tables.SubnetName, ipv4, ipv6 netip.Addr) error {
+func (n *PrivNetAPI) subnetForIPs(txn statedb.ReadTxn, privnet tables.NetworkName, sname *tables.SubnetName, ipv4, ipv6 netip.Addr) (tables.Subnet, error) {
+	var subnet tables.Subnet
 	var subnetv4, subnetv6 tables.SubnetName
 
 	if ipv4.IsValid() {
 		if sub, ok := tables.FindSubnetForIPs(n.subnets, txn, privnet, ipv4); ok {
+			subnet = sub
 			subnetv4 = sub.Name
 		}
 	}
 	if ipv6.IsValid() {
 		if sub, ok := tables.FindSubnetForIPs(n.subnets, txn, privnet, ipv6); ok {
+			subnet = sub
 			subnetv6 = sub.Name
 		}
 	}
 
 	switch {
 	case ipv4.IsValid() && subnetv4 == "":
-		return fmt.Errorf("requested IP %s not in range of defined subnets", ipv4)
+		return tables.Subnet{}, fmt.Errorf("requested IP %s not in range of defined subnets", ipv4)
 	case ipv6.IsValid() && subnetv6 == "":
-		return fmt.Errorf("requested IP %s not in range of defined subnets", ipv6)
+		return tables.Subnet{}, fmt.Errorf("requested IP %s not in range of defined subnets", ipv6)
 	case ipv4.IsValid() && ipv6.IsValid() && subnetv4 != subnetv6:
-		return fmt.Errorf("requested IP %s not in range of the subnet of the IP %s", ipv6, ipv4)
+		return tables.Subnet{}, fmt.Errorf("requested IP %s not in range of the subnet of the IP %s", ipv6, ipv4)
 	case sname != nil && *sname != cmp.Or(subnetv4, subnetv6):
-		return fmt.Errorf("requested IPs are not in range of the requested subnet (%q)", *sname)
+		return tables.Subnet{}, fmt.Errorf("requested IPs are not in range of the requested subnet (%q)", *sname)
 	default:
-		return nil
+		return subnet, nil
 	}
 }
 
@@ -219,20 +231,39 @@ func (n *PrivNetAPI) validAttachment(txn statedb.ReadTxn, privnet tables.Network
 //   - A route towards a link local address -- $link_local_address via $iface
 //   - A default route -- default via $link_local_address
 //
+// * For secondary interfaces:
+//   - A route towards a link local address, similarly as for the primary one.
+//     The link local address is generated based on vNIC index.
+//   - A route for the subnet CIDR -- $subnet_cidr via $link_local_address.
+//     This mimics the route that would be automatically created if we propagated
+//     the actual subnet mask, rather than leveraging /32 and /128 addresses.
+//
 // We leverage a link local address as nexthop, rather than simply setting the default route
 // via the egress interface, to avoid the need for a neighbor lookup for every destination IP.
-func (n *PrivNetAPI) routes() (out []*models.NetworkAttachmentRoute) {
-	if n.cfg.enableIPv4 {
+func (n *PrivNetAPI) routes(idx vNICIndex, subnet tables.Subnet) (out []*models.NetworkAttachmentRoute) {
+	var pfx = func(def string, subnet netip.Prefix) string {
+		if idx.Primary() {
+			return def
+		}
+
+		return subnet.String()
+	}
+
+	if n.cfg.enableIPv4 && subnet.CIDRv4.IsValid() {
+		var gw = fmt.Sprintf("169.254.0.%d", idx+1)
+
 		out = append(out,
-			&models.NetworkAttachmentRoute{Destination: "169.254.0.1/32"},
-			&models.NetworkAttachmentRoute{Destination: "0.0.0.0/0", Gateway: "169.254.0.1"},
+			&models.NetworkAttachmentRoute{Destination: gw + "/32"},
+			&models.NetworkAttachmentRoute{Destination: pfx("0.0.0.0/0", subnet.CIDRv4), Gateway: gw},
 		)
 	}
 
-	if n.cfg.enableIPv6 {
+	if n.cfg.enableIPv6 && subnet.CIDRv6.IsValid() {
+		var gw = fmt.Sprintf("fe80::%x", idx+1)
+
 		out = append(out,
-			&models.NetworkAttachmentRoute{Destination: "fe80::1/128"},
-			&models.NetworkAttachmentRoute{Destination: "::/0", Gateway: "fe80::1"},
+			&models.NetworkAttachmentRoute{Destination: gw + "/128"},
+			&models.NetworkAttachmentRoute{Destination: pfx("::/0", subnet.CIDRv6), Gateway: gw},
 		)
 	}
 
