@@ -159,7 +159,7 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 	//
 	// This function selects active non-local GWs from a list of healthy non-local GWs with random probability
 	// using a target zone name as a seed to make the result deterministic.
-	nonLocalActiveGatewayIPs := func(targetAz string, maxGW int, currentActiveNonLocalGWs []netip.Addr) []netip.Addr {
+	nonLocalActiveGatewayIPs := func(targetAz string, maxGW int, currentActiveNonLocalGWs []netip.Addr, availableHealthyGatewayIPsByAZ map[string][]netip.Addr) []netip.Addr {
 		// sort the AZs lexicographically
 		sortedAZs := slices.Collect(maps.Keys(availableHealthyGatewayIPsByAZ))
 		slices.Sort(sortedAZs)
@@ -171,8 +171,29 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 			}
 		}
 
-		activeGWs := selectActiveGWs(targetAz, maxGW, currentActiveNonLocalGWs, healthyNonLocalGWs)
-		return activeGWs
+		return selectActiveGWs(targetAz, maxGW, currentActiveNonLocalGWs, healthyNonLocalGWs)
+	}
+
+	// doBackfillForAZ makes a selection of gateways for a particular az to attempt
+	// to satisfy maxGatewayNodes.
+	// Selections are made deterministically using the az zone as the seed key.
+	// Inputs:
+	// * current activeGatewayIPsByAZ
+	// * prev activeGatewayIPsByAZ
+	doBackfillForAZ := func(az string) []netip.Addr {
+		var currentNonLocalActiveGWs []netip.Addr
+		if status != nil {
+			currentNonLocalActiveGWs = selectCurrentNonLocalActiveByAZ(
+				availableHealthyGatewayIPsByAZ,
+				az,
+				status.activeGatewayIPsByAZ[az])
+		}
+
+		// In the case of azAffinityLocalOnlyFirst we can still specify unlimited (i.e. maxGatewayNodes=0)
+		// nodes. We don't attempt to backfill unless we have 0 active selected but guard against negatives
+		// regardless.
+		needed := max(gc.maxGatewayNodes-len(activeGatewayIPsByAZ[az]), 0)
+		return nonLocalActiveGatewayIPs(az, needed, currentNonLocalActiveGWs, availableHealthyGatewayIPsByAZ)
 	}
 
 	// if AZ affinity is enabled,
@@ -193,37 +214,22 @@ func (gc *groupConfig) computeGroupStatus(operatorManager *OperatorManager, conf
 		switch config.azAffinity {
 		case azAffinityLocalOnly:
 			// for local only affinity there's nothing left to do
-
 		case azAffinityLocalOnlyFirst:
-			// only if there are no local gateways, pick the ones from the other AZs
-			if len(activeGatewayIPsByAZ[az]) == 0 {
-				var currentNonLocalActiveGWs []netip.Addr
-				if status != nil {
-					currentNonLocalActiveGWs = gc.selectCurrentNonLocalActiveGWs(operatorManager, az, status.activeGatewayIPsByAZ[az])
-				}
-				nonLocalActiveGWs := nonLocalActiveGatewayIPs(az, gc.maxGatewayNodes, currentNonLocalActiveGWs)
-				activeGatewayIPsByAZ[az] = nonLocalActiveGWs
-				isLocalSelectedByAZ[az] = false
-
-				selectionMetrics.activeGatewaysByAZ[az] = activeGatewaysByMetrics{local: 0, remote: len(nonLocalActiveGWs)}
-
-			} else {
-				isLocalSelectedByAZ[az] = true
+			// only if there are no local gateways for any groupConfig in this policy
+			// do we pick the ones from the other AZs
+			if len(activeGatewayIPsByAZ[az]) == 0 && !availableByZone.hasAvailableGateways(az) {
+				activeGatewayIPsByAZ[az] = doBackfillForAZ(az)
+				// if zero in this AZ, but policyScoped AZ was not empty we skip doBackfillForAZ
+				selectionMetrics.activeGatewaysByAZ[az] = activeGatewaysByMetrics{local: 0, remote: len(activeGatewayIPsByAZ[az])}
 			}
-
 		case azAffinityLocalPriority:
 			if gc.maxGatewayNodes != 0 && len(activeGatewayIPsByAZ[az]) < gc.maxGatewayNodes {
-				var currentNonLocalActiveGWs []netip.Addr
-				if status != nil {
-					currentNonLocalActiveGWs = gc.selectCurrentNonLocalActiveGWs(operatorManager, az, status.activeGatewayIPsByAZ[az])
-				}
-				nonLocalActiveGWs := nonLocalActiveGatewayIPs(az, gc.maxGatewayNodes-len(activeGatewayIPsByAZ[az]), currentNonLocalActiveGWs)
+				nonLocalActiveGWs := doBackfillForAZ(az)
 				activeGatewayIPsByAZ[az] = append(activeGatewayIPsByAZ[az], nonLocalActiveGWs...)
 
 				selectionMetrics.activeGatewaysByAZ[az] = activeGatewaysByMetrics{
 					local:  selectionMetrics.activeGatewaysByAZ[az].local,
 					remote: len(nonLocalActiveGWs)}
-
 			}
 		}
 	}

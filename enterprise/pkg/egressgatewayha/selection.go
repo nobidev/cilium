@@ -193,3 +193,28 @@ func doSelection(statusActiveGateways, availableHealthyGatewayIPs []netip.Addr, 
 	// seed with zone
 	return selectActiveGWs(selectionKey, maxGatewayNodes, currentLocalActiveGWs, availableHealthyGatewayIPs)
 }
+
+// selectCurrentNonLocalActiveByAZ re-selects from a set of currently active gateways.
+// Because the zone and health status of the gateway may have changed since the last
+// reconciliation we have to revalidate that these are still valid.
+func selectCurrentNonLocalActiveByAZ(
+	availableHealthyGatewaysByAZ map[string][]netip.Addr,
+	az string,
+	currentActiveGWs []netip.Addr,
+) []netip.Addr {
+	var out []netip.Addr
+	nonLocal := sets.New[netip.Addr]()
+	for k := range availableHealthyGatewaysByAZ {
+		if k != az {
+			nonLocal.Insert(availableHealthyGatewaysByAZ[k]...)
+		}
+	}
+
+	for _, activeGW := range currentActiveGWs {
+		if !nonLocal.Has(activeGW) {
+			continue
+		}
+		out = append(out, activeGW)
+	}
+	return out
+}
