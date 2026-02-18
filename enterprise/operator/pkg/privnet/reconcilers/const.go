@@ -10,21 +10,9 @@
 
 package reconcilers
 
-import (
-	"github.com/cilium/hive/cell"
+const (
+	fieldManager = "cilium-operator-private-networks"
 
-	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/reconcilers/status"
-)
-
-var (
-	// Cells that do not depend on leader election.
-	Cell = cell.Group(
-		PrivateNetworksCell,
-	)
-
-	// Cells that do depend on leader election.
-	LeaderCell = cell.Group(
-		status.Cell,
-		ExternalEndpointsCell,
-	)
+	managedByLabelKey = "app.kubernetes.io/managed-by"
+	managedByLabelVal = "cilium"
 )
