@@ -320,6 +320,14 @@ nat_v6_addr(struct __ctx_buff *ctx, int l3_off, const union v6addr *new_addr)
 	return CTX_ACT_OK;
 }
 
+static __always_inline bool is_privnet_route_entry(const struct privnet_fib_val *val)
+{
+	if (!val)
+		return false;
+
+	return val->flag_is_subnet_route || val->flag_is_static_route || val->flag_is_vxlan_route;
+}
+
 #define V4_PRIVNET_KEY_LEN (sizeof(__u32) * 8)
 #define V6_PRIVNET_KEY_LEN (sizeof(union v6addr) * 8)
 
@@ -346,30 +354,71 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_privnet_pip __section_maps_btf;
 
-static __always_inline __maybe_unused const struct privnet_fib_val *
+static __always_inline const struct privnet_fib_val *
+privnet_fib_lookup(const struct privnet_fib_key *key) {
+	const struct privnet_fib_val *peering_ret;
+	const struct privnet_fib_val *ret = map_lookup_elem(&cilium_privnet_fib, key);
+	struct privnet_fib_key peer_key;
+
+	/* If the initial lookup found an (external) endpoint in the requested
+	 * subnet, directly return it. Endpoints in the current subnet will always
+	 * have precedence over endpoints in peered subnets
+	 */
+	if (ret && !is_privnet_route_entry(ret))
+		return ret;
+
+	/* If the initial lookup did not find an (external) endpoint in the requested
+	 * subnet, make a secondary lookup to find if there is a peered subnet that
+	 * covers the requested IP.
+	 * If not we'll return the result of the initial lookup, which might be a route
+	 * or empty.
+	 */
+	peer_key = *key;
+	peer_key.type = PRIVNET_FIB_TYPE_PEERING;
+	peering_ret = map_lookup_elem(&cilium_privnet_fib, &peer_key);
+	if (!peering_ret)
+		return ret;
+
+	/* Make a lookup in the peered subnet. If we find an endpoint (and only an endpoint not
+	 * an external endpoint), we return it. Otherwise we return the result of the initial
+	 * lookup.
+	 */
+	peer_key.type = PRIVNET_FIB_TYPE_DEFAULT;
+	peer_key.net_id = peering_ret->peer_net_id;
+	peer_key.subnet_id = peering_ret->peer_subnet_id;
+	peering_ret = map_lookup_elem(&cilium_privnet_fib, &peer_key);
+	if (peering_ret &&
+	    !is_privnet_route_entry(peering_ret) &&
+	    !peering_ret->flag_is_external_ep)
+		return peering_ret;
+
+	return ret;
+}
+
+static __always_inline const struct privnet_fib_val *
 privnet_fib_lookup4(__u16 net_id, __u16 subnet_id, __be32 addr) {
 	const struct privnet_fib_key key = {
 		.lpm_key = { PRIVNET_FIB_PREFIX_LEN(V4_PRIVNET_KEY_LEN), {} },
 		.net_id = net_id,
 		.subnet_id = subnet_id,
 		.family = ENDPOINT_KEY_IPV4,
+		.type = PRIVNET_FIB_TYPE_DEFAULT,
 		.ip4 = addr,
 	};
-
-	return map_lookup_elem(&cilium_privnet_fib, &key);
+	return privnet_fib_lookup(&key);
 }
 
-static __always_inline __maybe_unused const struct privnet_fib_val *
+static __always_inline const struct privnet_fib_val *
 privnet_fib_lookup6(__u16 net_id, __u16 subnet_id, union v6addr addr) {
 	const struct privnet_fib_key key = {
 		.lpm_key = { PRIVNET_FIB_PREFIX_LEN(V6_PRIVNET_KEY_LEN), {} },
 		.net_id = net_id,
 		.subnet_id = subnet_id,
 		.family = ENDPOINT_KEY_IPV6,
+		.type = PRIVNET_FIB_TYPE_DEFAULT,
 		.ip6 = addr,
 	};
-
-	return map_lookup_elem(&cilium_privnet_fib, &key);
+	return privnet_fib_lookup(&key);
 }
 
 struct {
@@ -470,14 +519,6 @@ static __always_inline bool privnet_agent_alive(void)
 		return false;
 
 	return true;
-}
-
-static __always_inline bool is_privnet_route_entry(const struct privnet_fib_val *val)
-{
-	if (!val)
-		return false;
-
-	return val->flag_is_subnet_route || val->flag_is_static_route || val->flag_is_vxlan_route;
 }
 
 static __always_inline int

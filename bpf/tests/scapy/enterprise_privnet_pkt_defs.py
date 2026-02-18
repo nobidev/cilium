@@ -20,6 +20,9 @@ v6_pod_three_netip  = "fd10::3"
 ns_pod_three_maddr  = pd.v6_get_ns_addr(v6_pod_three_netip)
 ns_pod_three_mmac   = pd.v6_get_ns_mac(v6_pod_three_netip)
 
+# Pods in different subnet
+v4_pod_three_netip  = "172.16.20.13"
+
 # LXC NS and NA addressing
 ns_target_ip = "fe80::100"
 ns_mac = "33:33:00:00:01:00" # Multicast MAC for target IP fe80::100
@@ -52,6 +55,21 @@ privnet_pod_ip_icmp_req = (
     ICMP(type="echo-request", id=1, seq=1) /
     Raw(load=b"ping")
 )
+
+privnet_net_ip_icmp_req_x_subnet = (
+    Ether(src=pd.mac_one, dst=pd.mac_three) /
+    IP(src=v4_pod_one_netip, dst=v4_pod_three_netip) /
+    ICMP(type="echo-request", id=1, seq=1) /
+    Raw(load=b"ping")
+
+)
+privnet_pod_ip_icmp_req_x_subnet = (
+    Ether(src=pd.mac_one, dst=pd.mac_three) /
+    IP(src=pd.v4_pod_one, dst=pd.v4_pod_three) /
+    ICMP(type="echo-request", id=1, seq=1) /
+    Raw(load=b"ping")
+)
+
 privnet_net_ip_tcp_syn = (
     Ether(src=pd.mac_one, dst=pd.mac_two) /
     IP(src=v4_pod_one_netip, dst=v4_pod_two_netip) /

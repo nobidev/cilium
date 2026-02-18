@@ -19,10 +19,19 @@ const __u8 __subnet_v6[16] = {0xfd, 0x10};
 #define SUBNET_V6 ((const union v6addr *)__subnet_v6)
 #define SUBNET_V6_LEN 96
 
+#define OTHER_SUBNET_ID 300
+const __u8 __other_subnet_v6[16] = {0xfd, 0x20};
+#define OTHER_SUBNET_V4 IPV4(172, 16, 20, 0)
+#define OTHER_SUBNET_V4_LEN 24
+#define OTHER_SUBNET_V6 ((const union v6addr *)__subnet_v6)
+#define OTHER_SUBNET_V6_LEN 96
+
 #define V4_NET_IP_1 v4_svc_one
 #define V4_NET_IP_2 v4_svc_two
+#define V4_NET_IP_3 IPV4(172, 16, 20, 13)
 #define V4_POD_IP_1 v4_pod_one
 #define V4_POD_IP_2 v4_pod_two
+#define V4_POD_IP_3 v4_pod_three
 #define V6_NET_IP_1 v6_svc_one
 #define V6_POD_IP_1 v6_pod_one
 #define V6_NET_IP_2 v6_net_two
