@@ -87,28 +87,33 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 
 #ifdef TUNNEL_MODE
 		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel) {
-			if (is_privnet_route_entry(sip_val)) {
-				/* see comment for IPv4 */
-				return encap_and_redirect_with_nodeid(ctx, info,
-					CONFIG(privnet_unknown_sec_id),
-					info->sec_identity,
-					&trace, proto);
-			}
+		if (!info || !info->flag_has_tunnel_ep || info->flag_skip_tunnel) {
+			/* see comment for IPv4 */
+			return DROP_UNROUTABLE;
+		}
 
-			ret = privnet_ext_ep_policy_egress6(ctx, ip6, info->sec_identity,
-							    &ext_err);
-			if (ret != CTX_ACT_OK)
-				return send_drop_notify_ext(ctx, identity,
-							    info->sec_identity, 0,
-							    ret, ext_err,
-							    METRIC_EGRESS);
-
+		if (is_privnet_route_entry(sip_val)) {
+			/* see comment for IPv4 */
 			return encap_and_redirect_with_nodeid(ctx, info,
-				identity,
+				CONFIG(privnet_unknown_sec_id),
 				info->sec_identity,
 				&trace, proto);
 		}
+
+		ret = privnet_ext_ep_policy_egress6(ctx, ip6, info->sec_identity,
+						    &ext_err);
+		if (ret != CTX_ACT_OK)
+			return send_drop_notify_ext(ctx, identity,
+						    info->sec_identity, 0,
+						    ret, ext_err,
+						    METRIC_EGRESS);
+
+		return encap_and_redirect_with_nodeid(ctx, info,
+			identity,
+			info->sec_identity,
+			&trace, proto);
+#else
+		return DROP_UNROUTABLE; /* require tunnel mode */
 #endif
 		break;
 #endif /* ENABLE_IPV6 */
@@ -150,33 +155,41 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 
 #ifdef TUNNEL_MODE
 		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel) {
-			if (is_privnet_route_entry(sip_val)) {
-				/* if packet is coming from source which matches a route */
-				/* (i.e. there is no ep associated with it), */
-				/* we skip egress policy check and redirect to destination node */
-				/* using privnet_unknown_flow identity. */
-				return encap_and_redirect_with_nodeid(ctx, info,
-					CONFIG(privnet_unknown_sec_id), info->sec_identity,
-					&trace, proto);
-			}
-
-			/* egress policy check is done after nat to pip and concluding that
-			 * it is not an unknown flow.
+		if (!info || !info->flag_has_tunnel_ep || info->flag_skip_tunnel) {
+			/* If the destination is not a Cilium-managed endpoint (i.e. there is no IPCache
+			 * entry with an associated tunnel endpoint), drop the packet. Neither unknown
+			 * flow nor external endpoint sources should send us packets that are not targeting
+			 * a Cilium-managed endpoint.
 			 */
-			ret = privnet_ext_ep_policy_egress4(ctx, ip4, info->sec_identity,
-							    &ext_err);
-			if (ret != CTX_ACT_OK)
-				return send_drop_notify_ext(ctx, identity,
-							    info->sec_identity, 0,
-							    ret, ext_err,
-							    METRIC_EGRESS);
-
-			return encap_and_redirect_with_nodeid(ctx, info,
-							      identity, info->sec_identity,
-							      &trace, proto);
+			return DROP_UNROUTABLE;
 		}
 
+		if (is_privnet_route_entry(sip_val)) {
+			/* if packet is coming from source which matches a route */
+			/* (i.e. there is no ep associated with it), */
+			/* we skip egress policy check and redirect to destination node */
+			/* using privnet_unknown_flow identity. */
+			return encap_and_redirect_with_nodeid(ctx, info,
+				CONFIG(privnet_unknown_sec_id), info->sec_identity,
+				&trace, proto);
+		}
+
+		/* egress policy check is done after nat to pip and concluding that
+		 * it is not an unknown flow.
+		 */
+		ret = privnet_ext_ep_policy_egress4(ctx, ip4, info->sec_identity,
+						    &ext_err);
+		if (ret != CTX_ACT_OK)
+			return send_drop_notify_ext(ctx, identity,
+						    info->sec_identity, 0,
+						    ret, ext_err,
+						    METRIC_EGRESS);
+
+		return encap_and_redirect_with_nodeid(ctx, info,
+						      identity, info->sec_identity,
+						      &trace, proto);
+#else
+		return DROP_UNROUTABLE; /* require tunnel mode */
 #endif
 		break;
 #endif /* ENABLE_IPV4 */
