@@ -163,6 +163,7 @@ func computeAvailableHealthyGatewaysByAZ(allAZs sets.Set[string], policyHealthyG
 	policyAvailByZone := map[string]int{}
 	for az := range allAZs {
 		availGWs[az] = []netip.Addr{}
+		policyAvailByZone[az] = 0
 	}
 
 	for _, gn := range policyHealthyGatewayIPs {

@@ -21,21 +21,15 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+
 	"github.com/cilium/hive/hivetest"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
-
-func parseNetIPs(t *testing.T, ss ...string) []netip.Addr {
-	out := []netip.Addr{}
-	for _, s := range ss {
-		out = append(out, netip.MustParseAddr(s))
-	}
-	return out
-}
 
 func Test_computeHealthyGateways(t *testing.T) {
 	policyHealthyGatewayIPs := []gatewayNodeIP{
@@ -96,50 +90,90 @@ func Test_computeHealthyGateways(t *testing.T) {
 }
 
 func Test_computeAvailableHealthyGatewaysByAZ(t *testing.T) {
-	policyHealthyGatewayIPs := []gatewayNodeIP{
+	tests := []struct {
+		name           string
+		allAZs         sets.Set[string]
+		groupIndex     int
+		gateways       []gatewayNodeIP
+		expectedAZGWs  map[string][]netip.Addr
+		expectedCounts map[string]int
+	}{
 		{
-			ip:                    netip.MustParseAddr("10.0.0.1"),
-			selectingGroupIndices: []int{0},
-			zone:                  "az-0",
-			available:             true,
+			name:       "no preseeded AZs picks up zones from gateways",
+			allAZs:     sets.New[string](),
+			groupIndex: 0,
+			gateways: []gatewayNodeIP{
+				{ip: netip.MustParseAddr("10.0.0.1"), selectingGroupIndices: []int{0}, zone: "az0", available: true},
+				{ip: netip.MustParseAddr("10.0.0.2"), selectingGroupIndices: []int{1}, zone: "az1", available: true},
+			},
+			expectedAZGWs: map[string][]netip.Addr{
+				"az0": {netip.MustParseAddr("10.0.0.1")},
+			},
+			expectedCounts: map[string]int{
+				"az0": 1,
+				"az1": 1,
+			},
 		},
 		{
-			ip:                    netip.MustParseAddr("10.0.0.2"),
-			selectingGroupIndices: []int{3, 2, 1},
-			zone:                  "az-0",
-			available:             true,
+			name:       "preseeded AZs retain empty slices",
+			allAZs:     sets.New[string]("az0", "az1"),
+			groupIndex: 1,
+			gateways: []gatewayNodeIP{
+				{ip: netip.MustParseAddr("10.0.0.1"), selectingGroupIndices: []int{0}, zone: "az0", available: true},
+				{ip: netip.MustParseAddr("10.0.0.2"), selectingGroupIndices: []int{1, 3}, zone: "az0", available: true},
+				{ip: netip.MustParseAddr("10.0.0.3"), selectingGroupIndices: []int{2}, zone: "az1", available: false},
+			},
+			expectedAZGWs: map[string][]netip.Addr{
+				"az0": {netip.MustParseAddr("10.0.0.2")},
+				"az1": {}, // must span all zones.
+			},
+			expectedCounts: map[string]int{
+				"az0": 2, // both az0 nodes are available
+				"az1": 0, // for completeness, we seed with allAZs.
+			},
 		},
 		{
-			ip:                    netip.MustParseAddr("10.0.0.3"),
-			selectingGroupIndices: []int{},
-			zone:                  "az-0",
-			available:             true,
+			name:       "zoneless and unavailable gateways are ignored",
+			allAZs:     sets.New[string]("az0"),
+			groupIndex: 0,
+			gateways: []gatewayNodeIP{
+				{ip: netip.MustParseAddr("10.0.0.1"), selectingGroupIndices: []int{0}, zone: "", available: true},
+				{ip: netip.MustParseAddr("10.0.0.2"), selectingGroupIndices: []int{0}, zone: "az0", available: false},
+				{ip: netip.MustParseAddr("10.0.0.3"), selectingGroupIndices: []int{0}, zone: "az0", available: true},
+			},
+			expectedAZGWs: map[string][]netip.Addr{
+				"az0": {netip.MustParseAddr("10.0.0.3")},
+			},
+			expectedCounts: map[string]int{
+				"az0": 1,
+			},
 		},
 		{
-			ip:                    netip.MustParseAddr("10.0.0.4"),
-			selectingGroupIndices: []int{0, 2, 3},
-			zone:                  "",
-			available:             true,
-		},
-		{
-			ip:                    netip.MustParseAddr("10.0.0.5"),
-			selectingGroupIndices: []int{0},
-			zone:                  "az-0",
-			available:             false,
+			name:       "no gateways match group index",
+			allAZs:     sets.New[string]("az0", "az1"),
+			groupIndex: 5,
+			gateways: []gatewayNodeIP{
+				{ip: netip.MustParseAddr("10.0.0.1"), selectingGroupIndices: []int{0}, zone: "az0", available: true},
+				{ip: netip.MustParseAddr("10.0.0.2"), selectingGroupIndices: []int{1}, zone: "az1", available: true},
+			},
+			expectedAZGWs: map[string][]netip.Addr{
+				"az0": {},
+				"az1": {},
+			},
+			expectedCounts: map[string]int{
+				"az0": 1,
+				"az1": 1,
+			},
 		},
 	}
-	allAZs := sets.New[string]() // as empty, we still expect all valid gws in az-0
-	out, _ := computeAvailableHealthyGatewaysByAZ(allAZs, policyHealthyGatewayIPs, 0)
-	assert.Equal(t, map[string][]netip.Addr{
-		"az-0": parseNetIPs(t, "10.0.0.1"),
-	}, out)
 
-	allAZs = sets.New[string]("az-0", "az-1") // now we span all AZs
-	out, _ = computeAvailableHealthyGatewaysByAZ(allAZs, policyHealthyGatewayIPs, 1)
-	assert.Equal(t, map[string][]netip.Addr{
-		"az-0": parseNetIPs(t, "10.0.0.2"),
-		"az-1": {},
-	}, out)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualGWs, actualCounts := computeAvailableHealthyGatewaysByAZ(tt.allAZs, tt.gateways, tt.groupIndex)
+			assert.Equal(t, tt.expectedAZGWs, actualGWs)
+			assert.Equal(t, tt.expectedCounts, map[string]int(actualCounts))
+		})
+	}
 }
 
 var (
