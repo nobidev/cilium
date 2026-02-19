@@ -8,7 +8,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7 v7.3.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v8 v8.0.0
-	github.com/YutaroHayakawa/bgplay v0.0.3
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.107
 	github.com/aws/aws-sdk-go-v2 v1.41.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.7
@@ -30,10 +29,8 @@ require (
 	github.com/cilium/stream v0.0.1
 	github.com/cilium/workerpool v1.3.0
 	github.com/cloudflare/cfssl v1.6.5
-	github.com/cncf/xds/go v0.0.0-20251210132809-ee656c7534f5
 	github.com/containernetworking/cni v1.3.0
 	github.com/coreos/go-iptables v0.8.0
-	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/docker v28.5.1+incompatible
@@ -43,7 +40,6 @@ require (
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-jose/go-jose/v4 v4.1.3
 	github.com/go-logr/logr v1.4.3
 	github.com/go-openapi/errors v0.22.6
 	github.com/go-openapi/loads v0.23.2
@@ -52,7 +48,6 @@ require (
 	github.com/go-openapi/strfmt v0.25.0
 	github.com/go-openapi/swag v0.25.4
 	github.com/go-openapi/validate v0.25.1
-	github.com/go-playground/validator/v10 v10.23.0
 	github.com/google/cel-go v0.27.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-github/v82 v82.0.0
@@ -68,12 +63,9 @@ require (
 	github.com/hashicorp/go-immutable-radix/v2 v2.1.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hmarr/codeowners v1.2.1
-	github.com/int128/listener v1.1.0
-	github.com/isovalent/ipa v1.18.0
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/json-iterator/go v1.1.12
 	github.com/kevinburke/ssh_config v1.5.0
-	github.com/lestrrat-go/jwx/v2 v2.1.2
 	github.com/lthibault/jitterbug/v2 v2.2.2
 	github.com/mackerelio/go-osstat v0.2.6
 	github.com/mattn/go-shellwords v1.0.12
@@ -95,7 +87,6 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0
 	github.com/sasha-s/go-deadlock v0.3.6
 	github.com/sirupsen/logrus v1.9.4
-	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cast v1.10.0
 	github.com/spf13/cobra v1.10.2
@@ -108,7 +99,6 @@ require (
 	github.com/tidwall/sjson v1.2.5
 	github.com/vishvananda/netlink v1.3.2-0.20260209201543-c7039a4139da
 	github.com/vishvananda/netns v0.0.5
-	github.com/vmware/go-ipfix v0.16.0
 	go.etcd.io/etcd/api/v3 v3.6.8
 	go.etcd.io/etcd/client/pkg/v3 v3.6.8
 	go.etcd.io/etcd/client/v3 v3.6.8
@@ -155,9 +145,19 @@ require (
 
 // Enterprise specific deps
 require (
+	github.com/YutaroHayakawa/bgplay v0.0.3
 	github.com/YutaroHayakawa/go-ra v0.0.0-20241125075947-1274124821d6
+	github.com/cncf/xds/go v0.0.0-20251210132809-ee656c7534f5
+	github.com/coreos/go-oidc/v3 v3.17.0
+	github.com/go-jose/go-jose/v4 v4.1.3
+	github.com/go-playground/validator/v10 v10.23.0
+	github.com/int128/listener v1.1.0
 	github.com/isovalent/hubble-timescape/api v1.18.0
+	github.com/isovalent/ipa v1.18.0
 	github.com/jonboulle/clockwork v0.5.0
+	github.com/lestrrat-go/jwx/v2 v2.1.2
+	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8
+	github.com/vmware/go-ipfix v0.16.0
 )
 
 require (
