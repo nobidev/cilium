@@ -119,9 +119,11 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 		})
 
 	doubleWildcardCondition := func() bool {
+		// Cut the trailing dot, if present.
+		hostname, _ := strings.CutSuffix(ct.Params().ExternalTarget, ".")
 		// Only the double wildcard related tests if the external is long enough
-		// e.g. google.com. or k8s.io. will be skipped
-		return len(strings.Split(ct.Params().ExternalTarget, ".")) > 3
+		// e.g. google.com or k8s.io will be skipped
+		return len(strings.Split(hostname, ".")) > 2
 	}
 
 	yamlFile = templates["clientEgressTLSSNIDoubleWildcardPolicyYAML"]
