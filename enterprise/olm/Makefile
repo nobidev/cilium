@@ -97,7 +97,7 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
-manifests: # controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: sync-helm-manifests # controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
@@ -132,7 +132,7 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 ##@ Build
 
 .PHONY: sync-helm-manifests
-sync-helm-manifests: 
+sync-helm-manifests:
 	rm -rf ./manifests
 	cp -a ../../install/kubernetes/cilium/. manifests
 
