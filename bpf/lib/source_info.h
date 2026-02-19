@@ -19,7 +19,7 @@
 		return id;				\
 	} while (0)
 
-#include "enterprise_source_names_to_ids.h"
+#include "enterprise_source_info.h"
 
 /*
  * __id_for_file is used by __MAGIC_FILE__ to encode source file information in
@@ -32,7 +32,7 @@
 static __always_inline int
 __id_for_file(const char *const header_name)
 {
-	int ret = __enterprise_source_file_name_to_id(header_name);
+	int ret = __enterprise_id_for_file(header_name);
 
 	if (ret != CTX_ACT_OK)
 		return ret;

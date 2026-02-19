@@ -17,14 +17,7 @@ func init() {
 		// @@ source files list begin
 
 		// enterprise source files from bpf/
-		201: "enterprise_nodeport.h",
-		202: "enterprise_bpf_host.h",
-		203: "enterprise_bpf_lxc.h",
-		204: "enterprise_bpf_overlay.h",
-
-		// enterprise source files from bpf/lib
-		221: "enterprise_encrypt.h",
-		222: "enterprise_privnet.h",
+		201: "enterprise_bpf_host.h",
 
 		// @@ source files list end
 	}
