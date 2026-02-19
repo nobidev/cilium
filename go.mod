@@ -156,6 +156,7 @@ require (
 	github.com/isovalent/hubble-timescape/api v1.18.0
 	github.com/isovalent/ipa v1.18.0
 	github.com/jonboulle/clockwork v0.5.0
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.6
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/mdlayher/socket v0.5.1
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8

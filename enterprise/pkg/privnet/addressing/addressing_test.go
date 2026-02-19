@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/go-openapi/strfmt"
+	multusv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	"github.com/stretchr/testify/assert"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -180,6 +181,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 		namespace string
 		name      string
 		uid       string
+		ifname    string
 	}
 	tests := []struct {
 		name           string
@@ -493,6 +495,257 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:     "secondary network attachment, match on order",
+			override: override{ifname: "net2"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03" },
+						{ "network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:140::11", "mac": "00:50:56:ad:11:04" },
+						{ "network": "blue-network", "ipv4": "192.168.22.11", "mac": "00:50:56:ad:11:05" }
+					]`,
+					multusv1.NetworkAttachmentAnnot: "foo,bar,baz",
+				},
+			),
+			wantAddressing: &models.PrivateNetworkAddressing{
+				ActivatedAt: strfmt.DateTime(activatedAtActive),
+				Network:     "green-network",
+				Address: &models.AddressPair{
+					IPV4: "192.168.10.11",
+					IPV6: "fd10:0:140::11",
+				},
+				Mac: "00:50:56:ad:11:04",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.3/32"},
+					{Destination: "192.168.10.0/24", Gateway: "169.254.0.3"},
+					{Destination: "fe80::3/128"},
+					{Destination: "fd10:0:140::/64", Gateway: "fe80::3"},
+				},
+			},
+		},
+		{
+			name:     "secondary network attachment, match on order (with interface names)",
+			override: override{ifname: "eth3"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03" },
+						{ "network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:140::11", "mac": "00:50:56:ad:11:04" },
+						{ "network": "blue-network", "ipv4": "192.168.22.11", "mac": "00:50:56:ad:11:05" }
+					]`,
+					multusv1.NetworkAttachmentAnnot: "foo@eth3,bar@eth2,baz",
+				},
+			),
+			wantAddressing: &models.PrivateNetworkAddressing{
+				ActivatedAt: strfmt.DateTime(activatedAtActive),
+				Network:     "green-network",
+				Address: &models.AddressPair{
+					IPV4: "192.168.52.11",
+					IPV6: "fd10:0:152::11",
+				},
+				Mac: "00:50:56:ad:11:03",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.2/32"},
+					{Destination: "192.168.52.0/24", Gateway: "169.254.0.2"},
+					{Destination: "fe80::2/128"},
+					{Destination: "fd10:0:152::/64", Gateway: "fe80::2"},
+				},
+			},
+		},
+		{
+			name:     "secondary network attachment, match on order (missing Multus annotation)",
+			override: override{ifname: "net3"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03" },
+						{ "network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:140::11", "mac": "00:50:56:ad:11:04" }
+					]`,
+				},
+			),
+			wantErr: `unable to parse "k8s.v1.cni.cncf.io/networks" annotation: no kubernetes network found`,
+		},
+		{
+			name:     "secondary network attachment, match on order (invalid Multus annotation)",
+			override: override{ifname: "net3"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03" },
+						{ "network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:140::11", "mac": "00:50:56:ad:11:04" }
+					]`,
+					multusv1.NetworkAttachmentAnnot: "foo^invalid",
+				},
+			),
+			wantErr: `unable to parse "k8s.v1.cni.cncf.io/networks" annotation: parsePodNetworkAnnotation`,
+		},
+		{
+			name:     "secondary network attachment, match on order (missing entry in Multus annotation)",
+			override: override{ifname: "net3"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03" },
+						{ "network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:140::11", "mac": "00:50:56:ad:11:04" }
+					]`,
+					multusv1.NetworkAttachmentAnnot: "foo,bar",
+				},
+			),
+			wantErr: `no entry found for interface "net3" in "k8s.v1.cni.cncf.io/networks" annotation`,
+		},
+		{
+			name:     "secondary network attachment, match on order (missing entry in our annotation)",
+			override: override{ifname: "net2"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03" }
+					]`,
+					multusv1.NetworkAttachmentAnnot: "foo,bar",
+				},
+			),
+			wantErr: `no network attachment found for interface "net2" in`,
+		},
+		{
+			name:     "secondary network attachment, match on order (duplicate entry)",
+			override: override{ifname: "eth4"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03" },
+						{ "network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:140::11", "mac": "00:50:56:ad:11:04" }
+					]`,
+					multusv1.NetworkAttachmentAnnot: "foo@eth4,bar@eth4",
+				},
+			),
+			wantErr: `duplicate entry found for interface "eth4" in`,
+		},
+		{
+			name:     "secondary network attachment, match on implicit interface name",
+			override: override{ifname: "net2"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03", "interface": "net1" },
+						{ "network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:140::11", "mac": "00:50:56:ad:11:04", "interface": "net2" },
+						{ "network": "blue-network", "ipv4": "192.168.22.11", "mac": "00:50:56:ad:11:05", "interface": "net3" }
+					]`,
+					multusv1.NetworkAttachmentAnnot: "foo,bar,baz",
+				},
+			),
+			wantAddressing: &models.PrivateNetworkAddressing{
+				ActivatedAt: strfmt.DateTime(activatedAtActive),
+				Network:     "green-network",
+				Address: &models.AddressPair{
+					IPV4: "192.168.10.11",
+					IPV6: "fd10:0:140::11",
+				},
+				Mac: "00:50:56:ad:11:04",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.3/32"},
+					{Destination: "192.168.10.0/24", Gateway: "169.254.0.3"},
+					{Destination: "fe80::3/128"},
+					{Destination: "fd10:0:140::/64", Gateway: "fe80::3"},
+				},
+			},
+		},
+		{
+			name:     "secondary network attachment, match on explicit interface name",
+			override: override{ifname: "eth4"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03", "interface": "eth4" },
+						{ "network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:140::11", "mac": "00:50:56:ad:11:04", "interface": "eth3" },
+						{ "network": "blue-network", "ipv4": "192.168.22.11", "mac": "00:50:56:ad:11:05", "interface": "eth2" }
+					]`,
+					multusv1.NetworkAttachmentAnnot: "foo@eth2,bar@eth3,baz@eth4",
+				},
+			),
+			wantAddressing: &models.PrivateNetworkAddressing{
+				ActivatedAt: strfmt.DateTime(activatedAtActive),
+				Network:     "green-network",
+				Address: &models.AddressPair{
+					IPV4: "192.168.52.11",
+					IPV6: "fd10:0:152::11",
+				},
+				Mac: "00:50:56:ad:11:03",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.4/32"},
+					{Destination: "192.168.52.0/24", Gateway: "169.254.0.4"},
+					{Destination: "fe80::4/128"},
+					{Destination: "fd10:0:152::/64", Gateway: "fe80::4"},
+				},
+			},
+		},
+		{
+			name:     "secondary network attachment, match on kubevirt interface name",
+			override: override{ifname: "pod50a73efd61d"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03", "interface": "green-1" },
+						{ "network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:140::11", "mac": "00:50:56:ad:11:04", "interface": "green-2" }
+					]`,
+					multusv1.NetworkAttachmentAnnot: `[{ "name": "green-2", "interface": "pod4c1327ef942" }, { "name": "green-1", "interface": "pod50a73efd61d" }]`,
+				},
+			),
+			wantAddressing: &models.PrivateNetworkAddressing{
+				ActivatedAt: strfmt.DateTime(activatedAtActive),
+				Network:     "green-network",
+				Address: &models.AddressPair{
+					IPV4: "192.168.52.11",
+					IPV6: "fd10:0:152::11",
+				},
+				Mac: "00:50:56:ad:11:03",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.3/32"},
+					{Destination: "192.168.52.0/24", Gateway: "169.254.0.3"},
+					{Destination: "fe80::3/128"},
+					{Destination: "fd10:0:152::/64", Gateway: "fe80::3"},
+				},
+			},
+		},
+		{
+			name:     "secondary network attachment, match on interface name (missing entry in our annotation)",
+			override: override{ifname: "net2"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03", "interface": "net3" }
+					]`,
+					multusv1.NetworkAttachmentAnnot: "foo,bar",
+				},
+			),
+			wantErr: `no network attachment found for interface "net2" in`,
+		},
+		{
+			name:     "secondary network attachment, match on order (duplicate entry)",
+			override: override{ifname: "eth4"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03", "interface": "eth4" },
+						{ "network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:140::11", "mac": "00:50:56:ad:11:04", "interface": "eth4" }
+					]`,
+					multusv1.NetworkAttachmentAnnot: "foo,bar@eth4",
+				},
+			),
+			wantErr: `duplicate network attachment found for interface "eth4" in`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -511,7 +764,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					PodName:      name,
 					PodNamespace: namespace,
 					PodUID:       uid,
-					Ifname:       "eth0",
+					Ifname:       cmp.Or(tt.override.ifname, "eth0"),
 				})
 				if tt.wantErr != "" {
 					assert.ErrorContains(t, err, tt.wantErr)
