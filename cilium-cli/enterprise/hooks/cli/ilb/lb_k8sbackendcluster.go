@@ -10,6 +10,12 @@
 
 package ilb
 
+import (
+	"fmt"
+
+	"github.com/cilium/cilium/pkg/versioncheck"
+)
+
 func TestLBK8sBackendClusterConnectivity(t T) {
 	if skipIfOnSingleNode("backend kind clusters require a shared Docker network") {
 		return
@@ -20,6 +26,14 @@ func TestLBK8sBackendClusterConnectivity(t T) {
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
+
+	// extlb is only supported in v1.19 and newer
+	minVersion := ">=1.19.0"
+	currentVersion := GetCiliumVersion(t, k8sCli)
+	if !versioncheck.MustCompile(minVersion)(currentVersion) {
+		fmt.Printf("skipping due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
+		return
+	}
 
 	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
@@ -50,6 +64,14 @@ func TestLBK8sBackendClusterMultiple(t T) {
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
+
+	// extlb is only supported in v1.19 and newer
+	minVersion := ">=1.19.0"
+	currentVersion := GetCiliumVersion(t, k8sCli)
+	if !versioncheck.MustCompile(minVersion)(currentVersion) {
+		fmt.Printf("skipping due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
+		return
+	}
 
 	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
@@ -90,6 +112,14 @@ func TestLBK8sBackendClusterReconnect(t T) {
 
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
+
+	// extlb is only supported in v1.19 and newer
+	minVersion := ">=1.19.0"
+	currentVersion := GetCiliumVersion(t, k8sCli)
+	if !versioncheck.MustCompile(minVersion)(currentVersion) {
+		fmt.Printf("skipping due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())
+		return
+	}
 
 	scenario := newLBTestScenario(t, testName, ciliumCli, k8sCli, dockerCli)
 
