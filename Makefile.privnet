@@ -165,6 +165,18 @@ define privnet_pull_image
 	docker image inspect $(1) >/dev/null 2>&1 || docker pull --quiet $(1)
 endef
 
+define privnet_load_images
+	$(if $(PRIVNET_KIND_IMAGE_LOAD_IMAGE_ARCHIVE), \
+		$(call privnet_load_images_archive,$(strip $(1)),$(2)), \
+		kind load docker-image --name $(strip $(1)) $(2))
+endef
+
+define privnet_load_images_archive
+	tmpfile=$$(mktemp -t privnet.XXXXXXXX); \
+	trap 'rm -f "$$tmpfile"' EXIT; \
+	$(foreach image,$(2),docker save $(image) -o "$$tmpfile" && kind load image-archive --name $(1) "$$tmpfile";)
+endef
+
 .PHONY: kind-privnet-load-images  ## Load the privnet images to kind nodes
 $(eval $(call KIND_PRIVNET_ENV,kind-privnet-load-images))
 kind-privnet-load-images: kind-privnet-ready
@@ -173,15 +185,15 @@ kind-privnet-load-images: kind-privnet-ready
 	$(call privnet_pull_image,quay.io/jetstack/cert-manager-cainjector:$(PRIVNET_CERT_MANAGER_VERSION))
 	$(call privnet_pull_image,quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION))
 
-	$(QUIET) kind load docker-image --name privnet-cluster $(LOCAL_AGENT_IMAGE) $(LOCAL_OPERATOR_IMAGE) $(LOCAL_CLUSTERMESH_IMAGE) $(PRIVNET_ENVOY_IMAGE) \
+	$(call privnet_load_images, privnet-cluster, $(LOCAL_AGENT_IMAGE) $(LOCAL_OPERATOR_IMAGE) $(LOCAL_CLUSTERMESH_IMAGE) $(PRIVNET_ENVOY_IMAGE) \
 		quay.io/jetstack/cert-manager-controller:$(PRIVNET_CERT_MANAGER_VERSION) quay.io/jetstack/cert-manager-cainjector:$(PRIVNET_CERT_MANAGER_VERSION) \
-		quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION)
-	$(QUIET) kind load docker-image --name privnet-inb0 $(LOCAL_AGENT_IMAGE) $(LOCAL_OPERATOR_IMAGE) $(LOCAL_CLUSTERMESH_IMAGE) $(PRIVNET_ENVOY_IMAGE) \
+		quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION))
+	$(call privnet_load_images, privnet-inb0, $(LOCAL_AGENT_IMAGE) $(LOCAL_OPERATOR_IMAGE) $(LOCAL_CLUSTERMESH_IMAGE) $(PRIVNET_ENVOY_IMAGE) \
 		quay.io/jetstack/cert-manager-controller:$(PRIVNET_CERT_MANAGER_VERSION) quay.io/jetstack/cert-manager-cainjector:$(PRIVNET_CERT_MANAGER_VERSION) \
-		quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION)
-	$(QUIET) kind load docker-image --name privnet-inb1 $(LOCAL_AGENT_IMAGE) $(LOCAL_OPERATOR_IMAGE) $(LOCAL_CLUSTERMESH_IMAGE) $(PRIVNET_ENVOY_IMAGE) \
+		quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION))
+	$(call privnet_load_images, privnet-inb1, $(LOCAL_AGENT_IMAGE) $(LOCAL_OPERATOR_IMAGE) $(LOCAL_CLUSTERMESH_IMAGE) $(PRIVNET_ENVOY_IMAGE) \
 		quay.io/jetstack/cert-manager-controller:$(PRIVNET_CERT_MANAGER_VERSION) quay.io/jetstack/cert-manager-cainjector:$(PRIVNET_CERT_MANAGER_VERSION) \
-		quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION)
+		quay.io/jetstack/cert-manager-webhook:$(PRIVNET_CERT_MANAGER_VERSION))
 
 .PHONY: kind-privnet-images
 $(eval $(call KIND_PRIVNET_ENV,kind-privnet-images))
@@ -340,10 +352,10 @@ kind-privnet-kubevirt:  ## Deploy kubevirt in the Cilium cluster
 	$(call privnet_pull_image,"quay.io/kubevirt/virt-operator:$(PRIVNET_KUBEVIRT_VERSION)")
 	$(call privnet_pull_image,"$(PRIVNET_VM_IMAGE)")
 
-	$(QUIET) kind load docker-image --name privnet-cluster \
+	$(call privnet_load_images,privnet-cluster, \
 		quay.io/kubevirt/virt-launcher:$(PRIVNET_KUBEVIRT_VERSION) quay.io/kubevirt/virt-api:$(PRIVNET_KUBEVIRT_VERSION) \
 		quay.io/kubevirt/virt-operator:$(PRIVNET_KUBEVIRT_VERSION) quay.io/kubevirt/virt-handler:$(PRIVNET_KUBEVIRT_VERSION) \
-		quay.io/kubevirt/virt-controller:$(PRIVNET_KUBEVIRT_VERSION) $(PRIVNET_VM_IMAGE)
+		quay.io/kubevirt/virt-controller:$(PRIVNET_KUBEVIRT_VERSION) $(PRIVNET_VM_IMAGE))
 
 	$(QUIET) kubectl --context kind-privnet-cluster apply -f "https://github.com/kubevirt/kubevirt/releases/download/$(PRIVNET_KUBEVIRT_VERSION)/kubevirt-operator.yaml"
 	$(QUIET) kubectl --context kind-privnet-cluster apply -f "https://github.com/kubevirt/kubevirt/releases/download/$(PRIVNET_KUBEVIRT_VERSION)/kubevirt-cr.yaml"
