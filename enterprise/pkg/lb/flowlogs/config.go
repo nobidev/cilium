@@ -12,6 +12,9 @@ package lbflowlogs
 
 import (
 	"fmt"
+	"net"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/pflag"
 
@@ -53,7 +56,7 @@ func (c Config) Flags(flags *pflag.FlagSet) {
 	flags.Uint("loadbalancer-flow-logs-reader-queue-size", defaultConfig.LoadbalancerFlowLogsReaderQueueSize, "LB flow log reader queue size")
 	flags.String("loadbalancer-flow-logs-sender", defaultConfig.LoadbalancerFlowLogsSender, "Name of the sender where flow logs should be sent to (ipfix, stdout)")
 	flags.String("loadbalancer-flow-logs-sender-protocol", defaultConfig.LoadbalancerFlowLogsSenderProtocol, "The protocol to be used when sending flow logs (udp, tcp)")
-	flags.String("loadbalancer-flow-logs-sender-ipfix-collector-address", defaultConfig.LoadbalancerFlowLogsSenderIpfixCollectorAddress, "LB Flow Logs IPFix collector address in the IP:port format")
+	flags.String("loadbalancer-flow-logs-sender-ipfix-collector-address", defaultConfig.LoadbalancerFlowLogsSenderIpfixCollectorAddress, "Comma-separated list of IP:port, [IPv6]:port, or DNS:port addresses for the IPFix collector")
 }
 
 func (c *Config) ReportFrequencyDuration() time.Duration {
@@ -62,6 +65,115 @@ func (c *Config) ReportFrequencyDuration() time.Duration {
 
 func (c *Config) GarbageCollectorFrequencyDuration() time.Duration {
 	return time.Duration(uint(time.Second) * c.LoadbalancerFlowLogsGcFrequency)
+}
+
+func (c Config) validate() error {
+	if !c.LoadbalancerFlowLogsEnabled {
+		return nil
+	}
+	if c.LoadbalancerFlowLogsSender == "stdout" {
+		return nil
+	}
+	if err := validateCollectorProtocol(c.LoadbalancerFlowLogsSenderProtocol); err != nil {
+		return fmt.Errorf("invalid loadbalancer-flow-logs-sender-protocol: %w", err)
+	}
+
+	collectors, err := parseCollectorAddresses(c.LoadbalancerFlowLogsSenderIpfixCollectorAddress)
+	if err != nil {
+		return err
+	}
+	if len(collectors) == 0 {
+		return fmt.Errorf("loadbalancer-flow-logs-sender-ipfix-collector-address must be set when loadbalancer-flow-logs-sender is %q", c.LoadbalancerFlowLogsSender)
+	}
+
+	return nil
+}
+
+func parseCollectorAddresses(raw string) ([]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+
+	parts := strings.Split(raw, ",")
+	addrs := make([]string, 0, len(parts))
+	for i, part := range parts {
+		entry := strings.TrimSpace(part)
+		if entry == "" {
+			return nil, fmt.Errorf("collector address list contains an empty entry at position %d", i+1)
+		}
+		if strings.Count(entry, ":") > 1 && !strings.Contains(entry, "[") {
+			return nil, fmt.Errorf("collector address %q is missing brackets around IPv6 address (use [addr]:port)", entry)
+		}
+		host, port, err := net.SplitHostPort(entry)
+		if err != nil {
+			return nil, fmt.Errorf("invalid collector address %q: %w", entry, err)
+		}
+		if host == "" {
+			return nil, fmt.Errorf("collector address %q is missing host", entry)
+		}
+		if port == "" {
+			return nil, fmt.Errorf("collector address %q is missing port", entry)
+		}
+		if err := validatePort(port); err != nil {
+			return nil, fmt.Errorf("collector address %q has invalid port: %w", entry, err)
+		}
+		if ip := net.ParseIP(host); ip == nil && !isValidHostname(host) {
+			return nil, fmt.Errorf("collector address %q has invalid host %q; expected IP (v4/v6) or DNS name", entry, host)
+		}
+
+		addrs = append(addrs, entry)
+	}
+
+	return addrs, nil
+}
+
+func validatePort(raw string) error {
+	port, err := strconv.Atoi(raw)
+	if err != nil {
+		return fmt.Errorf("port must be numeric")
+	}
+	if port < 1 || port > 65535 {
+		return fmt.Errorf("port must be between 1 and 65535")
+	}
+	return nil
+}
+
+func validateCollectorProtocol(protocol string) error {
+	switch protocol {
+	case "udp", "tcp":
+		return nil
+	default:
+		return fmt.Errorf("must be one of: udp, tcp")
+	}
+}
+
+func isValidHostname(host string) bool {
+	host = strings.TrimSuffix(host, ".")
+	if host == "" || len(host) > 253 {
+		return false
+	}
+
+	labels := strings.SplitSeq(host, ".")
+	for label := range labels {
+		if label == "" || len(label) > 63 {
+			return false
+		}
+		if label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for i := 0; i < len(label); i++ {
+			ch := label[i]
+			if (ch >= 'a' && ch <= 'z') ||
+				(ch >= 'A' && ch <= 'Z') ||
+				(ch >= '0' && ch <= '9') ||
+				ch == '-' {
+				continue
+			}
+			return false
+		}
+	}
+
+	return true
 }
 
 //

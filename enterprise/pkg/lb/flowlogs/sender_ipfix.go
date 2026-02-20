@@ -55,9 +55,9 @@ var _ FlowLogSender = &flowLogIPFixSender{}
 // flowLogIPFixSender sends the received flow log entries to an
 // IPFix collector endpoint.
 type flowLogIPFixSender struct {
-	logger            *slog.Logger
-	collectorAddress  string
-	collectorProtocol string
+	logger             *slog.Logger
+	collectorAddresses []string
+	collectorProtocol  string
 }
 
 func (r *flowLogIPFixSender) Name() string {
@@ -65,33 +65,25 @@ func (r *flowLogIPFixSender) Name() string {
 }
 
 func (r *flowLogIPFixSender) sendFlowLogsV4(flowLogs FlowLogTableV4) error {
-	exportingProcess, err := r.openConnectionToCollector()
-	if err != nil {
-		return fmt.Errorf("got error when connecting to ipfix collector: %w", err)
-	}
-	defer exportingProcess.CloseConnToCollector()
+	return r.sendWithFallback(func(exportingProcess *exporter.ExportingProcess) error {
+		templateID, err := r.negotiateTemplateV4(exportingProcess)
+		if err != nil {
+			return fmt.Errorf("got error when sending Template Set: %w", err)
+		}
 
-	templateID, err := r.negotiateTemplateV4(exportingProcess)
-	if err != nil {
-		return fmt.Errorf("got error when sending Template Set: %w", err)
-	}
-
-	return r.sendDataV4(exportingProcess, templateID, flowLogs)
+		return r.sendDataV4(exportingProcess, templateID, flowLogs)
+	})
 }
 
 func (r *flowLogIPFixSender) sendFlowLogsV6(flowLogs FlowLogTableV6) error {
-	exportingProcess, err := r.openConnectionToCollector()
-	if err != nil {
-		return fmt.Errorf("got error when connecting to ipfix collector: %w", err)
-	}
-	defer exportingProcess.CloseConnToCollector()
+	return r.sendWithFallback(func(exportingProcess *exporter.ExportingProcess) error {
+		templateID, err := r.negotiateTemplateV6(exportingProcess)
+		if err != nil {
+			return fmt.Errorf("got error when sending Template Set: %w", err)
+		}
 
-	templateID, err := r.negotiateTemplateV6(exportingProcess)
-	if err != nil {
-		return fmt.Errorf("got error when sending Template Set: %w", err)
-	}
-
-	return r.sendDataV6(exportingProcess, templateID, flowLogs)
+		return r.sendDataV6(exportingProcess, templateID, flowLogs)
+	})
 }
 
 func (r *flowLogIPFixSender) SendFlowLogs(flowLogsV4 FlowLogTableV4, flowLogsV6 FlowLogTableV6, flowLogsL2 FlowLogTableL2) error {
@@ -203,13 +195,45 @@ func (r *flowLogIPFixSender) populateDataRecordElementsV6(flkey FlowLogKeyV6, fl
 	return elements
 }
 
-func (r *flowLogIPFixSender) openConnectionToCollector() (*exporter.ExportingProcess, error) {
-	if r.collectorAddress == "" {
-		return nil, fmt.Errorf("IPFix collector address is not set")
+func (r *flowLogIPFixSender) sendWithFallback(send func(*exporter.ExportingProcess) error) error {
+	if len(r.collectorAddresses) == 0 {
+		return fmt.Errorf("IPFix collector address list is not set")
+	}
+
+	var lastErr error
+	for _, address := range r.collectorAddresses {
+		exportingProcess, err := r.openConnectionToCollector(address)
+		if err != nil {
+			lastErr = err
+			r.logger.Warn("Failed to connect to IPFix collector, trying next",
+				logfields.Error, err,
+				logfields.Address, address)
+			continue
+		}
+
+		if err := send(exportingProcess); err != nil {
+			exportingProcess.CloseConnToCollector()
+			lastErr = err
+			r.logger.Warn("Failed to send flow logs to IPFix collector, trying next",
+				logfields.Error, err,
+				logfields.Address, address)
+			continue
+		}
+
+		exportingProcess.CloseConnToCollector()
+		return nil
+	}
+
+	return fmt.Errorf("failed to send flow logs to any IPFix collector: %w", lastErr)
+}
+
+func (r *flowLogIPFixSender) openConnectionToCollector(address string) (*exporter.ExportingProcess, error) {
+	if address == "" {
+		return nil, fmt.Errorf("IPFix collector address is empty")
 	}
 
 	return exporter.InitExportingProcess(exporter.ExporterInput{
-		CollectorAddress:    r.collectorAddress,
+		CollectorAddress:    address,
 		CollectorProtocol:   r.collectorProtocol,
 		ObservationDomainID: 1,
 		TempRefTimeout:      0,

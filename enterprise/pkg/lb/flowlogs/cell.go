@@ -24,6 +24,7 @@ var Cell = cell.Module(
 	"loadbalancer-flowlog",
 	"Per-packet loadbalancer flow logs",
 
+	cell.Invoke(Config.validate),
 	cell.Invoke(initializeFlowLogProcessor),
 	cell.ProvidePrivate(newFlowLogIPFixSender),
 	cell.ProvidePrivate(newFlowLogStdoutSender),
@@ -84,20 +85,28 @@ type lbFlowLogIPFixSenderParams struct {
 	Logger *slog.Logger
 }
 
-func newFlowLogIPFixSender(p lbFlowLogIPFixSenderParams) lbFlowLogSenderOut {
-	if !p.Config.LoadbalancerFlowLogsEnabled {
-		return lbFlowLogSenderOut{}
+func newFlowLogIPFixSender(p lbFlowLogIPFixSenderParams) (lbFlowLogSenderOut, error) {
+	if !p.Config.LoadbalancerFlowLogsEnabled || p.Config.LoadbalancerFlowLogsSender != "ipfix" {
+		return lbFlowLogSenderOut{}, nil
+	}
+
+	collectors, err := parseCollectorAddresses(p.Config.LoadbalancerFlowLogsSenderIpfixCollectorAddress)
+	if err != nil {
+		return lbFlowLogSenderOut{}, err
+	}
+	if len(collectors) == 0 {
+		return lbFlowLogSenderOut{}, fmt.Errorf("IPFix collector address list is empty")
 	}
 
 	sender := &flowLogIPFixSender{
-		logger:            p.Logger,
-		collectorAddress:  p.Config.LoadbalancerFlowLogsSenderIpfixCollectorAddress,
-		collectorProtocol: p.Config.LoadbalancerFlowLogsSenderProtocol,
+		logger:             p.Logger,
+		collectorAddresses: collectors,
+		collectorProtocol:  p.Config.LoadbalancerFlowLogsSenderProtocol,
 	}
 
 	sender.loadRegistry()
 
-	return lbFlowLogSenderOut{Sender: sender}
+	return lbFlowLogSenderOut{Sender: sender}, nil
 }
 
 type lbFlowLogMapParams struct {
