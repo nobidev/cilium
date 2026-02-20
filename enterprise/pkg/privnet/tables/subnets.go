@@ -48,6 +48,26 @@ type Subnet struct {
 
 	// The set of routes configured for this Subnet
 	Routes []PrivateNetworkRoute
+
+	// The set of peers of this Subnet.
+	// For subnet equality duplicates and slice order are ignored.
+	// The slice is not guaranteed to be sorted. Don't rely on its order.
+	Peers []SubnetPeer
+}
+
+type SubnetPeer struct {
+	// Network is the name of the peered Private Network.
+	Network NetworkName
+	// Name is the name of the peered subnet.
+	Subnet SubnetName
+	// CIDRv4 defines the IPv4 subnet of the peer.
+	// This is not directly used, but necessary to trigger reconciliation of
+	// peering routes on CIDR change.
+	CIDRv4 netip.Prefix
+	// CIDRv6 defines the IPv6 subnet of the peer.
+	// This is not directly used, but necessary to trigger reconciliation of
+	// peering routes on CIDR change.
+	CIDRv6 netip.Prefix
 }
 
 // SubnetSpec wraps the core subnet information for MapEntry construction.
@@ -107,7 +127,7 @@ func (s Subnet) Key() SubnetKey {
 }
 
 func (s Subnet) Equals(other Subnet) bool {
-	return s.SubnetSpec == other.SubnetSpec && slices.Equal(s.Routes, other.Routes)
+	return s.SubnetSpec == other.SubnetSpec && slices.Equal(s.Routes, other.Routes) && equalElements(s.Peers, other.Peers)
 }
 
 func (s Subnet) CIDRs() iter.Seq[netip.Prefix] {

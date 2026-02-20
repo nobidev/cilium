@@ -10,11 +10,23 @@
 
 package tables
 
-import "github.com/cilium/cilium/pkg/time"
+import (
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/cilium/cilium/pkg/time"
+)
 
 func formatActivatedAt(activatedAt time.Time) string {
 	if activatedAt.IsZero() {
 		return "<inactive>"
 	}
 	return activatedAt.UTC().Format(time.RFC3339)
+}
+
+// equalElements compares two slices and returns if they contain the same elements.
+// NOTE: It will *ignore* duplicates in the slice
+func equalElements[T comparable](a, b []T) bool {
+	sa := sets.New(a...)
+	sb := sets.New(b...)
+	return sa.Equal(sb)
 }

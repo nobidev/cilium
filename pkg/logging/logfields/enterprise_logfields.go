@@ -120,6 +120,9 @@ const (
 	// PrivateNetworkAttachment is the name of link created for private network.
 	PrivateNetworkAttachment = "privateNetworkAttachment"
 
+	PeerNetwork = "peer-network"
+	PeerSubnet  = "peer-subnet"
+
 	Stdout = "stdout"
 	Stderr = "stderr"
 

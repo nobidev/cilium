@@ -151,7 +151,7 @@ func (r *Routes) registerReconciler() {
 // by the StateDB key (which contains the route destination). If it detects a key conflict,
 // it logs a warning and ignores the conflicting entry. CIDR entries take precedence over
 // route entries.
-func (r *Routes) extractRoutes(subnet tables.Subnet) map[tables.RouteKey]tables.Route {
+func (r *Routes) extractRoutes(txn statedb.ReadTxn, subnet tables.Subnet) map[tables.RouteKey]tables.Route {
 	routes := make(map[tables.RouteKey]tables.Route, 2+len(subnet.Routes))
 	for cidr := range subnet.CIDRs() {
 		entry := tables.Route{
@@ -191,13 +191,40 @@ func (r *Routes) extractRoutes(subnet tables.Subnet) map[tables.RouteKey]tables.
 		routes[key] = entry
 	}
 
+	for _, peer := range subnet.Peers {
+		other, _, ok := r.subnet.Get(txn, tables.SubnetsByNetworkAndName(peer.Network, peer.Subnet))
+		if !ok {
+			r.log.Warn("Unknown peer for subnet",
+				logfields.Network, subnet.Network,
+				logfields.PrivateNetworkSubnet, subnet.Name,
+				logfields.PeerNetwork, other.Network,
+				logfields.PeerSubnet, other.Name,
+			)
+			continue
+		}
+		for cidr := range other.CIDRs() {
+			entry := tables.Route{
+				Network:     subnet.Network,
+				Subnet:      subnet.Name,
+				Destination: cidr,
+				Peer: tables.RoutePeer{
+					Network:   other.Network,
+					NetworkID: other.NetworkID,
+					Subnet:    other.Name,
+					SubnetID:  other.ID,
+				},
+			}
+			routes[entry.Key()] = entry
+		}
+	}
+
 	return routes
 }
 
 // upsertNetworkRoutes extracts the desired routes from the subnet, removes all routes no longer
 // in the desired set, and then upserts all missing desired routes.
 func (r *Routes) upsertNetworkRoutes(txn statedb.WriteTxn, subnet tables.Subnet) error {
-	desiredRoutes := r.extractRoutes(subnet)
+	desiredRoutes := r.extractRoutes(txn, subnet)
 	// iterate over the existing routes in the table to determine which ones to remove
 	for existing := range r.tbl.Prefix(txn, tables.RoutesByNetworkSubnet(subnet.Network, subnet.Name)) {
 		routeKey := existing.Key()
