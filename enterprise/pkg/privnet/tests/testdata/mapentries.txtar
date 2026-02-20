@@ -129,6 +129,8 @@ spec:
       gateway: 192.168.24.2
     - destination: 0.0.0.0/0
       gateway: 192.168.24.162
+    - destination: 192.168.250.0/23
+      gateway: 192.168.24.100
 
 -- icpn-blue.v4.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -526,6 +528,7 @@ E      blue-network   blue2    fd10:0:224::24/128   fd00:10:244:5::107 N/A
 P      blue-network   blue2    192.168.250.0/23     0.0.0.0            0x1/0x1
 P      blue-network   blue2    fd10:0:250::/64      ::                 0x1/0x1
 S      blue-network   blue2    0.0.0.0/0            172.128.0.6        N/A
+S      blue-network   blue2    192.168.250.0/23     172.128.0.6        N/A
 S      blue-network   blue2    192.168.251.0/24     172.128.0.6        N/A
 
 -- mapentries.v7.table --
@@ -543,6 +546,7 @@ D      blue-network   blue2    fd10:0:224::24/128   172.128.0.6   N/A
 P      blue-network   blue2    192.168.250.0/23     0.0.0.0       0x1/0x1
 P      blue-network   blue2    fd10:0:250::/64      ::            0x1/0x1
 S      blue-network   blue2    0.0.0.0/0            172.128.0.6   N/A
+S      blue-network   blue2    192.168.250.0/23     172.128.0.6   N/A
 S      blue-network   blue2    192.168.251.0/24     172.128.0.6   N/A
 
 -- mapentries.v8.table --
@@ -559,6 +563,7 @@ D      blue-network   blue2    fd10:0:224::24/128   172.128.0.7  N/A
 P      blue-network   blue2    192.168.250.0/23     0.0.0.0      0x1/0x1
 P      blue-network   blue2    fd10:0:250::/64      ::           0x1/0x1
 S      blue-network   blue2    0.0.0.0/0            172.128.0.7  N/A
+S      blue-network   blue2    192.168.250.0/23     172.128.0.7  N/A
 S      blue-network   blue2    192.168.251.0/24     172.128.0.7  N/A
 
 -- mapentries.v9.table --
