@@ -136,8 +136,8 @@ func (pmo *pipFIBMapOps) FIBKeyVal(me *tables.MapEntry) *pnmaps.FIBKeyVal {
 		entryVNI = me.Routing.VNI
 	}
 	return &pnmaps.FIBKeyVal{
-		Key: pnmaps.NewFIBKey(me.Target.NetworkID, me.Target.SubnetID, me.Target.CIDR),
-		Val: pnmaps.NewFIBVal(me.Routing.NextHop, mac, pmo.FIBFlags(me.Type, me.Routing.L2Announce), uint32(me.Routing.EgressIfIndex), entryVNI),
+		Key: pnmaps.NewFIBKey(me.Target.NetworkID, me.Target.SubnetID, pmo.FIBType(me.Type), me.Target.CIDR),
+		Val: pnmaps.NewFIBVal(me.Routing.NextHop, mac, pmo.FIBFlags(me.Type, me.Routing.L2Announce), uint32(me.Routing.EgressIfIndex), entryVNI, me.Routing.PeerNetworkID, me.Routing.PeerSubnetID),
 	}
 }
 
@@ -158,6 +158,15 @@ func (pmo *pipFIBMapOps) FIBFlags(typ tables.MapEntryType, l2ann bool) pnmaps.FI
 	}
 
 	return flags
+}
+
+func (pmo *pipFIBMapOps) FIBType(typ tables.MapEntryType) pnmaps.FIBType {
+	switch typ {
+	case tables.MapEntryTypePeeringRoute:
+		return pnmaps.FIBTypePeering
+	default:
+		return pnmaps.FIBTypeDefault
+	}
 }
 
 func (pmo *pipFIBMapOps) PIPKeyVal(me *tables.MapEntry) *pnmaps.PIPKeyVal {

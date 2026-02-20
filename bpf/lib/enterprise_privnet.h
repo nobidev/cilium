@@ -155,12 +155,18 @@
  *      d. Relay response sent to pod's host-side veth device
  */
 
+/* Based on enterprise/pkg/maps/privnet.FIBTypeDefault */
+#define PRIVNET_FIB_TYPE_DEFAULT 0
+/* Based on enterprise/pkg/maps/privnet.FIBTypePeering */
+#define PRIVNET_FIB_TYPE_PEERING 1
+
 struct privnet_fib_key {
 	struct bpf_lpm_trie_key lpm_key;
 	__u16 net_id;
 	__u16 subnet_id;
 	__u8 family;
-	__u8 pad[3];
+	__u8 type;
+	__u8 pad[2];
 	union {
 		struct {
 			__be32		ip4;
@@ -192,7 +198,8 @@ struct privnet_fib_val {
 	__u8 family;
 	__u32 ifindex;
 	__u32 vni;
-	__u32 pad5;
+	__u16 peer_net_id;
+	__u16 peer_subnet_id;
 };
 
 struct privnet_pip_key {

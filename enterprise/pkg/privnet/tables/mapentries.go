@@ -73,7 +73,7 @@ func (me MapEntry) String() string {
 var _ statedb.TableWritable = &MapEntry{}
 
 func (me *MapEntry) TableHeader() []string {
-	return []string{"Type", "Network", "Subnet", "CIDR", "Nexthop", "IfIndex", "MAC", "L2Ann", "VNI", "Status"}
+	return []string{"Type", "Network", "Subnet", "CIDR", "Nexthop", "IfIndex", "MAC", "L2Ann", "VNI", "Peer", "Status"}
 }
 
 func (me MapEntry) TableRow() []string {
@@ -98,6 +98,12 @@ func (me MapEntry) TableRow() []string {
 		mac,
 		l2Announce,
 		cmp.Or(me.Routing.VNI.String(), "N/A"),
+		func() string {
+			if me.Routing.PeerNetworkID == 0 || me.Routing.PeerSubnetID == 0 {
+				return "N/A"
+			}
+			return fmt.Sprintf("%s/%s", me.Routing.PeerNetworkID, me.Routing.PeerSubnetID)
+		}(),
 		me.Status.String(),
 	}
 }
@@ -117,6 +123,8 @@ const (
 	MapEntryTypeStaticRoute
 	// MapEntryTypeEVPNRoute represents an EVPN route.
 	MapEntryTypeEVPNRoute
+	// MapEntryTypePeeringRoute represents a peering route, i.e. a route to another subnet.
+	MapEntryTypePeeringRoute
 )
 
 func (typ MapEntryType) String() string {
@@ -131,6 +139,8 @@ func (typ MapEntryType) String() string {
 		return "S"
 	case MapEntryTypeEVPNRoute:
 		return "V"
+	case MapEntryTypePeeringRoute:
+		return "P"
 	default:
 		return "?"
 	}
@@ -157,6 +167,8 @@ func (typ *MapEntryType) UnmarshalText(in []byte) error {
 		*typ = MapEntryTypeStaticRoute
 	case "V":
 		*typ = MapEntryTypeEVPNRoute
+	case "P":
+		*typ = MapEntryTypePeeringRoute
 	default:
 		return fmt.Errorf("invalid MapEntryType %q", string(in))
 	}
@@ -220,6 +232,12 @@ type MapEntryRouting struct {
 	// gratuitous ARP and ND packets. Currently applicable on the INB cluster(s) only,
 	// and for entries of type [MapEntryTypeEndpoint].
 	L2Announce bool
+
+	// NetworkID is the NetworkID of the target private network.
+	PeerNetworkID NetworkID
+
+	// SubnetID is the local ID of the target subnet.
+	PeerSubnetID SubnetID
 }
 
 // MapEntryKey is <network>|<subnet>|<type>|<network-cidr>.
