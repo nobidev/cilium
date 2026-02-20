@@ -38,6 +38,27 @@ type Route struct {
 
 	// EVPNGateway is set if network is reachable via EVPN/Vxlan.
 	EVPNGateway bool
+
+	// Peer contains the information on the peer of a peering routes
+	Peer RoutePeer
+}
+
+// RoutePeer contains the information for a peer in a peering route
+type RoutePeer struct {
+	// Network is the name of the destination network for the peering.
+	// It is provided for convenience only (e.g., in the table output), and shall not be
+	// depended on during reconciliation.
+	Network NetworkName
+	// NetworkID is the NetworkID of the destination network for the peering. Only set for
+	// peering routes.
+	NetworkID NetworkID
+	// Subnet is the name of the destination Subnet for the peering.
+	// It is provided for convenience only (e.g., in the table output), and shall not be
+	// depended on during reconciliation.
+	Subnet SubnetName
+	// SubnetID is the SubnetID of the destination subnet for the peering. Only set for
+	// peering routes.
+	SubnetID SubnetID
 }
 
 var _ statedb.TableWritable = Route{}
@@ -59,14 +80,24 @@ func (r Route) TableRow() []string {
 			if r.EVPNGateway {
 				return "evpn"
 			}
+			if r.isPeeringRoute() {
+				return fmt.Sprintf("peer %s/%s", r.Peer.Network, r.Peer.Subnet)
+			}
 			return gw
 		}(),
 	}
 }
 
+func (r Route) isPeeringRoute() bool {
+	return r.Peer.NetworkID != 0 && r.Peer.SubnetID != 0
+}
+
 func (r Route) MapEntryType() MapEntryType {
 	if r.EVPNGateway {
 		return MapEntryTypeEVPNRoute
+	}
+	if r.isPeeringRoute() {
+		return MapEntryTypePeeringRoute
 	}
 	if r.Gateway.IsValid() {
 		return MapEntryTypeStaticRoute
@@ -90,8 +121,10 @@ func (r Route) ToMapEntry(subnet SubnetSpec, activeINB INBNode, bridgeMode bool)
 			CIDR:        r.Destination,
 		},
 		Routing: MapEntryRouting{
-			NextHop: nexthop,
-			VNI:     r.getVNI(subnet),
+			NextHop:       nexthop,
+			VNI:           r.getVNI(subnet),
+			PeerNetworkID: r.Peer.NetworkID,
+			PeerSubnetID:  r.Peer.SubnetID,
 		},
 
 		Status: reconciler.StatusPending(),
@@ -102,7 +135,12 @@ func (r Route) ToMapEntry(subnet SubnetSpec, activeINB INBNode, bridgeMode bool)
 }
 
 func (r Route) Kind() RouteKind {
-	return RouteKindDefault
+	switch r.MapEntryType() {
+	case MapEntryTypePeeringRoute:
+		return RouteKindPeering
+	default:
+		return RouteKindDefault
+	}
 }
 
 type RouteKind uint8
@@ -112,12 +150,15 @@ var _ encoding.TextUnmarshaler = (*RouteKind)(nil)
 
 const (
 	RouteKindDefault RouteKind = iota
+	RouteKindPeering
 )
 
 func (kind RouteKind) String() string {
 	switch kind {
 	case RouteKindDefault:
 		return "R"
+	case RouteKindPeering:
+		return "P"
 	default:
 		return "?"
 	}
@@ -128,6 +169,8 @@ func (kind *RouteKind) UnmarshalText(text []byte) error {
 	switch string(text) {
 	case "R":
 		*kind = RouteKindDefault
+	case "P":
+		*kind = RouteKindPeering
 	default:
 		return fmt.Errorf("invalid RouteKind %q", string(text))
 	}
@@ -205,7 +248,7 @@ func NewRouteTable(db *statedb.DB) (statedb.RWTable[Route], error) {
 func (r Route) getNexthop(activeINB INBNode, bridgeMode bool) netip.Addr {
 	var nexthop netip.Addr
 
-	if r.EVPNGateway {
+	if r.EVPNGateway || r.isPeeringRoute() {
 		nexthop = r.unspecifiedNexthop()
 	} else if !bridgeMode {
 		if activeINB.IP.IsValid() {
