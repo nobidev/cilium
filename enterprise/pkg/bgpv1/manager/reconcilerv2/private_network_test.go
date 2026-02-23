@@ -13,6 +13,7 @@ package reconcilerv2
 import (
 	"context"
 	"log/slog"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -114,12 +115,76 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{{AdvertisementType: v1.BGPPrivateNetworkAdvert}},
 		}
 
-		privNet1Name        = "privnet-1"
-		privNet2Name        = "privnet-2"
-		privNet1            = tables.PrivateNetwork{Name: tables.NetworkName(privNet1Name), VNI: vni.MustFromUint32(101)}
-		privNet1NoVNI       = tables.PrivateNetwork{Name: tables.NetworkName(privNet1Name)}
-		privNet1ModifiedVNI = tables.PrivateNetwork{Name: tables.NetworkName(privNet1Name), VNI: vni.MustFromUint32(500)}
-		privNet2            = tables.PrivateNetwork{Name: tables.NetworkName(privNet2Name), VNI: vni.MustFromUint32(201)}
+		privNet1Name = "privnet-1"
+		privNet2Name = "privnet-2"
+
+		subnet1EVPNDualStack = tables.PrivateNetworkSubnet{
+			Name:   "subnet1-evpn-ds",
+			CIDRv4: netip.MustParsePrefix("10.10.10.0/24"),
+			CIDRv6: netip.MustParsePrefix("fd00::/64"),
+			Routes: []tables.PrivateNetworkRoute{
+				{Destination: netip.MustParsePrefix("10.0.0.0/24"), Gateway: netip.MustParseAddr("10.10.10.1"), EVPNGateway: false},
+				{Destination: netip.MustParsePrefix("0.0.0.0/0"), EVPNGateway: true},
+				{Destination: netip.MustParsePrefix("fd00:10::/64"), Gateway: netip.MustParseAddr("fd00::1"), EVPNGateway: false},
+				{Destination: netip.MustParsePrefix("::/0"), EVPNGateway: true},
+			},
+		}
+		subnet1EVPNv4Only = tables.PrivateNetworkSubnet{
+			Name:   "subnet1-evpn-v4-only",
+			CIDRv4: netip.MustParsePrefix("10.10.10.0/24"),
+			CIDRv6: netip.MustParsePrefix("fd00::/64"),
+			Routes: []tables.PrivateNetworkRoute{
+				{Destination: netip.MustParsePrefix("0.0.0.0/0"), EVPNGateway: true},
+				{Destination: netip.MustParsePrefix("::/0"), Gateway: netip.MustParseAddr("fd00::1"), EVPNGateway: false},
+			},
+		}
+		subnet1EVPNDisabled = tables.PrivateNetworkSubnet{
+			Name:   "subnet1-evpn-disabled",
+			CIDRv4: netip.MustParsePrefix("10.10.10.0/24"),
+			CIDRv6: netip.MustParsePrefix("fd00::/64"),
+			Routes: []tables.PrivateNetworkRoute{
+				{Destination: netip.MustParsePrefix("0.0.0.0/0"), Gateway: netip.MustParseAddr("10.10.10.1"), EVPNGateway: false},
+				{Destination: netip.MustParsePrefix("::/0"), Gateway: netip.MustParseAddr("fd00::1"), EVPNGateway: false},
+			},
+		}
+		subnet2EVPNEnabled = tables.PrivateNetworkSubnet{
+			Name:   "subnet2-evpn-enabled",
+			CIDRv4: netip.MustParsePrefix("20.20.20.0/24"),
+			Routes: []tables.PrivateNetworkRoute{
+				{Destination: netip.MustParsePrefix("10.0.0.0/24"), EVPNGateway: true},
+				{Destination: netip.MustParsePrefix("0.0.0.0/0"), Gateway: netip.MustParseAddr("10.10.10.1"), EVPNGateway: false},
+			},
+		}
+
+		privNet1 = tables.PrivateNetwork{
+			Name:    tables.NetworkName(privNet1Name),
+			VNI:     vni.MustFromUint32(101),
+			Subnets: []tables.PrivateNetworkSubnet{subnet1EVPNDualStack},
+		}
+		privNet1NoVNI = tables.PrivateNetwork{
+			Name:    tables.NetworkName(privNet1Name),
+			Subnets: []tables.PrivateNetworkSubnet{subnet1EVPNDualStack},
+		}
+		privNet1ModifiedVNI = tables.PrivateNetwork{
+			Name:    tables.NetworkName(privNet1Name),
+			VNI:     vni.MustFromUint32(500),
+			Subnets: []tables.PrivateNetworkSubnet{subnet1EVPNDualStack},
+		}
+		privNet1EVPNDisabled = tables.PrivateNetwork{
+			Name:    tables.NetworkName(privNet1Name),
+			VNI:     vni.MustFromUint32(500),
+			Subnets: []tables.PrivateNetworkSubnet{subnet1EVPNDisabled},
+		}
+		privNet1EVPNv4Only = tables.PrivateNetwork{
+			Name:    tables.NetworkName(privNet1Name),
+			VNI:     vni.MustFromUint32(500),
+			Subnets: []tables.PrivateNetworkSubnet{subnet1EVPNv4Only},
+		}
+		privNet2 = tables.PrivateNetwork{
+			Name:    tables.NetworkName(privNet2Name),
+			VNI:     vni.MustFromUint32(201),
+			Subnets: []tables.PrivateNetworkSubnet{subnet2EVPNEnabled},
+		}
 
 		privNetVRF1Config = v1.IsovalentBGPNodeVRF{
 			ConfigRef:         &vrf1PrivNetConfig.Name,
@@ -155,6 +220,14 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 				Addressing: v1alpha1.PrivateNetworkEndpointAddressing{IPv4: "10.10.10.2", IPv6: "fd00::2"},
 			},
 		}
+		privNet1EPOutsideSubnet = &tables.LocalWorkload{
+			EndpointID: 5,
+			Endpoint:   v1alpha1.PrivateNetworkEndpointSliceEndpoint{Name: "pn1ep-outside-subnet"},
+			Interface: v1alpha1.PrivateNetworkEndpointSliceInterface{
+				Network:    privNet1Name,
+				Addressing: v1alpha1.PrivateNetworkEndpointAddressing{IPv4: "10.10.99.99", IPv6: "fd00:10:10:99::99"},
+			},
+		}
 
 		privNet2EP1 = &tables.LocalWorkload{
 			EndpointID: 3,
@@ -179,6 +252,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 	vrf1EP1NLRI := bgp.NewEVPNIPPrefixRoute(vrf1RD, bgp.EthernetSegmentIdentifier{}, 0, 32, privNet1EP1.Interface.Addressing.IPv4, "0.0.0.0", privNet1.VNI.AsUint32())
 	vrf1EP1NLRIVNI500 := bgp.NewEVPNIPPrefixRoute(vrf1RD, bgp.EthernetSegmentIdentifier{}, 0, 32, privNet1EP1.Interface.Addressing.IPv4, "0.0.0.0", privNet1ModifiedVNI.VNI.AsUint32())
 	vrf1EP2IPv4NLRI := bgp.NewEVPNIPPrefixRoute(vrf1RD, bgp.EthernetSegmentIdentifier{}, 0, 32, privNet1EP2.Interface.Addressing.IPv4, "0.0.0.0", privNet1.VNI.AsUint32())
+	vrf1EP2IPv4NLRIVNI500 := bgp.NewEVPNIPPrefixRoute(vrf1RD, bgp.EthernetSegmentIdentifier{}, 0, 32, privNet1EP2.Interface.Addressing.IPv4, "0.0.0.0", privNet1ModifiedVNI.VNI.AsUint32())
 	vrf1EP2IPv6NLRI := bgp.NewEVPNIPPrefixRoute(vrf1RD, bgp.EthernetSegmentIdentifier{}, 0, 128, privNet1EP2.Interface.Addressing.IPv6, "0.0.0.0", privNet1.VNI.AsUint32())
 
 	vrf2RD, err := bgp.ParseRouteDistinguisher(testRouterID + ":2")
@@ -193,8 +267,8 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 		adverts                []*v1.IsovalentBGPAdvertisement
 		upsertPrivateNetworks  []tables.PrivateNetwork
 		deletePrivateNetworks  []tables.PrivateNetwork
-		upsertPrivNetWorkloads []*tables.LocalWorkload
-		deletePrivNetWorkloads []*tables.LocalWorkload
+		upsertPrivnetWorkloads []*tables.LocalWorkload
+		deletePrivnetWorkloads []*tables.LocalWorkload
 		vxlanDeviceMac         string
 
 		expectedAdverts VRFAdvertisements
@@ -226,7 +300,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			bgpNodeInstance:        privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config}),
 			vrfConfigs:             []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfig},
 			adverts:                []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert},
-			upsertPrivNetWorkloads: []*tables.LocalWorkload{privNet1EP1},
+			upsertPrivnetWorkloads: []*tables.LocalWorkload{privNet1EP1},
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: v4OnlyPrivnetAdvertisement,
 			},
@@ -255,7 +329,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			vrfConfigs:             []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfig, vrf2PrivNetConfig},
 			adverts:                []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert, vrf2PrivNetAdvert},
 			upsertPrivateNetworks:  []tables.PrivateNetwork{privNet2},
-			upsertPrivNetWorkloads: []*tables.LocalWorkload{privNet2EP1},
+			upsertPrivnetWorkloads: []*tables.LocalWorkload{privNet2EP1},
 			vxlanDeviceMac:         testVxlanDeviceMAC1,
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: v4OnlyPrivnetAdvertisement,
@@ -279,7 +353,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			bgpNodeInstance:        privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config, privNetVRF2Config}),
 			vrfConfigs:             []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfig, vrf2PrivNetConfig},
 			adverts:                []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert, vrf2PrivNetAdvert},
-			upsertPrivNetWorkloads: []*tables.LocalWorkload{privNet2EP2},
+			upsertPrivnetWorkloads: []*tables.LocalWorkload{privNet2EP2},
 			vxlanDeviceMac:         testVxlanDeviceMAC1,
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: v4OnlyPrivnetAdvertisement,
@@ -306,7 +380,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			bgpNodeInstance:        privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config, privNetVRF2Config}),
 			vrfConfigs:             []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfig, vrf2PrivNetConfig},
 			adverts:                []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert, vrf2PrivNetAdvert},
-			deletePrivNetWorkloads: []*tables.LocalWorkload{privNet2EP1},
+			deletePrivnetWorkloads: []*tables.LocalWorkload{privNet2EP1},
 			vxlanDeviceMac:         testVxlanDeviceMAC1,
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: v4OnlyPrivnetAdvertisement,
@@ -347,7 +421,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			bgpNodeInstance:        privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config}),
 			vrfConfigs:             []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfig},
 			adverts:                []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert},
-			upsertPrivNetWorkloads: []*tables.LocalWorkload{privNet1EP2},
+			upsertPrivnetWorkloads: []*tables.LocalWorkload{privNet1EP2},
 			vxlanDeviceMac:         testVxlanDeviceMAC1,
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: v4OnlyPrivnetAdvertisement,
@@ -423,7 +497,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			bgpNodeInstance:        privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config}),
 			vrfConfigs:             []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfigDualStack},
 			adverts:                []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert},
-			deletePrivNetWorkloads: []*tables.LocalWorkload{privNet1EP2},
+			deletePrivnetWorkloads: []*tables.LocalWorkload{privNet1EP2},
 			vxlanDeviceMac:         testVxlanDeviceMAC1,
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: dualStackPrivnetAdvertisement,
@@ -472,6 +546,61 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:                  "disable EVPN routes in private network 1, withdraw all paths",
+			bgpNodeInstance:       privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config}),
+			vrfConfigs:            []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfigDualStack},
+			adverts:               []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert},
+			upsertPrivateNetworks: []tables.PrivateNetwork{privNet1EVPNDisabled},
+			vxlanDeviceMac:        testVxlanDeviceMAC2,
+			expectedAdverts: VRFAdvertisements{
+				privNet1Name: dualStackPrivnetAdvertisement,
+			},
+			expectedPaths: vrfSimplePathsMap{},
+		},
+		{
+			name:                   "enable EVPN only for IPv4 in private network 1, advertise only IPv4 paths",
+			bgpNodeInstance:        privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config}),
+			vrfConfigs:             []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfigDualStack},
+			adverts:                []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert},
+			upsertPrivateNetworks:  []tables.PrivateNetwork{privNet1EVPNv4Only},
+			upsertPrivnetWorkloads: []*tables.LocalWorkload{privNet1EP2},
+			vxlanDeviceMac:         testVxlanDeviceMAC2,
+			expectedAdverts: VRFAdvertisements{
+				privNet1Name: dualStackPrivnetAdvertisement,
+			},
+			expectedPaths: vrfSimplePathsMap{
+				privNet1Name: resourceAFSimplePathsMap{
+					resource.Key{Name: privNet1EP1.Endpoint.Name}: afSimplePathsMap{
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: []string{vrf1EP1NLRIVNI500.String()},
+					},
+					resource.Key{Name: privNet1EP2.Endpoint.Name}: afSimplePathsMap{
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: []string{vrf1EP2IPv4NLRIVNI500.String()},
+					},
+				},
+			},
+		},
+		{
+			name:                   "add workload outside EVPN-enabled subnet, do not advertise it",
+			bgpNodeInstance:        privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config}),
+			vrfConfigs:             []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfigDualStack},
+			adverts:                []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert},
+			upsertPrivnetWorkloads: []*tables.LocalWorkload{privNet1EPOutsideSubnet},
+			vxlanDeviceMac:         testVxlanDeviceMAC2,
+			expectedAdverts: VRFAdvertisements{
+				privNet1Name: dualStackPrivnetAdvertisement,
+			},
+			expectedPaths: vrfSimplePathsMap{
+				privNet1Name: resourceAFSimplePathsMap{
+					resource.Key{Name: privNet1EP1.Endpoint.Name}: afSimplePathsMap{
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: []string{vrf1EP1NLRIVNI500.String()},
+					},
+					resource.Key{Name: privNet1EP2.Endpoint.Name}: afSimplePathsMap{
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: []string{vrf1EP2IPv4NLRIVNI500.String()},
+					},
+				},
+			},
+		},
 	}
 
 	req := require.New(t)
@@ -490,14 +619,14 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 	db := statedb.New()
 	privateNetworksTable, err := tables.NewPrivateNetworksTable(db)
 	req.NoError(err)
-	privNetWorkloadsTable, err := tables.NewLocalWorkloadsTable(db)
+	privnetWorkloadsTable, err := tables.NewLocalWorkloadsTable(db)
 	req.NoError(err)
 
 	svcVRFReconciler := &PrivateNetworkReconciler{
 		logger:           logger,
 		db:               db,
 		privateNetworks:  privateNetworksTable,
-		privNetWorkloads: privNetWorkloadsTable,
+		privnetWorkloads: privnetWorkloadsTable,
 		adverts:          isoAdverts,
 		evpnPaths:        &evpnPaths{},
 		metadata:         make(map[string]privateNetworkReconcilerMetadata),
@@ -528,7 +657,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 				advertMockStore.Upsert(advert)
 			}
 
-			tx := db.WriteTxn(privateNetworksTable, privNetWorkloadsTable)
+			tx := db.WriteTxn(privateNetworksTable, privnetWorkloadsTable)
 			// upsert/delete privnets & privnet workloads in statedb
 			for _, privNet := range tt.upsertPrivateNetworks {
 				_, _, err = privateNetworksTable.Insert(tx, privNet)
@@ -538,12 +667,12 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 				_, _, err = privateNetworksTable.Delete(tx, privNet)
 				req.NoError(err)
 			}
-			for _, w := range tt.upsertPrivNetWorkloads {
-				_, _, err = privNetWorkloadsTable.Insert(tx, w)
+			for _, w := range tt.upsertPrivnetWorkloads {
+				_, _, err = privnetWorkloadsTable.Insert(tx, w)
 				req.NoError(err)
 			}
-			for _, w := range tt.deletePrivNetWorkloads {
-				_, _, err = privNetWorkloadsTable.Delete(tx, w)
+			for _, w := range tt.deletePrivnetWorkloads {
+				_, _, err = privnetWorkloadsTable.Delete(tx, w)
 				req.NoError(err)
 			}
 			tx.Commit()
