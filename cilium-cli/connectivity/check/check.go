@@ -91,6 +91,7 @@ type Parameters struct {
 	NamespaceLabels           map[string]string
 	NamespaceAnnotations      map[string]string
 	ExternalTargetIPv6Capable bool
+	ExternalTargetFakeDNS     bool
 	ExternalTarget            string
 	ExternalOtherTarget       string
 	ExternalCIDRv4            string
