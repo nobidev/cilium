@@ -8,9 +8,9 @@
 # or reproduction of this material is strictly forbidden unless prior written
 # permission is obtained from Isovalent Inc.
 
-FROM vmware/vcsim:v0.52.0@sha256:3d2924c88749abcd2965a41171faa8e583707d8fe38b6d1282fe4079df341fa0 AS vcsim
+FROM vmware/vcsim:v0.53.0@sha256:59b5164e17bb0b7bab2228fffb8473537b61fa7b5653f944365c44b69e0a9858 AS vcsim
 
-FROM vmware/govc:v0.52.0@sha256:cc1d61ab14266ab3c22d8752f796558dc0b5813db450a70b4529a87a91397a13 AS govc
+FROM vmware/govc:v0.53.0@sha256:c8b440d1f20f4b92a1b658f1b49c0fcc86f0bd8a541c13b6f7c527193f70f886 AS govc
 
 FROM docker.io/library/alpine:3.23.3@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659
 COPY --from=vcsim /vcsim /usr/bin/vcsim
