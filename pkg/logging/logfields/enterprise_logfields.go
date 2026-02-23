@@ -120,4 +120,9 @@ const (
 
 	Stdout = "stdout"
 	Stderr = "stderr"
+
+	Xid    = "xid"    // DHCP transaction ID
+	Chaddr = "chaddr" // DHCP client hardware address
+	Yiaddr = "yiaddr" // DHCP "your IP" address
+	Giaddr = "giaddr" // DHCP gateway IP address
 )
