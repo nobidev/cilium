@@ -94,9 +94,6 @@ spec:
                   type: object
                 minItems: 1
                 type: array
-                x-kubernetes-list-map-keys:
-                - interface
-                x-kubernetes-list-type: map
               nodeSelector:
                 description: |-
                   NodeSelector selects the nodes to which this configuration applies.

@@ -521,8 +521,6 @@ type PrivateNetworkNodeAttachmentSpec struct {
 	// Attachments is a list of egress devices to be configured on the selected nodes.
 	//
 	// +kubebuilder:validation:Required
-	// +listType=map
-	// +listMapKey=interface
 	// +kubebuilder:validation:MinItems=1
 	Attachments []PrivateNetworkAttachment `json:"attachments"`
 }
