@@ -26,7 +26,7 @@ COPY helm/ helm/
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o clife-manager cmd/main.go
 
 # Use distroless as minimal base image to package the manager binary
-FROM registry.redhat.io/ubi9/ubi-micro:9.5-1742939100@sha256:414cfa255ea10eaef4528a26d5618eb67cf487b635ee20f8f14b9317bfd6a4be
+FROM registry.redhat.io/ubi9/ubi-micro:9.7-1771346390@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
 
 LABEL name="CLife, Cilium lifecycle operator of Isovalent Networking for Kubernetes" \
       maintainer="support@isovalent.com" \
