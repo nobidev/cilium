@@ -29,6 +29,9 @@ type LocalWorkload struct {
 	// Namespace is the Kubernetes namespace this endpoint lives in.
 	Namespace string
 
+	// DHCP marks whether the network IP is allocated via DHCP.
+	DHCP bool
+
 	// Endpoint contains the identifiers from the pod network point of view.
 	Endpoint iso_v1alpha1.PrivateNetworkEndpointSliceEndpoint
 
