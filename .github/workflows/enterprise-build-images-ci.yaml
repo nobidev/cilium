@@ -2,11 +2,17 @@ name: Enterprise Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request: {}
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
   push:
     branches:
       - main-ce
       - ft/main-ce/**
+  merge_group:
+    types: [checks_requested]
 
   # If the cache was cleaned we should re-build the cache with the latest commit
   workflow_run:
@@ -39,32 +45,137 @@ jobs:
       matrix:
         include:
           - name: cilium
+            distro: ubi
             dockerfile: ./enterprise/images/cilium/Dockerfile
-            # renovate: datasource=docker
-            base_image: quay.io/isovalent-dev/cilium-runtime-ubi:0c926340b0a18a21dd4f0c56676e230a0be8af47
-            postfix: ubi
-            image_name: cilium
+            image_name: cilium-ubi
+            build_args: |
+              PUSH=true
+              # renovate: datasource=docker
+              RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-ubi:0c926340b0a18a21dd4f0c56676e230a0be8af47
+              # renovate: datasource=docker
+              UBI_IMAGE=quay.io/isovalent-dev/cilium-runtime-ubi:0c926340b0a18a21dd4f0c56676e230a0be8af47
+              OPERATOR_VARIANT=cilium-ubi
 
           - name: operator
+            distro: ubi
             dockerfile: ./enterprise/images/operator/Dockerfile
-            # renovate: datasource=docker
-            base_image: registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
-            postfix: ubi
-            image_name: operator-generic
+            image_name: operator-generic-ubi
+            build_args: |
+              PUSH=true
+              # renovate: datasource=docker
+              RUNTIME_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+              # renovate: datasource=docker
+              UBI_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+              OPERATOR_VARIANT=operator-generic-ubi
 
           - name: hubble-relay
+            distro: ubi
             dockerfile: ./enterprise/images/hubble-relay/Dockerfile
-            # renovate: datasource=docker
-            base_image: registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
-            postfix: ubi
-            image_name: hubble-relay
+            image_name: hubble-relay-ubi
+            build_args: |
+              PUSH=true
+              # renovate: datasource=docker
+              RUNTIME_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+              # renovate: datasource=docker
+              UBI_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+              OPERATOR_VARIANT=hubble-relay-ubi
 
           - name: clustermesh-apiserver
+            distro: ubi
             dockerfile: ./enterprise/images/clustermesh-apiserver/Dockerfile
-            # renovate: datasource=docker
-            base_image: registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
-            postfix: ubi
+            image_name: clustermesh-apiserver-ubi
+            build_args: |
+              PUSH=true
+              # renovate: datasource=docker
+              RUNTIME_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+              # renovate: datasource=docker
+              UBI_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+              OPERATOR_VARIANT=clustermesh-apiserver-ubi
+
+          - name: cilium
+            distro: chainguard
+            dockerfile: ./images/cilium/Dockerfile
+            image_name: cilium
+            platforms: linux/amd64,linux/arm64
+            build_args: |
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:b262224d718531d0c8fa8b72a730e75b3de26c06@sha256:0d5f8a8fb95e8a92692d7cc0781d6c76c84ff40e3731451bb75c40e4ec7da483
+
+          - name: cilium-cli
+            distro: distroless
+            dockerfile: ./cilium-cli/Dockerfile
+            image_name: cilium-cli
+            platforms: linux/amd64
+            require-dir: cilium-cli
+            build_args: |
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:b262224d718531d0c8fa8b72a730e75b3de26c06@sha256:0d5f8a8fb95e8a92692d7cc0781d6c76c84ff40e3731451bb75c40e4ec7da483
+
+          - name: operator-aws
+            distro: scratch
+            dockerfile: ./images/operator/Dockerfile
+            image_name: operator-aws
+            platforms: linux/amd64,linux/arm64
+            build_args: |
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:b262224d718531d0c8fa8b72a730e75b3de26c06@sha256:0d5f8a8fb95e8a92692d7cc0781d6c76c84ff40e3731451bb75c40e4ec7da483
+              OPERATOR_VARIANT=operator-aws
+
+          - name: operator-azure
+            distro: scratch
+            dockerfile: ./images/operator/Dockerfile
+            image_name: operator-azure
+            platforms: linux/amd64,linux/arm64
+            build_args: |
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:b262224d718531d0c8fa8b72a730e75b3de26c06@sha256:0d5f8a8fb95e8a92692d7cc0781d6c76c84ff40e3731451bb75c40e4ec7da483
+              OPERATOR_VARIANT=operator-azure
+
+          - name: operator-alibabacloud
+            distro: scratch
+            dockerfile: ./images/operator/Dockerfile
+            image_name: operator-alibabacloud
+            platforms: linux/amd64,linux/arm64
+            build_args: |
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:b262224d718531d0c8fa8b72a730e75b3de26c06@sha256:0d5f8a8fb95e8a92692d7cc0781d6c76c84ff40e3731451bb75c40e4ec7da483
+              OPERATOR_VARIANT=operator-alibabacloud
+
+          - name: operator-generic
+            distro: scratch
+            dockerfile: ./images/operator/Dockerfile
+            image_name: operator-generic
+            platforms: linux/amd64,linux/arm64
+            build_args: |
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:b262224d718531d0c8fa8b72a730e75b3de26c06@sha256:0d5f8a8fb95e8a92692d7cc0781d6c76c84ff40e3731451bb75c40e4ec7da483
+              OPERATOR_VARIANT=operator-generic
+
+          - name: hubble-relay
+            distro: distroless
+            dockerfile: ./images/hubble-relay/Dockerfile
+            image_name: hubble-relay
+            platforms: linux/amd64,linux/arm64
+            build_args: |
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:b262224d718531d0c8fa8b72a730e75b3de26c06@sha256:0d5f8a8fb95e8a92692d7cc0781d6c76c84ff40e3731451bb75c40e4ec7da483
+
+          - name: clustermesh-apiserver
+            distro: distroless
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
             image_name: clustermesh-apiserver
+            platforms: linux/amd64,linux/arm64
+            build_args: |
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:b262224d718531d0c8fa8b72a730e75b3de26c06@sha256:0d5f8a8fb95e8a92692d7cc0781d6c76c84ff40e3731451bb75c40e4ec7da483
+
+          - name: docker-plugin
+            distro: scratch
+            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+            image_name: docker-plugin
+            platforms: linux/amd64,linux/arm64
+            build_args: |
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:b262224d718531d0c8fa8b72a730e75b3de26c06@sha256:0d5f8a8fb95e8a92692d7cc0781d6c76c84ff40e3731451bb75c40e4ec7da483
+
+          - name: cilium-dnsproxy
+            distro: chainguard
+            dockerfile: ./enterprise/fqdn-proxy/images/cilium-dnsproxy/Dockerfile
+            image_name: cilium-dnsproxy
+            platforms: linux/amd64,linux/arm64
+            build_args: |
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:b262224d718531d0c8fa8b72a730e75b3de26c06@sha256:0d5f8a8fb95e8a92692d7cc0781d6c76c84ff40e3731451bb75c40e4ec7da483
 
     steps:
       - name: Checkout pull request branch
@@ -135,15 +246,25 @@ jobs:
             echo floating_tag=${floating_tag} >> $GITHUB_OUTPUT
           fi
 
-          normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{matrix.postfix}}-ci:${tag}"
-          echo primary_tag=${normal_tag} >> $GITHUB_OUTPUT
+          normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ci:${tag}"
+          race_tag="${normal_tag}-race"
+          unstripped_tag="${normal_tag}-unstripped"
           extra_tags="--tag ${normal_tag}"
 
           if [ -n "${floating_tag}" ]; then
-            floating_normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{matrix.postfix}}-ci:${floating_tag}"
+            floating_normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ci:${floating_tag}"
             extra_tags="${extra_tags} --tag ${floating_normal_tag}"
           fi
 
+          if [[ "${{ github.event_name }}" == 'merge_group' || "${{ github.event_name }}" == 'push' ]]; then
+            # Don't build race and unstripped images for merge_group or push events.
+            race_tag=""
+            unstripped_tag=""
+          fi
+
+          echo primary_tag=${normal_tag} >> $GITHUB_OUTPUT
+          echo race_tag=${race_tag} >> $GITHUB_OUTPUT
+          echo unstripped_tag=${unstripped_tag} >> $GITHUB_OUTPUT
           echo extra_tags=${extra_tags} >> $GITHUB_OUTPUT
 
       - name: Check for disk usage
@@ -190,60 +311,128 @@ jobs:
           df -h
           docker buildx du
 
+      - name: Check build constraints
+        id: check
+        run: |
+          if [[ -z "${{ matrix.require-dir }}" ]] ||
+             [[ -d "${{ matrix.require-dir }}" ]]; then
+            echo build="true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
-      - name: CI Build ${{ matrix.name }} UBI based
+      - name: CI Build ${{ matrix.name }} UBI
+        if: ${{ steps.check.outputs.build != '' && matrix.distro == 'ubi' }}
         id: docker_build_ci_ubi
         shell: bash
         working-directory: ./enterprise/images
         run: |
+          # shellcheck disable=SC2046
+          export $(echo "${{ matrix.build_args }}" | grep -v "^[[:space:]]*#" | xargs)
           IMAGE_TAG=${{ steps.tag.outputs.tag }} \
           REGISTRIES=quay.io/${{ env.QUAY_ORGANIZATION_DEV }} \
-          PUSH=true \
-          RUNTIME_IMAGE=${{ matrix.base_image }} \
-          UBI_IMAGE=${{ matrix.base_image }} \
-          OPERATOR_VARIANT=${{ matrix.image_name }} \
           EXTRA_ARGS="${{ steps.tag.outputs.extra_tags }}" \
           make ${{ matrix.name }}-image
 
+      - name: CI Build ${{ matrix.name }}
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        if: ${{ steps.check.outputs.build != '' && matrix.distro != 'ubi' }}
+        id: docker_build_ci
+        with:
+          provenance: false
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: ${{ matrix.platforms }}
+          tags: ${{ steps.tag.outputs.primary_tag }}
+          target: release
+          build-args: ${{ matrix.build_args }}
+
+      - name: CI race detection Build ${{ matrix.name }}
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        id: docker_build_ci_detect_race_condition
+        if: ${{ steps.check.outputs.build != '' && steps.tag.outputs.race_tag != '' && matrix.distro != 'ubi' }}
+        with:
+          provenance: false
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.tag.outputs.race_tag }}
+          target: release
+          build-args: |
+            BASE_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:b262224d718531d0c8fa8b72a730e75b3de26c06@sha256:0d5f8a8fb95e8a92692d7cc0781d6c76c84ff40e3731451bb75c40e4ec7da483
+            ${{ matrix.build_args }}
+            MODIFIERS="LOCKDEBUG=1 RACE=1"
+
+      - name: CI Unstripped Binaries Build ${{ matrix.name }}
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        id: docker_build_ci_unstripped
+        if: ${{ steps.check.outputs.build != '' && steps.tag.outputs.unstripped_tag != '' && matrix.distro != 'ubi' }}
+        with:
+          provenance: false
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.tag.outputs.unstripped_tag }}
+          target: release
+          build-args: |
+            ${{ matrix.build_args }}
+            MODIFIERS="NOSTRIP=1"
+
       - name: CI Build ${{ matrix.name }} digest
         id: docker_digest
+        if: ${{ steps.check.outputs.build != '' }}
         shell: bash
         run: |
           digest=$(images/scripts/get-image-digest.sh "${{ steps.tag.outputs.primary_tag }}")
           echo digest=${digest} >> $GITHUB_OUTPUT
 
-      - name: Sign Container Images
-        run: |
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci@${{ steps.docker_digest.outputs.digest }}
-
-      - name: Generate SBOM
-        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
+      - name: Generate SBOM, Sign, and Attest Main CI Image
+        if: ${{ matrix.name != 'cilium-cli' && steps.check.outputs.build != '' }}
+        uses: ./.github/actions/cosign
         with:
-          artifact-name: sbom_ci_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
-          output-file: ./sbom_ci_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
-          image: ${{ steps.tag.outputs.primary_tag }}
+          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ci@${{ steps.docker_digest.outputs.digest }}"
+          image_tag: "${{ steps.tag.outputs.primary_tag }}"
+          sbom_name: "ci_${{ matrix.name }}_${{ matrix.distro }}_${{ steps.tag.outputs.tag }}"
 
-      - name: Attach SBOM attestation to container image
-        run: |
-          cosign attest -y --predicate sbom_ci_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.primary_tag }}
+      - name: Generate SBOM, Sign, and Attest Race Detection Image
+        if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_detect_race_condition.outcome != 'skipped' }}
+        uses: ./.github/actions/cosign
+        with:
+          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}"
+          image_tag: "${{ steps.tag.outputs.race_tag }}"
+          sbom_name: "ci_race_${{ matrix.name }}_${{ matrix.distro }}_${{ steps.tag.outputs.tag }}"
+          install_cosign: 'false'
+
+      - name: Generate SBOM, Sign, and Attest Unstripped Image
+        if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_unstripped.outcome != 'skipped' }}
+        uses: ./.github/actions/cosign
+        with:
+          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}"
+          image_tag: "${{ steps.tag.outputs.unstripped_tag }}"
+          sbom_name: "ci_unstripped_${{ matrix.name }}_${{ matrix.distro }}_${{ steps.tag.outputs.tag }}"
+          install_cosign: 'false'
 
       - name: CI Image Releases digests
+        if: ${{ steps.check.outputs.build != '' }}
         shell: bash
         run: |
           mkdir -p image-digest/
           # shellcheck disable=SC2078
           if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
-            echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-${{ matrix.postfix }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_digest.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+            echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.image_name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_digest.outputs.digest }}" > image-digest/${{ matrix.image_name }}.txt
           fi
-          echo "${{ steps.tag.outputs.primary_tag}}@${{ steps.docker_digest.outputs.digest }}" >> image-digest/${{ matrix.name }}-${{ matrix.postfix }}.txt
+          echo "${{ steps.tag.outputs.primary_tag}}@${{ steps.docker_digest.outputs.digest }}" >> image-digest/${{ matrix.image_name }}.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: ${{ steps.check.outputs.build != '' }}
         with:
-          name: image-digest ${{ matrix.name }}-${{ matrix.postfix }}
+          name: image-digest ${{ matrix.image_name }}
           path: image-digest
           retention-days: 1
 
@@ -275,3 +464,56 @@ jobs:
         run: |
           cd image-digest/
           find -type f | sort | xargs -d '\n' cat
+
+  push-chart:
+    name: Push dev chart
+    needs: build-and-push-prs
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    uses: ./.github/workflows/push-chart-ci.yaml
+    with:
+      checkout_ref: ${{ needs.build-and-push-prs.outputs.sha }}
+      image_tag: ${{ needs.build-and-push-prs.outputs.sha }}
+    secrets: inherit
+
+  pre-comment:
+    # Avoid running the "Trigger CI from renovate PRs" environment if we don't need to.
+    name: Pre-Comment
+    needs: build-and-push-prs
+    runs-on: ubuntu-24.04
+    if: ${{
+         github.event_name == 'pull_request' &&
+         github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
+        }}
+    steps:
+    - name: Debug
+      run: |
+        echo ${{ github.event.pull_request.user.login }}
+        echo ${{ github.event_name }}
+
+  comment:
+    name: Post test comment for Renovate PRs after images built
+    runs-on: ubuntu-24.04
+    needs: pre-comment
+    environment: "Trigger CI from renovate PRs"
+    if: ${{
+         github.event_name == 'pull_request' &&
+         github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
+        }}
+    steps:
+      - name: Generate Github App Token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        id: generate-token
+        with:
+          app-id: ${{ secrets.AUTO_COMMENT_BOT_APP_ID }}
+          private-key: ${{ secrets.AUTO_COMMENT_BOT_PEM }}
+      - name: Post /test comment
+        env:
+          TOKEN: ${{ steps.generate-token.outputs.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo ${TOKEN} | gh auth login --with-token
+          gh pr --repo ${GITHUB_REPOSITORY} comment ${PULL_REQUEST_NUMBER} --body "/test"
