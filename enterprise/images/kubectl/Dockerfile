@@ -1,5 +1,16 @@
 ARG BASE_IMAGE=debian:13.3-slim@sha256:f6e2cfac5cf956ea044b4bd75e6397b4372ad88fe00908045e9a0d21712ae3ba
 
+FROM debian:13.3-slim@sha256:f6e2cfac5cf956ea044b4bd75e6397b4372ad88fe00908045e9a0d21712ae3ba AS downloader
+
+# renovate: datasource=github-releases depName=kubernetes/kubernetes
+ARG KUBECTL_VERSION=v1.34.2
+ARG TARGETARCH
+
+# Download kubectl for the target architecture.
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates;
+RUN set -euo pipefail; \
+    curl -L -o /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl";
+
 FROM ${BASE_IMAGE} AS release
 
 LABEL name="Kubectl for Isovalent Networking for Kubernetes" \
@@ -21,14 +32,9 @@ LABEL org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 ARG VERSION=0.0.0
 LABEL version=${VERSION}
 
-# renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBECTL_VERSION=v1.34.2
-ARG TARGETARCH
-
 # Install kubectl for the target architecture.
-RUN set -euo pipefail; \
-    curl -L -o /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl"; \
-    chmod +x /usr/local/bin/kubectl
+COPY --from=downloader /usr/local/bin/kubectl /usr/local/bin/kubectl
+RUN chmod +x /usr/local/bin/kubectl
 
 COPY LICENSE /usr/share/licenses/isovalent/
 RUN ln -s /usr/share/licenses /licenses
