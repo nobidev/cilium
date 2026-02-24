@@ -127,7 +127,11 @@ jobs:
         run: |
           NEW_IMAGE="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docs-builder:${{ needs.build-and-push.outputs.tag }}@${{ needs.build-and-push.outputs.digest }}"
           # Run in Docker to prevent the script from accessing the environment.
-          docker run --rm -v $PWD:/cilium -w /cilium "${NEW_IMAGE}" \
+          docker run --rm \
+                      --volume $PWD/Documentation:/cilium/Documentation \
+                      --volume $PWD/.github:/cilium/.github \
+                      --workdir /cilium \
+                      "${NEW_IMAGE}" \
               bash -c "git config --global --add safe.directory /cilium && \
                        /cilium/Documentation/update-docs-builder-image.sh ${NEW_IMAGE}"
           git commit -sam "ci: update docs-builder"
