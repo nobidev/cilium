@@ -102,7 +102,7 @@ const (
 
 func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
-	slog.SetLogLoggerLevel(slog.LevelDebug) // used by test GoBGP instances
+	slog.SetLogLoggerLevel(slog.LevelInfo) // used by test GoBGP instances
 	k8sVersion.Force(k8sTestutils.DefaultVersion)
 
 	types.SetName(testNodeName)
@@ -223,6 +223,7 @@ func TestPrivilegedScript(t *testing.T) {
 						EnableBFD:                       true,
 						EnableIPv4EgressGatewayHA:       true,
 					},
+					StateDir: t.TempDir(),
 				}
 				return option.Config
 			},
@@ -285,7 +286,7 @@ func TestPrivilegedScript(t *testing.T) {
 			cfg.Enabled = true
 		})
 
-		hiveLog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+		hiveLog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelInfo))
 		t.Cleanup(func() {
 			assert.NoError(t, h.Stop(hiveLog, context.TODO()))
 		})
