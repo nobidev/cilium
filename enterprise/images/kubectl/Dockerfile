@@ -38,5 +38,7 @@ RUN chmod +x /usr/local/bin/kubectl
 
 COPY LICENSE /usr/share/licenses/isovalent/
 RUN ln -s /usr/share/licenses /licenses
+# use uid:gid for the nonroot user for compatibility with runAsNonRoot
+USER 65532:65532
 
 CMD ["kubectl"]

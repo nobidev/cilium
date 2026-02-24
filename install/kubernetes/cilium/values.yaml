@@ -3596,7 +3596,7 @@ envoy:
       # @schema
       override: ~
       repository: quay.io/isovalent/kubectl
-      tag: 1.0.1
+      tag: 1.0.2
       digest: ""
       useDigest: false
       pullPolicy: "Always"

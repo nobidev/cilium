@@ -1899,7 +1899,7 @@
    * - :spelling:ignore:`envoy.kubectl.image.tag`
      - 
      - string
-     - ``"1.0.1"``
+     - ``"1.0.2"``
    * - :spelling:ignore:`envoy.kubectl.image.useDigest`
      - 
      - bool
