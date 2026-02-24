@@ -58,6 +58,7 @@ images+=( [quay.io/isovalent/clustermesh-apiserver-ubi]='67e24f5acc50155a8ce3c95
 images+=( [quay.io/isovalent/hubble-relay-ubi]='67e2482773fd1d2194aab2c3' )
 images+=( [quay.io/isovalent/operator-generic-ubi]='67e134c5c66279ded73d5d6f' )
 images+=( [quay.io/isovalent/startup-script-ubi]='67e50d549096ba2e8e40446d' )
+images+=( [quay.io/isovalent/kubectl-ubi]='699dac1e3fbf700b49c88f7d' )
 
 for image in "${!images[@]}"; do
   preflight $image:${tag} $CL_PYXIS_TOKEN ${images[$image]} false $res
