@@ -92,7 +92,7 @@ jobs:
           echo "version=${version}" >> $GITHUB_OUTPUT
           echo ${version}
 
-          SHA="${{ github.event.pull_request.head.sha }}"
+          SHA="${{ github.event.pull_request.head.sha || github.sha }}"
 
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
