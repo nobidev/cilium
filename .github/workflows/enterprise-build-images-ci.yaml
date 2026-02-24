@@ -98,7 +98,7 @@ jobs:
             image_name: cilium
             platforms: linux/amd64,linux/arm64
             build_args: |
-              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:511b21fe65cbd82ce0aeba148f7ea2cccac3ad58@sha256:9547edc58ff571c8046a1597d57541306b138c2d85c4a2cd178cc91bb8b13ffd
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:2fa9e6ee74f24befa92d44d3a776d1ba348b43af@sha256:b7244f108b1976dc384e6a442a02e28c2913ac04b3a1f3033e614245e9b98e7b
 
           - name: cilium-cli
             distro: distroless
@@ -107,7 +107,7 @@ jobs:
             platforms: linux/amd64
             require-dir: cilium-cli
             build_args: |
-              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:511b21fe65cbd82ce0aeba148f7ea2cccac3ad58@sha256:9547edc58ff571c8046a1597d57541306b138c2d85c4a2cd178cc91bb8b13ffd
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:2fa9e6ee74f24befa92d44d3a776d1ba348b43af@sha256:b7244f108b1976dc384e6a442a02e28c2913ac04b3a1f3033e614245e9b98e7b
 
           - name: operator-aws
             distro: scratch
@@ -115,7 +115,7 @@ jobs:
             image_name: operator-aws
             platforms: linux/amd64,linux/arm64
             build_args: |
-              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:511b21fe65cbd82ce0aeba148f7ea2cccac3ad58@sha256:9547edc58ff571c8046a1597d57541306b138c2d85c4a2cd178cc91bb8b13ffd
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:2fa9e6ee74f24befa92d44d3a776d1ba348b43af@sha256:b7244f108b1976dc384e6a442a02e28c2913ac04b3a1f3033e614245e9b98e7b
               OPERATOR_VARIANT=operator-aws
 
           - name: operator-azure
@@ -124,7 +124,7 @@ jobs:
             image_name: operator-azure
             platforms: linux/amd64,linux/arm64
             build_args: |
-              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:511b21fe65cbd82ce0aeba148f7ea2cccac3ad58@sha256:9547edc58ff571c8046a1597d57541306b138c2d85c4a2cd178cc91bb8b13ffd
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:2fa9e6ee74f24befa92d44d3a776d1ba348b43af@sha256:b7244f108b1976dc384e6a442a02e28c2913ac04b3a1f3033e614245e9b98e7b
               OPERATOR_VARIANT=operator-azure
 
           - name: operator-alibabacloud
@@ -133,7 +133,7 @@ jobs:
             image_name: operator-alibabacloud
             platforms: linux/amd64,linux/arm64
             build_args: |
-              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:511b21fe65cbd82ce0aeba148f7ea2cccac3ad58@sha256:9547edc58ff571c8046a1597d57541306b138c2d85c4a2cd178cc91bb8b13ffd
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:2fa9e6ee74f24befa92d44d3a776d1ba348b43af@sha256:b7244f108b1976dc384e6a442a02e28c2913ac04b3a1f3033e614245e9b98e7b
               OPERATOR_VARIANT=operator-alibabacloud
 
           - name: operator-generic
@@ -142,7 +142,7 @@ jobs:
             image_name: operator-generic
             platforms: linux/amd64,linux/arm64
             build_args: |
-              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:511b21fe65cbd82ce0aeba148f7ea2cccac3ad58@sha256:9547edc58ff571c8046a1597d57541306b138c2d85c4a2cd178cc91bb8b13ffd
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:2fa9e6ee74f24befa92d44d3a776d1ba348b43af@sha256:b7244f108b1976dc384e6a442a02e28c2913ac04b3a1f3033e614245e9b98e7b
               OPERATOR_VARIANT=operator-generic
 
           - name: hubble-relay
@@ -151,7 +151,7 @@ jobs:
             image_name: hubble-relay
             platforms: linux/amd64,linux/arm64
             build_args: |
-              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:511b21fe65cbd82ce0aeba148f7ea2cccac3ad58@sha256:9547edc58ff571c8046a1597d57541306b138c2d85c4a2cd178cc91bb8b13ffd
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:2fa9e6ee74f24befa92d44d3a776d1ba348b43af@sha256:b7244f108b1976dc384e6a442a02e28c2913ac04b3a1f3033e614245e9b98e7b
 
           - name: clustermesh-apiserver
             distro: distroless
@@ -159,7 +159,7 @@ jobs:
             image_name: clustermesh-apiserver
             platforms: linux/amd64,linux/arm64
             build_args: |
-              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:511b21fe65cbd82ce0aeba148f7ea2cccac3ad58@sha256:9547edc58ff571c8046a1597d57541306b138c2d85c4a2cd178cc91bb8b13ffd
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:2fa9e6ee74f24befa92d44d3a776d1ba348b43af@sha256:b7244f108b1976dc384e6a442a02e28c2913ac04b3a1f3033e614245e9b98e7b
 
           - name: docker-plugin
             distro: scratch
@@ -167,7 +167,7 @@ jobs:
             image_name: docker-plugin
             platforms: linux/amd64,linux/arm64
             build_args: |
-              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:511b21fe65cbd82ce0aeba148f7ea2cccac3ad58@sha256:9547edc58ff571c8046a1597d57541306b138c2d85c4a2cd178cc91bb8b13ffd
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:2fa9e6ee74f24befa92d44d3a776d1ba348b43af@sha256:b7244f108b1976dc384e6a442a02e28c2913ac04b3a1f3033e614245e9b98e7b
 
           - name: cilium-dnsproxy
             distro: chainguard
@@ -175,7 +175,7 @@ jobs:
             image_name: cilium-dnsproxy
             platforms: linux/amd64,linux/arm64
             build_args: |
-              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:511b21fe65cbd82ce0aeba148f7ea2cccac3ad58@sha256:9547edc58ff571c8046a1597d57541306b138c2d85c4a2cd178cc91bb8b13ffd
+              CILIUM_RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:2fa9e6ee74f24befa92d44d3a776d1ba348b43af@sha256:b7244f108b1976dc384e6a442a02e28c2913ac04b3a1f3033e614245e9b98e7b
 
     steps:
       - name: Checkout pull request branch
@@ -362,7 +362,7 @@ jobs:
           tags: ${{ steps.tag.outputs.race_tag }}
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:511b21fe65cbd82ce0aeba148f7ea2cccac3ad58@sha256:9547edc58ff571c8046a1597d57541306b138c2d85c4a2cd178cc91bb8b13ffd
+            BASE_IMAGE=quay.io/isovalent-dev/cilium-runtime-wfi:2fa9e6ee74f24befa92d44d3a776d1ba348b43af@sha256:b7244f108b1976dc384e6a442a02e28c2913ac04b3a1f3033e614245e9b98e7b
             ${{ matrix.build_args }}
             MODIFIERS="LOCKDEBUG=1 RACE=1"
 
