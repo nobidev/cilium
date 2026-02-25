@@ -136,8 +136,8 @@ func (pmo *pipFIBMapOps) FIBKeyVal(me *tables.MapEntry) *pnmaps.FIBKeyVal {
 		entryVNI = me.Routing.VNI
 	}
 	return &pnmaps.FIBKeyVal{
-		Key: pnmaps.NewFIBKey(me.Target.NetworkID, me.Target.SubnetID, pmo.FIBType(me.Type), me.Target.CIDR),
-		Val: pnmaps.NewFIBVal(me.Routing.NextHop, mac, pmo.FIBFlags(me.Type, me.Routing.L2Announce), uint32(me.Routing.EgressIfIndex), entryVNI, me.Routing.PeerNetworkID, me.Routing.PeerSubnetID),
+		Key: pnmaps.NewFIBKey(me.Target.ID.Network, me.Target.ID.Subnet, pmo.FIBType(me.Type), me.Target.CIDR),
+		Val: pnmaps.NewFIBVal(me.Routing.NextHop, mac, pmo.FIBFlags(me.Type, me.Routing.L2Announce), uint32(me.Routing.EgressIfIndex), entryVNI, me.Routing.PeerID.Network, me.Routing.PeerID.Subnet),
 	}
 }
 
@@ -182,7 +182,7 @@ func (pmo *pipFIBMapOps) PIPKeyVal(me *tables.MapEntry) *pnmaps.PIPKeyVal {
 	return &pnmaps.PIPKeyVal{
 		Key: pnmaps.NewPIPKey(netip.PrefixFrom(me.Routing.NextHop, me.Routing.NextHop.BitLen())),
 		Val: pnmaps.NewPIPVal(
-			me.Target.NetworkID, me.Target.CIDR.Addr(),
+			me.Target.ID.Network, me.Target.CIDR.Addr(),
 			types.MACAddr(me.Target.MAC), uint32(me.Routing.EgressIfIndex),
 		),
 	}

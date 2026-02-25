@@ -42,6 +42,18 @@ const (
 	SubnetIDMax = SubnetID(math.MaxUint16)
 )
 
+// SubnetIDPair contains both the subnet and privnet ID of a subnet.
+type SubnetIDPair struct {
+	// Network is the ID of the privnet for the referenced subnet.
+	Network NetworkID
+	// Subnet is the subnet ID of the referenced subnet.
+	Subnet SubnetID
+}
+
+func (idp SubnetIDPair) String() string {
+	return idp.Network.String() + "/" + idp.Subnet.String()
+}
+
 // Subnet represents a private network subnet instance.
 type Subnet struct {
 	SubnetSpec `json:",inline" yaml:",inline"`

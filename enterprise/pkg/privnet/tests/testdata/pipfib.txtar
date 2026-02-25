@@ -42,9 +42,10 @@ privnet/maps-dump privnet_pip pip-actual.map
 type: D
 target:
   networkname: blue-network
-  networkid: 1
   subnetname: blue1
-  subnetid: 5
+  id:
+    network: 1
+    subnet: 5
   cidr: 192.168.250.0/24
 routing:
   nexthop: 172.128.0.6
@@ -56,9 +57,10 @@ status:
 type: D
 target:
   networkname: blue-network
-  networkid: 1
   subnetname: blue1
-  subnetid: 5
+  id:
+    network: 1
+    subnet: 5
   cidr: 192.168.250.24/32
 routing:
   nexthop: 172.128.0.6
@@ -70,9 +72,10 @@ status:
 type: E
 target:
   networkname: blue-network
-  networkid: 1
   subnetname: blue1
-  subnetid: 5
+  id:
+    network: 1
+    subnet: 5
   cidr: 192.168.250.20/32
   mac: 00:50:56:ad:45:ec
 routing:
@@ -85,9 +88,10 @@ status:
 type: S
 target:
   networkname: blue-network
-  networkid: 1
   subnetname: blue2
-  subnetid: 6
+  id:
+    network: 1
+    subnet: 6
   cidr: 10.10.0.0/16
 routing:
   nexthop: 10.255.1.1
@@ -99,9 +103,10 @@ status:
 type: X
 target:
   networkname: blue-network
-  networkid: 1
   subnetname: blue2
-  subnetid: 6
+  id:
+    network: 1
+    subnet: 6
   cidr: 10.30.0.0/16
   mac: 00:90:7a:1b:34:08
 routing:
@@ -115,9 +120,10 @@ status:
 type: E
 target:
   networkname: blue-network
-  networkid: 1
   subnetname: blue1
-  subnetid: 5
+  id:
+    network: 1
+    subnet: 5
   cidr: 192.168.250.20/32
 routing:
   nexthop: 10.244.5.108

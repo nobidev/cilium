@@ -208,10 +208,12 @@ func (r *Routes) extractRoutes(txn statedb.ReadTxn, subnet tables.Subnet) map[ta
 				Subnet:      subnet.Name,
 				Destination: cidr,
 				Peer: tables.RoutePeer{
-					Network:   other.Network,
-					NetworkID: other.NetworkID,
-					Subnet:    other.Name,
-					SubnetID:  other.ID,
+					Network: other.Network,
+					Subnet:  other.Name,
+					ID: tables.SubnetIDPair{
+						Network: other.NetworkID,
+						Subnet:  other.ID,
+					},
 				},
 			}
 			routes[entry.Key()] = entry

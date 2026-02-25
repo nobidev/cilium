@@ -99,10 +99,10 @@ func (me MapEntry) TableRow() []string {
 		l2Announce,
 		cmp.Or(me.Routing.VNI.String(), "N/A"),
 		func() string {
-			if me.Routing.PeerNetworkID == 0 || me.Routing.PeerSubnetID == 0 {
+			if me.Routing.PeerID.Network == 0 || me.Routing.PeerID.Subnet == 0 {
 				return "N/A"
 			}
-			return fmt.Sprintf("%s/%s", me.Routing.PeerNetworkID, me.Routing.PeerSubnetID)
+			return me.Routing.PeerID.String()
 		}(),
 		me.Status.String(),
 	}
@@ -181,14 +181,11 @@ type MapEntryTarget struct {
 	// NetworkName is the name of the target private network.
 	NetworkName NetworkName
 
-	// NetworkID is the NetworkID of the target private network.
-	NetworkID NetworkID
-
 	// SubnetName is the name of the target subnet.
 	SubnetName SubnetName
 
-	// SubnetID is the local ID of the target subnet.
-	SubnetID SubnetID
+	// ID is the Network and SubnetID of the target subnet
+	ID SubnetIDPair
 
 	// CIDR is the CIDR of the target endpoint/route.
 	CIDR netip.Prefix
@@ -201,9 +198,8 @@ type MapEntryTarget struct {
 // Equal returns whether two MapEntryTarget objects are identical.
 func (met MapEntryTarget) Equal(other MapEntryTarget) bool {
 	return met.NetworkName == other.NetworkName &&
-		met.NetworkID == other.NetworkID &&
+		met.ID == other.ID &&
 		met.SubnetName == other.SubnetName &&
-		met.SubnetID == other.SubnetID &&
 		met.CIDR == other.CIDR &&
 		slices.Equal(met.MAC, other.MAC)
 }
@@ -233,11 +229,8 @@ type MapEntryRouting struct {
 	// and for entries of type [MapEntryTypeEndpoint].
 	L2Announce bool
 
-	// NetworkID is the NetworkID of the target private network.
-	PeerNetworkID NetworkID
-
-	// SubnetID is the local ID of the target subnet.
-	PeerSubnetID SubnetID
+	// PeerID contains the SubnetID and NetworkID of the target subnet.
+	PeerID SubnetIDPair
 }
 
 // MapEntryKey is <network>|<subnet>|<type>|<network-cidr>.

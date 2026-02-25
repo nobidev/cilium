@@ -49,16 +49,13 @@ type RoutePeer struct {
 	// It is provided for convenience only (e.g., in the table output), and shall not be
 	// depended on during reconciliation.
 	Network NetworkName
-	// NetworkID is the NetworkID of the destination network for the peering. Only set for
-	// peering routes.
-	NetworkID NetworkID
 	// Subnet is the name of the destination Subnet for the peering.
 	// It is provided for convenience only (e.g., in the table output), and shall not be
 	// depended on during reconciliation.
 	Subnet SubnetName
-	// SubnetID is the SubnetID of the destination subnet for the peering. Only set for
-	// peering routes.
-	SubnetID SubnetID
+	// ID contains the SubnetID and NetworkID of the destination subnet for the peering.
+	// Only set for peering routes.
+	ID SubnetIDPair
 }
 
 var _ statedb.TableWritable = Route{}
@@ -89,7 +86,7 @@ func (r Route) TableRow() []string {
 }
 
 func (r Route) isPeeringRoute() bool {
-	return r.Peer.NetworkID != 0 && r.Peer.SubnetID != 0
+	return r.Peer.ID.Network != 0 && r.Peer.ID.Subnet != 0
 }
 
 func (r Route) MapEntryType() MapEntryType {
@@ -115,16 +112,17 @@ func (r Route) ToMapEntry(subnet SubnetSpec, activeINB INBNode, bridgeMode bool)
 		Type: r.MapEntryType(),
 		Target: MapEntryTarget{
 			NetworkName: subnet.Network,
-			NetworkID:   subnet.NetworkID,
 			SubnetName:  subnet.Name,
-			SubnetID:    subnet.ID,
-			CIDR:        r.Destination,
+			ID: SubnetIDPair{
+				Network: subnet.NetworkID,
+				Subnet:  subnet.ID,
+			},
+			CIDR: r.Destination,
 		},
 		Routing: MapEntryRouting{
-			NextHop:       nexthop,
-			VNI:           r.getVNI(subnet),
-			PeerNetworkID: r.Peer.NetworkID,
-			PeerSubnetID:  r.Peer.SubnetID,
+			NextHop: nexthop,
+			VNI:     r.getVNI(subnet),
+			PeerID:  r.Peer.ID,
 		},
 
 		Status: reconciler.StatusPending(),
