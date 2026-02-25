@@ -92,6 +92,22 @@ func newLBTestScenario(t T, testName string, ciliumCli *ciliumCli, k8sCli *k8s.C
 		clientCertificates:  map[string]*tlsCertificate{},
 	}
 
+	// If the namespace already exists (e.g. still terminating from a previous
+	// run), wait for it to disappear before creating a fresh one.
+	if ns, err := scenario.k8sCli.CoreV1().Namespaces().Get(t.Context(), k8sNamespace, metav1.GetOptions{}); err == nil {
+		if ns.Status.Phase == corev1.NamespaceTerminating {
+			t.Log("Namespace %q is still terminating from a previous run, waiting...", k8sNamespace)
+			eventually(t, func() error {
+				if _, err := scenario.k8sCli.CoreV1().Namespaces().Get(t.Context(), k8sNamespace, metav1.GetOptions{}); errors.IsNotFound(err) {
+					return nil
+				}
+				return fmt.Errorf("namespace %q still exists", k8sNamespace)
+			}, 60*time.Second, pollInterval)
+		} else {
+			t.Failedf("test namespace %q already exists and is not terminating", k8sNamespace)
+		}
+	}
+
 	if _, err := scenario.k8sCli.CoreV1().Namespaces().Create(t.Context(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: k8sNamespace, Labels: map[string]string{TestResourceLabelName: "true"}}}, metav1.CreateOptions{}); err != nil {
 		t.Failedf("failed to create test namespace %q: %s", k8sNamespace, err)
 	}
