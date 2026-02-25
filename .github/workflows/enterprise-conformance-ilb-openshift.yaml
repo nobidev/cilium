@@ -5,13 +5,14 @@ name: Conformance ILB OpenShift (ci-ilb-openshift)
 # The json parameters are optional. The default region is us-east-1.
 
 on:
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-    paths:
-        - 'enterprise/olm/**'
+  # Deactivated as it has not had a single successful run over the last 3 months
+  # pull_request:
+  #   types:
+  #     - opened
+  #     - synchronize
+  #     - reopened
+  #   paths:
+  #       - 'enterprise/olm/**'
   workflow_dispatch:
     inputs:
       PR-number:
