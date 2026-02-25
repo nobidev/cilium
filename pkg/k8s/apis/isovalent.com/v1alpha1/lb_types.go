@@ -62,6 +62,14 @@ type LBServiceSpec struct {
 	// +kubebuilder:validation:Optional
 	ProxyProtocolConfig *LBServiceProxyProtocolConfig `json:"proxyProtocolConfig,omitempty"`
 
+	// Enable gRPC access logging for this service. When the global
+	// gRPC access logging is enabled, this field can be used to
+	// disable gRPC access logging for this specific service.
+	// If unspecified, the global setting is used.
+	//
+	// +kubebuilder:validation:Optional
+	EnableGRPCAccessLogs *bool `json:"enableGRPCAccessLogs,omitempty"`
+
 	// The configuration for the applications that running on the port.
 	// While the name is plural, only one application can be specified
 	// currently.
