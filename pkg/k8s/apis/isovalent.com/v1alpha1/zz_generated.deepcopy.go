@@ -4994,6 +4994,11 @@ func (in *LBServiceSpec) DeepCopyInto(out *LBServiceSpec) {
 		*out = new(LBServiceProxyProtocolConfig)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.EnableGRPCAccessLogs != nil {
+		in, out := &in.EnableGRPCAccessLogs, &out.EnableGRPCAccessLogs
+		*out = new(bool)
+		**out = **in
+	}
 	in.Applications.DeepCopyInto(&out.Applications)
 	if in.TrafficPolicy != nil {
 		in, out := &in.TrafficPolicy, &out.TrafficPolicy

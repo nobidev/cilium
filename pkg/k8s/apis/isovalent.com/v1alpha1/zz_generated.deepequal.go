@@ -4417,6 +4417,14 @@ func (in *LBServiceSpec) DeepEqual(other *LBServiceSpec) bool {
 		}
 	}
 
+	if (in.EnableGRPCAccessLogs == nil) != (other.EnableGRPCAccessLogs == nil) {
+		return false
+	} else if in.EnableGRPCAccessLogs != nil {
+		if *in.EnableGRPCAccessLogs != *other.EnableGRPCAccessLogs {
+			return false
+		}
+	}
+
 	if !in.Applications.DeepEqual(&other.Applications) {
 		return false
 	}
