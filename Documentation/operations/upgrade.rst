@@ -338,6 +338,8 @@ from Cilium.
 * The previously deprecated Helm value ``clustermesh.enableMCSAPISupport`` was
   removed in favor of the ``clustermesh.mcsapi.enabled`` Helm value.
 
+* The previously deprecated ``cilium-docker-plugin`` has been removed.
+
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
 
