@@ -87,6 +87,7 @@ type FIBVal struct {
 
 // FIB allows to interact with the private network FIB map.
 type FIB struct {
+	enabled bool
 	*bpf.Map
 }
 
@@ -122,12 +123,20 @@ func newFIB(
 		},
 	})
 
-	return bpf.NewMapOut(Map[*FIBKeyVal](FIB{fibMap}))
+	return bpf.NewMapOut(Map[*FIBKeyVal](FIB{
+		enabled: cfg.Enabled,
+		Map:     fibMap,
+	}))
 }
 
 // Ops implements Map[*FIBKeyVal]
 func (f FIB) Ops() reconciler.Operations[*FIBKeyVal] {
 	return bpf.NewMapOps[*FIBKeyVal](f.Map)
+}
+
+// Enabled implements Map[*PIPKeyVal]
+func (f FIB) Enabled() bool {
+	return f.enabled
 }
 
 // NewFIBKey constructs a new FIB map key.

@@ -56,11 +56,16 @@ type CIDRIdentityKeyVal struct {
 }
 
 type CIDRIdentityMap struct {
+	enabled bool
 	*bpf.Map
 }
 
 func (c CIDRIdentityMap) Ops() reconciler.Operations[*CIDRIdentityKeyVal] {
 	return bpf.NewMapOps[*CIDRIdentityKeyVal](c.Map)
+}
+
+func (c CIDRIdentityMap) Enabled() bool {
+	return c.enabled
 }
 
 // BinaryKey implements bpf.KeyValue.
@@ -257,5 +262,8 @@ func createCIDRIdentityMap(in struct {
 		},
 	})
 
-	return bpf.NewMapOut(Map[*CIDRIdentityKeyVal](CIDRIdentityMap{Map: bpfMap}))
+	return bpf.NewMapOut(Map[*CIDRIdentityKeyVal](CIDRIdentityMap{
+		enabled: in.Config.Enabled,
+		Map:     bpfMap,
+	}))
 }

@@ -87,6 +87,8 @@ type Map[T any] interface {
 	MaxEntries() uint32
 
 	Ops() reconciler.Operations[T]
+
+	Enabled() bool
 }
 
 type KeyValue interface {

@@ -51,6 +51,7 @@ type SubnetVal struct {
 
 // Subnets allows to interact with the privnet_subnets map.
 type Subnets struct {
+	enabled bool
 	*bpf.Map
 }
 
@@ -94,12 +95,17 @@ func newSubnets(
 		},
 	})
 
-	return bpf.NewMapOut(Map[*SubnetKeyVal](Subnets{subnetsMap}))
+	return bpf.NewMapOut(Map[*SubnetKeyVal](Subnets{enabled: cfg.Enabled, Map: subnetsMap}))
 }
 
 // Ops implements Map[*SubnetKeyVal]
 func (f Subnets) Ops() reconciler.Operations[*SubnetKeyVal] {
 	return bpf.NewMapOps[*SubnetKeyVal](f.Map)
+}
+
+// Enabled implements Map[*SubnetKeyVal]
+func (f Subnets) Enabled() bool {
+	return f.enabled
 }
 
 // NewSubnetKey constructs a new privnet_subnets map key.

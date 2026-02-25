@@ -45,6 +45,7 @@ type DeviceVal struct {
 
 // Devices allows to interact with the privnet_devices map.
 type Devices struct {
+	enabled bool
 	*bpf.Map
 }
 
@@ -88,12 +89,17 @@ func newDevices(
 		},
 	})
 
-	return bpf.NewMapOut(Map[*DeviceKeyVal](Devices{devicesMap}))
+	return bpf.NewMapOut(Map[*DeviceKeyVal](Devices{enabled: cfg.Enabled, Map: devicesMap}))
 }
 
 // Ops implements Map[*DeviceKeyVal]
 func (f Devices) Ops() reconciler.Operations[*DeviceKeyVal] {
 	return bpf.NewMapOps[*DeviceKeyVal](f.Map)
+}
+
+// Enabled implements Map[*DeviceKeyVal]
+func (f Devices) Enabled() bool {
+	return f.enabled
 }
 
 // NewDeviceKey constructs a new privnet_devices map key.

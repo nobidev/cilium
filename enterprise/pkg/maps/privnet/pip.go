@@ -58,6 +58,7 @@ type PIPVal struct {
 
 // PIP allows to interact with the private network PIP map.
 type PIP struct {
+	enabled bool
 	*bpf.Map
 }
 
@@ -93,12 +94,20 @@ func newPIP(
 		},
 	})
 
-	return bpf.NewMapOut(Map[*PIPKeyVal](PIP{pipMap}))
+	return bpf.NewMapOut(Map[*PIPKeyVal](PIP{
+		enabled: cfg.Enabled,
+		Map:     pipMap,
+	}))
 }
 
 // Ops implements Map[*PIPKeyVal]
 func (p PIP) Ops() reconciler.Operations[*PIPKeyVal] {
 	return bpf.NewMapOps[*PIPKeyVal](p.Map)
+}
+
+// Enabled implements Map[*PIPKeyVal]
+func (p PIP) Enabled() bool {
+	return p.enabled
 }
 
 // NewPIPKey constructs a new PIP map key.

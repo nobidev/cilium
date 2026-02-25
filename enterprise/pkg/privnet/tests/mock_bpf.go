@@ -148,6 +148,11 @@ func (f *fakeBPFMap[Obj]) MaxEntries() uint32 {
 	return f.maxEntries
 }
 
+// Enabled implements pnmaps.Map[Obj]
+func (f *fakeBPFMap[Obj]) Enabled() bool {
+	return true
+}
+
 // Ops implements pnmaps.Map[Obj]
 func (f *fakeBPFMap[Obj]) Ops() reconciler.Operations[Obj] {
 	return f
