@@ -16,15 +16,19 @@ import (
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
 
+	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
 	pnconfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	pnendpoints "github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -48,15 +52,24 @@ var EnterpriseCell = cell.Module(
 
 type EnterpriseLoader struct {
 	privnetConfig pnconfig.Config
+	evpnConfig    evpnConfig.Config
+	db            *statedb.DB
+	deviceTable   statedb.Table[*tables.Device]
 }
 
 func newEnterpriseLoader(in struct {
 	cell.In
 
 	PrivnetConfig pnconfig.Config
+	EvpnConfig    evpnConfig.Config
+	DB            *statedb.DB
+	DeviceTable   statedb.Table[*tables.Device]
 }) *EnterpriseLoader {
 	return &EnterpriseLoader{
 		privnetConfig: in.PrivnetConfig,
+		evpnConfig:    in.EvpnConfig,
+		db:            in.DB,
+		deviceTable:   in.DeviceTable,
 	}
 }
 
@@ -74,6 +87,15 @@ func (l *EnterpriseLoader) registerEndpointConfig(pd *privnetDHCPDevice) {
 				cfg.PrivnetLocalAccessEnable = l.privnetConfig.EnabledAsLocalAccess()
 
 				cfg.CiliumDhcpIfIndex = uint32(pd.getIfindex())
+			}
+		}
+
+		if l.evpnConfig.Enabled {
+			cfg.EvpnEnable = true
+			dev, _, found := l.deviceTable.Get(l.db.ReadTxn(), tables.DeviceNameIndex.Query(l.evpnConfig.VxlanDevice))
+			if found {
+				cfg.EvpnDeviceIfIndex = uint32(dev.Index)
+				cfg.EvpnDeviceMAC = mac.MAC(dev.HardwareAddr).As8()
 			}
 		}
 

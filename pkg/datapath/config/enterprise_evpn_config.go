@@ -15,6 +15,10 @@ type BPFEvpnEnterprise struct {
 	EnableICMPRule bool `config:"enable_icmp_rule"`
 	// Maintain packet and byte counters for every policy entry.
 	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
+	// The interface index of the evpn vxlan device.
+	EvpnDeviceIfIndex uint32 `config:"evpn_device_ifindex"`
+	// The mac address of the evpn vxlan device.
+	EvpnDeviceMAC [8]byte `config:"evpn_device_mac"`
 	// True if evpn feature is enabled.
 	EvpnEnable bool `config:"evpn_enable"`
 	// True if running on network bridge.
@@ -28,5 +32,6 @@ type BPFEvpnEnterprise struct {
 }
 
 func NewBPFEvpnEnterprise() *BPFEvpnEnterprise {
-	return &BPFEvpnEnterprise{false, false, false, false, false, false, false, 0x0}
+	return &BPFEvpnEnterprise{false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		false, false, false, false, 0x0}
 }
