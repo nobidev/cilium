@@ -2555,6 +2555,8 @@ hubble:
         capabilities:
           drop:
             - ALL
+    # -- Extra environment variables for hubble-timescape.
+    extraEnv: []
     # -- Affinity for hubble-timescape
     affinity: {}
     # -- Node labels for pod assignment

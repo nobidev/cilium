@@ -4663,6 +4663,10 @@
             "enabled": {
               "type": "boolean"
             },
+            "extraEnv": {
+              "items": {},
+              "type": "array"
+            },
             "image": {
               "properties": {
                 "digest": {

@@ -243,6 +243,9 @@ spec:
                   name: {{ .Values.hubble.timescape.ui.auth.sessionKey.secretName }}
                   key:  {{ .Values.hubble.timescape.ui.auth.sessionKey.secretKey }}
           {{- end }}
+          {{- with .Values.hubble.timescape.extraEnv }}
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - name: health-grpc
               containerPort: 8083
