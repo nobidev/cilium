@@ -26,6 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/rate"
@@ -55,13 +57,16 @@ type manager struct {
 	evpnConfig    evpnConfig.Config
 	privnetConfig privnetConfig.Config
 
-	orchestrator datapathTypes.Orchestrator
-	nodeConfig   atomic.Pointer[datapathTypes.LocalNodeConfiguration]
+	orchestrator    datapathTypes.Orchestrator
+	endpointManager endpointmanager.EndpointManager
+	nodeConfig      atomic.Pointer[datapathTypes.LocalNodeConfiguration]
 
 	db      *statedb.DB
 	devices statedb.Table[*tables.Device]
 
-	nodeConfigTrigger chan struct{}
+	nodeConfigTrigger     chan struct{}
+	vxlanDeviceConfigured chan struct{}
+	vxlanIfIndex          int
 }
 
 type managerIn struct {
@@ -75,6 +80,8 @@ type managerIn struct {
 	PrivnetConfig privnetConfig.Config
 
 	Orchestrator       datapathTypes.Orchestrator
+	EndpointManager    endpointmanager.EndpointManager
+	Fence              regeneration.Fence
 	NodeConfigNotifier *nodeManager.NodeConfigNotifier
 
 	DB      *statedb.DB
@@ -83,14 +90,16 @@ type managerIn struct {
 
 func RegisterManager(in managerIn) error {
 	m := &manager{
-		log:               in.Logger,
-		sysctl:            in.Sysctl,
-		evpnConfig:        in.EVPNConfig,
-		privnetConfig:     in.PrivnetConfig,
-		orchestrator:      in.Orchestrator,
-		db:                in.DB,
-		devices:           in.Devices,
-		nodeConfigTrigger: make(chan struct{}, 1),
+		log:                   in.Logger,
+		sysctl:                in.Sysctl,
+		evpnConfig:            in.EVPNConfig,
+		privnetConfig:         in.PrivnetConfig,
+		orchestrator:          in.Orchestrator,
+		endpointManager:       in.EndpointManager,
+		db:                    in.DB,
+		devices:               in.Devices,
+		nodeConfigTrigger:     make(chan struct{}, 1),
+		vxlanDeviceConfigured: make(chan struct{}),
 	}
 
 	if in.EVPNConfig.Enabled && in.PrivnetConfig.Enabled {
@@ -105,7 +114,19 @@ func RegisterManager(in managerIn) error {
 		in.JobGroup.Add(job.OneShot("datapath-disable", m.disableDatapath,
 			job.WithRetry(3, &job.ExponentialBackoff{Min: 10 * time.Second, Max: 1 * time.Minute})),
 		)
+		return nil
 	}
+
+	// Block endpoint regeneration until we first configure the EVPN vxlan device
+	in.Fence.Add("evpn-vxlan-device", func(ctx context.Context) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-m.vxlanDeviceConfigured:
+			return nil
+		}
+	})
+
 	return nil
 }
 
@@ -172,12 +193,12 @@ func (m *manager) configureDatapath(ctx context.Context) (<-chan struct{}, error
 		return nil, fmt.Errorf("BUG: LocalNodeConfiguration is nil")
 	}
 
-	err := setupEvpnVxlanDeviceFn(m.log, m.sysctl, m.evpnConfig.VxlanDevice, m.evpnConfig.VxlanPort, lnc.DeviceMTU)
+	ifIndex, err := setupEvpnVxlanDeviceFn(m.log, m.sysctl, m.evpnConfig.VxlanDevice, m.evpnConfig.VxlanPort, lnc.DeviceMTU)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup EVPN VXLAN device: %w", err)
 	}
 
-	deviceWatch, err := m.waitForDevice(ctx, m.evpnConfig.VxlanDevice)
+	deviceWatch, err := m.waitForDevice(ctx, ifIndex)
 	if err != nil {
 		return nil, fmt.Errorf("failed waiting for EVPN VXLAN device: %w", err)
 	}
@@ -185,6 +206,18 @@ func (m *manager) configureDatapath(ctx context.Context) (<-chan struct{}, error
 	if err := replaceEvpnDatapathFn(ctx, m.log, lnc, m.evpnConfig, m.privnetConfig); err != nil {
 		return nil, fmt.Errorf("failed loading EVPN datapath programs: %w", err)
 	}
+
+	if m.vxlanIfIndex == 0 {
+		close(m.vxlanDeviceConfigured)
+	}
+	if m.vxlanIfIndex > 0 && m.vxlanIfIndex != ifIndex {
+		// VXLAN device ifindex and MAC changed, need to regenerate the endpoints to pull the new config
+		m.endpointManager.RegenerateAllEndpoints(&regeneration.ExternalRegenerationMetadata{
+			Reason:            "EVPN VXLAN device changed",
+			RegenerationLevel: regeneration.RegenerateWithDatapath,
+		}).Wait()
+	}
+	m.vxlanIfIndex = ifIndex
 
 	return deviceWatch, nil
 }
@@ -208,12 +241,12 @@ func (m *manager) disableDatapath(ctx context.Context, health cell.Health) error
 
 // waitForDevice waits for the specified device name to appear on the devices table
 // and returns a watch channel which is closed upon device changes.
-func (m *manager) waitForDevice(ctx context.Context, deviceName string) (<-chan struct{}, error) {
+func (m *manager) waitForDevice(ctx context.Context, deviceIndex int) (<-chan struct{}, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, deviceWaitTimeout)
 	defer cancel()
 	for {
 		txn := m.db.ReadTxn()
-		_, _, watch, found := m.devices.GetWatch(txn, tables.DeviceNameIndex.Query(deviceName))
+		_, _, watch, found := m.devices.GetWatch(txn, tables.DeviceIDIndex.Query(deviceIndex))
 		if found {
 			return watch, nil
 		}

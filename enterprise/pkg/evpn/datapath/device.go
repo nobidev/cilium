@@ -28,10 +28,10 @@ import (
 //
 // Changing the port will recreate the device. Changing the MTU will modify the
 // device without recreating it.
-func setupEvpnVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, device string, port uint16, mtu int) error {
+func setupEvpnVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, device string, port uint16, mtu int) (ifIndex int, err error) {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
-		return fmt.Errorf("failed to generate random MAC address for evpn vxlan device: %w", err)
+		return 0, fmt.Errorf("failed to generate random MAC address for evpn vxlan device: %w", err)
 	}
 
 	dev := &netlink.Vxlan{
@@ -50,17 +50,17 @@ func setupEvpnVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, device stri
 		vxlan, ok := l.(*netlink.Vxlan)
 		if !ok || vxlan.Port != int(port) {
 			if err := netlink.LinkDel(l); err != nil {
-				return fmt.Errorf("failed deleting outdated evpn vxlan device: %w", err)
+				return 0, fmt.Errorf("failed deleting outdated evpn vxlan device: %w", err)
 			}
 		}
 	}
 
-	_, err = loader.EnsureDevice(logger, sysctl, dev)
+	link, err := loader.EnsureDevice(logger, sysctl, dev)
 	if err != nil {
-		return fmt.Errorf("failed creating evpn vxlan device %s: %w", dev.Attrs().Name, err)
+		return 0, fmt.Errorf("failed creating evpn vxlan device %s: %w", dev.Attrs().Name, err)
 	}
 
-	return nil
+	return link.Attrs().Index, nil
 }
 
 // removeEvpnVxlanDevice ensures the evpn device is removed.

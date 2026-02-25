@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -34,6 +35,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -101,6 +104,16 @@ func (n nopSysctl) ApplySettings([]tables.Sysctl) error     { return nil }
 func (n nopSysctl) Read(name []string) (string, error)      { return "", nil }
 func (n nopSysctl) ReadInt(name []string) (int64, error)    { return 0, nil }
 
+type fakeEndpointManager struct {
+	endpointmanager.EndpointManager
+	regenCalls atomic.Int32
+}
+
+func (f *fakeEndpointManager) RegenerateAllEndpoints(_ *regeneration.ExternalRegenerationMetadata) *sync.WaitGroup {
+	f.regenCalls.Add(1)
+	return &sync.WaitGroup{}
+}
+
 func newTestManager(t *testing.T, cfg evpnConfig.Config) (*manager, *statedb.DB, statedb.RWTable[*tables.Device]) {
 	db := statedb.New()
 	devices, err := tables.NewDeviceTable(db)
@@ -110,13 +123,15 @@ func newTestManager(t *testing.T, cfg evpnConfig.Config) (*manager, *statedb.DB,
 	close(orch.initCh)
 
 	m := &manager{
-		log:               hivetest.Logger(t),
-		sysctl:            nopSysctl{},
-		db:                db,
-		devices:           devices,
-		evpnConfig:        cfg,
-		nodeConfigTrigger: make(chan struct{}, 1),
-		orchestrator:      orch,
+		log:                   hivetest.Logger(t),
+		sysctl:                nopSysctl{},
+		db:                    db,
+		devices:               devices,
+		evpnConfig:            cfg,
+		nodeConfigTrigger:     make(chan struct{}, 1),
+		vxlanDeviceConfigured: make(chan struct{}),
+		endpointManager:       &fakeEndpointManager{},
+		orchestrator:          orch,
 	}
 	return m, db, devices
 }
@@ -147,12 +162,12 @@ func TestManagerRunEnabled(t *testing.T) {
 	var replaceCalled atomic.Bool
 	configured := make(chan struct{})
 
-	setupEvpnVxlanDeviceFn = func(logger *slog.Logger, sys sysctl.Sysctl, device string, port uint16, mtu int) error {
+	setupEvpnVxlanDeviceFn = func(logger *slog.Logger, sys sysctl.Sysctl, device string, port uint16, mtu int) (int, error) {
 		setupCalled.Store(true)
 		require.Equal(t, testDeviceName, device)
 		require.Equal(t, testVXLANPort, port)
 		require.Equal(t, testDeviceMTU, mtu)
-		return nil
+		return 1, nil
 	}
 
 	replaceEvpnDatapathFn = func(ctx context.Context, logger *slog.Logger, lnc *datapathTypes.LocalNodeConfiguration, evpnCfg evpnConfig.Config, privnetCfg privnetConfig.Config) error {
@@ -247,19 +262,23 @@ func TestPrivilegedManagerDeviceRecreateAndCleanup(t *testing.T) {
 
 		// setup test "setupEvpnVxlanDevice" and "replaceEvpnDatapath" functions
 		origSetup := setupEvpnVxlanDeviceFn
-		setupEvpnVxlanDeviceFn = func(logger *slog.Logger, sys sysctl.Sysctl, device string, port uint16, mtu int) error {
+		setupEvpnVxlanDeviceFn = func(logger *slog.Logger, sys sysctl.Sysctl, device string, port uint16, mtu int) (int, error) {
 			// call the real setupEvpnVxlanDevice and insert the device index into statedb
-			if err := setupEvpnVxlanDevice(logger, sys, device, port, mtu); err != nil {
-				return err
+			ifIndex, err := setupEvpnVxlanDevice(logger, sys, device, port, mtu)
+			if err != nil {
+				return 0, err
 			}
 			link, err := safenetlink.LinkByName(device)
 			if err != nil {
-				return err
+				return 0, err
 			}
 			txn := db.WriteTxn(devices)
 			_, _, err = devices.Insert(txn, &tables.Device{Index: link.Attrs().Index, Name: device})
 			txn.Commit()
-			return err
+			if err != nil {
+				return 0, err
+			}
+			return ifIndex, nil
 		}
 		origReplace := replaceEvpnDatapathFn
 		replaceEvpnDatapathFn = func(ctx context.Context, logger *slog.Logger, cfgIn *datapathTypes.LocalNodeConfiguration, evpnCfg evpnConfig.Config, privnetCfg privnetConfig.Config) error {
@@ -321,6 +340,9 @@ func TestPrivilegedManagerDeviceRecreateAndCleanup(t *testing.T) {
 			}
 			prevIfIdx = link.Attrs().Index
 		}
+		epMgr, ok := m.endpointManager.(*fakeEndpointManager)
+		require.True(t, ok)
+		require.Equal(t, int32(1), epMgr.regenCalls.Load())
 
 		// disable datapath
 		health := &fakeHealth{}
