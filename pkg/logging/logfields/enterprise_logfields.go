@@ -117,6 +117,8 @@ const (
 	ConflictingPrivateNetworkSubnet = "conflictingSubnet"
 	// ConflictingCIDRs is a list of IPv4/IPv6 CIDRs that conflicts with another list
 	ConflictingCIDRs = "conflictingCIDRs"
+	// PrivateNetworkAttachment is the name of link created for private network.
+	PrivateNetworkAttachment = "privateNetworkAttachment"
 
 	Stdout = "stdout"
 	Stderr = "stderr"
