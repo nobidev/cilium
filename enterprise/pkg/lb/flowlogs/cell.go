@@ -56,7 +56,7 @@ func initializeFlowLogProcessor(p lbFlowLogProcessorParams) error {
 
 	var sender FlowLogSender = nil
 	for _, rs := range p.Senders {
-		if p.Config.LoadbalancerFlowLogsSender == rs.Name() {
+		if rs != nil && p.Config.LoadbalancerFlowLogsSender == rs.Name() {
 			sender = rs
 		}
 	}
