@@ -155,7 +155,7 @@ func TestReconciliationLoop(t *testing.T) {
 				store.Update(func(n *node.LocalNode) {
 					n.IPAddresses = []types.Address{
 						{
-							IP:   netip.MustParseAddr("1.1.1.1").AsSlice(),
+							Addr: netip.MustParseAddr("1.1.1.1"),
 							Type: addressing.NodeCiliumInternalIP,
 						},
 					}
@@ -210,7 +210,7 @@ func TestReconciliationLoop(t *testing.T) {
 				store.Update(func(n *node.LocalNode) {
 					n.IPAddresses = []types.Address{
 						{
-							IP:   netip.MustParseAddr("2.2.2.2").AsSlice(),
+							Addr: netip.MustParseAddr("2.2.2.2"),
 							Type: addressing.NodeCiliumInternalIP,
 						},
 					}

@@ -83,8 +83,8 @@ func toLocalNodeInfo(n node.LocalNode) localNodeInfo {
 	}
 
 	return localNodeInfo{
-		internalIPv4:          n.GetCiliumInternalIP(false),
-		internalIPv6:          n.GetCiliumInternalIP(true),
+		internalIPv4:          n.GetCiliumInternalIP(false).AsSlice(),
+		internalIPv6:          n.GetCiliumInternalIP(true).AsSlice(),
 		ipv4AllocCIDR:         v4AllocCIDR,
 		ipv6AllocCIDR:         v6AllocCIDR,
 		ipv4NativeRoutingCIDR: v4NativeRoutingCIDR,

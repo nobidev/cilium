@@ -56,9 +56,9 @@ func TestParseNode(t *testing.T) {
 	require.Equal(t, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112", n.IPv6AllocCIDR.String())
 	require.Equal(t, "m5.xlarge", n.Labels["type"])
 	require.Len(t, n.IPAddresses, 2)
-	require.Equal(t, "10.254.9.9", n.IPAddresses[0].IP.String())
+	require.Equal(t, "10.254.9.9", n.IPAddresses[0].Addr.String())
 	require.Equal(t, nodeAddressing.NodeCiliumInternalIP, n.IPAddresses[0].Type)
-	require.Equal(t, "fd00:10:244:1::8ace", n.IPAddresses[1].IP.String())
+	require.Equal(t, "fd00:10:244:1::8ace", n.IPAddresses[1].Addr.String())
 	require.Equal(t, nodeAddressing.NodeCiliumInternalIP, n.IPAddresses[1].Type)
 
 	for _, key := range []string{"cilium.io/foo", "qux.cilium.io/foo", "fr3d.qux.cilium.io/foo"} {
@@ -183,7 +183,7 @@ func TestParseNode(t *testing.T) {
 	addrsFound := 0
 	for _, addr := range n.IPAddresses {
 		for _, expect := range expected {
-			if addr.IP.String() == expect {
+			if addr.Addr.String() == expect {
 				addrsFound++
 			}
 		}

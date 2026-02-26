@@ -5,7 +5,7 @@ package auth
 
 import (
 	"context"
-	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -107,12 +107,12 @@ func Test_authMapGarbageCollector_cleanupNodes(t *testing.T) {
 			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 4, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{
-		1: "172.18.0.1",
-		2: "172.18.0.2",
-		3: "172.18.0.3",
-		4: "172.18.0.4",
-		5: "172.18.0.5",
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]netip.Addr{
+		1: netip.MustParseAddr("172.18.0.1"),
+		2: netip.MustParseAddr("172.18.0.2"),
+		3: netip.MustParseAddr("172.18.0.3"),
+		4: netip.MustParseAddr("172.18.0.4"),
+		5: netip.MustParseAddr("172.18.0.5"),
 	}), nil)
 
 	assert.Len(t, authMap.entries, 5)
@@ -243,9 +243,9 @@ func Test_authMapGarbageCollector_cleanup(t *testing.T) {
 	}
 
 	gc := newAuthMapGC(hivetest.Logger(t), authMap,
-		newFakeNodeIDHandler(map[uint16]string{
-			1: "172.18.0.1",
-			2: "172.18.0.2",
+		newFakeNodeIDHandler(map[uint16]netip.Addr{
+			1: netip.MustParseAddr("172.18.0.1"),
+			2: netip.MustParseAddr("172.18.0.2"),
 		}),
 		&fakePolicyRepository{
 			needsAuth: map[identity.NumericIdentity]map[identity.NumericIdentity]policyTypes.AuthTypes{
@@ -384,7 +384,7 @@ func Test_authMapGarbageCollector_HandleNodeEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{10: "172.18.0.3"}), nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]netip.Addr{10: netip.MustParseAddr("172.18.0.3")}), nil)
 
 	event := ciliumNodeEvent("172.18.0.3")
 	err := gc.NodeAdd(event)
@@ -403,7 +403,7 @@ func Test_authMapGarbageCollector_HandleIdentityEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{}), nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]netip.Addr{}), nil)
 
 	event := ciliumIdentityEvent(cache.IdentityChangeDelete, 4)
 	err := gc.handleIdentityChange(context.Background(), event)
@@ -422,7 +422,7 @@ func ciliumNodeEvent(nodeInternalIP string) nodeTypes.Node {
 		IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP(nodeInternalIP),
+				Addr: netip.MustParseAddr(nodeInternalIP),
 			},
 		},
 	}

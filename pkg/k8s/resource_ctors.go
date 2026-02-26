@@ -424,7 +424,7 @@ func ciliumEndpointLocalPodIndexFunc(logger *slog.Logger, localNodeStore *node.L
 	if err != nil {
 		return nil, fmt.Errorf("failed to get local node: %w", err)
 	}
-	if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(ln) {
+	if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(ln).String() {
 		indices = append(indices, cep.Networking.NodeIP)
 	}
 	return indices, nil
@@ -467,7 +467,7 @@ func ciliumEndpointSliceLocalPodIndexFunc(localNodeStore *node.LocalNodeStore, o
 	}
 	indices := []string{}
 	for _, ep := range ces.Endpoints {
-		if ep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(ln) {
+		if ep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(ln).String() {
 			indices = append(indices, ep.Networking.NodeIP)
 			break
 		}

@@ -5,7 +5,7 @@ package ipsec
 
 import (
 	"log/slog"
-	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"testing"
@@ -56,11 +56,12 @@ import (
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-var (
+const (
 	TestTimeout  = 5 * time.Second
-	k8s1NodeIPv4 = net.ParseIP("192.168.60.11")
 	k8s1NodeName = "k8s1"
 )
+
+var k8s1NodeIPv4 = netip.MustParseAddr("192.168.60.11")
 
 // paramsOut holds the output parameters needed for running cells in the test.
 type paramsOut struct {
@@ -180,7 +181,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 								IPAddresses: []nodeTypes.Address{
 									{
 										Type: addressing.NodeInternalIP,
-										IP:   k8s1NodeIPv4,
+										Addr: k8s1NodeIPv4,
 									},
 								},
 								Annotations: map[string]string{},

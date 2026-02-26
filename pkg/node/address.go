@@ -5,6 +5,7 @@ package node
 
 import (
 	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/lock"
@@ -25,11 +26,11 @@ type RouterInfo interface {
 
 // GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints
 // running on this node.
-func GetCiliumEndpointNodeIP(localNode LocalNode) string {
+func GetCiliumEndpointNodeIP(localNode LocalNode) netip.Addr {
 	if option.Config.EnableIPv4 && localNode.Local.UnderlayProtocol == tunnel.IPv4 {
-		return localNode.GetNodeIP(false).String()
+		return localNode.GetNodeIP(false)
 	}
-	return localNode.GetNodeIP(true).String()
+	return localNode.GetNodeIP(true)
 }
 
 // GetRouterInfo returns additional information for the router, the cilium_host interface.

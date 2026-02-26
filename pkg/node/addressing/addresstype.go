@@ -3,9 +3,7 @@
 
 package addressing
 
-import (
-	"net"
-)
+import "net/netip"
 
 // AddressType represents a type of IP address for a node. They are copied
 // from k8s.io/api/core/v1/types.go to avoid pulling in a lot of Kubernetes
@@ -23,7 +21,7 @@ const (
 
 type Address interface {
 	AddrType() AddressType
-	ToString() string
+	ToAddr() netip.Addr
 }
 
 // ExtractNodeIP returns one of the provided IP addresses available with the following priority:
@@ -31,15 +29,11 @@ type Address interface {
 // - NodeExternalIP
 // - other IP address type
 // An error is returned if ExtractNodeIP fails to get an IP based on the provided address family.
-func ExtractNodeIP[T Address](addrs []T, ipv6 bool) net.IP {
-	var backupIP net.IP
+func ExtractNodeIP[T Address](addrs []T, ipv6 bool) netip.Addr {
+	var backupIP netip.Addr
 	for _, addr := range addrs {
-		parsed := net.ParseIP(addr.ToString())
-		if parsed == nil {
-			continue
-		}
-		if (ipv6 && parsed.To4() != nil) ||
-			(!ipv6 && parsed.To4() == nil) {
+		ip := addr.ToAddr()
+		if !ip.IsValid() || (ipv6 && ip.Is4()) || (!ipv6 && ip.Is6()) {
 			continue
 		}
 		switch addr.AddrType() {
@@ -48,16 +42,16 @@ func ExtractNodeIP[T Address](addrs []T, ipv6 bool) net.IP {
 			continue
 		// Always prefer a cluster internal IP
 		case NodeInternalIP:
-			return parsed
+			return ip
 		case NodeExternalIP:
 			// Fall back to external Node IP
 			// if no internal IP could be found
-			backupIP = parsed
+			backupIP = ip
 		default:
 			// As a last resort, if no internal or external
 			// IP was found, use any node address available
-			if backupIP == nil {
-				backupIP = parsed
+			if !backupIP.IsValid() {
+				backupIP = ip
 			}
 		}
 	}

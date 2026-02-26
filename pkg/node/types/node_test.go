@@ -6,6 +6,7 @@ package types
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,91 +25,91 @@ func TestGetNodeIP(t *testing.T) {
 	n := Node{
 		Name: "node-1",
 		IPAddresses: []Address{
-			{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP},
+			{Addr: netip.MustParseAddr("192.0.2.3"), Type: addressing.NodeExternalIP},
 		},
 	}
 	ip := n.GetNodeIP(false)
 	// Return the only IP present
-	require.Equal(t, ip, net.ParseIP("192.0.2.3"))
+	require.Equal(t, netip.MustParseAddr("192.0.2.3"), ip)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{Addr: netip.MustParseAddr("192.0.2.3"), Type: addressing.NodeExternalIP})
 	ip = n.GetNodeIP(false)
 	// The next priority should be NodeExternalIP
-	require.Equal(t, ip, net.ParseIP("192.0.2.3"))
+	require.Equal(t, netip.MustParseAddr("192.0.2.3"), ip)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), Type: addressing.NodeInternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{Addr: netip.MustParseAddr("198.51.100.2"), Type: addressing.NodeInternalIP})
 	ip = n.GetNodeIP(false)
 	// The next priority should be NodeInternalIP
-	require.Equal(t, ip, net.ParseIP("198.51.100.2"))
+	require.Equal(t, netip.MustParseAddr("198.51.100.2"), ip)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::1"), Type: addressing.NodeExternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{Addr: netip.MustParseAddr("2001:DB8::1"), Type: addressing.NodeExternalIP})
 	ip = n.GetNodeIP(true)
 	// The next priority should be NodeExternalIP and IPv6
-	require.Equal(t, ip, net.ParseIP("2001:DB8::1"))
+	require.Equal(t, netip.MustParseAddr("2001:DB8::1"), ip)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::2"), Type: addressing.NodeInternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{Addr: netip.MustParseAddr("2001:DB8::2"), Type: addressing.NodeInternalIP})
 	ip = n.GetNodeIP(true)
 	// The next priority should be NodeInternalIP and IPv6
-	require.Equal(t, ip, net.ParseIP("2001:DB8::2"))
+	require.Equal(t, netip.MustParseAddr("2001:DB8::2"), ip)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), Type: addressing.NodeInternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{Addr: netip.MustParseAddr("198.51.100.2"), Type: addressing.NodeInternalIP})
 	ip = n.GetNodeIP(false)
 	// Should still return NodeInternalIP and IPv4
-	require.Equal(t, ip, net.ParseIP("198.51.100.2"))
+	require.Equal(t, netip.MustParseAddr("198.51.100.2"), ip)
 }
 
 func TestGetIPByType(t *testing.T) {
 	n := Node{
 		Name: "node-1",
 		IPAddresses: []Address{
-			{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP},
+			{Addr: netip.MustParseAddr("192.0.2.3"), Type: addressing.NodeExternalIP},
 		},
 	}
 
 	ip := n.GetIPByType(addressing.NodeInternalIP, false)
-	require.Nil(t, ip)
+	require.False(t, ip.IsValid())
 	ip = n.GetIPByType(addressing.NodeInternalIP, true)
-	require.Nil(t, ip)
+	require.False(t, ip.IsValid())
 
 	ip = n.GetIPByType(addressing.NodeExternalIP, false)
-	require.Equal(t, ip, net.ParseIP("192.0.2.3"))
+	require.Equal(t, netip.MustParseAddr("192.0.2.3"), ip)
 	ip = n.GetIPByType(addressing.NodeExternalIP, true)
-	require.Nil(t, ip)
+	require.False(t, ip.IsValid())
 
 	n = Node{
 		Name: "node-2",
 		IPAddresses: []Address{
-			{IP: net.ParseIP("f00b::1"), Type: addressing.NodeCiliumInternalIP},
+			{Addr: netip.MustParseAddr("f00b::1"), Type: addressing.NodeCiliumInternalIP},
 		},
 	}
 
 	ip = n.GetIPByType(addressing.NodeExternalIP, false)
-	require.Nil(t, ip)
+	require.False(t, ip.IsValid())
 	ip = n.GetIPByType(addressing.NodeExternalIP, true)
-	require.Nil(t, ip)
+	require.False(t, ip.IsValid())
 
 	ip = n.GetIPByType(addressing.NodeCiliumInternalIP, false)
-	require.Nil(t, ip)
+	require.False(t, ip.IsValid())
 	ip = n.GetIPByType(addressing.NodeCiliumInternalIP, true)
-	require.Equal(t, ip, net.ParseIP("f00b::1"))
+	require.Equal(t, netip.MustParseAddr("f00b::1"), ip)
 
 	n = Node{
 		Name: "node-3",
 		IPAddresses: []Address{
-			{IP: net.ParseIP("192.42.0.3"), Type: addressing.NodeExternalIP},
-			{IP: net.ParseIP("f00d::1"), Type: addressing.NodeExternalIP},
+			{Addr: netip.MustParseAddr("192.42.0.3"), Type: addressing.NodeExternalIP},
+			{Addr: netip.MustParseAddr("f00d::1"), Type: addressing.NodeExternalIP},
 		},
 	}
 
 	ip = n.GetIPByType(addressing.NodeInternalIP, false)
-	require.Nil(t, ip)
+	require.False(t, ip.IsValid())
 	ip = n.GetIPByType(addressing.NodeInternalIP, true)
-	require.Nil(t, ip)
+	require.False(t, ip.IsValid())
 
 	ip = n.GetIPByType(addressing.NodeExternalIP, false)
-	require.Equal(t, ip, net.ParseIP("192.42.0.3"))
+	require.Equal(t, netip.MustParseAddr("192.42.0.3"), ip)
 	ip = n.GetIPByType(addressing.NodeExternalIP, true)
-	require.Equal(t, ip, net.ParseIP("f00d::1"))
+	require.Equal(t, netip.MustParseAddr("f00d::1"), ip)
 }
 
 func TestParseCiliumNode(t *testing.T) {
@@ -149,10 +150,10 @@ func TestParseCiliumNode(t *testing.T) {
 		Name:   "foo",
 		Source: source.CustomResource,
 		IPAddresses: []Address{
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("3.3.3.3")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("c0de::1")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("c0de::2")},
+			{Type: addressing.NodeInternalIP, Addr: netip.MustParseAddr("2.2.2.2")},
+			{Type: addressing.NodeExternalIP, Addr: netip.MustParseAddr("3.3.3.3")},
+			{Type: addressing.NodeInternalIP, Addr: netip.MustParseAddr("c0de::1")},
+			{Type: addressing.NodeExternalIP, Addr: netip.MustParseAddr("c0de::2")},
 		},
 		EncryptionKey:           uint8(10),
 		IPv4AllocCIDR:           cidr.MustParseCIDR("10.10.0.0/16"),
@@ -172,10 +173,10 @@ func TestNode_ToCiliumNode(t *testing.T) {
 		Name:   "foo",
 		Source: source.CustomResource,
 		IPAddresses: []Address{
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("3.3.3.3")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("c0de::1")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("c0de::2")},
+			{Type: addressing.NodeInternalIP, Addr: netip.MustParseAddr("2.2.2.2")},
+			{Type: addressing.NodeExternalIP, Addr: netip.MustParseAddr("3.3.3.3")},
+			{Type: addressing.NodeInternalIP, Addr: netip.MustParseAddr("c0de::1")},
+			{Type: addressing.NodeExternalIP, Addr: netip.MustParseAddr("c0de::2")},
 		},
 		EncryptionKey:           uint8(10),
 		IPv4AllocCIDR:           cidr.MustParseCIDR("10.10.0.0/16"),

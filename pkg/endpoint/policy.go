@@ -1057,11 +1057,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				}
 
 				ID := e.SecurityIdentity.ID
-				hostIP, err := netip.ParseAddr(node.GetCiliumEndpointNodeIP(ln))
-				if err != nil {
-					e.runlock()
-					return controller.NewExitReason("Failed to get node IP")
-				}
+				hostIP := node.GetCiliumEndpointNodeIP(ln)
 				key := node.GetEndpointEncryptKeyIndex(ln, e.wgConfig.Enabled(), e.ipsecConfig.Enabled())
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace

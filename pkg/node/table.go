@@ -42,7 +42,7 @@ func (n *LocalNode) TableHeader() []string {
 func (n *LocalNode) TableRow() []string {
 	addrs := make([]string, len(n.IPAddresses))
 	for i := range n.IPAddresses {
-		addrs[i] = string(n.IPAddresses[i].Type) + ":" + n.IPAddresses[i].ToString()
+		addrs[i] = string(n.IPAddresses[i].Type) + ":" + n.IPAddresses[i].Addr.String()
 	}
 	slices.Sort(addrs)
 	return []string{

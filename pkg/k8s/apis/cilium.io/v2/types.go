@@ -4,7 +4,7 @@
 package v2
 
 import (
-	"net"
+	"net/netip"
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -542,8 +542,9 @@ func (n *CiliumNode) InstanceID() (instanceID string) {
 // in the CiliumNode.
 type PoolsFromResourceFunc func(*CiliumNode) *ipamTypes.IPAMPoolSpec
 
-func (n NodeAddress) ToString() string {
-	return n.IP
+func (n NodeAddress) ToAddr() netip.Addr {
+	addr, _ := netip.ParseAddr(n.IP)
+	return addr
 }
 
 func (n NodeAddress) AddrType() addressing.AddressType {
@@ -557,6 +558,6 @@ func (n NodeAddress) AddrType() addressing.AddressType {
 // - other IP address type
 // An error is returned if GetIP fails to extract an IP from the CiliumNode
 // based on the provided address family.
-func (n *CiliumNode) GetIP(ipv6 bool) net.IP {
+func (n *CiliumNode) GetIP(ipv6 bool) netip.Addr {
 	return addressing.ExtractNodeIP[NodeAddress](n.Spec.Addresses, ipv6)
 }

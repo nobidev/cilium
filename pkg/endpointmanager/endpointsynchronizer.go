@@ -176,7 +176,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 								if err != nil {
 									scopedLog.Debug("Error getting CES store", logfields.Error, err)
 								} else {
-									nodeIP := node.GetCiliumEndpointNodeIP(ln)
+									nodeIP := node.GetCiliumEndpointNodeIP(ln).String()
 									// Get all CES objects for this node
 									objs, err := cesStore.ByIndex("localNode", nodeIP)
 									if err != nil {
@@ -207,7 +207,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 								if err != nil {
 									scopedLog.Debug("Error getting CEP store", logfields.Error, err)
 								} else {
-									nodeIP := node.GetCiliumEndpointNodeIP(ln)
+									nodeIP := node.GetCiliumEndpointNodeIP(ln).String()
 									objs, err := cepStore.ByIndex("localNode", nodeIP)
 									if err != nil {
 										scopedLog.Debug("Error getting indexed CiliumEndpoint from store", logfields.Error, err)

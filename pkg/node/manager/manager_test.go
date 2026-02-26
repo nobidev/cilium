@@ -266,7 +266,7 @@ func TestNodeLifecycle(t *testing.T) {
 		Name: "node1", Cluster: "c1", IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("10.0.0.1"),
+				Addr: net.ParseIP("10.0.0.1"),
 			},
 		},
 		Source: source.Unspec,
@@ -288,7 +288,7 @@ func TestNodeLifecycle(t *testing.T) {
 		Name: "node2", Cluster: "c1", IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("10.0.0.2"),
+				Addr: net.ParseIP("10.0.0.2"),
 			},
 		},
 		Source: source.Unspec,
@@ -347,7 +347,7 @@ func TestMultipleSources(t *testing.T) {
 	n1k8s := nodeTypes.Node{Name: "node1", Cluster: "c1", Source: source.Kubernetes, IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.1"),
+			Addr: net.ParseIP("10.0.0.1"),
 		},
 	}}
 	mngr.NodeUpdated(n1k8s)
@@ -366,7 +366,7 @@ func TestMultipleSources(t *testing.T) {
 	n1agent := nodeTypes.Node{Name: "node1", Cluster: "c1", Source: source.Local, IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.1"),
+			Addr: net.ParseIP("10.0.0.1"),
 		},
 	}}
 	mngr.NodeUpdated(n1agent)
@@ -457,7 +457,7 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Local, IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("10.0.0.1"),
+				Addr: net.ParseIP("10.0.0.1"),
 			},
 		}}
 		mngr.NodeUpdated(n)
@@ -504,7 +504,7 @@ func TestBackgroundSync(t *testing.T) {
 		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Kubernetes, IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("10.0.0.1"),
+				Addr: net.ParseIP("10.0.0.1"),
 			},
 		}}
 		mngr.NodeUpdated(n)
@@ -551,9 +551,9 @@ func TestIpcache(t *testing.T) {
 		Name:    "node1",
 		Cluster: "c1",
 		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
+			{Type: addressing.NodeCiliumInternalIP, Addr: net.ParseIP("1.1.1.1")},
+			{Type: addressing.NodeInternalIP, Addr: net.ParseIP("10.0.0.2")},
+			{Type: addressing.NodeExternalIP, Addr: net.ParseIP("f00d::1")},
 		},
 
 		IPv4AllocCIDR:           cidr.MustParseCIDR("10.0.0.0/24"),
@@ -613,7 +613,7 @@ func TestIpcache(t *testing.T) {
 	// Update node by removing ExternalIPs and secondary PodCIDRs
 	n1 = *n1.DeepCopy()
 	n1.IPAddresses = slices.DeleteFunc(n1.IPAddresses, func(address nodeTypes.Address) bool {
-		return address.IP.Equal(net.ParseIP("f00d::1"))
+		return address.Addr.Equal(net.ParseIP("f00d::1"))
 	})
 	n1.IPv4SecondaryAllocCIDRs = nil
 	n1.IPv6SecondaryAllocCIDRs = nil
@@ -696,7 +696,7 @@ func TestIpcacheHealthIP(t *testing.T) {
 		Name:    "node1",
 		Cluster: "c1",
 		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1").To4()},
+			{Type: addressing.NodeCiliumInternalIP, Addr: net.ParseIP("1.1.1.1").To4()},
 		},
 		IPv4HealthIP: net.ParseIP("10.0.0.4"),
 		IPv6HealthIP: net.ParseIP("f00d::4"),
@@ -743,9 +743,9 @@ func TestNodeEncryption(t *testing.T) {
 		Name:    "node1",
 		Cluster: "c1",
 		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
+			{Type: addressing.NodeCiliumInternalIP, Addr: net.ParseIP("1.1.1.1")},
+			{Type: addressing.NodeInternalIP, Addr: net.ParseIP("10.0.0.2")},
+			{Type: addressing.NodeExternalIP, Addr: net.ParseIP("f00d::1")},
 		},
 		IPv4AllocCIDR:           cidr.MustParseCIDR("10.0.0.0/24"),
 		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("192.168.10.0/28")},
@@ -869,11 +869,11 @@ func TestNode(t *testing.T) {
 		IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeCiliumInternalIP,
-				IP:   net.ParseIP("192.0.2.1"),
+				Addr: net.ParseIP("192.0.2.1"),
 			},
 			{
 				Type: addressing.NodeCiliumInternalIP,
-				IP:   net.ParseIP("2001:DB8::1"),
+				Addr: net.ParseIP("2001:DB8::1"),
 			},
 		},
 		IPv4HealthIP: net.ParseIP("192.0.2.2"),
@@ -902,12 +902,12 @@ func TestNode(t *testing.T) {
 	n1V2.IPAddresses = []nodeTypes.Address{
 		{
 			Type: addressing.NodeCiliumInternalIP,
-			IP:   net.ParseIP("192.0.2.10"),
+			Addr: net.ParseIP("192.0.2.10"),
 		},
 		{
 			// We will keep the IPv6 the same to make sure we will not delete it
 			Type: addressing.NodeCiliumInternalIP,
-			IP:   net.ParseIP("2001:DB8::1"),
+			Addr: net.ParseIP("2001:DB8::1"),
 		},
 	}
 	n1V2.IPv4HealthIP = net.ParseIP("192.0.2.20")
@@ -1131,15 +1131,15 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 		IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("10.128.0.40"),
+				Addr: net.ParseIP("10.128.0.40"),
 			},
 			{
 				Type: addressing.NodeExternalIP,
-				IP:   net.ParseIP("34.171.135.203"),
+				Addr: net.ParseIP("34.171.135.203"),
 			},
 			{
 				Type: addressing.NodeCiliumInternalIP,
-				IP:   net.ParseIP("169.254.4.6"),
+				Addr: net.ParseIP("169.254.4.6"),
 			},
 		},
 		Source: source.Local,
@@ -1163,15 +1163,15 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 		IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("10.128.0.110"),
+				Addr: net.ParseIP("10.128.0.110"),
 			},
 			{
 				Type: addressing.NodeExternalIP,
-				IP:   net.ParseIP("34.170.71.139"),
+				Addr: net.ParseIP("34.170.71.139"),
 			},
 			{
 				Type: addressing.NodeCiliumInternalIP,
-				IP:   net.ParseIP("169.254.4.6"),
+				Addr: net.ParseIP("169.254.4.6"),
 			},
 		},
 		Source: source.CustomResource,
@@ -1232,19 +1232,19 @@ func TestNodeIpset(t *testing.T) {
 		IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeCiliumInternalIP,
-				IP:   net.ParseIP("192.0.2.1"),
+				Addr: net.ParseIP("192.0.2.1"),
 			},
 			{
 				Type: addressing.NodeCiliumInternalIP,
-				IP:   net.ParseIP("2001:DB8::1"),
+				Addr: net.ParseIP("2001:DB8::1"),
 			},
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("10.0.0.1"),
+				Addr: net.ParseIP("10.0.0.1"),
 			},
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("2001:ABCD::1"),
+				Addr: net.ParseIP("2001:ABCD::1"),
 			},
 		},
 		IPv4HealthIP: net.ParseIP("192.0.2.2"),
@@ -1275,11 +1275,11 @@ func TestNodeIpset(t *testing.T) {
 		IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("10.1.0.1"),
+				Addr: net.ParseIP("10.1.0.1"),
 			},
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("2001:ABCE::1"),
+				Addr: net.ParseIP("2001:ABCE::1"),
 			},
 		},
 		Source: source.CustomResource,
@@ -1344,35 +1344,35 @@ func TestNodesStartupPruning(t *testing.T) {
 	c1Node1 := nodeTypes.Node{Name: "node1", Cluster: "c1", IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.1"),
+			Addr: net.ParseIP("10.0.0.1"),
 		},
 	}}
 
 	c1Node2 := nodeTypes.Node{Name: "node2", Cluster: "c1", IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.2"),
+			Addr: net.ParseIP("10.0.0.2"),
 		},
 	}}
 
 	c1StaleNode := nodeTypes.Node{Name: "node3", Cluster: "c1", IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.3"),
+			Addr: net.ParseIP("10.0.0.3"),
 		},
 	}}
 
 	c2Node1 := nodeTypes.Node{Name: "node1", Cluster: "c2", IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.4"),
+			Addr: net.ParseIP("10.0.0.4"),
 		},
 	}}
 
 	c2StaleNode := nodeTypes.Node{Name: "node2", Cluster: "c2", IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.5"),
+			Addr: net.ParseIP("10.0.0.5"),
 		},
 	}}
 

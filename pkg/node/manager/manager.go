@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/google/renameio/v2"
 	jsoniter "github.com/json-iterator/go"
-	"go4.org/netipx"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -627,16 +626,12 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 		nodeLabels = labels.NewFrom(labels.LabelHost)
 		if m.conf.PolicyCIDRMatchesNodes() {
 			for _, address := range n.IPAddresses {
-				addr, ok := netipx.FromStdIP(address.IP)
-				if ok {
-					bitLen := addr.BitLen()
-					if m.conf.EnableIPv4 && bitLen == net.IPv4len*8 ||
-						m.conf.EnableIPv6 && bitLen == net.IPv6len*8 {
-						prefix, err := addr.Prefix(bitLen)
-						if err == nil {
-							cidrLabels := labels.GetCIDRLabels(prefix)
-							nodeLabels.MergeLabels(cidrLabels)
-						}
+				if m.conf.EnableIPv4 && address.Addr.Is4() ||
+					m.conf.EnableIPv6 && address.Addr.Is6() {
+					prefix, err := address.Addr.Prefix(address.Addr.BitLen())
+					if err == nil {
+						cidrLabels := labels.GetCIDRLabels(prefix)
+						nodeLabels.MergeLabels(cidrLabels)
 					}
 				}
 			}
@@ -686,14 +681,14 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	nodeIdentifier := n.Identity()
 	dpUpdate := true
 	var nodeIP netip.Addr
-	if nIP := n.GetNodeIP(m.underlay == tunnel.IPv6); nIP != nil {
+	if nIP := n.GetNodeIP(m.underlay == tunnel.IPv6); nIP.IsValid() {
 		// GH-24829: Support IPv6-only nodes.
 
 		// Skip returning the error here because at this level, we assume that
 		// the IP is valid as long as it's coming from nodeTypes.Node. This
 		// object is created either from the node discovery (K8s) or from an
 		// event from the kvstore.
-		nodeIP, _ = netipx.FromStdIP(nIP)
+		nodeIP = nIP
 	}
 
 	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
@@ -703,7 +698,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	var nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix
 
 	for _, address := range n.IPAddresses {
-		prefix := ip.IPToNetPrefix(address.IP)
+		prefix := netip.PrefixFrom(address.Addr, address.Addr.BitLen())
 		var prefixCluster cmtypes.PrefixCluster
 		if address.Type == addressing.NodeCiliumInternalIP {
 			prefixCluster = cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&n)...)
@@ -745,7 +740,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		existing := m.ipcache.GetMetadataSourceByPrefix(prefixCluster)
 		overwrite := source.AllowOverwrite(existing, n.Source)
 		if !overwrite && existing != source.KubeAPIServer &&
-			!(address.Type == addressing.NodeCiliumInternalIP && m.conf.IsLocalRouterIP(address.ToString())) {
+			!(address.Type == addressing.NodeCiliumInternalIP && m.conf.IsLocalRouterIP(address.ToAddr().String())) {
 			dpUpdate = false
 		}
 
@@ -964,16 +959,16 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix,
 ) {
 	var oldNodeIP netip.Addr
-	if nIP := oldNode.GetNodeIP(false); nIP != nil {
+	if nIP := oldNode.GetNodeIP(false); nIP.IsValid() {
 		// See comment in NodeUpdated().
-		oldNodeIP, _ = netipx.FromStdIP(nIP)
+		oldNodeIP = nIP
 	}
 	oldNodeLabels, oldNodeIdentityOverride := m.nodeIdentityLabels(oldNode)
 
 	// Delete the old node IP addresses if they have changed in this node.
 	var v4Addrs, v6Addrs []netip.Addr
 	for _, address := range oldNode.IPAddresses {
-		prefix := ip.IPToNetPrefix(address.IP)
+		prefix := netip.PrefixFrom(address.Addr, address.Addr.BitLen())
 		if slices.Contains(nodeIPsAdded, prefix) {
 			continue
 		}
@@ -986,18 +981,10 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		}
 
 		if address.Type == addressing.NodeInternalIP && !slices.Contains(ipsetEntries, oldPrefixCluster.AsPrefix()) {
-			addr, ok := netipx.FromStdIP(address.IP)
-			if !ok {
-				m.logger.Error(
-					"unable to convert to netip.Addr",
-					logfields.IPAddr, address.IP,
-				)
-				continue
-			}
-			if addr.Is6() {
-				v6Addrs = append(v6Addrs, addr)
-			} else {
-				v4Addrs = append(v4Addrs, addr)
+			if address.Addr.Is6() {
+				v6Addrs = append(v6Addrs, address.Addr)
+			} else if address.Addr.Is4() {
+				v4Addrs = append(v4Addrs, address.Addr)
 			}
 		}
 

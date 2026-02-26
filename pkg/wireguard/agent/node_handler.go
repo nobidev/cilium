@@ -46,8 +46,8 @@ func (a *Agent) nodeUpsert(node nodeTypes.Node) error {
 		return nil
 	}
 
-	newIP4 := node.GetNodeIP(false)
-	newIP6 := node.GetNodeIP(true)
+	newIP4 := node.GetNodeIP(false).AsSlice()
+	newIP6 := node.GetNodeIP(true).AsSlice()
 
 	if err := a.updatePeer(node.Fullname(), node.WireguardPubKey, newIP4, newIP6); err != nil {
 		a.logger.Warn(

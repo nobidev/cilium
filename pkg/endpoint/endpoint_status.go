@@ -43,7 +43,7 @@ func (e *Endpoint) getEndpointNetworking(logger *slog.Logger, mdlNetworking *mod
 		logging.Fatal(e.logger.Load(), "failed to retrieve local node")
 	}
 
-	networking.NodeIP = node.GetCiliumEndpointNodeIP(ln)
+	networking.NodeIP = node.GetCiliumEndpointNodeIP(ln).String()
 
 	for i, pair := range mdlNetworking.Addressing {
 		networking.Addressing[i] = &cilium_v2.AddressPair{

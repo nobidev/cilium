@@ -218,13 +218,13 @@ func (r *authMapGarbageCollector) remoteNodeIDs(node nodeTypes.Node) []uint16 {
 
 	for _, addr := range node.IPAddresses {
 		if addr.Type == addressing.NodeInternalIP {
-			nodeID, exists := r.nodeIDHandler.GetNodeID(addr.IP)
+			nodeID, exists := r.nodeIDHandler.GetNodeID(addr.Addr)
 			if !exists {
 				// This might be the case at startup, when new nodes aren't yet known to the nodehandler
 				// and therefore no node id has been assigned to them.
 				r.logger.Debug("No node ID available for node IP - skipping",
 					logfields.NodeName, node.Name,
-					logfields.IPAddr, addr.IP)
+					logfields.IPAddr, addr.Addr)
 				continue
 			}
 			remoteNodeIDs = append(remoteNodeIDs, nodeID)

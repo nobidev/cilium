@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -65,11 +66,11 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 		addrGroup := nodeAddressGroup{
 			typ: addr.Type,
 		}
-		ip := net.ParseIP(addr.Address)
+		ip, err := netip.ParseAddr(addr.Address)
 		switch {
-		case ip != nil && ip.To4() != nil:
+		case err == nil && ip.Is4():
 			addrGroup.family = slim_corev1.IPv4Protocol
-		case ip != nil && ip.To16() != nil:
+		case err == nil && ip.Is6():
 			addrGroup.family = slim_corev1.IPv6Protocol
 		default:
 			scopedLog.Warn(
@@ -99,7 +100,7 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 
 		na := nodeTypes.Address{
 			Type: addressType,
-			IP:   ip,
+			Addr: ip,
 		}
 		addrs = append(addrs, na)
 	}
@@ -173,7 +174,7 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 				logfields.Key, key,
 				logfields.Alias, alias,
 			)
-		} else if ip := net.ParseIP(ciliumInternalIP); ip == nil {
+		} else if ip, err := netip.ParseAddr(ciliumInternalIP); err != nil {
 			scopedLog.Debug(
 				"Parse IP error",
 				logfields.IPAddr, ciliumInternalIP,
@@ -181,7 +182,7 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 		} else {
 			na := nodeTypes.Address{
 				Type: addressing.NodeCiliumInternalIP,
-				IP:   ip,
+				Addr: ip,
 			}
 			addrs = append(addrs, na)
 			scopedLog.Debug(

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
 	"github.com/cilium/hive/cell"
@@ -167,7 +168,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 								IPAddresses: []nodeTypes.Address{
 									{
 										Type: addressing.NodeInternalIP,
-										IP:   k8s1NodeIPv4,
+										Addr: netipx.MustFromStdIP(k8s1NodeIPv4),
 									},
 								},
 								Annotations: map[string]string{},
@@ -280,7 +281,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 				IPAddresses: []nodeTypes.Address{
 					{
 						Type: addressing.NodeInternalIP,
-						IP:   k8s2NodeIPv4,
+						Addr: netipx.MustFromStdIP(k8s2NodeIPv4),
 					},
 				},
 				Source:          source.Unspec,

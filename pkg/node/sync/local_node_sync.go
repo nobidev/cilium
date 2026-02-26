@@ -208,9 +208,9 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 	node.Name = parsedNode.Name
 	for _, addr := range parsedNode.IPAddresses {
 		if addr.Type == addressing.NodeInternalIP {
-			node.SetNodeInternalIP(addr.IP)
+			node.SetNodeInternalIP(addr.Addr)
 		} else if addr.Type == addressing.NodeExternalIP {
-			node.SetNodeExternalIP(addr.IP)
+			node.SetNodeExternalIP(addr.Addr)
 		}
 	}
 	ini.syncFromK8s(node, parsedNode)

@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"maps"
-	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -96,9 +96,9 @@ func Test_authManager_authenticate(t *testing.T) {
 				hivetest.Logger(t),
 				[]authHandler{&alwaysFailAuthHandler{}, newAlwaysPassAuthHandler(hivetest.Logger(t))},
 				authMap,
-				newFakeNodeIDHandler(map[uint16]string{
-					2: "172.18.0.2",
-					3: "172.18.0.3",
+				newFakeNodeIDHandler(map[uint16]netip.Addr{
+					2: netip.MustParseAddr("172.18.0.2"),
+					3: netip.MustParseAddr("172.18.0.3"),
 				}),
 				time.Second,
 			)
@@ -230,7 +230,7 @@ func Test_authManager_handleCertificateDeletionEvent(t *testing.T) {
 
 // Fake NodeIDHandler
 type fakeNodeIDHandler struct {
-	nodeIdMappings map[uint16]string
+	nodeIdMappings map[uint16]netip.Addr
 }
 
 func (r *fakeNodeIDHandler) DumpNodeIDs() []*models.NodeID {
@@ -240,19 +240,19 @@ func (r *fakeNodeIDHandler) DumpNodeIDs() []*models.NodeID {
 func (r *fakeNodeIDHandler) RestoreNodeIDs() {
 }
 
-func newFakeNodeIDHandler(mappings map[uint16]string) *fakeNodeIDHandler {
+func newFakeNodeIDHandler(mappings map[uint16]netip.Addr) *fakeNodeIDHandler {
 	return &fakeNodeIDHandler{
 		nodeIdMappings: mappings,
 	}
 }
 
-func (r *fakeNodeIDHandler) GetNodeIP(id uint16) string {
+func (r *fakeNodeIDHandler) GetNodeIP(id uint16) netip.Addr {
 	return r.nodeIdMappings[id]
 }
 
-func (r *fakeNodeIDHandler) GetNodeID(nodeIP net.IP) (uint16, bool) {
+func (r *fakeNodeIDHandler) GetNodeID(nodeIP netip.Addr) (uint16, bool) {
 	for id, ip := range r.nodeIdMappings {
-		if ip == nodeIP.String() {
+		if ip == nodeIP {
 			return id, true
 		}
 	}
@@ -265,7 +265,6 @@ type fakeAuthHandler struct {
 }
 
 func (r *fakeAuthHandler) authenticate(authReq *authRequest) (*authResponse, error) {
-
 	return &authResponse{}, nil
 }
 

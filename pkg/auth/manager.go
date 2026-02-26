@@ -195,14 +195,14 @@ func (a *AuthManager) authenticate(key authKey) error {
 	}
 
 	nodeIP := a.nodeIDHandler.GetNodeIP(key.remoteNodeID)
-	if nodeIP == "" {
+	if !nodeIP.IsValid() {
 		return fmt.Errorf("remote node IP not available for node ID %d", key.remoteNodeID)
 	}
 
 	authReq := &authRequest{
 		localIdentity:  key.localIdentity,
 		remoteIdentity: key.remoteIdentity,
-		remoteNodeIP:   nodeIP,
+		remoteNodeIP:   nodeIP.String(),
 	}
 
 	authResp, err := h.authenticate(authReq)

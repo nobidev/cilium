@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
-	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -84,13 +83,11 @@ func (dr DirectRoutingDevice) Get(ctx context.Context, rxn statedb.ReadTxn) (*De
 	if device == nil && dr.p.Node != nil {
 		node, err := dr.p.Node.Get(ctx)
 		if err == nil {
-			nodeIP, ok := netipx.FromStdIP(node.GetK8sNodeIP())
-			if ok {
-				for _, dev := range devs {
-					if dev.HasIP(nodeIP) {
-						device = dev
-						break
-					}
+			nodeIP := node.GetK8sNodeIP()
+			for _, dev := range devs {
+				if dev.HasIP(nodeIP) {
+					device = dev
+					break
 				}
 			}
 		}
