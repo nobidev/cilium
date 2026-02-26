@@ -70,6 +70,7 @@ import (
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -117,6 +118,7 @@ func TestPrivilegedScript(t *testing.T) {
 		var (
 			err        error
 			bgpMgr     agent.BGPRouterManager
+			lbWriter   *writer.Writer
 			egwMgrMock *egwManagerMock
 		)
 
@@ -264,6 +266,9 @@ func TestPrivilegedScript(t *testing.T) {
 				bgpMgr = m
 				m.(*manager.BGPRouterManager).DestroyRouterOnStop(true) // fully destroy GoBGP server on Stop()
 			}),
+			cell.Invoke(func(w *writer.Writer) {
+				lbWriter = w
+			}),
 		)
 		hive.AddConfigOverride(h, func(cfg *reconcilerv2.Config) {
 			cfg.SvcHealthCheckingEnabled = true
@@ -304,6 +309,7 @@ func TestPrivilegedScript(t *testing.T) {
 		maps.Insert(cmds, maps.All(commands.GoBGPScriptCmds(gobgpCmdCtx)))
 		maps.Insert(cmds, maps.All(CEEGoBGPScriptCmds(gobgpCmdCtx)))
 		maps.Insert(cmds, maps.All(commands.BGPScriptCmds(bgpMgr)))
+		maps.Insert(cmds, maps.All(commands.SvcScriptCmds(lbWriter)))
 
 		return &script.Engine{
 			Cmds: cmds,
