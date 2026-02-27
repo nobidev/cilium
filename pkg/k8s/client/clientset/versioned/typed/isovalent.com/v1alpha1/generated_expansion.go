@@ -7,6 +7,8 @@ package v1alpha1
 
 type ClusterwidePrivateNetworkExpansion interface{}
 
+type FabricSecurityGroupExpansion interface{}
+
 type IsovalentBFDNodeConfigExpansion interface{}
 
 type IsovalentBFDNodeConfigOverrideExpansion interface{}

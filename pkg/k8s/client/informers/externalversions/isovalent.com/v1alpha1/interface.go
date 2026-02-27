@@ -13,6 +13,8 @@ import (
 type Interface interface {
 	// ClusterwidePrivateNetworks returns a ClusterwidePrivateNetworkInformer.
 	ClusterwidePrivateNetworks() ClusterwidePrivateNetworkInformer
+	// FabricSecurityGroups returns a FabricSecurityGroupInformer.
+	FabricSecurityGroups() FabricSecurityGroupInformer
 	// IsovalentBFDNodeConfigs returns a IsovalentBFDNodeConfigInformer.
 	IsovalentBFDNodeConfigs() IsovalentBFDNodeConfigInformer
 	// IsovalentBFDNodeConfigOverrides returns a IsovalentBFDNodeConfigOverrideInformer.
@@ -87,6 +89,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // ClusterwidePrivateNetworks returns a ClusterwidePrivateNetworkInformer.
 func (v *version) ClusterwidePrivateNetworks() ClusterwidePrivateNetworkInformer {
 	return &clusterwidePrivateNetworkInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// FabricSecurityGroups returns a FabricSecurityGroupInformer.
+func (v *version) FabricSecurityGroups() FabricSecurityGroupInformer {
+	return &fabricSecurityGroupInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // IsovalentBFDNodeConfigs returns a IsovalentBFDNodeConfigInformer.

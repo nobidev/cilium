@@ -63,6 +63,16 @@ rules:
   - watch
   - get
 {{- end }}
+{{- if .Values.enterprise.evpn.enabled }}
+- apiGroups:
+    - isovalent.com
+  resources:
+    - fabricsecuritygroups
+  verbs:
+    - list
+    - watch
+    - get
+{{- end }}
 - apiGroups:
   - isovalent.com
   resources:

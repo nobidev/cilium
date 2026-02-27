@@ -19,6 +19,10 @@ func (c *FakeIsovalentV1alpha1) ClusterwidePrivateNetworks() v1alpha1.Clusterwid
 	return newFakeClusterwidePrivateNetworks(c)
 }
 
+func (c *FakeIsovalentV1alpha1) FabricSecurityGroups() v1alpha1.FabricSecurityGroupInterface {
+	return newFakeFabricSecurityGroups(c)
+}
+
 func (c *FakeIsovalentV1alpha1) IsovalentBFDNodeConfigs() v1alpha1.IsovalentBFDNodeConfigInterface {
 	return newFakeIsovalentBFDNodeConfigs(c)
 }

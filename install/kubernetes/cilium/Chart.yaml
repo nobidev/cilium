@@ -388,3 +388,10 @@ annotations:
       description: |
         PrivateNetworkNodeAttachment defines a node device management
         of private networks.
+    - kind: FabricSecurityGroup
+      version: v1alpha1
+      name: fabricsecuritygroups.isovalent.com
+      displayName: Fabric Security Group
+      description: |
+        FabricSecurityGroup defines binding of Kubernetes resources to a fabric-level Security Group.
+        Each object represents single fabric Security Group identified by metadata.name.

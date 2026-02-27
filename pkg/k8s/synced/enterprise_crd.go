@@ -74,5 +74,9 @@ func AllIsovalentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v1alpha1.PrivateNetworkNodeAttachmentName))
 	}
 
+	if option.Config.EnableEVPN {
+		result = append(result, CRDResourceName(v1alpha1.FabricSecurityGroupName))
+	}
+
 	return result
 }

@@ -140,6 +140,11 @@ const (
 	LBK8sBackendClusterPluralName     = "lbk8sbackendclusters"
 	LBK8sBackendClusterKindDefinition = "LBK8sBackendCluster"
 	LBK8sBackendClusterName           = LBK8sBackendClusterPluralName + "." + CustomResourceDefinitionGroup
+
+	// FabricSecurityGroup
+	FabricSecurityGroupPluralName     = "fabricsecuritygroups"
+	FabricSecurityGroupKindDefinition = "FabricSecurityGroup"
+	FabricSecurityGroupName           = FabricSecurityGroupPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -242,6 +247,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&PrivateNetworkNodeAttachmentList{},
 		&LBK8sBackendCluster{},
 		&LBK8sBackendClusterList{},
+		&FabricSecurityGroup{},
+		&FabricSecurityGroupList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

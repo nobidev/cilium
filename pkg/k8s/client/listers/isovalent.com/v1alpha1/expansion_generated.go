@@ -9,6 +9,10 @@ package v1alpha1
 // ClusterwidePrivateNetworkLister.
 type ClusterwidePrivateNetworkListerExpansion interface{}
 
+// FabricSecurityGroupListerExpansion allows custom methods to be added to
+// FabricSecurityGroupLister.
+type FabricSecurityGroupListerExpansion interface{}
+
 // IsovalentBFDNodeConfigListerExpansion allows custom methods to be added to
 // IsovalentBFDNodeConfigLister.
 type IsovalentBFDNodeConfigListerExpansion interface{}

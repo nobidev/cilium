@@ -127,6 +127,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=isovalent.com, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("clusterwideprivatenetworks"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().ClusterwidePrivateNetworks().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("fabricsecuritygroups"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().FabricSecurityGroups().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("isovalentbfdnodeconfigs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Isovalent().V1alpha1().IsovalentBFDNodeConfigs().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("isovalentbfdnodeconfigoverrides"):

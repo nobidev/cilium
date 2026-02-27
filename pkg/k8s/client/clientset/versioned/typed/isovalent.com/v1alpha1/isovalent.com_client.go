@@ -16,6 +16,7 @@ import (
 type IsovalentV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ClusterwidePrivateNetworksGetter
+	FabricSecurityGroupsGetter
 	IsovalentBFDNodeConfigsGetter
 	IsovalentBFDNodeConfigOverridesGetter
 	IsovalentBFDProfilesGetter
@@ -54,6 +55,10 @@ type IsovalentV1alpha1Client struct {
 
 func (c *IsovalentV1alpha1Client) ClusterwidePrivateNetworks() ClusterwidePrivateNetworkInterface {
 	return newClusterwidePrivateNetworks(c)
+}
+
+func (c *IsovalentV1alpha1Client) FabricSecurityGroups() FabricSecurityGroupInterface {
+	return newFabricSecurityGroups(c)
 }
 
 func (c *IsovalentV1alpha1Client) IsovalentBFDNodeConfigs() IsovalentBFDNodeConfigInterface {
