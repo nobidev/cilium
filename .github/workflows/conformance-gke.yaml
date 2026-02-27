@@ -103,7 +103,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 557.0.0
@@ -326,6 +325,16 @@ jobs:
           external-other-ip: '8.8.4.4'
           hubble: false
           test-concurrency: 5
+
+      # Generate cluster name with hashed run identifier. This is required because
+      # the cluster name has a length limit and we need to make it reasonably
+      # short.
+      - name: Generate cluster name
+        run: |
+          run_id_sha=$(echo -n ${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }} | sha256sum | cut -c 1-7)
+          clusterName="${{ github.repository_owner }}-${{ github.event.repository.name }}-${run_id_sha}"
+          echo "Generated cluster name: ${clusterName}"
+          echo "clusterName=${clusterName}" >> $GITHUB_ENV
 
       - name: Set up job variables
         id: vars
