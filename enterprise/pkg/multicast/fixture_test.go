@@ -215,9 +215,6 @@ func newFixture(t *testing.T, ctx context.Context, req *require.Assertions, init
 
 		cell.Invoke(func(mcastManager *MulticastManager) {
 			f.manager = mcastManager
-
-			// populate default vxlan device ifindex
-			f.manager.ciliumVxlanIfIndex = testVxlanIfIndex
 		}),
 
 		Cell,

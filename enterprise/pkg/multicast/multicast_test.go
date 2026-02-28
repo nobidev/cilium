@@ -41,10 +41,8 @@ var (
 	testNode2Name     = "node2"
 	testNode3Name     = "node3"
 
-	// testVxlanIfIndex is the ifindex of the vxlan device used in tests
-	testVxlanIfIndex = 11
-	testSub1IfIndex  = 1
-	testSub2IfIndex  = 2
+	testSub1IfIndex = 1
+	testSub2IfIndex = 2
 
 	testGroup1 = isovalent_api_v1alpha1.MulticastGroupAddr("225.0.0.100")
 	testGroup2 = isovalent_api_v1alpha1.MulticastGroupAddr("225.0.0.101")
@@ -303,12 +301,10 @@ func Test_MulticastRemoteSubscribers(t *testing.T) {
 				netip.MustParseAddr(string(testGroup1)): {
 					{
 						SAddr:    netip.MustParseAddr(testNode2IP),
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 					{
 						SAddr:    netip.MustParseAddr(testNode3IP),
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 				},
@@ -322,7 +318,6 @@ func Test_MulticastRemoteSubscribers(t *testing.T) {
 				netip.MustParseAddr(string(testGroup1)): {
 					{
 						SAddr:    netip.MustParseAddr("10.10.10.10"), // extra item, should be removed
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 				},
@@ -332,12 +327,10 @@ func Test_MulticastRemoteSubscribers(t *testing.T) {
 				netip.MustParseAddr(string(testGroup1)): {
 					{
 						SAddr:    netip.MustParseAddr(testNode2IP),
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 					{
 						SAddr:    netip.MustParseAddr(testNode3IP),
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 				},
@@ -356,36 +349,30 @@ func Test_MulticastRemoteSubscribers(t *testing.T) {
 				netip.MustParseAddr(string(testGroup1)): {
 					{
 						SAddr:    netip.MustParseAddr(testNode2IP),
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 					{
 						SAddr:    netip.MustParseAddr(testNode3IP),
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 				},
 				netip.MustParseAddr(string(testGroup2)): {
 					{
 						SAddr:    netip.MustParseAddr(testNode2IP),
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 					{
 						SAddr:    netip.MustParseAddr(testNode3IP),
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 				},
 				netip.MustParseAddr(string(testGroup3)): {
 					{
 						SAddr:    netip.MustParseAddr(testNode2IP),
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 					{
 						SAddr:    netip.MustParseAddr(testNode3IP),
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 				},
@@ -458,7 +445,6 @@ func Test_MulticastNodeStatus(t *testing.T) {
 					},
 					{
 						SAddr:    netip.MustParseAddr(testNode2IP),
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 				},
@@ -473,7 +459,6 @@ func Test_MulticastNodeStatus(t *testing.T) {
 					},
 					{
 						SAddr:    netip.MustParseAddr(testNode2IP),
-						Ifindex:  uint32(testVxlanIfIndex),
 						IsRemote: true,
 					},
 				},

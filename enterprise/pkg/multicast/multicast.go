@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	dpTypes "github.com/cilium/cilium/pkg/datapath/types"
-	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ebpf"
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -98,9 +97,6 @@ type MulticastManager struct {
 	// node metadata
 	nodeName string
 	nodeIP   string
-
-	// ifindex of vxlan device
-	ciliumVxlanIfIndex int
 
 	// nodeEndpoints is node local endpoint metadata.
 	// This state is populated from k8sTypes.CiliumEndpoint events.
@@ -380,14 +376,6 @@ func (m *MulticastManager) updateEndpoint(e resource.Event[*k8sTypes.CiliumEndpo
 }
 
 func (m *MulticastManager) reconcile(ctx context.Context) (err error) {
-	// 0. populate vxlan ifindex if not already populated
-	if m.ciliumVxlanIfIndex == 0 {
-		m.ciliumVxlanIfIndex, err = GetIfIndex(ciliumDefaults.VxlanDevice)
-		if err != nil {
-			return fmt.Errorf("failed to populate ifindex of vxlan device %s: %w", ciliumDefaults.VxlanDevice, err)
-		}
-	}
-
 	// get groups from k8s store only once during reconcile loop, as groups
 	// can change in the middle of reconciliation. Next reconcile loop will
 	// get updated groups.
@@ -530,7 +518,6 @@ func (m *MulticastManager) reconcileRemoteSubscribersInBPF(groupAddr netip.Addr,
 		sub := &maps_multicast.SubscriberV4{
 			SAddr:    addr,
 			IsRemote: true,
-			Ifindex:  uint32(m.ciliumVxlanIfIndex),
 		}
 
 		err = subscriberMap.Insert(sub)
