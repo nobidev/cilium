@@ -456,6 +456,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
 	option.BindEnv(vp, option.NodePortBindProtection)
 
+	flags.Bool(option.NodePortEnableDynamicSourceLookup, false, "Enable dynamic source IP resolution for SNAT via linux's routing table.")
+	option.BindEnv(vp, option.NodePortEnableDynamicSourceLookup)
+
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(vp, option.EnableIdentityMark)
 

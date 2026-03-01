@@ -236,6 +236,10 @@ const (
 	// NodePortBindProtection rejects bind requests to NodePort service ports
 	NodePortBindProtection = "node-port-bind-protection"
 
+	// Enable dynamic source IP resolution for SNAT via linux's routing table.
+	// The kernel must support this feature.
+	NodePortEnableDynamicSourceLookup = "enable-dynamic-source-lookup-nodeport"
+
 	// EnableAutoProtectNodePortRange enables appending NodePort range to
 	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
 	// range (net.ipv4.ip_local_port_range)
@@ -1604,6 +1608,10 @@ type DaemonConfig struct {
 	// NodePortBindProtection rejects bind requests to NodePort service ports
 	NodePortBindProtection bool
 
+	// Enable dynamic source IP resolution for SNAT via linux's routing table.
+	// The kernel must support this feature.
+	NodePortEnableDynamicSourceLookup bool
+
 	// EnableAutoProtectNodePortRange enables appending NodePort range to
 	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
 	// range (net.ipv4.ip_local_port_range)
@@ -2438,6 +2446,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.UnsafeDaemonConfigOption.EnableHostLegacyRouting = vp.GetBool(EnableHostLegacyRouting)
 	c.NodePortBindProtection = vp.GetBool(NodePortBindProtection)
 	c.NodePortNat46X64 = vp.GetBool(LoadBalancerNat46X64)
+	c.NodePortEnableDynamicSourceLookup = vp.GetBool(NodePortEnableDynamicSourceLookup)
 	c.EnableAutoProtectNodePortRange = vp.GetBool(EnableAutoProtectNodePortRange)
 	c.EnableMKE = vp.GetBool(EnableMKE)
 	c.CgroupPathMKE = vp.GetString(CgroupPathMKE)
