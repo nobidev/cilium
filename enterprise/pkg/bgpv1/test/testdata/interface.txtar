@@ -15,7 +15,7 @@ gobgp/add-peer -s dualstack fd00::aa:bb:55:2 65001
 
 # Configure BGP on Cilium
 k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config-v4.yaml bgp-peer-config-dualstack.yaml bgp-advertisement.yaml
-bgptest/sync-oss-resources
+* bgptest/sync-oss-resources
 
 # Wait for peerings to be established
 gobgp/wait-state -s v4-only   10.99.5.2        ESTABLISHED

@@ -13,14 +13,14 @@ gobgp/add-peer fd00::bb:cc:dd:102 65001
 
 # Configure BGP on Cilium
 k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml
-bgptest/sync-oss-resources
+* bgptest/sync-oss-resources
 
 # Configure a service
 k8s/add service.yaml
 
 # Configure advertisement with communities ending with 99
 k8s/add bgp-advertisement-99.yaml
-bgptest/sync-oss-resources
+* bgptest/sync-oss-resources
 
 # Wait for peering to be established
 gobgp/wait-state fd00::bb:cc:dd:102 ESTABLISHED
@@ -39,7 +39,7 @@ gobgp/routes -o routes.actual ipv6 unicast
 
 # Configure advertisement with communities ending with 101
 k8s/update bgp-advertisement-101.yaml
-bgptest/sync-oss-resources
+* bgptest/sync-oss-resources
 
 # Validate IPv4 PodCIDR routes
 gobgp/routes -o routes.actual ipv4 unicast
@@ -51,7 +51,7 @@ gobgp/routes -o routes.actual ipv6 unicast
 
 # Configure advertisement with overlapping advertisements
 k8s/update bgp-advertisement-overlapping.yaml
-bgptest/sync-oss-resources
+* bgptest/sync-oss-resources
 
 # Validate IPv4 PodCIDR routes
 gobgp/routes -o routes.actual ipv4 unicast
