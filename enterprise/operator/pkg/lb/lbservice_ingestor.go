@@ -1448,8 +1448,8 @@ func (r *ingestor) evaluateTCPProxyAutoTierMode(lbsvc *isovalentv1alpha1.LBServi
 			return tierModeT2
 		}
 
-		// Cilium Agent health checking doesn't support TLS
-		if v.healthCheckConfig.tlsConfig != nil {
+		// Cilium Agent health checking doesn't support TLS unless it's HTTP health checks.
+		if v.healthCheckConfig.tlsConfig != nil && v.healthCheckConfig.http == nil {
 			return tierModeT2
 		}
 
@@ -1529,8 +1529,8 @@ func (r *ingestor) evaluateUDPProxyAutoTierMode(lbsvc *isovalentv1alpha1.LBServi
 			return tierModeT2
 		}
 
-		// Cilium Agent health checking doesn't support TLS
-		if v.healthCheckConfig.tlsConfig != nil {
+		// Cilium Agent health checking doesn't support TLS unless it's HTTP health checks.
+		if v.healthCheckConfig.tlsConfig != nil && v.healthCheckConfig.http == nil {
 			return tierModeT2
 		}
 

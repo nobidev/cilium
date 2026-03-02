@@ -161,6 +161,14 @@ func (r *lbServiceT1Translator) getHealthCheckAnnotations(model *lbService) map[
 		if httpPath := r.getT1OnlyHealthCheckHTTPPath(model); httpPath != "" {
 			annotations[annotation.ServiceHealthHTTPPath] = httpPath
 			annotations[annotation.ServiceHealthHTTPMethod] = "GET"
+
+			// If backend health check wants TLS, set https scheme + optional host
+			if r.getT1OnlyHealthCheckUseHTTPS(model) {
+				annotations[annotation.ServiceHealthHTTPScheme] = "https"
+			}
+			if host := r.getT1OnlyHealthCheckHTTPHost(model); host != "" {
+				annotations[annotation.ServiceHealthHTTPHost] = host
+			}
 		}
 	}
 
@@ -504,4 +512,18 @@ func (r *lbServiceT1Translator) getServiceSessionAffinity(model *lbService) core
 	}
 
 	return corev1.ServiceAffinityNone
+}
+
+func (r *lbServiceT1Translator) getT1OnlyHealthCheckUseHTTPS(model *lbService) bool {
+	for _, b := range model.referencedBackends {
+		return b.healthCheckConfig.tlsConfig != nil
+	}
+	return false
+}
+
+func (r *lbServiceT1Translator) getT1OnlyHealthCheckHTTPHost(model *lbService) string {
+	for _, b := range model.referencedBackends {
+		return b.healthCheckConfig.http.host
+	}
+	return ""
 }
