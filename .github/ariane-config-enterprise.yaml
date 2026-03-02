@@ -19,6 +19,8 @@ triggers:
     - enterprise-encryption-policy.yaml
     - enterprise-ingress-policy.yaml
     - enterprise-standalone-egress-gateway.yaml
+    depends-on:
+    - /build-images
   /backport (.+):
     workflows:
     - enterprise-auto-backport.yaml
@@ -26,6 +28,8 @@ triggers:
     workflows:
     - enterprise-clustermesh-mixed-routing.yaml
     - enterprise-clustermesh-overlapping-podcidr.yaml
+    depends-on:
+    - /build-images
   # `(.+)` is regex capture group that is used as `extra-args` inputs parameter in the CuTE workflow
   # For example: `/cute bloomberg` or `/cute form3/MAKS`
   /cute (.+):
@@ -34,33 +38,53 @@ triggers:
   /ci-multi-network:
     workflows:
     - enterprise-multi-network.yaml
+    depends-on:
+    - /build-images
   /ci-fqdn-ha:
     workflows:
     - enterprise-fqdn-ha.yaml
+    depends-on:
+    - /build-images
   /ci-fqdn-ha-upgrade:
     workflows:
     - enterprise-fqdn-ha-upgrade.yaml
+    depends-on:
+    - /build-images
   /ci-srv6-datapath:
     workflows:
     - enterprise-srv6-datapath.yaml
+    depends-on:
+    - /build-images
   /ci-multicast:
     workflows:
     - enterprise-multicast.yaml
+    depends-on:
+    - /build-images
   /fqdn-ha-perf:
     workflows:
     - enterprise-fqdn-ha-perf.yaml
+    depends-on:
+    - /build-images
   /ci-lb:
     workflows:
     - enterprise-lb.yaml
+    depends-on:
+    - /build-images
   /ci-lb-vsphere:
     workflows:
     - enterprise-lb-vsphere.yaml
+    depends-on:
+    - /build-images
   /scale-encryption-policy:
     workflows:
     - enterprise-scale-encryption-policy.yaml
+    depends-on:
+    - /build-images
   /ci-encryption-policy:
     workflows:
     - enterprise-encryption-policy.yaml
+    depends-on:
+    - /build-images
   # `(?:\s*)({.*})?` is regex capture group that is used as `extra-args` inputs parameter in the enterprise conformance OpenShift workflow
   # For example: `/ci-openshift {"kubevirt":"true", "ocp_version":"4.17.14"}`
   /ci-openshift(?:\s*)({.*})?:
@@ -80,15 +104,26 @@ triggers:
   /ci-ingress-policy:
     workflows:
     - enterprise-ingress-policy.yaml
+    depends-on:
+    - /build-images
   /ci-standalone-egress-gateway:
     workflows:
     - enterprise-standalone-egress-gateway.yaml
+    depends-on:
+    - /build-images
   /ci-egress-gateway-ha-eks:
     workflows:
     - enterprise-egress-gateway-ha-eks.yaml
+    depends-on:
+    - /build-images
   /ci-egress-gateway-ha-aks:
     workflows:
     - enterprise-egress-gateway-ha-aks.yaml
+    depends-on:
+    - /build-images
+  /build-images: #this trigger is not meant to be used in comments, as oss build workflows are not triggered by Ariane. Having this trigger allows us to have others depend on oss images workflow though.
+    workflows:
+    - enterprise-build-images-ci.yaml
 
 # This trigger needs to be kept in sync with enterprise-ariane-scheduled.yaml workflow
 schedule:
