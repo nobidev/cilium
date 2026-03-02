@@ -67,9 +67,9 @@ jobs:
             build_args: |
               PUSH=true
               # renovate: datasource=docker
-              RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-ubi:0c926340b0a18a21dd4f0c56676e230a0be8af47
+              RUNTIME_IMAGE=quay.io/isovalent-dev/cilium-runtime-ubi:fc521c0d940550f6682a1f59102d7e22978bb9ee
               # renovate: datasource=docker
-              UBI_IMAGE=quay.io/isovalent-dev/cilium-runtime-ubi:0c926340b0a18a21dd4f0c56676e230a0be8af47
+              UBI_IMAGE=quay.io/isovalent-dev/cilium-runtime-ubi:fc521c0d940550f6682a1f59102d7e22978bb9ee
               OPERATOR_VARIANT=cilium-ubi
 
           - name: operator
