@@ -1,0 +1,53 @@
+name: Ariane Enterprise Config linter
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+jobs:
+  lint-ariane-enterprise-config:
+    name: Lint Ginkgo Workflows Comments
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          path: src/github.com/isovalent/cilium
+
+      - name: Install Go
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        with:
+          go-version: 1.26.0
+
+      - name: Generate Github App Token
+        id: get-token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        with:
+          app-id: ${{ secrets.ISOVALENT_READONLY_GH_APP_ID }}
+          private-key: ${{ secrets.ISOVALENT_READONLY_GH_APP_PEM }}
+          owner: isovalent
+          repositories: ariane
+
+      - name: Authenticate with GH CLI
+        run: |
+          git config --global url."https://x-access-token:${{ steps.get-token.outputs.token }}@github.com/isovalent".insteadOf "https://github.com/isovalent"
+
+      - name: Install Ariane linter
+        shell: bash
+        env:
+          GOPRIVATE: github.com/isovalent
+          GONOSUMDB: github.com/isovalent
+        run: |
+          go install github.com/isovalent/ariane/linter@1d985d03158904b8acb88fb4d31fc0cff4ada846
+
+      - name: Lint Ariane config
+        shell: bash
+        run: |
+          linter src/github.com/isovalent/cilium/.github/ariane-config.yaml src/github.com/isovalent/cilium/.github/ariane-config-enterprise.yaml
