@@ -159,7 +159,7 @@ jobs:
 
       - name: Setup go
         if: ${{ steps.wait_images.outputs.rebuild_clife  == 'true' }}
-        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
@@ -255,7 +255,7 @@ jobs:
           aws-region: ${{ steps.vars.outputs.region }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4.0.0
         with:
           terraform_version: "^1.10.4"
           terraform_wrapper: false
@@ -269,7 +269,7 @@ jobs:
 
       - name: Install Go
         if: ${{ steps.vars.outputs.build_cilium_cli == 'true' }}
-        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.26.0
@@ -685,7 +685,7 @@ jobs:
 
       - name: Upload Artifacts
         if: always() && steps.wait-for-co.outcome != 'skipped'
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: output-ilb-tests
           path: ${{ steps.upload_dir.outputs.path }}

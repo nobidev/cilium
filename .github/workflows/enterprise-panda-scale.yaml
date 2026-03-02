@@ -68,10 +68,10 @@ env:
   # 'server supports reverse-lookup on wildcard DNS SAN').
   domain: c.${{ secrets.GCP_PERF_PROJECT_ID }}.internal
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 557.0.0
+  gcloud_version: 558.0.0
 
   # renovate: datasource=github-releases depName=cert-manager/cert-manager
-  cert_manager_version: v1.19.3
+  cert_manager_version: v1.19.4
   # renovate: datasource=github-releases depName=cert-manager/trust-manager
   trust_manager_version: v0.21.1
 
@@ -261,7 +261,7 @@ jobs:
           images: cilium-ci operator-generic-ci hubble-relay-ci cilium-dnsproxy-ci
 
       - name: Install Go
-        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           go-version: ${{ env.go_version }}
 
@@ -309,7 +309,7 @@ jobs:
           go build ./cmd/clusterloader.go
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e3a20f4df0e49da32a381e8c91748f311d404134 # v0.19.1
+        uses: cilium/cilium-cli@3ce83aa3b4ea3ce6d97023c4d83c22b73a4ed3b4 # v0.19.2
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -758,7 +758,7 @@ jobs:
 
       - name: Upload sysdump
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: cilium-sysdump
           path: cilium-sysdump-final.zip

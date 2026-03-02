@@ -189,7 +189,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.version.outputs.rebuild == 'true' }}
-        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
+        uses: anchore/sbom-action@17ae1740179002c89186b61233e0f892c3118b11 # v0.23.0
         with:
           artifact-name: sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json
           output-file: ./sbom_${{ matrix.image-name }}_${{ steps.version.outputs.version }}.spdx.json
@@ -212,7 +212,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: image-digest ${{ matrix.image-name }}
           path: image-digest
@@ -328,7 +328,7 @@ jobs:
           cosign sign -y ${{ steps.tag.outputs.image_tag }}@${{ steps.docker_digest.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
+        uses: anchore/sbom-action@17ae1740179002c89186b61233e0f892c3118b11 # v0.23.0
         with:
           artifact-name: sbom_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_${{ matrix.name }}_${{ matrix.postfix }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -355,7 +355,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: image-digest ${{ matrix.name }}-${{ matrix.postfix }}
           path: image-digest
@@ -381,7 +381,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Setup go
-        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
@@ -450,7 +450,7 @@ jobs:
           # renovate: datasource=github-releases depName=mikefarah/yq
           yq_version: 4.52.4
           # renovate: datasource=github-releases depName=operator-framework/operator-registry
-          opm_version: 1.63.0
+          opm_version: 1.64.0
           VERSION: "${{ steps.tag.outputs.tag }}"
           CATALOG_TAG: "1.0.0"
           IMAGE_TAG_BASE: "${{ steps.tag.outputs.image_tag_base }}"
@@ -486,7 +486,7 @@ jobs:
           cosign sign -y ${{ steps.tag.outputs.image_tag_base }}-catalog:1.0.0@${{ steps.clife_docker_digests.outputs.catalog }}
 
       - name: Generate SBOM for CLife
-        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
+        uses: anchore/sbom-action@17ae1740179002c89186b61233e0f892c3118b11 # v0.23.0
         with:
           artifact-name: sbom_clife_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_clife_${{ steps.tag.outputs.tag }}.spdx.json
@@ -498,7 +498,7 @@ jobs:
           cosign attest -y --predicate sbom_clife_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.image_tag }}
 
       - name: Generate SBOM for the bundle
-        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
+        uses: anchore/sbom-action@17ae1740179002c89186b61233e0f892c3118b11 # v0.23.0
         with:
           artifact-name: sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json
@@ -510,7 +510,7 @@ jobs:
           cosign attest -y --predicate sbom_clife_bundle_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson ${{ steps.tag.outputs.image_tag_base }}-bundle:${{ steps.tag.outputs.tag }}
 
       - name: Generate SBOM for the catalog
-        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
+        uses: anchore/sbom-action@17ae1740179002c89186b61233e0f892c3118b11 # v0.23.0
         with:
           artifact-name: sbom_clife_catalog_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_clife_catalog_${{ steps.tag.outputs.tag }}.spdx.json
@@ -542,7 +542,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: image-digest clife
           path: image-digest
@@ -560,7 +560,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           path: image-digest/
           pattern: "*image-digest *"

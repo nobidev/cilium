@@ -288,7 +288,7 @@ jobs:
           password: ${{ secrets.QUAY_PASSWORD_CI }}
 
       - name: Install Go
-        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           go-version: ${{ env.go_version }}
 
@@ -387,7 +387,7 @@ jobs:
           cosign sign -y ${{ steps.docker_push.outputs.image }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
+        uses: anchore/sbom-action@17ae1740179002c89186b61233e0f892c3118b11 # v0.23.0
         with:
           artifact-name: sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_${{ matrix.platform }}.spdx.json
           output-file: ./sbom_${{ steps.tags.outputs.target }}_${{ steps.tags.outputs.tag }}_${{ matrix.platform }}.spdx.json
@@ -524,7 +524,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
@@ -540,7 +540,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           path: image-digest/
           pattern: "*image-digest *"
@@ -565,14 +565,14 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: image-digest-output.txt-${{ needs.build-image-list.outputs.image_tag }}
           path: image-digest-output.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: Makefile.digests-${{ needs.build-image-list.outputs.image_tag }}
           path: Makefile.digests
