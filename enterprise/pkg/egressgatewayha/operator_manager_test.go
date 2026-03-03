@@ -216,7 +216,7 @@ func (k *EgressGatewayOperatorTestSuite) assertIegpGatewayStatusFromPolicy(tb te
 
 func (k *EgressGatewayOperatorTestSuite) assertIegpGatewayStatusesFromPolicy(tb testing.TB, policy string, gatewayStatuses []gatewayStatus) {
 	var err error
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if err = tryAssertIegpGatewayStatuses(k.fakeSet, policy, gatewayStatuses); err == nil {
 			break
 		}
@@ -267,7 +267,7 @@ func (k *EgressGatewayOperatorTestSuite) assertIegpStatusConditions(tb testing.T
 
 func (k *EgressGatewayOperatorTestSuite) assertIegpStatusConditionsFromPolicy(tb testing.TB, policy string, conds []metav1.Condition) {
 	var err error
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if err = tryAssertIegpStatusConditions(k.fakeSet, policy, conds); err == nil {
 			break
 		}
@@ -313,7 +313,7 @@ type activeGatewaysByAZMetrics struct {
 
 func (k *EgressGatewayOperatorTestSuite) assertIegpMetrics(tb testing.TB, policy string, expected gatewayMetrics) {
 	var err error
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if err = tryAssertIegpGatewayMetrics(k.manager.metrics, policy, expected); err == nil {
 			break
 		}

@@ -684,7 +684,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			svcVRFReconciler.upgrader = newUpgraderMock(tt.bgpNodeInstance)
 
 			// reconcile twice to test idempotency
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				err := svcVRFReconciler.Reconcile(context.Background(), reconciler.ReconcileParams{
 					BGPInstance: testOSSBGPInstance,
 					CiliumNode:  testCiliumNodeConfig,

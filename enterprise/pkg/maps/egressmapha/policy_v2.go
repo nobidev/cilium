@@ -207,7 +207,7 @@ func (v *EgressPolicyV2Val4) Match(egressIP netip.Addr, gatewayIPs []netip.Addr,
 		return false
 	}
 
-	for i := 0; i < len(gatewayIPs); i++ {
+	for i := range len(gatewayIPs) {
 		if v.GatewayIPs[i].Addr() != gatewayIPs[i] {
 			return false
 		}
@@ -224,7 +224,7 @@ func (v *EgressPolicyV2Val4) GetEgressIP() netip.Addr {
 // GetGatewayIPs returns the egress policy value's gateway IP.
 func (v *EgressPolicyV2Val4) GetGatewayIPs() iter.Seq[netip.Addr] {
 	return func(yield func(netip.Addr) bool) {
-		for i := uint32(0); i < v.Size; i++ {
+		for i := range v.Size {
 			if !yield(v.GatewayIPs[i].Addr()) {
 				return
 			}
