@@ -457,7 +457,7 @@ func addressesAndZonesToEndpoints(addresses []string, zones map[string]string) [
 	zoneAddrs := map[string][]string{}
 	bareAddrs := []string{}
 	for _, a := range addresses {
-		if zone := zones[a]; zone != "" {
+		if zone := zones[a]; zone != "" && zone != lbServiceZoneUnknown {
 			zoneAddrs[zone] = append(zoneAddrs[zone], a)
 			continue
 		}
@@ -500,8 +500,8 @@ func endpointSubsetsFromBackends(logger *slog.Logger, model *lbService, backendR
 			for _, ba := range b.addresses {
 				isIPv4 := net.ParseIP(ba).To4() != nil
 				if isIPv4 != ipv6 {
-					if b.zone != nil && *b.zone != "" {
-						zoneAddrs[*b.zone] = append(zoneAddrs[*b.zone], ba)
+					if zone := b.addressZones[ba]; zone != "" && zone != lbServiceZoneUnknown {
+						zoneAddrs[zone] = append(zoneAddrs[zone], ba)
 					} else {
 						bareAddrs = append(bareAddrs, ba)
 					}

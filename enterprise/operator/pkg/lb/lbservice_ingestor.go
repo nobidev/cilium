@@ -689,6 +689,7 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 
 		backendPort := uint32(backend.Port)
 		backendZone := backend.Zone
+		addressZones := map[string]string{}
 
 		addresses := []string{}
 		switch typ {
@@ -700,18 +701,29 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 			// Ignore explicit backend zone metadata for in-cluster backends.
 			// Their topology should come from EndpointSlice fields.
 			backendZone = nil
-			addresses = append(addresses, r.getAddressesFromEndpointSlices(referencedEndpointSlices, backend.K8sServiceRef.Name)...)
+			addresses, addressZones = r.getAddressesAndZonesFromEndpointSlices(referencedEndpointSlices, backend.K8sServiceRef.Name)
 			backendPort = r.getBackendPortFromService(referencedK8sServices, referencedEndpointSlices, backend.K8sServiceRef.Name, backendPort)
 		default:
 			addresses = append(addresses, *backend.IP)
 		}
 
+		for _, a := range addresses {
+			if _, ok := addressZones[a]; ok {
+				continue
+			}
+			if backendZone != nil && *backendZone != "" {
+				addressZones[a] = *backendZone
+			} else {
+				addressZones[a] = lbServiceZoneUnknown
+			}
+		}
+
 		ret = append(ret, lbBackend{
-			addresses: addresses,
-			port:      backendPort,
-			weight:    weight,
-			status:    status,
-			zone:      backendZone,
+			addresses:    addresses,
+			addressZones: addressZones,
+			port:         backendPort,
+			weight:       weight,
+			status:       status,
 		})
 	}
 
@@ -731,26 +743,55 @@ func (r *ingestor) fixedHostname(address string) string {
 	return address
 }
 
-func (r *ingestor) getAddressesFromEndpointSlices(referencedEndpointSlices []discoveryv1.EndpointSlice, k8sServiceName string) []string {
-	ipAddresses := []string{}
+func (r *ingestor) getAddressesAndZonesFromEndpointSlices(referencedEndpointSlices []discoveryv1.EndpointSlice, k8sServiceName string) ([]string, map[string]string) {
+	ipAddressZones := map[string]string{}
 
 	for _, es := range referencedEndpointSlices {
-		if es.GetLabels()[discoveryv1.LabelServiceName] == k8sServiceName && (es.AddressType == discoveryv1.AddressTypeIPv4 || es.AddressType == discoveryv1.AddressTypeIPv6) {
-			for _, e := range es.Endpoints {
+		if es.GetLabels()[discoveryv1.LabelServiceName] != k8sServiceName || (es.AddressType != discoveryv1.AddressTypeIPv4 && es.AddressType != discoveryv1.AddressTypeIPv6) {
+			continue
+		}
+
+		for _, ep := range es.Endpoints {
+			zone := lbServiceZoneUnknown
+			if ep.Zone != nil && *ep.Zone != "" {
+				zone = *ep.Zone
+			} else if ep.DeprecatedTopology != nil {
+				if z, ok := ep.DeprecatedTopology[corev1.LabelTopologyZone]; ok && z != "" {
+					zone = z
+				}
+			}
+
+			for _, addr := range ep.Addresses {
 				// TODO: check conditions (kubelet healthchecks) ?
-				ipAddresses = append(ipAddresses, e.Addresses...)
+				if existing, ok := ipAddressZones[addr]; ok && existing != zone {
+					r.logger.Warn("Conflicting zone metadata for backend endpoint address; falling back to unknown zone",
+						logfields.ServiceName, k8sServiceName,
+						logfields.Address, addr,
+						logfields.Exists, existing,
+						logfields.New, zone,
+					)
+					ipAddressZones[addr] = lbServiceZoneUnknown
+					continue
+				}
+				ipAddressZones[addr] = zone
 			}
 		}
 	}
 
-	r.logger.Debug("Resolved IPs from EndpointSlices",
+	ipAddresses := make([]string, 0, len(ipAddressZones))
+	for addr := range ipAddressZones {
+		ipAddresses = append(ipAddresses, addr)
+	}
+	slices.Sort(ipAddresses)
+
+	r.logger.Debug("Resolved addresses and zones from EndpointSlices",
 		logfields.ServiceName, k8sServiceName,
 		logfields.ResourceName, referencedEndpointSlices,
 		logfields.PodIPs, ipAddresses,
+		logfields.Zone, ipAddressZones,
 	)
 
-	slices.Sort(ipAddresses)
-	return slices.Compact(ipAddresses)
+	return ipAddresses, ipAddressZones
 }
 
 // getBackendPortFromService translates the given service port to the target port (of the pod)

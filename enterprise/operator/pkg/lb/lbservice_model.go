@@ -699,11 +699,11 @@ const (
 )
 
 type lbBackend struct {
-	addresses []string
-	port      uint32
-	weight    uint32
-	status    lbBackendStatus
-	zone      *string
+	addresses    []string
+	addressZones map[string]string
+	port         uint32
+	weight       uint32
+	status       lbBackendStatus
 }
 
 type lbBackendStatus int

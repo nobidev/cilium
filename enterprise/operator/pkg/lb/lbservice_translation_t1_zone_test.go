@@ -204,7 +204,7 @@ func TestTCPEndpointSubsetsFromBackends(t *testing.T) {
 			model: &lbService{
 				referencedBackends: map[string]backend{
 					"backend-a": {
-						lbBackends: []lbBackend{{addresses: []string{"192.0.2.10"}, port: 8443, zone: &zoneA}},
+						lbBackends: []lbBackend{{addresses: []string{"192.0.2.10"}, addressZones: map[string]string{"192.0.2.10": zoneA}, port: 8443}},
 					},
 				},
 				applications: lbApplications{tcpProxy: &lbApplicationTCPProxy{routes: []lbRouteTCPProxy{{backendRef: backendRef{name: "backend-a"}}}}},
@@ -232,7 +232,7 @@ func TestTCPEndpointSubsetsFromBackends(t *testing.T) {
 				referencedBackends: map[string]backend{
 					"backend-a": {
 						lbBackends: []lbBackend{
-							{addresses: []string{"192.0.2.10"}, port: 8443, zone: &zoneA},
+							{addresses: []string{"192.0.2.10"}, addressZones: map[string]string{"192.0.2.10": zoneA}, port: 8443},
 							{addresses: []string{"192.0.2.11"}, port: 8443},
 						},
 					},
@@ -278,7 +278,7 @@ func TestTCPEndpointSubsetsFromBackends(t *testing.T) {
 			model: &lbService{
 				referencedBackends: map[string]backend{
 					"backend-a": {
-						lbBackends: []lbBackend{{addresses: []string{"fd00::10"}, port: 8443, zone: &zoneA}},
+						lbBackends: []lbBackend{{addresses: []string{"fd00::10"}, addressZones: map[string]string{"fd00::10": zoneA}, port: 8443}},
 					},
 				},
 				applications: lbApplications{tcpProxy: &lbApplicationTCPProxy{routes: []lbRouteTCPProxy{{backendRef: backendRef{name: "backend-a"}}}}},
@@ -328,7 +328,7 @@ func TestUDPEndpointSubsetsFromBackends(t *testing.T) {
 			model: &lbService{
 				referencedBackends: map[string]backend{
 					"backend-a": {
-						lbBackends: []lbBackend{{addresses: []string{"198.51.100.10"}, port: 5353, zone: &zoneB}},
+						lbBackends: []lbBackend{{addresses: []string{"198.51.100.10"}, addressZones: map[string]string{"198.51.100.10": zoneB}, port: 5353}},
 					},
 				},
 				applications: lbApplications{udpProxy: &lbApplicationUDPProxy{routes: []lbRouteUDPProxy{{backendRef: backendRef{name: "backend-a"}}}}},
@@ -356,7 +356,7 @@ func TestUDPEndpointSubsetsFromBackends(t *testing.T) {
 				referencedBackends: map[string]backend{
 					"backend-a": {
 						lbBackends: []lbBackend{
-							{addresses: []string{"198.51.100.10"}, port: 5353, zone: &zoneB},
+							{addresses: []string{"198.51.100.10"}, addressZones: map[string]string{"198.51.100.10": zoneB}, port: 5353},
 							{addresses: []string{"198.51.100.11"}, port: 5353},
 						},
 					},
@@ -388,7 +388,7 @@ func TestUDPEndpointSubsetsFromBackends(t *testing.T) {
 			model: &lbService{
 				referencedBackends: map[string]backend{
 					"backend-a": {
-						lbBackends: []lbBackend{{addresses: []string{"fd00::53"}, port: 5353, zone: &zoneB}},
+						lbBackends: []lbBackend{{addresses: []string{"fd00::53"}, addressZones: map[string]string{"fd00::53": zoneB}, port: 5353}},
 					},
 				},
 				applications: lbApplications{udpProxy: &lbApplicationUDPProxy{routes: []lbRouteUDPProxy{{backendRef: backendRef{name: "backend-a"}}}}},
