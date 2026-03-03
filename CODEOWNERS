@@ -145,8 +145,7 @@
 #   of policy / datapath constructs, serialization and restore from disk.
 # - @cilium/envoy:
 #   Maintain the L7 proxy integration with Envoy. This includes the
-#   configurations for Envoy via xDS protocols as well as the extensible
-#   proxylib framework for Go-based layer 7 filters.
+#   configurations for Envoy via xDS protocols.
 # - @cilium/egress-gateway:
 #   Maintain the egress gateway control plane and datapath logic.
 # - @cilium/fqdn:
@@ -356,6 +355,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/builder/pod_to_ingress_service.go @cilium/sig-servicemesh
 /cilium-cli/connectivity/builder/pod_to_pod_encryption.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/pod_to_pod_encryption_v2.go @cilium/sig-encryption
+/cilium-cli/connectivity/builder/service_loopback.go @cilium/sig-lb
 /cilium-cli/connectivity/perf/** @cilium/sig-scalability
 /cilium-cli/connectivity/tests/bgp.go @cilium/sig-bgp
 /cilium-cli/connectivity/tests/clustermesh-endpointslice-sync.go @cilium/sig-clustermesh
@@ -484,7 +484,6 @@ Makefile* @cilium/build
 /examples/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /examples/minikube/ @cilium/sig-k8s
 /examples/policies/kubernetes/clustermesh/ @cilium/sig-clustermesh
-/FURTHER_READINGS.rst @cilium/docs-structure
 /hack/ @cilium/contributing
 /hubble/ @cilium/sig-hubble
 /hubble-relay/ @cilium/sig-hubble
@@ -721,7 +720,6 @@ Makefile* @cilium/build
 /test/runtime/monitor.go @cilium/sig-hubble @cilium/ci-structure
 # L7 proxy tests
 /test/k8s/fqdn.go @cilium/fqdn @cilium/ci-structure
-/test/k8s/kafka_policies.go @cilium/envoy @cilium/ci-structure
 # BIG TCP tests
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests

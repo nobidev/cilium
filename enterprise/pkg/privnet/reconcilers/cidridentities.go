@@ -450,7 +450,7 @@ func (c *CIDRIdentities) registerBPFReconciler(params reconciler.Params, bpfMap 
 		return nil
 	}
 
-	bpf.RegisterTablePressureMetricsJob[tables.CIDRIdentity, privnetmaps.Map[*privnetmaps.CIDRIdentityKeyVal]](
+	bpf.TablePressureMetrics(
 		c.jg,
 		registry,
 		params.DB,

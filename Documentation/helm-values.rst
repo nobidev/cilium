@@ -1320,10 +1320,6 @@
      - Enable Non-Default-Deny policies
      - bool
      - ``false``
-   * - :spelling:ignore:`enableTunnelBIGTCP`
-     - Enable BIG TCP in tunneling mode and increase maximum GRO/GSO limits for VXLAN/GENEVE tunnels
-     - bool
-     - ``false``
    * - :spelling:ignore:`enableXTSocketFallback`
      - Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel.
      - bool
@@ -1871,7 +1867,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:516becccd185e190893ff2e4bde656c7ce16d2d3901de056e852ce01c3ae271d","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1770892622-f97ae52c05a1edbbdaa6393f8595431259cf2ca1","useDigest":true}``
+     - ``{"digest":"sha256:e276f5f47a8ed722bdaad25f468e420825581bdf1d74f7a5e658429ec45b2691","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1772193645-b07509fe16cf8f27fc2eeffb641e19c040aaa4cf","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -2611,7 +2607,7 @@
    * - :spelling:ignore:`hubble.redact`
      - Enables redacting sensitive information present in Layer 7 flows.
      - object
-     - ``{"enabled":false,"http":{"headers":{"allow":[],"deny":[]},"urlQuery":false,"userInfo":true},"kafka":{"apiKey":true}}``
+     - ``{"enabled":false,"http":{"headers":{"allow":[],"deny":[]},"urlQuery":false,"userInfo":true}}``
    * - :spelling:ignore:`hubble.redact.http.headers.allow`
      - List of HTTP headers to allow: headers not matching will be redacted. Note: ``allow`` and ``deny`` lists cannot be used both at the same time, only one can be present. Example:   redact:     enabled: true     http:       headers:         allow:           - traceparent           - tracestate           - Cache-Control  You can specify the options from the helm CLI:   --set hubble.redact.enabled="true"   --set hubble.redact.http.headers.allow="traceparent,tracestate,Cache-Control"
      - list
@@ -2626,10 +2622,6 @@
      - ``false``
    * - :spelling:ignore:`hubble.redact.http.userInfo`
      - Enables redacting user info, e.g., password when basic auth is used. Example:    redact:     enabled: true     http:       userInfo: true  You can specify the options from the helm CLI:    --set hubble.redact.enabled="true"   --set hubble.redact.http.userInfo="true"
-     - bool
-     - ``true``
-   * - :spelling:ignore:`hubble.redact.kafka.apiKey`
-     - Enables redacting Kafka's API key (deprecated, will be removed in v1.19). Example:    redact:     enabled: true     kafka:       apiKey: true  You can specify the options from the helm CLI:    --set hubble.redact.enabled="true"   --set hubble.redact.kafka.apiKey="true"
      - bool
      - ``true``
    * - :spelling:ignore:`hubble.relay.affinity`
@@ -3396,6 +3388,14 @@
      - Configure whether the Envoy listeners should be exposed on the host network.
      - bool
      - ``false``
+   * - :spelling:ignore:`ingressController.hostNetwork.httpPort`
+     - Configure a specific port on the host network that gets used for the shared HTTP listener. If unset or 0, sharedListenerPort is used.
+     - int
+     - ``0``
+   * - :spelling:ignore:`ingressController.hostNetwork.httpsPort`
+     - Configure a specific port on the host network that gets used for the shared HTTPS listener. If unset or 0, sharedListenerPort is used.
+     - int
+     - ``0``
    * - :spelling:ignore:`ingressController.hostNetwork.nodes.matchLabels`
      - Specify the labels of the nodes where the Ingress listeners should be exposed  matchLabels:   kubernetes.io/os: linux   kubernetes.io/hostname: kind-worker
      - object
@@ -3404,6 +3404,10 @@
      - Configure a specific port on the host network that gets used for the shared listener.
      - int
      - ``8080``
+   * - :spelling:ignore:`ingressController.hostNetwork.tlsPassthroughPort`
+     - Configure a specific port on the host network that gets used for the shared TLS passthrough listener. If unset or 0, sharedListenerPort is used.
+     - int
+     - ``0``
    * - :spelling:ignore:`ingressController.ingressLBAnnotationPrefixes`
      - IngressLBAnnotations are the annotation and label prefixes, which are used to filter annotations and/or labels to propagate from Ingress to the Load Balancer service
      - list
@@ -3859,7 +3863,7 @@
    * - :spelling:ignore:`nodeinit.image`
      - node-init image.
      - object
-     - ``{"digest":"sha256:50b9cf9c280096b59b80d2fc8ee6638facef79ac18998a22f0cbc40d5d28c16f","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1763560095-8f36c34","useDigest":true}``
+     - ``{"digest":"sha256:a97e8766c62e0e36f47e366f7571d561bd9c603515e94b9f4cb8e6c131843d02","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1770904355-d9c9e58","useDigest":true}``
    * - :spelling:ignore:`nodeinit.nodeSelector`
      - Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -4207,7 +4211,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:516becccd185e190893ff2e4bde656c7ce16d2d3901de056e852ce01c3ae271d","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1770892622-f97ae52c05a1edbbdaa6393f8595431259cf2ca1","useDigest":true}``
+     - ``{"digest":"sha256:e276f5f47a8ed722bdaad25f468e420825581bdf1d74f7a5e658429ec45b2691","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1772193645-b07509fe16cf8f27fc2eeffb641e19c040aaa4cf","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list

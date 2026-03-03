@@ -12,6 +12,7 @@ package mixedrouting
 
 import (
 	"net"
+	"net/netip"
 	"sort"
 	"testing"
 
@@ -184,7 +185,7 @@ func TestEndpointManagerMutateRemoteEndpointInfo(t *testing.T) {
 		tunnelSkipFlagSet   = ipcmap.RemoteEndpointInfoFlags(1)
 	)
 
-	te := net.ParseIP("10.255.0.1")
+	te := netip.MustParseAddr("10.255.0.1")
 
 	tests := []struct {
 		name     string
@@ -196,7 +197,7 @@ func TestEndpointManagerMutateRemoteEndpointInfo(t *testing.T) {
 	}{
 		{
 			name:     "Tunnel endpoint match, should unset",
-			key:      ipcmap.NewKey(net.ParseIP("10.0.0.4"), net.CIDRMask(32, 32), 0),
+			key:      ipcmap.NewKey(netip.MustParsePrefix("10.0.0.4/32"), 0),
 			rei:      ipcmap.NewValue(0, te, 0, tunnelSkipFlagSet),
 			primary:  routingModeNative,
 			init:     func(em *endpointManager) { em.setMapping(net.ParseIP("10.255.0.1"), routingModeVXLAN) },
@@ -204,7 +205,7 @@ func TestEndpointManagerMutateRemoteEndpointInfo(t *testing.T) {
 		},
 		{
 			name:     "Tunnel endpoint match, should set",
-			key:      ipcmap.NewKey(net.ParseIP("10.0.0.4"), net.CIDRMask(32, 32), 0),
+			key:      ipcmap.NewKey(netip.MustParsePrefix("10.0.0.4/32"), 0),
 			rei:      ipcmap.NewValue(0, te, 0, tunnelSkipFlagUnset),
 			primary:  routingModeGeneve,
 			init:     func(em *endpointManager) { em.setMapping(net.ParseIP("10.255.0.1"), routingModeNative) },
@@ -212,31 +213,31 @@ func TestEndpointManagerMutateRemoteEndpointInfo(t *testing.T) {
 		},
 		{
 			name:     "Prefix match (single IP), IPv4",
-			key:      ipcmap.NewKey(net.ParseIP("10.0.0.4"), net.CIDRMask(32, 32), 0),
-			rei:      ipcmap.NewValue(0, nil, 0, tunnelSkipFlagSet),
+			key:      ipcmap.NewKey(netip.MustParsePrefix("10.0.0.4/32"), 0),
+			rei:      ipcmap.NewValue(0, netip.Addr{}, 0, tunnelSkipFlagSet),
 			primary:  routingModeNative,
 			init:     func(em *endpointManager) { em.setMapping(net.ParseIP("10.0.0.4"), routingModeGeneve) },
 			expected: tunnelSkipFlagUnset,
 		},
 		{
 			name:     "Prefix match (single IP), IPv6",
-			key:      ipcmap.NewKey(net.ParseIP("fd00::4"), net.CIDRMask(128, 128), 0),
-			rei:      ipcmap.NewValue(0, nil, 0, tunnelSkipFlagUnset),
+			key:      ipcmap.NewKey(netip.MustParsePrefix("fd00::4/128"), 0),
+			rei:      ipcmap.NewValue(0, netip.Addr{}, 0, tunnelSkipFlagUnset),
 			primary:  routingModeVXLAN,
 			init:     func(em *endpointManager) { em.setMapping(net.ParseIP("fd00::4"), routingModeNative) },
 			expected: tunnelSkipFlagSet,
 		},
 		{
 			name:     "Prefix match, should default to primary",
-			key:      ipcmap.NewKey(net.ParseIP("10.0.0.4"), net.CIDRMask(30, 32), 0),
-			rei:      ipcmap.NewValue(0, nil, 0, tunnelSkipFlagUnset),
+			key:      ipcmap.NewKey(netip.MustParsePrefix("10.0.0.4/30"), 0),
+			rei:      ipcmap.NewValue(0, netip.Addr{}, 0, tunnelSkipFlagUnset),
 			primary:  routingModeNative,
 			init:     func(em *endpointManager) { em.setMapping(net.ParseIP("10.0.0.4"), routingModeVXLAN) },
 			expected: tunnelSkipFlagSet,
 		},
 		{
 			name:    "No match, should default to primary",
-			key:     ipcmap.NewKey(net.ParseIP("10.0.0.4"), net.CIDRMask(30, 32), 0),
+			key:     ipcmap.NewKey(netip.MustParsePrefix("10.0.0.4/30"), 0),
 			rei:     ipcmap.NewValue(0, te, 0, tunnelSkipFlagSet),
 			primary: routingModeGeneve,
 			init: func(em *endpointManager) {

@@ -584,7 +584,7 @@ func tryAssertEgressCtEntries(ctMap egressmapha.CtMap, entries []egressCtEntry) 
 		}
 
 		if val.Gateway.Addr() != e.gatewayIP {
-			return fmt.Errorf("%v doesn't match %v", val.Gateway.IP(), e.gatewayIP)
+			return fmt.Errorf("%v doesn't match %v", val.Gateway.Addr(), e.gatewayIP)
 		}
 	}
 
@@ -597,7 +597,7 @@ func tryAssertEgressCtEntries(ctMap egressmapha.CtMap, entries []egressCtEntry) 
 				}
 			}
 
-			err = fmt.Errorf("untracked egress CT entry: from %v to %v via %v", key.SourceAddr.IP(), key.DestAddr.IP(), val.Gateway.IP())
+			err = fmt.Errorf("untracked egress CT entry: from %v to %v via %v", key.SourceAddr.Addr(), key.DestAddr.Addr(), val.Gateway.Addr())
 		})
 
 	return err

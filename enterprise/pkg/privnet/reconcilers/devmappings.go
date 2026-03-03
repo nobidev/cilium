@@ -258,7 +258,7 @@ func (dm *DeviceMappings) registerBPFReconciler(
 	fence.Add("private-network-devices", NewWaitUntilReconciledFn(dm.db, dm.tbl,
 		func(obj tables.DeviceMapping) reconciler.Status { return obj.Status }))
 
-	bpf.RegisterTablePressureMetricsJob(
+	bpf.TablePressureMetrics(
 		dm.jg, registry, params.DB, dm.tbl, bpfMap,
 	)
 

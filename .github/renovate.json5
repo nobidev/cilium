@@ -279,6 +279,22 @@
       ]
     },
     {
+      // Required so that Renovate creates a separate patch-only PR (staying
+      // within the current minor) even when a newer minor is also available.
+      // Without this, the global separateMinorPatch:false causes Renovate to
+      // produce a single "minor"-typed PR, which is then blocked by the
+      // "k8s major/minor updates disabled" rule and the patch PR never appears.
+      "matchDepNames": [
+        "/^k8s\\.io/",
+        "/^sigs\\.k8s\\.io/"
+      ],
+      "matchBaseBranches": [
+        "!main"
+      ],
+      "separateMajorMinor": true,
+      "separateMinorPatch": true,
+    },
+    {
       // k8s.io dependencies: allow patch updates on stable branches
       "enabled": true,
       "groupName": "k8s.io patch updates stable",
@@ -337,8 +353,6 @@
         // dependency manually.
         "/github.com/onsi/ginkgo/",
         "/github.com/onsi/gomega/*/",
-        // We can't update to helm v4 until https://github.com/helm/helm/issues/31525 is fixed
-        "helm.sh/helm/*",
         // We can't update it, see https://github.com/cilium/cilium/issues/44063 for more info
         "github.com/cilium/ebpf"
       ]
@@ -693,7 +707,8 @@
       ]
     },
     {
-      // k8s dependencies will be updated manually along with tests on main branch.
+      // k8s major/minor updates are disabled on all branches.
+      // On main, they will be updated manually along with tests.
       // On stable branches, patch updates are allowed via the "k8s.io patch updates stable" rule.
       "enabled": false,
       "matchUpdateTypes": [
@@ -703,9 +718,6 @@
       "matchDepNames": [
         "/^k8s\\.io/",
         "/^sigs\\.k8s\\.io/"
-      ],
-      "matchBaseBranches": [
-        "main"
       ]
     },
     {
@@ -759,7 +771,8 @@
         "quay.io/cilium/startup-script",
         "quay.io/cilium/image-tester",
       ],
-      "versioning": "regex:^(?<major>\\d+)-[a-f0-9]{7}$"
+      "versioning": "regex:^(?<major>\\d+)-[a-f0-9]{7}$",
+      "maxMajorIncrement": 0
     },
     {
       // Images from the image-tools repository that have a semantic + timestamp-based versioning scheme

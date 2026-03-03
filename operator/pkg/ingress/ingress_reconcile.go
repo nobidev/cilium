@@ -228,8 +228,11 @@ func (r *ingressReconciler) buildSharedResources(ctx context.Context) (*ciliumv2
 			m.HTTP = append(m.HTTP, ingestion.Ingress(r.logger, item, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort, r.defaultRequestTimeout)...)
 		}
 	}
-
-	return r.cecTranslator.Translate(r.ciliumNamespace, r.sharedResourcesName, m)
+	cec, err := r.cecTranslator.Translate(r.ciliumNamespace, r.sharedResourcesName, m)
+	if len(cec.Spec.Services) > 0 {
+		cec.Spec.Services[0].Ports = append(cec.Spec.Services[0].Ports, 443)
+	}
+	return cec, err
 }
 
 func (r *ingressReconciler) getSharedListenerPorts() (uint32, uint32, uint32) {
@@ -237,11 +240,17 @@ func (r *ingressReconciler) getSharedListenerPorts() (uint32, uint32, uint32) {
 		return defaultPassthroughPort, defaultInsecureHTTPPort, defaultSecureHTTPPort
 	}
 
-	if r.hostNetworkSharedPort > 0 {
-		return r.hostNetworkSharedPort, r.hostNetworkSharedPort, r.hostNetworkSharedPort
-	}
+	return r.effectiveHostNetworkPort(r.hostNetworkTLSPassthroughPort), r.effectiveHostNetworkPort(r.hostNetworkHTTPPort), r.effectiveHostNetworkPort(r.hostNetworkHTTPSPort)
+}
 
-	return defaultHostNetworkListenerPort, defaultHostNetworkListenerPort, defaultHostNetworkListenerPort
+func (r *ingressReconciler) effectiveHostNetworkPort(port uint32) uint32 {
+	if port > 0 {
+		return port
+	}
+	if r.hostNetworkSharedPort > 0 {
+		return r.hostNetworkSharedPort
+	}
+	return defaultHostNetworkListenerPort
 }
 
 func (r *ingressReconciler) buildDedicatedResources(ctx context.Context, ingress *networkingv1.Ingress, scopedLog *slog.Logger) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, error) {

@@ -1898,9 +1898,6 @@
     "enableNonDefaultDenyPolicies": {
       "type": "boolean"
     },
-    "enableTunnelBIGTCP": {
-      "type": "boolean"
-    },
     "enableXTSocketFallback": {
       "type": "boolean"
     },
@@ -4127,14 +4124,6 @@
                 }
               },
               "type": "object"
-            },
-            "kafka": {
-              "properties": {
-                "apiKey": {
-                  "type": "boolean"
-                }
-              },
-              "type": "object"
             }
           },
           "type": "object"
@@ -5644,6 +5633,12 @@
             "enabled": {
               "type": "boolean"
             },
+            "httpPort": {
+              "type": "integer"
+            },
+            "httpsPort": {
+              "type": "integer"
+            },
             "nodes": {
               "properties": {
                 "matchLabels": {
@@ -5653,6 +5648,9 @@
               "type": "object"
             },
             "sharedListenerPort": {
+              "type": "integer"
+            },
+            "tlsPassthroughPort": {
               "type": "integer"
             }
           },

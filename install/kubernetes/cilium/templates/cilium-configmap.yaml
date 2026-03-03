@@ -293,6 +293,9 @@ data:
   {{- end }}
   ingress-hostnetwork-enabled: {{ .Values.ingressController.hostNetwork.enabled | quote }}
   ingress-hostnetwork-shared-listener-port: {{ .Values.ingressController.hostNetwork.sharedListenerPort | quote }}
+  ingress-hostnetwork-http-listener-port: {{ .Values.ingressController.hostNetwork.httpPort | quote }}
+  ingress-hostnetwork-https-listener-port: {{ .Values.ingressController.hostNetwork.httpsPort | quote }}
+  ingress-hostnetwork-tls-passthrough-listener-port: {{ .Values.ingressController.hostNetwork.tlsPassthroughPort | quote }}
   ingress-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.ingressController.hostNetwork.nodes.matchLabels | quote }}
 {{- end }}
 
@@ -708,7 +711,6 @@ data:
   enable-ipv4-big-tcp: {{ .Values.enableIPv4BIGTCP | quote }}
   enable-ipv6-big-tcp: {{ .Values.enableIPv6BIGTCP | quote }}
   enable-ipv6-masquerade: {{ .Values.enableIPv6Masquerade | quote }}
-  enable-tunnel-big-tcp: {{ .Values.enableTunnelBIGTCP | quote }}
 
 {{- if hasKey .Values.bpf "enableTCX" }}
   enable-tcx: {{ .Values.bpf.enableTCX | quote }}
@@ -737,9 +739,6 @@ data:
 
     {{- if and .Values.encryption.ipsec.mountPath .Values.encryption.ipsec.keyFile }}
   ipsec-key-file: {{ .Values.encryption.ipsec.mountPath }}/{{ .Values.encryption.ipsec.keyFile }}
-    {{- end }}
-    {{- if .Values.encryption.ipsec.interface }}
-  encrypt-interface: {{ .Values.encryption.ipsec.interface }}
     {{- end }}
     {{- if hasKey .Values.encryption.ipsec "keyWatcher" }}
   enable-ipsec-key-watcher: {{ .Values.encryption.ipsec.keyWatcher | quote }}
