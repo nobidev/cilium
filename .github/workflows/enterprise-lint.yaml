@@ -78,6 +78,15 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          fetch-depth: '0'
+
+      - name: Fetch OSS branch
+        id: checkout-oss
+        env:
+          UPSTREAM: "https://github.com/cilium/cilium"
+        run: |
+          git remote add upstream "$UPSTREAM"
+          git fetch --no-write-fetch-head upstream "refs/heads/main:refs/remotes/upstream/main"
 
       - name: Check TESTOWNERS.enterprise is up to date
         run: |

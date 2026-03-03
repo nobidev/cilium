@@ -4,16 +4,26 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+UPSTREAM_BRANCH="${UPSTREAM_BRANCH:-upstream/main}"
+ORIGIN_BRANCH="${ORIGIN_BRANCH:-origin/main-ce}"
 
-OWNERS="CODEOWNERS"
-VOID="isovalent/void"
-CMD="go tool github.com/hmarr/codeowners/cmd/codeowners -f ${OWNERS} -o ${VOID}"
+# List new files outside the vendor directory compared to main-ce.
+new_files=$(git diff --name-only --diff-filter=A "${ORIGIN_BRANCH}"...HEAD -- . :^vendor)
+code_owners=$(go tool github.com/hmarr/codeowners/cmd/codeowners)
 
-FILES=$(${CMD})
-if [[ ${FILES} ]] ; then
-  echo "Some enterprise-only files are not owned by a team yet."
-  echo "Please add entries to ${OWNERS} for the files below:"
-  echo "$FILES"
-  exit 1
+unowned_enterprise_files=()
+for file in ${new_files}; do
+  # Check if this new file exists in upstream.
+  if ! git ls-tree -r --name-only "${UPSTREAM_BRANCH}" | grep -q "^${file}$"; then
+    # if it doesn't exist in upstream, check if it's owned by a team in isovalent org.
+    if echo "${code_owners}" | grep "^${file} " | grep -qv "@isovalent/"; then
+      unowned_enterprise_files+=("$file")
+    fi
+  fi
+done
+
+if [ ${#unowned_enterprise_files[@]} -gt 0 ]; then
+    echo "Add entries to CODEOWNERS for these newly added enterprise-only files:"
+    printf "%s\n" "${unowned_enterprise_files[@]}"
+    exit 1
 fi
