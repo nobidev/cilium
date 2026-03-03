@@ -295,7 +295,7 @@ func (t *EnterpriseTest) WithMulticastDeployment(params MulticastDeploymentParam
 	deployParams := deploymentParameters{
 		Name:     params.Name,
 		Kind:     kindMulticastName,
-		Image:    "nicolaka/netshoot:v0.12",
+		Image:    "nicolaka/netshoot:v0.15",
 		Replicas: 2,
 		Port:     8000,
 		Command:  []string{"sleep", "infinite"},
