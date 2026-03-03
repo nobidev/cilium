@@ -14,9 +14,14 @@ type BPFNetwork struct {
 	// The identifier of the tunnel protocol used for the overlay network.
 	TunnelProtocol uint8 `config:"tunnel_protocol"`
 
+	// Enable IPv4 fragments tracking.
+	EnableIPv4Fragments bool `config:"enable_ipv4_fragments"`
+	// Enable IPv6 fragments tracking.
+	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
+
 	Node
 }
 
 func NewBPFNetwork(node Node) *BPFNetwork {
-	return &BPFNetwork{0x0, 0x0, node}
+	return &BPFNetwork{0x0, 0x0, false, false, node}
 }
