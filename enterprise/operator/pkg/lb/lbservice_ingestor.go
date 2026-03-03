@@ -57,6 +57,7 @@ func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbs
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve T1 & T2 node ips: %w", err)
 	}
+	t2NodeIPv4Zones, t2NodeIPv6Zones := r.loadNodeAddressZonesByLabelSelector(getIPFamily(vip), nodes, *t2LabelSelector)
 
 	return &lbService{
 		namespace: lbsvc.Namespace,
@@ -78,6 +79,8 @@ func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbs
 		t1NodeIPv6Addresses:  t1NodeIPv6Addresses,
 		t2NodeIPv4Addresses:  t2NodeIPv4Addresses,
 		t2NodeIPv6Addresses:  t2NodeIPv6Addresses,
+		t2NodeIPv4Zones:      t2NodeIPv4Zones,
+		t2NodeIPv6Zones:      t2NodeIPv6Zones,
 		t1LabelSelector:      *t1LabelSelector,
 		t2LabelSelector:      *t2LabelSelector,
 	}, nil
@@ -159,39 +162,36 @@ func (r *ingestor) loadNodeAddressesByLabelSelector(ctx context.Context, ipFamil
 	nodeIPv4Addresses := []string{}
 	nodeIPv6Addresses := []string{}
 
-	for _, cn := range nodes {
-		if selector.Matches(labels.Set(cn.Labels)) {
-			for _, addr := range cn.Status.Addresses {
-				if addr.Type == slim_corev1.NodeInternalIP {
-					a, err := netip.ParseAddr(addr.Address)
-					if err != nil {
-						r.logger.Debug("invalid node IP",
-							logfields.NodeName, cn.Name,
-							logfields.Error, err,
-						)
-						continue
-					}
-
-					if a.Is4() && (ipFamily == ipFamilyV4 || ipFamily == ipFamilyDual) {
-						nodeIPv4Addresses = append(nodeIPv4Addresses, addr.Address)
-					} else if a.Is6() && !a.Is4In6() && (ipFamily == ipFamilyV6 || ipFamily == ipFamilyDual) {
-						nodeIPv6Addresses = append(nodeIPv6Addresses, addr.Address)
-					}
-				}
-			}
-			if len(nodeIPv4Addresses)+len(nodeIPv6Addresses) == 0 {
-				r.logger.Warn("Could not find InternalIP for CiliumNode",
-					logfields.Resource, cn.Name,
-				)
-				continue
-			}
+	forEachSelectedNodeInternalIP(r.logger, ipFamily, nodes, selector, func(_ *slim_corev1.Node, ip string, addr netip.Addr) {
+		if addr.Is4() {
+			nodeIPv4Addresses = append(nodeIPv4Addresses, ip)
+		} else {
+			nodeIPv6Addresses = append(nodeIPv6Addresses, ip)
 		}
-	}
+	})
 
 	slices.Sort(nodeIPv4Addresses)
 	slices.Sort(nodeIPv6Addresses)
 
 	return nodeIPv4Addresses, nodeIPv6Addresses, nil
+}
+
+func (r *ingestor) loadNodeAddressZonesByLabelSelector(ipFamily ipFamily, nodes []*slim_corev1.Node, selector labels.Selector) (map[string]string, map[string]string) {
+	nodeIPv4Zones := map[string]string{}
+	nodeIPv6Zones := map[string]string{}
+	forEachSelectedNodeInternalIP(r.logger, ipFamily, nodes, selector, func(cn *slim_corev1.Node, ip string, addr netip.Addr) {
+		zone := resolveNodeZone(cn.Labels)
+		if zone == lbServiceZoneUnknown {
+			return
+		}
+
+		if addr.Is4() {
+			nodeIPv4Zones[ip] = zone
+		} else {
+			nodeIPv6Zones[ip] = zone
+		}
+	})
+	return nodeIPv4Zones, nodeIPv6Zones
 }
 
 func (*ingestor) resolveZoneAwareMode(lbsvc *isovalentv1alpha1.LBService) lbServiceZoneAwareModeType {
@@ -688,6 +688,7 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 		}
 
 		backendPort := uint32(backend.Port)
+		backendZone := backend.Zone
 
 		addresses := []string{}
 		switch typ {
@@ -696,6 +697,9 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 		case isovalentv1alpha1.BackendTypeHostname:
 			addresses = append(addresses, r.fixedHostname(*backend.Host))
 		case isovalentv1alpha1.BackendTypeK8sService:
+			// Ignore explicit backend zone metadata for in-cluster backends.
+			// Their topology should come from EndpointSlice fields.
+			backendZone = nil
 			addresses = append(addresses, r.getAddressesFromEndpointSlices(referencedEndpointSlices, backend.K8sServiceRef.Name)...)
 			backendPort = r.getBackendPortFromService(referencedK8sServices, referencedEndpointSlices, backend.K8sServiceRef.Name, backendPort)
 		default:
@@ -707,6 +711,7 @@ func (r *ingestor) toBackends(typ isovalentv1alpha1.BackendType, backends []isov
 			port:      backendPort,
 			weight:    weight,
 			status:    status,
+			zone:      backendZone,
 		})
 	}
 
@@ -1756,6 +1761,44 @@ func (r *ingestor) toHTTPRouteJWTAuth(jwtAuth *isovalentv1alpha1.LBServiceHTTPRo
 	}
 	return &lbRouteHTTPJWTAuth{
 		disabled: jwtAuth.Disabled,
+	}
+}
+
+func forEachSelectedNodeInternalIP(logger *slog.Logger, ipFamily ipFamily, nodes []*slim_corev1.Node, selector labels.Selector, fn func(node *slim_corev1.Node, ip string, addr netip.Addr)) {
+	for _, cn := range nodes {
+		if !selector.Matches(labels.Set(cn.Labels)) {
+			continue
+		}
+
+		hasInternalIP := false
+		for _, addr := range cn.Status.Addresses {
+			if addr.Type != slim_corev1.NodeInternalIP {
+				continue
+			}
+
+			parsedAddr, err := netip.ParseAddr(addr.Address)
+			if err != nil {
+				logger.Debug("invalid node IP",
+					logfields.NodeName, cn.Name,
+					logfields.Error, err,
+				)
+				continue
+			}
+
+			if parsedAddr.Is4() && (ipFamily == ipFamilyV4 || ipFamily == ipFamilyDual) {
+				hasInternalIP = true
+				fn(cn, addr.Address, parsedAddr)
+			} else if parsedAddr.Is6() && !parsedAddr.Is4In6() && (ipFamily == ipFamilyV6 || ipFamily == ipFamilyDual) {
+				hasInternalIP = true
+				fn(cn, addr.Address, parsedAddr)
+			}
+		}
+
+		if !hasInternalIP {
+			logger.Warn("Could not find InternalIP for CiliumNode",
+				logfields.Resource, cn.Name,
+			)
+		}
 	}
 }
 

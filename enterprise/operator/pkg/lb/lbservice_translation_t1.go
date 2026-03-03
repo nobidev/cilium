@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -256,15 +257,13 @@ func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService, ipv
 	}
 
 	addresses := model.t2NodeIPv4Addresses
+	zones := model.t2NodeIPv4Zones
 	if ipv6 {
 		addresses = model.t2NodeIPv6Addresses
+		zones = model.t2NodeIPv6Zones
 	}
 
-	return []discoveryv1.Endpoint{
-			{
-				Addresses: addresses,
-			},
-		},
+	return addressesAndZonesToEndpoints(addresses, zones),
 		[]discoveryv1.EndpointPort{
 			{
 				Name:     ptr.To(strings.ToLower(string(prot))),
@@ -275,93 +274,19 @@ func (r *lbServiceT1Translator) endpointSubsetsFromT2Nodes(model *lbService, ipv
 }
 
 func (r *lbServiceT1Translator) tcpEndpointSubsetsFromBackends(model *lbService, ipv6 bool) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
-	epAddresses := []string{}
-	port := uint32(0)
-
-	for _, tr := range model.applications.tcpProxy.routes {
-		backend, ok := model.referencedBackends[tr.backendRef.name]
-		if ok {
-			for _, b := range backend.lbBackends {
-				if port == 0 {
-					port = b.port
-				}
-				if port != b.port {
-					r.logger.Debug("Skipping incompatible backend",
-						logfields.Resource, types.NamespacedName{Namespace: model.namespace, Name: model.name},
-						logfields.Address, b.addresses,
-						logfields.Port, b.port,
-						logfields.Reason, "T1-only service does not support backends with different ports")
-					continue
-				}
-				for _, ba := range b.addresses {
-					isIPv4 := net.ParseIP(ba).To4() != nil
-					if isIPv4 != ipv6 {
-						epAddresses = append(epAddresses, ba)
-					}
-				}
-			}
-		}
-	}
-
-	if len(epAddresses) == 0 {
-		return nil, nil
-	}
-
-	return []discoveryv1.Endpoint{
-			{
-				Addresses: epAddresses,
-			},
-		},
-		[]discoveryv1.EndpointPort{
-			{
-				Name:     ptr.To(strings.ToLower(string(corev1.ProtocolTCP))),
-				Protocol: ptr.To(corev1.ProtocolTCP),
-				Port:     ptr.To(int32(port)),
-			},
-		}
+	backendRefs := collectBackendRefs(
+		model.applications.tcpProxy.routes,
+		func(tr lbRouteTCPProxy) backendRef { return tr.backendRef },
+	)
+	return endpointSubsetsFromBackends(r.logger, model, backendRefs, ipv6, corev1.ProtocolTCP)
 }
 
 func (r *lbServiceT1Translator) udpEndpointSubsetsFromBackends(model *lbService, ipv6 bool) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
-	epAddresses := []string{}
-	port := uint32(0)
-
-	for _, tr := range model.applications.udpProxy.routes {
-		backend, ok := model.referencedBackends[tr.backendRef.name]
-		if ok {
-			for _, b := range backend.lbBackends {
-				if port == 0 {
-					port = b.port
-				}
-				if port != b.port {
-					r.logger.Debug("Skipping incompatible backend",
-						logfields.Resource, types.NamespacedName{Namespace: model.namespace, Name: model.name},
-						logfields.Address, b.addresses,
-						logfields.Port, b.port,
-						logfields.Reason, "T1-only service does not support backends with different ports")
-					continue
-				}
-				for _, ba := range b.addresses {
-					isIPv4 := net.ParseIP(ba).To4() != nil
-					if isIPv4 != ipv6 {
-						epAddresses = append(epAddresses, ba)
-					}
-				}
-			}
-		}
-	}
-
-	return []discoveryv1.Endpoint{
-			{
-				Addresses: epAddresses,
-			},
-		},
-		[]discoveryv1.EndpointPort{
-			{
-				Name:     ptr.To(strings.ToLower(string(corev1.ProtocolUDP))),
-				Protocol: ptr.To(corev1.ProtocolUDP),
-				Port:     ptr.To(int32(port)),
-			},
-		}
+	backendRefs := collectBackendRefs(
+		model.applications.udpProxy.routes,
+		func(tr lbRouteUDPProxy) backendRef { return tr.backendRef },
+	)
+	return endpointSubsetsFromBackends(r.logger, model, backendRefs, ipv6, corev1.ProtocolUDP)
 }
 
 func (r *lbServiceT1Translator) DesiredEndpointSlice(model *lbService, ipv6 bool) *discoveryv1.EndpointSlice {
@@ -526,4 +451,98 @@ func (r *lbServiceT1Translator) getT1OnlyHealthCheckHTTPHost(model *lbService) s
 		return b.healthCheckConfig.http.host
 	}
 	return ""
+}
+
+func addressesAndZonesToEndpoints(addresses []string, zones map[string]string) []discoveryv1.Endpoint {
+	zoneAddrs := map[string][]string{}
+	bareAddrs := []string{}
+	for _, a := range addresses {
+		if zone := zones[a]; zone != "" {
+			zoneAddrs[zone] = append(zoneAddrs[zone], a)
+			continue
+		}
+		bareAddrs = append(bareAddrs, a)
+	}
+
+	return groupedAddressesToEndpoints(zoneAddrs, bareAddrs)
+}
+
+func collectBackendRefs[T any](routes []T, toRef func(route T) backendRef) []backendRef {
+	refs := make([]backendRef, 0, len(routes))
+	for _, route := range routes {
+		refs = append(refs, toRef(route))
+	}
+	return refs
+}
+
+func endpointSubsetsFromBackends(logger *slog.Logger, model *lbService, backendRefs []backendRef, ipv6 bool, protocol corev1.Protocol) ([]discoveryv1.Endpoint, []discoveryv1.EndpointPort) {
+	zoneAddrs := map[string][]string{}
+	bareAddrs := []string{}
+	port := uint32(0)
+
+	for _, ref := range backendRefs {
+		backend, ok := model.referencedBackends[ref.name]
+		if !ok {
+			continue
+		}
+		for _, b := range backend.lbBackends {
+			if port == 0 {
+				port = b.port
+			}
+			if port != b.port {
+				logger.Debug("Skipping incompatible backend",
+					logfields.Resource, types.NamespacedName{Namespace: model.namespace, Name: model.name},
+					logfields.Address, b.addresses,
+					logfields.Port, b.port,
+					logfields.Reason, "T1-only service does not support backends with different ports")
+				continue
+			}
+			for _, ba := range b.addresses {
+				isIPv4 := net.ParseIP(ba).To4() != nil
+				if isIPv4 != ipv6 {
+					if b.zone != nil && *b.zone != "" {
+						zoneAddrs[*b.zone] = append(zoneAddrs[*b.zone], ba)
+					} else {
+						bareAddrs = append(bareAddrs, ba)
+					}
+				}
+			}
+		}
+	}
+
+	if len(zoneAddrs)+len(bareAddrs) == 0 {
+		return nil, nil
+	}
+
+	return groupedAddressesToEndpoints(zoneAddrs, bareAddrs),
+		[]discoveryv1.EndpointPort{
+			{
+				Name:     ptr.To(strings.ToLower(string(protocol))),
+				Protocol: ptr.To(protocol),
+				Port:     ptr.To(int32(port)),
+			},
+		}
+}
+
+func groupedAddressesToEndpoints(zoneAddrs map[string][]string, bareAddrs []string) []discoveryv1.Endpoint {
+	endpoints := []discoveryv1.Endpoint{}
+	for _, zone := range sortedKeys(zoneAddrs) {
+		endpoints = append(endpoints, discoveryv1.Endpoint{
+			Addresses: zoneAddrs[zone],
+			Zone:      ptr.To(zone),
+			Hints: &discoveryv1.EndpointHints{
+				ForZones: []discoveryv1.ForZone{{Name: zone}},
+			},
+		})
+	}
+	if len(bareAddrs) > 0 || len(endpoints) == 0 {
+		endpoints = append(endpoints, discoveryv1.Endpoint{
+			Addresses: bareAddrs,
+		})
+	}
+	return endpoints
+}
+
+func sortedKeys(m map[string][]string) []string {
+	return slices.Sorted(maps.Keys(m))
 }

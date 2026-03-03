@@ -11,6 +11,8 @@
 package lb
 
 import (
+	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -18,6 +20,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func TestIngestorResolveZoneAwareMode(t *testing.T) {
@@ -89,4 +94,103 @@ func TestResolveNodeZone(t *testing.T) {
 			require.Equal(t, tc.expect, resolveNodeZone(tc.nodeLabels))
 		})
 	}
+}
+
+func TestIngestorLoadNodeAddressesByLabelSelector(t *testing.T) {
+	nodes := []*slim_corev1.Node{
+		{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name:   "node-a",
+				Labels: map[string]string{"service.cilium.io/node": "t2"},
+			},
+			Status: slim_corev1.NodeStatus{
+				Addresses: []slim_corev1.NodeAddress{
+					{Type: slim_corev1.NodeInternalIP, Address: "10.0.0.10"},
+					{Type: slim_corev1.NodeInternalIP, Address: "fd00::10"},
+					{Type: slim_corev1.NodeExternalIP, Address: "203.0.113.10"},
+				},
+			},
+		},
+		{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name:   "node-b",
+				Labels: map[string]string{"service.cilium.io/node": "t1"},
+			},
+			Status: slim_corev1.NodeStatus{
+				Addresses: []slim_corev1.NodeAddress{
+					{Type: slim_corev1.NodeInternalIP, Address: "10.0.0.11"},
+				},
+			},
+		},
+		{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name:   "node-c",
+				Labels: map[string]string{"service.cilium.io/node": "t2"},
+			},
+			Status: slim_corev1.NodeStatus{
+				Addresses: []slim_corev1.NodeAddress{
+					{Type: slim_corev1.NodeInternalIP, Address: "not-an-ip"},
+				},
+			},
+		},
+	}
+
+	selector := labels.SelectorFromSet(labels.Set{"service.cilium.io/node": "t2"})
+	ing := &ingestor{logger: slog.Default()}
+	ipv4Addrs, ipv6Addrs, err := ing.loadNodeAddressesByLabelSelector(context.Background(), ipFamilyDual, nodes, selector)
+	require.NoError(t, err)
+	require.Equal(t, []string{"10.0.0.10"}, ipv4Addrs)
+	require.Equal(t, []string{"fd00::10"}, ipv6Addrs)
+}
+
+func TestIngestorLoadNodeAddressZonesByLabelSelector(t *testing.T) {
+	nodes := []*slim_corev1.Node{
+		{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name: "node-a",
+				Labels: map[string]string{
+					"service.cilium.io/node": "t2",
+					corev1.LabelTopologyZone: "zone-a",
+				},
+			},
+			Status: slim_corev1.NodeStatus{
+				Addresses: []slim_corev1.NodeAddress{
+					{Type: slim_corev1.NodeInternalIP, Address: "10.0.0.10"},
+					{Type: slim_corev1.NodeInternalIP, Address: "fd00::10"},
+					{Type: slim_corev1.NodeExternalIP, Address: "203.0.113.10"},
+				},
+			},
+		},
+		{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name:   "node-b",
+				Labels: map[string]string{"service.cilium.io/node": "t2"},
+			},
+			Status: slim_corev1.NodeStatus{
+				Addresses: []slim_corev1.NodeAddress{
+					{Type: slim_corev1.NodeInternalIP, Address: "10.0.0.11"},
+				},
+			},
+		},
+		{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name: "node-c",
+				Labels: map[string]string{
+					"service.cilium.io/node": "t1",
+					corev1.LabelTopologyZone: "zone-c",
+				},
+			},
+			Status: slim_corev1.NodeStatus{
+				Addresses: []slim_corev1.NodeAddress{
+					{Type: slim_corev1.NodeInternalIP, Address: "10.0.0.12"},
+				},
+			},
+		},
+	}
+
+	selector := labels.SelectorFromSet(labels.Set{"service.cilium.io/node": "t2"})
+	ing := &ingestor{logger: slog.Default()}
+	ipv4Zones, ipv6Zones := ing.loadNodeAddressZonesByLabelSelector(ipFamilyDual, nodes, selector)
+	require.Equal(t, map[string]string{"10.0.0.10": "zone-a"}, ipv4Zones)
+	require.Equal(t, map[string]string{"fd00::10": "zone-a"}, ipv6Zones)
 }

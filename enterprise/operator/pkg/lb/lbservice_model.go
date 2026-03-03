@@ -33,6 +33,8 @@ type lbService struct {
 	t1NodeIPv6Addresses  []string
 	t2NodeIPv4Addresses  []string
 	t2NodeIPv6Addresses  []string
+	t2NodeIPv4Zones      map[string]string
+	t2NodeIPv6Zones      map[string]string
 	t1LabelSelector      labels.Selector
 	t2LabelSelector      labels.Selector
 }
@@ -701,6 +703,7 @@ type lbBackend struct {
 	port      uint32
 	weight    uint32
 	status    lbBackendStatus
+	zone      *string
 }
 
 type lbBackendStatus int
