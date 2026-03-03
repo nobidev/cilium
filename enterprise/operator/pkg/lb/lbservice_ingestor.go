@@ -68,6 +68,7 @@ func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbs
 			assignedIPv6: getAssignedIPv6(vip),
 			bindStatus:   getVIPBindStatus(t1Service),
 		},
+		zoneAwareMode:        r.resolveZoneAwareMode(lbsvc),
 		port:                 lbsvc.Spec.Port,
 		proxyProtocolConfig:  r.toServiceProxyProtocolConfig(lbsvc.Spec.ProxyProtocolConfig),
 		enableGRPCAccessLogs: lbsvc.Spec.EnableGRPCAccessLogs,
@@ -191,6 +192,28 @@ func (r *ingestor) loadNodeAddressesByLabelSelector(ctx context.Context, ipFamil
 	slices.Sort(nodeIPv6Addresses)
 
 	return nodeIPv4Addresses, nodeIPv6Addresses, nil
+}
+
+func (*ingestor) resolveZoneAwareMode(lbsvc *isovalentv1alpha1.LBService) lbServiceZoneAwareModeType {
+	if lbsvc.Spec.TrafficPolicy == nil || lbsvc.Spec.TrafficPolicy.ZoneAware == nil {
+		return lbServiceZoneAwareModeDisabled
+	}
+
+	switch lbsvc.Spec.TrafficPolicy.ZoneAware.Mode {
+	case isovalentv1alpha1.LBZoneAwareModePreferSameZone:
+		return lbServiceZoneAwareModePreferSameZone
+	case isovalentv1alpha1.LBZoneAwareModeRequireSameZone:
+		return lbServiceZoneAwareModeRequireSameZone
+	default:
+		return lbServiceZoneAwareModeDisabled
+	}
+}
+
+func resolveNodeZone(nodeLabels map[string]string) string {
+	if zone := nodeLabels[corev1.LabelTopologyZone]; zone != "" {
+		return zone
+	}
+	return lbServiceZoneUnknown
 }
 
 func (*ingestor) toHTTPConfig(httpConfig *isovalentv1alpha1.LBServiceHTTPConfig) *lbServiceHTTPConfig {

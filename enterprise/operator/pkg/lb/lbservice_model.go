@@ -23,6 +23,7 @@ type lbService struct {
 	namespace            string
 	name                 string
 	vip                  lbVIP
+	zoneAwareMode        lbServiceZoneAwareModeType
 	port                 int32
 	proxyProtocolConfig  *lbServiceProxyProtocolConfig
 	enableGRPCAccessLogs *bool
@@ -35,6 +36,16 @@ type lbService struct {
 	t1LabelSelector      labels.Selector
 	t2LabelSelector      labels.Selector
 }
+
+type lbServiceZoneAwareModeType string
+
+const (
+	lbServiceZoneAwareModeDisabled        lbServiceZoneAwareModeType = "disabled"
+	lbServiceZoneAwareModePreferSameZone  lbServiceZoneAwareModeType = "preferSameZone"
+	lbServiceZoneAwareModeRequireSameZone lbServiceZoneAwareModeType = "requireSameZone"
+)
+
+const lbServiceZoneUnknown = "unknown"
 
 type lbVIP struct {
 	name         string
