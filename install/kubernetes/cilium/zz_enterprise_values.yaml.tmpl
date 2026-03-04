@@ -65,6 +65,11 @@ enterprise:
     vxlanDevice: "cilium_evpn"
     # -- EVPN Vxlan port number
     vxlanPort: 4789
+    securityGroupTags:
+       # -- Enables Security Group Tags in EVPN advertisements.
+      enabled: false
+      # -- Default Security Group ID, used when no other configured Security Group matches the advertisement.
+      defaultGroupID: 0
 
   bgpControlPlane:
     # -- Enables enterprise BGP control plane

@@ -2461,6 +2461,17 @@
             "enabled": {
               "type": "boolean"
             },
+            "securityGroupTags": {
+              "properties": {
+                "defaultGroupID": {
+                  "type": "integer"
+                },
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
             "vxlanDevice": {
               "type": "string"
             },

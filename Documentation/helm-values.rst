@@ -1692,6 +1692,14 @@
      - Enables support for EVPN
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.evpn.securityGroupTags.defaultGroupID`
+     - Default Security Group ID, used when no other configured Security Group matches the advertisement.
+     - int
+     - ``0``
+   * - :spelling:ignore:`enterprise.evpn.securityGroupTags.enabled`
+     - Enables Security Group Tags in EVPN advertisements.
+     - bool
+     - ``false``
    * - :spelling:ignore:`enterprise.evpn.vxlanDevice`
      - EVPN Vxlan device name
      - string

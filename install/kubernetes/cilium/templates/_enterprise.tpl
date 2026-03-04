@@ -18,6 +18,8 @@ srv6-locator-pool-enabled: {{ .Values.enterprise.srv6.locatorPoolEnabled | defau
 enable-evpn: "true"
 evpn-vxlan-device: {{ .Values.enterprise.evpn.vxlanDevice | quote }}
 evpn-vxlan-port: {{ .Values.enterprise.evpn.vxlanPort | quote }}
+enable-evpn-security-group-tags: {{ .Values.enterprise.evpn.securityGroupTags.enabled | quote }}
+evpn-default-security-group-id: {{ .Values.enterprise.evpn.securityGroupTags.defaultGroupID | quote }}
 {{- end }}
 
 {{- if .Values.enterprise.bgpControlPlane.enabled }}
