@@ -65,7 +65,9 @@ func TestScript(t *testing.T) {
 				cell.Group(
 					cell.Provide(
 						tables.NewPrivateNetworksTable,
+						tables.NewNodeAttachmentsTable,
 						statedb.RWTable[tables.PrivateNetwork].ToTable,
+						statedb.RWTable[*tables.NodeAttachment].ToTable,
 						func() pnmaps.Watchdog { return watchdog{} },
 					),
 

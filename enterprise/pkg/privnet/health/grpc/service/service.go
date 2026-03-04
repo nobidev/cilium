@@ -48,9 +48,10 @@ type health struct {
 
 	log *slog.Logger
 
-	db       *statedb.DB
-	networks statedb.Table[tables.PrivateNetwork]
-	tbl      statedb.RWTable[tables.ActiveNetwork]
+	db          *statedb.DB
+	networks    statedb.Table[tables.PrivateNetwork]
+	attachments statedb.Table[*tables.NodeAttachment]
+	tbl         statedb.RWTable[tables.ActiveNetwork]
 
 	watchdog watchdog.Watchdog
 
@@ -74,9 +75,10 @@ type healthParams struct {
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
-	DB       *statedb.DB
-	Networks statedb.Table[tables.PrivateNetwork]
-	Table    statedb.RWTable[tables.ActiveNetwork]
+	DB          *statedb.DB
+	Networks    statedb.Table[tables.PrivateNetwork]
+	Attachments statedb.Table[*tables.NodeAttachment]
+	Table       statedb.RWTable[tables.ActiveNetwork]
 
 	Watchdog watchdog.Watchdog
 }
@@ -85,9 +87,10 @@ func newHealth(in healthParams) *health {
 	h := &health{
 		log: in.Logger,
 
-		db:       in.DB,
-		networks: in.Networks,
-		tbl:      in.Table,
+		db:          in.DB,
+		networks:    in.Networks,
+		attachments: in.Attachments,
+		tbl:         in.Table,
 
 		healthy: make(map[tables.WorkloadNode]wnEntry),
 		stop:    make(chan struct{}),
@@ -118,8 +121,9 @@ func (s *health) registerGCer(jg job.Group, cfg pncfg.Config) {
 }
 
 func (s *health) gcLoop(ctx context.Context, health cell.Health) error {
-	wtx := s.db.WriteTxn(s.networks)
-	changeIter, _ := s.networks.Changes(wtx)
+	wtx := s.db.WriteTxn(s.networks, s.attachments)
+	netIter, _ := s.networks.Changes(wtx)
+	attachIter, _ := s.attachments.Changes(wtx)
 	wtx.Commit()
 
 	health.OK("Primed")
@@ -127,14 +131,30 @@ func (s *health) gcLoop(ctx context.Context, health cell.Health) error {
 		var toGC = sets.New[tables.NetworkName]()
 
 		wtx := s.db.WriteTxn(s.tbl)
-		changes, watch := changeIter.Next(wtx)
+		netChanges, netWatch := netIter.Next(wtx)
+		attachChanges, attachWatch := attachIter.Next(wtx)
 
-		for change := range changes {
+		for change := range netChanges {
 			network := change.Object.Name
-			if change.Deleted || !change.Object.CanBeServedByINB() {
+			if change.Deleted {
 				// The network cannot be served, hence trigger GC.
 				toGC.Insert(network)
 			}
+		}
+
+		// check there is valid attachment associated with private-network.
+		var nwProcessed = sets.New[tables.NetworkName]()
+		for attach := range attachChanges {
+			network := attach.Object.Network
+			if nwProcessed.Has(network) {
+				continue
+			}
+
+			if !s.validNetworkAttachment(wtx, network) {
+				// no attachment associated with a network.
+				toGC.Insert(network)
+			}
+			nwProcessed.Insert(network)
 		}
 
 		if len(toGC) > 0 {
@@ -158,7 +178,8 @@ func (s *health) gcLoop(ctx context.Context, health cell.Health) error {
 		wtx.Abort()
 
 		select {
-		case <-watch:
+		case <-netWatch:
+		case <-attachWatch:
 		case <-ctx.Done():
 			return nil
 		}
@@ -315,9 +336,10 @@ func (s *health) Watch(in *api.WatchRequest, stream grpc.ServerStreamingServer[a
 		return stream.Context().Err()
 	}
 
-	wtx := s.db.WriteTxn(s.networks, s.tbl)
+	wtx := s.db.WriteTxn(s.networks, s.tbl, s.attachments)
 	networksIter, _ := s.networks.Changes(wtx)
 	activeIter, _ := s.tbl.Changes(wtx)
+	attachIter, _ := s.attachments.Changes(wtx)
 	wtx.Commit()
 
 	for {
@@ -339,11 +361,16 @@ func (s *health) Watch(in *api.WatchRequest, stream grpc.ServerStreamingServer[a
 			}
 		}
 
+		attachmentChanges, attachWatch := attachIter.Next(txn)
+		for change := range attachmentChanges {
+			changes.Insert(change.Object.Network)
+		}
+
 		for network := range changes {
 			var status = api.NetworkEvents_Event_NOT_SERVING
 
-			obj, _, found := s.networks.Get(txn, tables.PrivateNetworkByName(network))
-			if found && obj.CanBeServedByINB() {
+			_, _, found := s.networks.Get(txn, tables.PrivateNetworkByName(network))
+			if found && s.validNetworkAttachment(txn, network) {
 				status = api.NetworkEvents_Event_STANDBY
 
 				_, _, active := s.tbl.Get(txn, tables.ActiveNetworkByKey(node, network))
@@ -379,6 +406,7 @@ func (s *health) Watch(in *api.WatchRequest, stream grpc.ServerStreamingServer[a
 		select {
 		case <-networksWatch:
 		case <-activeWatch:
+		case <-attachWatch:
 		case <-stream.Context().Done():
 			return stream.Context().Err()
 		}
@@ -432,12 +460,12 @@ func (s *health) activate(node tables.WorkloadNode, network tables.NetworkName) 
 	wtx := s.db.WriteTxn(s.tbl)
 	defer wtx.Abort()
 
-	net, _, found := s.networks.Get(wtx, tables.PrivateNetworkByName(network))
+	_, _, found := s.networks.Get(wtx, tables.PrivateNetworkByName(network))
 	if !found {
 		return errors.New("network is unknown")
 	}
 
-	if !net.CanBeServedByINB() {
+	if !s.validNetworkAttachment(wtx, network) {
 		return errors.New("network cannot be served")
 	}
 
@@ -485,4 +513,14 @@ func (s *health) toWorkloadNode(in *api.Node) (tables.WorkloadNode, error) {
 	}
 
 	return out, nil
+}
+
+// validNetworkAttachment checks there is at least one ready interface associated with the network.
+func (s *health) validNetworkAttachment(txn statedb.ReadTxn, networkName tables.NetworkName) bool {
+	for networkAttach := range s.attachments.List(txn, tables.NodeAttachmentsByNetworkName(networkName)) {
+		if networkAttach.IsReady() {
+			return true
+		}
+	}
+	return false
 }

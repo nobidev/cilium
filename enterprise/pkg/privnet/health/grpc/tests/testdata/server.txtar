@@ -15,6 +15,11 @@ db/insert private-networks privnet-blue.v1.yaml
 db/insert private-networks privnet-green.v1.yaml
 db/insert private-networks privnet-yellow.v1.yaml
 
+# Populate node attachments table
+db/insert privnet-node-attachments privnet-blue-attach.v1.yaml
+db/insert privnet-node-attachments privnet-green-attach.v1.yaml
+db/insert privnet-node-attachments privnet-yellow-attach.v1.yaml
+
 # Register a few network pairs.
 checkerpool/register alpaca  local/sloth blue
 checkerpool/register alpaca  local/sloth yellow
@@ -41,6 +46,7 @@ db/cmp privnet-inb-active-networks expected-active.v1.table
 
 # A new network is served, the update should propagate correctly.
 db/insert private-networks privnet-purple.v1.yaml
+db/insert privnet-node-attachments privnet-purple-attach.v1.yaml
 db/cmp test-observed-state-alpaca expected-alpaca.v2.table
 
 # Perform a couple more activations and deactivations, and assert they propagate.
@@ -51,8 +57,8 @@ db/cmp privnet-inb-active-networks expected-active.v2.table
 
 # Update served networks, updates should be propagated, and stale entries GCed.
 db/delete private-networks privnet-yellow.v1.yaml # No longer served
-db/insert private-networks privnet-green.v2.yaml  # The interface is now valid
-db/insert private-networks privnet-purple.v2.yaml # The interface is now invalid
+db/insert privnet-node-attachments privnet-green-attach.v2.yaml  # The interface is now valid
+db/insert privnet-node-attachments privnet-purple-attach.v2.yaml # The interface is now invalid
 
 db/cmp test-observed-state-alpaca expected-alpaca.v3.table
 db/cmp test-observed-state-llama expected-llama.v2.table
@@ -61,8 +67,8 @@ db/cmp privnet-inb-active-networks expected-active.v3.table
 
 # Revert to the previous state, the observed state should reconverge again.
 db/insert private-networks privnet-yellow.v1.yaml
-db/insert private-networks privnet-green.v1.yaml
-db/insert private-networks privnet-purple.v1.yaml
+db/insert privnet-node-attachments privnet-green-attach.v1.yaml
+db/insert privnet-node-attachments privnet-purple-attach.v1.yaml
 
 db/cmp test-observed-state-alpaca expected-alpaca.v2.table
 db/cmp test-observed-state-llama expected-llama.v1.table
@@ -184,38 +190,66 @@ felidae/cheetah    purple
 
 -- privnet-blue.v1.yaml --
 name: blue
+
+-- privnet-blue-attach.v1.yaml --
 interface:
     name: eth.blue
     index: 11
+network: blue
+nodeselector:
+    selectormatches: true
+conflict: none
 
 -- privnet-green.v1.yaml --
 name: green
+
+-- privnet-green-attach.v1.yaml --
 interface:
     name: eth.green
     index: 0
-    error: "interface does not exist"
+network: green
+nodeselector:
+    selectormatches: true
+conflict: none
 
--- privnet-green.v2.yaml --
-name: green
+-- privnet-green-attach.v2.yaml --
 interface:
     name: eth.green
     index: 12
+network: green
+nodeselector:
+    selectormatches: true
+conflict: none
 
 -- privnet-yellow.v1.yaml --
 name: yellow
+
+-- privnet-yellow-attach.v1.yaml --
 interface:
     name: eth.yellow
     index: 13
+network: yellow
+nodeselector:
+    selectormatches: true
+conflict: none
 
 -- privnet-purple.v1.yaml --
 name: purple
+
+-- privnet-purple-attach.v1.yaml --
 interface:
     name: eth.purple
     index: 14
+network: purple
+nodeselector:
+    selectormatches: true
+conflict: none
 
--- privnet-purple.v2.yaml --
-name: purple
+-- privnet-purple-attach.v2.yaml --
 interface:
     name: eth.purple
     index: 0
-    error: "interface does not exist"
+network: purple
+nodeselector:
+    selectormatches: true
+conflict: none

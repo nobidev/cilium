@@ -11,6 +11,7 @@ db/initialized private-networks privnet-routes privnet-subnets
 db/insert devices device.eth1.yaml
 db/insert devices device.eth2.yaml
 k8s/add icpn-1.yaml icpn-2.yaml
+k8s/add pnna-1.yaml pnna-2.yaml
 
 # Register the networks.
 checkerpool/register cougar default/foobar-worker-1 firefly
@@ -113,6 +114,20 @@ spec:
     - destination: 10.0.0.0/8
       gateway: 192.168.251.101
 
+-- pnna-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkNodeAttachment
+metadata:
+  name: pnna-1
+spec:
+  privateNetworkRef:
+    name: maggot
+  attachments:
+    - interface: eth1
+      subnetRefs:
+        - name: maggot1
+        - name: maggot2
+
 -- icpn-2.yaml --
 apiVersion: isovalent.com/v1alpha1
 kind: ClusterwidePrivateNetwork
@@ -128,6 +143,19 @@ spec:
     routes:
     - destination: 10.0.0.0/8
       gateway: 192.168.251.8
+
+-- pnna-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkNodeAttachment
+metadata:
+  name: pnna-2
+spec:
+  privateNetworkRef:
+    name: firefly
+  attachments:
+    - interface: eth2
+      subnetRefs:
+        - name: firefly1
 
 -- local-workload-optimum-mouse.yaml --
 endpointid: 11

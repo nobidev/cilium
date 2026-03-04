@@ -12,6 +12,7 @@ db/insert devices device.eth2.yaml
 
 # Add two ClusterwidePrivateNetworks
 k8s/add icpn-1.yaml icpn-2.yaml
+k8s/add pnna-1.yaml pnna-2.yaml
 
 # Ensure that they are correctly propagated into the table
 db/cmp private-networks privnet.v1.table
@@ -105,6 +106,20 @@ spec:
     cidrv4: 192.168.250.0/24
     cidrv6: fc00:20:144:4::0/64
 
+-- pnna-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkNodeAttachment
+metadata:
+  name: pnna-1
+spec:
+  privateNetworkRef:
+    name: blue-network
+  attachments:
+    - interface: eth1
+      subnetRefs:
+        - name: blue1
+        - name: blue2
+
 -- icpn-2.yaml --
 apiVersion: isovalent.com/v1alpha1
 kind: ClusterwidePrivateNetwork
@@ -118,14 +133,27 @@ spec:
   - name: green1
     cidrv4: 192.168.99.0/24
 
+-- pnna-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkNodeAttachment
+metadata:
+  name: pnna-2
+spec:
+  privateNetworkRef:
+    name: green-network
+  attachments:
+    - interface: eth2
+      subnetRefs:
+        - name: green1
+
 -- privnet.v1.table --
-Name          ID    Interface   INBClusters    Subnets
-blue-network  0x1   eth1        N/A            2
-green-network 0x2   eth2        N/A            1
+Name          ID    INBClusters    Subnets
+blue-network  0x1   N/A            2
+green-network 0x2   N/A            1
 
 -- privnet.v2.table --
-Name          ID    Interface   INBClusters    Subnets
-green-network 0x2   eth2        N/A            1
+Name          ID    INBClusters    Subnets
+green-network 0x2   N/A            1
 
 -- subnets.v1.table --
 Network         Name      CIDRv4            CIDRv6

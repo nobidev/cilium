@@ -39,7 +39,8 @@ import (
 
 type (
 	PN  = tables.PrivateNetwork
-	PNI = tables.PrivateNetworkInterface
+	NA  = tables.NodeAttachment
+	NAI = tables.NodeAttachmentInterface
 	AN  = tables.ActiveNetwork
 	WN  = tables.WorkloadNode
 )
@@ -50,6 +51,10 @@ const (
 
 	// shortTimeout is a shorter timeout when checking that an event didn't occur.
 	shortTimeout = 100 * time.Millisecond
+)
+
+var (
+	TestValidNASelector = tables.NodeSelector{SelectorMatches: true}
 )
 
 type fakewd struct {
@@ -69,7 +74,7 @@ func (fwd *fakewd) get(id string) time.Duration {
 	return timeout
 }
 
-func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[PN], statedb.RWTable[AN], *fakewd, *health) {
+func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[PN], statedb.RWTable[AN], statedb.RWTable[*NA], *fakewd, *health) {
 	var (
 		db  = statedb.New()
 		fwd fakewd
@@ -81,13 +86,17 @@ func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[PN], statedb.RWTable[AN
 	actnets, err := tables.NewActiveNetworksTable(db)
 	require.NoError(t, err, "tables.NewActiveNetworksTable")
 
-	return db, networks, actnets, &fwd, newHealth(healthParams{
-		Logger:    hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
-		Lifecycle: hivetest.Lifecycle(t),
-		DB:        db,
-		Networks:  networks,
-		Table:     actnets,
-		Watchdog:  &fwd,
+	attachments, err := tables.NewNodeAttachmentsTable(db)
+	require.NoError(t, err, "tables.NewNodeAttachmentsTable")
+
+	return db, networks, actnets, attachments, &fwd, newHealth(healthParams{
+		Logger:      hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+		Lifecycle:   hivetest.Lifecycle(t),
+		DB:          db,
+		Networks:    networks,
+		Attachments: attachments,
+		Table:       actnets,
+		Watchdog:    &fwd,
 	})
 }
 
@@ -176,7 +185,7 @@ func TestServiceProbe(t *testing.T) {
 	)
 
 	synctest.Test(t, func(t *testing.T) {
-		db, _, actnets, fwd, srv := fixture(t)
+		db, _, actnets, _, fwd, srv := fixture(t)
 
 		var (
 			streamSloth = newMockStream[api.ProbeRequest, api.ProbeResponse](t.Context())
@@ -314,7 +323,7 @@ func TestServiceProbeErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				_, _, _, _, srv := fixture(t)
+				_, _, _, _, _, srv := fixture(t)
 
 				var (
 					errch  = make(chan error)
@@ -357,22 +366,27 @@ func TestServiceWatch(t *testing.T) {
 		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
 	)
 
-	db, networks, actnets, _, srv := fixture(t)
+	db, networks, actnets, attachs, _, srv := fixture(t)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	stream := newMockStream[struct{}, api.NetworkEvents](ctx)
 	defer func() { cancel(); wg.Wait() }()
 
 	// Configure the initial state.
-	wtx := db.WriteTxn(networks, actnets)
-	networks.Insert(wtx, PN{Name: "blue", Interface: PNI{Name: "eth.blue", Index: 10}})
-	networks.Insert(wtx, PN{Name: "green", Interface: PNI{Name: "eth.green", Index: 11}})
-	networks.Insert(wtx, PN{Name: "yellow", Interface: PNI{Name: "eth.yellow", Index: 12}})
-	networks.Insert(wtx, PN{Name: "purple", Interface: PNI{Name: "eth.purple", Error: "broken"}})
+	wtx := db.WriteTxn(networks, actnets, attachs)
+	networks.Insert(wtx, PN{Name: "blue"})
+	networks.Insert(wtx, PN{Name: "green"})
+	networks.Insert(wtx, PN{Name: "yellow"})
+	networks.Insert(wtx, PN{Name: "purple"})
 
 	actnets.Insert(wtx, AN{Node: sloth, Network: "green"})
 	actnets.Insert(wtx, AN{Node: snail, Network: "yellow"})
 	actnets.Insert(wtx, AN{Node: snail, Network: "blue"})
+
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.blue", Index: 10}, Network: "blue", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.green", Index: 11}, Network: "green", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.yellow", Index: 12}, Network: "yellow", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.purple", Index: 0}, Network: "purple", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
 	wtx.Commit()
 
 	// Invalid requests should return an InvalidArgument error.
@@ -389,25 +403,38 @@ func TestServiceWatch(t *testing.T) {
 		},
 	)
 
-	// Update the state, and assert that a correct update is sent.
-	wtx = db.WriteTxn(networks, actnets)
-	networks.Insert(wtx, PN{Name: "red", Interface: PNI{Name: "eth.red", Index: 13}})
-	networks.Insert(wtx, PN{Name: "brown", Interface: PNI{Name: "eth.brown", Error: "broken"}})
-	networks.Delete(wtx, PN{Name: "blue", Interface: PNI{Name: "eth.blue"}})
-	networks.Insert(wtx, PN{Name: "yellow", Interface: PNI{Name: "eth.yellow", Error: "broken"}})
+	// Update network state, and assert that a correct update is sent.
+	wtx = db.WriteTxn(networks, actnets, attachs)
+	networks.Insert(wtx, PN{Name: "red"})
+	networks.Insert(wtx, PN{Name: "brown"})
+	networks.Delete(wtx, PN{Name: "blue"})
 	wtx.Commit()
 
 	require.ElementsMatch(t, stream.getSent(t).GetEvents(),
 		[]*api.NetworkEvents_Event{
-			{Network: &api.Network{Name: "blue"}, Status: api.NetworkEvents_Event_NOT_SERVING},
+			{Network: &api.Network{Name: "red"}, Status: api.NetworkEvents_Event_NOT_SERVING},
 			{Network: &api.Network{Name: "brown"}, Status: api.NetworkEvents_Event_NOT_SERVING},
+			{Network: &api.Network{Name: "blue"}, Status: api.NetworkEvents_Event_NOT_SERVING},
+		},
+	)
+
+	// update attachment state and check change events
+	wtx = db.WriteTxn(networks, actnets, attachs)
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.red", Index: 13}, Network: "red", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.brown", Index: 0}, Network: "brown", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.yellow", Index: 0}, Network: "yellow", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
+	wtx.Commit()
+
+	require.ElementsMatch(t, stream.getSent(t).GetEvents(),
+		[]*api.NetworkEvents_Event{
 			{Network: &api.Network{Name: "red"}, Status: api.NetworkEvents_Event_STANDBY},
+			{Network: &api.Network{Name: "brown"}, Status: api.NetworkEvents_Event_NOT_SERVING},
 			{Network: &api.Network{Name: "yellow"}, Status: api.NetworkEvents_Event_NOT_SERVING},
 		},
 	)
 
 	// Update the state again, and assert that a correct update is sent.
-	wtx = db.WriteTxn(networks, actnets)
+	wtx = db.WriteTxn(networks, actnets, attachs)
 	actnets.Insert(wtx, AN{Node: sloth, Network: "red"})
 	actnets.Delete(wtx, AN{Node: sloth, Network: "green"})
 	wtx.Commit()
@@ -420,7 +447,7 @@ func TestServiceWatch(t *testing.T) {
 	)
 
 	// An unrelated update should not trigger an update.
-	wtx = db.WriteTxn(networks, actnets)
+	wtx = db.WriteTxn(networks, actnets, attachs)
 	actnets.Insert(wtx, AN{Node: snail, Network: "green"})
 	wtx.Commit()
 
@@ -433,12 +460,15 @@ func TestServiceActivate(t *testing.T) {
 		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
 	)
 
-	db, networks, actnets, _, srv := fixture(t)
+	db, networks, actnets, attachs, _, srv := fixture(t)
 
 	// Configure the initial state.
-	wtx := db.WriteTxn(networks)
-	networks.Insert(wtx, PN{Name: "blue", Interface: PNI{Name: "eth.blue", Index: 10}})
-	networks.Insert(wtx, PN{Name: "purple", Interface: PNI{Name: "eth.purple", Error: "broken"}})
+	wtx := db.WriteTxn(networks, attachs)
+	networks.Insert(wtx, PN{Name: "blue"})
+	networks.Insert(wtx, PN{Name: "purple"})
+
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.blue", Index: 10}, Network: "blue", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.purple", Index: 0}, Network: "purple", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
 	wtx.Commit()
 
 	// Pretend that the sloth node is healthy.
@@ -481,12 +511,15 @@ func TestServiceDeactivate(t *testing.T) {
 		apiSloth = &api.Node{Cluster: string(sloth.Cluster), Name: string(sloth.Name)}
 	)
 
-	db, networks, actnets, _, srv := fixture(t)
+	db, networks, actnets, attachs, _, srv := fixture(t)
 
 	// Configure the initial state.
-	wtx := db.WriteTxn(networks)
-	networks.Insert(wtx, PN{Name: "blue", Interface: PNI{Name: "eth.blue", Index: 10}})
-	networks.Insert(wtx, PN{Name: "purple", Interface: PNI{Name: "eth.purple", Error: "broken"}})
+	wtx := db.WriteTxn(networks, attachs)
+	networks.Insert(wtx, PN{Name: "blue"})
+	networks.Insert(wtx, PN{Name: "purple"})
+
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.blue", Index: 10}, Network: "blue", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.purple", Index: 0}, Network: "purple", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
 	wtx.Commit()
 
 	// Pretend that the sloth node is healthy.
@@ -541,17 +574,22 @@ func TestServiceGCer(t *testing.T) {
 		health, _ = cell.NewSimpleHealth()
 	)
 
-	db, networks, actnets, _, srv := fixture(t)
+	db, networks, actnets, attachs, _, srv := fixture(t)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer func() { cancel(); wg.Wait() }()
 
 	// Configure the initial state.
-	wtx := db.WriteTxn(networks, actnets)
-	networks.Insert(wtx, PN{Name: "blue", Interface: PNI{Name: "eth.blue", Index: 10}})
-	networks.Insert(wtx, PN{Name: "green", Interface: PNI{Name: "eth.green", Index: 11}})
-	networks.Insert(wtx, PN{Name: "yellow", Interface: PNI{Name: "eth.yellow", Index: 12}})
-	networks.Insert(wtx, PN{Name: "purple", Interface: PNI{Name: "eth.purple", Error: "broken"}})
+	wtx := db.WriteTxn(networks, actnets, attachs)
+	networks.Insert(wtx, PN{Name: "blue"})
+	networks.Insert(wtx, PN{Name: "green"})
+	networks.Insert(wtx, PN{Name: "yellow"})
+	networks.Insert(wtx, PN{Name: "purple"})
+
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.blue", Index: 10}, Network: "blue", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.green", Index: 11}, Network: "green", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.yellow", Index: 12}, Network: "yellow", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.purple", Index: 0}, Network: "purple", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
 
 	actnets.Insert(wtx, AN{Node: snail, Network: "blue"})
 	actnets.Insert(wtx, AN{Node: sloth, Network: "green"})
@@ -585,8 +623,8 @@ func TestServiceGCer(t *testing.T) {
 	}, timeout, interval)
 
 	// One of the networks is no longer served, the corresponding entries should be removed.
-	wtx = db.WriteTxn(networks)
-	networks.Insert(wtx, PN{Name: "blue", Interface: PNI{Name: "eth.blue", Error: "broken"}})
+	wtx = db.WriteTxn(attachs)
+	attachs.Insert(wtx, &NA{Interface: NAI{Name: "eth.blue", Index: 0}, Network: "blue", NodeSelector: TestValidNASelector, Conflict: tables.AttachmentConflictNone})
 	wtx.Commit()
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
