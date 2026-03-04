@@ -8,10 +8,11 @@ db/initialized private-networks
 db/initialized privnet-local-workloads
 db/initialized privnet-device-mappings
 
-db/insert devices device.eth1.yaml device.eth3.yaml
+db/insert devices device.eth1.yaml device.eth2.yaml device.eth4.yaml
 
 # Add two ClusterwidePrivateNetworks
 k8s/add icpn-1.yaml icpn-2.yaml
+k8s/add pnna-1.yaml pnna-2.yaml
 
 # Ensure that they are correctly propagated into the device-mappings table
 # Entries for united-firefly should not be present, as the corresponding
@@ -22,8 +23,8 @@ db/cmp privnet-device-mappings device-mappings.v1.table
 privnet/maps-dump privnet_devices devices-actual.map
 * cmp devices.v1.map devices-actual.map
 
-# Insert the eth2 device, entries for united-firefly should be now present.
-db/insert devices device.eth2.yaml
+# Insert the eth3 device, entries for united-firefly should be now present.
+db/insert devices device.eth3.yaml
 db/cmp privnet-device-mappings device-mappings.v2.table
 
 # Ensure that the entries are propagated into the corresponding BPF map.
@@ -31,9 +32,9 @@ privnet/maps-dump privnet_devices devices-actual.map
 * cmp devices.v2.map devices-actual.map
 
 # Update one of the networks, and assert that updates are propagated.
-cp icpn-2.yaml icpn-2.v2.yaml
-replace eth2 eth3 icpn-2.v2.yaml
-k8s/update icpn-2.v2.yaml
+cp pnna-2.yaml pnna-2.v2.yaml
+replace eth3 eth4 pnna-2.v2.yaml
+k8s/update pnna-2.v2.yaml
 db/cmp privnet-device-mappings device-mappings.v3.table
 
 # Ensure that the entries are propagated into the corresponding BPF map.
@@ -41,7 +42,7 @@ privnet/maps-dump privnet_devices devices-actual.map
 * cmp devices.v3.map devices-actual.map
 
 # Add one more network, and assert that updates are propagated
-k8s/add icpn-3.yaml
+k8s/add icpn-3.yaml pnna-3.yaml
 db/cmp privnet-device-mappings device-mappings.v4.table
 
 # Ensure that the entries are propagated into the corresponding BPF map.
@@ -51,7 +52,7 @@ privnet/maps-dump privnet_devices devices-actual.map
 # Remove one of the devices, and one of the networks, and assert that updates
 # are propagated
 k8s/delete icpn-3.yaml
-db/delete devices device.eth3.yaml
+db/delete devices device.eth4.yaml
 db/cmp privnet-device-mappings device-mappings.v1.table
 
 # Ensure that the entries are propagated into the corresponding BPF map.
@@ -115,18 +116,42 @@ type: veth
 operstatus: up
 selected: true
 
+-- device.eth4.yaml --
+index: 40
+name: eth4
+type: veth
+operstatus: up
+selected: true
+
 -- icpn-1.yaml --
 apiVersion: isovalent.com/v1alpha1
 kind: ClusterwidePrivateNetwork
 metadata:
   name: direct-maggot
 spec:
-  interface:
-    name: eth1
   subnets:
   - name: foo
     cidrv4: 192.168.250.0/24
     cidrv6: fd10:0:250::0/64
+  - name: bar
+    cidrv4: 192.168.251.0/24
+    cidrv6: fd10:0:251::0/64
+
+-- pnna-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkNodeAttachment
+metadata:
+  name: direct-maggot-na
+spec:
+  privateNetworkRef:
+    name: direct-maggot
+  attachments:
+    - interface: eth1
+      subnetRefs:
+        - name: foo
+    - interface: eth2
+      subnetRefs:
+        - name: bar
 
 -- icpn-2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -134,12 +159,23 @@ kind: ClusterwidePrivateNetwork
 metadata:
   name: united-firefly
 spec:
-  interface:
-    name: eth2
   subnets:
   - name: foo
     cidrv4: 192.168.250.0/24
     cidrv6: fd10:0:250::0/64
+
+-- pnna-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkNodeAttachment
+metadata:
+  name: united-firefly-na
+spec:
+  privateNetworkRef:
+    name: united-firefly
+  attachments:
+    - interface: eth3
+      subnetRefs:
+        - name: foo
 
 -- icpn-3.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -147,41 +183,58 @@ kind: ClusterwidePrivateNetwork
 metadata:
   name: notable-goose
 spec:
-  interface:
-    name: eth2
   subnets:
   - name: foo
     cidrv4: 192.168.251.0/24
 
+-- pnna-3.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkNodeAttachment
+metadata:
+  name: notable-goose-na
+spec:
+  privateNetworkRef:
+    name: notable-goose
+  attachments:
+    - interface: eth3
+      subnetRefs:
+        - name: foo
+
 -- device-mappings.v1.table --
 Interface   Network          NetworkID   Owner
-eth1 (10)   direct-maggot    0x1         icpn-direct-maggot
+eth1 (10)   direct-maggot    0x1         pnna-direct-maggot-na
+eth2 (20)   direct-maggot    0x1         pnna-direct-maggot-na
 
 -- device-mappings.v2.table --
 Interface   Network          NetworkID   Owner
-eth1 (10)   direct-maggot    0x1         icpn-direct-maggot
-eth2 (20)   united-firefly   0x2         icpn-united-firefly
+eth1 (10)   direct-maggot    0x1         pnna-direct-maggot-na
+eth2 (20)   direct-maggot    0x1         pnna-direct-maggot-na
+eth3 (30)   united-firefly   0x2         pnna-united-firefly-na
 
 -- device-mappings.v3.table --
 Interface   Network          NetworkID   Owner
-eth1 (10)   direct-maggot    0x1         icpn-direct-maggot
-eth3 (30)   united-firefly   0x2         icpn-united-firefly
+eth1 (10)   direct-maggot    0x1         pnna-direct-maggot-na
+eth2 (20)   direct-maggot    0x1         pnna-direct-maggot-na
+eth4 (40)   united-firefly   0x2         pnna-united-firefly-na
 
 -- device-mappings.v4.table --
 Interface   Network          NetworkID   Owner
-eth1 (10)   direct-maggot    0x1         icpn-direct-maggot
-eth2 (20)   notable-goose    0x3         icpn-notable-goose
-eth3 (30)   united-firefly   0x2         icpn-united-firefly
+eth1 (10)   direct-maggot    0x1         pnna-direct-maggot-na
+eth2 (20)   direct-maggot    0x1         pnna-direct-maggot-na
+eth3 (30)   notable-goose    0x3         pnna-notable-goose-na
+eth4 (40)   united-firefly   0x2         pnna-united-firefly-na
 
 -- device-mappings.v5.table --
 Interface   Network         NetworkID    Owner
-eth1 (10)   direct-maggot   0x1          icpn-direct-maggot
+eth1 (10)   direct-maggot   0x1          pnna-direct-maggot-na
+eth2 (20)   direct-maggot   0x1          pnna-direct-maggot-na
 lxc16 (96)  direct-maggot   0x1          lw-16
 lxc17 (97)  direct-maggot   0x1          lw-17
 
 -- device-mappings.v6.table --
 Interface   Network         NetworkID    Owner
-eth1 (10)   direct-maggot   0x1          icpn-direct-maggot
+eth1 (10)   direct-maggot   0x1          pnna-direct-maggot-na
+eth2 (20)   direct-maggot   0x1          pnna-direct-maggot-na
 lxc16 (96)  direct-maggot   0x1          lw-16
 lxc18 (98)  united-firefly  0x2          lw-18
 
@@ -191,7 +244,8 @@ lxc18 (98)  united-firefly  0x2          lw-18
 
 -- device-mappings.v8.table --
 Interface   Network         NetworkID    Owner
-eth1 (10)   direct-maggot   0x4          icpn-direct-maggot
+eth1 (10)   direct-maggot   0x4          pnna-direct-maggot-na
+eth2 (20)   direct-maggot   0x4          pnna-direct-maggot-na
 lxc16 (96)  direct-maggot   0x4          lw-16
 lxc18 (98)  united-firefly  0x2          lw-18
 
@@ -256,27 +310,34 @@ lxc18 (98)  united-firefly  0x2          lw-18
 
 -- devices.v1.map --
 10 -> 0x1 0.0.0.0 ::
+20 -> 0x1 0.0.0.0 ::
 -- devices.v2.map --
 10 -> 0x1 0.0.0.0 ::
-20 -> 0x2 0.0.0.0 ::
+20 -> 0x1 0.0.0.0 ::
+30 -> 0x2 0.0.0.0 ::
 -- devices.v3.map --
 10 -> 0x1 0.0.0.0 ::
-30 -> 0x2 0.0.0.0 ::
+20 -> 0x1 0.0.0.0 ::
+40 -> 0x2 0.0.0.0 ::
 -- devices.v4.map --
 10 -> 0x1 0.0.0.0 ::
-20 -> 0x3 0.0.0.0 ::
-30 -> 0x2 0.0.0.0 ::
+20 -> 0x1 0.0.0.0 ::
+30 -> 0x3 0.0.0.0 ::
+40 -> 0x2 0.0.0.0 ::
 -- devices.v5.map --
 10 -> 0x1 0.0.0.0 ::
+20 -> 0x1 0.0.0.0 ::
 96 -> 0x1 10.20.0.11 fd00:10:20::11
 97 -> 0x1 192.168.30.10 fd00:192:168:30::10
 -- devices.v6.map --
 10 -> 0x1 0.0.0.0 ::
+20 -> 0x1 0.0.0.0 ::
 96 -> 0x1 10.20.0.11 fd00:10:20::11
 98 -> 0x2 192.168.30.10 ::
 -- devices.v7.map --
 98 -> 0x2 192.168.30.10 ::
 -- devices.v8.map --
 10 -> 0x4 0.0.0.0 ::
+20 -> 0x4 0.0.0.0 ::
 96 -> 0x4 10.20.0.11 fd00:10:20::11
 98 -> 0x2 192.168.30.10 ::

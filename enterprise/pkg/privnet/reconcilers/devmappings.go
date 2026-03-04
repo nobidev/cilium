@@ -57,10 +57,11 @@ type DeviceMappings struct {
 
 	cfg config.Config
 
-	db        *statedb.DB
-	networks  statedb.Table[tables.PrivateNetwork]
-	workloads statedb.Table[*tables.LocalWorkload]
-	tbl       statedb.RWTable[tables.DeviceMapping]
+	db              *statedb.DB
+	networks        statedb.Table[tables.PrivateNetwork]
+	workloads       statedb.Table[*tables.LocalWorkload]
+	nodeAttachments statedb.Table[*tables.NodeAttachment]
+	tbl             statedb.RWTable[tables.DeviceMapping]
 
 	// netIDs caches the mapping between each private network and the
 	// corresponding ID. It is not protected by a mutex as access is
@@ -76,10 +77,11 @@ func newDeviceMappings(in struct {
 
 	Config config.Config
 
-	DB        *statedb.DB
-	Networks  statedb.Table[tables.PrivateNetwork]
-	Workloads statedb.Table[*tables.LocalWorkload]
-	Table     statedb.RWTable[tables.DeviceMapping]
+	DB              *statedb.DB
+	Networks        statedb.Table[tables.PrivateNetwork]
+	Workloads       statedb.Table[*tables.LocalWorkload]
+	NodeAttachments statedb.Table[*tables.NodeAttachment]
+	Table           statedb.RWTable[tables.DeviceMapping]
 }) *DeviceMappings {
 	return &DeviceMappings{
 		log: in.Log,
@@ -87,10 +89,11 @@ func newDeviceMappings(in struct {
 
 		cfg: in.Config,
 
-		db:        in.DB,
-		networks:  in.Networks,
-		workloads: in.Workloads,
-		tbl:       in.Table,
+		db:              in.DB,
+		networks:        in.Networks,
+		workloads:       in.Workloads,
+		nodeAttachments: in.NodeAttachments,
+		tbl:             in.Table,
 
 		netIDs: make(map[tables.NetworkName]tables.NetworkID),
 	}
@@ -113,9 +116,10 @@ func (dm *DeviceMappings) registerReconciler() {
 
 				var initDone bool
 
-				wtx := dm.db.WriteTxn(dm.networks, dm.workloads)
+				wtx := dm.db.WriteTxn(dm.networks, dm.workloads, dm.nodeAttachments)
 				netChangeIter, _ := dm.networks.Changes(wtx)
 				lwChangeIter, _ := dm.workloads.Changes(wtx)
+				naChangeIter, _ := dm.nodeAttachments.Changes(wtx)
 				wtx.Commit()
 
 				for {
@@ -124,7 +128,8 @@ func (dm *DeviceMappings) registerReconciler() {
 					wtx := dm.db.WriteTxn(dm.tbl)
 					netChanges, netWatch := netChangeIter.Next(wtx)
 					lwChanges, lwWatch := lwChangeIter.Next(wtx)
-					watchset.Add(netWatch, lwWatch)
+					naChanges, naWatch := naChangeIter.Next(wtx)
+					watchset.Add(netWatch, lwWatch, naWatch)
 
 					var lwsProcessed = sets.New[tables.NetworkName]()
 					for change := range netChanges {
@@ -136,7 +141,7 @@ func (dm *DeviceMappings) registerReconciler() {
 							delete(dm.netIDs, network)
 							lwsProcessed.Insert(network)
 						} else {
-							dm.reconcile(wtx, dm.forNetwork(change.Object))
+							dm.reconcileNetworkAttachments(wtx, change.Object)
 
 							if prev, hadPrev := dm.netIDs[network]; !hadPrev || prev != change.Object.ID {
 								dm.netIDs[network] = change.Object.ID
@@ -146,6 +151,19 @@ func (dm *DeviceMappings) registerReconciler() {
 								dm.reconcileLocalWorkloads(wtx, network)
 							}
 						}
+					}
+
+					for change := range naChanges {
+						network, _, found := dm.networks.Get(wtx, tables.PrivateNetworkByName(change.Object.Network))
+						if !found {
+							continue // attachment is created before the network
+						}
+						mapping := dm.forNetworkAttachment(network, change.Object)
+						if change.Deleted {
+							// Causes [dm.reconcile] to delete the entry.
+							mapping.DeviceIndex = 0
+						}
+						dm.reconcile(wtx, mapping, true)
 					}
 
 					for change := range lwChanges {
@@ -160,18 +178,21 @@ func (dm *DeviceMappings) registerReconciler() {
 							new.DeviceIndex = 0
 						}
 
-						dm.reconcile(wtx, new)
+						dm.reconcile(wtx, new, false)
 					}
 
 					if !initDone {
 						netInit, nw := dm.networks.Initialized(wtx)
 						lwInit, lw := dm.workloads.Initialized(wtx)
+						naInit, naw := dm.nodeAttachments.Initialized(wtx)
 
 						switch {
 						case !netInit:
 							watchset.Add(nw)
 						case !lwInit:
 							watchset.Add(lw)
+						case !naInit:
+							watchset.Add(naw)
 						default:
 							initDone = true
 							initialized(wtx)
@@ -192,12 +213,26 @@ func (dm *DeviceMappings) registerReconciler() {
 	)
 }
 
-func (dm *DeviceMappings) reconcile(wtx statedb.WriteTxn, new tables.DeviceMapping) {
-	old, _, found := dm.tbl.Get(wtx, tables.DeviceMappingsByOwner(new.Owner))
-	if found && old.DeviceIndex != new.DeviceIndex {
-		// The table is indexed by DeviceIndex, hence we need to explicitly
-		// delete the old entry if it changes.
-		dm.tbl.Delete(wtx, old)
+func (dm *DeviceMappings) reconcile(wtx statedb.WriteTxn, new tables.DeviceMapping, lookupByDevice bool) {
+	var (
+		old  tables.DeviceMapping
+		olds iter.Seq2[tables.DeviceMapping, statedb.Revision]
+	)
+
+	if lookupByDevice {
+		olds = dm.tbl.List(wtx, tables.DeviceMappingsByOwnerAndInterface(new.Owner, new.DeviceName))
+	} else {
+		olds = dm.tbl.Prefix(wtx, tables.DeviceMappingsByOwner(new.Owner))
+	}
+
+	for got := range olds {
+		if got.DeviceIndex == new.DeviceIndex {
+			old = got
+		} else {
+			// The table is indexed by DeviceIndex, hence we need to explicitly
+			// delete the old entry if it changes.
+			dm.tbl.Delete(wtx, got)
+		}
 	}
 
 	if new.DeviceIndex == 0 || new.Equal(&old) {
@@ -216,17 +251,26 @@ func (dm *DeviceMappings) deleteForNetwork(wtx statedb.WriteTxn, network tables.
 
 func (dm *DeviceMappings) reconcileLocalWorkloads(wtx statedb.WriteTxn, network tables.NetworkName) {
 	for lw := range dm.workloads.List(wtx, tables.LocalWorkloadsByNetwork(string(network))) {
-		dm.reconcile(wtx, dm.forLocalWorkload(lw))
+		dm.reconcile(wtx, dm.forLocalWorkload(lw), false)
 	}
 }
 
-func (dm *DeviceMappings) forNetwork(network tables.PrivateNetwork) tables.DeviceMapping {
-	return tables.DeviceMapping{
-		Owner:       tables.NewDeviceMappingOwner("icpn", string(network.Name)),
-		DeviceIndex: network.Interface.Index,
-		DeviceName:  network.Interface.Name,
+func (dm *DeviceMappings) forNetworkAttachment(network tables.PrivateNetwork, na *tables.NodeAttachment) tables.DeviceMapping {
+	mapping := tables.DeviceMapping{
+		Owner:       tables.NewDeviceMappingOwner("pnna", na.Resource.Name),
+		DeviceName:  string(na.Interface.Name),
 		NetworkName: network.Name,
 		NetworkID:   network.ID,
+	}
+	if na.IsReady() {
+		mapping.DeviceIndex = na.Interface.Index
+	}
+	return mapping
+}
+
+func (dm *DeviceMappings) reconcileNetworkAttachments(wtx statedb.WriteTxn, network tables.PrivateNetwork) {
+	for na := range dm.nodeAttachments.List(wtx, tables.NodeAttachmentsByNetworkName(network.Name)) {
+		dm.reconcile(wtx, dm.forNetworkAttachment(network, na), true)
 	}
 }
 

@@ -96,6 +96,21 @@ func (dm DeviceMapping) TableRow() []string {
 	}
 }
 
+// deviceMappingKey is <owner>|<device>
+type deviceMappingKey string
+
+func (key deviceMappingKey) Key() index.Key {
+	return index.String(string(key))
+}
+
+func newDeviceMappingKeyFromOwner(owner DeviceMappingOwner) deviceMappingKey {
+	return deviceMappingKey(string(owner) + indexDelimiter)
+}
+
+func newDeviceMappingKey(owner DeviceMappingOwner, device string) deviceMappingKey {
+	return newDeviceMappingKeyFromOwner(owner) + deviceMappingKey(device)
+}
+
 var (
 	deviceMappingsInterfaceIndex = statedb.Index[DeviceMapping, int]{
 		Name: "ifindex",
@@ -116,12 +131,12 @@ var (
 		FromString: index.FromString,
 	}
 
-	deviceMappingsOwnerIndex = statedb.Index[DeviceMapping, string]{
-		Name: "owner",
+	deviceMappingsOwnerDeviceIndex = statedb.Index[DeviceMapping, deviceMappingKey]{
+		Name: "owner-device",
 		FromObject: func(obj DeviceMapping) index.KeySet {
-			return index.NewKeySet(index.String(string(obj.Owner)))
+			return index.NewKeySet(newDeviceMappingKey(obj.Owner, obj.DeviceName).Key())
 		},
-		FromKey:    index.String,
+		FromKey:    deviceMappingKey.Key,
 		FromString: index.FromString,
 	}
 )
@@ -133,7 +148,13 @@ func DeviceMappingsByNetwork(network NetworkName) statedb.Query[DeviceMapping] {
 
 // DeviceMappingsByOwner queries the device mappings table by owner.
 func DeviceMappingsByOwner(owner DeviceMappingOwner) statedb.Query[DeviceMapping] {
-	return deviceMappingsOwnerIndex.Query(string(owner))
+	return deviceMappingsOwnerDeviceIndex.Query(newDeviceMappingKeyFromOwner(owner))
+}
+
+// DeviceMappingsByOwnerAndInterface queries the device mappings table by owner and device name. It is expected to
+// return single result ( owner + device should be unique in the table ).
+func DeviceMappingsByOwnerAndInterface(owner DeviceMappingOwner, device string) statedb.Query[DeviceMapping] {
+	return deviceMappingsOwnerDeviceIndex.Query(newDeviceMappingKey(owner, device))
 }
 
 func NewDeviceMappingsTable(db *statedb.DB) (statedb.RWTable[DeviceMapping], error) {
@@ -142,6 +163,6 @@ func NewDeviceMappingsTable(db *statedb.DB) (statedb.RWTable[DeviceMapping], err
 		"privnet-device-mappings",
 		deviceMappingsInterfaceIndex,
 		deviceMappingsNetworkIndex,
-		deviceMappingsOwnerIndex,
+		deviceMappingsOwnerDeviceIndex,
 	)
 }

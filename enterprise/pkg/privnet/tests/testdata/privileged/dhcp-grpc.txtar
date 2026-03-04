@@ -28,7 +28,7 @@ db/insert devices device.yaml
 
 # Start the test application
 hive/start
-k8s/add icpn.yaml
+k8s/add icpn.yaml pnna.yaml
 db/insert privnet-inbs inb.yaml
 
 # Wait for the blue network
@@ -101,12 +101,12 @@ default/default/foobar-worker-1   pod-100   blue-network   subnet1   192.168.100
 -- devmappings.table --
 Network        NetworkID   NetworkIPv4     Owner
 blue-network   0x1         192.168.100.10  lw-100
-blue-network   0x1         invalid IP      icpn-blue-network
+blue-network   0x1         invalid IP      pnna-blue-network-na
 
 -- devmappings.expired.table --
 Network        NetworkID   NetworkIPv4   Owner
 blue-network   0x1         0.0.0.0       lw-100
-blue-network   0x1         invalid IP    icpn-blue-network
+blue-network   0x1         invalid IP    pnna-blue-network-na
 
 -- endpointslices.expected.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -178,6 +178,17 @@ spec:
     cidrv4: 192.168.100.0/24
     dhcp:
       mode: broadcast
+
+-- pnna.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkNodeAttachment
+metadata:
+  name: blue-network-na
+spec:
+  privateNetworkRef:
+    name: blue-network
+  attachments:
+    - interface: dhcp-h-bcast
 
 -- inb.yaml --
 network: blue-network
