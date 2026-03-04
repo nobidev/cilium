@@ -109,6 +109,10 @@ func (a *NodeAttachment) IsManagedDevice() bool {
 		a.Conflict == AttachmentConflictNone
 }
 
+func (a *NodeAttachment) IsReady() bool {
+	return a.NodeSelector.SelectorMatches && a.Conflict == AttachmentConflictNone && a.Interface.Index > 0
+}
+
 var _ statedb.TableWritable = &NodeAttachment{}
 
 func (a *NodeAttachment) Key() NodeAttachmentPrimaryKey {
@@ -203,6 +207,14 @@ var (
 		FromString: index.FromString,
 		Unique:     false,
 	}
+
+	nodeAttachmentNetworkNameIndex = statedb.Index[*NodeAttachment, string]{
+		Name:       "network",
+		FromObject: func(obj *NodeAttachment) index.KeySet { return index.NewKeySet(index.String(string(obj.Network))) },
+		FromKey:    index.String,
+		FromString: index.FromString,
+		Unique:     false,
+	}
 )
 
 func NodeAttachmentByResource(resource types.PrivateNetworkResource) statedb.Query[*NodeAttachment] {
@@ -213,11 +225,16 @@ func NodeAttachmentsByDeviceName(deviceName DeviceName) statedb.Query[*NodeAttac
 	return nodeAttachmentDeviceNameIndex.Query(string(deviceName))
 }
 
+func NodeAttachmentsByNetworkName(networkName NetworkName) statedb.Query[*NodeAttachment] {
+	return nodeAttachmentNetworkNameIndex.Query(string(networkName))
+}
+
 func NewNodeAttachmentsTable(db *statedb.DB) (statedb.RWTable[*NodeAttachment], error) {
 	return statedb.NewTable(
 		db,
 		"privnet-node-attachments",
 		nodeAttachmentPrimaryIndex,
 		nodeAttachmentDeviceNameIndex,
+		nodeAttachmentNetworkNameIndex,
 	)
 }
