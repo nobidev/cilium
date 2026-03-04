@@ -195,7 +195,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		scopedLog.ErrorContext(ctx, "Unable to update HTTPRoute Status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
-	// create the lb svc from the above vip just to be able to pass a
 
 	// for now just grabbing httproute
 	httpRoutes := r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items)
@@ -229,7 +228,9 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	desiredT1Service := r.t1Translator.DesiredService(model)
-
+	if desiredT1Service == nil { // the service hasn't been created the desired svcs can only be populated if the lbvip svc is ready
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
 	if model.name == "" {
 		// model hasn't been generated, missing lbvip
 		setGatewayProgrammed(gw, false, "lbvip isn't provisioned yet, can't be used", gatewayv1.GatewayReasonAddressNotUsable)
@@ -485,9 +486,28 @@ func (r *gatewayReconciler) loadVIP(ctx context.Context, gw *gatewayv1.Gateway) 
 	vip := &isovalentv1alpha1.LBVIP{}
 
 	// getting the lb vip that just currently matches the name of the gateway aka it's just hardcoded for now
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: gw.Namespace, Name: gw.GetName()}, vip); err != nil {
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: gw.Namespace, Name: "isovalentlb-" + gw.GetName()}, vip); err != nil {
+		// create the lbvip if it's not created. Will grab a random ip from the ip pool
 
-		return nil, fmt.Errorf("failed to get the vip %w", err)
+		vip = &isovalentv1alpha1.LBVIP{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "isovalentlb-" + gw.Name,
+				Namespace: gw.Namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: gatewayv1beta1.GroupVersion.String(),
+						Kind:       gw.Kind,
+						Name:       gw.Name,
+						UID:        types.UID(gw.UID),
+						Controller: ptr.To(true),
+					},
+				},
+			},
+		}
+		if err := r.Client.Create(ctx, vip); err != nil {
+			return nil, fmt.Errorf("failed to create the ilbgateway vip %w", err)
+		}
+		return vip, nil
 	}
 
 	return vip, nil
