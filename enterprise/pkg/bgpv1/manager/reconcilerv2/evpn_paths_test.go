@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	ceeTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
@@ -37,16 +38,19 @@ func TestEVPNPathsType5(t *testing.T) {
 		testEVPNDeviceName = "cilium_evpn"
 		vni101             = vni.MustFromUint32(101)
 		vni102             = vni.MustFromUint32(102)
+		securityGroupID    = uint16(42)
 	)
 	tests := []struct {
 		name             string
 		prefix           netip.Prefix
 		vrfInfo          *EvpnVRFInfo
+		securityGroupID  *uint16
 		upsertDevice     *tables.Device
 		deleteDevice     *tables.Device
 		expectSignal     bool
 		expectErr        error
 		expectRoutersMAC string
+		expectSGID       *uint16
 	}{
 		{
 			name:         "no VRF info",
@@ -108,6 +112,18 @@ func TestEVPNPathsType5(t *testing.T) {
 			upsertDevice:     &tables.Device{Index: 1, Name: testEVPNDeviceName, HardwareAddr: tables.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}},
 			expectSignal:     true,
 			expectRoutersMAC: "aa:bb:cc:dd:ee:ff",
+		},
+		{
+			name:   "add evpn device, IPv4 path, with security group ID",
+			prefix: netip.MustParsePrefix("192.168.0.2/32"),
+			vrfInfo: &EvpnVRFInfo{
+				VNI: vni101,
+				RD:  DeriveEVPNRouteDistinguisher("1.2.3.4", 1),
+				RTs: []string{DeriveEVPNRouteTarget(65001, vni101)},
+			},
+			securityGroupID:  &securityGroupID,
+			expectRoutersMAC: "aa:bb:cc:dd:ee:ff",
+			expectSGID:       &securityGroupID,
 		},
 		{
 			name:   "no evpn device, IPv6 path",
@@ -233,7 +249,7 @@ func TestEVPNPathsType5(t *testing.T) {
 			if test.vrfInfo != nil {
 				test.vrfInfo.RoutersMAC = paths.GetEvpnRoutersMAC()
 			}
-			path, key, err := paths.GetEvpnRT5Path(test.prefix, test.vrfInfo)
+			path, key, err := paths.GetEvpnRT5Path(test.prefix, test.vrfInfo, test.securityGroupID)
 			if test.expectErr != nil {
 				require.Equal(t, test.expectErr, err)
 				return
@@ -262,6 +278,8 @@ func TestEVPNPathsType5(t *testing.T) {
 				gotEncap   bool
 				rts        []string
 				routersMac string
+				gotSGID    bool
+				sgID       uint16
 			)
 			for _, pa := range path.PathAttributes {
 				if pa.GetType() == bgp.BGP_ATTR_TYPE_EXTENDED_COMMUNITIES {
@@ -280,12 +298,25 @@ func TestEVPNPathsType5(t *testing.T) {
 							rm := extComm.(*bgp.RouterMacExtended)
 							routersMac = rm.Mac.String()
 						}
+						typeCode, extSubType := extComm.GetTypes()
+						if typeCode == bgp.EC_TYPE_TRANSITIVE_OPAQUE && extSubType == ceeTypes.GroupPolicyIDExtCommSubType {
+							op := extComm.(*bgp.OpaqueExtended)
+							require.True(t, ceeTypes.IsGroupPolicyIDExtendedCommunity(op))
+							sgID = ceeTypes.GetGroupPolicyIDFromExtendedCommunity(op)
+							gotSGID = true
+						}
 					}
 				}
 			}
 			require.True(t, gotEncap)
 			require.Equal(t, test.vrfInfo.RTs, rts)
 			require.Equal(t, test.expectRoutersMAC, routersMac)
+			if test.expectSGID != nil {
+				require.True(t, gotSGID)
+				require.Equal(t, *test.expectSGID, sgID)
+			} else {
+				require.False(t, gotSGID)
+			}
 		})
 	}
 }

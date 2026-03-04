@@ -24,6 +24,7 @@ import (
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	ceeTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
@@ -120,7 +121,7 @@ func (p *evpnPaths) GetEvpnRoutersMAC() string {
 
 // GetEvpnRT5Path returns EVPN RT-5 (L3VPN) path with Router’s MAC Extended Community (a.k.a. Pure-RT-5)
 // for the provided prefix and EVPN VRF info.
-func (p *evpnPaths) GetEvpnRT5Path(prefix netip.Prefix, vrfInfo *EvpnVRFInfo) (*types.Path, string, error) {
+func (p *evpnPaths) GetEvpnRT5Path(prefix netip.Prefix, vrfInfo *EvpnVRFInfo, securityGroupID *uint16) (*types.Path, string, error) {
 	if vrfInfo == nil {
 		return nil, "", errMissingEvpnPathInfo
 	}
@@ -173,6 +174,9 @@ func (p *evpnPaths) GetEvpnRT5Path(prefix netip.Prefix, vrfInfo *EvpnVRFInfo) (*
 		extComms = append(extComms, extComm)
 	}
 	extComms = append(extComms, bgp.NewRoutersMacExtended(vrfInfo.RoutersMAC))
+	if securityGroupID != nil {
+		extComms = append(extComms, ceeTypes.GetGroupPolicyIDExtendedCommunity(*securityGroupID))
+	}
 	pathAttrs = append(pathAttrs, bgp.NewPathAttributeExtendedCommunities(extComms))
 
 	path := &types.Path{

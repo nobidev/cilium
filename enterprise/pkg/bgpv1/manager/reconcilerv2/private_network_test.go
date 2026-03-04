@@ -24,6 +24,8 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/fake"
+	ceeTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
+	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
@@ -39,10 +41,11 @@ import (
 
 func TestPrivateNetworkReconciler(t *testing.T) {
 	var (
-		testASN             = int64(65001)
-		testRouterID        = "1.2.3.4"
-		testVxlanDeviceMAC1 = "01:02:03:04:05:06"
-		testVxlanDeviceMAC2 = "06:05:04:03:02:01"
+		testASN                    = int64(65001)
+		testRouterID               = "1.2.3.4"
+		testVxlanDeviceMAC1        = "01:02:03:04:05:06"
+		testVxlanDeviceMAC2        = "06:05:04:03:02:01"
+		testDefaultSecurityGroupID = uint16(53)
 
 		vrf1PrivNetConfig = &v1alpha1.IsovalentBGPVRFConfig{
 			ObjectMeta: metav1.ObjectMeta{
@@ -270,9 +273,11 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 		upsertPrivnetWorkloads []*tables.LocalWorkload
 		deletePrivnetWorkloads []*tables.LocalWorkload
 		vxlanDeviceMac         string
+		evpnConfig             evpnConfig.Config
 
-		expectedAdverts VRFAdvertisements
-		expectedPaths   vrfSimplePathsMap
+		expectedAdverts         VRFAdvertisements
+		expectedPaths           vrfSimplePathsMap
+		expectedSecurityGroupID *uint16
 	}{
 		{
 			name:            "add VRF 1, no private network, advertise 0 paths",
@@ -307,11 +312,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			expectedPaths: vrfSimplePathsMap{},
 		},
 		{
-			name:            "add vxlan device MAC, advertise 1 path",
+			name:            "add vxlan device MAC, advertise 1 path (with default security group tag)",
 			bgpNodeInstance: privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config}),
 			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfig},
 			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert},
 			vxlanDeviceMac:  testVxlanDeviceMAC1,
+			evpnConfig: evpnConfig.Config{
+				SecurityGroupTagsEnabled: true,
+				DefaultSecurityGroupID:   testDefaultSecurityGroupID,
+			},
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: v4OnlyPrivnetAdvertisement,
 			},
@@ -322,15 +331,20 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 					},
 				},
 			},
+			expectedSecurityGroupID: &testDefaultSecurityGroupID,
 		},
 		{
-			name:                   "add VRF 2 and private network 2 with workload, advertise 2 paths",
+			name:                   "add VRF 2 and private network 2 with workload, advertise 2 paths (no security group tag)",
 			bgpNodeInstance:        privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config, privNetVRF2Config}),
 			vrfConfigs:             []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfig, vrf2PrivNetConfig},
 			adverts:                []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert, vrf2PrivNetAdvert},
 			upsertPrivateNetworks:  []tables.PrivateNetwork{privNet2},
 			upsertPrivnetWorkloads: []*tables.LocalWorkload{privNet2EP1},
 			vxlanDeviceMac:         testVxlanDeviceMAC1,
+			evpnConfig: evpnConfig.Config{
+				SecurityGroupTagsEnabled: false,
+				DefaultSecurityGroupID:   testDefaultSecurityGroupID,
+			},
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: v4OnlyPrivnetAdvertisement,
 				privNet2Name: v4OnlyPrivnetAdvertisement,
@@ -679,6 +693,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 
 			// upsert vxlan device MAC
 			svcVRFReconciler.evpnPaths.vxlanDeviceMAC = tt.vxlanDeviceMac
+			svcVRFReconciler.evpnConfig = tt.evpnConfig
 
 			// update BGP node instance config
 			svcVRFReconciler.upgrader = newUpgraderMock(tt.bgpNodeInstance)
@@ -705,6 +720,8 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 					for _, afPaths := range resourceAFPaths {
 						for _, path := range afPaths {
 							hasRoutersMac := false
+							hasSecurityGroupID := false
+							securityGroupID := uint16(0)
 							for _, pa := range path.PathAttributes {
 								if pa.GetType() == bgp.BGP_ATTR_TYPE_EXTENDED_COMMUNITIES {
 									for _, extComm := range pa.(*bgp.PathAttributeExtendedCommunities).Value {
@@ -714,10 +731,23 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 											require.Equal(t, tt.vxlanDeviceMac, rm.Mac.String())
 											hasRoutersMac = true
 										}
+										typeCode, subType := extComm.GetTypes()
+										if typeCode == bgp.EC_TYPE_TRANSITIVE_OPAQUE && subType == ceeTypes.GroupPolicyIDExtCommSubType {
+											op := extComm.(*bgp.OpaqueExtended)
+											require.True(t, ceeTypes.IsGroupPolicyIDExtendedCommunity(op))
+											securityGroupID = ceeTypes.GetGroupPolicyIDFromExtendedCommunity(op)
+											hasSecurityGroupID = true
+										}
 									}
 								}
 							}
 							require.True(t, hasRoutersMac, "Path should have Router's MAC extended community")
+							if tt.expectedSecurityGroupID != nil {
+								require.True(t, hasSecurityGroupID, "Path should have Security Group extended community")
+								require.Equal(t, *tt.expectedSecurityGroupID, securityGroupID)
+							} else {
+								require.False(t, hasSecurityGroupID, "Path should not have Security Group extended community")
+							}
 						}
 					}
 				}

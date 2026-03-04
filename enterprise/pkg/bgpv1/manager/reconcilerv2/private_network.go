@@ -68,8 +68,9 @@ type PrivateNetworkReconcilerOut struct {
 }
 
 type PrivateNetworkReconciler struct {
-	logger *slog.Logger
-	cfg    Config
+	logger     *slog.Logger
+	cfg        Config
+	evpnConfig evpnConfig.Config
 
 	signaler  *signaler.BGPCPSignaler
 	upgrader  paramUpgrader
@@ -123,6 +124,7 @@ func NewPrivateNetworkReconciler(in PrivateNetworkReconcilerIn) PrivateNetworkRe
 	r := &PrivateNetworkReconciler{
 		logger:           in.Logger.With(types.ReconcilerLogField, PrivateNetworkReconcilerName),
 		cfg:              in.Cfg,
+		evpnConfig:       in.EVPNConfig,
 		signaler:         in.Signaler,
 		upgrader:         in.Upgrader,
 		adverts:          in.Adverts,
@@ -497,8 +499,13 @@ func (r *PrivateNetworkReconciler) getWorkloadAFPaths(desiredAdverts FamilyAdver
 		if !addrInEVPNEnabledSubnet(subnetInfo, addr) {
 			continue
 		}
+		var securityGroupID *uint16
+		if r.evpnConfig.SecurityGroupTagsEnabled {
+			// we support only default security group ID for now
+			securityGroupID = &r.evpnConfig.DefaultSecurityGroupID
+		}
 		prefix := netip.PrefixFrom(addr, addr.BitLen())
-		path, pathKey, err := r.evpnPaths.GetEvpnRT5Path(prefix, evpVRFInfo)
+		path, pathKey, err := r.evpnPaths.GetEvpnRT5Path(prefix, evpVRFInfo, securityGroupID)
 		if err != nil {
 			return nil, err
 		}
