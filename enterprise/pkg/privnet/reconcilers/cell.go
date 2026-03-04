@@ -27,6 +27,7 @@ var Cell = cell.Group(
 	PolicyCell,
 	DeviceMappingsCell,
 	SubnetMappingsCell,
+	NodeAttachmentCell,
 
 	// Infrastructure shared between some of the reconcilers
 	cell.Provide(
