@@ -33,6 +33,7 @@ var Cell = cell.Module(
 		newDevices,
 		newSubnets,
 		newWatchdog,
+		newCTMaps,
 		createCIDRIdentityMap,
 		Config.nodeDefs,
 	),
@@ -43,6 +44,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Uint32("bpf-privnet-devices-map-max", def.DevicesMapSize, "Maximum number of entries in the private network devices BPF map.")
 	flags.Uint32("bpf-privnet-subnets-map-max", def.SubnetsMapSize, "Maximum number of entries in the private network subnets BPF map.")
 	flags.Uint32("bpf-privnet-cidr-identity-map-max", def.CIDRIdentityMapSize, "Maximum number of entries in the private network CIDR identity map.")
+	flags.Uint32("bpf-privnet-ct-maps-map-max", def.CTMapsMapSize, "Maximum number of entries in the private network BPF map of CT maps.")
 }
 
 type Config struct {
@@ -52,6 +54,9 @@ type Config struct {
 	DevicesMapSize      uint32 `mapstructure:"bpf-privnet-devices-map-max"`
 	SubnetsMapSize      uint32 `mapstructure:"bpf-privnet-subnets-map-max"`
 	CIDRIdentityMapSize uint32 `mapstructure:"bpf-privnet-cidr-identity-map-max"`
+
+	// CTMapsMapSize is the size of the map of CT maps
+	CTMapsMapSize uint32 `mapstructure:"bpf-privnet-ct-maps-map-max"`
 }
 
 var defaultConfig = Config{
@@ -61,6 +66,7 @@ var defaultConfig = Config{
 	CIDRIdentityMapSize: 128000,
 	DevicesMapSize:      16384,
 	SubnetsMapSize:      16384,
+	CTMapsMapSize:       16384,
 }
 
 func (c Config) nodeDefs() defines.NodeOut {
