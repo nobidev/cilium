@@ -17,6 +17,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/utils/ptr"
+
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 )
 
 func TestEndpointSubsetsFromT2Nodes(t *testing.T) {
@@ -432,6 +434,53 @@ func TestUDPEndpointSubsetsFromBackends(t *testing.T) {
 			endpoints, ports := tr.udpEndpointSubsetsFromBackends(tc.model, tc.ipv6)
 			require.Equal(t, tc.expectedEndpoints, endpoints)
 			require.Equal(t, tc.expectedPorts, ports)
+		})
+	}
+}
+
+func TestDesiredServiceTrafficDistributionFromZoneAwareMode(t *testing.T) {
+	tr := &lbServiceT1Translator{}
+	vip := "100.64.0.100"
+
+	testCases := []struct {
+		name                     string
+		mode                     lbServiceZoneAwareModeType
+		expectedTrafficDistValue *string
+	}{
+		{
+			name:                     "disabled does not set traffic distribution",
+			mode:                     lbServiceZoneAwareModeDisabled,
+			expectedTrafficDistValue: nil,
+		},
+		{
+			name:                     "prefer same zone sets prefer close",
+			mode:                     lbServiceZoneAwareModePreferSameZone,
+			expectedTrafficDistValue: ptr.To(corev1.ServiceTrafficDistributionPreferClose),
+		},
+		{
+			name:                     "require same zone does not set traffic distribution",
+			mode:                     lbServiceZoneAwareModeRequireSameZone,
+			expectedTrafficDistValue: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			model := &lbService{
+				namespace: "default",
+				name:      "lb-1",
+				vip: lbVIP{
+					name:         "vip-1",
+					ipFamily:     ipFamilyV4,
+					assignedIPv4: &vip,
+				},
+				zoneAwareMode:   tc.mode,
+				t1LabelSelector: labels.Everything(),
+			}
+
+			svc := tr.DesiredService(model)
+			require.NotNil(t, svc)
+			require.Equal(t, tc.expectedTrafficDistValue, svc.Spec.TrafficDistribution)
 		})
 	}
 }

@@ -126,6 +126,7 @@ func (r *lbServiceT1Translator) DesiredService(model *lbService) *corev1.Service
 			Ports:                         []corev1.ServicePort{r.toServicePort(model)},
 			LoadBalancerSourceRanges:      lbSourceRanges,
 			SessionAffinity:               r.getServiceSessionAffinity(model),
+			TrafficDistribution:           lookupTrafficDistribution(model.zoneAwareMode),
 		},
 	}
 }
@@ -541,6 +542,15 @@ func groupedAddressesToEndpoints(zoneAddrs map[string][]string, bareAddrs []stri
 		})
 	}
 	return endpoints
+}
+
+func lookupTrafficDistribution(mode lbServiceZoneAwareModeType) *string {
+	switch mode {
+	case lbServiceZoneAwareModePreferSameZone:
+		return ptr.To(corev1.ServiceTrafficDistributionPreferClose)
+	default:
+		return nil
+	}
 }
 
 func sortedKeys(m map[string][]string) []string {
