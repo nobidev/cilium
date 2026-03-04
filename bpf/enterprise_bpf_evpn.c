@@ -12,7 +12,6 @@
 #include "lib/enterprise_privnet.h"
 #include "lib/enterprise_evpn.h"
 #include "lib/enterprise_vni.h"
-#include "node_config.h"
 
 /* Make this function mockable for better testing */
 #ifndef privnet_evpn_ingress
