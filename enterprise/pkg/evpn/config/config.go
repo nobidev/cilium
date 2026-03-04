@@ -20,15 +20,19 @@ import (
 )
 
 const (
-	DefaultEVPNEnabled     = false
-	DefaultEVPNVxlanDevice = "cilium_evpn"
-	DefaultEVPNVxlanPort   = 4789
+	DefaultEVPNEnabled              = false
+	DefaultEVPNVxlanDevice          = "cilium_evpn"
+	DefaultEVPNVxlanPort            = 4789
+	DefaultSecurityGroupTagsEnabled = false
+	DefaultSecurityGroupID          = 0
 )
 
 const (
-	FlagEvpnEnabled      = "enable-evpn"
-	FlagEvpnTunnelDevice = "evpn-vxlan-device"
-	FlagEvpnTunnelPort   = "evpn-vxlan-port"
+	FlagEvpnEnabled              = "enable-evpn"
+	FlagEvpnTunnelDevice         = "evpn-vxlan-device"
+	FlagEvpnTunnelPort           = "evpn-vxlan-port"
+	FlagSecurityGroupTagsEnabled = "enable-evpn-security-group-tags"
+	FlagDefaultSecurityGroupID   = "evpn-default-security-group-id"
 )
 
 // CommonConfig is the configuration shared between the agent and the operator
@@ -46,13 +50,19 @@ type Config struct {
 
 	VxlanDevice string `mapstructure:"evpn-vxlan-device"`
 	VxlanPort   uint16 `mapstructure:"evpn-vxlan-port"`
+
+	SecurityGroupTagsEnabled bool   `mapstructure:"enable-evpn-security-group-tags"`
+	DefaultSecurityGroupID   uint16 `mapstructure:"evpn-default-security-group-id"`
 }
 
 func (c Config) Flags(flags *pflag.FlagSet) {
 	c.CommonConfig.Flags(flags)
 
-	flags.String(FlagEvpnTunnelDevice, c.VxlanDevice, "Vxlan device setup and used for EVPN")
-	flags.Uint16(FlagEvpnTunnelPort, c.VxlanPort, "UDP port used for EVPN vxlan tunnel")
+	flags.String(FlagEvpnTunnelDevice, c.VxlanDevice, "VXLAN device setup and used for EVPN")
+	flags.Uint16(FlagEvpnTunnelPort, c.VxlanPort, "UDP port used for EVPN VXLAN tunnel")
+
+	flags.Bool(FlagSecurityGroupTagsEnabled, c.SecurityGroupTagsEnabled, "Enable Security Group Tags in EVPN advertisements")
+	flags.Uint16(FlagDefaultSecurityGroupID, c.DefaultSecurityGroupID, "Default Security Group ID used in EVPN advertisements")
 }
 
 func (c Config) validate(tcfg tunnel.Config) error {
@@ -76,6 +86,8 @@ var defaultConfig = Config{
 	CommonConfig: CommonConfig{
 		Enabled: DefaultEVPNEnabled,
 	},
-	VxlanDevice: DefaultEVPNVxlanDevice,
-	VxlanPort:   DefaultEVPNVxlanPort,
+	VxlanDevice:              DefaultEVPNVxlanDevice,
+	VxlanPort:                DefaultEVPNVxlanPort,
+	SecurityGroupTagsEnabled: DefaultSecurityGroupTagsEnabled,
+	DefaultSecurityGroupID:   DefaultSecurityGroupID,
 }

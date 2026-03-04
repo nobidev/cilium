@@ -97,6 +97,7 @@ cilium-agent hive [flags]
       --enable-enterprise-bgp-control-plane                              Enable enterprise BGP in Cilium
       --enable-enterprise-bgp-control-plane-status-report                Enable enterprise BGP status report in Cilium (default true)
       --enable-evpn                                                      Enable EVPN
+      --enable-evpn-security-group-tags                                  Enable Security Group Tags in EVPN advertisements
       --enable-gateway-api                                               Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-gops                                                      Enable gops server (default true)
       --enable-health-check-loadbalancer-ip                              Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled
@@ -157,8 +158,9 @@ cilium-agent hive [flags]
       --envoy-log string                                                 Path to a separate Envoy log file, if any
       --envoy-policy-restore-timeout duration                            Maximum time to wait for endpoint policy restoration before starting serving resources to Envoy (default 3m0s)
       --envoy-secrets-namespace string                                   EnvoySecretsNamespace is the namespace having secrets used by CEC
-      --evpn-vxlan-device string                                         Vxlan device setup and used for EVPN (default "cilium_evpn")
-      --evpn-vxlan-port uint16                                           UDP port used for EVPN vxlan tunnel (default 4789)
+      --evpn-default-security-group-id uint16                            Default Security Group ID used in EVPN advertisements
+      --evpn-vxlan-device string                                         VXLAN device setup and used for EVPN (default "cilium_evpn")
+      --evpn-vxlan-port uint16                                           UDP port used for EVPN VXLAN tunnel (default 4789)
       --export-aggregation strings                                       Perform aggregation pre-storage ('connection', 'identity')
       --export-aggregation-renew-ttl                                     Renew flow TTL when a new flow is observed (default true)
       --export-aggregation-state-filter strings                          The state changes to include while aggregating ('new', 'established', 'first_error', 'error', 'closed') (default [new,error,closed])

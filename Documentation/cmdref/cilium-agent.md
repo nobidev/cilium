@@ -160,6 +160,7 @@ cilium-agent [flags]
       --enable-enterprise-bgp-control-plane-status-report                Enable enterprise BGP status report in Cilium (default true)
       --enable-envoy-config                                              Enable Envoy Config CRDs
       --enable-evpn                                                      Enable EVPN
+      --enable-evpn-security-group-tags                                  Enable Security Group Tags in EVPN advertisements
       --enable-extended-ip-protocols                                     Enable traffic with extended IP protocols in datapath
       --enable-gateway-api                                               Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-gops                                                      Enable gops server (default true)
@@ -252,8 +253,9 @@ cilium-agent [flags]
       --envoy-log string                                                 Path to a separate Envoy log file, if any
       --envoy-policy-restore-timeout duration                            Maximum time to wait for endpoint policy restoration before starting serving resources to Envoy (default 3m0s)
       --envoy-secrets-namespace string                                   EnvoySecretsNamespace is the namespace having secrets used by CEC
-      --evpn-vxlan-device string                                         Vxlan device setup and used for EVPN (default "cilium_evpn")
-      --evpn-vxlan-port uint16                                           UDP port used for EVPN vxlan tunnel (default 4789)
+      --evpn-default-security-group-id uint16                            Default Security Group ID used in EVPN advertisements
+      --evpn-vxlan-device string                                         VXLAN device setup and used for EVPN (default "cilium_evpn")
+      --evpn-vxlan-port uint16                                           UDP port used for EVPN VXLAN tunnel (default 4789)
       --exclude-local-address strings                                    Exclude CIDR from being recognized as local address
       --exclude-node-label-patterns strings                              List of k8s node label regex patterns to be excluded from CiliumNode
       --export-aggregation strings                                       Perform aggregation pre-storage ('connection', 'identity')
