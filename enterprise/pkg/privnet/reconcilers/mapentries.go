@@ -408,7 +408,7 @@ func (m *MapEntries) handleEndpointChange(txn statedb.WriteTxn, ep tables.Endpoi
 	}
 
 	// Skip any further logic if the to-be-upserted entry is already present
-	desired := activeEp.ToMapEntry(sctx.SubnetSpec, m.cfg.EnabledAsBridge(), m.shouldL2Announce(txn, ep))
+	desired := activeEp.ToMapEntry(sctx.SubnetSpec, m.cfg.IsLocallyConnected(), m.shouldL2Announce(txn, ep))
 	if found && current.Equal(desired) {
 		return nil
 	}
@@ -477,21 +477,31 @@ func (m *MapEntries) shouldSkipExternalEndpoint(ep tables.Endpoint, activeINB ta
 }
 
 // shouldL2Announce returns whether the local node should announce the given endpoint
-// on the egress facing interface. This happens on INB nodes only, if the node hosting
-// the endpoint promoted us as active for that network.
+// on the egress facing interface. This happens on INB nodes if the node hosting
+// the endpoint promoted us as active for that network. Or on local access nodes
+// if the endpoint is local.
 func (m *MapEntries) shouldL2Announce(txn statedb.ReadTxn, ep tables.Endpoint) bool {
-	if !m.cfg.EnabledAsBridge() || ep.Flags.External {
-		return false
+	if m.cfg.EnabledAsBridge() {
+		if ep.Flags.External {
+			return false
+		}
+
+		_, _, active := m.actnets.Get(txn, tables.ActiveNetworkByKey(
+			tables.WorkloadNode{
+				Cluster: tables.ClusterName(ep.Source.Cluster),
+				Name:    tables.NodeName(ep.NodeName),
+			}, tables.NetworkName(ep.Network.Name),
+		))
+
+		return active
 	}
 
-	_, _, active := m.actnets.Get(txn, tables.ActiveNetworkByKey(
-		tables.WorkloadNode{
-			Cluster: tables.ClusterName(ep.Source.Cluster),
-			Name:    tables.NodeName(ep.NodeName),
-		}, tables.NetworkName(ep.Network.Name),
-	))
+	if m.cfg.EnabledAsLocalAccess() {
+		// check if endpoint is local to the node.
+		return ep.Source.Cluster == string(m.local.Cluster) && ep.NodeName == string(m.local.Name)
+	}
 
-	return active
+	return false
 }
 
 // findConflictingNATEntriesForActiveEP checks the endpoint table to find all endpoints

@@ -60,11 +60,11 @@ func (ep Endpoint) HasUsableIP() bool {
 
 // ToMapEntry returns the MapEntry object created from the Endpoint and
 // subnet information.
-func (ep Endpoint) ToMapEntry(subnet SubnetSpec, bridgeMode, announce bool) *MapEntry {
-	// gneigh status is only relevant on the INB where it will be set as done by the gneigh
+func (ep Endpoint) ToMapEntry(subnet SubnetSpec, isLocallyConnected, announce bool) *MapEntry {
+	// gneigh status is only relevant on the INB or local access where it will be set as done by the gneigh
 	// reconciler.
 	gneighStatus := reconciler.StatusDone()
-	if bridgeMode {
+	if isLocallyConnected {
 		gneighStatus = reconciler.StatusPending()
 	}
 

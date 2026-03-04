@@ -49,7 +49,7 @@ func registerGneighReconciler(in struct {
 	MapEntries       statedb.RWTable[*tables.MapEntry]
 	ReconcilerParams reconciler.Params
 }) (reconciler.Reconciler[*tables.MapEntry], error) {
-	if !in.Config.EnabledAsBridge() {
+	if !in.Config.IsLocallyConnected() {
 		// Private networking is disabled or we are not a bridge, nothing to do.
 		return nil, nil
 	}
