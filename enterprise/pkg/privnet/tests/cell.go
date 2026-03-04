@@ -85,6 +85,14 @@ func NewTestHive(t testing.TB) *hive.Hive {
 			},
 		),
 
+		cell.Invoke(func(localNodeStore *node.LocalNodeStore) {
+			// Prepopulate local node name and labels for nodeattachment test which
+			// requires modifying the local node labels.
+			localNodeStore.Update(func(n *node.LocalNode) {
+				n.Labels["node"] = "node1"
+			})
+		}),
+
 		// Make privnet ID predictable
 		withOverride(idpool.NewIDPool[tables.NetworkName, tables.NetworkID](slog.Default(), 1, tables.NetworkIDMax)),
 		// Make subnet ID predictable
