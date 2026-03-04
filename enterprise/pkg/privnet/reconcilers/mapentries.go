@@ -495,12 +495,10 @@ func (m *MapEntries) shouldL2Announce(txn statedb.ReadTxn, ep tables.Endpoint) b
 
 		return active
 	}
-
 	if m.cfg.EnabledAsLocalAccess() {
 		// check if endpoint is local to the node.
 		return ep.Source.Cluster == string(m.local.Cluster) && ep.NodeName == string(m.local.Name)
 	}
-
 	return false
 }
 

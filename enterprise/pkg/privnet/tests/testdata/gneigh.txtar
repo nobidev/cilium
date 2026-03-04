@@ -95,8 +95,6 @@ kind: ClusterwidePrivateNetwork
 metadata:
   name: blue-network
 spec:
-  interface:
-    name: eth1
   routes: []
   subnets:
   - name: blue1
@@ -126,8 +124,6 @@ kind: ClusterwidePrivateNetwork
 metadata:
   name: green-network
 spec:
-  interface:
-    name: eth2
   routes: []
   subnets:
   - name: green1

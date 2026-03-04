@@ -170,8 +170,6 @@ kind: ClusterwidePrivateNetwork
 metadata:
   name: blue-network
 spec:
-  interface:
-    name: dhcp-h-ucast
   routes: []
   subnets:
   - name: subnet1

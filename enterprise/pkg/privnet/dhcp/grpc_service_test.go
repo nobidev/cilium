@@ -238,10 +238,6 @@ func newServiceWithSubnetAndINBSupport(t *testing.T, factory serviceRelayFactory
 	wtxn := db.WriteTxn(privnets, subnets)
 	_, _, err = privnets.Insert(wtxn, tables.PrivateNetwork{
 		Name: "blue",
-		Interface: tables.PrivateNetworkInterface{
-			Name:  "eth99",
-			Index: ifindex,
-		},
 	})
 	require.NoError(t, err)
 
@@ -258,7 +254,6 @@ func newServiceWithSubnetAndINBSupport(t *testing.T, factory serviceRelayFactory
 
 	return newService(serviceParams{
 		DB:      db,
-		Privnet: privnets,
 		Subnets: subnets,
 		Logger:  slog.Default(),
 		Factory: factory,

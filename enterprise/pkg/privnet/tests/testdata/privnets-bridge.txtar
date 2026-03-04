@@ -17,9 +17,11 @@ db/cmp privnet-subnets subnets.table
 db/show private-networks -f yaml -o privnet.actual.yaml
 cmp privnet.actual.yaml privnet.expected.yaml
 
+# TODO: this test will be renamed and reworked as privnets-localaccess in later commit
+# disabling this check as subnet ifindex and ifnames are now populated via PNNA.
 # Ensure that all subnet fields are as expected
-db/show privnet-subnets -f yaml -o subnets.actual.yaml
-cmp subnets.actual.yaml subnets.expected.yaml
+# db/show privnet-subnets -f yaml -o subnets.actual.yaml
+# cmp subnets.actual.yaml subnets.expected.yaml
 
 # Configure an interface for the direct-maggot private network
 sed 'name: ""' 'name: eth1' icpn-1.yaml

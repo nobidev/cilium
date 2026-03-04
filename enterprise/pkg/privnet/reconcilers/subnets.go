@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers/idpool"
@@ -63,9 +64,10 @@ type Subnets struct {
 	idpoolFactory SubnetIDPoolFactory
 	idpools       map[tables.NetworkName]*idpool.SubnetIDPool
 
-	db       *statedb.DB
-	networks statedb.Table[tables.PrivateNetwork]
-	tbl      statedb.RWTable[tables.Subnet]
+	db              *statedb.DB
+	networks        statedb.Table[tables.PrivateNetwork]
+	nodeAttachments statedb.Table[*tables.NodeAttachment]
+	tbl             statedb.RWTable[tables.Subnet]
 }
 
 type SubnetIDPoolFactory func() *idpool.IDPool[tables.SubnetName, tables.SubnetID]
@@ -80,9 +82,10 @@ func newSubnets(in struct {
 
 	IDpoolFactory SubnetIDPoolFactory
 
-	DB       *statedb.DB
-	Networks statedb.Table[tables.PrivateNetwork]
-	Table    statedb.RWTable[tables.Subnet]
+	DB              *statedb.DB
+	Networks        statedb.Table[tables.PrivateNetwork]
+	NodeAttachments statedb.Table[*tables.NodeAttachment]
+	Table           statedb.RWTable[tables.Subnet]
 }) *Subnets {
 	return &Subnets{
 		log: in.Log,
@@ -93,9 +96,10 @@ func newSubnets(in struct {
 		idpoolFactory: in.IDpoolFactory,
 		idpools:       map[tables.NetworkName]*idpool.SubnetIDPool{},
 
-		db:       in.DB,
-		networks: in.Networks,
-		tbl:      in.Table,
+		db:              in.DB,
+		networks:        in.Networks,
+		nodeAttachments: in.NodeAttachments,
+		tbl:             in.Table,
 	}
 }
 
@@ -111,18 +115,23 @@ func (r *Subnets) registerReconciler() {
 	// This job watches the upstream private networks table and populates the subnet table from that
 	r.jg.Add(job.OneShot("populate-subnets-table", func(ctx context.Context, _ cell.Health) error {
 		var initDone bool
+		var watchset = statedb.NewWatchSet()
 
-		txn := r.db.WriteTxn(r.networks)
-		changeIter, _ := r.networks.Changes(txn)
+		txn := r.db.WriteTxn(r.networks, r.nodeAttachments)
+		networkChangeIter, _ := r.networks.Changes(txn)
+		attachChangeIter, _ := r.nodeAttachments.Changes(txn)
 		txn.Commit()
 
 		for {
-			var initWatch <-chan struct{}
 			txn := r.db.WriteTxn(r.tbl)
-			changes, watch := changeIter.Next(txn)
 
-			for change := range changes {
-				r.log.Debug("Processing table event",
+			netChanges, netWatch := networkChangeIter.Next(txn)
+			attachChanges, attachWatch := attachChangeIter.Next(txn)
+			watchset.Add(netWatch, attachWatch)
+
+			toProcess := sets.New[tables.NetworkName]()
+			for change := range netChanges {
+				r.log.Debug("Processing network change event",
 					logfields.Table, r.networks.Name(),
 					logfields.Event, change,
 				)
@@ -133,21 +142,42 @@ func (r *Subnets) registerReconciler() {
 						return err
 					}
 				} else {
-					if err := r.upsertSubnets(txn, change.Object); err != nil {
-						txn.Abort()
-						return err
-					}
+					toProcess.Insert(change.Object.Name)
+				}
+			}
+
+			for change := range attachChanges {
+				// including all changes here, as previously valid attachments
+				// might not be valid anymore. In which case, we want to set
+				// egress ifindex to 0.
+				toProcess.Insert(change.Object.Network)
+			}
+
+			for networkName := range toProcess {
+				network, _, found := r.networks.Get(txn, tables.PrivateNetworkByName(networkName))
+				if !found {
+					// this can happen if network attachment is created before actual network gets created.
+					// it is fine to ignore such change event, when network gets created we will reprocess it.
+					continue
+				}
+
+				if err := r.upsertSubnets(txn, network); err != nil {
+					txn.Abort()
+					return err
 				}
 			}
 
 			// In order to be able to propagate initialization, we need to check if the upstream
 			// tables have already been initialized
 			if !initDone {
-				init, nw := r.networks.Initialized(txn)
+				nwInit, nw := r.networks.Initialized(txn)
+				naInit, na := r.nodeAttachments.Initialized(txn)
 
 				switch {
-				case !init:
-					initWatch = nw
+				case !nwInit:
+					watchset.Add(nw)
+				case !naInit:
+					watchset.Add(na)
 				default:
 					initDone = true
 					initialized(txn)
@@ -157,11 +187,9 @@ func (r *Subnets) registerReconciler() {
 			txn.Commit()
 
 			// Wait until there's new changes to consume
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-watch:
-			case <-initWatch:
+			_, err := watchset.Wait(ctx, SettleTime)
+			if err != nil {
+				return err
 			}
 		}
 	}))
@@ -169,7 +197,7 @@ func (r *Subnets) registerReconciler() {
 
 // extractSubnets gets all subnets from a private network, but will drop any conflicting subnets.
 // It will keep the first occurrence in the list if there is a conflict.
-func (r *Subnets) extractSubnets(privNet tables.PrivateNetwork) map[tables.SubnetName]tables.Subnet {
+func (r *Subnets) extractSubnets(txn statedb.ReadTxn, privNet tables.PrivateNetwork) map[tables.SubnetName]tables.Subnet {
 	subnets := make(map[tables.SubnetName]tables.Subnet, len(privNet.Subnets))
 
 	hasConflicts := func(subnet tables.Subnet) bool {
@@ -198,6 +226,8 @@ func (r *Subnets) extractSubnets(privNet tables.PrivateNetwork) map[tables.Subne
 	}
 
 	for _, subnet := range privNet.Subnets {
+		subnetIntf := r.lookupSubnetNA(txn, privNet.Name, subnet.Name)
+
 		entry := tables.Subnet{
 			SubnetSpec: tables.SubnetSpec{
 				Network:       privNet.Name,
@@ -206,8 +236,8 @@ func (r *Subnets) extractSubnets(privNet tables.PrivateNetwork) map[tables.Subne
 				VNI:           privNet.VNI,
 				CIDRv4:        subnet.CIDRv4,
 				CIDRv6:        subnet.CIDRv6,
-				EgressIfIndex: privNet.Interface.Index,
-				EgressIfName:  privNet.Interface.Name,
+				EgressIfIndex: subnetIntf.Index,
+				EgressIfName:  string(subnetIntf.Name),
 			},
 			Routes: subnet.Routes,
 			DHCP:   subnet.DHCP,
@@ -240,7 +270,7 @@ func (r *Subnets) extractSubnets(privNet tables.PrivateNetwork) map[tables.Subne
 // upsertSubnets extracts the desired subnets from the private network, removes all
 // subnets no longer in the desired set, and then upserts all missing desired subnets.
 func (r *Subnets) upsertSubnets(txn statedb.WriteTxn, privNet tables.PrivateNetwork) error {
-	desiredSubnets := r.extractSubnets(privNet)
+	desiredSubnets := r.extractSubnets(txn, privNet)
 	// iterate over the existing subnets in the table to determine which ones to remove
 	for existing := range r.tbl.Prefix(txn, tables.SubnetsByNetwork(privNet.Name)) {
 		name := existing.Name
@@ -322,4 +352,30 @@ func (r *Subnets) releaseSubnetID(subnet tables.Subnet) {
 			delete(r.idpools, subnet.Network)
 		}
 	}
+}
+
+// lookupSubnetNA finds node attachment interface associated with the private-network subnet
+// TODO: hardening task to update Conflict state in node-attachment in cases where multiple devices want
+// to allow egress for a given subnet.
+func (r *Subnets) lookupSubnetNA(txn statedb.ReadTxn, networkName tables.NetworkName, subnetName tables.SubnetName) tables.NodeAttachmentInterface {
+	for attach := range r.nodeAttachments.List(txn, tables.NodeAttachmentsByNetworkName(networkName)) {
+		if !attach.IsReady() {
+			continue
+		}
+
+		if len(attach.Subnets) == 0 {
+			// No subnet is specified in attachment configuration.
+			// Allow all subnets to egress via this device.
+			return attach.Interface
+		}
+
+		// Currently it is assumed that there will be single device responsible for
+		// a given subnet. Multiple attachments cannot be associated with a subnet.
+		// Return first match.
+		if slices.Contains(attach.Subnets, subnetName) {
+			return attach.Interface
+		}
+	}
+	// No egress interface found, local egress is disabled.
+	return tables.NodeAttachmentInterface{}
 }

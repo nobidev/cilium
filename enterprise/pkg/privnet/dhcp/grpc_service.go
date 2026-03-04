@@ -29,7 +29,6 @@ type service struct {
 	api.UnimplementedDHCPRelayServer
 
 	db      *statedb.DB
-	privnet statedb.Table[tables.PrivateNetwork]
 	subnets statedb.Table[tables.Subnet]
 	log     *slog.Logger
 	factory serviceRelayFactoryFunc
@@ -42,7 +41,6 @@ type serviceParams struct {
 	cell.In
 
 	DB      *statedb.DB
-	Privnet statedb.Table[tables.PrivateNetwork]
 	Subnets statedb.Table[tables.Subnet]
 	Logger  *slog.Logger
 	Factory serviceRelayFactoryFunc
@@ -51,7 +49,6 @@ type serviceParams struct {
 func newService(in serviceParams) *service {
 	return &service{
 		db:      in.DB,
-		privnet: in.Privnet,
 		subnets: in.Subnets,
 		log:     in.Logger,
 		factory: in.Factory,
@@ -101,8 +98,7 @@ func (s *service) Relay(ctx context.Context, req *api.RelayRequest) (*api.RelayR
 		return nil, status.Error(codes.FailedPrecondition, "subnet not found")
 	}
 
-	privnet, _, found := s.privnet.Get(txn, tables.PrivateNetworkByName(tables.NetworkName(network)))
-	if !found || !privnet.CanBeServedByINB() {
+	if subnet.EgressIfIndex == 0 {
 		return nil, status.Error(codes.FailedPrecondition, "network cannot be served by INB")
 	}
 

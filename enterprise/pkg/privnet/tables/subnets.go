@@ -119,7 +119,7 @@ type SubnetSpec struct {
 var _ statedb.TableWritable = Subnet{}
 
 func (s Subnet) TableHeader() []string {
-	return []string{"Network", "Name", "ID", "CIDRv4", "CIDRv6", "Routes", "DHCP"}
+	return []string{"Network", "Name", "ID", "CIDRv4", "CIDRv6", "Routes", "DHCP", "Interface"}
 }
 
 func (s Subnet) TableRow() []string {
@@ -138,6 +138,12 @@ func (s Subnet) TableRow() []string {
 		fmtCIDR(s.CIDRv6),
 		strconv.FormatInt(int64(len(s.Routes)), 10),
 		formatSubnetDHCP(s.DHCP),
+		func() string {
+			if s.EgressIfIndex == 0 {
+				return "N/A"
+			}
+			return fmt.Sprintf("%s (%d)", s.EgressIfName, s.EgressIfIndex)
+		}(),
 	}
 }
 

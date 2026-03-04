@@ -103,7 +103,7 @@ func (r Route) MapEntryType() MapEntryType {
 }
 
 func (r Route) ToMapEntry(subnet SubnetSpec, activeINB INBNode, bridgeMode bool) *MapEntry {
-	nexthop := r.getNexthop(activeINB, bridgeMode)
+	nexthop, egressIfIndex := r.getNexthop(activeINB, bridgeMode, subnet.EgressIfIndex)
 	if !nexthop.IsValid() {
 		return nil
 	}
@@ -120,9 +120,10 @@ func (r Route) ToMapEntry(subnet SubnetSpec, activeINB INBNode, bridgeMode bool)
 			CIDR: r.Destination,
 		},
 		Routing: MapEntryRouting{
-			NextHop: nexthop,
-			VNI:     r.getVNI(subnet),
-			PeerID:  r.Peer.ID,
+			NextHop:       nexthop,
+			VNI:           r.getVNI(subnet),
+			PeerID:        r.Peer.ID,
+			EgressIfIndex: egressIfIndex,
 		},
 
 		Status: reconciler.StatusPending(),
@@ -243,12 +244,13 @@ func NewRouteTable(db *statedb.DB) (statedb.RWTable[Route], error) {
 	)
 }
 
-func (r Route) getNexthop(activeINB INBNode, bridgeMode bool) netip.Addr {
+func (r Route) getNexthop(activeINB INBNode, bridgeMode bool, subnetIfIndex int) (netip.Addr, int) {
 	var nexthop netip.Addr
+	var egressIfIndex int
 
 	if r.EVPNGateway || r.isPeeringRoute() {
 		nexthop = r.unspecifiedNexthop()
-	} else if !bridgeMode {
+	} else if !bridgeMode && subnetIfIndex == 0 {
 		if activeINB.IP.IsValid() {
 			nexthop = activeINB.IP
 		}
@@ -259,9 +261,10 @@ func (r Route) getNexthop(activeINB INBNode, bridgeMode bool) netip.Addr {
 		case MapEntryTypeDCNRoute:
 			nexthop = r.unspecifiedNexthop()
 		}
+		egressIfIndex = subnetIfIndex
 	}
 
-	return nexthop
+	return nexthop, egressIfIndex
 }
 
 func (r Route) unspecifiedNexthop() netip.Addr {
