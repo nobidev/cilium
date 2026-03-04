@@ -22,16 +22,16 @@ PRIVNET_VM_IMAGE ?= $(shell grep -oP '"VMImage": "\K.*(?=@)' cilium-cli/enterpri
 PRIVNET_CONTAINER_IMAGE ?= docker.io/nicolaka/netshoot:v0.15@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61
 
 # renovate: datasource=github-releases depName=cert-manager/cert-manager
-PRIVNET_CERT_MANAGER_VERSION ?= v1.19.3
+PRIVNET_CERT_MANAGER_VERSION ?= v1.19.4
 
 # renovate: datasource=github-releases depName=kubevirt/kubevirt
-PRIVNET_KUBEVIRT_VERSION ?= v1.7.0
+PRIVNET_KUBEVIRT_VERSION ?= v1.7.1
 
 # renovate: datasource=github-tags depName=kubev2v/forklift
-PRIVNET_FORKLIFT_VERSION ?= v2.10.5
+PRIVNET_FORKLIFT_VERSION ?= v2.11.0
 
 # renovate: datasource=github-releases depName=k8snetworkplumbingwg/multus-cni
-PRIVNET_MULTUS_VERSION ?= v4.2.3
+PRIVNET_MULTUS_VERSION ?= v4.2.4
 
 PRIVNET_DNS_SERVER ?= 8.8.8.8
 

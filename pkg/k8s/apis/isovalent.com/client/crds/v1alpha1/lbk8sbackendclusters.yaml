@@ -21,6 +21,9 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.name
+      name: Cluster Name
+      type: string
     - jsonPath: .status.status
       name: Status
       type: string
@@ -63,8 +66,10 @@ spec:
                       The secret must contain a "kubeconfig" key with a valid kubeconfig file.
                     properties:
                       name:
+                        minLength: 1
                         type: string
                       namespace:
+                        minLength: 1
                         type: string
                     required:
                     - name
@@ -73,13 +78,129 @@ spec:
                 required:
                 - secretRef
                 type: object
+              serviceDiscovery:
+                description: |-
+                  ServiceDiscovery contains one or more service discovery configurations.
+                  These define how services in the remote cluster should be discovered and
+                  health checked. If no ServiceDiscovery configurations are provided, the
+                  controller will discover all LoadBalancer type services in the remote
+                  cluster with default health check settings.
+                items:
+                  description: |-
+                    LBK8sBackendClusterServiceDiscoveryConfig configures which services to discover
+                    and how they should be health checked.
+                  properties:
+                    healthCheck:
+                      description: |-
+                        HealthCheck configures the health check settings for backends discovered
+                        by this configuration. If not specified, defaults will be used.
+                      properties:
+                        intervalSeconds:
+                          default: 30
+                          description: IntervalSeconds is the interval between health
+                            check probes.
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        ports:
+                          description: |-
+                            Ports to health check.
+                            All ports must have a fully established connection for TCP
+                          items:
+                            type: integer
+                          type: array
+                          x-kubernetes-list-type: set
+                        protocol:
+                          default: TCP
+                          description: Protocol for health checks (currently only
+                            TCP).
+                          type: string
+                        timeoutSeconds:
+                          default: 5
+                          description: TimeoutSeconds is the timeout for each health
+                            check probe.
+                          format: int32
+                          minimum: 1
+                          type: integer
+                      required:
+                      - ports
+                      type: object
+                    labelSelector:
+                      description: |-
+                        LabelSelector filters which services to discover based on labels. If not
+                        specified, all LoadBalancer type services will be discovered.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    name:
+                      description: |-
+                        Name is an optional identifier for this discovery configuration.
+                        If specified, it will be used in status reporting to identify which
+                        configuration discovered each service.
+                      maxLength: 63
+                      minLength: 1
+                      type: string
+                    namespaces:
+                      description: |-
+                        Namespaces limits service discovery to specific namespaces.
+                        If empty, services from all namespaces will be discovered.
+                      items:
+                        type: string
+                      maxItems: 100
+                      type: array
+                      x-kubernetes-list-type: set
+                  type: object
+                type: array
             required:
             - authentication
             type: object
           status:
             properties:
               conditions:
-                description: Conditions represent the latest available observations.
+                description: |-
+                  Conditions represent the latest available observations of the
+                  LBK8sBackendCluster's state.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -138,11 +259,100 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              discoveredServices:
+                description: |-
+                  DiscoveredServices lists the services that have been discovered and
+                  their corresponding ILB resources.
+                items:
+                  description: |-
+                    LBK8sBackendClusterDiscoveredService represents a discovered service and
+                    its corresponding ILB resources.
+                  properties:
+                    discoveryConfigName:
+                      description: |-
+                        DiscoveryConfigName is the name of the ServiceDiscoveryConfig that
+                        matched this service. This corresponds to the optional Name field
+                        in the discovery configuration. If the matching config had no name,
+                        this will be empty.
+                      type: string
+                    externalIP:
+                      description: |-
+                        ExternalIP is the allocated external IP that was written back to
+                        the source service.
+                      type: string
+                    lastError:
+                      description: LastError contains the last error message if the
+                        service failed to sync.
+                      type: string
+                    lbBackendPoolRef:
+                      description: LBBackendPoolRef is the reference to the created
+                        LBBackendPool resource.
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                      required:
+                      - name
+                      - namespace
+                      type: object
+                    lbServiceRef:
+                      description: LBServiceRef is the reference to the created LBService
+                        resource.
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                      required:
+                      - name
+                      - namespace
+                      type: object
+                    lbVIPRef:
+                      description: LBVIPRef is the reference to the created LBVIP
+                        resource.
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                      required:
+                      - name
+                      - namespace
+                      type: object
+                    name:
+                      description: RemoteName is the name of the source service in
+                        the remote cluster.
+                      type: string
+                    namespace:
+                      description: RemoteNamespace is the namespace of the source
+                        service in the remote cluster.
+                      type: string
+                    status:
+                      description: |-
+                        Status is the overall status of the discovered service.
+                        For detailed information, refer to the Conditions on each of the referenced resources.
+                      type: string
+                  required:
+                  - name
+                  - namespace
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - namespace
+                - name
+                x-kubernetes-list-type: map
               lastSyncTime:
-                description: LastSyncTime is the last time the cluster connection
-                  was synced.
+                description: LastSyncTime is the timestamp of the last successful
+                  sync.
                 format: date-time
                 type: string
+              servicesDiscovered:
+                description: |-
+                  ServicesDiscovered is the number of services currently discovered
+                  from this remote cluster.
+                format: int32
+                type: integer
               status:
                 description: |-
                   Status is one of "OK" or "ConditionNotMet".

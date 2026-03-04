@@ -217,6 +217,22 @@ func (r *Subnets) extractSubnets(privNet tables.PrivateNetwork) map[tables.Subne
 		subnets[entry.Name] = entry
 	}
 
+	for name, subnet := range subnets {
+		// assign all other subnets in privnet as peers
+		for _, other := range subnets {
+			if other.Name == name {
+				continue
+			}
+			subnet.Peers = append(subnet.Peers, tables.SubnetPeer{
+				Network: other.Network,
+				Subnet:  other.Name,
+				CIDRv4:  other.CIDRv4,
+				CIDRv6:  other.CIDRv6,
+			})
+		}
+		subnets[name] = subnet
+	}
+
 	return subnets
 }
 

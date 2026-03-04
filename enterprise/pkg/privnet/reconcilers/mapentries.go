@@ -632,8 +632,7 @@ func (m *MapEntries) deleteEndpointEntry(txn statedb.WriteTxn, sctx subnetReconc
 	}
 
 	// Check if there is a route entry with the same target
-
-	route, _, found := m.routes.Get(txn, tables.RouteByNetworkSubnetAndDestination(sctx.Network, sctx.Name, epEntry.Target.CIDR))
+	route, _, found := m.routes.Get(txn, tables.DefaultRouteByNetworkSubnetAndDestination(sctx.Network, sctx.Name, epEntry.Target.CIDR))
 	if found {
 		// Insert the route entry which is now un-shadowed
 		routeEntry := route.ToMapEntry(sctx.SubnetSpec, sctx.activeINB, m.cfg.EnabledAsBridge())

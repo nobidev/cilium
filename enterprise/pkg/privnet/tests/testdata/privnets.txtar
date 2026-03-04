@@ -130,6 +130,12 @@ spec:
       gateway: 192.168.252.1
     - destination: ::/0
       gateway: fd10:0:252::1
+    # Collision with subnet will be filtered out
+    - destination: 192.168.252.0/24
+      gateway: 192.168.252.3
+    # Collision with peering route should be fine
+    - destination: 192.168.251.0/24
+      gateway: 192.168.252.2
 
 -- icpn-vpc-2.yaml --
 apiVersion: isovalent.com/v1alpha1
@@ -156,6 +162,10 @@ spec:
       gateway: 192.168.252.2
     - destination: ::/0
       gateway: fd10:0:252::2
+    - destination: 192.168.251.0/24
+      gateway: 192.168.252.2
+    - destination: 192.168.253.0/24
+      gateway: 192.168.252.3
   - name: green
     cidrv4: 192.168.253.0/24
     cidrv6: fd10:0:253::/64
@@ -315,11 +325,16 @@ direct-maggot    subnet1   fd10:0:255::/64    fd10:0:250::200
 united-firefly   subnet2   192.168.252.0/24   N/A
 vpc              blue      0.0.0.0/0          192.168.251.1
 vpc              blue      192.168.251.0/24   N/A
+vpc              blue      192.168.252.0/24   peer vpc/red
 vpc              blue      ::/0               fd10:0:251::1
 vpc              blue      fd10:0:251::/64    N/A
+vpc              blue      fd10:0:252::/64    peer vpc/red
 vpc              red       0.0.0.0/0          192.168.252.1
+vpc              red       192.168.251.0/24   peer vpc/blue
+vpc              red       192.168.251.0/24   192.168.252.2
 vpc              red       192.168.252.0/24   N/A
 vpc              red       ::/0               fd10:0:252::1
+vpc              red       fd10:0:251::/64    peer vpc/blue
 vpc              red       fd10:0:252::/64    N/A
 
 -- routes.table.vpc2 --
@@ -333,16 +348,30 @@ direct-maggot    subnet1   fd10:0:255::/64    fd10:0:250::200
 united-firefly   subnet2   192.168.252.0/24   N/A
 vpc              blue      0.0.0.0/0          192.168.251.2
 vpc              blue      192.168.251.0/24   N/A
+vpc              blue      192.168.252.0/24   peer vpc/red
+vpc              blue      192.168.253.0/24   peer vpc/green
 vpc              blue      ::/0               fd10:0:251::2
 vpc              blue      fd10:0:251::/64    N/A
+vpc              blue      fd10:0:252::/64    peer vpc/red
+vpc              blue      fd10:0:253::/64    peer vpc/green
 vpc              green     10.0.0.0/8         192.168.253.2
+vpc              green     192.168.251.0/24   peer vpc/blue
+vpc              green     192.168.252.0/24   peer vpc/red
 vpc              green     192.168.253.0/24   N/A
 vpc              green     ::/0               fd10:0:253::2
+vpc              green     fd10:0:251::/64    peer vpc/blue
+vpc              green     fd10:0:252::/64    peer vpc/red
 vpc              green     fd10:0:253::/64    N/A
 vpc              red       0.0.0.0/0          192.168.252.2
+vpc              red       192.168.251.0/24   peer vpc/blue
+vpc              red       192.168.251.0/24   192.168.252.2
 vpc              red       192.168.252.0/24   N/A
+vpc              red       192.168.253.0/24   peer vpc/green
+vpc              red       192.168.253.0/24   192.168.252.3
 vpc              red       ::/0               fd10:0:252::2
+vpc              red       fd10:0:251::/64    peer vpc/blue
 vpc              red       fd10:0:252::/64    N/A
+vpc              red       fd10:0:253::/64    peer vpc/green
 
 -- routes.table.vpc3 --
 Network          Subnet    Destination        Gateway
@@ -353,12 +382,24 @@ direct-maggot    subnet1   fd10:0:250::/64    N/A
 direct-maggot    subnet1   fd10:0:252::/64    fd10:0:250::fffe
 direct-maggot    subnet1   fd10:0:255::/64    fd10:0:250::200
 united-firefly   subnet2   192.168.252.0/24   N/A
+vpc              blue      192.168.100.0/24   peer vpc/yellow
 vpc              blue      192.168.251.0/24   N/A
+vpc              blue      192.168.252.0/24   peer vpc/red
+vpc              blue      fd10:0:100::/64    peer vpc/yellow
 vpc              blue      fd10:0:251::/64    N/A
+vpc              blue      fd10:0:252::/64    peer vpc/red
+vpc              red       192.168.100.0/24   peer vpc/yellow
+vpc              red       192.168.251.0/24   peer vpc/blue
 vpc              red       192.168.252.0/24   N/A
+vpc              red       fd10:0:100::/64    peer vpc/yellow
+vpc              red       fd10:0:251::/64    peer vpc/blue
 vpc              red       fd10:0:252::/64    N/A
 vpc              yellow    192.168.100.0/24   N/A
+vpc              yellow    192.168.251.0/24   peer vpc/blue
+vpc              yellow    192.168.252.0/24   peer vpc/red
 vpc              yellow    fd10:0:100::/64    N/A
+vpc              yellow    fd10:0:251::/64    peer vpc/blue
+vpc              yellow    fd10:0:252::/64    peer vpc/red
 
 -- routes.table.vpc4 --
 Network          Subnet    Destination        Gateway
@@ -370,11 +411,23 @@ direct-maggot    subnet1   fd10:0:252::/64    fd10:0:250::fffe
 direct-maggot    subnet1   fd10:0:255::/64    fd10:0:250::200
 united-firefly   subnet2   192.168.252.0/24   N/A
 vpc              blue2     192.168.1.0/24     N/A
+vpc              blue2     192.168.100.0/24   peer vpc/yellow
+vpc              blue2     192.168.252.0/30   peer vpc/red2
+vpc              blue2     fd10:0:100::/64    peer vpc/yellow
+vpc              blue2     fd10:0:1::/64      peer vpc/red2
 vpc              blue2     fd10:0:251::/64    N/A
+vpc              red2      192.168.1.0/24     peer vpc/blue2
+vpc              red2      192.168.100.0/24   peer vpc/yellow
 vpc              red2      192.168.252.0/30   N/A
+vpc              red2      fd10:0:100::/64    peer vpc/yellow
 vpc              red2      fd10:0:1::/64      N/A
+vpc              red2      fd10:0:251::/64    peer vpc/blue2
+vpc              yellow    192.168.1.0/24     peer vpc/blue2
 vpc              yellow    192.168.100.0/24   N/A
+vpc              yellow    192.168.252.0/30   peer vpc/red2
 vpc              yellow    fd10:0:100::/64    N/A
+vpc              yellow    fd10:0:1::/64      peer vpc/red2
+vpc              yellow    fd10:0:251::/64    peer vpc/blue2
 
 -- privnet.direct-maggot.expected.yaml --
 name: direct-maggot

@@ -451,6 +451,7 @@ cidrv6: ""
 egressifindex: 0
 egressifname: ""
 routes: []
+peers: []
 ---
 network: united-firefly
 networkid: 2
@@ -462,3 +463,4 @@ cidrv6: ""
 egressifindex: 0
 egressifname: eth2
 routes: []
+peers: []

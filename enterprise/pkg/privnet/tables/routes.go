@@ -11,6 +11,8 @@
 package tables
 
 import (
+	"encoding"
+	"fmt"
 	"net/netip"
 
 	"github.com/cilium/statedb"
@@ -36,6 +38,24 @@ type Route struct {
 
 	// EVPNGateway is set if network is reachable via EVPN/Vxlan.
 	EVPNGateway bool
+
+	// Peer contains the information on the peer of a peering routes
+	Peer RoutePeer
+}
+
+// RoutePeer contains the information for a peer in a peering route
+type RoutePeer struct {
+	// Network is the name of the destination network for the peering.
+	// It is provided for convenience only (e.g., in the table output), and shall not be
+	// depended on during reconciliation.
+	Network NetworkName
+	// Subnet is the name of the destination Subnet for the peering.
+	// It is provided for convenience only (e.g., in the table output), and shall not be
+	// depended on during reconciliation.
+	Subnet SubnetName
+	// ID contains the SubnetID and NetworkID of the destination subnet for the peering.
+	// Only set for peering routes.
+	ID SubnetIDPair
 }
 
 var _ statedb.TableWritable = Route{}
@@ -57,14 +77,24 @@ func (r Route) TableRow() []string {
 			if r.EVPNGateway {
 				return "evpn"
 			}
+			if r.isPeeringRoute() {
+				return fmt.Sprintf("peer %s/%s", r.Peer.Network, r.Peer.Subnet)
+			}
 			return gw
 		}(),
 	}
 }
 
+func (r Route) isPeeringRoute() bool {
+	return r.Peer.ID.Network != 0 && r.Peer.ID.Subnet != 0
+}
+
 func (r Route) MapEntryType() MapEntryType {
 	if r.EVPNGateway {
 		return MapEntryTypeEVPNRoute
+	}
+	if r.isPeeringRoute() {
+		return MapEntryTypePeeringRoute
 	}
 	if r.Gateway.IsValid() {
 		return MapEntryTypeStaticRoute
@@ -82,14 +112,17 @@ func (r Route) ToMapEntry(subnet SubnetSpec, activeINB INBNode, bridgeMode bool)
 		Type: r.MapEntryType(),
 		Target: MapEntryTarget{
 			NetworkName: subnet.Network,
-			NetworkID:   subnet.NetworkID,
 			SubnetName:  subnet.Name,
-			SubnetID:    subnet.ID,
-			CIDR:        r.Destination,
+			ID: SubnetIDPair{
+				Network: subnet.NetworkID,
+				Subnet:  subnet.ID,
+			},
+			CIDR: r.Destination,
 		},
 		Routing: MapEntryRouting{
 			NextHop: nexthop,
 			VNI:     r.getVNI(subnet),
+			PeerID:  r.Peer.ID,
 		},
 
 		Status: reconciler.StatusPending(),
@@ -99,11 +132,59 @@ func (r Route) ToMapEntry(subnet SubnetSpec, activeINB INBNode, bridgeMode bool)
 	}
 }
 
-func (r Route) Key() RouteKey {
-	return newRouteKey(r.Network, r.Subnet, r.Destination)
+func (r Route) Kind() RouteKind {
+	switch r.MapEntryType() {
+	case MapEntryTypePeeringRoute:
+		return RouteKindPeering
+	default:
+		return RouteKindDefault
+	}
 }
 
-// RouteKey is <network>|<subnet>|<destination>
+type RouteKind uint8
+
+var _ encoding.TextMarshaler = RouteKind(0)
+var _ encoding.TextUnmarshaler = (*RouteKind)(nil)
+
+const (
+	RouteKindDefault RouteKind = iota
+	RouteKindPeering
+)
+
+func (kind RouteKind) String() string {
+	switch kind {
+	case RouteKindDefault:
+		return "R"
+	case RouteKindPeering:
+		return "P"
+	default:
+		return "?"
+	}
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (kind *RouteKind) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "R":
+		*kind = RouteKindDefault
+	case "P":
+		*kind = RouteKindPeering
+	default:
+		return fmt.Errorf("invalid RouteKind %q", string(text))
+	}
+	return nil
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (kind RouteKind) MarshalText() (text []byte, err error) {
+	return []byte(kind.String()), nil
+}
+
+func (r Route) Key() RouteKey {
+	return newRouteKey(r.Network, r.Subnet, r.Destination, r.Kind())
+}
+
+// RouteKey is <network>|<subnet>|<destination>|<kind>
 type RouteKey string
 
 func (key RouteKey) Key() index.Key {
@@ -118,8 +199,12 @@ func newRouteKeyFromNetworkSubnet(network NetworkName, subnet SubnetName) RouteK
 	return newRouteKeyFromNetwork(network) + RouteKey(subnet) + indexDelimiter
 }
 
-func newRouteKey(network NetworkName, subnet SubnetName, destination netip.Prefix) RouteKey {
-	return newRouteKeyFromNetworkSubnet(network, subnet) + RouteKey(destination.Masked().String())
+func newRouteKeyFromNetworkSubnetCIDR(network NetworkName, subnet SubnetName, destination netip.Prefix) RouteKey {
+	return newRouteKeyFromNetworkSubnet(network, subnet) + RouteKey(destination.Masked().String()) + indexDelimiter
+}
+
+func newRouteKey(network NetworkName, subnet SubnetName, destination netip.Prefix, kind RouteKind) RouteKey {
+	return newRouteKeyFromNetworkSubnetCIDR(network, subnet, destination) + RouteKey(kind.String())
 }
 
 var (
@@ -144,9 +229,10 @@ func RoutesByNetworkSubnet(network NetworkName, subnet SubnetName) statedb.Query
 	return routeIndex.Query(newRouteKeyFromNetworkSubnet(network, subnet))
 }
 
-// RouteByNetworkSubnetAndDestination queries the private network route table by network name, subnet name and route destination
-func RouteByNetworkSubnetAndDestination(network NetworkName, subnet SubnetName, cidr netip.Prefix) statedb.Query[Route] {
-	return routeIndex.Query(newRouteKey(network, subnet, cidr))
+// DefaultRouteByNetworkSubnetAndDestination queries the private network route table by network name, subnet name and route destination.
+// It will only return "default" routes and not any other type or routes.
+func DefaultRouteByNetworkSubnetAndDestination(network NetworkName, subnet SubnetName, cidr netip.Prefix) statedb.Query[Route] {
+	return routeIndex.Query(newRouteKey(network, subnet, cidr, RouteKindDefault))
 }
 
 func NewRouteTable(db *statedb.DB) (statedb.RWTable[Route], error) {
@@ -160,7 +246,7 @@ func NewRouteTable(db *statedb.DB) (statedb.RWTable[Route], error) {
 func (r Route) getNexthop(activeINB INBNode, bridgeMode bool) netip.Addr {
 	var nexthop netip.Addr
 
-	if r.EVPNGateway {
+	if r.EVPNGateway || r.isPeeringRoute() {
 		nexthop = r.unspecifiedNexthop()
 	} else if !bridgeMode {
 		if activeINB.IP.IsValid() {

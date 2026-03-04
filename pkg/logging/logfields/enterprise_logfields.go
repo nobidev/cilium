@@ -117,6 +117,11 @@ const (
 	ConflictingPrivateNetworkSubnet = "conflictingSubnet"
 	// ConflictingCIDRs is a list of IPv4/IPv6 CIDRs that conflicts with another list
 	ConflictingCIDRs = "conflictingCIDRs"
+	// PrivateNetworkAttachment is the name of link created for private network.
+	PrivateNetworkAttachment = "privateNetworkAttachment"
+
+	PeerNetwork = "peer-network"
+	PeerSubnet  = "peer-subnet"
 
 	Stdout = "stdout"
 	Stderr = "stderr"
@@ -125,4 +130,6 @@ const (
 	Chaddr = "chaddr" // DHCP client hardware address
 	Yiaddr = "yiaddr" // DHCP "your IP" address
 	Giaddr = "giaddr" // DHCP gateway IP address
+
+	ServiceCount = "serviceCount"
 )

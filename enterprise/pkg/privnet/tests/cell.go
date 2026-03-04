@@ -31,6 +31,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -46,12 +47,15 @@ func NewTestHive(t testing.TB) *hive.Hive {
 		daemonk8s.ResourcesCell,
 		daemonk8s.TablesCell,
 
+		node.LocalNodeStoreTestCell,
+
 		mockEndpointCell(t),
 		mockLocalCiliumNodeCell(t),
 		mockGneigh(t),
 		mockBPFMapCell(t),
 		mockK8sCell(t),
 		mockPolicyCell(t),
+		mockDeviceManagerCell(t),
 
 		cell.Provide(
 			dptables.NewDeviceTable,
@@ -80,6 +84,14 @@ func NewTestHive(t testing.TB) *hive.Hive {
 				return testidentity.NewMockIdentityAllocator(nil)
 			},
 		),
+
+		cell.Invoke(func(localNodeStore *node.LocalNodeStore) {
+			// Prepopulate local node name and labels for nodeattachment test which
+			// requires modifying the local node labels.
+			localNodeStore.Update(func(n *node.LocalNode) {
+				n.Labels["node"] = "node1"
+			})
+		}),
 
 		// Make privnet ID predictable
 		withOverride(idpool.NewIDPool[tables.NetworkName, tables.NetworkID](slog.Default(), 1, tables.NetworkIDMax)),

@@ -98,6 +98,13 @@ func (cfg Config) EnabledAsLocalAccess() bool {
 	return cfg.Enabled && cfg.Mode == ModeLocalAccess
 }
 
+// IsLocallyConnected returns whether private networking is enabled, and configured in local access or
+// bridge mode. It signifies that the private network can egress via a local device configured on
+// the node. Currently, INB or a K8s cluster in local access mode can egress via local device.
+func (cfg Config) IsLocallyConnected() bool {
+	return cfg.Enabled && (cfg.Mode == ModeBridge || cfg.Mode == ModeLocalAccess)
+}
+
 func (cfg Config) validate() error {
 	switch cfg.Mode {
 	case ModeDefault, ModeBridge, ModeLocalAccess:

@@ -20,3 +20,12 @@ struct {
 	__uint(max_entries, VNI_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_vni __section_maps_btf;
+
+static __always_inline const struct vni_val *
+vni_lookup(__u32 vni)
+{
+	struct vni_key key = {
+		.vni = vni,
+	};
+	return map_lookup_elem(&cilium_vni, &key);
+}

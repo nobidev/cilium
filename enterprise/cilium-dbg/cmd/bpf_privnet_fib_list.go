@@ -28,14 +28,16 @@ func init() {
 }
 
 type fibEntry struct {
-	NetID    uint16
-	SubnetID uint16
-	Prefix   string
-	Nexthop  string
-	IfIndex  uint32
-	MAC      string
-	VNI      uint32
-	Flags    privnet.FIBFlags
+	NetID        uint16
+	SubnetID     uint16
+	Prefix       string
+	Nexthop      string
+	IfIndex      uint32
+	MAC          string
+	PeerNetID    uint16
+	PeerSubnetID uint16
+	VNI          uint32
+	Flags        privnet.FIBFlags
 }
 
 var bpfPrivNetFIBListCmd = &cobra.Command{
@@ -55,14 +57,16 @@ var bpfPrivNetFIBListCmd = &cobra.Command{
 			key := k.(*privnet.FIBKey)
 			val := v.(*privnet.FIBVal)
 			fibList = append(fibList, fibEntry{
-				NetID:    uint16(key.NetID),
-				SubnetID: uint16(key.SubnetID),
-				Prefix:   key.ToPrefix().String(),
-				Nexthop:  val.ToAddr().String(),
-				IfIndex:  val.IfIndex,
-				MAC:      val.MAC.String(),
-				VNI:      val.VNI,
-				Flags:    val.Flags,
+				NetID:        uint16(key.NetID),
+				SubnetID:     uint16(key.SubnetID),
+				Prefix:       key.ToPrefix().String(),
+				Nexthop:      val.ToAddr().String(),
+				IfIndex:      val.IfIndex,
+				MAC:          val.MAC.String(),
+				PeerNetID:    uint16(val.PeerNetID),
+				PeerSubnetID: uint16(val.PeerSubnetID),
+				VNI:          val.VNI,
+				Flags:        val.Flags,
 			})
 		}
 		if err := fibMap.Map.DumpWithCallback(parseFIB); err != nil {
@@ -77,11 +81,11 @@ var bpfPrivNetFIBListCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "NetID\tSubnetID\tPrefix\tNexthop\tIfIndex\tMAC\tVNI\tFlags")
+		fmt.Fprintln(w, "NetID\tSubnetID\tPrefix\tNexthop\tIfIndex\tMAC\tVNI\tPeerIDs\tFlags")
 
 		for _, fib := range fibList {
-			fmt.Fprintf(w, "%#x\t%#x\t%s\t%s\t%d\t%s\t%d\t%#x\n",
-				fib.NetID, fib.SubnetID, fib.Prefix, fib.Nexthop, fib.IfIndex, fib.MAC, fib.VNI, fib.Flags)
+			fmt.Fprintf(w, "%#x\t%#x\t%s\t%s\t%d\t%s\t%d\t%#x/%#x\t%#x\n",
+				fib.NetID, fib.SubnetID, fib.Prefix, fib.Nexthop, fib.IfIndex, fib.MAC, fib.VNI, fib.PeerNetID, fib.PeerSubnetID, fib.Flags)
 		}
 
 		w.Flush()

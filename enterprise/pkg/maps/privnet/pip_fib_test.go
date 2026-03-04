@@ -58,33 +58,35 @@ func TestPIPFIBString(t *testing.T) {
 		).String())
 
 	// FIB key
-	assert.Equal(t, "0x42 0x24 10.1.0.0/16",
+	assert.Equal(t, "0x42 0x24 0x0 10.1.0.0/16",
 		NewFIBKey(
-			0x42, 0x24,
+			0x42, 0x24, FIBTypeDefault,
 			netip.MustParsePrefix("10.1.0.0/16"),
 		).String())
-	assert.Equal(t, "0x63 0xb fc:0:80::/64",
+	assert.Equal(t, "0x63 0xb 0x1 fc:0:80::/64",
 		NewFIBKey(
-			99, 11,
+			99, 11, FIBTypePeering,
 			netip.MustParsePrefix("fc:00:80::/64"),
 		).String())
 
 	// FIB value
-	assert.Equal(t, "192.168.3.99 0x1 00:ee:11:22:33:44 10 100",
+	assert.Equal(t, "192.168.3.99 0x1 00:ee:11:22:33:44 10 100 0x0/0x0",
 		NewFIBVal(
 			netip.MustParseAddr("192.168.3.99"),
 			types.MACAddr(mac.MustParseMAC("00:ee:11:22:33:44")),
 			FIBFlagL2Announce,
 			10,
 			vni.MustFromUint32(100),
+			0x0, 0x0,
 		).String())
-	assert.Equal(t, "fa:ce::1 0x2 00:ee:11:22:33:44 10 100",
+	assert.Equal(t, "fa:ce::1 0x2 00:ee:11:22:33:44 10 100 0xde/0xad",
 		NewFIBVal(
 			netip.MustParseAddr("fa:ce:0:0::1"),
 			types.MACAddr(mac.MustParseMAC("00:ee:11:22:33:44")),
 			FIBFlagSubnetRoute,
 			10,
 			vni.MustFromUint32(100),
+			0xde, 0xad,
 		).String())
 }
 

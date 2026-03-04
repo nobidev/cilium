@@ -186,6 +186,42 @@ privnet_v4_del_route(__u16 net_id, __u16 subnet_id, __be32 prefix)
 }
 
 static __always_inline void
+privnet_v4_add_peering_route(__u16 net_id, __u16 subnet_id, __be32 prefix, __u8 prefix_len,
+			     __u16 peer_net, __u16 peer_subnet)
+{
+	struct privnet_fib_key key = {
+		.lpm_key.prefixlen = PRIVNET_FIB_PREFIX_LEN(prefix_len),
+		.net_id = net_id,
+		.subnet_id = subnet_id,
+		.type = PRIVNET_FIB_TYPE_PEERING,
+		.family = ENDPOINT_KEY_IPV4,
+		.ip4 = prefix,
+	};
+	struct privnet_fib_val value = {
+		.family = ENDPOINT_KEY_IPV4,
+		.peer_net_id = peer_net,
+		.peer_subnet_id = peer_subnet,
+	};
+
+	map_update_elem(&cilium_privnet_fib, &key, &value, BPF_ANY);
+}
+
+static __always_inline void
+privnet_v4_del_peering_route(__u16 net_id, __u16 subnet_id, __be32 prefix, __u8 prefix_len)
+{
+	struct privnet_fib_key key = {
+		.lpm_key.prefixlen = PRIVNET_FIB_PREFIX_LEN(prefix_len),
+		.net_id = net_id,
+		.subnet_id = subnet_id,
+		.type = PRIVNET_FIB_TYPE_PEERING,
+		.family = ENDPOINT_KEY_IPV4,
+		.ip4 = prefix,
+	};
+
+	map_delete_elem(&cilium_privnet_fib, &key);
+}
+
+static __always_inline void
 __privnet_v6_add_endpoint_entry(__u16 net_id, __u16 subnet_id, const union v6addr *net_ip,
 				const union v6addr *pod_ip, __u32 ifindex)
 {

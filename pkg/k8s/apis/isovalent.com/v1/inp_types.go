@@ -4,7 +4,6 @@
 package v1
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -19,6 +18,8 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/policy/utils"
 )
 
 // +genclient
@@ -91,59 +92,6 @@ type IsovalentNetworkPolicyRule struct {
 
 	// Order specifies the order in which the policy is applied.
 	Order *float32 `json:"order,omitempty"`
-}
-
-// MarshalJSON returns the JSON encoding of r. It is like api.Rule.MarshalJSON (which would be used
-// without this method being defined because api.Rule is embedded) but also marshals the Order field.
-func (r *IsovalentNetworkPolicyRule) MarshalJSON() ([]byte, error) {
-	type common struct {
-		Ingress           []api.IngressRule      `json:"ingress,omitempty"`
-		IngressDeny       []api.IngressDenyRule  `json:"ingressDeny,omitempty"`
-		Egress            []api.EgressRule       `json:"egress,omitempty"`
-		EgressDeny        []api.EgressDenyRule   `json:"egressDeny,omitempty"`
-		Labels            labels.LabelArray      `json:"labels,omitempty"`
-		EnableDefaultDeny *api.DefaultDenyConfig `json:"enableDefaultDeny,omitempty"`
-		Description       string                 `json:"description,omitempty"`
-		Order             *float32               `json:"order,omitempty"`
-	}
-
-	var a any
-	ruleCommon := common{
-		Ingress:     r.Ingress,
-		IngressDeny: r.IngressDeny,
-		Egress:      r.Egress,
-		EgressDeny:  r.EgressDeny,
-		Labels:      r.Labels,
-		Description: r.Description,
-		Order:       r.Order,
-	}
-
-	// TODO: convert this to `omitzero` when Go v1.24 is released
-	if r.EnableDefaultDeny.Egress != nil || r.EnableDefaultDeny.Ingress != nil {
-		ruleCommon.EnableDefaultDeny = &r.EnableDefaultDeny
-	}
-
-	// Only one of endpointSelector or nodeSelector is permitted.
-	switch {
-	case r.EndpointSelector.LabelSelector != nil:
-		a = struct {
-			EndpointSelector api.EndpointSelector `json:"endpointSelector,omitempty"`
-			common
-		}{
-			EndpointSelector: r.EndpointSelector,
-			common:           ruleCommon,
-		}
-	case r.NodeSelector.LabelSelector != nil:
-		a = struct {
-			NodeSelector api.EndpointSelector `json:"nodeSelector,omitempty"`
-			common
-		}{
-			NodeSelector: r.NodeSelector,
-			common:       ruleCommon,
-		}
-	}
-
-	return json.Marshal(a)
 }
 
 func (r *IsovalentNetworkPolicyRule) DeepEqual(o *IsovalentNetworkPolicyRule) bool {
@@ -247,7 +195,7 @@ func (r *IsovalentNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName str
 
 // Parse parses an IsovalentNetworkPolicy and returns a list of cilium policy
 // rules.
-func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
+func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (policytypes.PolicyEntries, error) {
 	if r.ObjectMeta.Name == "" {
 		return nil, NewErrParse("IsovalentNetworkPolicy must have name")
 	}
@@ -269,7 +217,7 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) 
 	name := r.ObjectMeta.Name
 	uid := r.ObjectMeta.UID
 
-	retRules := api.Rules{}
+	retRules := make(policytypes.PolicyEntries, 0, len(r.Specs)+1)
 
 	if r.Spec == nil && r.Specs == nil {
 		return nil, ErrEmptyINP
@@ -287,7 +235,13 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) 
 		}
 
 		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, clusterName, namespace, name, uid)
-		retRules = append(retRules, cr)
+		cre := utils.RulesToPolicyEntries(api.Rules{cr})
+		for _, re := range cre {
+			if r.Spec.Order != nil {
+				re.Priority = float64(*r.Spec.Order)
+			}
+			retRules = append(retRules, re)
+		}
 	}
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
@@ -301,7 +255,13 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) 
 				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentNetworkPolicy specs: %s", err))
 			}
 			cr := rule.parseToIsovalentNetworkPolicyRule(logger, clusterName, namespace, name, uid)
-			retRules = append(retRules, cr)
+			cre := utils.RulesToPolicyEntries(api.Rules{cr})
+			for _, re := range cre {
+				if rule.Order != nil {
+					re.Priority = float64(*rule.Order)
+				}
+				retRules = append(retRules, re)
+			}
 		}
 	}
 
@@ -346,8 +306,6 @@ func (r *IsovalentNetworkPolicyRule) SanitizeINP() error {
 
 func (r *IsovalentNetworkPolicyRule) parseToIsovalentNetworkPolicyRule(logger *slog.Logger, clusterName, namespace, name string, uid types.UID) *api.Rule {
 	cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, &r.Rule)
-	// TODO: uncomment in ft/main-ce/ordered-policy, check for order ≥ 0 for INP (but not ICNP)
-	// cr.OrderCEEOnly = r.Spec.Order
 	return cr
 }
 

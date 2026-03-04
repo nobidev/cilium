@@ -73,7 +73,7 @@ func (me MapEntry) String() string {
 var _ statedb.TableWritable = &MapEntry{}
 
 func (me *MapEntry) TableHeader() []string {
-	return []string{"Type", "Network", "Subnet", "CIDR", "Nexthop", "IfIndex", "MAC", "L2Ann", "VNI", "Status"}
+	return []string{"Type", "Network", "Subnet", "CIDR", "Nexthop", "IfIndex", "MAC", "L2Ann", "VNI", "Peer", "Status"}
 }
 
 func (me MapEntry) TableRow() []string {
@@ -98,6 +98,12 @@ func (me MapEntry) TableRow() []string {
 		mac,
 		l2Announce,
 		cmp.Or(me.Routing.VNI.String(), "N/A"),
+		func() string {
+			if me.Routing.PeerID.Network == 0 || me.Routing.PeerID.Subnet == 0 {
+				return "N/A"
+			}
+			return me.Routing.PeerID.String()
+		}(),
 		me.Status.String(),
 	}
 }
@@ -117,6 +123,8 @@ const (
 	MapEntryTypeStaticRoute
 	// MapEntryTypeEVPNRoute represents an EVPN route.
 	MapEntryTypeEVPNRoute
+	// MapEntryTypePeeringRoute represents a peering route, i.e. a route to another subnet.
+	MapEntryTypePeeringRoute
 )
 
 func (typ MapEntryType) String() string {
@@ -131,6 +139,8 @@ func (typ MapEntryType) String() string {
 		return "S"
 	case MapEntryTypeEVPNRoute:
 		return "V"
+	case MapEntryTypePeeringRoute:
+		return "P"
 	default:
 		return "?"
 	}
@@ -157,6 +167,8 @@ func (typ *MapEntryType) UnmarshalText(in []byte) error {
 		*typ = MapEntryTypeStaticRoute
 	case "V":
 		*typ = MapEntryTypeEVPNRoute
+	case "P":
+		*typ = MapEntryTypePeeringRoute
 	default:
 		return fmt.Errorf("invalid MapEntryType %q", string(in))
 	}
@@ -169,14 +181,11 @@ type MapEntryTarget struct {
 	// NetworkName is the name of the target private network.
 	NetworkName NetworkName
 
-	// NetworkID is the NetworkID of the target private network.
-	NetworkID NetworkID
-
 	// SubnetName is the name of the target subnet.
 	SubnetName SubnetName
 
-	// SubnetID is the local ID of the target subnet.
-	SubnetID SubnetID
+	// ID is the Network and SubnetID of the target subnet
+	ID SubnetIDPair
 
 	// CIDR is the CIDR of the target endpoint/route.
 	CIDR netip.Prefix
@@ -189,9 +198,8 @@ type MapEntryTarget struct {
 // Equal returns whether two MapEntryTarget objects are identical.
 func (met MapEntryTarget) Equal(other MapEntryTarget) bool {
 	return met.NetworkName == other.NetworkName &&
-		met.NetworkID == other.NetworkID &&
+		met.ID == other.ID &&
 		met.SubnetName == other.SubnetName &&
-		met.SubnetID == other.SubnetID &&
 		met.CIDR == other.CIDR &&
 		slices.Equal(met.MAC, other.MAC)
 }
@@ -220,6 +228,9 @@ type MapEntryRouting struct {
 	// gratuitous ARP and ND packets. Currently applicable on the INB cluster(s) only,
 	// and for entries of type [MapEntryTypeEndpoint].
 	L2Announce bool
+
+	// PeerID contains the SubnetID and NetworkID of the target subnet.
+	PeerID SubnetIDPair
 }
 
 // MapEntryKey is <network>|<subnet>|<type>|<network-cidr>.

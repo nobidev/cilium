@@ -18,6 +18,7 @@ func init() {
 
 		// enterprise source files from bpf/
 		201: "enterprise_bpf_host.h",
+		202: "enterprise_bpf_evpn.c",
 
 		// @@ source files list end
 	}

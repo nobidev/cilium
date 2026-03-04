@@ -143,6 +143,9 @@ func newCmdPrivNetTest() *cobra.Command {
 			// Traffic to an external endpoint in subnet-1 should work via unknown flow
 			t.Run(ctx, privnet.NewClientToEcho(t, vmClientB2, vmEchoExtB2), privnet.ExpectationOK)
 
+			// Network B subnet-2 to subnet-1 should work through intra-privnet peering routes
+			t.Run(ctx, privnet.NewClientToEcho(t, vmClientB2, vmEchoOtherB), privnet.ExpectationOK)
+
 			// Ensure traffic via P-IP is dropped
 			t.Run(ctx, privnet.NewClientToPod(t, vmClientA, podEchoOtherC), privnet.ExpectationCurlTimeout)
 

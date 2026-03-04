@@ -13,6 +13,8 @@
 
 #include "enterprise_privnet_config.h"
 #include "enterprise_ext_eps_policy.h"
+#include "lib/drop_reasons.h"
+#include "lib/local_delivery.h"
 
 /*
  * Privnet datapath for communication between kubernetes cluster and Isovalent Network Bridge.
@@ -153,12 +155,18 @@
  *      d. Relay response sent to pod's host-side veth device
  */
 
+/* Based on enterprise/pkg/maps/privnet.FIBTypeDefault */
+#define PRIVNET_FIB_TYPE_DEFAULT 0
+/* Based on enterprise/pkg/maps/privnet.FIBTypePeering */
+#define PRIVNET_FIB_TYPE_PEERING 1
+
 struct privnet_fib_key {
 	struct bpf_lpm_trie_key lpm_key;
 	__u16 net_id;
 	__u16 subnet_id;
 	__u8 family;
-	__u8 pad[3];
+	__u8 type;
+	__u8 pad[2];
 	union {
 		struct {
 			__be32		ip4;
@@ -186,11 +194,13 @@ struct privnet_fib_val {
 		flag_is_subnet_route:1,
 		flag_is_static_route:1,
 		flag_is_vxlan_route:1,
-		pad:4;
+		flag_is_external_ep:1,
+		pad:3;
 	__u8 family;
 	__u32 ifindex;
 	__u32 vni;
-	__u32 pad5;
+	__u16 peer_net_id;
+	__u16 peer_subnet_id;
 };
 
 struct privnet_pip_key {
@@ -310,6 +320,14 @@ nat_v6_addr(struct __ctx_buff *ctx, int l3_off, const union v6addr *new_addr)
 	return CTX_ACT_OK;
 }
 
+static __always_inline bool is_privnet_route_entry(const struct privnet_fib_val *val)
+{
+	if (!val)
+		return false;
+
+	return val->flag_is_subnet_route || val->flag_is_static_route || val->flag_is_vxlan_route;
+}
+
 #define V4_PRIVNET_KEY_LEN (sizeof(__u32) * 8)
 #define V6_PRIVNET_KEY_LEN (sizeof(union v6addr) * 8)
 
@@ -336,30 +354,71 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_privnet_pip __section_maps_btf;
 
-static __always_inline __maybe_unused const struct privnet_fib_val *
+static __always_inline const struct privnet_fib_val *
+privnet_fib_lookup(const struct privnet_fib_key *key) {
+	const struct privnet_fib_val *peering_ret;
+	const struct privnet_fib_val *ret = map_lookup_elem(&cilium_privnet_fib, key);
+	struct privnet_fib_key peer_key;
+
+	/* If the initial lookup found an (external) endpoint in the requested
+	 * subnet, directly return it. Endpoints in the current subnet will always
+	 * have precedence over endpoints in peered subnets
+	 */
+	if (ret && !is_privnet_route_entry(ret))
+		return ret;
+
+	/* If the initial lookup did not find an (external) endpoint in the requested
+	 * subnet, make a secondary lookup to find if there is a peered subnet that
+	 * covers the requested IP.
+	 * If not we'll return the result of the initial lookup, which might be a route
+	 * or empty.
+	 */
+	peer_key = *key;
+	peer_key.type = PRIVNET_FIB_TYPE_PEERING;
+	peering_ret = map_lookup_elem(&cilium_privnet_fib, &peer_key);
+	if (!peering_ret)
+		return ret;
+
+	/* Make a lookup in the peered subnet. If we find an endpoint (and only an endpoint not
+	 * an external endpoint), we return it. Otherwise we return the result of the initial
+	 * lookup.
+	 */
+	peer_key.type = PRIVNET_FIB_TYPE_DEFAULT;
+	peer_key.net_id = peering_ret->peer_net_id;
+	peer_key.subnet_id = peering_ret->peer_subnet_id;
+	peering_ret = map_lookup_elem(&cilium_privnet_fib, &peer_key);
+	if (peering_ret &&
+	    !is_privnet_route_entry(peering_ret) &&
+	    !peering_ret->flag_is_external_ep)
+		return peering_ret;
+
+	return ret;
+}
+
+static __always_inline const struct privnet_fib_val *
 privnet_fib_lookup4(__u16 net_id, __u16 subnet_id, __be32 addr) {
 	const struct privnet_fib_key key = {
 		.lpm_key = { PRIVNET_FIB_PREFIX_LEN(V4_PRIVNET_KEY_LEN), {} },
 		.net_id = net_id,
 		.subnet_id = subnet_id,
 		.family = ENDPOINT_KEY_IPV4,
+		.type = PRIVNET_FIB_TYPE_DEFAULT,
 		.ip4 = addr,
 	};
-
-	return map_lookup_elem(&cilium_privnet_fib, &key);
+	return privnet_fib_lookup(&key);
 }
 
-static __always_inline __maybe_unused const struct privnet_fib_val *
+static __always_inline const struct privnet_fib_val *
 privnet_fib_lookup6(__u16 net_id, __u16 subnet_id, union v6addr addr) {
 	const struct privnet_fib_key key = {
 		.lpm_key = { PRIVNET_FIB_PREFIX_LEN(V6_PRIVNET_KEY_LEN), {} },
 		.net_id = net_id,
 		.subnet_id = subnet_id,
 		.family = ENDPOINT_KEY_IPV6,
+		.type = PRIVNET_FIB_TYPE_DEFAULT,
 		.ip6 = addr,
 	};
-
-	return map_lookup_elem(&cilium_privnet_fib, &key);
+	return privnet_fib_lookup(&key);
 }
 
 struct {
@@ -460,14 +519,6 @@ static __always_inline bool privnet_agent_alive(void)
 		return false;
 
 	return true;
-}
-
-static __always_inline bool is_privnet_route_entry(const struct privnet_fib_val *val)
-{
-	if (!val)
-		return false;
-
-	return val->flag_is_subnet_route || val->flag_is_static_route;
 }
 
 static __always_inline int
@@ -966,6 +1017,94 @@ out:
 	return (net_id == 0) ?
 		enforce_privnet_ingress_segmentation_at_inb(unknown_flow, sip_val, dip_val) :
 		enforce_privnet_ingress_segmentation_at_lxc(unknown_flow, net_id, sip_val, dip_val);
+}
+
+static __always_inline int
+privnet_evpn_ingress_ipv4(struct __ctx_buff *ctx, __u16 net_id)
+{
+	const struct privnet_fib_val *dip_val;
+	const struct endpoint_info *ep;
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u16 subnet_id;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	subnet_id = privnet_subnet_id_lookup4(net_id, ip4->daddr);
+
+	dip_val = privnet_fib_lookup4(net_id, subnet_id, ip4->daddr);
+	if (!dip_val)
+		return DROP_UNROUTABLE;
+
+	/* We only want to handle EVPN => Endpoint ingress at this
+	 * point. Drop in any other case for now.
+	 */
+	if (is_privnet_route_entry(dip_val))
+		return DROP_UNROUTABLE;
+
+	/* When we don't have an endpoint, don't route further. */
+	ep = __lookup_ip4_endpoint(dip_val->ip4);
+	if (!ep)
+		return DROP_UNROUTABLE;
+
+	return redirect_ep(ctx, ep->ifindex, true, false);
+}
+
+static __always_inline int
+privnet_evpn_ingress_ipv6(struct __ctx_buff *ctx, __u16 net_id)
+{
+	const struct privnet_fib_val *dip_val;
+	const struct endpoint_info *ep;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	union v6addr daddr;
+	__u16 subnet_id;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
+
+	subnet_id = privnet_subnet_id_lookup6(net_id, daddr);
+
+	dip_val = privnet_fib_lookup6(net_id, subnet_id, daddr);
+	if (!dip_val)
+		return DROP_UNROUTABLE;
+
+	/* We only want to handle EVPN => Endpoint ingress at this
+	 * point. Drop in any other case for now.
+	 */
+	if (is_privnet_route_entry(dip_val))
+		return DROP_UNROUTABLE;
+
+	/* When we don't have an endpoint, don't route further. */
+	ep = __lookup_ip6_endpoint((const union v6addr *)&dip_val->ip6);
+	if (!ep)
+		return DROP_UNROUTABLE;
+
+	return redirect_ep(ctx, ep->ifindex, true, false);
+}
+
+static __always_inline int
+__privnet_evpn_ingress(struct __ctx_buff *ctx, const __u16 net_id)
+{
+	__u16 proto;
+
+	if (!CONFIG(privnet_enable))
+		return CTX_ACT_DROP;
+
+	if (!validate_ethertype(ctx, &proto))
+		return DROP_INVALID;
+
+	switch (proto) {
+	case bpf_htons(ETH_P_IP):
+		return privnet_evpn_ingress_ipv4(ctx, net_id);
+	case bpf_htons(ETH_P_IPV6):
+		return privnet_evpn_ingress_ipv6(ctx, net_id);
+	default:
+		return DROP_UNKNOWN_L3;
+	}
 }
 
 static __always_inline int

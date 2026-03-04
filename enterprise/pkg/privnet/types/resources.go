@@ -8,25 +8,17 @@
 // or reproduction of this material is strictly forbidden unless prior written
 // permission is obtained from Isovalent Inc.
 
-package tables
+package types
 
-import (
-	"k8s.io/apimachinery/pkg/util/sets"
+// PrivateNetworkResourceKind is the type of private network resource,
+// for eg ClusterwidePrivateNetwork, PrivateNetworkNodeAttachment etc.
+type PrivateNetworkResourceKind string
 
-	"github.com/cilium/cilium/pkg/time"
-)
-
-func formatActivatedAt(activatedAt time.Time) string {
-	if activatedAt.IsZero() {
-		return "<inactive>"
-	}
-	return activatedAt.UTC().Format(time.RFC3339)
+type PrivateNetworkResource struct {
+	Kind PrivateNetworkResourceKind
+	Name string
 }
 
-// equalElements compares two slices and returns if they contain the same elements.
-// NOTE: It will *ignore* duplicates in the slice
-func equalElements[T comparable](a, b []T) bool {
-	sa := sets.New(a...)
-	sb := sets.New(b...)
-	return sa.Equal(sb)
+func (r PrivateNetworkResource) String() string {
+	return string(r.Kind) + "/" + r.Name
 }

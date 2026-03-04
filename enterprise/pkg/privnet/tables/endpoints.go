@@ -67,11 +67,13 @@ func (ep Endpoint) ToMapEntry(subnet SubnetSpec, bridgeMode, announce bool) *Map
 
 		Target: MapEntryTarget{
 			NetworkName: subnet.Network,
-			NetworkID:   subnet.NetworkID,
 			SubnetName:  subnet.Name,
-			SubnetID:    subnet.ID,
-			CIDR:        netip.PrefixFrom(ep.Network.IP, ep.Network.IP.BitLen()),
-			MAC:         ep.Network.MAC,
+			ID: SubnetIDPair{
+				Network: subnet.NetworkID,
+				Subnet:  subnet.ID,
+			},
+			CIDR: netip.PrefixFrom(ep.Network.IP, ep.Network.IP.BitLen()),
+			MAC:  ep.Network.MAC,
 		},
 
 		Routing: MapEntryRouting{

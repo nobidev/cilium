@@ -136,8 +136,8 @@ func (pmo *pipFIBMapOps) FIBKeyVal(me *tables.MapEntry) *pnmaps.FIBKeyVal {
 		entryVNI = me.Routing.VNI
 	}
 	return &pnmaps.FIBKeyVal{
-		Key: pnmaps.NewFIBKey(me.Target.NetworkID, me.Target.SubnetID, me.Target.CIDR),
-		Val: pnmaps.NewFIBVal(me.Routing.NextHop, mac, pmo.FIBFlags(me.Type, me.Routing.L2Announce), uint32(me.Routing.EgressIfIndex), entryVNI),
+		Key: pnmaps.NewFIBKey(me.Target.ID.Network, me.Target.ID.Subnet, pmo.FIBType(me.Type), me.Target.CIDR),
+		Val: pnmaps.NewFIBVal(me.Routing.NextHop, mac, pmo.FIBFlags(me.Type, me.Routing.L2Announce), uint32(me.Routing.EgressIfIndex), entryVNI, me.Routing.PeerID.Network, me.Routing.PeerID.Subnet),
 	}
 }
 
@@ -145,7 +145,12 @@ func (pmo *pipFIBMapOps) FIBFlags(typ tables.MapEntryType, l2ann bool) pnmaps.FI
 	var flags pnmaps.FIBFlags
 
 	switch typ {
-	case tables.MapEntryTypeEndpoint, tables.MapEntryTypeExternalEndpoint:
+	case tables.MapEntryTypeEndpoint:
+		if l2ann {
+			flags |= pnmaps.FIBFlagL2Announce
+		}
+	case tables.MapEntryTypeExternalEndpoint:
+		flags |= pnmaps.FIBFlagExternalEndpoint
 		if l2ann {
 			flags |= pnmaps.FIBFlagL2Announce
 		}
@@ -160,6 +165,15 @@ func (pmo *pipFIBMapOps) FIBFlags(typ tables.MapEntryType, l2ann bool) pnmaps.FI
 	return flags
 }
 
+func (pmo *pipFIBMapOps) FIBType(typ tables.MapEntryType) pnmaps.FIBType {
+	switch typ {
+	case tables.MapEntryTypePeeringRoute:
+		return pnmaps.FIBTypePeering
+	default:
+		return pnmaps.FIBTypeDefault
+	}
+}
+
 func (pmo *pipFIBMapOps) PIPKeyVal(me *tables.MapEntry) *pnmaps.PIPKeyVal {
 	if me.Type != tables.MapEntryTypeEndpoint && me.Type != tables.MapEntryTypeExternalEndpoint {
 		return nil
@@ -168,7 +182,7 @@ func (pmo *pipFIBMapOps) PIPKeyVal(me *tables.MapEntry) *pnmaps.PIPKeyVal {
 	return &pnmaps.PIPKeyVal{
 		Key: pnmaps.NewPIPKey(netip.PrefixFrom(me.Routing.NextHop, me.Routing.NextHop.BitLen())),
 		Val: pnmaps.NewPIPVal(
-			me.Target.NetworkID, me.Target.CIDR.Addr(),
+			me.Target.ID.Network, me.Target.CIDR.Addr(),
 			types.MACAddr(me.Target.MAC), uint32(me.Routing.EgressIfIndex),
 		),
 	}
