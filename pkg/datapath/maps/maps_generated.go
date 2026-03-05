@@ -74,6 +74,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumEgresscallPolicySpec,
 	newCiliumEncryptStateSpec,
 	newCiliumEventsSpec,
+	newCiliumEvpnFIBSpec,
 	newCiliumExtEpsPolicySpec,
 	newCiliumIPCacheV2Spec,
 	newCiliumIpmasqV4Spec,
@@ -525,6 +526,20 @@ func newCiliumEventsSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  4,
 		MaxEntries: 0,
 		Flags:      0,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumEvpnFIBSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       "cilium_evpn_fib",
+		Type:       ebpf.LPMTrie,
+		KeySize:    24,
+		Key:        anyTypeByName(btf, "evpn_fib_key"),
+		ValueSize:  32,
+		Value:      anyTypeByName(btf, "evpn_fib_val"),
+		MaxEntries: 65536,
+		Flags:      unix.BPF_F_NO_PREALLOC,
 		Pinning:    ebpf.PinByName,
 	}
 }
