@@ -40,6 +40,7 @@ import (
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -48,6 +49,7 @@ import (
 	policyutils "github.com/cilium/cilium/pkg/policy/utils"
 	cslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/source"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -58,6 +60,7 @@ func mockPolicyCell(t testing.TB) cell.Cell {
 		cell.Provide(
 			newMockIPCacher,
 			newMockPolicyImporter,
+			newMockIdentityAllocator,
 
 			func(alloc cache.IdentityAllocator) uhive.ScriptCmdsOut {
 				return uhive.NewScriptCmds(map[string]script.Cmd{
@@ -99,6 +102,77 @@ func (m *mockPolicyImporter) UpdatePolicy(update *policytypes.PolicyUpdate) {}
 
 func newMockPolicyImporter() policycell.PolicyImporter {
 	return &mockPolicyImporter{}
+}
+
+type mockIdentityAllocator struct {
+	mu lock.Mutex
+	*testidentity.MockIdentityAllocator
+}
+
+func (m *mockIdentityAllocator) AllocateIdentity(ctx context.Context, l labels.Labels, b bool, numericIdentity identity.NumericIdentity) (*identity.Identity, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.MockIdentityAllocator.AllocateIdentity(ctx, l, b, numericIdentity)
+}
+
+func (m *mockIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.MockIdentityAllocator.AllocateLocalIdentity(lbls, notifyOwner, oldNID)
+}
+
+func (m *mockIdentityAllocator) Release(ctx context.Context, i *identity.Identity, b bool) (released bool, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.MockIdentityAllocator.Release(ctx, i, b)
+}
+
+func (m *mockIdentityAllocator) ReleaseLocalIdentities(numericIdentity ...identity.NumericIdentity) ([]identity.NumericIdentity, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.MockIdentityAllocator.ReleaseLocalIdentities(numericIdentity...)
+}
+
+func (m *mockIdentityAllocator) LookupIdentity(ctx context.Context, lbls labels.Labels) *identity.Identity {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.MockIdentityAllocator.LookupIdentity(ctx, lbls)
+}
+
+func (m *mockIdentityAllocator) LookupIdentityByID(ctx context.Context, id identity.NumericIdentity) *identity.Identity {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.MockIdentityAllocator.LookupIdentityByID(ctx, id)
+}
+
+func (m *mockIdentityAllocator) GetIdentityCache() identity.IdentityMap {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.MockIdentityAllocator.GetIdentityCache()
+}
+
+func (m *mockIdentityAllocator) GetIdentities() cache.IdentitiesModel {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.MockIdentityAllocator.GetIdentities()
+}
+
+func (m *mockIdentityAllocator) WithholdLocalIdentities(nids []identity.NumericIdentity) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.MockIdentityAllocator.WithholdLocalIdentities(nids)
+}
+
+func (m *mockIdentityAllocator) UnwithholdLocalIdentities(nids []identity.NumericIdentity) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.MockIdentityAllocator.UnwithholdLocalIdentities(nids)
+}
+
+func newMockIdentityAllocator() cache.IdentityAllocator {
+	return &mockIdentityAllocator{
+		MockIdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
+	}
 }
 
 func startFakeCNPWatcher(in struct {

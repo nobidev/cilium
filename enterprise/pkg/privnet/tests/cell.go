@@ -27,14 +27,12 @@ import (
 	dptables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 func NewTestHive(t testing.TB) *hive.Hive {
@@ -79,10 +77,6 @@ func NewTestHive(t testing.TB) *hive.Hive {
 			},
 
 			metrics.NewRegistry,
-
-			func() cache.IdentityAllocator {
-				return testidentity.NewMockIdentityAllocator(nil)
-			},
 		),
 
 		cell.Invoke(func(localNodeStore *node.LocalNodeStore) {
