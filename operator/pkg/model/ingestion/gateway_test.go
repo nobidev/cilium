@@ -28,6 +28,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"basic http external traffic policy":                      {},
 		"basic http load balancer":                                {},
 		"multiple parentRefs":                                     {},
+		"cert manager gateway":                                    {},
 		"Conformance/HTTPRouteSimpleSameNamespace":                {},
 		"Conformance/HTTPRouteCrossNamespace":                     {},
 		"Conformance/HTTPExactPathMatching":                       {},
@@ -69,7 +70,8 @@ func TestHTTPGatewayAPI(t *testing.T) {
 func TestTLSGatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
 		"basic tls http": {},
-		"Conformance/TLSRouteSimpleSameNamespace": {},
+		"Conformance/TLSRouteSimpleSameNamespace":  {},
+		"Conformance/TLSRouteHostnameIntersection": {},
 	}
 
 	for name := range tests {

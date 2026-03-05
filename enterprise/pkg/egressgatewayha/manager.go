@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/spf13/pflag"
-	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
@@ -877,11 +876,7 @@ func (manager *Manager) removeExpiredCtEntries(tx statedb.ReadTxn) error {
 		})
 
 	policyMatchesCtEntry := func(policy AgentPolicyConfig, ctKey *egressmapha.EgressCtKey4, ctVal *egressmapha.EgressCtVal4) bool {
-		gatewayIP, ok := netipx.FromStdIP(ctVal.Gateway.IP())
-		if !ok {
-			manager.logger.Error("Cannot parse CT entry's gateway IP while removing expired entries")
-			return false
-		}
+		gatewayIP := ctVal.Gateway.Addr()
 
 	nextDstCIDR:
 		for _, dstCIDR := range policy.dstCIDRs {
@@ -983,8 +978,8 @@ func (manager *Manager) removeExpiredCtEntries(tx statedb.ReadTxn) error {
 	for ctKey, ctVal := range toDelete {
 		logger := manager.logger.With(
 			// TODO log the whole ctKey
-			logfields.SourceIP, ctKey.SourceAddr.IP(),
-			logfields.GatewayIP, ctVal.Gateway.IP(),
+			logfields.SourceIP, ctKey.SourceAddr.Addr(),
+			logfields.GatewayIP, ctVal.Gateway.Addr(),
 		)
 
 		if err := manager.ctMap.Delete(&ctKey); err != nil {

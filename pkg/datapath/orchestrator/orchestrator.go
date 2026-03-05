@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -172,7 +173,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		stream.Filter(o.params.LocalNodeStore,
 			func(n node.LocalNode) bool {
 				if agentConfig.EnableIPv4 {
-					loopback := n.Local.ServiceLoopbackIPv4 != nil
+					loopback := n.Local.ServiceLoopbackIPv4.IsValid()
 					ipv4GW := n.GetCiliumInternalIP(false) != nil
 					ipv4Range := n.IPv4AllocCIDR != nil
 					if !ipv4GW || !ipv4Range || !loopback {
@@ -180,7 +181,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 					}
 				}
 				if agentConfig.EnableIPv6 {
-					loopback := n.Local.ServiceLoopbackIPv6 != nil
+					loopback := n.Local.ServiceLoopbackIPv6.IsValid()
 					ipv6GW := n.GetCiliumInternalIP(true) != nil
 					if !ipv6GW || !loopback {
 						return false
@@ -196,6 +197,10 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 
 	health.OK("Initializing")
 	limiter := rate.NewLimiter(minReinitInterval, 1)
+	if err := o.waitForHostDevices(ctx, health, limiter); err != nil {
+		return err
+	}
+
 	var (
 		request   reinitializeRequest
 		retryChan <-chan time.Time
@@ -263,6 +268,32 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		// a chance to settle down.
 		if err := limiter.Wait(ctx); err != nil {
 			return err
+		}
+	}
+}
+
+// waitForHostDevices blocks until cilium_host and cilium_net are present in the devices table.
+func (o *orchestrator) waitForHostDevices(ctx context.Context, health cell.Health, limiter *rate.Limiter) error {
+	// Avoid a startup race with the devices controller.
+	health.OK("Waiting for host devices")
+	for {
+		rxt := o.params.DB.ReadTxn()
+		_, _, hostWatch, hostOK := o.params.Devices.GetWatch(rxt, tables.DeviceNameIndex.Query(defaults.HostDevice))
+		_, _, netWatch, netOK := o.params.Devices.GetWatch(rxt, tables.DeviceNameIndex.Query(defaults.SecondHostDevice))
+		if hostOK && netOK {
+			return nil
+		}
+		if hostWatch == nil && netWatch == nil {
+			if err := limiter.Wait(ctx); err != nil {
+				return err
+			}
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-hostWatch:
+		case <-netWatch:
 		}
 	}
 }

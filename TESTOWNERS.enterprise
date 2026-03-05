@@ -91,6 +91,7 @@
 /cilium-cli/connectivity/builder/pod_to_ingress_service.go @isovalent/service-mesh
 /cilium-cli/connectivity/builder/pod_to_pod_encryption.go @isovalent/encryption
 /cilium-cli/connectivity/builder/pod_to_pod_encryption_v2.go @isovalent/encryption
+/cilium-cli/connectivity/builder/service_loopback.go @isovalent/isovalent-loadbalancer
 /cilium-cli/connectivity/perf/** @isovalent/scalability-performance
 /cilium-cli/connectivity/tests/bgp.go @isovalent/traffic-engineering
 /cilium-cli/connectivity/tests/clustermesh-endpointslice-sync.go @isovalent/clustermesh
@@ -379,7 +380,6 @@
 /test/k8s/hubble.go @isovalent/hubble
 /test/runtime/monitor.go @isovalent/hubble
 /test/k8s/fqdn.go @isovalent/dns-proxy
-/test/k8s/kafka_policies.go @isovalent/service-mesh
 /test/bigtcp @isovalent/cni
 /test/k8s/config.go @isovalent/sig-k8s
 /test/k8s/pod_mac_address.go @isovalent/sig-k8s

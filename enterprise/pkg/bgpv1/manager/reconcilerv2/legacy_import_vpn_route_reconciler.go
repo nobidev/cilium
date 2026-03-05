@@ -230,7 +230,7 @@ func (r *legacyImportVPNRouteReconciler) Reconcile(ctx context.Context, p reconc
 			Spec: v1alpha1.IsovalentSRv6EgressPolicySpec{
 				VRFID:            p.VRFID,
 				DestinationCIDRs: destCIDRs,
-				DestinationSID:   p.SID.IP().String(),
+				DestinationSID:   p.SID.String(),
 			},
 		}
 		l.Debug("Writing egress policy to Kubernetes", logfields.Object, egressPol)

@@ -30,7 +30,7 @@ func (ct *ConnectivityTest) CurlCommandParallelWithOutput(peer TestPeer, ipFam f
 		net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
 		peer.Path())
 
-	for i := 0; i < parallel; i++ {
+	for range parallel {
 		cmd = append(cmd, url)
 	}
 

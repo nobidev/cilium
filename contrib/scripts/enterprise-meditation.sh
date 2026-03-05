@@ -63,6 +63,7 @@ DIFF_EXCL_GLOBS=(
   ':!install/kubernetes/cilium/values.schema.json' # Auto-generated
   ':!install/kubernetes/cilium/values.yaml' # Auto-generated
   ':!pkg/bpf/testdata/*.o' # Auto-generated
+  ':!pkg/datapath/maps/mapkv.btf' # Auto-generated
   ':!pkg/k8s/client/clientset/versioned/clientset.go' # Auto-generated
   ':!pkg/k8s/client/clientset/versioned/*/register.go' # Auto-generated
   ':!pkg/k8s/client/informers/externalversions/factory.go' # Auto-generated

@@ -3,7 +3,7 @@
 
 include ../Makefile.defs
 
-BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
+BPF_SIMPLE = bpf_alignchecker.o
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_wireguard.o bpf_xdp.o $(BPF_SIMPLE)
 
 KERNEL ?= netnext
@@ -175,9 +175,10 @@ testdata:
 
 generate: $(BPF)
 	$(GO) generate ../pkg/datapath/config
+	$(GO) generate ../pkg/datapath/maps
 	BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" $(GO) generate ../pkg/datapath/bpf
 
-$(BPF_SIMPLE): %.o: %.c
+$(BPF_SIMPLE): %.o: %.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${BPF_SIMPLE_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 

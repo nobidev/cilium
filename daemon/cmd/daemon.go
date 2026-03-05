@@ -5,16 +5,16 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
@@ -70,23 +70,6 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 		}
 	}
 
-	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
-	// that may be added or removed at runtime.
-	if params.IPSecConfig.Enabled() &&
-		!params.DaemonConfig.TunnelingEnabled() &&
-		len(params.DaemonConfig.UnsafeDaemonConfigOption.EncryptInterface) == 0 &&
-		// If devices are required, we don't look at the EncryptInterface, as we
-		// don't load bpf_network in loader.reinitializeIPSec. Instead, we load
-		// bpf_host onto physical devices as chosen by configuration.
-		!params.DaemonConfig.AreDevicesRequired(params.KPRConfig, params.WireguardConfig.Enabled(), params.IPSecConfig.Enabled()) &&
-		params.DaemonConfig.IPAM != ipamOption.IPAMENI {
-		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute(params.Logger)
-		if err != nil {
-			return fmt.Errorf("Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface. Err: %w", err)
-		}
-		params.DaemonConfig.UnsafeDaemonConfigOption.EncryptInterface = append(params.DaemonConfig.UnsafeDaemonConfigOption.EncryptInterface, link)
-	}
-
 	// Do the partial kube-proxy replacement initialization before creating BPF
 	// maps. Otherwise, some maps might not be created (e.g. session affinity).
 	// finishKubeProxyReplacementInit(), which is called later after the device
@@ -137,6 +120,23 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 		return fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 	} else if !params.DaemonConfig.MasqueradingEnabled() && params.DaemonConfig.EnableBPFMasquerade {
 		return fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
+	}
+
+	// If kernel does not support TBID lookup, we do not support dynamic pod
+	// egress routing.
+	if params.DaemonConfig.EnableFibTableIDAnnotation {
+		if err := probes.HaveFibLookupTbid(); err != nil {
+			if !errors.Is(err, probes.ErrNotSupported) {
+				return fmt.Errorf("unable to determine if kernel supports dynamic pod egress routing: %w", err)
+			}
+			return fmt.Errorf("kernel does not support dynamic pod egress routing (disable with --%s)", option.EnableFibTableIDAnnotation)
+		}
+	}
+
+	// If legacy routing mode was enabled, we do not support dynamic pod egress
+	// routing.
+	if params.DaemonConfig.EnableFibTableIDAnnotation && params.DaemonConfig.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
+		return fmt.Errorf("legacy routing mode does not support dynamic pod egress routing (disable with --%s)", option.EnableFibTableIDAnnotation)
 	}
 
 	return nil
@@ -202,7 +202,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	params.K8sWatcher.InitK8sSubsystem(ctx)
 
 	// Configure and start IPAM without using the configuration yet.
-	configureAndStartIPAM(ctx, params)
+	params.IPAMInitializer.ConfigureAndStartIPAM(ctx)
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
@@ -228,7 +228,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
 	// Trigger after nodeDiscovery.StartDiscovery to avoid custom resource update conflict.
-	params.IPAM.RestoreFinished()
+	params.IPAMInitializer.RestoreFinished()
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
@@ -256,7 +256,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	if !params.DaemonConfig.DryMode {
 		params.Logger.Info("Validating configured node address ranges")
-		if err := node.ValidatePostInit(params.Logger); err != nil {
+		if err := params.IPAMInitializer.ValidatePostInit(ctx); err != nil {
 			return fmt.Errorf("postinit failed: %w", err)
 		}
 	}

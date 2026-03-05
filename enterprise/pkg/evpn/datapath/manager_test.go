@@ -287,7 +287,7 @@ func TestPrivilegedManagerDeviceRecreateAndCleanup(t *testing.T) {
 		m.NodeConfigurationChanged(lnc)
 
 		prevIfIdx := 0
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			if i > 0 {
 				// use different vxlan port test device recreate
 				m.evpnConfig.VxlanPort = 4790

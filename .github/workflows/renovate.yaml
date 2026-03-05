@@ -39,7 +39,7 @@ jobs:
         uses: ./.github/actions/get-wolfi-packages
 
       - name: Self-hosted Renovate
-        uses: renovatebot/github-action@44f24283a60f64273f1294932f16ba61193cccca # v46.1.0
+        uses: renovatebot/github-action@8d75b92f43899d483728e9a8a7fd44238020f6e6 # v46.1.2
         env:
           # default to DEBUG log level, this is always useful
           LOG_LEVEL: ${{ github.event.inputs.renovate_log_level_debug == 'false' && 'INFO' || 'DEBUG' }}
@@ -47,7 +47,7 @@ jobs:
           RH_REGISTRY_PASSWORD: ${{ secrets.REDHAT_PASSWORD_CI }}
         with:
           # renovate: datasource=github-releases depName=renovatebot/renovate
-          renovate-version: 43.15.0
+          renovate-version: 43.46.5
           docker-user: root
           docker-cmd-file: .github/actions/renovate/enterprise-entrypoint.sh
           configurationFile: .github/workflows/enterprise-renovate-config.js

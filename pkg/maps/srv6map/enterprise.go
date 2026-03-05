@@ -27,7 +27,7 @@ func (a *PolicyValue) Equal(b *PolicyValue) bool {
 	if a == nil || b == nil {
 		return false
 	}
-	return a.SID.IP().Equal(b.SID.IP())
+	return a.SID.Addr() == b.SID.Addr()
 }
 
 // toIPv4 converts the generic PolicyKey into an IPv4 policy key, to be used
@@ -89,7 +89,7 @@ func (a *SIDKey) Equal(b *SIDKey) bool {
 	if a == nil || b == nil {
 		return false
 	}
-	return a.SID.IP().Equal(b.SID.IP())
+	return a.SID.Addr() == b.SID.Addr()
 }
 
 // Equal compares two SIDValue objects

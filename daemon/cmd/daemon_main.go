@@ -38,7 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
-	"github.com/cilium/cilium/pkg/ipam"
+	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
@@ -219,6 +219,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableSRv6)
 	option.BindEnv(vp, option.EnableSRv6)
 
+	flags.Bool(option.EnableFibTableIDAnnotation, defaults.EnableFibTableIDAnnotation, "Enable parsing of the network.cilium.io/fib-table-id pod annotation for pod egress routing")
+	flags.MarkHidden(option.EnableFibTableIDAnnotation)
+	option.BindEnv(vp, option.EnableFibTableIDAnnotation)
+
 	flags.String(option.SRv6EncapModeName, defaults.SRv6EncapMode, "Encapsulation mode for SRv6 (\"srh\" or \"reduced\")")
 	flags.MarkHidden(option.SRv6EncapModeName)
 	option.BindEnv(vp, option.SRv6EncapModeName)
@@ -228,9 +232,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.String(option.IPv6MCastDevice, "", "Device that joins a Solicited-Node multicast group for IPv6")
 	option.BindEnv(vp, option.IPv6MCastDevice)
-
-	flags.String(option.EncryptInterface, "", "Transparent encryption interface")
-	option.BindEnv(vp, option.EncryptInterface)
 
 	flags.Bool(option.EncryptNode, defaults.EncryptNode, "Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard, beta)")
 	option.BindEnv(vp, option.EncryptNode)
@@ -1225,7 +1226,7 @@ type daemonParams struct {
 	IPsecAgent          datapath.IPsecAgent
 	SyncHostIPs         *syncHostIPs
 	NodeDiscovery       *nodediscovery.NodeDiscovery
-	IPAM                *ipam.IPAM
+	IPAMInitializer     *ipamcell.IPAMInitializer
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 	KPRConfig           kpr.KPRConfig
 	KPRInitializer      kprinitializer.KPRInitializer

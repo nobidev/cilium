@@ -157,7 +157,7 @@ func checkIPs(expected []netip.Addr, got []netip.Addr) error {
 	if len(expected) != len(got) {
 		return fmt.Errorf("expected %d IPs, got %v", len(expected), len(got))
 	}
-	for i := 0; i < len(expected); i++ {
+	for i := range len(expected) {
 		if expected[i] != got[i] {
 			return fmt.Errorf("expected IP %v, got %v", expected[i], got[i])
 		}
@@ -172,7 +172,7 @@ func checkTTLs(expected []time.Duration, got []time.Duration) error {
 	// We have to take into account the (unpredictable) RTT time,
 	// so we consider acceptable a value that is in the range
 	// [50% of expected TTL, 150% of expected TTL]
-	for i := 0; i < len(expected); i++ {
+	for i := range len(expected) {
 		lowerLimit := time.Duration(float64(expected[i]) * 0.5)
 		upperLimit := time.Duration(float64(expected[i]) * 1.5)
 		if expected[i] < lowerLimit || expected[i] > upperLimit {

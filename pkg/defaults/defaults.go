@@ -198,6 +198,10 @@ const (
 	// EnableSRv6 is the default value for the SRv6 support enablement.
 	EnableSRv6 = false
 
+	// EnableFibTableIDAnnotation is the default value for the
+	// fib-table-id-annotation option.
+	EnableFibTableIDAnnotation = false
+
 	// SRv6EncapMode is the encapsulation mode for SRv6.
 	SRv6EncapMode = "reduced"
 
@@ -362,12 +366,6 @@ const (
 
 	// AWSResultsPerApiCall is the maximum number of objects to fetch per paginated API call
 	AWSResultsPerApiCall = 1000
-
-	// IPAMAPIBurst is the default burst value when rate limiting access to external APIs
-	IPAMAPIBurst = 20
-
-	// IPAMAPIQPSLimit is the default QPS limit when rate limiting access to external APIs
-	IPAMAPIQPSLimit = 4.0
 
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node

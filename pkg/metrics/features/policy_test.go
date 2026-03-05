@@ -6,7 +6,6 @@ package features
 import (
 	"testing"
 
-	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/labels"
@@ -293,39 +292,6 @@ func Test_ruleType(t *testing.T) {
 			},
 		},
 		{
-			name: "DNS rules and other L7",
-			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
-					Ingress: false,
-					L4: api.PortRules{
-						{
-							Rules: &api.L7Rules{
-								DNS: []api.PortRuleDNS{
-									{
-										MatchName: "cilium.io",
-									},
-								},
-								Kafka: []kafka.PortRule{
-									{},
-								},
-							},
-						},
-					},
-				},
-			},
-			want: wanted{
-				wantRF: RuleFeatures{
-					DNS:     true,
-					OtherL7: true,
-				},
-				wantMetrics: metrics{
-					npDNSIngested:     1,
-					npOtherL7Ingested: 1,
-				},
-			},
-		},
-		{
 			name: "FQDN rules w/ default deny config",
 			args: args{
 				r: policytypes.PolicyEntry{
@@ -502,7 +468,7 @@ func Test_ruleType(t *testing.T) {
 			rt := ruleType(tt.args.r)
 			assert.Equalf(t, tt.want.wantRF, rt, "ruleType(%v)", tt.args.r)
 
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			metrics.AddRule(tt.args.r)
 
 			assert.Equalf(t, tt.want.wantMetrics.npL3Ingested, metrics.NPL3Ingested.WithLabelValues(actionAdd).Get(), "NPL3Ingested different")

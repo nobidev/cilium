@@ -164,7 +164,8 @@ func (b *bpfIPC) lookup(addr netip.Addr) (identity.NumericIdentity, error) {
 
 	b.logger.Debug("BPF ipcache lookup", logfields.Address, addr)
 
-	key := ipcache.NewKey(addr.Unmap().AsSlice(), nil, 0)
+	unmappedAddr := addr.Unmap()
+	key := ipcache.NewKey(netip.PrefixFrom(unmappedAddr, unmappedAddr.BitLen()), 0)
 	val, err := b.ipc.Lookup(&key)
 	if err != nil {
 		return identity.NumericIdentity(0), err
@@ -193,7 +194,8 @@ func (b *bpfIPC) write(addr netip.Addr, identity identity.NumericIdentity) error
 		return ErrWriteDisabled
 	}
 
-	key := ipcache.NewKey(addr.Unmap().AsSlice(), nil, 0)
+	unmappedAddr := addr.Unmap()
+	key := ipcache.NewKey(netip.PrefixFrom(unmappedAddr, unmappedAddr.BitLen()), 0)
 	val := ipcache.RemoteEndpointInfo{
 		SecurityIdentity: uint32(identity),
 	}

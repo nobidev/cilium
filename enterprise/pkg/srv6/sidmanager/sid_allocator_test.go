@@ -252,14 +252,14 @@ func TestAllAllocations(t *testing.T) {
 			locLen := locator.Bits() / 8
 			function := info.SID.AsSlice()[locLen:int(structure.LocatorLenBytes()+structure.FunctionLenBytes())]
 			zeros := []byte{}
-			for i := 0; i < len(function); i++ {
+			for range len(function) {
 				zeros = append(zeros, 0)
 			}
 			require.NotEqual(t, zeros, function, "Function part should not be zero")
 
 			// Argument and rest of the parts must be zero
 			misc := info.SID.AsSlice()[int(structure.LocatorLenBytes()+structure.FunctionLenBytes()):]
-			for i := 0; i < len(misc); i++ {
+			for i := range len(misc) {
 				require.Equal(t, uint8(0), misc[i], "Rest of the part should be zero")
 			}
 		}

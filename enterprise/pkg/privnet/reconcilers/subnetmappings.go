@@ -190,7 +190,7 @@ func (sm *SubnetMappings) registerBPFReconciler(
 		NewWaitUntilReconciledFn(sm.db, sm.tbl, tables.SubnetMapping.GetStatus),
 	)
 
-	bpf.RegisterTablePressureMetricsJob(
+	bpf.TablePressureMetrics(
 		sm.jg, registry, params.DB, sm.tbl, bpfMap,
 	)
 

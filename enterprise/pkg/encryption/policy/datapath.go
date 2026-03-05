@@ -64,7 +64,7 @@ func startEncryptionPolicyReconciler(params reconcilerParams, registry *metrics.
 		return nil, nil
 	}
 
-	bpf.RegisterTablePressureMetricsJob[*EncryptionPolicyEntry, *encryptionpolicymap.PolicyMap](
+	bpf.TablePressureMetrics(
 		params.JobGroup,
 		registry,
 		params.DB,

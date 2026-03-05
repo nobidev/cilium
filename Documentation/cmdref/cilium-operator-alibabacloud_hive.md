@@ -82,8 +82,11 @@ cilium-operator-alibabacloud hive [flags]
       --ingress-default-secret-namespace string                        Default secret namespace for Ingress.
       --ingress-default-xff-num-trusted-hops uint32                    The number of additional ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
       --ingress-hostnetwork-enabled                                    Exposes ingress listeners on the host network.
+      --ingress-hostnetwork-http-listener-port uint32                  Port on the host network that gets used for the shared HTTP listener
+      --ingress-hostnetwork-https-listener-port uint32                 Port on the host network that gets used for the shared HTTPS listener
       --ingress-hostnetwork-nodelabelselector string                   Label selector that matches the nodes where the ingress listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
       --ingress-hostnetwork-shared-listener-port uint32                Port on the host network that gets used for the shared listener (HTTP, HTTPS & TLS passthrough)
+      --ingress-hostnetwork-tls-passthrough-listener-port uint32       Port on the host network that gets used for the shared TLS passthrough listener
       --ingress-lb-annotation-prefixes strings                         Annotations and labels which are needed to propagate from Ingress to the Load Balancer. (default [lbipam.cilium.io,service.beta.kubernetes.io,service.kubernetes.io,cloud.google.com])
       --ingress-secrets-namespace string                               Namespace having tls secrets used by Ingress and CEC. (default "cilium-secrets")
       --ingress-shared-lb-service-name string                          Name of shared LB service name for Ingress. (default "cilium-ingress")
@@ -97,6 +100,8 @@ cilium-operator-alibabacloud hive [flags]
       --kvstore-lease-ttl duration                                     Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint                     Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
       --kvstore-opt stringToString                                     Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
+      --limit-ipam-api-burst int                                       Upper burst limit when accessing external APIs (default 20)
+      --limit-ipam-api-qps float                                       Queries per second limit when accessing external IPAM APIs (default 4)
       --loadbalancer-cp-accesslog-enable-grpc                          Whether Envoy Access Log should be sent to a GRPC logger.
       --loadbalancer-cp-accesslog-enable-hc                            Whether Envoy Access Log should be enabled for T1 -> T2 Health Check requests on the T2 Envoy by the LoadBalancer control plane.
       --loadbalancer-cp-accesslog-enable-stdout                        Whether Envoy Access Log should be sent to stdout on the T2 Envoy by the LoadBalancer control plane. (default true)

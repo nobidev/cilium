@@ -214,7 +214,6 @@ cilium-agent [flags]
       --enable-standalone-dns-proxy                                      Enables standalone DNS proxy
       --enable-tcx                                                       Attach endpoint programs using tcx if supported by the kernel (default true)
       --enable-tracing                                                   Enable tracing while determining policy (debugging)
-      --enable-tunnel-big-tcp                                            Enable BIG TCP in tunneling mode and increase maximum GRO/GSO limits for VXLAN/GENEVE tunnels
       --enable-unreachable-routes                                        Add unreachable routes on pod deletion
       --enable-vtep                                                      Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)
       --enable-well-known-identities                                     Enable well-known identities for known Kubernetes components (default true)
@@ -222,7 +221,6 @@ cilium-agent [flags]
       --enable-xdp-prefilter                                             Enable XDP prefiltering
       --enable-xt-socket-fallback                                        Enable fallback for missing xt_socket module (default true)
       --enable-ztunnel                                                   Use zTunnel as Cilium's encryption infrastructure
-      --encrypt-interface string                                         Transparent encryption interface
       --encrypt-node                                                     Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard, beta)
       --encryption-policy-map-max int                                    Maximum number of entries in encryption policy map (default 16384)
       --encryption-strict-egress-allow-remote-node-identities            Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.

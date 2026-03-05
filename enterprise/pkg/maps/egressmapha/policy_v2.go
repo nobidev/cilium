@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"go4.org/netipx"
 
 	segwcfg "github.com/cilium/cilium/enterprise/pkg/egressgatewayha/standalone/config"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -178,14 +177,12 @@ func (k *EgressPolicyV2Key4) Match(sourceIP netip.Addr, destCIDR netip.Prefix) b
 
 // GetSourceIP returns the egress policy key's source IP.
 func (k *EgressPolicyV2Key4) GetSourceIP() netip.Addr {
-	addr, _ := netipx.FromStdIP(k.SourceIP.IP())
-	return addr
+	return k.SourceIP.Addr()
 }
 
 // GetDestCIDR returns the egress policy key's destination CIDR.
 func (k *EgressPolicyV2Key4) GetDestCIDR() netip.Prefix {
-	addr, _ := netipx.FromStdIP(k.DestCIDR.IP())
-	return netip.PrefixFrom(addr, int(k.destCIDRBits()))
+	return netip.PrefixFrom(k.DestCIDR.Addr(), int(k.destCIDRBits()))
 }
 
 func (k *EgressPolicyV2Key4) destCIDRBits() uint32 {
@@ -210,7 +207,7 @@ func (v *EgressPolicyV2Val4) Match(egressIP netip.Addr, gatewayIPs []netip.Addr,
 		return false
 	}
 
-	for i := 0; i < len(gatewayIPs); i++ {
+	for i := range len(gatewayIPs) {
 		if v.GatewayIPs[i].Addr() != gatewayIPs[i] {
 			return false
 		}
@@ -227,7 +224,7 @@ func (v *EgressPolicyV2Val4) GetEgressIP() netip.Addr {
 // GetGatewayIPs returns the egress policy value's gateway IP.
 func (v *EgressPolicyV2Val4) GetGatewayIPs() iter.Seq[netip.Addr] {
 	return func(yield func(netip.Addr) bool) {
-		for i := uint32(0); i < v.Size; i++ {
+		for i := range v.Size {
 			if !yield(v.GatewayIPs[i].Addr()) {
 				return
 			}

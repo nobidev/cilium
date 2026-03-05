@@ -207,7 +207,7 @@ func createTestInterface(tb testing.TB, sysctl sysctl.Sysctl, iface string, addr
 func ensureRPFilterIsEnabled(tb testing.TB, sysctl sysctl.Sysctl, iface string) {
 	rpFilterSetting := []string{"net", "ipv4", "conf", iface, "rp_filter"}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if err := sysctl.Enable(rpFilterSetting); err != nil {
 			tb.Fatal(err)
 		}
@@ -225,7 +225,7 @@ func ensureRPFilterIsEnabled(tb testing.TB, sysctl sysctl.Sysctl, iface string) 
 }
 
 func (k *EgressGatewayTestSuite) waitForReconciliationRun(t *testing.T) {
-	for i := 0; i < 200; i++ {
+	for range 200 {
 		count := k.manager.reconciliationEventsCount.Load()
 		if count > k.reconciliationEventsCount {
 			k.reconciliationEventsCount = count
@@ -584,7 +584,7 @@ func tryAssertEgressCtEntries(ctMap egressmapha.CtMap, entries []egressCtEntry) 
 		}
 
 		if val.Gateway.Addr() != e.gatewayIP {
-			return fmt.Errorf("%v doesn't match %v", val.Gateway.IP(), e.gatewayIP)
+			return fmt.Errorf("%v doesn't match %v", val.Gateway.Addr(), e.gatewayIP)
 		}
 	}
 
@@ -597,7 +597,7 @@ func tryAssertEgressCtEntries(ctMap egressmapha.CtMap, entries []egressCtEntry) 
 				}
 			}
 
-			err = fmt.Errorf("untracked egress CT entry: from %v to %v via %v", key.SourceAddr.IP(), key.DestAddr.IP(), val.Gateway.IP())
+			err = fmt.Errorf("untracked egress CT entry: from %v to %v via %v", key.SourceAddr.Addr(), key.DestAddr.Addr(), val.Gateway.Addr())
 		})
 
 	return err
