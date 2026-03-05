@@ -13,6 +13,7 @@
 
 #include "enterprise_privnet_config.h"
 #include "enterprise_ext_eps_policy.h"
+#include "enterprise_evpn.h"
 #include "lib/drop_reasons.h"
 #include "lib/local_delivery.h"
 
@@ -604,6 +605,16 @@ privnet_local_access_egress_ipv4(const struct privnet_fib_val *dip_val, __be32 d
 	return CTX_ACT_OK;
 }
 
+static __always_inline int
+privnet_evpn_egress_ipv4(struct __ctx_buff *ctx, __u16 net_id,
+			 const struct privnet_fib_val *dip_val, __be32 daddr)
+{
+	if (CONFIG(evpn_enable) && dip_val->flag_is_vxlan_route)
+		return evpn_encap_and_redirect4(ctx, net_id, daddr);
+
+	return CTX_ACT_OK;
+}
+
 /* privnet_egress_ipv4 can be called as traffic comes from pod to lxc, it should be
  * the first thing to happen before processing the packet further in bpf_lxc.
  *
@@ -639,6 +650,11 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			*dst_privnet_entry = dip_val;
 
 		ret = privnet_local_access_egress_ipv4(dip_val, ip4->daddr);
+		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+			return ret;
+
+		/* We can return on redirect here as Privnet <=> EVPN communication doesn't require NAT */
+		ret = privnet_evpn_egress_ipv4(ctx, net_id, dip_val, ip4->daddr);
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
 
@@ -729,6 +745,17 @@ privnet_local_access_egress_ipv6(const struct privnet_fib_val *dip_val, const un
 	return CTX_ACT_OK;
 }
 
+static __always_inline int
+privnet_evpn_egress_ipv6(struct __ctx_buff *ctx, __u16 net_id,
+			 const struct privnet_fib_val *dip_val,
+			 union v6addr daddr)
+{
+	if (CONFIG(evpn_enable) && dip_val->flag_is_vxlan_route)
+		return evpn_encap_and_redirect6(ctx, net_id, daddr);
+
+	return CTX_ACT_OK;
+}
+
 /* see ipv4 comment */
 static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 					       __u16 net_id, __u16 subnet_id,
@@ -754,6 +781,11 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 			*dst_privnet_entry = dip_val;
 
 		ret = privnet_local_access_egress_ipv6(dip_val, &orig_dip);
+		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+			return ret;
+
+		/* We can return on redirect here as Privnet <=> EVPN communication doesn't require NAT */
+		ret = privnet_evpn_egress_ipv6(ctx, net_id, dip_val, orig_dip);
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
 

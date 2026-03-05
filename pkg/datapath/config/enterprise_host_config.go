@@ -9,6 +9,12 @@ package config
 // Warning: do not instantiate directly! Always use [NewBPFHostEnterprise] to
 // ensure the default values configured in the ELF are honored.
 type BPFHostEnterprise struct {
+	// The interface index of the evpn vxlan device.
+	EvpnDeviceIfIndex uint32 `config:"evpn_device_ifindex"`
+	// The mac address of the evpn vxlan device.
+	EvpnDeviceMAC [8]byte `config:"evpn_device_mac"`
+	// True if evpn feature is enabled.
+	EvpnEnable bool `config:"evpn_enable"`
 	// True if running on network bridge.
 	PrivnetBridgeEnable bool `config:"privnet_bridge_enable"`
 	// True if the endpoint is in a non-default network.
@@ -20,5 +26,6 @@ type BPFHostEnterprise struct {
 }
 
 func NewBPFHostEnterprise() *BPFHostEnterprise {
-	return &BPFHostEnterprise{false, false, false, 0x0}
+	return &BPFHostEnterprise{0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, false, false,
+		false, false, 0x0}
 }
