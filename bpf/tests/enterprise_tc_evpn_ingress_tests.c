@@ -30,7 +30,7 @@ mock_privnet_evpn_ingress(struct __ctx_buff __maybe_unused *ctx, __u16 net_id)
 #define privnet_evpn_ingress mock_privnet_evpn_ingress
 
 #include "tests/lib/enterprise_bpf_evpn.h"
-#include "tests/lib/enterprise_evpn.h"
+#include "tests/lib/enterprise_vni.h"
 
 /* Enable configurations */
 ASSIGN_CONFIG(bool, evpn_enable, true)

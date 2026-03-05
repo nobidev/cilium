@@ -881,7 +881,7 @@ Makefile* @cilium/build
 /bpf/tests/enterprise_tc_privnet*.c @isovalent/private-networking
 /bpf/tests/enterprise_tc_evpn_ingress_tests.c @isovalent/traffic-engineering
 /bpf/tests/lib/enterprise_bpf_evpn.h @isovalent/traffic-engineering
-/bpf/tests/lib/enterprise_evpn.h @isovalent/traffic-engineering
+/bpf/tests/lib/enterprise_vni.h @isovalent/traffic-engineering
 /bpf/tests/scapy/enterprise_evpn_pkt_defs.py @isovalent/traffic-engineering
 /bpf/tests/lib/egressgw_ha.h @isovalent/egress-gateway
 /bpf/tests/lib/enterprise_privnet.h @isovalent/private-networking

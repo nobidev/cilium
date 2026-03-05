@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <lib/enterprise_vni.h>
+
 static __always_inline void
 vni_add(__u32 vni, __u16 net_id)
 {
