@@ -20,7 +20,6 @@ package networkpolicy
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"slices"
 
@@ -118,23 +117,16 @@ func (pv *policyValidator) handleINPEvent(ctx context.Context, event resource.Ev
 		logfields.IsovalentNetworkPolicyName, pol.Name,
 	)
 
-	var errs error
-	if r := pol.Spec; r != nil {
-		errs = errors.Join(errs, r.Sanitize())
-
-	}
-	for _, r := range pol.Specs {
-		errs = errors.Join(errs, r.Sanitize())
-	}
+	polErrs := pol.Sanitize()
 
 	newPol := pol.DeepCopy()
-	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
+	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, polErrs)
 	if newPol.Status.DeepEqual(&pol.Status) {
 		return nil
 	}
 
-	if errs != nil {
-		log.Debug("Detected invalid INP, setting condition", logfields.Error, errs)
+	if polErrs != nil {
+		log.Debug("Detected invalid INP, setting condition", logfields.Error, polErrs)
 	} else {
 		log.Debug("INP now valid, setting condition")
 	}
@@ -169,22 +161,16 @@ func (pv *policyValidator) handleICNPEvent(ctx context.Context, event resource.E
 		logfields.IsovalentClusterwideNetworkPolicyName, pol.Name,
 	)
 
-	var errs error
-	if pol.Spec != nil {
-		errs = errors.Join(errs, pol.Spec.Sanitize())
-	}
-	for _, r := range pol.Specs {
-		errs = errors.Join(errs, r.Sanitize())
-	}
+	polErrs := pol.Sanitize()
 
 	newPol := pol.DeepCopy()
-	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
+	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, polErrs)
 	if newPol.Status.DeepEqual(&pol.Status) {
 		return nil
 	}
 
-	if errs != nil {
-		log.Debug("Detected invalid ICNP, setting condition", logfields.Error, errs)
+	if polErrs != nil {
+		log.Debug("Detected invalid ICNP, setting condition", logfields.Error, polErrs)
 	} else {
 		log.Debug("ICNP now valid, setting condition")
 	}
