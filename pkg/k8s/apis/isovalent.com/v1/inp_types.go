@@ -18,6 +18,7 @@ import (
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/policy/utils"
@@ -305,7 +306,21 @@ func (r *IsovalentNetworkPolicy) Parse(logger *slog.Logger, clusterName string) 
 }
 
 func (r *IsovalentNetworkPolicyRule) Sanitize(isICNP bool) error {
-	if err := r.Rule.Sanitize(); err != nil {
+	// valid rules with just ingressPass / egressPass fail upstream validation,
+	// as they have no stanzas. We must make a fake rule.
+	fakeAllowDeny, fakePass := r.splitPassRule()
+	if fakeAllowDeny != nil {
+		if err := fakeAllowDeny.Rule.Sanitize(); err != nil {
+			return err
+		}
+	}
+	if fakePass != nil {
+		if err := fakePass.Rule.Sanitize(); err != nil {
+			return err
+		}
+	}
+
+	if _, err := r.parseTier(); err != nil {
 		return err
 	}
 
@@ -325,6 +340,11 @@ func (r *IsovalentNetworkPolicyRule) Sanitize(isICNP bool) error {
 			return errors.New("ingressDeny.fromGroups is not supported in IsovalentNetworkPolicy")
 		}
 	}
+	for _, ingress := range r.IngressPass {
+		if len(ingress.FromGroups) != 0 {
+			return errors.New("ingressPass.fromGroups is not supported in IsovalentNetworkPolicy")
+		}
+	}
 	for _, egress := range r.Egress {
 		if len(egress.ToGroups) != 0 {
 			return errors.New("egress.toGroups is not supported in IsovalentNetworkPolicy")
@@ -333,6 +353,11 @@ func (r *IsovalentNetworkPolicyRule) Sanitize(isICNP bool) error {
 	for _, egress := range r.EgressDeny {
 		if len(egress.ToGroups) != 0 {
 			return errors.New("egressDeny.toGroups is not supported in IsovalentNetworkPolicy")
+		}
+	}
+	for _, egress := range r.EgressPass {
+		if len(egress.ToGroups) != 0 {
+			return errors.New("egressPass.toGroups is not supported in IsovalentNetworkPolicy")
 		}
 	}
 	return nil
@@ -347,18 +372,127 @@ func (r *IsovalentNetworkPolicyRule) sanitizeINP() error {
 	if order := r.Order; order != nil && *order < 0 {
 		return errors.New("IsovalentNetworkPolicy rule order must be ≥ 0")
 	}
+	if r.Tier != nil {
+		if r.Tier.Type != intstr.String {
+			return errors.New("IsovalentNetworkPolicy Tier must be the names Normal or Baseline")
+		}
+		switch r.Tier.StrVal {
+		case TierNormal, TierBaseline, "":
+		default:
+			return errors.New("IsovalentNetworkPolicy Tier must be the names Normal or Baseline")
+		}
+	}
 	return nil
 }
 
+// splitPassRule makes two rules: one with existing allow and deny statements. The other
+// is with any pass statements moved to allow, and without allow and deny.
+// One or the other may be nil.
+// This is necessary because we are tricking the OSS code in to parsing INP rules for us, but it doesn't
+// understand Pass rules. So, we convert them to allow rules instead.
+func (r *IsovalentNetworkPolicyRule) splitPassRule() (allowDenyRule, fakePassRule *IsovalentNetworkPolicyRule) {
+	if len(r.IngressPass)+len(r.EgressPass) == 0 {
+		return r, nil
+	}
+
+	// make copy of rule with pass moved to allow
+	fakePassRule = r.DeepCopy()
+	fakePassRule.EgressDeny = nil
+	fakePassRule.IngressDeny = nil
+	fakePassRule.Ingress = r.IngressPass
+	fakePassRule.Egress = r.EgressPass
+	fakePassRule.IngressPass = nil
+	fakePassRule.EgressPass = nil
+
+	// only pass rules, don't set allowDenyRule
+	if len(r.Ingress)+len(r.Egress)+len(r.IngressDeny)+len(r.EgressDeny) == 0 {
+		return
+	}
+
+	allowDenyRule = r.DeepCopy()
+	allowDenyRule.IngressPass = nil
+	allowDenyRule.EgressPass = nil
+
+	return
+}
+
 func (r *IsovalentNetworkPolicyRule) parseToPolicyEntries(logger *slog.Logger, clusterName string, objectMeta metav1.ObjectMeta) policytypes.PolicyEntries {
-	cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, objectMeta.Namespace, objectMeta.Name, objectMeta.UID, &r.Rule)
-	cre := utils.RulesToPolicyEntries(api.Rules{cr})
-	for _, re := range cre {
-		if r.Order != nil {
-			re.Priority = float64(*r.Order)
+	var out policytypes.PolicyEntries
+
+	// The OSS code doesn't understand pass verdicts. What's more, it *rejects* rules
+	// that don't have an allow or deny stanza.
+	//
+	// So, we make a fake allow rule with the pass verdicts
+	allowDenyRule, fakePassRule := r.splitPassRule()
+
+	makeEntries := func(rule *IsovalentNetworkPolicyRule, isFakePass bool) {
+		if rule == nil {
+			return
+		}
+
+		// Sanitize is side-effecting, we must re-run it.
+		// In addition to validation, it also fills in defaults and pre-parses
+		// selectors. ParseToCiliumRule relies on these being set.
+		//
+		// In this code path, it will never fail (since we sanitized before).
+		if err := rule.Rule.Sanitize(); err != nil {
+			logger.Error("BUG: failed to sanitize pseudo pass-allow rule",
+				logfields.Error, err)
+			return
+		}
+
+		cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, objectMeta.Namespace, objectMeta.Name, objectMeta.UID, &rule.Rule)
+		ruleEntries := utils.RulesToPolicyEntries(api.Rules{cr})
+		for _, re := range ruleEntries {
+			if rule.Order != nil {
+				re.Priority = float64(*rule.Order)
+			}
+
+			if isFakePass {
+				if re.Verdict != policytypes.Allow {
+					logger.Warn("BUG: pass conversion resulted in non-allow verdict?")
+				} else {
+					re.Verdict = policytypes.Pass
+				}
+			}
+
+			// already sanitized above
+			re.Tier, _ = rule.parseTier()
+			out = append(out, re)
 		}
 	}
-	return cre
+
+	makeEntries(allowDenyRule, false)
+	makeEntries(fakePassRule, true)
+
+	return out
+}
+
+// parseTier parses the string or int Tier to the corresponding numeric value.
+// returns tier 255 (the lowest tier) on error, to prevent a logic error elevating
+// a rule to the highest tier
+func (r *IsovalentNetworkPolicyRule) parseTier() (policytypes.Tier, error) {
+	if r.Tier == nil {
+		return policytypes.Normal, nil
+	}
+
+	if r.Tier.Type == intstr.String {
+		switch r.Tier.StrVal {
+		case TierAdmin:
+			return policytypes.Admin, nil
+		case TierNormal, "":
+			return policytypes.Normal, nil
+		case TierBaseline:
+			return policytypes.Baseline, nil
+		default:
+			return 255, fmt.Errorf("Invalid Rule tier name %s, must be Admin, Normal, or Baseline", r.Tier.StrVal)
+		}
+	}
+
+	if r.Tier.IntVal < 1 || r.Tier.IntVal >= 255 {
+		return 255, fmt.Errorf("Invalid Rule tier value %d, must be between 1 and 254", r.Tier.IntVal)
+	}
+	return policytypes.Tier(r.Tier.IntVal), nil
 }
 
 // GetIdentityLabels returns all rule labels in the IsovalentNetworkPolicy.
