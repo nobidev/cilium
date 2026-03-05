@@ -193,7 +193,7 @@ privnet_v4_add_peering_route(__u16 net_id, __u16 subnet_id, __be32 prefix, __u8 
 		.lpm_key.prefixlen = PRIVNET_FIB_PREFIX_LEN(prefix_len),
 		.net_id = net_id,
 		.subnet_id = subnet_id,
-		.type = PRIVNET_FIB_TYPE_PEERING,
+		.type = PRIVNET_FIB_KEY_TYPE_PEERING,
 		.family = ENDPOINT_KEY_IPV4,
 		.ip4 = prefix,
 	};
@@ -213,7 +213,7 @@ privnet_v4_del_peering_route(__u16 net_id, __u16 subnet_id, __be32 prefix, __u8 
 		.lpm_key.prefixlen = PRIVNET_FIB_PREFIX_LEN(prefix_len),
 		.net_id = net_id,
 		.subnet_id = subnet_id,
-		.type = PRIVNET_FIB_TYPE_PEERING,
+		.type = PRIVNET_FIB_KEY_TYPE_PEERING,
 		.family = ENDPOINT_KEY_IPV4,
 		.ip4 = prefix,
 	};

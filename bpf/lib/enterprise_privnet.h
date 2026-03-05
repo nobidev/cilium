@@ -156,10 +156,10 @@
  *      d. Relay response sent to pod's host-side veth device
  */
 
-/* Based on enterprise/pkg/maps/privnet.FIBTypeDefault */
-#define PRIVNET_FIB_TYPE_DEFAULT 0
-/* Based on enterprise/pkg/maps/privnet.FIBTypePeering */
-#define PRIVNET_FIB_TYPE_PEERING 1
+/* Based on enterprise/pkg/maps/privnet.FIBKeyTypeDefault */
+#define PRIVNET_FIB_KEY_TYPE_DEFAULT 0
+/* Based on enterprise/pkg/maps/privnet.FIBKeyTypePeering */
+#define PRIVNET_FIB_KEY_TYPE_PEERING 1
 
 struct privnet_fib_key {
 	struct bpf_lpm_trie_key lpm_key;
@@ -375,7 +375,7 @@ privnet_fib_lookup(const struct privnet_fib_key *key) {
 	 * or empty.
 	 */
 	peer_key = *key;
-	peer_key.type = PRIVNET_FIB_TYPE_PEERING;
+	peer_key.type = PRIVNET_FIB_KEY_TYPE_PEERING;
 	peering_ret = map_lookup_elem(&cilium_privnet_fib, &peer_key);
 	if (!peering_ret)
 		return ret;
@@ -384,7 +384,7 @@ privnet_fib_lookup(const struct privnet_fib_key *key) {
 	 * an external endpoint), we return it. Otherwise we return the result of the initial
 	 * lookup.
 	 */
-	peer_key.type = PRIVNET_FIB_TYPE_DEFAULT;
+	peer_key.type = PRIVNET_FIB_KEY_TYPE_DEFAULT;
 	peer_key.net_id = peering_ret->peer_net_id;
 	peer_key.subnet_id = peering_ret->peer_subnet_id;
 	peering_ret = map_lookup_elem(&cilium_privnet_fib, &peer_key);
@@ -403,7 +403,7 @@ privnet_fib_lookup4(__u16 net_id, __u16 subnet_id, __be32 addr) {
 		.net_id = net_id,
 		.subnet_id = subnet_id,
 		.family = ENDPOINT_KEY_IPV4,
-		.type = PRIVNET_FIB_TYPE_DEFAULT,
+		.type = PRIVNET_FIB_KEY_TYPE_DEFAULT,
 		.ip4 = addr,
 	};
 	return privnet_fib_lookup(&key);
@@ -416,7 +416,7 @@ privnet_fib_lookup6(__u16 net_id, __u16 subnet_id, union v6addr addr) {
 		.net_id = net_id,
 		.subnet_id = subnet_id,
 		.family = ENDPOINT_KEY_IPV6,
-		.type = PRIVNET_FIB_TYPE_DEFAULT,
+		.type = PRIVNET_FIB_KEY_TYPE_DEFAULT,
 		.ip6 = addr,
 	};
 	return privnet_fib_lookup(&key);

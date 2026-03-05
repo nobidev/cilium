@@ -60,12 +60,12 @@ func TestPIPFIBString(t *testing.T) {
 	// FIB key
 	assert.Equal(t, "0x42 0x24 0x0 10.1.0.0/16",
 		NewFIBKey(
-			0x42, 0x24, FIBTypeDefault,
+			0x42, 0x24, FIBKeyTypeDefault,
 			netip.MustParsePrefix("10.1.0.0/16"),
 		).String())
 	assert.Equal(t, "0x63 0xb 0x1 fc:0:80::/64",
 		NewFIBKey(
-			99, 11, FIBTypePeering,
+			99, 11, FIBKeyTypePeering,
 			netip.MustParsePrefix("fc:00:80::/64"),
 		).String())
 

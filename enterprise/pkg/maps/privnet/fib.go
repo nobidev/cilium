@@ -31,14 +31,14 @@ import (
 
 const FIBMapName = "cilium_privnet_fib"
 
-// FIBType indicates the type of the entry.
-type FIBType uint8
+// FIBKeyType indicates the type of the entry.
+type FIBKeyType uint8
 
 const (
-	// FIBTypeDefault is set if the entry is a route or endpoint
-	FIBTypeDefault FIBType = iota
-	// FIBTypePeering is set if the entry is a peering route
-	FIBTypePeering
+	// FIBKeyTypeDefault is set if the entry is a route or endpoint.
+	FIBKeyTypeDefault FIBKeyType = iota
+	// FIBKeyTypePeering is set if the entry is a peering route.
+	FIBKeyTypePeering
 )
 
 // FIBKey is the FIB map key.
@@ -47,7 +47,7 @@ type FIBKey struct {
 	NetID     tables.NetworkID `align:"net_id"`
 	SubnetID  tables.SubnetID  `align:"subnet_id"`
 	Family    uint8            `align:"family"`
-	Type      FIBType          `align:"type"`
+	Type      FIBKeyType       `align:"type"`
 	_         [2]uint8         `align:"pad"`
 	Address   types.IPv6       `align:"$union0"`
 }
@@ -140,7 +140,7 @@ func (f FIB) Enabled() bool {
 }
 
 // NewFIBKey constructs a new FIB map key.
-func NewFIBKey(netID tables.NetworkID, subnetID tables.SubnetID, typ FIBType, prefix netip.Prefix) FIBKey {
+func NewFIBKey(netID tables.NetworkID, subnetID tables.SubnetID, typ FIBKeyType, prefix netip.Prefix) FIBKey {
 	family, addr := fromAddr(prefix.Addr())
 	prefixLen := fibKeyStaticPrefixBits + uint32(prefix.Bits())
 
