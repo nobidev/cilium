@@ -11,6 +11,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cilium/cilium/pkg/comparator"
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -20,6 +21,12 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/policy/utils"
+)
+
+const (
+	TierAdmin    = "Admin"
+	TierNormal   = "Normal"
+	TierBaseline = "Baseline"
 )
 
 // +genclient
@@ -41,11 +48,13 @@ type IsovalentNetworkPolicy struct {
 
 	// Spec is the desired Isovalent specific rule specification.
 	//+kubebuilder:validation:XValidation:message="Order must be >= 0.0",rule="!has(self.order) || self.order >= 0.0"
+	//+kubebuilder:validation:XValidation:message="Tier must be Normal or Baseline",rule="!has(self.tier) || self.tier == 'Normal' || self.tier == 'Baseline'"
 	Spec *IsovalentNetworkPolicyRule `json:"spec,omitempty"`
 
 	// Specs is a list of desired Isovalent specific rule specification.
 	//+kubebuilder:validation:items:XValidation:message="Order must be >= 0.0",rule="!has(self.order) || self.order >= 0.0"
 	Specs []*IsovalentNetworkPolicyRule `json:"specs,omitempty"`
+	// TODO(CDC) add CEL for Normal / Baseline tier. It triggers the complexity limits currently.
 
 	// Status is the status of the Isovalent policy rule
 	//
@@ -90,8 +99,38 @@ func objectMetaDeepEqual(in, other metav1.ObjectMeta) bool {
 type IsovalentNetworkPolicyRule struct {
 	api.Rule `json:",inline"`
 
-	// Order specifies the order in which the policy is applied.
+	// IngressPass is a list of ingress traffic to pass to lower tiers.
+	//
+	// Traffic that is passed will skip any lower-priority rules on the same
+	// tier, even if they are deny. The traffic will not be explicitly allowed.
+	// Rather, rules in lower tiers have the option to permit this traffic.
+	IngressPass []api.IngressRule `json:"ingressPass,omitempty"`
+
+	// EgressPass is a list of egress traffic to pass to lower tiers.
+	//
+	// Traffic that is passed will skip any lower-priority rules on the same
+	// tier, even if they are deny. The traffic will not be explicitly allowed.
+	// Rather, rules in lower tiers have the option to permit this traffic.
+	EgressPass []api.EgressRule `json:"egressPass,omitempty"`
+
+	// Order specifies the order in which the policy is applied. It applies
+	// within a given Tier. The default is 0. Negative and fractional
+	// values are permitted.
 	Order *float32 `json:"order,omitempty"`
+
+	// Tier indicates the tier at which this policy should apply.
+	//
+	// This can be a number between 1 and 254, or the strings
+	// Admin, Normal, or Baseline. The default is Normal.
+	//
+	// - Admin is equal to tier 100
+	// - Normal is equal to tier 200
+	// - Baseline is equal to tier 250
+	//
+	//+deepequal-gen=false
+	//+kubebuilder:validation:XIntOrString
+	//+kubebuilder:validation:Pattern="^([1-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-4]|Admin|Normal|Baseline)$"
+	Tier *intstr.IntOrString `json:"tier,omitempty"`
 }
 
 func (r *IsovalentNetworkPolicyRule) DeepEqual(o *IsovalentNetworkPolicyRule) bool {
@@ -101,6 +140,12 @@ func (r *IsovalentNetworkPolicyRule) DeepEqual(o *IsovalentNetworkPolicyRule) bo
 	case (r == nil) && (o == nil):
 		return true
 	}
+
+	// nil tolerant
+	if r.Tier.String() != o.Tier.String() {
+		return false
+	}
+
 	return r.deepEqual(o)
 }
 

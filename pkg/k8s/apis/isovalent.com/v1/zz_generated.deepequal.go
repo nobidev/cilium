@@ -1659,6 +1659,40 @@ func (in *IsovalentNetworkPolicyRule) deepEqual(other *IsovalentNetworkPolicyRul
 		return false
 	}
 
+	if ((in.IngressPass != nil) && (other.IngressPass != nil)) || ((in.IngressPass == nil) != (other.IngressPass == nil)) {
+		in, other := &in.IngressPass, &other.IngressPass
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.EgressPass != nil) && (other.EgressPass != nil)) || ((in.EgressPass == nil) != (other.EgressPass == nil)) {
+		in, other := &in.EgressPass, &other.EgressPass
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
 	if (in.Order == nil) != (other.Order == nil) {
 		return false
 	} else if in.Order != nil {
