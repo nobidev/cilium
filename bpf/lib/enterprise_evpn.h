@@ -3,12 +3,16 @@
 
 #pragma once
 
-#include "socket.h"
+#include "lib/common.h"
 #include "enterprise_config.h"
 
 #ifndef EVPN_FIB_MAP_SIZE
 #define EVPN_FIB_MAP_SIZE 65536
 #endif
+
+#include "socket.h"
+#include "eth.h"
+#include "drop_reasons.h"
 
 DECLARE_ENTERPRISE_CONFIG(bool, evpn_enable,
 			  "True if evpn feature is enabled")
@@ -91,4 +95,74 @@ evpn_fib_lookup6(__u16 net_id, const union v6addr *addr)
 		.ip6 = *addr,
 	};
 	return map_lookup_elem(&cilium_evpn_fib, &key);
+}
+
+static __always_inline __maybe_unused int
+evpn_encap_and_redirect4(struct __ctx_buff *ctx, __u16 net_id, __be32 dst_ip)
+{
+	union macaddr evpn_mac = CONFIG(evpn_device_mac);
+	struct bpf_tunnel_key tunnel_key = {};
+	const struct evpn_fib_val *fib_val;
+	void *data_end = ctx_data_end(ctx);
+	void *data = ctx_data(ctx);
+	struct ethhdr *eth;
+	int ret;
+
+	fib_val = evpn_fib_lookup4(net_id, dst_ip);
+	if (!fib_val)
+		return DROP_UNROUTABLE;
+
+	eth = data;
+	if ((void *)(eth + 1) > data_end)
+		return DROP_INVALID;
+
+	memcpy(eth->h_dest, fib_val->mac.addr, ETH_ALEN);
+	memcpy(eth->h_source, evpn_mac.addr, ETH_ALEN);
+
+	tunnel_key.tunnel_id = fib_val->vni;
+	tunnel_key.remote_ipv4 = bpf_ntohl(fib_val->ip4);
+	tunnel_key.tunnel_ttl = IPDEFTTL;
+
+	ret = ctx_set_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP, BPF_F_ZERO_CSUM_TX);
+	if (ret < 0)
+		return DROP_WRITE_ERROR;
+
+	return ctx_redirect(ctx, CONFIG(evpn_device_ifindex), 0);
+}
+
+static __always_inline __maybe_unused int
+evpn_encap_and_redirect6(struct __ctx_buff *ctx, __u16 net_id, union v6addr dst_ip)
+{
+	union macaddr evpn_mac = CONFIG(evpn_device_mac);
+	struct bpf_tunnel_key tunnel_key = {};
+	const struct evpn_fib_val *fib_val;
+	void *data_end = ctx_data_end(ctx);
+	void *data = ctx_data(ctx);
+	struct ethhdr *eth;
+	int ret;
+
+	fib_val = evpn_fib_lookup6(net_id, &dst_ip);
+	if (!fib_val)
+		return DROP_UNROUTABLE;
+
+	eth = data;
+	if ((void *)(eth + 1) > data_end)
+		return DROP_INVALID;
+
+	memcpy(eth->h_dest, fib_val->mac.addr, ETH_ALEN);
+	memcpy(eth->h_source, evpn_mac.addr, ETH_ALEN);
+
+	tunnel_key.tunnel_id = fib_val->vni;
+	tunnel_key.remote_ipv6[0] = fib_val->ip6.p1;
+	tunnel_key.remote_ipv6[1] = fib_val->ip6.p2;
+	tunnel_key.remote_ipv6[2] = fib_val->ip6.p3;
+	tunnel_key.remote_ipv6[3] = fib_val->ip6.p4;
+	tunnel_key.tunnel_ttl = IPDEFTTL;
+
+	ret = ctx_set_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP,
+				 BPF_F_ZERO_CSUM_TX | BPF_F_TUNINFO_IPV6);
+	if (ret < 0)
+		return DROP_WRITE_ERROR;
+
+	return ctx_redirect(ctx, CONFIG(evpn_device_ifindex), 0);
 }
