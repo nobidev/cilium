@@ -292,6 +292,7 @@ type egressGroupParams struct {
 	activeGatewayIPs     []string
 	activeGatewayIPsByAZ map[string][]string
 	healthyGatewayIPs    []string
+	egressIPByGatewayIP  map[string]string
 }
 
 type policyParams struct {
@@ -409,6 +410,7 @@ func newIEGP(params *policyParams) (*Policy, *PolicyConfig) {
 			ActiveGatewayIPs:     egParams.activeGatewayIPs,
 			ActiveGatewayIPsByAZ: egParams.activeGatewayIPsByAZ,
 			HealthyGatewayIPs:    egParams.healthyGatewayIPs,
+			EgressIPByGatewayIP:  egParams.egressIPByGatewayIP,
 		})
 
 		egressGroups = append(egressGroups, v1.EgressGroup{

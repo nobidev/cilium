@@ -1821,3 +1821,48 @@ func TestPrivilegedSameGatewayInMultipleEgressGroups(t *testing.T) {
 		{ep1IP, destCIDR3, egressIP1, node1IP, 0},
 	})
 }
+
+// TestPrivilegedEgressGatewayManagerIPAMWithEgressCIDRs verifies that when
+// egressCIDRs is set, the agent skips gateway configuration until the
+// operator assigns an egress IP from the pool.
+func TestPrivilegedEgressGatewayManagerIPAMWithEgressCIDRs(t *testing.T) {
+	k := setupEgressGatewayTestSuite(t)
+
+	// Add an endpoint that matches the policy.
+	k.addEndpoint(t, "ep-1", ep1IP, ep1Labels, node1IP)
+
+	// Create a policy with egressCIDRs set. The local node (node1) is healthy
+	// but the operator has not yet assigned an egress IP from the pool
+	// (egressIPByGatewayIP is empty).
+	policy1 := k.addPolicy(t, &policyParams{
+		name:             "policy-1",
+		uid:              policy1UID,
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCIDR},
+		egressCIDRs:      []string{"10.100.0.0/24"},
+		egressGroups: []egressGroupParams{{
+			iface:             testInterface1,
+			nodeLabels:        nodeGroup1Labels,
+			healthyGatewayIPs: []string{node1IP},
+		}},
+	})
+
+	// The local node must NOT be configured as a gateway: egressCIDRs is set
+	// but no egress IP has been assigned from the pool yet.
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, zeroIP4, zeroIP4, 0},
+	})
+
+	// Simulate the operator assigning an egress IP from the pool to node1.
+	policy1.egressGroups[0].activeGatewayIPs = []string{node1IP}
+	policy1.egressGroups[0].egressIPByGatewayIP = map[string]string{
+		node1IP: "10.100.0.1",
+	}
+	k.addPolicy(t, policy1)
+
+	// Now the local node should be configured as a gateway using the
+	// IPAM-assigned IP (10.100.0.1), not the interface IP (egressIP1).
+	k.assertEgressRules(t, []egressRule{
+		{ep1IP, destCIDR, "10.100.0.1", node1IP, 0},
+	})
+}
