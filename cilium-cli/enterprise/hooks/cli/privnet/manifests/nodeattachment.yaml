@@ -1,0 +1,10 @@
+---
+apiVersion: "isovalent.com/v1alpha1"
+kind: PrivateNetworkNodeAttachment
+metadata:
+  name: "{{ .Network }}"
+spec:
+  privateNetworkRef:
+    name: "{{ .Network }}"
+  attachments:
+    - interface: "{{ .Interface }}"

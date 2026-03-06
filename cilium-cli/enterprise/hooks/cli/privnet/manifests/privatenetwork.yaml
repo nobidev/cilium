@@ -5,10 +5,6 @@ metadata:
   labels:
     app.kubernetes.io/part-of: cilium-cli-privnet
 spec:
-  {{- if .INBInterface }}
-  interface:
-    name: "{{ .INBInterface }}"
-  {{- end }}
   subnets:
     {{- range $index, $subnet := .Prefixes }}
     - name: subnet-{{ $index }}

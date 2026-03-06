@@ -60,6 +60,9 @@ var (
 
 	//go:embed manifests/external-endpoint-policy.yaml
 	externalEndpointPolicyTemplate string
+
+	//go:embed manifests/nodeattachment.yaml
+	nodeAttachmentTemplate string
 )
 
 const (
@@ -358,12 +361,21 @@ func (t *TestRun) renderClusterNetworkTopology(network NetworkName, ndata Networ
 	return objs, nil
 }
 
+type attachmentTemplateData struct {
+	Network   NetworkName
+	Interface string
+}
+
 func (t *TestRun) applyINBNetworkTopology(ctx context.Context, network NetworkName, ndata NetworkData) error {
 	for _, inb := range ndata.INBs {
 		data := networkTemplateData{
-			Network:      network,
-			Prefixes:     ndata.Prefixes,
-			INBInterface: inb.Interface,
+			Network:  network,
+			Prefixes: ndata.Prefixes,
+		}
+
+		attachmentData := attachmentTemplateData{
+			Network:   network,
+			Interface: inb.Interface,
 		}
 
 		networkYAML, err := renderTemplate(privateNetworkTemplate, data)
@@ -375,7 +387,16 @@ func (t *TestRun) applyINBNetworkTopology(ctx context.Context, network NetworkNa
 			return fmt.Errorf("failed deserializing manifest for network %s: %w", network, err)
 		}
 
-		objs := toK8sObjects(networkObjs)
+		attachmentYAML, err := renderTemplate(nodeAttachmentTemplate, attachmentData)
+		if err != nil {
+			return fmt.Errorf("failed rendering template for node attachment %s: %w", inb.Interface, err)
+		}
+		attachmentObjs, err := utils.ParseYAML[*isovalentv1alpha1.PrivateNetworkNodeAttachment](attachmentYAML)
+		if err != nil || len(attachmentObjs) == 0 {
+			return fmt.Errorf("failed deserializing manifest for node attachment %s: %w", inb.Interface, err)
+		}
+
+		objs := append(toK8sObjects(networkObjs), toK8sObjects(attachmentObjs)...)
 		for _, client := range t.inbClients {
 			if client.ClusterName() == "kind-"+inb.ClusterName {
 				if err := t.applyObjs(ctx, client, objs); err != nil {
