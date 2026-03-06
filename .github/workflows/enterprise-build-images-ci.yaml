@@ -63,9 +63,9 @@ jobs:
             build_args: |
               PUSH=true
               # renovate: datasource=docker
-              RUNTIME_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+              RUNTIME_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
               # renovate: datasource=docker
-              UBI_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+              UBI_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
               OPERATOR_VARIANT=operator-generic-ubi
 
           - name: hubble-relay
@@ -75,9 +75,9 @@ jobs:
             build_args: |
               PUSH=true
               # renovate: datasource=docker
-              RUNTIME_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+              RUNTIME_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
               # renovate: datasource=docker
-              UBI_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+              UBI_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
               OPERATOR_VARIANT=hubble-relay-ubi
 
           - name: clustermesh-apiserver
@@ -87,9 +87,9 @@ jobs:
             build_args: |
               PUSH=true
               # renovate: datasource=docker
-              RUNTIME_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+              RUNTIME_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
               # renovate: datasource=docker
-              UBI_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+              UBI_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
               OPERATOR_VARIANT=clustermesh-apiserver-ubi
 
           - name: cilium

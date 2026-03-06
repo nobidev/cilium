@@ -39,7 +39,7 @@ jobs:
             docker-context: enterprise/images/certgen
             dockerfile: enterprise/images/certgen/Dockerfile
             # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+            base-image: registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
             build-from-source: false
 
           - component: CILIUM_NODEINIT
@@ -47,7 +47,7 @@ jobs:
             docker-context: enterprise/images/startup-script
             dockerfile: enterprise/images/startup-script/Dockerfile
             # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-minimal:9.6@sha256:8d905a93f1392d4a8f7fb906bd49bf540290674b28d82de3536bb4d0898bf9d7
+            base-image: registry.redhat.io/ubi9/ubi-minimal:9.7@sha256:c7d44146f826037f6873d99da479299b889473492d3c1ab8af86f08af04ec8a0
             build-from-source: false
 
           - component: CILIUM_ENVOY
@@ -63,7 +63,7 @@ jobs:
             docker-context: hubble-ui-backend/backend
             dockerfile: hubble-ui-backend/backend/Dockerfile
             # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-micro:9.6@sha256:647c02b5b6d4760b019a468ff620ec53009d8453679bee3b7e5a676499edb1c3
+            base-image: registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
             build-from-source: true
             source-repo: isovalent/hubble-ui-enterprise
             source-path: hubble-ui-backend
@@ -73,7 +73,7 @@ jobs:
             docker-context: hubble-ui-frontend
             dockerfile: hubble-ui-frontend/Dockerfile
             # renovate: datasource=docker
-            base-image: quay.io/isovalent-dev/nginx-unprivileged-ubi:1754712783-48bbfc6@sha256:911d90b5ec8397b783a35cade1f6b4d7147bc812d1e4f4adb4cb62df90a74dac
+            base-image: quay.io/isovalent-dev/nginx-unprivileged-ubi:1772792493-13a2bf3@sha256:c13f44f46cac791d2b1bb7cdc9033382840c93e6c8487137663f8342065e1099
             build-from-source: true
             source-repo: isovalent/hubble-ui-enterprise
             source-path: hubble-ui-frontend
@@ -84,7 +84,7 @@ jobs:
             docker-context: enterprise/images/kubectl
             dockerfile: enterprise/images/kubectl/Dockerfile
             # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-minimal:9.6@sha256:8d905a93f1392d4a8f7fb906bd49bf540290674b28d82de3536bb4d0898bf9d7
+            base-image: registry.redhat.io/ubi9/ubi-minimal:9.7@sha256:c7d44146f826037f6873d99da479299b889473492d3c1ab8af86f08af04ec8a0
             build-from-source: false
 
           - component: KUBECTL
