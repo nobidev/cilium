@@ -20,6 +20,7 @@ var (
 	// Cells that do not depend on leader election.
 	Cell = cell.Group(
 		PrivateNetworksCell,
+		NetworkAttachmentDefinitionsCell,
 	)
 
 	// Cells that do depend on leader election.

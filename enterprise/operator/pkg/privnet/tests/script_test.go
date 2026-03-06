@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/hive/script/scripttest"
@@ -54,6 +55,7 @@ func TestScript(t *testing.T) {
 
 			h := hive.New(
 				k8sClient.FakeClientCell(),
+				cell.DecorateAll(k8sClient.NewFakeNADsClientset),
 
 				privnet.Cell,
 				evpn.Cell,

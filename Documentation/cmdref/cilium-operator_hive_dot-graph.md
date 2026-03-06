@@ -193,6 +193,7 @@ cilium-operator hive dot-graph [flags]
       --policy-default-local-cluster                                   Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-secrets-namespace string                                Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --private-networks-enabled                                       Enable support for private networks
+      --private-networks-nad-integration-enabled                       Enable the private networks integration with Multus network attachment definitions
       --shell-sock-path string                                         Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
       --skip-crd-creation                                              When true, Kubernetes Custom Resource Definitions will not be created
       --srv6-locator-pool-enabled                                      Enable SRv6 locator pool in Cilium
