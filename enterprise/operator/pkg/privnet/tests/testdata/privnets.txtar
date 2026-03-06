@@ -42,12 +42,17 @@ apiVersion: isovalent.com/v1alpha1
 kind: ClusterwidePrivateNetwork
 metadata:
   name: united-firefly
+spec:
+  subnets:
+  - name: uf-1
+  - name: uf-2
+  - name: uf-3
 
 -- privnet.v1.table --
-Name
-direct-maggot
-united-firefly
+Name              Subnets
+direct-maggot     0
+united-firefly    3
 
 -- privnet.v2.table --
-Name
-united-firefly
+Name              Subnets
+united-firefly    3

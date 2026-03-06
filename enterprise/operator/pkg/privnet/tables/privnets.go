@@ -11,6 +11,8 @@
 package tables
 
 import (
+	"strconv"
+
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 
@@ -22,12 +24,18 @@ import (
 type (
 	// NetworkName is the name of a private network.
 	NetworkName = tables.NetworkName
+
+	// SubnetName is the name of a subnet.
+	SubnetName = tables.SubnetName
 )
 
 // PrivateNetwork represents a private network instance.
 type PrivateNetwork struct {
 	// Name is the name of the private network.
 	Name NetworkName
+
+	// Subnets is the list of subnets associated with this private network.
+	Subnets []PrivateNetworkSubnet
 
 	// VNI requested by this private network.
 	RequestedVNI vni.VNI
@@ -36,15 +44,22 @@ type PrivateNetwork struct {
 	OrigResource *v1alpha1.ClusterwidePrivateNetwork
 }
 
+// PrivateNetworkSubnet is a subnet configured on the private network.
+type PrivateNetworkSubnet struct {
+	// Name is the name of the subnet.
+	Name SubnetName
+}
+
 var _ statedb.TableWritable = &PrivateNetwork{}
 
 func (pn PrivateNetwork) TableHeader() []string {
-	return []string{"Name", "RequestedVNI"}
+	return []string{"Name", "Subnets", "RequestedVNI"}
 }
 
 func (pn PrivateNetwork) TableRow() []string {
 	return []string{
 		string(pn.Name),
+		strconv.FormatInt(int64(len(pn.Subnets)), 10),
 		pn.RequestedVNI.String(),
 	}
 }

@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/promise"
+	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
 // PrivateNetworksCell groups the private networks reconciliation operations that
@@ -127,11 +128,23 @@ func (pn *PrivateNetworks) registerK8sReflector() error {
 
 			return tables.PrivateNetwork{
 				Name:         tables.NetworkName(privnet.Name),
+				Subnets:      pn.extractSubnets(privnet),
 				RequestedVNI: pn.extractRequestedVNI(privnet),
 				OrigResource: privnet.DeepCopy(),
 			}, true
 		},
 	})
+}
+
+func (pn *PrivateNetworks) extractSubnets(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) []tables.PrivateNetworkSubnet {
+	return cslices.Map(
+		privnet.Spec.Subnets,
+		func(subnet iso_v1alpha1.SubnetSpec) tables.PrivateNetworkSubnet {
+			return tables.PrivateNetworkSubnet{
+				Name: tables.SubnetName(subnet.Name),
+			}
+		},
+	)
 }
 
 func (pn *PrivateNetworks) extractRequestedVNI(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) vni.VNI {
