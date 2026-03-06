@@ -42,7 +42,7 @@ type LBK8sBackendClusterSpec struct {
 
 	// TargetNamespace is the namespace where ILB resources (LBService, LBVIP,
 	// LBBackendPool) will be created. If not specified, defaults to
-	// "extlb-{clusterName}" which is automatically created.
+	// "extlb-{clusterName}-{hashSuffix}" which is automatically created.
 	//
 	// +optional
 	// +kubebuilder:validation:MinLength=1
@@ -249,8 +249,14 @@ const (
 )
 
 const (
-	ClusterConnectedReasonConnected        = "Connected"
-	ClusterConnectedReasonConnectionFailed = "ConnectionFailed"
+	ClusterConnectedReasonConnected           = "Connected"
+	ClusterConnectedReasonConnectionFailed    = "ConnectionFailed"
+	ClusterConnectedReasonAuthenticationError = "AuthenticationError"
+	ClusterConnectedReasonConnectionError     = "ConnectionError"
+	ClusterConnectedReasonSyncError           = "SyncError"
+
+	SyncingReasonSyncing     = "Syncing"
+	SyncingReasonPartialSync = "PartialSync"
 )
 
 // ExtLBResourceStatus represents the status of an external load balancer

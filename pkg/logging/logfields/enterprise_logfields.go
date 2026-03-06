@@ -132,4 +132,9 @@ const (
 	Giaddr = "giaddr" // DHCP gateway IP address
 
 	ServiceCount = "serviceCount"
+
+	DiscoveryConfig = "discoveryConfig"
+	VIP             = "vip"
+	Pool            = "pool"
+	SourceService   = "sourceService"
 )

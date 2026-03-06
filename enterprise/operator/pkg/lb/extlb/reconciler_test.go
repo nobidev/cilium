@@ -153,7 +153,7 @@ func TestLBK8sBackendClusterReconciler_SecretNotFound(t *testing.T) {
 	_, err := r.Reconcile(context.Background(), reconcile.Request{
 		NamespacedName: types.NamespacedName{Name: "test-cluster"},
 	})
-	require.NoError(t, err)
+	require.Error(t, err)
 
 	// Check that status was updated with error
 	var updated isovalentv1alpha1.LBK8sBackendCluster
