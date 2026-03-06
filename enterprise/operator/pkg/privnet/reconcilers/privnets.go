@@ -31,7 +31,6 @@ import (
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sconstv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	cs_iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/promise"
@@ -47,12 +46,6 @@ var PrivateNetworksCell = cell.Group(
 
 		// Provides the reconciler handling private networks.
 		newPrivateNetworks,
-
-		// Provides the promise to wait for the ClusterwidePrivateNetworks CRD.
-		// We need to explicitly check for its existence because we run the
-		// reflector in all operator replicas, and it may otherwise start
-		// before that the CRD got actually created.
-		(*PrivateNetworks).newCRDSyncPromise,
 	),
 
 	cell.Provide(
@@ -75,7 +68,7 @@ type PrivateNetworks struct {
 	db  *statedb.DB
 	tbl statedb.RWTable[tables.PrivateNetwork]
 
-	client cs_iso_v1alpha1.ClusterwidePrivateNetworkInterface
+	client client.Clientset
 }
 
 func newPrivateNetworks(in struct {
@@ -107,11 +100,11 @@ func newPrivateNetworks(in struct {
 		return nil, errors.New("private networks requires Kubernetes support to be enabled")
 	}
 
-	reconciler.client = in.Client.IsovalentV1alpha1().ClusterwidePrivateNetworks()
+	reconciler.client = in.Client
 	return reconciler, nil
 }
 
-func (pn *PrivateNetworks) registerK8sReflector(sync promise.Promise[synced.CRDSync]) error {
+func (pn *PrivateNetworks) registerK8sReflector() error {
 	if !pn.cfg.Enabled {
 		return nil
 	}
@@ -119,8 +112,13 @@ func (pn *PrivateNetworks) registerK8sReflector(sync promise.Promise[synced.CRDS
 	return k8s.RegisterReflector(pn.jg, pn.db, k8s.ReflectorConfig[tables.PrivateNetwork]{
 		Name:          "to-table",
 		Table:         pn.tbl,
-		ListerWatcher: utils.ListerWatcherFromTyped(pn.client),
-		CRDSync:       sync,
+		ListerWatcher: utils.ListerWatcherFromTyped(pn.client.IsovalentV1alpha1().ClusterwidePrivateNetworks()),
+
+		// We need to explicitly check for the ClusterwidePrivateNetworks CRD
+		// existence because we run the reflector in all operator replicas, and
+		// it may otherwise start before that the CRD got actually created.
+		CRDSync: pn.newCRDSyncPromise(),
+
 		Transform: func(txn statedb.ReadTxn, obj any) (tables.PrivateNetwork, bool) {
 			privnet, ok := obj.(*iso_v1alpha1.ClusterwidePrivateNetwork)
 			if !ok {
@@ -146,14 +144,14 @@ func (pn *PrivateNetworks) extractRequestedVNI(privnet *iso_v1alpha1.Clusterwide
 	return vni.VNI{}
 }
 
-func (pn *PrivateNetworks) newCRDSyncPromise(client client.Clientset) promise.Promise[synced.CRDSync] {
+func (pn *PrivateNetworks) newCRDSyncPromise() promise.Promise[synced.CRDSync] {
 	resolve, promise := promise.New[synced.CRDSync]()
 
 	pn.jg.Add(
 		job.OneShot("wait-for-icpn-crd", func(ctx context.Context, health cell.Health) error {
 			for {
 				health.OK("Checking if ClusterWidePrivateNetworks CRD exists")
-				crd, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(
+				crd, err := pn.client.ApiextensionsV1().CustomResourceDefinitions().Get(
 					ctx, k8sconstv1alpha1.ClusterwidePrivateNetworkName, metav1.GetOptions{})
 
 				switch {
