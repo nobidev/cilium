@@ -262,6 +262,13 @@ func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager, tx st
 				gwc.ifaceName = iface.Attrs().Name
 				gwc.egressIfindex = uint32(iface.Attrs().Index)
 				gwc.egressIP = egressIP
+			} else if len(config.egressCIDRs) > 0 {
+				// egressCIDRs is set, meaning the operator is responsible for IPAM-assigning
+				// egress IPs from those CIDRs. If the local node has no assigned egress IP,
+				// do not fall back to deriveFromGroupConfig which could pick an IP outside
+				// the user-specified egressCIDRs.
+				logger.Info("Local node is a gateway but has no egress IP assigned from egressCIDRs pool yet")
+				continue
 			} else if err := gwc.deriveFromGroupConfig(manager.logger, &gc); err != nil {
 				logger.Error("Failed to derive policy gateway configuration",
 					logfields.Error, err,
