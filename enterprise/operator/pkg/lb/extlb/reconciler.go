@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -275,6 +276,7 @@ func (r *lbK8sBackendClusterReconciler) updateStatusError(
 
 	status := isovalentv1alpha1.ExtLBResourceStatusConditionNotMet
 	cluster.Status.Status = &status
+	cluster.Status.Conditions = removeCondition(cluster.Status.Conditions, isovalentv1alpha1.DeprecatedConditionTypeClusterConnected)
 	cluster.Status.Conditions = updateCondition(cluster.Status.Conditions,
 		isovalentv1alpha1.ConditionTypeClusterConnected,
 		metav1.ConditionFalse,
@@ -304,6 +306,7 @@ func (r *lbK8sBackendClusterReconciler) updateStatusSuccess(
 	cluster.Status.Status = &status
 	cluster.Status.LastSyncTime = &now
 	cluster.Status.ServicesDiscovered = int32(serviceCount)
+	cluster.Status.Conditions = removeCondition(cluster.Status.Conditions, isovalentv1alpha1.DeprecatedConditionTypeClusterConnected)
 	cluster.Status.Conditions = updateCondition(cluster.Status.Conditions,
 		isovalentv1alpha1.ConditionTypeClusterConnected,
 		metav1.ConditionTrue,
@@ -321,6 +324,15 @@ func (r *lbK8sBackendClusterReconciler) updateStatusSuccess(
 	)
 
 	return ctrl.Result{}, nil
+}
+
+func removeCondition(conditions []metav1.Condition, conditionType string) []metav1.Condition {
+	for i, c := range conditions {
+		if c.Type == conditionType {
+			return slices.Delete(conditions, i, i+1)
+		}
+	}
+	return conditions
 }
 
 func updateCondition(conditions []metav1.Condition, conditionType string, status metav1.ConditionStatus, reason, message string) []metav1.Condition {

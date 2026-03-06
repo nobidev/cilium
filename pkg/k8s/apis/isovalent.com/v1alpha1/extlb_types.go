@@ -232,7 +232,12 @@ func (r *LBK8sBackendCluster) UpdateResourceStatus() {
 }
 
 const (
-	ConditionTypeClusterConnected = "extlb.cilium.io/ClusterConnected"
+	ConditionTypeClusterConnected = "lbk8sbackendcluster.isovalent.com/ClusterConnected"
+	ConditionTypeSyncing          = "lbk8sbackendcluster.isovalent.com/Syncing"
+
+	// DeprecatedConditionTypeClusterConnected is the old condition type from earlier
+	// development. Cleaned up on reconcile.
+	DeprecatedConditionTypeClusterConnected = "extlb.cilium.io/ClusterConnected"
 )
 
 const (
