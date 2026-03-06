@@ -658,10 +658,13 @@ func mustGetTest(testName string, cts ...*check.ConnectivityTest) *check.Test {
 
 func renderTemplates(ct *check.ConnectivityTest) (map[string]string, error) {
 	templates := map[string]string{
-		"clientEgressOnlyDNSPolicyYAML":       clientEgressOnlyDNSPolicyYAML,
-		"clientIngressToEchoOrderedNS":        clientIngressToEchoOrderedNS,
-		"clientIngressToEchoOrderedWildcard":  clientIngressToEchoOrderedWildcard,
-		"clientIngressToEchoOrderedPortrange": clientIngressToEchoOrderedPortrange,
+		"clientEgressOnlyDNSPolicyYAML":         clientEgressOnlyDNSPolicyYAML,
+		"clientIngressToEchoOrderedNS":          clientIngressToEchoOrderedNS,
+		"clientIngressToEchoOrderedWildcard":    clientIngressToEchoOrderedWildcard,
+		"clientIngressToEchoOrderedPortrange":   clientIngressToEchoOrderedPortrange,
+		"clientIngressToEchoTieredNS":           clientIngressToEchoTieredNS,
+		"clientIngressToEchoTieredWildcard":     clientIngressToEchoTieredWildcard,
+		"clientIngressToEchoTieredWildcardPass": clientIngressToEchoTieredWildcardPass,
 	}
 
 	renderedTemplates := map[string]string{}

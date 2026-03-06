@@ -1,0 +1,65 @@
+# Three policies
+# Normal, order 0: pass client to baseline
+# Normal, order 1: deny all
+# Baseline: allow 8080
+# the only permitted traffic should be client:8080
+#
+# Tests that datapath policy resolution is correct,
+# as there will only be a wildcard entry for the first rule.
+
+apiVersion: isovalent.com/v1
+kind: IsovalentClusterwideNetworkPolicy
+metadata:
+  name: ingress-to-echo-tiered-wildcard-pass
+  annotations:
+    cli.cilium.io/bump-policy: ""
+specs:
+# Always allow readiness probes
+- endpointSelector:
+    matchLabels:
+      io.kubernetes.pod.namespace: "{{.TestNamespace}}"
+  ingress:
+    - fromEntities: ["host"]
+  order: 0
+
+# Pass ingress traffic to Client to Baseline
+- endpointSelector:
+    matchLabels:
+      io.kubernetes.pod.namespace: "{{.TestNamespace}}"
+  ingressPass:
+    - fromEndpoints:
+      - matchLabels:
+          name: client
+        matchExpressions:
+          - { key: io.cilium.k8s.policy.cluster, operator: Exists }
+  tier: Normal
+  order: 0
+
+# Default deny
+- endpointSelector:
+    matchLabels:
+      io.kubernetes.pod.namespace: "{{.TestNamespace}}" 
+  ingressDeny:
+    - fromEntities: ["all"]
+  tier: Normal
+  order: 1 
+
+---
+
+apiVersion: isovalent.com/v1
+kind: IsovalentNetworkPolicy
+metadata:
+  name: ingress-to-echo-tiered-wildcard-allow
+  namespace: "{{.TestNamespace}}"
+  annotations:
+    cli.cilium.io/bump-policy: ""
+specs:
+# Allow port 8080
+- endpointSelector: {}
+  ingress:
+    - fromEntities: ["all"]
+      toPorts:
+        - ports:
+          - port: "8080"
+            protocol: "TCP" 
+  tier: Baseline
