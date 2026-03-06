@@ -260,7 +260,7 @@ func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager, tx st
 				egressIPs = append(egressIPs, gwEgressIPConfig{egressIP, iface.Attrs().Name})
 
 				gwc.ifaceName = iface.Attrs().Name
-				gwc.egressIfindex = uint32(iface.Attrs().Index)
+				gwc.egressIfindex = egressIfindexForIface(iface)
 				gwc.egressIP = egressIP
 			} else if len(config.egressCIDRs) > 0 {
 				// egressCIDRs is set, meaning the operator is responsible for IPAM-assigning
@@ -343,6 +343,16 @@ func updateEgressIPsConfig(
 	txn.Commit()
 }
 
+// egressIfindexForIface returns the interface index to use for BPF egress
+// forwarding. If the device is a dummy interface, ifindex-based BPF forwarding
+// can't be used. In such cases, it returns 0 to fallback to fib_lookup based selection.
+func egressIfindexForIface(iface netlink.Link) uint32 {
+	if iface.Type() == "dummy" {
+		return 0
+	}
+	return uint32(iface.Attrs().Index)
+}
+
 // deriveFromGroupConfig retrieves all the missing gateway configuration data
 // (such as egress IP or interface) given a policy group config
 func (gwc *gatewayConfig) deriveFromGroupConfig(logger *slog.Logger, gc *groupConfig) error {
@@ -361,14 +371,7 @@ func (gwc *gatewayConfig) deriveFromGroupConfig(logger *slog.Logger, gc *groupCo
 		}
 
 		gwc.ifaceName = iface.Attrs().Name
-
-		if iface.Type() == "dummy" {
-			// If the device is a dummy interface, ifindex-based BPF forwarding can't be used.
-			// In such cases, fallback to fib_lookup based selection.
-			gwc.egressIfindex = 0
-		} else {
-			gwc.egressIfindex = uint32(iface.Attrs().Index)
-		}
+		gwc.egressIfindex = egressIfindexForIface(iface)
 
 		egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
 		if err != nil {
