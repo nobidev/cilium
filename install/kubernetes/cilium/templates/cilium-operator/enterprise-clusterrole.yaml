@@ -144,6 +144,29 @@ rules:
   - get
   - update
   - patch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - update
+  - delete
+- apiGroups:
+  - isovalent.com
+  resources:
+  - lbservices
+  - lbbackendpools
+  - lbvips
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+  - deletecollection
 {{- end }}
 - apiGroups:
   - isovalent.com

@@ -2999,19 +2999,23 @@ func (in *LBK8sBackendClusterDiscoveredService) DeepEqual(other *LBK8sBackendClu
 	if in.RemoteName != other.RemoteName {
 		return false
 	}
-	if (in.DiscoveryConfigName == nil) != (other.DiscoveryConfigName == nil) {
+	if in.DiscoveryConfigName != other.DiscoveryConfigName {
 		return false
-	} else if in.DiscoveryConfigName != nil {
-		if *in.DiscoveryConfigName != *other.DiscoveryConfigName {
+	}
+	if ((in.LBServiceRefs != nil) && (other.LBServiceRefs != nil)) || ((in.LBServiceRefs == nil) != (other.LBServiceRefs == nil)) {
+		in, other := &in.LBServiceRefs, &other.LBServiceRefs
+		if other == nil {
 			return false
 		}
-	}
 
-	if (in.LBServiceRef == nil) != (other.LBServiceRef == nil) {
-		return false
-	} else if in.LBServiceRef != nil {
-		if !in.LBServiceRef.DeepEqual(other.LBServiceRef) {
+		if len(*in) != len(*other) {
 			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
 		}
 	}
 
@@ -3023,11 +3027,20 @@ func (in *LBK8sBackendClusterDiscoveredService) DeepEqual(other *LBK8sBackendClu
 		}
 	}
 
-	if (in.LBBackendPoolRef == nil) != (other.LBBackendPoolRef == nil) {
-		return false
-	} else if in.LBBackendPoolRef != nil {
-		if !in.LBBackendPoolRef.DeepEqual(other.LBBackendPoolRef) {
+	if ((in.LBBackendPoolRefs != nil) && (other.LBBackendPoolRefs != nil)) || ((in.LBBackendPoolRefs == nil) != (other.LBBackendPoolRefs == nil)) {
+		in, other := &in.LBBackendPoolRefs, &other.LBBackendPoolRefs
+		if other == nil {
 			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
 		}
 	}
 
@@ -3074,14 +3087,9 @@ func (in *LBK8sBackendClusterServiceDiscoveryConfig) DeepEqual(other *LBK8sBacke
 		return false
 	}
 
-	if (in.Name == nil) != (other.Name == nil) {
+	if in.Name != other.Name {
 		return false
-	} else if in.Name != nil {
-		if *in.Name != *other.Name {
-			return false
-		}
 	}
-
 	if ((in.Namespaces != nil) && (other.Namespaces != nil)) || ((in.Namespaces == nil) != (other.Namespaces == nil)) {
 		in, other := &in.Namespaces, &other.Namespaces
 		if other == nil {
@@ -3119,6 +3127,14 @@ func (in *LBK8sBackendClusterSpec) DeepEqual(other *LBK8sBackendClusterSpec) boo
 
 	if in.Authentication != other.Authentication {
 		return false
+	}
+
+	if (in.TargetNamespace == nil) != (other.TargetNamespace == nil) {
+		return false
+	} else if in.TargetNamespace != nil {
+		if *in.TargetNamespace != *other.TargetNamespace {
+			return false
+		}
 	}
 
 	return true
