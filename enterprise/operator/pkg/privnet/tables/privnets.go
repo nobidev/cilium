@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 
-	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -89,7 +88,7 @@ func PrivateNetworksByRequestedVNI(vni vni.VNI) statedb.Query[PrivateNetwork] {
 	return privateNetworksRequestedVNIIndex.Query(vni)
 }
 
-func NewPrivateNetworksTable(config config.Config, db *statedb.DB) (statedb.RWTable[PrivateNetwork], error) {
+func NewPrivateNetworksTable(db *statedb.DB) (statedb.RWTable[PrivateNetwork], error) {
 	return statedb.NewTable(
 		db,
 		"private-networks",
