@@ -419,8 +419,10 @@
 /bpf/enterprise_* @isovalent/cilium-datapath
 /bpf/enterprise_bpf_* @isovalent/cilium-datapath @isovalent/private-networking
 /bpf/enterprise_bpf_alignchecker.h @isovalent/cilium-datapath
+/bpf/enterprise_bpf_evpn.c @isovalent/traffic-engineering
 /bpf/lib/enterprise_* @isovalent/cilium-datapath
 /bpf/lib/enterprise_encrypt.h @isovalent/encryption
+/bpf/lib/enterprise_evpn.h @isovalent/traffic-engineering
 /bpf/lib/enterprise_ext_eps*.h @isovalent/private-networking
 /bpf/lib/enterprise_privnet.h @isovalent/private-networking
 /bpf/complexity-tests/**/**/*enterprise_*.txt @isovalent/cilium-datapath
