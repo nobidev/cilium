@@ -13,18 +13,21 @@ package locatorpool
 import (
 	"context"
 	"net/netip"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/enterprise/pkg/srv6/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	isovalent_api_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	isovalent_client_v1alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/isovalent.com/v1alpha1"
@@ -254,7 +257,6 @@ func Test_PoolValidations(t *testing.T) {
 
 // Test_NodeResourceChanges tests the LocatorPoolManager's reaction to changes in the Node resources
 func Test_NodeResourceChanges(t *testing.T) {
-	poolPrefixLen := 48
 	testLocPool := []*isovalent_api_v1alpha1.IsovalentSRv6LocatorPool{
 		{
 			ObjectMeta: meta_v1.ObjectMeta{
@@ -279,10 +281,10 @@ func Test_NodeResourceChanges(t *testing.T) {
 	}
 
 	steps := []struct {
-		description     string
-		node            *slim_core_v1.Node
-		nodeOperation   func(ctx context.Context, node *slim_core_v1.Node, client slim_core_v1_client.NodeInterface) error
-		expectedChanges []SIDManagerEvent
+		description         string
+		node                *slim_core_v1.Node
+		nodeOperation       func(ctx context.Context, node *slim_core_v1.Node, client slim_core_v1_client.NodeInterface) error
+		expectedSIDManagers []v1alpha1.IsovalentSRv6SIDManager
 	}{
 		{
 			description: "add node",
@@ -291,33 +293,30 @@ func Test_NodeResourceChanges(t *testing.T) {
 				_, err := client.Create(ctx, node, meta_v1.CreateOptions{})
 				return err
 			},
-			expectedChanges: []SIDManagerEvent{
+			expectedSIDManagers: []v1alpha1.IsovalentSRv6SIDManager{
 				{
-					eventType: watch.Added,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node1",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
-								{
-									PoolRef: "test-locator-pool-1",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:1:1::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node1",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
+							{
+								PoolRef: "test-locator-pool-1",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:1:1::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
-								{
-									PoolRef: "test-locator-pool-2",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:2:1::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+							},
+							{
+								PoolRef: "test-locator-pool-2",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:2:1::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
 							},
@@ -337,41 +336,31 @@ func Test_NodeResourceChanges(t *testing.T) {
 				_, err := client.Update(ctx, node, meta_v1.UpdateOptions{})
 				return err
 			},
-			expectedChanges: []SIDManagerEvent{},
-		},
-		{
-			description: "delete node",
-			node:        &slim_core_v1.Node{ObjectMeta: slim_metav1.ObjectMeta{Name: "node1"}},
-			nodeOperation: func(ctx context.Context, node *slim_core_v1.Node, client slim_core_v1_client.NodeInterface) error {
-				return client.Delete(ctx, node.Name, meta_v1.DeleteOptions{})
-			},
-			expectedChanges: []SIDManagerEvent{
+			expectedSIDManagers: []v1alpha1.IsovalentSRv6SIDManager{
+				// Exactly the same as previous step
 				{
-					eventType: watch.Deleted,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node1",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
-								{
-									PoolRef: "test-locator-pool-1",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:1:1::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node1",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
+							{
+								PoolRef: "test-locator-pool-1",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:1:1::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
-								{
-									PoolRef: "test-locator-pool-2",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:2:1::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+							},
+							{
+								PoolRef: "test-locator-pool-2",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:2:1::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
 							},
@@ -379,6 +368,14 @@ func Test_NodeResourceChanges(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			description: "delete node",
+			node:        &slim_core_v1.Node{ObjectMeta: slim_metav1.ObjectMeta{Name: "node1"}},
+			nodeOperation: func(ctx context.Context, node *slim_core_v1.Node, client slim_core_v1_client.NodeInterface) error {
+				return client.Delete(ctx, node.Name, meta_v1.DeleteOptions{})
+			},
+			expectedSIDManagers: []v1alpha1.IsovalentSRv6SIDManager{},
 		},
 	}
 
@@ -400,11 +397,6 @@ func Test_NodeResourceChanges(t *testing.T) {
 	f.hive.Start(log, ctx)
 	defer f.hive.Stop(log, ctx)
 
-	// watch for SRv6SIDManagers
-	watch, err := f.srv6SIDManagerClient.Watch(ctx, meta_v1.ListOptions{})
-	req.NoError(err)
-	defer watch.Stop()
-
 	// wait for manager to synchronize
 	req.Eventually(func() bool {
 		return f.manager.synced
@@ -412,21 +404,18 @@ func Test_NodeResourceChanges(t *testing.T) {
 
 	for _, step := range steps {
 		t.Run(step.description, func(t *testing.T) {
+			req := require.New(t)
+
 			err := step.nodeOperation(ctx, step.node, f.nodeResClient)
 			req.NoError(err)
 
-			sidManagerEvents := collectEvents(req, ctx, watch.ResultChan(), len(step.expectedChanges))
-
-			// check for any extra event in the channel
-			select {
-			case res := <-watch.ResultChan():
-				resource, ok := res.Object.(*isovalent_api_v1alpha1.IsovalentSRv6SIDManager)
-				req.True(ok)
-				req.Failf("extra event received", "resource: %v", resource)
-			default:
-			}
-
-			sameSIDManagers(req, poolPrefixLen, sidManagerEvents, step.expectedChanges)
+			req.EventuallyWithT(func(ct *assert.CollectT) {
+				sidManagers, err := f.srv6SIDManagerClient.List(ctx, meta_v1.ListOptions{})
+				if !assert.NoError(ct, err) {
+					return
+				}
+				compareSIDManagers(ct, sidManagers.Items, step.expectedSIDManagers)
+			}, maxTestDuration, time.Millisecond*100)
 		})
 	}
 }
@@ -435,13 +424,12 @@ func Test_NodeResourceChanges(t *testing.T) {
 // Note this test case runs in steps, so there is dependency between the steps
 func Test_LocatorPoolResourceChanges(t *testing.T) {
 	testNodes := []string{"node1", "node2"}
-	poolPrefixLen := 48
 
 	steps := []struct {
-		description     string
-		pool            *isovalent_api_v1alpha1.IsovalentSRv6LocatorPool
-		poolOperation   func(ctx context.Context, pool *isovalent_api_v1alpha1.IsovalentSRv6LocatorPool, client isovalent_client_v1alpha1.IsovalentSRv6LocatorPoolInterface) error
-		expectedChanges []SIDManagerEvent
+		description         string
+		pool                *isovalent_api_v1alpha1.IsovalentSRv6LocatorPool
+		poolOperation       func(ctx context.Context, pool *isovalent_api_v1alpha1.IsovalentSRv6LocatorPool, client isovalent_client_v1alpha1.IsovalentSRv6LocatorPoolInterface) error
+		expectedSIDManagers []isovalent_api_v1alpha1.IsovalentSRv6SIDManager
 	}{
 		{
 			description: "1 : create first pool",
@@ -459,23 +447,20 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 				_, err := client.Create(ctx, pool, meta_v1.CreateOptions{})
 				return err
 			},
-			expectedChanges: []SIDManagerEvent{
+			expectedSIDManagers: []isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
 				{
-					eventType: watch.Added,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node1",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
-								{
-									PoolRef: "test-locator-pool-1",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:1:1::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node1",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
+							{
+								PoolRef: "test-locator-pool-1",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:1:1::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
 							},
@@ -483,21 +468,18 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 					},
 				},
 				{
-					eventType: watch.Added,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node2",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
-								{
-									PoolRef: "test-locator-pool-1",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:1:2::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node2",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
+							{
+								PoolRef: "test-locator-pool-1",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:1:2::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
 							},
@@ -522,33 +504,30 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 				_, err := client.Create(ctx, pool, meta_v1.CreateOptions{})
 				return err
 			},
-			expectedChanges: []SIDManagerEvent{
+			expectedSIDManagers: []isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
 				{
-					eventType: watch.Modified,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node1",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
-								{
-									PoolRef: "test-locator-pool-1",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:1:1::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node1",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
+							{
+								PoolRef: "test-locator-pool-1",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:1:1::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
-								{
-									PoolRef: "test-locator-pool-2",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:2:1::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+							},
+							{
+								PoolRef: "test-locator-pool-2",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:2:1::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
 							},
@@ -556,31 +535,28 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 					},
 				},
 				{
-					eventType: watch.Modified,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node2",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
-								{
-									PoolRef: "test-locator-pool-1",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:1:2::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node2",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
+							{
+								PoolRef: "test-locator-pool-1",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:1:2::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
-								{
-									PoolRef: "test-locator-pool-2",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:2:2::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+							},
+							{
+								PoolRef: "test-locator-pool-2",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:2:2::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
 							},
@@ -606,33 +582,30 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 				_, err := client.Update(ctx, pool, meta_v1.UpdateOptions{})
 				return err
 			},
-			expectedChanges: []SIDManagerEvent{
+			expectedSIDManagers: []isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
 				{
-					eventType: watch.Modified,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node1",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
-								{
-									PoolRef: "test-locator-pool-1",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:1:1::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node1",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
+							{
+								PoolRef: "test-locator-pool-1",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:1:1::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
-								{
-									PoolRef: "test-locator-pool-2",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:aaaa:1::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "uSID",
-										},
+							},
+							{
+								PoolRef: "test-locator-pool-2",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:aaaa:1::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "uSID",
 									},
 								},
 							},
@@ -640,31 +613,28 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 					},
 				},
 				{
-					eventType: watch.Modified,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node2",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
-								{
-									PoolRef: "test-locator-pool-1",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:1:2::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node2",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
+							{
+								PoolRef: "test-locator-pool-1",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:1:2::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
-								{
-									PoolRef: "test-locator-pool-2",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:aaaa:2::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "uSID",
-										},
+							},
+							{
+								PoolRef: "test-locator-pool-2",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:aaaa:2::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "uSID",
 									},
 								},
 							},
@@ -695,38 +665,35 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 				_, err := client.Update(ctx, pool, meta_v1.UpdateOptions{})
 				return err
 			},
-			expectedChanges: []SIDManagerEvent{
+			expectedSIDManagers: []isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
 				{
-					eventType: watch.Modified,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node1",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
-								{
-									PoolRef: "test-locator-pool-1",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:1:1::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node1",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
+							{
+								PoolRef: "test-locator-pool-1",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:1:1::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
-								{
-									PoolRef: "test-locator-pool-2",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix: "2001:db8:aaaa:1::/64",
-											Structure: isovalent_api_v1alpha1.IsovalentSRv6SIDStructure{
-												LocatorBlockLenBits: 40,
-												LocatorNodeLenBits:  24,
-												FunctionLenBits:     16,
-												ArgumentLenBits:     16, // UPDATED
-											},
-											BehaviorType: "uSID",
+							},
+							{
+								PoolRef: "test-locator-pool-2",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix: "2001:db8:aaaa:1::/64",
+										Structure: isovalent_api_v1alpha1.IsovalentSRv6SIDStructure{
+											LocatorBlockLenBits: 40,
+											LocatorNodeLenBits:  24,
+											FunctionLenBits:     16,
+											ArgumentLenBits:     16, // UPDATED
 										},
+										BehaviorType: "uSID",
 									},
 								},
 							},
@@ -734,36 +701,33 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 					},
 				},
 				{
-					eventType: watch.Modified,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node2",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
-								{
-									PoolRef: "test-locator-pool-1",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:1:2::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node2",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
+							{
+								PoolRef: "test-locator-pool-1",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:1:2::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
-								{
-									PoolRef: "test-locator-pool-2",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix: "2001:db8:aaaa:2::/64",
-											Structure: isovalent_api_v1alpha1.IsovalentSRv6SIDStructure{
-												LocatorBlockLenBits: 40,
-												LocatorNodeLenBits:  24,
-												FunctionLenBits:     16,
-												ArgumentLenBits:     16, // UPDATED
-											},
-											BehaviorType: "uSID",
+							},
+							{
+								PoolRef: "test-locator-pool-2",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix: "2001:db8:aaaa:2::/64",
+										Structure: isovalent_api_v1alpha1.IsovalentSRv6SIDStructure{
+											LocatorBlockLenBits: 40,
+											LocatorNodeLenBits:  24,
+											FunctionLenBits:     16,
+											ArgumentLenBits:     16, // UPDATED
 										},
+										BehaviorType: "uSID",
 									},
 								},
 							},
@@ -783,23 +747,20 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 				err := client.Delete(ctx, pool.ObjectMeta.Name, meta_v1.DeleteOptions{})
 				return err
 			},
-			expectedChanges: []SIDManagerEvent{
+			expectedSIDManagers: []isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
 				{
-					eventType: watch.Modified,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node1",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
-								{
-									PoolRef: "test-locator-pool-1",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:1:1::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node1",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
+							{
+								PoolRef: "test-locator-pool-1",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:1:1::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
 							},
@@ -807,21 +768,18 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 					},
 				},
 				{
-					eventType: watch.Modified,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node2",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
-								{
-									PoolRef: "test-locator-pool-1",
-									Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
-										{
-											Prefix:       "2001:db8:1:2::/64",
-											Structure:    sid_40_24_16,
-											BehaviorType: "Base",
-										},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node2",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{
+							{
+								PoolRef: "test-locator-pool-1",
+								Locators: []*isovalent_api_v1alpha1.IsovalentSRv6Locator{
+									{
+										Prefix:       "2001:db8:1:2::/64",
+										Structure:    sid_40_24_16,
+										BehaviorType: "Base",
 									},
 								},
 							},
@@ -841,27 +799,21 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 				err := client.Delete(ctx, pool.ObjectMeta.Name, meta_v1.DeleteOptions{})
 				return err
 			},
-			expectedChanges: []SIDManagerEvent{
+			expectedSIDManagers: []isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
 				{
-					eventType: watch.Modified,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node1",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{},
-						},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node1",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{},
 					},
 				},
 				{
-					eventType: watch.Modified,
-					object: &isovalent_api_v1alpha1.IsovalentSRv6SIDManager{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: "node2",
-						},
-						Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
-							LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{},
-						},
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node2",
+					},
+					Spec: isovalent_api_v1alpha1.IsovalentSRv6SIDManagerSpec{
+						LocatorAllocations: []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation{},
 					},
 				},
 			},
@@ -890,11 +842,6 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 	f.hive.Start(log, ctx)
 	defer f.hive.Stop(log, ctx)
 
-	// watch for SRv6SIDManagers
-	watch, err := f.srv6SIDManagerClient.Watch(ctx, meta_v1.ListOptions{})
-	req.NoError(err)
-	defer watch.Stop()
-
 	// wait for manager to synchronize
 	req.Eventually(func() bool {
 		return f.manager.synced
@@ -902,70 +849,87 @@ func Test_LocatorPoolResourceChanges(t *testing.T) {
 
 	for _, step := range steps {
 		t.Run(step.description, func(t *testing.T) {
+			req := require.New(t)
+
 			err := step.poolOperation(ctx, step.pool, f.locatorPoolClient)
 			req.NoError(err)
 
-			sidManagerEvents := collectEvents(req, ctx, watch.ResultChan(), len(step.expectedChanges))
-			sameSIDManagers(req, poolPrefixLen, sidManagerEvents, step.expectedChanges)
+			req.EventuallyWithT(func(ct *assert.CollectT) {
+				sidManagers, err := f.srv6SIDManagerClient.List(ctx, meta_v1.ListOptions{})
+				if !assert.NoError(ct, err) {
+					return
+				}
+				compareSIDManagers(ct, sidManagers.Items, step.expectedSIDManagers)
+			}, maxTestDuration, time.Millisecond*100)
 		})
 	}
 }
 
-type SIDManagerEvent struct {
-	eventType watch.EventType
-	object    *isovalent_api_v1alpha1.IsovalentSRv6SIDManager
-}
-
-// collectEvents collects events from the watch channel until either the context is done or the number of events is reached.
-func collectEvents(req *require.Assertions, ctx context.Context, watchCh <-chan watch.Event, numOfEvents int) []SIDManagerEvent {
-	res := make([]SIDManagerEvent, 0, numOfEvents)
-	for {
-		if len(res) == numOfEvents {
-			return res
-		}
-
-		select {
-		case <-ctx.Done():
-			req.Failf("sameSIDManagers", "timeout waiting for %d events, received events %v", numOfEvents, res)
-		case event, ok := <-watchCh:
-			if !ok {
-				req.Failf("sameSIDManagers", "unexpected closed channel")
-			}
-			resource, ok := event.Object.(*isovalent_api_v1alpha1.IsovalentSRv6SIDManager)
-			if !ok {
-				req.Failf("sameSIDManagers", "unexpected object type: %T", event.Object)
-			}
-			res = append(res, SIDManagerEvent{
-				eventType: event.Type,
-				object:    resource,
-			})
-		}
-	}
-}
-
-// sameSIDManagers validates that the running SRv6SIDManagers match the expected SRv6SIDManagers.
-func sameSIDManagers(req *require.Assertions, poolPrefixLen int, running, expected []SIDManagerEvent) {
-	req.Len(running, len(expected))
-
-	for _, expectedSIDManager := range expected {
-		found := false
-		for i, runningSIDManager := range running {
-			if runningSIDManager.object.Name == expectedSIDManager.object.Name {
-				found = true
-				req.Equal(expectedSIDManager.eventType, runningSIDManager.eventType)
-
-				cmpAllocators(req, poolPrefixLen, runningSIDManager.object.Spec.LocatorAllocations, expectedSIDManager.object.Spec.LocatorAllocations)
-
-				// remove the found element from the running slice
-				running = append(running[:i], running[i+1:]...)
-				break
-			}
-		}
-		req.True(found, "expected SID Manager %v not found", expectedSIDManager.object.Name)
+func compareSIDManagers(ct *assert.CollectT, running, expected []isovalent_api_v1alpha1.IsovalentSRv6SIDManager) bool {
+	if !assert.Len(ct, running, len(expected)) {
+		return false
 	}
 
-	// running should be empty
-	req.Empty(running)
+	// Sort both slices by name to ensure the order is the same for comparison
+	slices.SortFunc(expected, func(i, j isovalent_api_v1alpha1.IsovalentSRv6SIDManager) int {
+		return strings.Compare(i.Name, j.Name)
+	})
+	slices.SortFunc(running, func(i, j isovalent_api_v1alpha1.IsovalentSRv6SIDManager) int {
+		return strings.Compare(i.Name, j.Name)
+	})
+
+	// Check if the spec of each SIDManager is the same
+	for i := range len(expected) {
+		if !compareLocatorAllocations(ct, running[i].Spec.LocatorAllocations, expected[i].Spec.LocatorAllocations) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func compareLocatorAllocations(ct *assert.CollectT, running, expected []*isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation) bool {
+	if !assert.Len(ct, running, len(expected)) {
+		return false
+	}
+
+	// Sort both slices by PoolRef to ensure the order is the same for comparison
+	slices.SortFunc(expected, func(i, j *isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation) int {
+		return strings.Compare(i.PoolRef, j.PoolRef)
+	})
+	slices.SortFunc(running, func(i, j *isovalent_api_v1alpha1.IsovalentSRv6LocatorAllocation) int {
+		return strings.Compare(i.PoolRef, j.PoolRef)
+	})
+
+	for i := range expected {
+		if !compareLocators(ct, running[i].Locators, expected[i].Locators) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func compareLocators(ct *assert.CollectT, running, expected []*isovalent_api_v1alpha1.IsovalentSRv6Locator) bool {
+	if !assert.Len(ct, running, len(expected)) {
+		return false
+	}
+
+	// Mask the prefix of locators as the nodeID part is non-deterministic. Only preserve the prefix length for comparison.
+	for _, r := range running {
+		p := netip.MustParsePrefix(r.Prefix)
+		masked := netip.PrefixFrom(p.Addr(), int(r.Structure.LocatorBlockLenBits)).Masked()
+		masked = netip.PrefixFrom(masked.Addr(), p.Bits())
+		r.Prefix = masked.String()
+	}
+	for _, e := range expected {
+		p := netip.MustParsePrefix(e.Prefix)
+		masked := netip.PrefixFrom(p.Addr(), int(e.Structure.LocatorBlockLenBits)).Masked()
+		masked = netip.PrefixFrom(masked.Addr(), p.Bits())
+		e.Prefix = masked.String()
+	}
+
+	return !assert.ElementsMatch(ct, running, expected)
 }
 
 func Test_Resync(t *testing.T) {
