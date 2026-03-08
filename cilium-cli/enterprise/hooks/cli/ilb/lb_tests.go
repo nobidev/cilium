@@ -59,6 +59,7 @@ var Tests = []func(t T){
 	TestTCPProxyT1Only,
 	TestTCPProxyT1OnlyHealthCheckCustomPort,
 	TestTCPProxyT1OnlyHTTPSHealthCheck,
+	TestTCPProxyT1OnlyPreferSameZone,
 	TestTCPProxyT1T2,
 	TestTCPProxyAuto,
 	TestTCPProxyIPv6VIPIPv6BackendT1Only,

@@ -1278,6 +1278,16 @@ func withTCPProxyApplication(opts ...tcpProxyApplicationOption) serviceOption {
 	}
 }
 
+func withPreferSameZone() serviceOption {
+	return func(o *isovalentv1alpha1.LBService) {
+		o.Spec.TrafficPolicy = &isovalentv1alpha1.LBTrafficPolicy{
+			ZoneAware: &isovalentv1alpha1.LBZoneAware{
+				Mode: isovalentv1alpha1.LBZoneAwareModePreferSameZone,
+			},
+		}
+	}
+}
+
 type tcpProxyApplicationOption func(o *isovalentv1alpha1.LBServiceApplicationTCPProxy)
 
 func withTCPForceDeploymentMode(forceDeploymentMode isovalentv1alpha1.LBTCPProxyForceDeploymentModeType) tcpProxyApplicationOption {
@@ -1408,6 +1418,18 @@ func withIPBackend(ip string, port uint32) backendPoolOption {
 			IP:     ptr.To(ip),
 			Port:   int32(port),
 			Weight: ptr.To[uint32](1),
+		})
+	}
+}
+
+func withIPBackendAndZone(ip string, port uint32, zone string) backendPoolOption {
+	return func(o *isovalentv1alpha1.LBBackendPool) {
+		o.Spec.BackendType = isovalentv1alpha1.BackendTypeIP
+		o.Spec.Backends = append(o.Spec.Backends, isovalentv1alpha1.Backend{
+			IP:     ptr.To(ip),
+			Port:   int32(port),
+			Weight: ptr.To[uint32](1),
+			Zone:   &zone,
 		})
 	}
 }
