@@ -17,6 +17,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	bgpv2config "github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
@@ -195,7 +197,9 @@ func (r *bfdReconciler) run(ctx context.Context, health cell.Health) (err error)
 
 // reconcileWithRetry runs reconcile with exponential backoff retry on error.
 func (r *bfdReconciler) reconcileWithRetry(ctx context.Context, health cell.Health) error {
+	attempts := 0
 	return wait.ExponentialBackoffWithContext(ctx, backoff, func(ctx context.Context) (bool, error) {
+		attempts++
 		r.Logger.Debug("BFD reconciliation started")
 		reconcileStart := time.Now()
 
@@ -204,9 +208,13 @@ func (r *bfdReconciler) reconcileWithRetry(ctx context.Context, health cell.Heal
 		r.Metrics.ReconcileRunDuration.WithLabelValues().Observe(time.Since(reconcileStart).Seconds())
 
 		if err != nil {
-			// log error, continue retry
-			r.Logger.Warn("BFD reconciliation error", logfields.Error, trimError(err, maxErrorLen))
-			health.Degraded("BFD reconciliation error", err)
+			// for retryable error print warning / report degradation only every 5th attempt
+			if isRetryableError(err) && attempts%5 != 0 {
+				r.Logger.Debug("Transient BFD reconciliation error", logfields.Error, trimError(err, maxErrorLen))
+			} else {
+				r.Logger.Warn("BFD reconciliation error", logfields.Error, trimError(err, maxErrorLen))
+				health.Degraded("BFD reconciliation error", err)
+			}
 			return false, nil
 		}
 		// no error, stop retry
@@ -224,4 +232,12 @@ func trimError(err error, maxLen int) error {
 		return fmt.Errorf("%s... ", err.Error()[:maxLen])
 	}
 	return err
+}
+
+// isRetryableError returns true if the reconciliation error is likely transient.
+func isRetryableError(err error) bool {
+	return k8serrors.IsAlreadyExists(err) ||
+		k8serrors.IsConflict(err) ||
+		k8serrors.IsNotFound(err) ||
+		(k8serrors.IsForbidden(err) && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause))
 }
