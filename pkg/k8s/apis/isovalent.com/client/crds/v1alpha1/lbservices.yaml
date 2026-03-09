@@ -2375,6 +2375,13 @@ spec:
                     - routes
                     type: object
                 type: object
+              enableGRPCAccessLogs:
+                description: |-
+                  Enable gRPC access logging for this service. When the global
+                  gRPC access logging is enabled, this field can be used to
+                  disable gRPC access logging for this specific service.
+                  If unspecified, the global setting is used.
+                type: boolean
               port:
                 description: The port that this service should listen on.
                 format: int32

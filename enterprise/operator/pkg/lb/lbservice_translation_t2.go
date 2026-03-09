@@ -138,7 +138,8 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 		envoyResources = append(envoyResources, endpointXdsResource)
 	}
 
-	if r.config.AccessLog.EnableGRPC {
+	// Include gRPC access logger cluster only if enabled globally AND not disabled per-service.
+	if r.config.AccessLog.EnableGRPC && model.grpcAccessLogsEnabledForService() {
 		accessLoggerCluster, err := r.desiredAccessLoggerCluster(model)
 		if err != nil {
 			return nil, err
@@ -1345,7 +1346,8 @@ func (r *lbServiceT2Translator) desiredEnvoyAccessLoggers(model *lbService, text
 		})
 	}
 
-	if r.config.AccessLog.EnableGRPC {
+	// Include gRPC access logger only if enabled globally AND not disabled per-service.
+	if r.config.AccessLog.EnableGRPC && model.grpcAccessLogsEnabledForService() {
 		accessLoggers = append(accessLoggers, &envoy_config_accesslog_v3.AccessLog{
 			Name: "envoy.access_loggers.http_grpc",
 			ConfigType: &envoy_config_accesslog_v3.AccessLog_TypedConfig{

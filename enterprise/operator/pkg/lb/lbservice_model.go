@@ -20,19 +20,20 @@ import (
 // - http and tls routes -> validate for overlapping hostnames? (with wildcards...)
 
 type lbService struct {
-	namespace           string
-	name                string
-	vip                 lbVIP
-	port                int32
-	proxyProtocolConfig *lbServiceProxyProtocolConfig
-	applications        lbApplications
-	referencedBackends  map[string]backend
-	t1NodeIPv4Addresses []string
-	t1NodeIPv6Addresses []string
-	t2NodeIPv4Addresses []string
-	t2NodeIPv6Addresses []string
-	t1LabelSelector     labels.Selector
-	t2LabelSelector     labels.Selector
+	namespace            string
+	name                 string
+	vip                  lbVIP
+	port                 int32
+	proxyProtocolConfig  *lbServiceProxyProtocolConfig
+	enableGRPCAccessLogs *bool
+	applications         lbApplications
+	referencedBackends   map[string]backend
+	t1NodeIPv4Addresses  []string
+	t1NodeIPv6Addresses  []string
+	t2NodeIPv4Addresses  []string
+	t2NodeIPv6Addresses  []string
+	t1LabelSelector      labels.Selector
+	t2LabelSelector      labels.Selector
 }
 
 type lbVIP struct {
@@ -76,6 +77,15 @@ func (r lbVIP) IPv4SupportedByIPFamily() bool {
 
 func (r lbVIP) IPv6SupportedByIPFamily() bool {
 	return r.ipFamily == ipFamilyDual || r.ipFamily == ipFamilyV6
+}
+
+// grpcAccessLogsEnabledForService reports whether gRPC access logging is enabled for this service.
+// Returns true if unset (nil), meaning the global setting applies.
+func (r lbService) grpcAccessLogsEnabledForService() bool {
+	if r.enableGRPCAccessLogs == nil {
+		return true
+	}
+	return *r.enableGRPCAccessLogs
 }
 
 func (r lbService) getOwningResourceName() string {
