@@ -1,0 +1,27 @@
+name: Load UBI base image versions
+description: >
+  Reads enterprise/olm/ubi-versions.env and exposes UBI image references as
+  outputs. The repository must have been checked out before calling this action.
+
+outputs:
+  ubi-minimal:
+    description: Full image reference for ubi-minimal (e.g. registry.redhat.io/ubi9/ubi-minimal:9.7@sha256:...)
+    value: ${{ steps.parse.outputs.ubi-minimal }}
+  ubi-micro:
+    description: Full image reference for ubi-micro (e.g. registry.redhat.io/ubi9/ubi-micro:9.7@sha256:...)
+    value: ${{ steps.parse.outputs.ubi-micro }}
+  ubi:
+    description: Full image reference for ubi (e.g. registry.redhat.io/ubi9/ubi:9.7@sha256:...)
+    value: ${{ steps.parse.outputs.ubi }}
+
+runs:
+  using: composite
+  steps:
+    - name: Parse UBI versions
+      id: parse
+      shell: bash
+      run: |
+        source "${{ github.workspace }}/enterprise/olm/ubi-versions.env"
+        echo "ubi-minimal=${UBI_MINIMAL_IMAGE}" >> "$GITHUB_OUTPUT"
+        echo "ubi-micro=${UBI_MICRO_IMAGE}" >> "$GITHUB_OUTPUT"
+        echo "ubi=${UBI_IMAGE}" >> "$GITHUB_OUTPUT"

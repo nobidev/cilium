@@ -13,10 +13,26 @@ permissions:
   id-token: write
 
 jobs:
+  load-versions:
+    name: Load UBI base image versions
+    runs-on: ubuntu-24.04
+    outputs:
+      ubi-minimal: ${{ steps.load.outputs.ubi-minimal }}
+      ubi-micro: ${{ steps.load.outputs.ubi-micro }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Load UBI versions
+        id: load
+        uses: ./.github/actions/load-ubi-versions
+
   build-and-push-external-images:
     timeout-minutes: 45
     name: Build and push external images
     environment: release
+    needs: load-versions
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -25,16 +41,14 @@ jobs:
             image-name: certgen-ubi
             docker-context: enterprise/images/certgen
             dockerfile: enterprise/images/certgen/Dockerfile
-            # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
+            base-image: ${{ needs.load-versions.outputs.ubi-micro }}
             build-from-source: false
 
           - component: CILIUM_NODEINIT
             image-name: startup-script-ubi
             docker-context: enterprise/images/startup-script
             dockerfile: enterprise/images/startup-script/Dockerfile
-            # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-minimal:9.7@sha256:c7d44146f826037f6873d99da479299b889473492d3c1ab8af86f08af04ec8a0
+            base-image: ${{ needs.load-versions.outputs.ubi-minimal }}
             build-from-source: false
 
           - component: CILIUM_ENVOY
@@ -49,8 +63,7 @@ jobs:
             image-name: hubble-ui-backend-ubi
             docker-context: hubble-ui-backend/backend
             dockerfile: hubble-ui-backend/backend/Dockerfile
-            # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-minimal:9.7@sha256:c7d44146f826037f6873d99da479299b889473492d3c1ab8af86f08af04ec8a0
+            base-image: ${{ needs.load-versions.outputs.ubi-minimal }}
             build-from-source: true
             source-repo: isovalent/hubble-ui-enterprise
             directory: hubble-ui-backend
@@ -70,8 +83,7 @@ jobs:
             image-name: kubectl-ubi
             docker-context: enterprise/images/kubectl
             dockerfile: enterprise/images/kubectl/Dockerfile
-            # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-minimal:9.7@sha256:c7d44146f826037f6873d99da479299b889473492d3c1ab8af86f08af04ec8a0
+            base-image: ${{ needs.load-versions.outputs.ubi-minimal }}
             build-from-source: false
 
           - component: KUBECTL
@@ -223,7 +235,7 @@ jobs:
     environment: release
     runs-on: ubuntu-24.04
     # This needs to happen sequentially as the cilium-envoy image is used for building the image of the Cilium agent
-    needs: build-and-push-external-images
+    needs: [build-and-push-external-images, load-versions]
     strategy:
       matrix:
         include:
@@ -236,22 +248,19 @@ jobs:
 
           - name: operator
             dockerfile: ./enterprise/images/operator/Dockerfile
-            # renovate: datasource=docker
-            base_image: registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
+            base_image: ${{ needs.load-versions.outputs.ubi-micro }}
             postfix: ubi
             image_name: operator-generic
 
           - name: hubble-relay
             dockerfile: ./enterprise/images/hubble-relay/Dockerfile
-            # renovate: datasource=docker
-            base_image: registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
+            base_image: ${{ needs.load-versions.outputs.ubi-micro }}
             postfix: ubi
             image_name: hubble-relay
 
           - name: clustermesh-apiserver
             dockerfile: ./enterprise/images/clustermesh-apiserver/Dockerfile
-            # renovate: datasource=docker
-            base_image: registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
+            base_image: ${{ needs.load-versions.outputs.ubi-micro }}
             postfix: ubi
             image_name: clustermesh-apiserver
 

@@ -16,8 +16,10 @@ endif
 RUNTIME_IMAGE ?= quay.io/isovalent-dev/cilium-runtime-ubi:cd74ebc98d21b15e6fa66d02e7b73cccb75f5566
 # renovate: datasource=docker
 LLVM_IMAGE ?= quay.io/isovalent-dev/cilium-llvm-ubi:1754712783-48bbfc6@sha256:b673ca26acfc574d815c231814707ffa6e39e039450ce95bf296a436f4ff22e9
-# renovate: datasource=docker
-UBI_IMAGE ?= registry.redhat.io/ubi9/ubi-minimal:9.6@sha256:8d905a93f1392d4a8f7fb906bd49bf540290674b28d82de3536bb4d0898bf9d7
+ifeq ($(UBI_IMAGE),)
+include ../olm/ubi-versions.env
+endif
+UBI_IMAGE ?= registry.redhat.io/ubi9/ubi-minimal:9.7@sha256:c7d44146f826037f6873d99da479299b889473492d3c1ab8af86f08af04ec8a0
 IMAGE_TAG ?= $$(../../images/scripts/make-image-tag.sh)
 
 PLATFORMS ?= unspecified

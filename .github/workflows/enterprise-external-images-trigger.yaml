@@ -12,6 +12,7 @@ on:
       - v1.[0-9]+-ce
     paths:
       - install/kubernetes/Makefile.values
+      - enterprise/olm/ubi-versions.env
   pull_request:
     types:
       - opened
@@ -19,6 +20,7 @@ on:
       - reopened
     paths:
       - install/kubernetes/Makefile.values
+      - enterprise/olm/ubi-versions.env
   # Allow to run manually
   workflow_dispatch: {}
 
@@ -28,8 +30,24 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || github.event.merge_group && github.run_id }}
 
 jobs:
+  load-versions:
+    name: Load UBI base image versions
+    runs-on: ubuntu-24.04
+    outputs:
+      ubi-minimal: ${{ steps.load.outputs.ubi-minimal }}
+      ubi-micro: ${{ steps.load.outputs.ubi-micro }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Load UBI versions
+        id: load
+        uses: ./.github/actions/load-ubi-versions
+
   check-and-build:
     name: Trigger build images external workflow
+    needs: load-versions
     strategy:
       fail-fast: false
       matrix:
@@ -38,16 +56,14 @@ jobs:
             image-name: certgen-ubi-ci
             docker-context: enterprise/images/certgen
             dockerfile: enterprise/images/certgen/Dockerfile
-            # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
+            base-image: ${{ needs.load-versions.outputs.ubi-micro }}
             build-from-source: false
 
           - component: CILIUM_NODEINIT
             image-name: startup-script-ubi-ci
             docker-context: enterprise/images/startup-script
             dockerfile: enterprise/images/startup-script/Dockerfile
-            # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-minimal:9.7@sha256:c7d44146f826037f6873d99da479299b889473492d3c1ab8af86f08af04ec8a0
+            base-image: ${{ needs.load-versions.outputs.ubi-minimal }}
             build-from-source: false
 
           - component: CILIUM_ENVOY
@@ -62,8 +78,7 @@ jobs:
             image-name: hubble-ui-backend-ubi-ci
             docker-context: hubble-ui-backend/backend
             dockerfile: hubble-ui-backend/backend/Dockerfile
-            # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
+            base-image: ${{ needs.load-versions.outputs.ubi-micro }}
             build-from-source: true
             source-repo: isovalent/hubble-ui-enterprise
             source-path: hubble-ui-backend
@@ -83,8 +98,7 @@ jobs:
             version-path: ".envoy.kubectl.image.tag"
             docker-context: enterprise/images/kubectl
             dockerfile: enterprise/images/kubectl/Dockerfile
-            # renovate: datasource=docker
-            base-image: registry.redhat.io/ubi9/ubi-minimal:9.7@sha256:c7d44146f826037f6873d99da479299b889473492d3c1ab8af86f08af04ec8a0
+            base-image: ${{ needs.load-versions.outputs.ubi-minimal }}
             build-from-source: false
 
           - component: KUBECTL

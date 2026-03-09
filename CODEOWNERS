@@ -832,9 +832,10 @@ Makefile* @cilium/build
 /.github/ISSUE_TEMPLATE/enterprise_release_template.md @isovalent/release-managers
 /.github/enterprise/.grype.yaml @isovalent/security
 /.github/enterprise/.openvex.json @isovalent/security
-/.github/actions/set-env-variables/enterprise-scalability-overrides.sh @isovalent/scalability-performance
 /.github/actions/cl2-modules/**/enterprise* @isovalent/scalability-performance
 /.github/actions/get-wolfi-packages/* @isovalent/infrastructure
+/.github/actions/load-ubi-versions/action.yaml @isovalent/openshift
+/.github/actions/set-env-variables/enterprise-scalability-overrides.sh @isovalent/scalability-performance
 /.github/kind-config-enterprise-hubble-rbac.yaml @isovalent/hubble
 /.github/workflows/add-pr-to-hubble-project.yml @isovalent/hubble
 /.github/workflows/enterprise-auto-backport.yaml @isovalent/backporters @isovalent/release-managers

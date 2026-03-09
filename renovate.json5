@@ -16,6 +16,7 @@
     'contrib/testing/privnet/govmomi/Dockerfile',
     'enterprise/images/**',
     'enterprise/olm/Dockerfile',
+    'enterprise/olm/ubi-versions.env',
     'enterprise/**/go.mod',
     'images/cilium/download-hubble-enterprise.sh',
     'install/kubernetes/cilium/zz_enterprise_values.yaml.tmpl',
@@ -389,6 +390,16 @@
       "matchStrings": [
         "\/\/ renovate: datasource=(?<datasource>.*?)\\s+\"[^\"]+\": \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
       ]
+    },
+    {
+      customType: 'regex',
+      managerFilePatterns: [
+        '/^enterprise/olm/ubi-versions\\.env$/',
+      ],
+      matchStrings: [
+        '\\w+=(?<depName>[^:]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)',
+      ],
+      datasourceTemplate: 'docker',
     },
     {
       customType: 'regex',

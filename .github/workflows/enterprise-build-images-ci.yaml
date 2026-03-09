@@ -35,9 +35,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  load-versions:
+    name: Load UBI base image versions
+    runs-on: ubuntu-24.04
+    outputs:
+      ubi-minimal: ${{ steps.load.outputs.ubi-minimal }}
+      ubi-micro: ${{ steps.load.outputs.ubi-micro }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Load UBI versions
+        id: load
+        uses: ./.github/actions/load-ubi-versions
+
   build-and-push-prs:
     timeout-minutes: 45
     name: Build and Push Images
+    needs: load-versions
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
@@ -62,10 +78,8 @@ jobs:
             image_name: operator-generic-ubi
             build_args: |
               PUSH=true
-              # renovate: datasource=docker
-              RUNTIME_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
-              # renovate: datasource=docker
-              UBI_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
+              RUNTIME_IMAGE=${{ needs.load-versions.outputs.ubi-micro }}
+              UBI_IMAGE=${{ needs.load-versions.outputs.ubi-micro }}
               OPERATOR_VARIANT=operator-generic-ubi
 
           - name: hubble-relay
@@ -74,10 +88,8 @@ jobs:
             image_name: hubble-relay-ubi
             build_args: |
               PUSH=true
-              # renovate: datasource=docker
-              RUNTIME_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
-              # renovate: datasource=docker
-              UBI_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
+              RUNTIME_IMAGE=${{ needs.load-versions.outputs.ubi-micro }}
+              UBI_IMAGE=${{ needs.load-versions.outputs.ubi-micro }}
               OPERATOR_VARIANT=hubble-relay-ubi
 
           - name: clustermesh-apiserver
@@ -86,10 +98,8 @@ jobs:
             image_name: clustermesh-apiserver-ubi
             build_args: |
               PUSH=true
-              # renovate: datasource=docker
-              RUNTIME_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
-              # renovate: datasource=docker
-              UBI_IMAGE=registry.redhat.io/ubi9/ubi-micro:9.7@sha256:093a704be0eaef9bb52d9bc0219c67ee9db13c2e797da400ddb5d5ae6849fa10
+              RUNTIME_IMAGE=${{ needs.load-versions.outputs.ubi-micro }}
+              UBI_IMAGE=${{ needs.load-versions.outputs.ubi-micro }}
               OPERATOR_VARIANT=clustermesh-apiserver-ubi
 
           - name: cilium
