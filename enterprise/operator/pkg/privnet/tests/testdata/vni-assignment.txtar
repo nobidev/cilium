@@ -206,6 +206,7 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
+  networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
     dhcp:
@@ -229,6 +230,7 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
+  networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
     dhcp:
@@ -252,6 +254,7 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
+  networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
     dhcp:
@@ -275,6 +278,7 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
+  networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
     dhcp:
@@ -298,6 +302,7 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
+  networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
     dhcp:
@@ -320,6 +325,7 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
+  networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
     dhcp:
@@ -342,6 +348,7 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
+  networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
     dhcp:
@@ -357,6 +364,7 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   interface: {}
+  networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
     dhcp:

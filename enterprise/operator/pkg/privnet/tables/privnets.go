@@ -27,6 +27,10 @@ type (
 
 	// SubnetName is the name of a subnet.
 	SubnetName = tables.SubnetName
+
+	// Selector wraps a [labels.Selector] so that it can be pretty-printed when
+	// outputting the statedb table in json/yaml format.
+	Selector = tables.Selector
 )
 
 // PrivateNetwork represents a private network instance.
@@ -40,6 +44,9 @@ type PrivateNetwork struct {
 	// VNI requested by this private network.
 	RequestedVNI vni.VNI
 
+	// NADs configures the network attachment definitions integration.
+	NADs PrivateNetworkNADs
+
 	// Keeping the copy of the original resource for async UpdateStatus call.
 	OrigResource *v1alpha1.ClusterwidePrivateNetwork
 }
@@ -50,10 +57,17 @@ type PrivateNetworkSubnet struct {
 	Name SubnetName
 }
 
+// PrivateNetworkNADs configures the network attachment definitions integration.
+type PrivateNetworkNADs struct {
+	// NamespaceSelector selects the namespaces in which to automatically create
+	// Multus Network Attachment Definition instances corresponding to this privnet.
+	NamespaceSelector Selector
+}
+
 var _ statedb.TableWritable = &PrivateNetwork{}
 
 func (pn PrivateNetwork) TableHeader() []string {
-	return []string{"Name", "Subnets", "RequestedVNI"}
+	return []string{"Name", "Subnets", "RequestedVNI", "NADsNamespaceSelector"}
 }
 
 func (pn PrivateNetwork) TableRow() []string {
@@ -61,6 +75,7 @@ func (pn PrivateNetwork) TableRow() []string {
 		string(pn.Name),
 		strconv.FormatInt(int64(len(pn.Subnets)), 10),
 		pn.RequestedVNI.String(),
+		pn.NADs.NamespaceSelector.String(),
 	}
 }
 

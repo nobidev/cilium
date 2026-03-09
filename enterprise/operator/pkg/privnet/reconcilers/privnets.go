@@ -31,8 +31,11 @@ import (
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	k8sconstv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
 	cslices "github.com/cilium/cilium/pkg/slices"
 )
@@ -130,6 +133,7 @@ func (pn *PrivateNetworks) registerK8sReflector() error {
 				Name:         tables.NetworkName(privnet.Name),
 				Subnets:      pn.extractSubnets(privnet),
 				RequestedVNI: pn.extractRequestedVNI(privnet),
+				NADs:         pn.extractNADs(privnet),
 				OrigResource: privnet.DeepCopy(),
 			}, true
 		},
@@ -155,6 +159,24 @@ func (pn *PrivateNetworks) extractRequestedVNI(privnet *iso_v1alpha1.Clusterwide
 		}
 	}
 	return vni.VNI{}
+}
+
+func (pn *PrivateNetworks) extractNADs(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) tables.PrivateNetworkNADs {
+	var selector = labels.Nothing()
+
+	parsed, err := slim_metav1.LabelSelectorAsSelector(privnet.Spec.NetworkAttachmentDefinitions.NamespaceSelector)
+	if err != nil {
+		pn.log.Error("Encountered invalid NetworkAttachmentDefinition namespace selector",
+			logfields.Error, err,
+			logfields.ClusterwidePrivateNetwork, privnet.Name,
+		)
+	} else {
+		selector = parsed
+	}
+
+	return tables.PrivateNetworkNADs{
+		NamespaceSelector: tables.Selector{Selector: selector},
+	}
 }
 
 func (pn *PrivateNetworks) newCRDSyncPromise() promise.Promise[synced.CRDSync] {

@@ -84,6 +84,22 @@ type PrivateNetworkSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	Subnets []SubnetSpec `json:"subnets"`
+
+	// Configures the Multus Network Attachment Definitions integration for
+	// this private network.
+	//
+	// +kubebuilder:validation:Optional
+	NetworkAttachmentDefinitions NADSpec `json:"networkAttachmentDefinitions,omitempty"`
+}
+
+type NADSpec struct {
+	// Selects the namespaces in which to automatically create a Multus Network
+	// Attachment Definition (NAD) instance for each subnet associated with this
+	// private network. By default, no namespace is selected, and no NAD is
+	// automatically created for this private network.
+	//
+	// +kubebuilder:validation:Optional
+	NamespaceSelector *slim_metav1.LabelSelector `json:"namespaceSelector,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="has(self.cidrv4) || has(self.cidrv6)", message="Either cidrv4 or cidrv6 needs to be provided"
