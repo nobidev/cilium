@@ -48,6 +48,7 @@ kubeProxyReplacement: true
 loadBalancer:
   acceleration: native
   dsrDispatch: ipip
+  serviceTopology: true
 routingMode: native
 autoDirectNodeRoutes: true
 enableIPv4Masquerade: true
