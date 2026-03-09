@@ -13,7 +13,10 @@ package parser
 import (
 	"net/netip"
 
+	"google.golang.org/protobuf/types/known/anypb"
+
 	"github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/apis/extensions"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
@@ -26,6 +29,8 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 )
+
+var flowExtensionTypeURL = "isovalent.com/" + string((&extensions.FlowExtension{}).ProtoReflect().Descriptor().FullName())
 
 // NewPrivnetParserAdapter returns an extension of the OSS Hubble parser that
 // is able to properly parse flows from Private Networks.
@@ -75,7 +80,10 @@ type PrivnetAdapter struct {
 type perFlowContext struct {
 	srcNetID, dstNetID tables.NetworkID
 	isUnkownFlow       bool
+
 	srcNetIP, dstNetIP netip.Addr
+
+	srcEP, dstEP *extensions.PrivateNetworkEndpoint
 }
 
 func (p *PrivnetAdapter) parserOpts(opt *parserOptions.Options) {
@@ -230,14 +238,14 @@ func (p *PrivnetAdapter) translateToPIP(srcIP, dstIP netip.Addr, decoded *flow.F
 
 	srcID, dstID := p.resolveNetIDs()
 
-	srcIP, p.srcNetIP = p.resolveIP(srcIP, srcID)
+	srcIP, p.srcNetIP, p.srcEP = p.resolveNetIP(srcIP, srcID)
 	if srcIP.IsValid() {
 		decoded.GetIP().Source = srcIP.String()
 	} else {
 		decoded.GetIP().Source = ""
 	}
 
-	dstIP, p.dstNetIP = p.resolveIP(dstIP, dstID)
+	dstIP, p.dstNetIP, p.dstEP = p.resolveNetIP(dstIP, dstID)
 	if dstIP.IsValid() {
 		decoded.GetIP().Destination = dstIP.String()
 	} else {
@@ -264,24 +272,45 @@ func (p *PrivnetAdapter) resolveNetIDs() (tables.NetworkID, tables.NetworkID) {
 	return p.srcNetID, p.dstNetID
 }
 
-func (p *PrivnetAdapter) resolveIP(ip netip.Addr, netID tables.NetworkID) (podIP netip.Addr, netIP netip.Addr) {
+func (p *PrivnetAdapter) resolveNetIP(ip netip.Addr, netID tables.NetworkID) (podIP, netIP netip.Addr, ep *extensions.PrivateNetworkEndpoint) {
 	if netID == tables.NetworkIDReserved {
 		// We're in PIP space. Just return the PIP and so not set the NetIP. We'll look it up later.
-		return ip, netip.Addr{}
+		return ip, netip.Addr{}, nil
 	}
 	if netID == tables.NetworkIDUnknown {
 		// We don't have a PIP for this NetIP.
-		return netip.Addr{}, ip
+		return netip.Addr{}, ip, &extensions.PrivateNetworkEndpoint{
+			Type:      extensions.PrivateNetworkEndpointType_UNMANAGED,
+			NetworkId: uint32(netID),
+		}
 	}
 
 	// Find PIP
 	tx := p.db.ReadTxn()
 	entry, _, ok := p.privNetMapEntries.Get(tx, tables.MapEntriesForEndpointsByIDNetIP(netID, ip))
 	if !ok {
-		return netip.Addr{}, ip
+		return netip.Addr{}, ip, &extensions.PrivateNetworkEndpoint{
+			Type:      extensions.PrivateNetworkEndpointType_UNMANAGED,
+			NetworkId: uint32(netID),
+		}
 	}
 
-	return entry.Routing.NextHop, ip
+	return entry.Routing.NextHop, ip, &extensions.PrivateNetworkEndpoint{
+		Type: func() extensions.PrivateNetworkEndpointType {
+			switch entry.Type {
+			case tables.MapEntryTypeEndpoint:
+				return extensions.PrivateNetworkEndpointType_ENDPOINT
+			case tables.MapEntryTypeExternalEndpoint:
+				return extensions.PrivateNetworkEndpointType_EXTERNAL_ENDPOINT
+			default:
+				return extensions.PrivateNetworkEndpointType_UNKNOWN
+			}
+		}(),
+		CiliumEndpointIp: entry.Routing.NextHop.String(),
+		NetworkId:        uint32(netID),
+		NetworkName:      string(entry.Target.NetworkName),
+		SubnetName:       string(entry.Target.SubnetName),
+	}
 }
 
 // translateToNetIP takes a flow in PIP space and translates it to a NetIP flow, if applicable
@@ -291,6 +320,9 @@ func (p *PrivnetAdapter) translateToNetIP(decoded *flow.Flow) {
 		// No IP information to translate
 		return
 	}
+
+	srcPrivnetEP := p.srcEP
+	dstPrivnetEP := p.dstEP
 
 	// This means we only have NetIP for the source, so the OSS parser was unable to get
 	// any endpoint information. Get it separately.
@@ -303,14 +335,31 @@ func (p *PrivnetAdapter) translateToNetIP(decoded *flow.Flow) {
 		decoded.Destination = p.getNetIPEndpoint(p.dstNetIP)
 	}
 
-	srcNetIP, ok := p.mapToNetIPSpace(p.srcNetIP, decoded.IP.Source)
-	if ok {
-		decoded.IP.Source = srcNetIP.String()
+	if !p.srcNetIP.IsValid() {
+		decoded.IP.Source, srcPrivnetEP = p.resolvePIP(decoded.IP.Source)
+	} else {
+		decoded.IP.Source = p.srcNetIP.String()
+	}
+	if !p.dstNetIP.IsValid() {
+		decoded.IP.Destination, dstPrivnetEP = p.resolvePIP(decoded.IP.Destination)
+	} else {
+		decoded.IP.Destination = p.dstNetIP.String()
 	}
 
-	dstNetIP, ok := p.mapToNetIPSpace(p.dstNetIP, decoded.IP.Destination)
-	if ok {
-		decoded.IP.Destination = dstNetIP.String()
+	if srcPrivnetEP != nil || dstPrivnetEP != nil {
+		ext, err := anypb.New(&extensions.FlowExtension{
+			PrivateNetworks: &extensions.PrivateNetworkFlowExtension{
+				Source:      srcPrivnetEP,
+				Destination: dstPrivnetEP,
+			},
+		})
+		if err != nil {
+			return
+		}
+		// Purely aesthetic, but otherwise we'll get "type.googleapis.com/extensions.v1.PrivateNetworkFlowExtension"
+		// in the JSON output
+		ext.TypeUrl = flowExtensionTypeURL
+		decoded.Extensions = ext
 	}
 }
 
@@ -325,22 +374,27 @@ func (p *PrivnetAdapter) getNetIPEndpoint(netIP netip.Addr) *flow.Endpoint {
 	}
 }
 
-func (p *PrivnetAdapter) mapToNetIPSpace(netIP netip.Addr, flowIP string) (netip.Addr, bool) {
-	if netIP.IsValid() {
-		// We parsed the NetIP in a previous step. We can just reuse it.
-		return netIP, true
-	}
-
+func (p *PrivnetAdapter) resolvePIP(flowIP string) (string, *extensions.PrivateNetworkEndpoint) {
 	pip, err := netip.ParseAddr(flowIP)
 	if err != nil {
 		// We can't parse the provided IP. Not much we can do about it.
-		return netip.Addr{}, false
+		return flowIP, nil
 	}
 
 	ep, _, ok := p.privNetEps.Get(p.db.ReadTxn(), tables.EndpointsByPIP(pip))
 	if !ok {
 		// There is no NetIP, keep the PIP
-		return netip.Addr{}, false
+		return flowIP, nil
 	}
-	return ep.Network.IP, true
+	return ep.Network.IP.String(), &extensions.PrivateNetworkEndpoint{
+		Type: func() extensions.PrivateNetworkEndpointType {
+			if ep.Flags.External {
+				return extensions.PrivateNetworkEndpointType_EXTERNAL_ENDPOINT
+			}
+			return extensions.PrivateNetworkEndpointType_ENDPOINT
+		}(),
+		CiliumEndpointIp: flowIP,
+		NetworkName:      ep.Network.Name,
+		SubnetName:       string(ep.Subnet),
+	}
 }

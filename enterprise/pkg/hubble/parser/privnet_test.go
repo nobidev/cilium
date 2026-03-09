@@ -13,6 +13,7 @@ package parser
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/netip"
@@ -20,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
@@ -28,6 +30,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/enterprise/pkg/hubble/apis/extensions"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -148,6 +151,9 @@ func TestL34_NonPrivnet(t *testing.T) {
 	assert.Equal(t, &flowpb.TCPFlags{ACK: true}, f.L4.GetTCP().GetFlags())
 
 	assert.Equal(t, flowpb.TraceObservationPoint_FROM_HOST, f.GetTraceObservationPoint())
+
+	// We should not set any privnet fields
+	assert.Nil(t, getPrivnetExtension(t, f))
 }
 
 func TestL34_Privnet(t *testing.T) {
@@ -252,6 +258,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "pod-192.168.1.12", f.GetDestination().GetPodName())
 			assert.Equal(t, "default", f.GetDestination().GetNamespace())
 			assert.Equal(t, uint32(6789), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(100), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(100), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.16.236.179", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
 		})
 
 		t.Run("policy to_lxc", func(t *testing.T) {
@@ -299,6 +317,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "pod-192.168.1.12", f.GetDestination().GetPodName())
 			assert.Equal(t, "default", f.GetDestination().GetNamespace())
 			assert.Equal(t, uint32(6789), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(0), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.16.236.179", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
 		})
 
 		t.Run("drop", func(t *testing.T) {
@@ -344,6 +374,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "pod-192.168.1.12", f.GetDestination().GetPodName())
 			assert.Equal(t, "default", f.GetDestination().GetNamespace())
 			assert.Equal(t, uint32(6789), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(100), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.16.236.179", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
 		})
 
 		t.Run("unknown drop", func(t *testing.T) {
@@ -390,6 +432,14 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Empty(t, f.GetDestination().GetPodName())
 			assert.Empty(t, f.GetDestination().GetNamespace())
 			assert.Equal(t, uint32(identity.ReservedIdentityWorldIPv4), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(tables.NetworkIDUnknown), ext.GetSource().GetNetworkId())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(tables.NetworkIDUnknown), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetDestination().GetType())
 		})
 
 	})
@@ -442,6 +492,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "pod-192.168.60.13", f.GetDestination().GetPodName())
 			assert.Equal(t, "remote", f.GetDestination().GetNamespace())
 			assert.Equal(t, uint32(7890), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(100), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(100), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.17.60.13", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
 		})
 		t.Run("to_overlay", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -491,6 +553,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "pod-192.168.60.13", f.GetDestination().GetPodName())
 			assert.Equal(t, "remote", f.GetDestination().GetNamespace())
 			assert.Equal(t, uint32(7890), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(0), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.17.60.13", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
 		})
 		t.Run("from_network", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -556,6 +630,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "pod-192.168.60.13", f.GetSource().GetPodName())
 			assert.Equal(t, "remote", f.GetSource().GetNamespace())
 			assert.Equal(t, uint32(7890), f.GetSource().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.17.60.13", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(0), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
 		})
 		t.Run("from_overlay", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -606,6 +692,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "pod-192.168.60.13", f.GetSource().GetPodName())
 			assert.Equal(t, "remote", f.GetSource().GetNamespace())
 			assert.Equal(t, uint32(7890), f.GetSource().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.17.60.13", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(0), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
 		})
 	})
 	t.Run("pod-to-unknown", func(t *testing.T) {
@@ -653,6 +751,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "1.2.3.4", f.GetIP().GetDestination())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetDestinationPort())
 			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(100), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(100), ext.GetDestination().GetNetworkId())
+			assert.Empty(t, ext.GetDestination().GetNetworkName())
+			assert.Empty(t, ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetDestination().GetType())
 		})
 		t.Run("trace from_lxc pip overlap", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -698,6 +808,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "10.17.60.13", f.GetIP().GetDestination())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetDestinationPort())
 			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(100), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(100), ext.GetDestination().GetNetworkId())
+			assert.Empty(t, ext.GetDestination().GetNetworkName())
+			assert.Empty(t, ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetDestination().GetType())
 		})
 		t.Run("trace to_overlay", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -744,6 +866,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "10.17.60.13", f.GetIP().GetDestination())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetDestinationPort())
 			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(tables.NetworkIDUnknown), ext.GetDestination().GetNetworkId())
+			assert.Empty(t, ext.GetDestination().GetNetworkName())
+			assert.Empty(t, ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetDestination().GetType())
 		})
 		t.Run("trace to_network", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -806,6 +940,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "10.17.60.13", f.GetIP().GetDestination())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetDestinationPort())
 			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(tables.NetworkIDUnknown), ext.GetDestination().GetNetworkId())
+			assert.Empty(t, ext.GetDestination().GetNetworkName())
+			assert.Empty(t, ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetDestination().GetType())
 		})
 		t.Run("trace from_network", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -869,6 +1015,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "10.17.60.13", f.GetIP().GetSource())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetSourcePort())
 			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetSource().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
+
+			assert.Equal(t, uint32(tables.NetworkIDUnknown), ext.GetSource().GetNetworkId())
+			assert.Empty(t, ext.GetSource().GetNetworkName())
+			assert.Empty(t, ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetSource().GetType())
 		})
 		t.Run("trace from_overlay", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -915,6 +1073,18 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "10.17.60.13", f.GetIP().GetSource())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetSourcePort())
 			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetSource().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
+
+			assert.Equal(t, uint32(tables.NetworkIDUnknown), ext.GetSource().GetNetworkId())
+			assert.Empty(t, ext.GetSource().GetNetworkName())
+			assert.Empty(t, ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetSource().GetType())
 		})
 		t.Run("drop", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -975,8 +1145,86 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "10.17.60.13", f.GetIP().GetDestination())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetDestinationPort())
 			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(tables.NetworkIDUnknown), ext.GetDestination().GetNetworkId())
+			assert.Empty(t, ext.GetDestination().GetNetworkName())
+			assert.Empty(t, ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetDestination().GetType())
 		})
 	})
+	t.Run("check marshal", func(t *testing.T) {
+		f := parser.decodePerfEvent(t,
+			monitor.EnterpriseTraceNotify{
+				TraceNotify: monitor.TraceNotify{
+					Type:       byte(monitorAPI.MessageTypeTrace),
+					ObsPoint:   monitorAPI.TraceToLxc,
+					Version:    monitor.TraceNotifyVersion2,
+					ExtVersion: monitor.TraceNotifyExtensionV1,
+					SrcLabel:   5678,
+					DstLabel:   6789,
+					Reason:     monitor.TraceReasonCtEstablished,
+					Source:     1234,
+				},
+				SrcNetID: 100,
+				DstNetID: 100,
+			},
+			[]gopacket.SerializableLayer{
+				&layers.Ethernet{
+					SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+					DstMAC:       net.HardwareAddr{6, 7, 8, 9, 1, 2},
+					EthernetType: layers.EthernetTypeIPv4,
+				},
+				&layers.IPv4{
+					Protocol: layers.IPProtocolTCP,
+					SrcIP:    net.IPv4(192, 168, 1, 11),
+					DstIP:    net.IPv4(192, 168, 1, 12),
+				},
+				&layers.TCP{
+					SrcPort: 55115,
+					DstPort: 80,
+					ACK:     true,
+				},
+			}).GetFlow()
+		require.NotNil(t, f)
+		t.Run("JSON", func(t *testing.T) {
+			// Simulate JSON export and import
+			raw, err := json.Marshal(f)
+			require.NoError(t, err)
+
+			res := &flowpb.Flow{}
+			require.NoError(t, json.Unmarshal(raw, res))
+
+			assert.Equal(t, "192.168.1.11", res.GetIP().GetSource())
+			assert.Equal(t, "192.168.1.12", res.GetIP().GetDestination())
+			ext := getPrivnetExtension(t, res)
+			require.NotNil(t, ext)
+			assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, "10.16.236.179", ext.GetDestination().GetCiliumEndpointIp())
+		})
+		t.Run("Protobuf", func(t *testing.T) {
+			// Simulate passing message through gRPC
+			raw, err := proto.Marshal(f)
+			require.NoError(t, err)
+
+			res := &flowpb.Flow{}
+			require.NoError(t, proto.Unmarshal(raw, res))
+
+			assert.Equal(t, "192.168.1.11", res.GetIP().GetSource())
+			assert.Equal(t, "192.168.1.12", res.GetIP().GetDestination())
+			ext := getPrivnetExtension(t, res)
+			require.NotNil(t, ext)
+			assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, "10.16.236.179", ext.GetDestination().GetCiliumEndpointIp())
+		})
+	})
+
 }
 
 func TestL34_Privnet_INB(t *testing.T) {
@@ -993,7 +1241,7 @@ func TestL34_Privnet_INB(t *testing.T) {
 			ID:     7890,
 			Source: source.Unspec,
 		})
-	parser.registerPrivnetEndpoint(txn, "net-a", 102, "extEP-192.168.60.13", "192.168.60.13", "10.17.60.13")
+	parser.registerPrivnetExternalEndpoint(txn, "net-a", 102, "extEP-192.168.60.13", "192.168.60.13", "10.17.60.13")
 
 	parser.registerIPCacheEntry("10.17.70.14",
 		&ipcache.K8sMetadata{
@@ -1073,6 +1321,18 @@ func TestL34_Privnet_INB(t *testing.T) {
 			assert.Equal(t, "pod-192.168.60.14", f.GetSource().GetPodName())
 			assert.Equal(t, "remote", f.GetSource().GetNamespace())
 			assert.Equal(t, uint32(1234), f.GetSource().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.17.70.14", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(0), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.17.60.13", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_EXTERNAL_ENDPOINT, ext.GetDestination().GetType())
 		})
 		t.Run("policy from_overlay", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -1118,6 +1378,18 @@ func TestL34_Privnet_INB(t *testing.T) {
 			assert.Equal(t, "pod-192.168.60.14", f.GetSource().GetPodName())
 			assert.Equal(t, "remote", f.GetSource().GetNamespace())
 			assert.Equal(t, uint32(1234), f.GetSource().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.17.70.14", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(0), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.17.60.13", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_EXTERNAL_ENDPOINT, ext.GetDestination().GetType())
 		})
 		t.Run("trace from_network attached", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -1165,6 +1437,18 @@ func TestL34_Privnet_INB(t *testing.T) {
 			assert.Equal(t, "pod-192.168.60.14", f.GetDestination().GetPodName())
 			assert.Equal(t, "remote", f.GetDestination().GetNamespace())
 			assert.Equal(t, uint32(1234), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(102), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.17.60.13", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_EXTERNAL_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(102), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.17.70.14", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
 		})
 		t.Run("drop from_network unroutable", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -1207,6 +1491,18 @@ func TestL34_Privnet_INB(t *testing.T) {
 			assert.Equal(t, "192.168.60.17", f.GetIP().GetDestination())
 			assert.Equal(t, uint32(34182), f.L4.GetTCP().GetDestinationPort())
 			assert.Equal(t, uint32(identity.ReservedIdentityWorldIPv4), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.17.60.13", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_EXTERNAL_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(100), ext.GetDestination().GetNetworkId())
+			assert.Empty(t, ext.GetDestination().GetNetworkName())
+			assert.Empty(t, ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetDestination().GetType())
 		})
 		t.Run("trace to_overlay", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -1256,6 +1552,18 @@ func TestL34_Privnet_INB(t *testing.T) {
 			assert.Equal(t, "pod-192.168.60.14", f.GetDestination().GetPodName())
 			assert.Equal(t, "remote", f.GetDestination().GetNamespace())
 			assert.Equal(t, uint32(1234), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.17.70.14", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
+
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.17.60.13", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_EXTERNAL_ENDPOINT, ext.GetSource().GetType())
 		})
 	})
 	t.Run("unknown flow", func(t *testing.T) {
@@ -1321,6 +1629,18 @@ func TestL34_Privnet_INB(t *testing.T) {
 			assert.Equal(t, "pod-192.168.60.14", f.GetSource().GetPodName())
 			assert.Equal(t, "remote", f.GetSource().GetNamespace())
 			assert.Equal(t, uint32(1234), f.GetSource().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+			assert.Equal(t, "10.17.70.14", ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+			assert.Equal(t, uint32(tables.NetworkIDUnknown), ext.GetDestination().GetNetworkId())
+			assert.Empty(t, ext.GetDestination().GetNetworkName())
+			assert.Empty(t, ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetDestination().GetType())
 		})
 		t.Run("trace from_network attached", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -1366,6 +1686,18 @@ func TestL34_Privnet_INB(t *testing.T) {
 			assert.Equal(t, "pod-192.168.60.14", f.GetDestination().GetPodName())
 			assert.Equal(t, "remote", f.GetDestination().GetNamespace())
 			assert.Equal(t, uint32(1234), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(102), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.17.70.14", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
+
+			assert.Equal(t, uint32(102), ext.GetSource().GetNetworkId())
+			assert.Empty(t, ext.GetSource().GetNetworkName())
+			assert.Empty(t, ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetSource().GetType())
 		})
 		t.Run("trace to_overlay", func(t *testing.T) {
 			f := parser.decodePerfEvent(t,
@@ -1412,6 +1744,18 @@ func TestL34_Privnet_INB(t *testing.T) {
 			assert.Equal(t, "pod-192.168.60.14", f.GetDestination().GetPodName())
 			assert.Equal(t, "remote", f.GetDestination().GetNamespace())
 			assert.Equal(t, uint32(1234), f.GetDestination().GetIdentity())
+
+			ext := getPrivnetExtension(t, f)
+			require.NotNil(t, ext)
+			assert.Equal(t, uint32(0), ext.GetDestination().GetNetworkId())
+			assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+			assert.Equal(t, "10.17.70.14", ext.GetDestination().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
+
+			assert.Equal(t, uint32(102), ext.GetSource().GetNetworkId())
+			assert.Empty(t, ext.GetSource().GetNetworkName())
+			assert.Empty(t, ext.GetSource().GetCiliumEndpointIp())
+			assert.Equal(t, extensions.PrivateNetworkEndpointType_UNMANAGED, ext.GetSource().GetType())
 		})
 	})
 }
@@ -1560,6 +1904,18 @@ func TestL7_Privnet(t *testing.T) {
 		if assert.Len(t, f.GetDestination().GetWorkloads(), 1) {
 			assert.Equal(t, "bar", f.GetDestination().GetWorkloads()[0].Name)
 		}
+
+		ext := getPrivnetExtension(t, f)
+		require.NotNil(t, ext)
+		assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+		assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+		assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+		assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+		assert.Equal(t, uint32(0), ext.GetDestination().GetNetworkId())
+		assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+		assert.Equal(t, "10.16.236.179", ext.GetDestination().GetCiliumEndpointIp())
+		assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
 	})
 	t.Run("pod-to-remote-pod", func(t *testing.T) {
 		e, err := parser.Decode(&observerTypes.MonitorEvent{
@@ -1627,6 +1983,18 @@ func TestL7_Privnet(t *testing.T) {
 		assert.Equal(t, "pod-192.168.60.13", f.GetDestination().GetPodName())
 		assert.Equal(t, "remote", f.GetDestination().GetNamespace())
 		assert.Equal(t, uint32(7890), f.GetDestination().GetIdentity())
+
+		ext := getPrivnetExtension(t, f)
+		require.NotNil(t, ext)
+		assert.Equal(t, uint32(0), ext.GetSource().GetNetworkId())
+		assert.Equal(t, "net-a", ext.GetSource().GetNetworkName())
+		assert.Equal(t, "10.16.236.178", ext.GetSource().GetCiliumEndpointIp())
+		assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetSource().GetType())
+
+		assert.Equal(t, uint32(0), ext.GetDestination().GetNetworkId())
+		assert.Equal(t, "net-a", ext.GetDestination().GetNetworkName())
+		assert.Equal(t, "10.17.60.13", ext.GetDestination().GetCiliumEndpointIp())
+		assert.Equal(t, extensions.PrivateNetworkEndpointType_ENDPOINT, ext.GetDestination().GetType())
 	})
 }
 
@@ -1778,6 +2146,37 @@ func (tp *testParser) registerPrivnetEndpoint(txn statedb.WriteTxn, networkName 
 	})
 }
 
+func (tp *testParser) registerPrivnetExternalEndpoint(txn statedb.WriteTxn, networkName tables.NetworkName, id tables.NetworkID, name string, netIP string, podIP string, inactivePodIPs ...string) {
+	for _, ip := range append(inactivePodIPs, podIP) {
+		tp.privNetEps.Insert(txn, tables.Endpoint{
+			Endpoint: &kvstore.Endpoint{
+				IP:   netip.MustParseAddr(ip),
+				Name: name,
+				Flags: kvstore.Flags{
+					External: true,
+				},
+				Network: kvstore.Network{
+					Name: string(networkName),
+					IP:   netip.MustParseAddr(netIP),
+				},
+			},
+		})
+	}
+	tp.privNetMapentries.Insert(txn, &tables.MapEntry{
+		Type: tables.MapEntryTypeExternalEndpoint,
+		Target: tables.MapEntryTarget{
+			NetworkName: networkName,
+			ID: tables.SubnetIDPair{
+				Network: id,
+			},
+			CIDR: netip.MustParsePrefix(netIP + "/32"),
+		},
+		Routing: tables.MapEntryRouting{
+			NextHop: netip.MustParseAddr(podIP),
+		},
+	})
+}
+
 func (tp *testParser) decodePerfEvent(t testing.TB, perfEvent any, lay []gopacket.SerializableLayer) *v1.Event {
 	t.Helper()
 
@@ -1800,4 +2199,19 @@ func (tp *testParser) decodePerfEvent(t testing.TB, perfEvent any, lay []gopacke
 	})
 	require.NoError(t, err)
 	return ev
+}
+
+func getPrivnetExtension(t *testing.T, flow *flowpb.Flow) *extensions.PrivateNetworkFlowExtension {
+	t.Helper()
+
+	if flow.GetExtensions() == nil {
+		return nil
+	}
+
+	assert.Equal(t, "isovalent.com/hubble_extensions.v1.FlowExtension", flow.GetExtensions().GetTypeUrl(), "unexpected flow extension")
+
+	ext := &extensions.FlowExtension{}
+	require.NoError(t, flow.GetExtensions().UnmarshalTo(ext))
+
+	return ext.GetPrivateNetworks()
 }
