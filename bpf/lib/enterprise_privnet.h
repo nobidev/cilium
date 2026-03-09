@@ -624,7 +624,7 @@ privnet_local_access_egress_ipv4(const struct privnet_fib_val *dip_val, __be32 d
 {
 	__u32 ifindex = dip_val->ifindex;
 
-	if (CONFIG(privnet_local_access_enable) && ifindex != 0)
+	if (CONFIG(privnet_local_access_enable) && is_privnet_route_entry(dip_val) && ifindex != 0)
 		return privnet_redirect_neigh_fib_ipv4(dip_val, daddr, ifindex);
 
 	return CTX_ACT_OK;
@@ -764,7 +764,7 @@ privnet_local_access_egress_ipv6(const struct privnet_fib_val *dip_val, const un
 {
 	__u32 ifindex = dip_val->ifindex;
 
-	if (CONFIG(privnet_local_access_enable) && ifindex != 0)
+	if (CONFIG(privnet_local_access_enable) && is_privnet_route_entry(dip_val) && ifindex != 0)
 		return privnet_redirect_neigh_fib_ipv6(dip_val, daddr, ifindex);
 
 	return CTX_ACT_OK;
