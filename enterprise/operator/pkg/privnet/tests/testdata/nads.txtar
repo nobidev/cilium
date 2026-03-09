@@ -37,6 +37,14 @@ k8s/delete icpn-3.v2.yaml
 # ... and assert that the set of desired NADs is updated correctly
 db/cmp privnet-desired-nads desired-nads.v3.table
 
+# Create a namespace, update the labels of another, and delete yet another...
+k8s/add ns-bluegill.yaml
+k8s/update ns-default.v2.yaml
+k8s/delete ns-spaniel.yaml
+
+# ... and assert that the set of desired NADs is updated correctly
+db/cmp privnet-desired-nads desired-nads.v4.table
+
 # ---
 
 -- icpn-crd.yaml --
@@ -180,6 +188,14 @@ metadata:
     kubernetes.io/metadata.name: default
     privnet/egret: ""
 
+-- ns-default.v2.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default
+  labels:
+    kubernetes.io/metadata.name: default
+
 -- ns-spaniel.yaml --
 apiVersion: v1
 kind: Namespace
@@ -198,6 +214,15 @@ metadata:
   labels:
     kubernetes.io/metadata.name: crow
     privnet/sturgeon: ""
+
+-- ns-bluegill.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bluegill
+  labels:
+    kubernetes.io/metadata.name: bluegill
+    privnet/egret: ""
 
 -- nads.v1.table --
 Namespace   Name                    Type          Network        Subnet        Managed
@@ -247,3 +272,11 @@ spaniel     egret-opossum           egret          opossum
 spaniel     egret-select-gull       egret          select-gull
 spaniel     sturgeon-longhorn       sturgeon       longhorn
 spaniel     sturgeon-starfish       sturgeon       starfish
+
+-- desired-nads.v4.table --
+Namespace   Name                    Network        Subnet
+bluegill    egret-ewe               egret          ewe
+bluegill    egret-opossum           egret          opossum
+bluegill    egret-select-gull       egret          select-gull
+crow        sturgeon-longhorn       sturgeon       longhorn
+crow        sturgeon-starfish       sturgeon       starfish

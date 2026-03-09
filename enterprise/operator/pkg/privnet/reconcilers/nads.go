@@ -224,8 +224,9 @@ func (n *NetworkAttachmentDefinitions) registerDesiredReconciler() {
 		}
 
 		health.OK("Primed")
-		wtx := n.db.WriteTxn(n.networks)
+		wtx := n.db.WriteTxn(n.networks, n.namespaces)
 		netsChangeIter, _ := n.networks.Changes(wtx)
+		nsesChangeIter, _ := n.namespaces.Changes(wtx)
 		wtx.Commit()
 
 		for {
@@ -233,7 +234,8 @@ func (n *NetworkAttachmentDefinitions) registerDesiredReconciler() {
 
 			wtx := n.db.WriteTxn(n.tbl)
 			netsChanges, netsWatch := netsChangeIter.Next(wtx)
-			watchset.Add(netsWatch)
+			nsesChanges, nsesWatch := nsesChangeIter.Next(wtx)
+			watchset.Add(netsWatch, nsesWatch)
 
 			for change := range netsChanges {
 				if change.Deleted {
@@ -243,12 +245,23 @@ func (n *NetworkAttachmentDefinitions) registerDesiredReconciler() {
 				}
 			}
 
+			for change := range nsesChanges {
+				if change.Deleted {
+					n.deleteDesiredNADsForNamespace(wtx, change.Object.Name)
+				} else {
+					n.upsertDesiredNADsForNamespace(wtx, change.Object)
+				}
+			}
+
 			if !initDone {
 				netsInit, new := n.networks.Initialized(wtx)
+				nsesInit, nsw := n.namespaces.Initialized(wtx)
 
 				switch {
 				case !netsInit:
 					watchset.Add(new)
+				case !nsesInit:
+					watchset.Add(nsw)
 				default:
 					initDone = true
 					initialized(wtx)
@@ -287,6 +300,31 @@ func (n *NetworkAttachmentDefinitions) upsertDesiredNADsForNetwork(wtx statedb.W
 
 func (n *NetworkAttachmentDefinitions) deleteDesiredNADsForNetwork(wtx statedb.WriteTxn, network tables.NetworkName) {
 	for nad := range n.tbl.Prefix(wtx, tables.DesiredNADsByNetwork(network)) {
+		n.tbl.Delete(wtx, nad)
+	}
+}
+
+func (n *NetworkAttachmentDefinitions) upsertDesiredNADsForNamespace(wtx statedb.WriteTxn, namespace daemonk8s.Namespace) {
+	// Delete any stale entries that haven't been refreshed by the logic below.
+	defer func(watermark statedb.Revision) {
+		for nad, revision := range n.tbl.Prefix(wtx, tables.DesiredNADsByNamespace(namespace.Name)) {
+			if revision <= watermark {
+				n.tbl.Delete(wtx, nad)
+			}
+		}
+	}(n.tbl.Revision(wtx))
+
+	for network := range n.networks.All(wtx) {
+		if !network.NADs.NamespaceSelector.Matches(labels.Set(namespace.Labels)) {
+			continue
+		}
+
+		n.upsertDesiredNADsForNetworkAndNamespace(wtx, network, namespace.Name)
+	}
+}
+
+func (n *NetworkAttachmentDefinitions) deleteDesiredNADsForNamespace(wtx statedb.WriteTxn, namespace string) {
+	for nad := range n.tbl.Prefix(wtx, tables.DesiredNADsByNamespace(namespace)) {
 		n.tbl.Delete(wtx, nad)
 	}
 }
