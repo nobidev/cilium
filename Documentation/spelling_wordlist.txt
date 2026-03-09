@@ -664,6 +664,7 @@ perf
 pipelined
 pipelining
 plaintext
+plaintextPeers
 pluggable
 pmdabcc
 png

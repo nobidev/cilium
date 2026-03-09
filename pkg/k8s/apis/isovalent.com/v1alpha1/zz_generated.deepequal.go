@@ -565,6 +565,23 @@ func (in *ClusterwideEncryptionPolicySpec) DeepEqual(other *ClusterwideEncryptio
 		}
 	}
 
+	if ((in.PlaintextPeers != nil) && (other.PlaintextPeers != nil)) || ((in.PlaintextPeers == nil) != (other.PlaintextPeers == nil)) {
+		in, other := &in.PlaintextPeers, &other.PlaintextPeers
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
 	return true
 }
 

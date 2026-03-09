@@ -29,8 +29,12 @@ type IsovalentClusterwideEncryptionPolicy struct {
 	Spec ClusterwideEncryptionPolicySpec `json:"spec"`
 }
 
-// ClusterwideEncryptionPolicySpec defines a pod selector and a list of
-// communication peer selectors for which traffic will be encrypted.
+// ClusterwideEncryptionPolicySpec defines a pod selector and lists of
+// communication peer selectors for which traffic will be encrypted or
+// exempted from encryption. At least one of peers or plaintextPeers
+// must be non-empty.
+//
+// +kubebuilder:validation:XValidation:rule="size(self.peers) > 0 || size(self.plaintextPeers) > 0",message="at least one of peers or plaintextPeers must be specified"
 type ClusterwideEncryptionPolicySpec struct {
 	// NamespaceSelector selects Namespaces using cluster-scoped labels.
 	// This field follows standard label selector semantics. It is always
@@ -48,13 +52,22 @@ type ClusterwideEncryptionPolicySpec struct {
 	// Peers selects a list of communication peers for which traffic will be
 	// encrypted.
 	//
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinItems=1
-	Peers []ClusterwideEncryptionPeerSelector `json:"peers"`
+	// +kubebuilder:validation:Optional
+	Peers []ClusterwideEncryptionPeerSelector `json:"peers,omitempty"`
+	// PlaintextPeers selects a list of communication peers for which traffic
+	// will be exempted from encryption. This is useful in combination with
+	// fallbackBehavior: encrypt to opt-out specific flows from default encryption.
+	//
+	// +kubebuilder:validation:Optional
+	PlaintextPeers []ClusterwideEncryptionPeerSelector `json:"plaintextPeers,omitempty"`
 }
 
-// ClusterwideEncryptionPeerSelector defines a set of communication peers for
-// which traffic will be encrypted
+// ClusterwideEncryptionPeerSelector defines a set of communication peers.
+// Whether traffic to these peers is encrypted or exempted from encryption
+// depends on which field (peers or plaintextPeers) the selector appears in.
+// Ports are optional: if omitted, all ports and protocols are matched.
+// Specifying a protocol without a port (port defaults to 0) wildcards the
+// port for that protocol (e.g. {protocol: "TCP"} means "all TCP ports").
 type ClusterwideEncryptionPeerSelector struct {
 	// NamespaceSelector selects Namespaces using cluster-scoped labels.
 	// This field follows standard label selector semantics. It is always
@@ -69,14 +82,16 @@ type ClusterwideEncryptionPeerSelector struct {
 	//
 	// +kubebuilder:validation:Optional
 	PodSelector *slimv1.LabelSelector `json:"podSelector"`
-	// Ports is a list of ports on the peer for which traffic will be encrypted
+	// Ports is a list of L4 port/protocol pairs. If omitted or empty,
+	// all ports and protocols are matched (wildcard).
 	//
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinItems=1
-	Ports []PortProtocol `json:"ports"`
+	// +kubebuilder:validation:Optional
+	Ports []PortProtocol `json:"ports,omitempty"`
 }
 
 // PortProtocol defines a L4 port and protocol
+//
+// +kubebuilder:validation:XValidation:rule="self.port == 0 || (size(self.protocol) > 0  && self.protocol != 'ANY')",message="port requires a protocol to be specified"
 type PortProtocol struct {
 	// Port can be an L4 port number.
 	//

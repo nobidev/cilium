@@ -45,8 +45,10 @@ spec:
             type: object
           spec:
             description: |-
-              ClusterwideEncryptionPolicySpec defines a pod selector and a list of
-              communication peer selectors for which traffic will be encrypted.
+              ClusterwideEncryptionPolicySpec defines a pod selector and lists of
+              communication peer selectors for which traffic will be encrypted or
+              exempted from encryption. At least one of peers or plaintextPeers
+              must be non-empty.
             properties:
               namespaceSelector:
                 description: |-
@@ -113,8 +115,12 @@ spec:
                   encrypted.
                 items:
                   description: |-
-                    ClusterwideEncryptionPeerSelector defines a set of communication peers for
-                    which traffic will be encrypted
+                    ClusterwideEncryptionPeerSelector defines a set of communication peers.
+                    Whether traffic to these peers is encrypted or exempted from encryption
+                    depends on which field (peers or plaintextPeers) the selector appears in.
+                    Ports are optional: if omitted, all ports and protocols are matched.
+                    Specifying a protocol without a port (port defaults to 0) wildcards the
+                    port for that protocol (e.g. {protocol: "TCP"} means "all TCP ports").
                   properties:
                     namespaceSelector:
                       description: |-
@@ -234,8 +240,9 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     ports:
-                      description: Ports is a list of ports on the peer for which
-                        traffic will be encrypted
+                      description: |-
+                        Ports is a list of L4 port/protocol pairs. If omitted or empty,
+                        all ports and protocols are matched (wildcard).
                       items:
                         description: PortProtocol defines a L4 port and protocol
                         properties:
@@ -257,13 +264,179 @@ spec:
                         required:
                         - port
                         type: object
-                      minItems: 1
+                        x-kubernetes-validations:
+                        - message: port requires a protocol to be specified
+                          rule: self.port == 0 || (size(self.protocol) > 0  && self.protocol
+                            != 'ANY')
                       type: array
                   required:
                   - namespaceSelector
-                  - ports
                   type: object
-                minItems: 1
+                type: array
+              plaintextPeers:
+                description: |-
+                  PlaintextPeers selects a list of communication peers for which traffic
+                  will be exempted from encryption. This is useful in combination with
+                  fallbackBehavior: encrypt to opt-out specific flows from default encryption.
+                items:
+                  description: |-
+                    ClusterwideEncryptionPeerSelector defines a set of communication peers.
+                    Whether traffic to these peers is encrypted or exempted from encryption
+                    depends on which field (peers or plaintextPeers) the selector appears in.
+                    Ports are optional: if omitted, all ports and protocols are matched.
+                    Specifying a protocol without a port (port defaults to 0) wildcards the
+                    port for that protocol (e.g. {protocol: "TCP"} means "all TCP ports").
+                  properties:
+                    namespaceSelector:
+                      description: |-
+                        NamespaceSelector selects Namespaces using cluster-scoped labels.
+                        This field follows standard label selector semantics. It is always
+                        required. An empty but present (i.e. non-nil) selector acts as a
+                        wildcard selector and selects all namespaces.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                enum:
+                                - In
+                                - NotIn
+                                - Exists
+                                - DoesNotExist
+                                type: string
+                              values:
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchLabels:
+                          additionalProperties:
+                            description: MatchLabelsValue represents the value from
+                              the MatchLabels {key,value} pair.
+                            maxLength: 63
+                            pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
+                            type: string
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    podSelector:
+                      description: |-
+                        PodSelector is a label selector which selects Pods within the selected namespace.
+                        This field follows standard label selector semantics. If absent or empty
+                        it selects all pods within the namespace.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                enum:
+                                - In
+                                - NotIn
+                                - Exists
+                                - DoesNotExist
+                                type: string
+                              values:
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchLabels:
+                          additionalProperties:
+                            description: MatchLabelsValue represents the value from
+                              the MatchLabels {key,value} pair.
+                            maxLength: 63
+                            pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
+                            type: string
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    ports:
+                      description: |-
+                        Ports is a list of L4 port/protocol pairs. If omitted or empty,
+                        all ports and protocols are matched (wildcard).
+                      items:
+                        description: PortProtocol defines a L4 port and protocol
+                        properties:
+                          port:
+                            description: Port can be an L4 port number.
+                            maximum: 65535
+                            minimum: 0
+                            type: integer
+                          protocol:
+                            description: |-
+                              Protocol is the L4 protocol. If omitted or empty, any protocol
+                              matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
+                            enum:
+                            - TCP
+                            - UDP
+                            - SCTP
+                            - ANY
+                            type: string
+                        required:
+                        - port
+                        type: object
+                        x-kubernetes-validations:
+                        - message: port requires a protocol to be specified
+                          rule: self.port == 0 || (size(self.protocol) > 0  && self.protocol
+                            != 'ANY')
+                      type: array
+                  required:
+                  - namespaceSelector
+                  type: object
                 type: array
               podSelector:
                 description: |-
@@ -325,8 +498,10 @@ spec:
                 x-kubernetes-map-type: atomic
             required:
             - namespaceSelector
-            - peers
             type: object
+            x-kubernetes-validations:
+            - message: at least one of peers or plaintextPeers must be specified
+              rule: size(self.peers) > 0 || size(self.plaintextPeers) > 0
         required:
         - spec
         type: object
