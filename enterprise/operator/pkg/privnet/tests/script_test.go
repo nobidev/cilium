@@ -29,6 +29,7 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/evpn"
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet"
+	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/reconcilers"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
@@ -61,6 +62,10 @@ func TestScript(t *testing.T) {
 
 				privnet.Cell,
 				evpn.Cell,
+
+				// Ensure consistent a CNI logs debug setting, regardless of whether
+				// debug logs are enabled or not in the test.
+				cell.DecorateAll(func() reconcilers.CNILogsDebug { return false }),
 			)
 
 			t.Cleanup(func() {

@@ -17,7 +17,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
+	"maps"
 	"strings"
 	"time"
 
@@ -30,7 +32,10 @@ import (
 	nadclientv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextclientv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/config"
@@ -44,6 +49,9 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
 )
+
+// CNILogsDebug is the type to determine whether NADs should be configured to emit debug logs.
+type CNILogsDebug bool
 
 // NetworkAttachmentDefinitionsCell groups the NetworkAttachmentDefinition reconciliation
 // operations that need to be performed by all operator replicas. Any operation that depends
@@ -77,9 +85,20 @@ var NetworkAttachmentDefinitionsCell = cell.Group(
 // NetworkAttachmentDefinitionsCell groups the NetworkAttachmentDefinition reconciliation
 // operations that need to be performed only by the leader operator replica.
 var NetworkAttachmentDefinitionsLeaderCell = cell.Group(
+	cell.ProvidePrivate(
+		// Provides whether NADs should be configured to emit debug logs.
+		// It is provided via hive so that it can be overridden for testing purposes.
+		func(log *slog.Logger) CNILogsDebug {
+			return CNILogsDebug(log.Enabled(context.TODO(), slog.LevelDebug))
+		},
+	),
+
 	cell.Invoke(
 		// Registers the reconciler responsible for updating the desired NADs table.
 		(*NetworkAttachmentDefinitions).registerDesiredReconciler,
+
+		// Registers the reconciler responsible for reconciling the desired NADs into Kubernetes.
+		(*NetworkAttachmentDefinitions).registerK8sReconciler,
 	),
 )
 
@@ -199,6 +218,24 @@ func (n *NetworkAttachmentDefinitions) registerK8sReflector() error {
 			}, true
 		},
 	})
+}
+
+func (n *NetworkAttachmentDefinitions) registerK8sReconciler(params reconciler.Params, cniLogsDebug CNILogsDebug) (
+	reconciler.Reconciler[tables.DesiredNetworkAttachmentDefinition], error,
+) {
+	if !n.cfg.EnabledWithNADIntegration() {
+		return nil, nil
+	}
+
+	return reconciler.Register(
+		params,
+		n.tbl,
+		(tables.DesiredNetworkAttachmentDefinition).Clone,
+		(tables.DesiredNetworkAttachmentDefinition).SetStatus,
+		(tables.DesiredNetworkAttachmentDefinition).GetStatus,
+		n.newReconcilerOps(cniLogsDebug),
+		nil,
+	)
 }
 
 func (n *NetworkAttachmentDefinitions) registerDesiredReconciler() {
@@ -437,6 +474,169 @@ func (n *NetworkAttachmentDefinitions) newCRDSyncPromise() promise.Promise[synce
 	)
 
 	return promise
+}
+
+type networkAttachmentDefinitionsOps struct {
+	client func(string) nadclientv1.NetworkAttachmentDefinitionInterface
+	nads   statedb.Table[tables.NetworkAttachmentDefinition]
+	log    *slog.Logger
+
+	tmpl   tables.NADCNIConfig
+	spacer *strings.Replacer
+}
+
+func (n *NetworkAttachmentDefinitions) newReconcilerOps(cniLogsDebug CNILogsDebug) *networkAttachmentDefinitionsOps {
+	return &networkAttachmentDefinitionsOps{
+		client: n.nadcl,
+		nads:   n.nads,
+		log:    n.log,
+
+		tmpl: tables.NADCNIConfig{
+			NADCNIConfigCore: tables.NADCNIConfigCore{
+				CNIVersion: "0.3.1",
+				Type:       tables.NADCNIConfigTypeCilium,
+			},
+			EnableDebug: bool(cniLogsDebug),
+			LogFile:     n.cfg.NADIntegration.CNILogFile,
+			LogFormat:   n.cfg.NADIntegration.CNILogFormat,
+		},
+		spacer: strings.NewReplacer(",", ", ", ":", ": "),
+	}
+}
+
+func (n *networkAttachmentDefinitionsOps) Update(
+	ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, desired tables.DesiredNetworkAttachmentDefinition,
+) error {
+	cnicfg, cnicfgstr, err := n.cniConfig(desired.Network, desired.Subnet)
+	if err != nil {
+		return err
+	}
+
+	nad, _, found := n.nads.Get(txn, tables.NADByNamespacedName(desired.NamespacedName))
+
+	// The NAD does not exist in Kubernetes yet, hence we need to create it.
+	if !found {
+		_, err := n.client(desired.Namespace).Create(ctx, &nadv1.NetworkAttachmentDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: desired.Namespace, Name: desired.Name,
+				Labels: map[string]string{
+					managedByLabelKey: managedByLabelVal,
+				},
+			},
+			Spec: nadv1.NetworkAttachmentDefinitionSpec{Config: cnicfgstr},
+		}, metav1.CreateOptions{FieldManager: fieldManager})
+		return err
+	}
+
+	// The object already exists, but is not managed by us.
+	if !nad.Managed {
+		return errors.New("already exists, but is not managed by us")
+	}
+
+	// The object is already up-to-date, no need for further operations.
+	if nad.CNIConfig == cnicfg {
+		return nil
+	}
+
+	// The object already exists, and is managed by us, hence we can update it.
+	_, err = n.client(desired.Namespace).Update(ctx, &nadv1.NetworkAttachmentDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: desired.Namespace, Name: desired.Name,
+			UID: nad.UID, ResourceVersion: nad.ResourceVersion,
+			Labels:      maps.Clone(nad.Labels),
+			Annotations: maps.Clone(nad.Annotations),
+		},
+		Spec: nadv1.NetworkAttachmentDefinitionSpec{Config: cnicfgstr},
+	}, metav1.UpdateOptions{FieldManager: fieldManager})
+	return err
+}
+
+func (n *networkAttachmentDefinitionsOps) Delete(
+	ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, desired tables.DesiredNetworkAttachmentDefinition,
+) error {
+	nad, _, found := n.nads.Get(txn, tables.NADByNamespacedName(desired.NamespacedName))
+
+	// The object appears to not exist. This can happen if we haven't created it
+	// yet (or the creation operation failed), but also if we haven't observed
+	// the creation event yet through the informer. Hence, we directly query the
+	// API Server to make sure that we don't leave a leftover behind by mistake.
+	if !found {
+		got, err := n.client(desired.Namespace).Get(ctx, desired.Name, metav1.GetOptions{})
+		switch {
+		case k8serrors.IsNotFound(err):
+			return nil
+		case err != nil:
+			return fmt.Errorf("getting NAD: %w", err)
+		default:
+			nad = tables.NetworkAttachmentDefinition{
+				NamespacedName:  desired.NamespacedName,
+				Managed:         got.GetLabels()[managedByLabelKey] == managedByLabelVal,
+				UID:             got.GetUID(),
+				ResourceVersion: got.GetResourceVersion(),
+			}
+		}
+	}
+
+	// The object is not managed by us, nothing to do.
+	if !nad.Managed {
+		return nil
+	}
+
+	return ctrlclient.IgnoreNotFound(
+		n.client(nad.Namespace).Delete(ctx, nad.Name, metav1.DeleteOptions{
+			Preconditions: &metav1.Preconditions{UID: &nad.UID, ResourceVersion: &nad.ResourceVersion},
+		}),
+	)
+}
+
+func (n *networkAttachmentDefinitionsOps) Prune(
+	ctx context.Context, txn statedb.ReadTxn, objects iter.Seq2[tables.DesiredNetworkAttachmentDefinition, statedb.Revision],
+) error {
+	var desired = sets.New(statedb.Collect(statedb.Map(objects,
+		func(nad tables.DesiredNetworkAttachmentDefinition) tables.NamespacedName { return nad.NamespacedName },
+	))...)
+
+	var errs error
+	for nad := range n.nads.All(txn) {
+		if !nad.Managed {
+			continue
+		}
+
+		if desired.Has(nad.NamespacedName) {
+			continue
+		}
+
+		n.log.Info("Pruning orphaned network attachment definition",
+			logfields.K8sNamespace, nad.Namespace,
+			logfields.Name, nad.Name,
+		)
+
+		errs = errors.Join(errs, ctrlclient.IgnoreNotFound(
+			n.client(nad.Namespace).Delete(ctx, nad.Name, metav1.DeleteOptions{
+				Preconditions: &metav1.Preconditions{UID: &nad.UID, ResourceVersion: &nad.ResourceVersion},
+			}),
+		))
+	}
+
+	return errs
+}
+
+func (n *networkAttachmentDefinitionsOps) cniConfig(network tables.NetworkName, subnet tables.SubnetName) (tables.NADCNIConfig, string, error) {
+	var cnicfg = n.tmpl
+	cnicfg.PrivateNetworks.Network = string(network)
+	cnicfg.PrivateNetworks.Subnet = string(subnet)
+
+	cnicfgstr, err := json.Marshal(cnicfg)
+	if err != nil {
+		return tables.NADCNIConfig{}, "", fmt.Errorf("marshaling CNI config: %w", err)
+	}
+
+	// Add a space after all occurrences of ',' and ':', to allow the resulting
+	// string to be split into multiple lines when the NAD config stanza is
+	// marshaled into yaml. We don't use [json.MarshalIndent] because that
+	// would add proper newlines as well, that would not be actually rendered,
+	// making the resulting string uglier and less human readable.
+	return cnicfg, n.spacer.Replace(string(cnicfgstr)), nil
 }
 
 func newNADsClient(cfg config.Config, client client.Clientset) (nadclientv1.K8sCniCncfIoV1Interface, error) {
