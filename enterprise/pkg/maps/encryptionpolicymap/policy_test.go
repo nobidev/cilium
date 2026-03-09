@@ -91,12 +91,12 @@ func TestPrivilegedPolicyMap(t *testing.T) {
 	encryptionPolicyMap := createPolicyMap(hivetest.Lifecycle(t), defaultEncryptionPolicyMapConfig, ebpf.PinNone)
 
 	key := NewEncryptionPolicyKey(10, 20, 4, 12345)
-	val := NewEncryptionPolicyVal(1)
+	val := NewEncryptionPolicyValRaw(1)
 	err := encryptionPolicyMap.Map.Update(&key, &val)
 	assert.NoError(t, err)
 
 	key = NewEncryptionPolicyKey(10, 20, 0, 0)
-	val = NewEncryptionPolicyVal(2)
+	val = NewEncryptionPolicyValRaw(2)
 	err = encryptionPolicyMap.Map.Update(&key, &val)
 	assert.NoError(t, err)
 

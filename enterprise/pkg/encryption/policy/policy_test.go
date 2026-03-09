@@ -112,7 +112,7 @@ func assertEntryOwners(t *testing.T, e *EncryptionPolicyEntry, resourceNames ...
 	t.Helper()
 	require.Len(t, e.Owners, len(resourceNames))
 	for _, owner := range e.Owners {
-		require.Contains(t, resourceNames, owner.Resource.String())
+		require.Contains(t, resourceNames, owner.Key.Resource.String())
 	}
 }
 

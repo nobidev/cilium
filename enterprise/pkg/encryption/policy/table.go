@@ -42,7 +42,11 @@ var EncryptionPolicyTupleIndex = statedb.Index[*EncryptionPolicyEntry, Encryptio
 var EncryptionPolicyRuleKeyIndex = statedb.Index[*EncryptionPolicyEntry, RuleKey]{
 	Name: "rule-key",
 	FromObject: func(e *EncryptionPolicyEntry) index.KeySet {
-		return index.StringerSlice(e.Owners)
+		keys := make([]index.Key, len(e.Owners))
+		for i, o := range e.Owners {
+			keys[i] = index.Stringer(o.Key)
+		}
+		return index.NewKeySet(keys...)
 	},
 	FromKey: index.Stringer[RuleKey],
 }
@@ -74,6 +78,18 @@ func (e RuleKey) String() string {
 	)
 }
 
+// RuleOwner associates a RuleKey with an encrypt preference.
+// When multiple owners exist for the same tuple, encrypt=true takes precedence
+// (security-first: encrypt wins).
+type RuleOwner struct {
+	Key     RuleKey
+	Encrypt bool
+}
+
+func (o RuleOwner) String() string {
+	return fmt.Sprintf("%s encrypt=%t", o.Key.String(), o.Encrypt)
+}
+
 // EncryptionTuple contains an encryption policy pair to be inserted into the
 // BPF map
 type EncryptionTuple struct {
@@ -101,11 +117,24 @@ func (k EncryptionTuple) Key() index.Key {
 type EncryptionPolicyEntry struct {
 	EncryptionTuple
 
-	// Owners is a list of rules that required this entry to be created
-	Owners []RuleKey
+	// Owners is a list of rules that required this entry to be created.
+	// Each owner tracks whether it wants the tuple to be encrypted.
+	Owners []RuleOwner
 
 	// Status is the BPF map reconciliation status
 	Status reconciler.Status
+}
+
+// resolvedEncrypt returns true if any owner has Encrypt=true.
+// This implements encrypt-wins conflict resolution: if any policy
+// wants a tuple encrypted, it is encrypted.
+func (e *EncryptionPolicyEntry) resolvedEncrypt() bool {
+	for _, o := range e.Owners {
+		if o.Encrypt {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *EncryptionPolicyEntry) DeepCopy() *EncryptionPolicyEntry {
@@ -127,7 +156,7 @@ func (e *EncryptionPolicyEntry) BinaryKey() encoding.BinaryMarshaler {
 }
 
 func (e *EncryptionPolicyEntry) BinaryValue() encoding.BinaryMarshaler {
-	v := encryptionpolicymap.NewEncryptionPolicyVal(1)
+	v := encryptionpolicymap.NewEncryptionPolicyVal(e.resolvedEncrypt())
 	return bpf.StructBinaryMarshaler{Target: &v}
 }
 
@@ -137,6 +166,7 @@ func (e *EncryptionPolicyEntry) TableHeader() []string {
 		"Peer",
 		"Port",
 		"Proto",
+		"Encrypt",
 		"Owners",
 		"Status",
 	}
@@ -153,6 +183,7 @@ func (e *EncryptionPolicyEntry) TableRow() []string {
 		e.Peer.StringID(),
 		strconv.FormatUint(uint64(e.Port), 10),
 		e.Proto.String(),
+		strconv.FormatBool(e.resolvedEncrypt()),
 		strings.Join(owners, ","),
 		e.Status.String(),
 	}

@@ -254,7 +254,7 @@ func (e *Engine) upsertEncryptionPolicy(resourceKey resource.Key, spec iso_v1alp
 	for _, newRule := range newRules {
 		tupleIter := newRule.cartesianProduct(newRule.subjectIdentities(), newRule.peerIdentities())
 		for key, tuple := range tupleIter {
-			e.insertTuple(txn, key, tuple)
+			e.insertTuple(txn, key, tuple, true)
 		}
 	}
 
@@ -304,7 +304,7 @@ func (e *Engine) incrementalIdentityChange(rule *encryptionRule, deletedSubjects
 
 	tuplesToAdd := rule.cartesianProduct(addedSubject, addedPeers)
 	for key, tuple := range tuplesToAdd {
-		e.insertTuple(*txnPtr, key, tuple)
+		e.insertTuple(*txnPtr, key, tuple, true)
 	}
 
 	tuplesToDelete := rule.cartesianProduct(deletedSubjects, deletedPeers)
@@ -315,16 +315,16 @@ func (e *Engine) incrementalIdentityChange(rule *encryptionRule, deletedSubjects
 
 // insertTuple associates the provided tuple with the owner in StateDB.
 // If there is already a EncryptionPolicyEntry for this tuple, then the
-// RuleKey owner is added to the list of owners on the existing entry.
+// RuleOwner is added to the list of owners on the existing entry.
 // If there is no entry for this tuple, then a new entry
-// (with the RuleKey as an owner) is created.
-func (e *Engine) insertTuple(txn statedb.WriteTxn, owner RuleKey, tuple EncryptionTuple) {
+// (with the RuleOwner as an owner) is created.
+func (e *Engine) insertTuple(txn statedb.WriteTxn, owner RuleKey, tuple EncryptionTuple, encrypt bool) {
 	entry, _, _ := e.policyTable.Get(txn, EncryptionPolicyTupleIndex.Query(tuple))
 	if entry == nil {
 		// Create a new entry
 		entry = &EncryptionPolicyEntry{
 			EncryptionTuple: tuple,
-			Owners:          []RuleKey{},
+			Owners:          []RuleOwner{},
 			Status:          reconciler.StatusPending(),
 		}
 	} else {
@@ -332,8 +332,10 @@ func (e *Engine) insertTuple(txn statedb.WriteTxn, owner RuleKey, tuple Encrypti
 		entry = entry.DeepCopy()
 	}
 
-	if !slices.Contains(entry.Owners, owner) {
-		entry.Owners = append(entry.Owners, owner)
+	if !slices.ContainsFunc(entry.Owners, func(o RuleOwner) bool {
+		return o.Key == owner
+	}) {
+		entry.Owners = append(entry.Owners, RuleOwner{Key: owner, Encrypt: encrypt})
 	}
 
 	_, _, err := e.policyTable.Insert(txn, entry)
@@ -360,8 +362,8 @@ func (e *Engine) deleteTuple(txn statedb.WriteTxn, owner RuleKey, tuple Encrypti
 	// Copy, since modifying objects directly is not allowed.
 	entry = entry.DeepCopy()
 
-	entry.Owners = slices.DeleteFunc(entry.Owners, func(entryKey RuleKey) bool {
-		return entryKey == owner
+	entry.Owners = slices.DeleteFunc(entry.Owners, func(o RuleOwner) bool {
+		return o.Key == owner
 	})
 
 	// Last owner reference removed, remove entry from map
@@ -380,7 +382,7 @@ func (e *Engine) deleteTuple(txn statedb.WriteTxn, owner RuleKey, tuple Encrypti
 	}
 }
 
-// deleteTuple dissociates the provided owner RuleKey from all tuples in StateDB.
+// deleteTuplesForRule dissociates the provided owner RuleKey from all tuples in StateDB.
 // If an entry is owner-less after this operation, it is removed from the table.
 func (e *Engine) deleteTuplesForRule(txn statedb.WriteTxn, owner RuleKey) {
 	entriesByRuleKey := e.policyTable.List(txn, EncryptionPolicyRuleKeyIndex.Query(owner))
@@ -388,8 +390,8 @@ func (e *Engine) deleteTuplesForRule(txn statedb.WriteTxn, owner RuleKey) {
 		// Copy, since modifying objects directly is not allowed.
 		entry = entry.DeepCopy()
 
-		entry.Owners = slices.DeleteFunc(entry.Owners, func(entryKey RuleKey) bool {
-			return entryKey == owner
+		entry.Owners = slices.DeleteFunc(entry.Owners, func(o RuleOwner) bool {
+			return o.Key == owner
 		})
 
 		// Last owner reference removed, remove entry from map

@@ -172,6 +172,13 @@ func (v *EncryptionPolicyVal) String() string {
 	return fmt.Sprintf("flags=0x%04X", v.Flags)
 }
 
-func NewEncryptionPolicyVal(flags policyEntryFlags) EncryptionPolicyVal {
+func NewEncryptionPolicyVal(encrypt bool) EncryptionPolicyVal {
+	if encrypt {
+		return EncryptionPolicyVal{Flags: 1}
+	}
+	return EncryptionPolicyVal{}
+}
+
+func NewEncryptionPolicyValRaw(flags policyEntryFlags) EncryptionPolicyVal {
 	return EncryptionPolicyVal{Flags: flags}
 }
