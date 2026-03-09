@@ -99,6 +99,8 @@ const (
 	probeTCPMD5Flag                  = "probe-tcp-md5"
 	enableNodeMaintenanceHelpersFlag = "enable-node-maintenance-helpers"
 	enableNoEndpointsRoutableFlag    = "enable-no-service-endpoints-routable"
+	enableEVPNSecurityGroupTagsFlag  = "enable-evpn-security-group-tags"
+	defaultEVPNSecurityGroupIDFlag   = "evpn-default-security-group-id"
 )
 
 func TestPrivilegedScript(t *testing.T) {
@@ -129,6 +131,8 @@ func TestPrivilegedScript(t *testing.T) {
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
 		enableNodeMaintenanceHelpers := flags.Bool(enableNodeMaintenanceHelpersFlag, false, "Enable node maintenance helpers")
 		enableNoEndpointsRoutable := flags.Bool(enableNoEndpointsRoutableFlag, true, "")
+		enableEVPNSecurityGroupTags := flags.Bool(enableEVPNSecurityGroupTagsFlag, false, "Enable Security Group Tags in EVPN advertisements")
+		defaultEVPNSecurityGroupID := flags.Uint16(defaultEVPNSecurityGroupIDFlag, 0, "Default Security Group ID used in EVPN advertisements")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
 
 		if *probeTCPMD5 {
@@ -286,6 +290,8 @@ func TestPrivilegedScript(t *testing.T) {
 		})
 		hive.AddConfigOverride(h, func(cfg *evpnConfig.Config) {
 			cfg.Enabled = true
+			cfg.SecurityGroupTagsEnabled = *enableEVPNSecurityGroupTags
+			cfg.DefaultSecurityGroupID = *defaultEVPNSecurityGroupID
 		})
 		hive.AddConfigOverride(h, func(cfg *privnetConfig.Config) {
 			cfg.Enabled = true
