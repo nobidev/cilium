@@ -31,7 +31,8 @@ import (
 // not be mutated (except for subjectSelector and peerSelector which are
 // protected and updated by SelectorCache)
 type encryptionRule struct {
-	key RuleKey
+	key     RuleKey
+	encrypt bool
 
 	subjectSelector networkPolicy.CachedSelector
 	subjectNotifier *identityNotifier
@@ -162,6 +163,7 @@ func (e *Engine) newIdentityNotifier(rule *encryptionRule, isSubject bool) *iden
 func (e *Engine) newRule(key RuleKey, rule parsedSelectorRule) *encryptionRule {
 	r := &encryptionRule{
 		key:       key,
+		encrypt:   rule.encrypt,
 		peerPorts: rule.peerPorts,
 	}
 
@@ -254,7 +256,7 @@ func (e *Engine) upsertEncryptionPolicy(resourceKey resource.Key, spec iso_v1alp
 	for _, newRule := range newRules {
 		tupleIter := newRule.cartesianProduct(newRule.subjectIdentities(), newRule.peerIdentities())
 		for key, tuple := range tupleIter {
-			e.insertTuple(txn, key, tuple, true)
+			e.insertTuple(txn, key, tuple, newRule.encrypt)
 		}
 	}
 
@@ -304,7 +306,7 @@ func (e *Engine) incrementalIdentityChange(rule *encryptionRule, deletedSubjects
 
 	tuplesToAdd := rule.cartesianProduct(addedSubject, addedPeers)
 	for key, tuple := range tuplesToAdd {
-		e.insertTuple(*txnPtr, key, tuple, true)
+		e.insertTuple(*txnPtr, key, tuple, rule.encrypt)
 	}
 
 	tuplesToDelete := rule.cartesianProduct(deletedSubjects, deletedPeers)
