@@ -14,8 +14,10 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"sort"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/script"
@@ -28,6 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
+	ceeCommands "github.com/cilium/cilium/enterprise/pkg/bgpv1/agent/commands"
+	"github.com/cilium/cilium/pkg/bgp/api"
 	"github.com/cilium/cilium/pkg/bgp/gobgp"
 	"github.com/cilium/cilium/pkg/bgp/test/commands"
 	"github.com/cilium/cilium/pkg/bgp/types"
@@ -330,6 +334,7 @@ func CEEGoBGPScriptCmds(cmdCtx *commands.GoBGPCmdContext) map[string]script.Cmd 
 	return map[string]script.Cmd{
 		"gobgp/add-route":    AddRoute(cmdCtx),
 		"gobgp/delete-route": DeleteRoute(cmdCtx),
+		"gobgp/routes":       GoBGPRoutesCmd(cmdCtx),
 	}
 }
 
@@ -488,4 +493,82 @@ func DeleteRoute(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
 			}, nil
 		},
 	)
+}
+
+func GoBGPRoutesCmd(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "List routes on the GoBGP server",
+			Args:    "[afi] [safi]",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP(commands.ServerNameFlag, commands.ServerNameFlagShort, "", "Name of the GoBGP server instance. Can be omitted if only one instance is active.")
+				ceeCommands.AddOutFileFlag(fs)
+			},
+			Detail: []string{
+				"List all routes in the global RIB on the GoBGP server",
+				"",
+				"'afi' is Address Family Indicator, defaults to 'ipv4'.",
+				"'safi' is Subsequent Address Family Identifier, defaults to 'unicast'.",
+				"If there are multiple server instances configured, the server-asn flag needs to be specified.",
+			},
+		},
+		func(s *script.State, args ...string) (waitFunc script.WaitFunc, err error) {
+			gobgpServer, err := commands.GetGoBGPServer(s, cmdCtx)
+			if err != nil {
+				return nil, err
+			}
+			return func(*script.State) (stdout, stderr string, err error) {
+				w, buf, f, err := ceeCommands.GetCmdWriter(s)
+				if err != nil {
+					return "", "", err
+				}
+				tw := ceeCommands.GetCmdTabWriter(w)
+				if f != nil {
+					defer f.Close()
+				}
+
+				req := &gobgpapi.ListPathRequest{
+					TableType: gobgpapi.TableType_GLOBAL,
+					Family: &gobgpapi.Family{
+						Afi:  gobgpapi.Family_AFI_IP,
+						Safi: gobgpapi.Family_SAFI_UNICAST,
+					},
+				}
+				if len(args) > 0 && args[0] != "" {
+					req.Family.Afi = gobgpapi.Family_Afi(types.ParseAfi(args[0]))
+				}
+				if len(args) > 1 && args[1] != "" {
+					req.Family.Safi = gobgpapi.Family_Safi(types.ParseSafi(args[1]))
+				}
+				var paths []*gobgpapi.Destination
+				err = gobgpServer.ListPath(s.Context(), req, func(dst *gobgpapi.Destination) {
+					paths = append(paths, dst)
+				})
+				sort.Slice(paths, func(i, j int) bool {
+					return paths[i].String() < paths[j].String()
+				})
+
+				printPathHeader(tw)
+				for _, path := range paths {
+					printPath(tw, path)
+				}
+				tw.Flush()
+				return buf.String(), "", err
+			}, nil
+		},
+	)
+}
+
+func printPathHeader(w *tabwriter.Writer) {
+	fmt.Fprintln(w, "Prefix\tNextHop\tAttrs")
+}
+
+func printPath(w *tabwriter.Writer, dst *gobgpapi.Destination) {
+	aPaths, _ := gobgp.ToAgentPaths(dst.Paths)
+	sort.Slice(aPaths, func(i, j int) bool {
+		return fmt.Sprint(aPaths[i].PathAttributes) < fmt.Sprint(aPaths[j].PathAttributes)
+	})
+	for _, path := range aPaths {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", dst.Prefix, api.NextHopFromPathAttributes(path.PathAttributes), ceeCommands.FormatPathAttributes(path.PathAttributes))
+	}
 }

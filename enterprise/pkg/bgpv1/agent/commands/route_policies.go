@@ -47,7 +47,8 @@ func BGPPRoutePolicies(bgpMgr agent.EnterpriseBGPRouterManager) script.Cmd {
 			Summary: "List BGP route policies on Cilium",
 			Flags: func(fs *pflag.FlagSet) {
 				fs.StringP(instanceFlag, instanceFlagShort, "", "Name of a Cilium router instance. Lists policies of all instances if omitted.")
-				commonFlags(fs)
+				AddOutFileFlag(fs)
+				AddFormatFlag(fs)
 			},
 			Detail: []string{
 				"Lists route policies configured in Cilium BGP Control Plane.",
@@ -68,7 +69,7 @@ func BGPPRoutePolicies(bgpMgr agent.EnterpriseBGPRouterManager) script.Cmd {
 					return "", "", err
 				}
 
-				w, buf, f, err := getCmdWriter(s)
+				w, buf, f, err := GetCmdWriter(s)
 				if err != nil {
 					return "", "", err
 				}
@@ -78,7 +79,7 @@ func BGPPRoutePolicies(bgpMgr agent.EnterpriseBGPRouterManager) script.Cmd {
 
 				switch format {
 				case "table":
-					tw := getCmdTabWriter(w)
+					tw := GetCmdTabWriter(w)
 					if err != nil {
 						return "", "", err
 					}

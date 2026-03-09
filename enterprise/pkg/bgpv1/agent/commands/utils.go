@@ -32,12 +32,15 @@ const (
 	tabPaddingChar = ' '
 )
 
-func commonFlags(fs *pflag.FlagSet) {
+func AddOutFileFlag(fs *pflag.FlagSet) {
 	fs.StringP(outFileFlag, outFileFlagShort, "", "File to write to instead of stdout")
+}
+
+func AddFormatFlag(fs *pflag.FlagSet) {
 	fs.StringP(formatFlag, formatFlagShort, "table", "Format to write in (table, yaml or json)")
 }
 
-func getCmdWriter(s *script.State) (writer io.Writer, buf *strings.Builder, f *os.File, err error) {
+func GetCmdWriter(s *script.State) (writer io.Writer, buf *strings.Builder, f *os.File, err error) {
 	fileName := ""
 	fileName, err = s.Flags.GetString(outFileFlag)
 	if err != nil {
@@ -60,6 +63,6 @@ func getCmdWriter(s *script.State) (writer io.Writer, buf *strings.Builder, f *o
 	return
 }
 
-func getCmdTabWriter(writer io.Writer) *tabwriter.Writer {
+func GetCmdTabWriter(writer io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(writer, tabMinWidth, 0, tabPadding, tabPaddingChar, 0)
 }
