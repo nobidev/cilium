@@ -14,6 +14,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 )
 
 func TestEqualElements(t *testing.T) {
@@ -79,6 +82,55 @@ func TestEqualElements(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.equal, equalElements(tc.a, tc.b))
+		})
+	}
+}
+
+func TestSelectorRoudtripping(t *testing.T) {
+	tests := []struct {
+		name     string
+		selector Selector
+		expected string
+	}{
+		{
+			name:     "everything",
+			selector: Selector{labels.Everything()},
+			expected: "",
+		},
+		{
+			name:     "nothing",
+			selector: Selector{labels.Nothing()},
+			expected: "<nothing>",
+		},
+		{
+			name: "selector",
+			selector: func() Selector {
+				sel, err := labels.Parse("foo=bar,qux notin (fred,qux)")
+				require.NoError(t, err, "labels.Parse")
+				return Selector{sel}
+			}(),
+			expected: "foo=bar,qux notin (fred,qux)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expected, tt.selector.String(), "Selector.String")
+
+			fwd, err := tt.selector.MarshalText()
+			require.NoError(t, err, "Selector.MarshalText")
+			require.Equal(t, tt.expected, string(fwd), "Selector.MarshalText")
+
+			var bwd Selector
+			require.NoError(t, bwd.UnmarshalText(fwd), "Selector.UnmarshalText")
+
+			// We don't compare for pure equality, as the same selector may otherwise
+			// be flagged as different due to different underlying representation.
+			req, sel := tt.selector.Requirements()
+			breq, bsel := bwd.Requirements()
+
+			require.ElementsMatch(t, req, breq, "Requirements")
+			require.Equal(t, sel, bsel, "Selectable")
 		})
 	}
 }

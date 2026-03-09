@@ -202,7 +202,7 @@ func (pn *PrivateNetworks) registerK8sReflector(idpool *idpool.NetworkIDPool, sy
 }
 
 func (pn *PrivateNetworks) extractINBs(privnet *iso_v1alpha1.ClusterwidePrivateNetwork) tables.PrivateNetworkINBs {
-	selectors := make(map[tables.ClusterName]tables.PrivateNetworkINBNodeSelector, len(privnet.Spec.INBs))
+	selectors := make(map[tables.ClusterName]tables.Selector, len(privnet.Spec.INBs))
 	for _, candidate := range privnet.Spec.INBs {
 		selector, err := slim_metav1.LabelSelectorAsSelector(&candidate.NodeSelector.LabelSelector)
 		if err != nil {
@@ -220,7 +220,7 @@ func (pn *PrivateNetworks) extractINBs(privnet *iso_v1alpha1.ClusterwidePrivateN
 			continue
 		}
 
-		selectors[tables.ClusterName(candidate.Cluster)] = tables.PrivateNetworkINBNodeSelector{Selector: selector}
+		selectors[tables.ClusterName(candidate.Cluster)] = tables.Selector{Selector: selector}
 	}
 	return tables.PrivateNetworkINBs{Selectors: selectors}
 }

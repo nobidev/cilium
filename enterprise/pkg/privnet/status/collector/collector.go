@@ -172,7 +172,7 @@ func findActiveINB(clusters []status.INBCluster) (string, bool) {
 	return "", false
 }
 
-func addUnknownINBs(clusters []status.INBCluster, selectors map[tables.ClusterName]tables.PrivateNetworkINBNodeSelector) []status.INBCluster {
+func addUnknownINBs(clusters []status.INBCluster, selectors map[tables.ClusterName]tables.Selector) []status.INBCluster {
 	for _, cluster := range slices.Sorted(maps.Keys(selectors)) {
 		if !slices.ContainsFunc(clusters, func(inb status.INBCluster) bool {
 			return inb.Name == cluster

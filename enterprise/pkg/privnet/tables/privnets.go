@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
-	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
@@ -113,22 +112,7 @@ func (pni PrivateNetworkInterface) String() string {
 // PrivateNetworkINBs contains the network bridge configuration of the private network
 type PrivateNetworkINBs struct {
 	// Selectors selects the candidate INB nodes for this private network.
-	Selectors map[ClusterName]PrivateNetworkINBNodeSelector
-}
-
-// PrivateNetworkINBNodeSelector wraps a [labels.Selector] so that it can be
-// pretty-printed when outputting the statedb table in json/yaml format.
-type PrivateNetworkINBNodeSelector struct{ labels.Selector }
-
-// MarshalText implements the [encoding.TextMarshaler] interface.
-func (sel PrivateNetworkINBNodeSelector) MarshalText() ([]byte, error) {
-	return []byte(sel.Selector.String()), nil
-}
-
-// UnmarshalText implements the [encoding.TextUnmarshaler] interface.
-func (sel *PrivateNetworkINBNodeSelector) UnmarshalText(in []byte) (err error) {
-	sel.Selector, err = labels.Parse(string(in))
-	return err
+	Selectors map[ClusterName]Selector
 }
 
 // PrivateNetworkRoute is a route configured on the private network
