@@ -4,20 +4,38 @@
 # starting the hive to prevent unnecessary delay due to retries.
 k8s/add icpn-crd.yaml nad-crd.yaml
 
-# Add a few network attachment definitions.
+# Initialize a few namespaces.
+k8s/add ns-default.yaml ns-spaniel.yaml ns-crow.yaml
+
+# Add a few network attachment definitions and private networks.
 k8s/add nad-1.yaml nad-2.yaml nad-3.yaml
+k8s/add icpn-1.yaml icpn-2.yaml icpn-3.yaml
 
 hive start
-db/initialized privnet-nads
+db/initialized private-networks privnet-nads privnet-desired-nads k8s-namespaces
+
+# Assert that the set of desired NADs is populated correctly.
+db/cmp privnet-desired-nads desired-nads.v1.table
 
 # Assert that the existing NADs are observed.
 db/cmp privnet-nads nads.v1.table
 
-# Delete a user-managed NAD...
+# Perform a few private network updates, and delete a user-managed NAD...
+k8s/update icpn-1.v2.yaml icpn-2.v2.yaml icpn-3.v2.yaml
 k8s/delete nad-1.yaml
+
+# ... and assert that the set of desired NADs is updated correctly.
+db/cmp privnet-desired-nads desired-nads.v2.table
 
 # ... and assert that the deletion is observed.
 db/cmp privnet-nads nads.v2.table
+
+# Delete a private network, and update back another...
+k8s/update icpn-2.yaml
+k8s/delete icpn-3.v2.yaml
+
+# ... and assert that the set of desired NADs is updated correctly
+db/cmp privnet-desired-nads desired-nads.v3.table
 
 # ---
 
@@ -70,6 +88,117 @@ spec:
   config: '{"cniVersion": "0.3.1", "type": "cilium-cni",
     "private-networks": {"network": "egret", "subnet": "parrot"}}'
 
+-- icpn-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: egret
+spec:
+  subnets:
+  - name: select-gull
+  - name: parrot
+  - name: ewe
+  networkAttachmentDefinitions:
+    namespaceSelector:
+      matchExpressions:
+        - key: privnet/egret
+          operator: Exists
+
+-- icpn-1.v2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: egret
+spec:
+  subnets:
+  - name: select-gull
+  - name: opossum
+  - name: ewe
+  networkAttachmentDefinitions:
+    namespaceSelector:
+      matchExpressions:
+        - key: privnet/egret
+          operator: Exists
+
+-- icpn-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: sturgeon
+spec:
+  subnets:
+  - name: starfish
+  - name: longhorn
+  networkAttachmentDefinitions:
+    namespaceSelector:
+      matchExpressions:
+        - key: privnet/sturgeon
+          operator: Exists
+
+-- icpn-2.v2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: sturgeon
+spec:
+  subnets:
+  - name: starfish
+  - name: longhorn
+  networkAttachmentDefinitions:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: spaniel
+
+-- icpn-3.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: egret-select
+spec:
+  subnets:
+  - name: gull
+
+-- icpn-3.v2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: egret-select
+spec:
+  subnets:
+  - name: gull
+  networkAttachmentDefinitions:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: spaniel
+
+-- ns-default.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default
+  labels:
+    kubernetes.io/metadata.name: default
+    privnet/egret: ""
+
+-- ns-spaniel.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spaniel
+  labels:
+    kubernetes.io/metadata.name: spaniel
+    privnet/egret: ""
+    privnet/sturgeon: ""
+
+-- ns-crow.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crow
+  labels:
+    kubernetes.io/metadata.name: crow
+    privnet/sturgeon: ""
+
 -- nads.v1.table --
 Namespace   Name                    Type          Network        Subnet        Managed
 crow        artistic-snapper        foo           N/A            N/A           false
@@ -80,3 +209,41 @@ spaniel     egret-parrot            cilium-cni    egret          parrot        f
 Namespace   Name                    Type          Network        Subnet        Managed
 default     winning-mallard         cilium-cni    egret          ewe           true
 spaniel     egret-parrot            cilium-cni    egret          parrot        false
+
+-- desired-nads.v1.table --
+Namespace   Name                    Network        Subnet
+crow        sturgeon-longhorn       sturgeon       longhorn
+crow        sturgeon-starfish       sturgeon       starfish
+default     egret-parrot            egret          parrot
+default     egret-select-gull       egret          select-gull
+default     winning-mallard         egret          ewe
+spaniel     egret-ewe               egret          ewe
+spaniel     egret-parrot            egret          parrot
+spaniel     egret-select-gull       egret          select-gull
+spaniel     sturgeon-longhorn       sturgeon       longhorn
+spaniel     sturgeon-starfish       sturgeon       starfish
+
+-- desired-nads.v2.table --
+Namespace   Name                    Network        Subnet
+default     egret-opossum           egret          opossum
+default     egret-select-gull       egret          select-gull
+default     winning-mallard         egret          ewe
+spaniel     egret-ewe               egret          ewe
+spaniel     egret-opossum           egret          opossum
+spaniel     egret-select-gull       egret          select-gull
+spaniel     egret-select-gull-n2r   egret-select   gull
+spaniel     sturgeon-longhorn       sturgeon       longhorn
+spaniel     sturgeon-starfish       sturgeon       starfish
+
+-- desired-nads.v3.table --
+Namespace   Name                    Network        Subnet
+crow        sturgeon-longhorn       sturgeon       longhorn
+crow        sturgeon-starfish       sturgeon       starfish
+default     egret-opossum           egret          opossum
+default     egret-select-gull       egret          select-gull
+default     winning-mallard         egret          ewe
+spaniel     egret-ewe               egret          ewe
+spaniel     egret-opossum           egret          opossum
+spaniel     egret-select-gull       egret          select-gull
+spaniel     sturgeon-longhorn       sturgeon       longhorn
+spaniel     sturgeon-starfish       sturgeon       starfish

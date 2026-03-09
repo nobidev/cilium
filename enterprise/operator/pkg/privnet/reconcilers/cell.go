@@ -27,5 +27,6 @@ var (
 	LeaderCell = cell.Group(
 		status.Cell,
 		ExternalEndpointsCell,
+		NetworkAttachmentDefinitionsLeaderCell,
 	)
 )

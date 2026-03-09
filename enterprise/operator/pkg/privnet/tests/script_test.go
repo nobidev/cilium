@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/evpn"
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet"
 	"github.com/cilium/cilium/pkg/hive"
@@ -56,6 +57,7 @@ func TestScript(t *testing.T) {
 			h := hive.New(
 				k8sClient.FakeClientCell(),
 				cell.DecorateAll(k8sClient.NewFakeNADsClientset),
+				daemonk8s.NamespaceTableCell,
 
 				privnet.Cell,
 				evpn.Cell,
