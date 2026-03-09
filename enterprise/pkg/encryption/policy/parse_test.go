@@ -73,7 +73,7 @@ func Test_parsePeerPorts(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "invalid port",
+			name: "wildcard port for UDP",
 			args: args{
 				ports: []iso_v1alpha1.PortProtocol{
 					{
@@ -82,10 +82,65 @@ func Test_parsePeerPorts(t *testing.T) {
 					},
 				},
 			},
+			want: []portProto{
+				{port: 0, proto: u8proto.UDP},
+			},
+		},
+		{
+			name: "wildcard port for TCP",
+			args: args{
+				ports: []iso_v1alpha1.PortProtocol{
+					{
+						Protocol: "TCP",
+					},
+				},
+			},
+			want: []portProto{
+				{port: 0, proto: u8proto.TCP},
+			},
+		},
+		{
+			name: "ANY protocol with port zero",
+			args: args{
+				ports: []iso_v1alpha1.PortProtocol{
+					{
+						Port:     0,
+						Protocol: "ANY",
+					},
+				},
+			},
+			want: []portProto{
+				{port: 0, proto: 0},
+			},
+		},
+		{
+			name: "empty protocol with port zero",
+			args: args{
+				ports: []iso_v1alpha1.PortProtocol{
+					{
+						Port:     0,
+						Protocol: "",
+					},
+				},
+			},
+			want: []portProto{
+				{port: 0, proto: 0},
+			},
+		},
+		{
+			name: "port without protocol",
+			args: args{
+				ports: []iso_v1alpha1.PortProtocol{
+					{
+						Port:     443,
+						Protocol: "",
+					},
+				},
+			},
 			wantErr: true,
 		},
 		{
-			name: "ANY protocol",
+			name: "ANY protocol with non-zero port",
 			args: args{
 				ports: []iso_v1alpha1.PortProtocol{
 					{
@@ -95,6 +150,24 @@ func Test_parsePeerPorts(t *testing.T) {
 				},
 			},
 			wantErr: true,
+		},
+		{
+			name: "nil ports list",
+			args: args{
+				ports: nil,
+			},
+			want: []portProto{
+				{port: 0, proto: 0},
+			},
+		},
+		{
+			name: "empty ports list",
+			args: args{
+				ports: []iso_v1alpha1.PortProtocol{},
+			},
+			want: []portProto{
+				{port: 0, proto: 0},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -349,6 +422,7 @@ func Test_parseEncryptionPolicy(t *testing.T) {
 							proto: u8proto.TCP,
 						},
 					},
+					encrypt: true,
 				},
 				{
 					subject: policyTypes.NewLabelSelector(parseSelector("", subjectNamespaceSelector, subjectPodSelector)),
@@ -359,6 +433,7 @@ func Test_parseEncryptionPolicy(t *testing.T) {
 							proto: u8proto.UDP,
 						},
 					},
+					encrypt: true,
 				},
 			},
 			wantErr: false,
@@ -384,6 +459,111 @@ func Test_parseEncryptionPolicy(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "plaintextPeers only",
+			args: args{
+				resourceKey: resource.Key{Name: "plaintext-only"},
+				spec: iso_v1alpha1.ClusterwideEncryptionPolicySpec{
+					NamespaceSelector: subjectNamespaceSelector,
+					PodSelector:       subjectPodSelector,
+					PlaintextPeers: []iso_v1alpha1.ClusterwideEncryptionPeerSelector{
+						{
+							NamespaceSelector: peer1NamespaceSelector,
+							PodSelector:       peer1PodSelector,
+							Ports: []iso_v1alpha1.PortProtocol{
+								{Port: 443, Protocol: "TCP"},
+							},
+						},
+					},
+				},
+			},
+			want: []parsedSelectorRule{
+				{
+					subject: policyTypes.NewLabelSelector(parseSelector("", subjectNamespaceSelector, subjectPodSelector)),
+					peer:    policyTypes.NewLabelSelector(parseSelector("", peer1NamespaceSelector, peer1PodSelector)),
+					peerPorts: []portProto{
+						{port: 443, proto: u8proto.TCP},
+					},
+					encrypt: false,
+				},
+			},
+		},
+		{
+			name: "peers and plaintextPeers together",
+			args: args{
+				resourceKey: resource.Key{Name: "donut"},
+				spec: iso_v1alpha1.ClusterwideEncryptionPolicySpec{
+					NamespaceSelector: subjectNamespaceSelector,
+					PodSelector:       subjectPodSelector,
+					Peers: []iso_v1alpha1.ClusterwideEncryptionPeerSelector{
+						{
+							NamespaceSelector: peer1NamespaceSelector,
+							PodSelector:       peer1PodSelector,
+						},
+					},
+					PlaintextPeers: []iso_v1alpha1.ClusterwideEncryptionPeerSelector{
+						{
+							NamespaceSelector: peer1NamespaceSelector,
+							PodSelector:       peer1PodSelector,
+							Ports: []iso_v1alpha1.PortProtocol{
+								{Port: 443, Protocol: "TCP"},
+							},
+						},
+					},
+				},
+			},
+			want: []parsedSelectorRule{
+				{
+					subject:   policyTypes.NewLabelSelector(parseSelector("", subjectNamespaceSelector, subjectPodSelector)),
+					peer:      policyTypes.NewLabelSelector(parseSelector("", peer1NamespaceSelector, peer1PodSelector)),
+					peerPorts: wildcardPortProto,
+					encrypt:   true,
+				},
+				{
+					subject: policyTypes.NewLabelSelector(parseSelector("", subjectNamespaceSelector, subjectPodSelector)),
+					peer:    policyTypes.NewLabelSelector(parseSelector("", peer1NamespaceSelector, peer1PodSelector)),
+					peerPorts: []portProto{
+						{port: 443, proto: u8proto.TCP},
+					},
+					encrypt: false,
+				},
+			},
+		},
+		{
+			name: "peer with no ports",
+			args: args{
+				resourceKey: resource.Key{Name: "no-ports"},
+				spec: iso_v1alpha1.ClusterwideEncryptionPolicySpec{
+					NamespaceSelector: subjectNamespaceSelector,
+					PodSelector:       subjectPodSelector,
+					Peers: []iso_v1alpha1.ClusterwideEncryptionPeerSelector{
+						{
+							NamespaceSelector: peer1NamespaceSelector,
+							PodSelector:       peer1PodSelector,
+						},
+					},
+				},
+			},
+			want: []parsedSelectorRule{
+				{
+					subject:   policyTypes.NewLabelSelector(parseSelector("", subjectNamespaceSelector, subjectPodSelector)),
+					peer:      policyTypes.NewLabelSelector(parseSelector("", peer1NamespaceSelector, peer1PodSelector)),
+					peerPorts: wildcardPortProto,
+					encrypt:   true,
+				},
+			},
+		},
+		{
+			name: "neither peers nor plaintextPeers",
+			args: args{
+				resourceKey: resource.Key{Name: "empty"},
+				spec: iso_v1alpha1.ClusterwideEncryptionPolicySpec{
+					NamespaceSelector: subjectNamespaceSelector,
+					PodSelector:       subjectPodSelector,
 				},
 			},
 			wantErr: true,

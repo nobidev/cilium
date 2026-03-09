@@ -11,7 +11,6 @@
 package policy
 
 import (
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -40,27 +39,41 @@ type portProto struct {
 	proto u8proto.U8proto
 }
 
+// wildcardPortProto matches all ports and protocols.
+var wildcardPortProto = []portProto{{port: 0, proto: 0}}
+
 // parsedSelectorRule is a parsed IsovalentClusterwideEncryptionPolicy rule
 // where selectors and ports have been converted into Cilium-native types.
 type parsedSelectorRule struct {
 	subject   *policyTypes.LabelSelector
 	peer      *policyTypes.LabelSelector
 	peerPorts []portProto
+	encrypt   bool
 }
 
 // parsePeerPorts parses the IsovalentClusterwideEncryptionPolicy port list into
-// Cilium-native types.
+// Cilium-native types. A nil or empty ports list returns wildcardPortProto, meaning
+// "wildcard all ports and protocols".
 func parsePeerPorts(ports []iso_v1alpha1.PortProtocol) ([]portProto, error) {
+	if len(ports) == 0 {
+		return wildcardPortProto, nil
+	}
+
 	peerPorts := make([]portProto, 0, len(ports))
 	for _, p := range ports {
-		proto, err := u8proto.ParseProtocol(p.Protocol)
-		switch {
-		case err != nil:
-			return nil, err
-		case proto == u8proto.ANY:
-			return nil, errors.New("protocol ANY not supported")
-		case p.Port == 0:
-			return nil, errors.New("invalid port: 0")
+		var proto u8proto.U8proto
+		if p.Protocol == "" || p.Protocol == "ANY" {
+			proto = 0
+		} else {
+			var err error
+			proto, err = u8proto.ParseProtocol(p.Protocol)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if p.Port != 0 && proto == 0 {
+			return nil, fmt.Errorf("port %d requires a protocol to be specified", p.Port)
 		}
 
 		peerPorts = append(peerPorts, portProto{
@@ -177,31 +190,40 @@ func parseEncryptionPolicy(resourceKey resource.Key, spec iso_v1alpha1.Clusterwi
 	switch {
 	case spec.NamespaceSelector == nil:
 		return nil, fmt.Errorf("missing namespaceSelector in resource %q", resourceKey.String())
-	case len(spec.Peers) == 0:
-		return nil, fmt.Errorf("missing peers in resource %q", resourceKey.String())
+	case len(spec.Peers)+len(spec.PlaintextPeers) == 0:
+		return nil, fmt.Errorf("at least one of peers or plaintextPeers must be specified in resource %q", resourceKey.String())
 	}
 
-	tuples := make([]parsedSelectorRule, 0, len(spec.Peers))
 	subjectEndpointSelector := parseSelector(resourceKey.Namespace, spec.NamespaceSelector, spec.PodSelector)
-	for idx, peer := range spec.Peers {
-		switch {
-		case peer.NamespaceSelector == nil:
-			return nil, fmt.Errorf("missing namespaceSelector for peer %d in resource %q", idx, resourceKey.String())
-		case len(peer.Ports) == 0:
-			return nil, fmt.Errorf("missing ports for peer %d in resource %q", idx, resourceKey.String())
-		}
+	tuples := make([]parsedSelectorRule, 0, len(spec.Peers)+len(spec.PlaintextPeers))
 
-		peerEndpointSelector := parseSelector(resourceKey.Namespace, peer.NamespaceSelector, peer.PodSelector)
-		peerPorts, err := parsePeerPorts(peer.Ports)
-		if err != nil {
-			return nil, fmt.Errorf("invalid port for peer %d in resource %q: %w", idx, resourceKey.String(), err)
-		}
+	parsePeers := func(peers []iso_v1alpha1.ClusterwideEncryptionPeerSelector, encrypt bool, fieldName string) error {
+		for idx, peer := range peers {
+			if peer.NamespaceSelector == nil {
+				return fmt.Errorf("missing namespaceSelector for %s %d in resource %q", fieldName, idx, resourceKey.String())
+			}
 
-		tuples = append(tuples, parsedSelectorRule{
-			subject:   policyTypes.NewLabelSelector(subjectEndpointSelector),
-			peer:      policyTypes.NewLabelSelector(peerEndpointSelector),
-			peerPorts: peerPorts,
-		})
+			peerEndpointSelector := parseSelector(resourceKey.Namespace, peer.NamespaceSelector, peer.PodSelector)
+			peerPorts, err := parsePeerPorts(peer.Ports)
+			if err != nil {
+				return fmt.Errorf("invalid port for %s %d in resource %q: %w", fieldName, idx, resourceKey.String(), err)
+			}
+
+			tuples = append(tuples, parsedSelectorRule{
+				subject:   policyTypes.NewLabelSelector(subjectEndpointSelector),
+				peer:      policyTypes.NewLabelSelector(peerEndpointSelector),
+				peerPorts: peerPorts,
+				encrypt:   encrypt,
+			})
+		}
+		return nil
+	}
+
+	if err := parsePeers(spec.Peers, true, "peer"); err != nil {
+		return nil, err
+	}
+	if err := parsePeers(spec.PlaintextPeers, false, "plaintextPeer"); err != nil {
+		return nil, err
 	}
 
 	return tuples, nil
