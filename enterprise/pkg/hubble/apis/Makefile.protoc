@@ -1,0 +1,43 @@
+#  Copyright (C) Isovalent, Inc. - All Rights Reserved.
+#
+#  NOTICE: All information contained herein is, and remains the property of
+#  Isovalent Inc and its suppliers, if any. The intellectual and technical
+#  concepts contained herein are proprietary to Isovalent Inc and its suppliers
+#  and may be covered by U.S. and Foreign Patents, patents in process, and are
+#  protected by trade secret or copyright law.  Dissemination of this information
+#  or reproduction of this material is strictly forbidden unless prior written
+#  permission is obtained from Isovalent Inc.
+#
+# This Makefile is expected to run inside the cilium-builder image to generate
+# the proto files. Run `make proto` on ./Makefile to invoke run this inside a
+# a container.
+
+PROTOC ?= protoc
+
+EXTENSION_PROTO_SOURCES := \
+	./extensions/flow.proto
+
+EXTENSION_GO_TARGETS := $(EXTENSION_PROTO_SOURCES:.proto=.pb.go) $(EXTENSION_PROTO_SOURCES:.proto=.pb.json.go)
+
+EXTENSION_PROTO_PATH := .
+
+EXTENSION_PROTOC_PLUGINS := --plugin=$(GOPATH)/bin/protoc-gen-doc
+EXTENSION_PROTOC_PLUGINS += --plugin=$(GOPATH)/bin/protoc-gen-go-grpc
+EXTENSION_PROTOC_PLUGINS += --plugin=$(GOPATH)/bin/protoc-gen-go-json
+EXTENSION_PROTOC_PLUGINS += --plugin=$(GOPATH)/bin/protoc-gen-go
+EXTENSION_PROTOC_PLUGINS += --plugin=$(GOPATH)/bin/protoc-gen-deepcopy
+
+.PHONY: all
+all:
+	@echo NOTE: The warning about package github.com/golang/protobuf/protoc-gen-go/generator can be ignored
+	$(QUIET)set -e; \
+	for proto in $(EXTENSION_PROTO_SOURCES) ; do \
+		echo Generating $${proto} && \
+		$(PROTOC) $(EXTENSION_PROTOC_PLUGINS) -I $(EXTENSION_PROTO_PATH) \
+			--doc_out=./ \
+			--doc_opt=markdown,README.md,source_relative \
+			--go_out=paths=source_relative:. \
+			--go-grpc_out=require_unimplemented_servers=false,paths=source_relative:. \
+			--go-json_out=orig_name=true,paths=source_relative:. \
+			$${proto}; \
+	done

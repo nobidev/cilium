@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package hubble_extensions.v1;
+
+option go_package = "github.com/cilium/cilium/enterprise/pkg/hubble/api/extensions";
+
+// FlowExtension is the INK flow extension
+message FlowExtension {
+  // private_networks contains Private Networks related information
+  PrivateNetworkFlowExtension private_networks = 1;
+}
+
+// PrivateNetworkFlowExtension contains Private Networks related flow extensions
+message PrivateNetworkFlowExtension {
+  // source contains Private Networks related information for the source
+  // endpoint
+  PrivateNetworkEndpoint source = 1;
+  // destination contains Private Networks related information for the
+  // destination endpoint
+  PrivateNetworkEndpoint destination = 2;
+}
+
+// PrivateNetworkEndpoint contains Private Networks related information for an endpoint
+message PrivateNetworkEndpoint {
+  // type is the endpoint type. Valid types are
+  //  ENDPOINT: for Cilium internal endpoints
+  //  EXTERNAL_ENDPOINT: for "external endpoints" defined by
+  //                    PrivateNetworkExternalEndpoint resources
+  //  UNMANAGED: for destinations outside of the cluster
+  PrivateNetworkEndpointType type = 1;
+  // cilium_endpoint_ip is the Cilium internal IP for the endpoint. Only set for
+  // ENDPOINT and EXTERNAL_ENDPOINT types
+  string cilium_endpoint_ip = 2;
+  // network_id is the reported node local ID of the network this endpoint is in
+  uint32 network_id = 3;
+  // network_name is the name of the network this endpoint is in. Only set for
+  // ENDPOINT and EXTERNAL_ENDPOINT types
+  string network_name = 4;
+  // subnet_name is the name of the subnet this endpoint is in. Only set for
+  // ENDPOINT and EXTERNAL_ENDPOINT types
+  string subnet_name = 5;
+}
+
+// PrivateNetworkEndpointType is the type of a PrivateNetworkEndpoint
+enum PrivateNetworkEndpointType {
+  UNKNOWN = 0;
+  // ENDPOINT is the type of Cilium internal endpoints
+  ENDPOINT = 1;
+  // EXTERNAL_ENDPOINT is the type of "external endpoints" defined by
+  // PrivateNetworkExternalEndpoint resources
+  EXTERNAL_ENDPOINT = 2;
+  // UNMANAGED indicates that the endpoint is not a Cilium managed endpoint, but a
+  // destination outside of the cluster
+  UNMANAGED = 3;
+}

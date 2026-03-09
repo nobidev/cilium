@@ -5,6 +5,7 @@ set -euo pipefail
 # Remove generated generated code
 find enterprise/api/extensions -name '*.go' -delete
 find enterprise/fqdn-proxy/api/v1/dnsproxy -name '*.go' -delete
+find enterprise/pkg/hubble/apis/extensions -name '*.go' -delete
 find enterprise/pkg/hubble/aggregation/api/aggregation -name '*.go' -delete
 find enterprise/pkg/privnet/grpc/api -name '*.go' -delete
 

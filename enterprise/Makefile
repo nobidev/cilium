@@ -2,6 +2,7 @@ include ../Makefile.defs
 
 .PHONY: enterprise-proto
 enterprise-proto:
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C pkg/hubble/apis
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C pkg/hubble/aggregation/api/aggregation
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/extensions
 
