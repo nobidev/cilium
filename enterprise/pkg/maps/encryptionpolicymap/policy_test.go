@@ -39,6 +39,48 @@ func iterateWithCallback(m *PolicyMap, cb encryptionPolicyIterateCallback) error
 	})
 }
 
+func TestNewEncryptionPolicyKeyPrefixLengths(t *testing.T) {
+	tests := []struct {
+		name              string
+		subjectID         uint32
+		peerID            uint32
+		proto             uint8
+		port              uint16
+		expectedPrefixLen uint32
+	}{
+		{
+			name:      "all-zero wildcard",
+			subjectID: 0, peerID: 0, proto: 0, port: 0,
+			expectedPrefixLen: 0,
+		},
+		{
+			name:      "subject+peer",
+			subjectID: 100, peerID: 200, proto: 0, port: 0,
+			expectedPrefixLen: 64,
+		},
+		{
+			name:      "subject+peer+proto",
+			subjectID: 100, peerID: 200, proto: 6, port: 0,
+			expectedPrefixLen: 80,
+		},
+		{
+			name:      "fully specific",
+			subjectID: 100, peerID: 200, proto: 6, port: 8080,
+			expectedPrefixLen: 96,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key := NewEncryptionPolicyKey(tt.subjectID, tt.peerID, tt.proto, tt.port)
+			assert.Equal(t, tt.expectedPrefixLen, key.Prefixlen, "prefix length mismatch")
+			assert.Equal(t, tt.subjectID, key.SubjectIdentity, "subject identity mismatch")
+			assert.Equal(t, tt.peerID, key.PeerIdentity, "peer identity mismatch")
+			assert.Equal(t, uint16(tt.proto), key.Nexthdr, "nexthdr mismatch")
+		})
+	}
+}
+
 func TestPrivilegedPolicyMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	log := hivetest.Logger(t)

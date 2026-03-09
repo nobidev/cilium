@@ -28,16 +28,14 @@ import (
 const (
 	PolicyMapName = "cilium_encryption_policy_map"
 
-	sizeofPolicyKey    = int(unsafe.Sizeof(EncryptionPolicyKey{}))
-	sizeofPrefixlen    = int(unsafe.Sizeof(EncryptionPolicyKey{}.Prefixlen))
-	sizeofPeerIdentity = int(unsafe.Sizeof(EncryptionPolicyKey{}.PeerIdentity))
-	sizeofNexthdr      = int(unsafe.Sizeof(EncryptionPolicyKey{}.Nexthdr))
-	sizeofPeerPort     = int(unsafe.Sizeof(EncryptionPolicyKey{}.PeerPortNetwork))
+	sizeofPolicyKey = int(unsafe.Sizeof(EncryptionPolicyKey{}))
+	sizeofPrefixlen = int(unsafe.Sizeof(EncryptionPolicyKey{}.Prefixlen))
+	sizeofNexthdr   = int(unsafe.Sizeof(EncryptionPolicyKey{}.Nexthdr))
+	sizeofPeerPort  = int(unsafe.Sizeof(EncryptionPolicyKey{}.PeerPortNetwork))
 
-	PeerIdentityBits = uint32(sizeofPeerIdentity) * 8
-	NexthdrBits      = uint32(sizeofNexthdr) * 8
-	PeerPortBits     = uint32(sizeofPeerPort) * 8
-	FullPrefixBits   = NexthdrBits + PeerPortBits
+	NexthdrBits    = uint32(sizeofNexthdr) * 8
+	PeerPortBits   = uint32(sizeofPeerPort) * 8
+	FullPrefixBits = NexthdrBits + PeerPortBits
 	// PolicyStaticPrefixBits represents the size in bits of the static
 	// prefix part of an encryption policy key (i.e. the source IP).
 	PolicyStaticPrefixBits = uint32(sizeofPolicyKey-sizeofPrefixlen)*8 - FullPrefixBits
@@ -145,13 +143,19 @@ func (k *EncryptionPolicyKey) String() string {
 }
 
 func NewEncryptionPolicyKey(subjectID, peerID uint32, proto uint8, port uint16) EncryptionPolicyKey {
-	// for now this doesn't allow/expect wildcarding the peer identity.
-	prefixLen := PolicyStaticPrefixBits
-	if proto != 0 || port != 0 {
-		prefixLen += NexthdrBits
-		if port != 0 {
-			prefixLen += PeerPortBits
-		}
+	// The LPM trie key layout is [SubjectIdentity:32b][PeerIdentity:32b][Protocol:16b][Port:16b].
+	// Only the all-zero catch-all (from fallbackBehavior=encrypt) produces prefix=0.
+	// User policies always have concrete subject and peer identities, so prefix >= 64.
+	var prefixLen uint32
+	switch {
+	case subjectID == 0 && peerID == 0 && proto == 0 && port == 0:
+		prefixLen = 0
+	case proto == 0 && port == 0:
+		prefixLen = PolicyStaticPrefixBits
+	case port == 0:
+		prefixLen = PolicyStaticPrefixBits + NexthdrBits
+	default:
+		prefixLen = PolicyStaticPrefixBits + NexthdrBits + PeerPortBits
 	}
 	return EncryptionPolicyKey{
 		Prefixlen:       prefixLen,
