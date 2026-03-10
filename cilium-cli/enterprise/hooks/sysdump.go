@@ -1003,6 +1003,25 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 			},
 		},
 		{
+			Description: "Collecting NetworkAttachmentDefinitions",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				resource := "network-attachment-definitions"
+				objs, err := collector.Client.ListUnstructured(ctx, schema.GroupVersionResource{
+					Group:    "k8s.cni.cncf.io",
+					Resource: resource,
+					Version:  "v1",
+				}, ptr.To(corev1.NamespaceAll), metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect NetworkAttachmentDefinitions: %w", err)
+				}
+				if err := collector.WriteYAML(fmt.Sprintf("cilium-enterprise-%s-<ts>.yaml", resource), objs); err != nil {
+					return fmt.Errorf("failed to collect NetworkAttachmentDefinitions: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting diagnostics",
 			Task: func(ctx context.Context) error {
 				return collector.WithFileSink("diagnostics.txt", func(w io.Writer) error {
