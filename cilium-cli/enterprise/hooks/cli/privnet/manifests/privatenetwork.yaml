@@ -30,3 +30,7 @@ spec:
   {{- else }}
   networkBridges: []
   {{- end }}
+  networkAttachmentDefinitions:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: cilium-test

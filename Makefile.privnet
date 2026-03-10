@@ -267,6 +267,7 @@ kind-privnet-install-common: kind-privnet-jetstack-repo
 		--set ipv4NativeRoutingCIDR=10.196.0.0/16 \
 		--set ipv6NativeRoutingCIDR=fd00:10:196::/56 \
 		--set enterprise.clustermesh.mixedRoutingMode.enabled=true \
+		--set enterprise.privateNetworks.networkAttachmentDefinitions.enabled=true \
 		--set cni.exclusive=false --set cni.confPath=/etc/cni/net.d/delegates \
 		$(KIND_PRIVNET_VALUES_FILES) \
 		--version=
