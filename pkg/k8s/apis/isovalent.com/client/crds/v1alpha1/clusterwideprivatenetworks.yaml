@@ -172,6 +172,61 @@ spec:
                         rule: cidr(self).ip().family() == 6
                       - message: Subnet IPv6 CIDR is immutable
                         rule: oldSelf == self
+                    dhcp:
+                      default:
+                        mode: none
+                      description: DHCP defines DHCP relay configuration for this
+                        subnet.
+                      properties:
+                        mode:
+                          default: none
+                          description: Mode selects how DHCP requests are relayed
+                            for this subnet.
+                          enum:
+                          - broadcast
+                          - relay
+                          - none
+                          type: string
+                        relay:
+                          description: Relay specifies the relay agent options when
+                            mode=relay.
+                          properties:
+                            option82:
+                              description: Option82 configures relay-agent option
+                                82 suboptions.
+                              properties:
+                                circuitID:
+                                  description: CircuitID is option 82 circuit-id value.
+                                  maxLength: 255
+                                  type: string
+                                remoteID:
+                                  description: RemoteID is option 82 remote-id value.
+                                  maxLength: 255
+                                  type: string
+                              type: object
+                            serverAddress:
+                              description: ServerAddress is the DHCP server IP or
+                                hostname for relay mode.
+                              maxLength: 255
+                              minLength: 1
+                              type: string
+                            serverPort:
+                              default: 67
+                              description: |-
+                                ServerPort is the DHCP server port for relay mode.
+                                Defaults to 67 when unset.
+                              maximum: 65535
+                              minimum: 1
+                              type: integer
+                          required:
+                          - serverAddress
+                          type: object
+                      type: object
+                      x-kubernetes-validations:
+                      - message: dhcp.relay can only be configured when mode is 'relay'
+                        rule: self.mode == 'relay' || !has(self.relay)
+                      - message: dhcp.relay must be configured when mode is 'relay'
+                        rule: self.mode != 'relay' || has(self.relay)
                     name:
                       description: The name of the subnet.
                       maxLength: 63

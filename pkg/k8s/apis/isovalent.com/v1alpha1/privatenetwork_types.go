@@ -104,6 +104,73 @@ type SubnetSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MaxItems=64
 	Routes []PrivateNetworkRouteSpec `json:"routes"`
+
+	// DHCP defines DHCP relay configuration for this subnet.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default={mode:"none"}
+	DHCP PrivateNetworkSubnetDHCPSpec `json:"dhcp"`
+}
+
+type PrivateNetworkDHCPMode string
+
+const (
+	PrivateNetworkDHCPModeBroadcast PrivateNetworkDHCPMode = "broadcast"
+	PrivateNetworkDHCPModeRelay     PrivateNetworkDHCPMode = "relay"
+	PrivateNetworkDHCPModeNone      PrivateNetworkDHCPMode = "none"
+)
+
+// +kubebuilder:validation:XValidation:rule="self.mode == 'relay' || !has(self.relay)",message="dhcp.relay can only be configured when mode is 'relay'"
+// +kubebuilder:validation:XValidation:rule="self.mode != 'relay' || has(self.relay)",message="dhcp.relay must be configured when mode is 'relay'"
+type PrivateNetworkSubnetDHCPSpec struct {
+	// Mode selects how DHCP requests are relayed for this subnet.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=broadcast;relay;none
+	// +kubebuilder:default=none
+	Mode PrivateNetworkDHCPMode `json:"mode"`
+
+	// Relay specifies the relay agent options when mode=relay.
+	//
+	// +kubebuilder:validation:Optional
+	Relay *PrivateNetworkDHCPRelaySpec `json:"relay,omitempty"`
+}
+
+type PrivateNetworkDHCPRelaySpec struct {
+	// ServerAddress is the DHCP server IP or hostname for relay mode.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	ServerAddress string `json:"serverAddress"`
+
+	// ServerPort is the DHCP server port for relay mode.
+	// Defaults to 67 when unset.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:default=67
+	ServerPort uint16 `json:"serverPort"`
+
+	// Option82 configures relay-agent option 82 suboptions.
+	//
+	// +kubebuilder:validation:Optional
+	Option82 *PrivateNetworkDHCPOption82Spec `json:"option82,omitempty"`
+}
+
+type PrivateNetworkDHCPOption82Spec struct {
+	// CircuitID is option 82 circuit-id value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxLength=255
+	CircuitID string `json:"circuitID,omitempty"`
+
+	// RemoteID is option 82 remote-id value.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxLength=255
+	RemoteID string `json:"remoteID,omitempty"`
 }
 
 // NetworkCIDRv4 is an IPv4 network CIDR.
