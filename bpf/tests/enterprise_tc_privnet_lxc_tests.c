@@ -17,6 +17,7 @@
 #define DEBUG
 
 #define CILIUM_DHCP_IFINDEX 123
+#define CIDR_IDENTITY 5678
 
 static int redirect_target_ifindex;
 
@@ -176,7 +177,7 @@ int privnet_icmp_from_container_nat_src_route_dst_check(struct __ctx_buff *ctx)
 	assert_status_code(ctx, TC_ACT_REDIRECT);
 
 	/* check inner packet headers, dst should remain untranslated */
-	BUF_DECL(UNKNOWN_ICMP_REQ, privnet_unknown_flow_icmp_req);
+	BUF_DECL(UNKNOWN_ICMP_REQ, privnet_unknown_flow_icmp_req_out);
 	ASSERT_CTX_BUF_OFF("privnet_icmp_from_container_nat_src_route_dst", "IP", ctx,
 			   sizeof(__u32), UNKNOWN_ICMP_REQ,
 			   sizeof(BUF(UNKNOWN_ICMP_REQ)));
@@ -373,7 +374,7 @@ int privnet_icmp_to_container_unknown_src_nat_dst_check(struct __ctx_buff *ctx)
 
 	assert_status_code(ctx, CTX_ACT_OK);
 
-	BUF_DECL(UNKNOWN_ICMP_REQ, privnet_unknown_flow_icmp_req);
+	BUF_DECL(UNKNOWN_ICMP_REQ, privnet_unknown_flow_icmp_req_out);
 	ASSERT_CTX_BUF_OFF("privnet_icmp_to_container_unknown_src_nat_dst", "IP", ctx,
 			   sizeof(__u32), UNKNOWN_ICMP_REQ,
 			   sizeof(BUF(UNKNOWN_ICMP_REQ)));
@@ -905,7 +906,7 @@ int privnet_icmp_from_container_no_peering_route_match_check(struct __ctx_buff *
 	assert_status_code(ctx, TC_ACT_REDIRECT);
 
 	/* check inner packet headers, dst should remain untranslated */
-	BUF_DECL(UNKNOWN_ICMP_REQ, privnet_unknown_flow_icmp_req);
+	BUF_DECL(UNKNOWN_ICMP_REQ, privnet_unknown_flow_icmp_req_out);
 	ASSERT_CTX_BUF_OFF("privnet_icmp_from_container_nat_src_route_dst", "IP", ctx,
 			   sizeof(__u32), UNKNOWN_ICMP_REQ,
 			   sizeof(BUF(UNKNOWN_ICMP_REQ)));
@@ -969,5 +970,192 @@ int privnet_icmp_from_container_no_peering_route_match_drop_check(struct __ctx_b
 	privnet_v4_del_subnet_entry(NET_ID, OTHER_SUBNET_V4, OTHER_SUBNET_V4_LEN);
 	privnet_del_device_entry(IFINDEX);
 
+	test_finish();
+}
+
+/* Tests unknown flow egress policy. Because the policy map is empty,
+ * we expect this ICMP request to be dropped.
+ */
+
+PKTGEN("tc", "22_icmp_from_container_unknown_policy_denied")
+int privnet_icmp_from_container_unknown_policy_denied_pktgen(struct __ctx_buff *ctx)
+{
+	BUF_DECL(NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
+	build_privnet_packet(ctx, NETIP_ICMP_REQ);
+	return 0;
+}
+
+SETUP("tc", "22_icmp_from_container_unknown_policy_denied")
+int privnet_icmp_from_container_unknown_policy_denied_setup(struct __ctx_buff *ctx)
+{
+	struct metrics_key key = {
+		.reason = (__u8)-DROP_POLICY,
+		.dir = METRIC_EGRESS,
+	};
+	map_delete_elem(&cilium_metrics, &key);
+
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1); /* source entry */
+	privnet_v4_add_subnet_route(NET_ID, SUBNET_ID, V4_NET_IP_2, INB_IP, 0); /* destination entry */
+
+	return pod_send_packet(ctx);
+}
+
+CHECK("tc", "22_icmp_from_container_unknown_policy_denied")
+int privnet_icmp_from_container_unknown_policy_denied_check(struct __ctx_buff *ctx)
+{
+	struct metrics_value *entry = NULL;
+	struct metrics_key key = {
+		.reason = (__u8)-DROP_POLICY,
+		.dir = METRIC_EGRESS,
+	};
+	__u64 count = 1;
+
+	test_init();
+
+	/* drop check */
+	assert_status_code(ctx, CTX_ACT_DROP);
+
+	/* check reason for drop */
+	entry = map_lookup_elem(&cilium_metrics, &key);
+	if (!entry)
+		test_fatal("metrics entry not found");
+
+	assert_metrics_count(key, count);
+
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_del_route(NET_ID, SUBNET_ID, V4_NET_IP_2);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
+	privnet_del_device_entry(IFINDEX);
+	test_finish();
+}
+
+/* Tests unknown flow egress policy. The target identity is explicitly allowed
+ * in the policy map and added to the CIDR identities map.
+ */
+
+PKTGEN("tc", "23_icmp_from_container_unknown_policy_allowed")
+int privnet_icmp_from_container_unknown_policy_allowed_pktgen(struct __ctx_buff *ctx)
+{
+	BUF_DECL(NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
+	build_privnet_packet(ctx, NETIP_ICMP_REQ);
+	return 0;
+}
+
+SETUP("tc", "23_icmp_from_container_unknown_policy_allowed")
+int privnet_icmp_from_container_unknown_policy_allowed_setup(struct __ctx_buff *ctx)
+{
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1); /* source entry */
+	privnet_v4_add_subnet_route(NET_ID, SUBNET_ID, V4_NET_IP_2, INB_IP, 0); /* destination entry */
+
+	policy_add_egress_allow_l3_entry(CIDR_IDENTITY);
+	privnet_v4_add_cidr_identity_entry(SUBNET_V4, SUBNET_V4_LEN, CIDR_IDENTITY);
+
+	return pod_send_packet(ctx);
+}
+
+CHECK("tc", "23_icmp_from_container_unknown_policy_allowed")
+int privnet_icmp_from_container_unknown_policy_allowed_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	assert_status_code(ctx, TC_ACT_REDIRECT);
+
+	privnet_v4_del_cidr_identity_entry(SUBNET_V4, SUBNET_V4_LEN);
+	policy_delete_egress_l3_entry(CIDR_IDENTITY);
+
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_del_route(NET_ID, SUBNET_ID, V4_NET_IP_2);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
+	privnet_del_device_entry(IFINDEX);
+	test_finish();
+}
+
+/* Tests unknown flow ingress policy. Because the policy map is empty,
+ * we expect this ICMP request to be dropped.
+ */
+
+PKTGEN("tc", "24_icmp_to_container_unknown_policy_denied")
+int privnet_to_container_unknown_policy_denied_pktgen(struct __ctx_buff *ctx)
+{
+	BUF_DECL(UNKNOWN_ICMP_REQ_IN, privnet_unknown_flow_icmp_req_in);
+	build_privnet_packet(ctx, UNKNOWN_ICMP_REQ_IN);
+	return 0;
+}
+
+SETUP("tc", "24_icmp_to_container_unknown_policy_denied")
+int privnet_to_container_unknown_policy_denied_setup(struct __ctx_buff *ctx)
+{
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+
+	set_privnet_net_ids(PRIVNET_UNKNOWN_NET_ID, PRIVNET_PIP_NET_ID);
+
+	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
+	return pod_receive_packet_by_tailcall(ctx);
+}
+
+CHECK("tc", "24_icmp_to_container_unknown_policy_denied")
+int privnet_icmp_to_container_unknown_policy_denied_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	assert_status_code(ctx, DROP_POLICY);
+
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
+	privnet_del_device_entry(IFINDEX);
+	test_finish();
+}
+
+/* Tests unknown flow ingress policy. This adds an explicit policy deny
+ * entry for the prefix.
+ */
+
+PKTGEN("tc", "25_icmp_to_container_unknown_policy_explicit_deny")
+int privnet_to_container_unknown_policy_explicit_deny_pktgen(struct __ctx_buff *ctx)
+{
+	BUF_DECL(UNKNOWN_ICMP_REQ_IN, privnet_unknown_flow_icmp_req_in);
+	build_privnet_packet(ctx, UNKNOWN_ICMP_REQ_IN);
+	return 0;
+}
+
+SETUP("tc", "25_icmp_to_container_unknown_policy_explicit_deny")
+int privnet_to_container_unknown_policy_explicit_deny_setup(struct __ctx_buff *ctx)
+{
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+
+	set_privnet_net_ids(PRIVNET_UNKNOWN_NET_ID, PRIVNET_PIP_NET_ID);
+
+	/* ingress allow from all */
+	policy_add_ingress_allow_l3_l4_entry(0, 0, 0, 0);
+	/* ingress deny for CIDR identity */
+	policy_add_entry(false, CIDR_IDENTITY, 0, 0, 0, true);
+	privnet_v4_add_cidr_identity_entry(SUBNET_V4, SUBNET_V4_LEN, CIDR_IDENTITY);
+
+	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
+	return pod_receive_packet_by_tailcall(ctx);
+}
+
+CHECK("tc", "25_icmp_to_container_unknown_policy_explicit_deny")
+int privnet_icmp_to_container_unknown_policy_explicit_deny_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	assert_status_code(ctx, DROP_POLICY_DENY);
+
+	privnet_v4_del_cidr_identity_entry(SUBNET_V4, SUBNET_V4_LEN);
+	policy_delete_entry(false, CIDR_IDENTITY, 0, 0, 0);
+	policy_delete_entry(false, 0, 0, 0, 0);
+
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
+	privnet_del_device_entry(IFINDEX);
 	test_finish();
 }

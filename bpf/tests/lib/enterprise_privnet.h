@@ -373,3 +373,27 @@ build_privnet_dhcp_request(struct __ctx_buff *ctx)
 	return build_privnet_dhcp_request_to(ctx, dhcp_bcast_mac,
 					     IPV4(255, 255, 255, 255));
 }
+
+static __always_inline void
+privnet_v4_add_cidr_identity_entry(__be32 prefix, __u8 prefix_len, __u32 sec_identity)
+{
+	struct privnet_cidr_identity_key key = {
+		.lpm_key.prefixlen = PRIVNET_SUBNET_PREFIX_LEN(prefix_len),
+		.family = ENDPOINT_KEY_IPV4,
+		.ip4 = { .be32 = prefix },
+	};
+	struct privnet_cidr_identity val = { .sec_identity = sec_identity };
+
+	map_update_elem(&cilium_privnet_cidr_identity, &key, &val, BPF_ANY);
+}
+
+static __always_inline void
+privnet_v4_del_cidr_identity_entry(__be32 prefix, __u8 prefix_len)
+{
+	struct privnet_cidr_identity_key key = {
+		.lpm_key.prefixlen = PRIVNET_SUBNET_PREFIX_LEN(prefix_len),
+		.family = ENDPOINT_KEY_IPV4,
+		.ip4 = { .be32 = prefix },
+	};
+	map_delete_elem(&cilium_privnet_cidr_identity, &key);
+}
