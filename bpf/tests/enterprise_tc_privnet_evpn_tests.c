@@ -239,7 +239,7 @@ int privnet_evpn_egress_v4_check(struct __ctx_buff *ctx)
 	TEST("evpn enabled but non vxlan route", {
 		__u32 status_code;
 
-		dip_val.flag_is_vxlan_route = 0;
+		dip_val.type = PRIVNET_FIB_VAL_TYPE_SUBNET_ROUTE;
 		status_code = privnet_evpn_egress_ipv4(ctx, NET_ID, &dip_val, V4_NET_IP_1);
 		if (status_code != CTX_ACT_OK)
 			test_fatal("unexpected status code (expected %d, got %d)",
@@ -249,7 +249,7 @@ int privnet_evpn_egress_v4_check(struct __ctx_buff *ctx)
 	TEST("evpn enabled and vxlan route no fib match", {
 		__u32 status_code;
 
-		dip_val.flag_is_vxlan_route = 1;
+		dip_val.type = PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE;
 		status_code = privnet_evpn_egress_ipv4(ctx, NET_ID, &dip_val, V4_NET_IP_1);
 		if (status_code != (__u32)DROP_UNROUTABLE)
 			test_fatal("unexpected status code (expected %d, got %d)",
@@ -260,7 +260,7 @@ int privnet_evpn_egress_v4_check(struct __ctx_buff *ctx)
 		__u32 status_code;
 		union macaddr nexthop_mac = { .addr = mac_one_addr };
 
-		dip_val.flag_is_vxlan_route = 1;
+		dip_val.type = PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE;
 		evpn_fib_v4_add(NET_ID, V4_NET_IP_1, 32, 100, nexthop_mac, v4_node_one);
 		status_code = privnet_evpn_egress_ipv4(ctx, NET_ID, &dip_val, V4_NET_IP_1);
 		evpn_fib_v4_del(NET_ID, V4_NET_IP_1, 32);
@@ -284,7 +284,7 @@ int privnet_evpn_egress_v6_check(struct __ctx_buff *ctx)
 	TEST("evpn enabled but non vxlan route", {
 		__u32 status_code;
 
-		dip_val.flag_is_vxlan_route = 0;
+		dip_val.type = PRIVNET_FIB_VAL_TYPE_SUBNET_ROUTE;
 		status_code = privnet_evpn_egress_ipv6(ctx, NET_ID, &dip_val, dst_ip);
 		if (status_code != CTX_ACT_OK)
 			test_fatal("unexpected status code (expected %d, got %d)",
@@ -294,7 +294,7 @@ int privnet_evpn_egress_v6_check(struct __ctx_buff *ctx)
 	TEST("evpn enabled and vxlan route no fib match", {
 		__u32 status_code;
 
-		dip_val.flag_is_vxlan_route = 1;
+		dip_val.type = PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE;
 		status_code = privnet_evpn_egress_ipv6(ctx, NET_ID, &dip_val, dst_ip);
 		if (status_code != (__u32)DROP_UNROUTABLE)
 			test_fatal("unexpected status code (expected %d, got %d)",
@@ -306,7 +306,7 @@ int privnet_evpn_egress_v6_check(struct __ctx_buff *ctx)
 		union v6addr v6_nexthop = { .addr = v6_node_one_addr };
 		union macaddr nexthop_mac = { .addr = mac_one_addr };
 
-		dip_val.flag_is_vxlan_route = 1;
+		dip_val.type = PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE;
 		evpn_fib_v6_add(NET_ID, &dst_ip, 128, 100, nexthop_mac, &v6_nexthop);
 		status_code = privnet_evpn_egress_ipv6(ctx, NET_ID, &dip_val, dst_ip);
 		evpn_fib_v6_del(NET_ID, &dst_ip, 128);

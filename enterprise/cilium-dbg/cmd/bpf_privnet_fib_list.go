@@ -28,6 +28,7 @@ func init() {
 }
 
 type fibEntry struct {
+	Type         string
 	NetID        uint16
 	SubnetID     uint16
 	Prefix       string
@@ -37,7 +38,7 @@ type fibEntry struct {
 	PeerNetID    uint16
 	PeerSubnetID uint16
 	VNI          uint32
-	Flags        privnet.FIBFlags
+	Flags        privnet.FIBValFlags
 }
 
 var bpfPrivNetFIBListCmd = &cobra.Command{
@@ -57,6 +58,7 @@ var bpfPrivNetFIBListCmd = &cobra.Command{
 			key := k.(*privnet.FIBKey)
 			val := v.(*privnet.FIBVal)
 			fibList = append(fibList, fibEntry{
+				Type:         val.Type.String(),
 				NetID:        uint16(key.NetID),
 				SubnetID:     uint16(key.SubnetID),
 				Prefix:       key.ToPrefix().String(),
@@ -81,11 +83,11 @@ var bpfPrivNetFIBListCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "NetID\tSubnetID\tPrefix\tNexthop\tIfIndex\tMAC\tVNI\tPeerIDs\tFlags")
+		fmt.Fprintln(w, "Type\tNetID\tSubnetID\tPrefix\tNexthop\tIfIndex\tMAC\tVNI\tPeerIDs\tFlags")
 
 		for _, fib := range fibList {
-			fmt.Fprintf(w, "%#x\t%#x\t%s\t%s\t%d\t%s\t%d\t%#x/%#x\t%#x\n",
-				fib.NetID, fib.SubnetID, fib.Prefix, fib.Nexthop, fib.IfIndex, fib.MAC, fib.VNI, fib.PeerNetID, fib.PeerSubnetID, fib.Flags)
+			fmt.Fprintf(w, "%s\t%#x\t%#x\t%s\t%s\t%d\t%s\t%d\t%#x/%#x\t%#x\n",
+				fib.Type, fib.NetID, fib.SubnetID, fib.Prefix, fib.Nexthop, fib.IfIndex, fib.MAC, fib.VNI, fib.PeerNetID, fib.PeerSubnetID, fib.Flags)
 		}
 
 		w.Flush()

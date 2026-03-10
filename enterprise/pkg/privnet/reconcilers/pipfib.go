@@ -137,29 +137,27 @@ func (pmo *pipFIBMapOps) FIBKeyVal(me *tables.MapEntry) *pnmaps.FIBKeyVal {
 	}
 	return &pnmaps.FIBKeyVal{
 		Key: pnmaps.NewFIBKey(me.Target.ID.Network, me.Target.ID.Subnet, pmo.FIBKeyType(me.Type), me.Target.CIDR),
-		Val: pnmaps.NewFIBVal(me.Routing.NextHop, mac, pmo.FIBFlags(me.Type, me.Routing.L2Announce), uint32(me.Routing.EgressIfIndex), entryVNI, me.Routing.PeerID.Network, me.Routing.PeerID.Subnet),
+		Val: pnmaps.NewFIBVal(
+			me.Routing.NextHop,
+			mac,
+			me.Type,
+			pmo.FIBValFlags(me.Type, me.Routing.L2Announce),
+			uint32(me.Routing.EgressIfIndex),
+			entryVNI,
+			me.Routing.PeerID.Network,
+			me.Routing.PeerID.Subnet,
+		),
 	}
 }
 
-func (pmo *pipFIBMapOps) FIBFlags(typ tables.MapEntryType, l2ann bool) pnmaps.FIBFlags {
-	var flags pnmaps.FIBFlags
+func (pmo *pipFIBMapOps) FIBValFlags(typ tables.MapEntryType, l2ann bool) pnmaps.FIBValFlags {
+	var flags pnmaps.FIBValFlags
 
 	switch typ {
-	case tables.MapEntryTypeEndpoint:
+	case tables.MapEntryTypeEndpoint, tables.MapEntryTypeExternalEndpoint:
 		if l2ann {
 			flags |= pnmaps.FIBFlagL2Announce
 		}
-	case tables.MapEntryTypeExternalEndpoint:
-		flags |= pnmaps.FIBFlagExternalEndpoint
-		if l2ann {
-			flags |= pnmaps.FIBFlagL2Announce
-		}
-	case tables.MapEntryTypeDCNRoute:
-		flags |= pnmaps.FIBFlagSubnetRoute
-	case tables.MapEntryTypeStaticRoute:
-		flags |= pnmaps.FIBFlagStaticRoute
-	case tables.MapEntryTypeEVPNRoute:
-		flags |= pnmaps.FIBFlagVxlanRoute
 	}
 
 	return flags

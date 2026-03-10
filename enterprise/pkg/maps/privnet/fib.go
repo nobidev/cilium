@@ -56,33 +56,26 @@ const fibKeyStaticPrefixBits = uint32(unsafe.Sizeof(FIBKey{})-
 	unsafe.Sizeof(FIBKey{}.PrefixLen)-
 	unsafe.Sizeof(FIBKey{}.Address)) * 8
 
-// FIBFlags are the flags in the FIB map value.
-type FIBFlags uint8
+// FIBValFlags are the flags in the FIB map value.
+type FIBValFlags uint8
 
 const (
 	// FIBFlagL2Announce is set if the privnet datapath should reply to ARPs/NDs.
-	FIBFlagL2Announce FIBFlags = 1 << iota
-	// FIBFlagSubnetRoute is set if the address is a subnet route.
-	FIBFlagSubnetRoute
-	// FIBFlagStaticRoute is set if the address is a static route.
-	FIBFlagStaticRoute
-	// FIBFlagVxlanRoute is set if the route is a VXLAN route.
-	FIBFlagVxlanRoute
-	// FIBFlagExternalEndpoint is set if the entry is for an external endpoint.
-	FIBFlagExternalEndpoint
+	FIBFlagL2Announce FIBValFlags = 1 << iota
 )
 
 // FIBVal is the FIB map value.
 type FIBVal struct {
 	Address      types.IPv6    `align:"$union0"`
 	MAC          types.MACAddr `align:"mac"`
-	_            [2]uint16
-	Flags        FIBFlags         `align:"flag_l2_announce"`
-	Family       uint8            `align:"family"`
-	IfIndex      uint32           `align:"ifindex"`
-	VNI          uint32           `align:"vni"`
-	PeerNetID    tables.NetworkID `align:"peer_net_id"`
-	PeerSubnetID tables.SubnetID  `align:"peer_subnet_id"`
+	_            [3]uint8
+	Type         tables.MapEntryType `align:"type"`
+	Flags        FIBValFlags         `align:"flag_l2_announce"`
+	Family       uint8               `align:"family"`
+	IfIndex      uint32              `align:"ifindex"`
+	VNI          uint32              `align:"vni"`
+	PeerNetID    tables.NetworkID    `align:"peer_net_id"`
+	PeerSubnetID tables.SubnetID     `align:"peer_subnet_id"`
 }
 
 // FIB allows to interact with the private network FIB map.
@@ -175,10 +168,11 @@ func (*FIBKey) New() bpf.MapKey {
 }
 
 // NewFIBVal constructs a new FIB map value.
-func NewFIBVal(addr netip.Addr, mac types.MACAddr, flags FIBFlags, ifindex uint32, vni vni.VNI, peerNetID tables.NetworkID, peerSubnetID tables.SubnetID) FIBVal {
+func NewFIBVal(addr netip.Addr, mac types.MACAddr, typ tables.MapEntryType, flags FIBValFlags, ifindex uint32, vni vni.VNI, peerNetID tables.NetworkID, peerSubnetID tables.SubnetID) FIBVal {
 	family, address := fromAddr(addr)
 
 	return FIBVal{
+		Type:         typ,
 		Address:      address,
 		MAC:          mac,
 		Flags:        flags,
@@ -191,7 +185,8 @@ func NewFIBVal(addr netip.Addr, mac types.MACAddr, flags FIBFlags, ifindex uint3
 }
 
 func (v FIBVal) String() string {
-	return fmt.Sprintf("%s %#x %s %d %d %s/%s",
+	return fmt.Sprintf("%s %s %#x %s %d %d %s/%s",
+		v.Type,
 		v.ToAddr(),
 		v.Flags,
 		v.MAC,

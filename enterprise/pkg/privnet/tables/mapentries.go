@@ -108,7 +108,7 @@ func (me MapEntry) TableRow() []string {
 	}
 }
 
-// MapEntryType represents the type of the NAT entry.
+// MapEntryType represents the type of the PIP/FIB map entry.
 type MapEntryType uint8
 
 const (

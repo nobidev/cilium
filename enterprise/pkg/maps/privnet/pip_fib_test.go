@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/hive"
@@ -70,20 +71,22 @@ func TestPIPFIBString(t *testing.T) {
 		).String())
 
 	// FIB value
-	assert.Equal(t, "192.168.3.99 0x1 00:ee:11:22:33:44 10 100 0x0/0x0",
+	assert.Equal(t, "E 192.168.3.99 0x1 00:ee:11:22:33:44 10 100 0x0/0x0",
 		NewFIBVal(
 			netip.MustParseAddr("192.168.3.99"),
 			types.MACAddr(mac.MustParseMAC("00:ee:11:22:33:44")),
+			tables.MapEntryTypeEndpoint,
 			FIBFlagL2Announce,
 			10,
 			vni.MustFromUint32(100),
 			0x0, 0x0,
 		).String())
-	assert.Equal(t, "fa:ce::1 0x2 00:ee:11:22:33:44 10 100 0xde/0xad",
+	assert.Equal(t, "D fa:ce::1 0x0 00:ee:11:22:33:44 10 100 0xde/0xad",
 		NewFIBVal(
 			netip.MustParseAddr("fa:ce:0:0::1"),
 			types.MACAddr(mac.MustParseMAC("00:ee:11:22:33:44")),
-			FIBFlagSubnetRoute,
+			tables.MapEntryTypeDCNRoute,
+			0,
 			10,
 			vni.MustFromUint32(100),
 			0xde, 0xad,

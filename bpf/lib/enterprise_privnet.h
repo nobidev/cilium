@@ -179,6 +179,22 @@ struct privnet_fib_key {
 	};
 };
 
+/* Corresponds to enterprise/pkg/privnet/tables.MapEntryType */
+enum privnet_fib_type {
+	/* MapEntryTypeEndpoint */
+	PRIVNET_FIB_VAL_TYPE_ENDPOINT		= 0,
+	/* MapEntryTypeExternalEndpoint */
+	PRIVNET_FIB_VAL_TYPE_EXTERNAL_ENDPOINT	= 1,
+	/* MapEntryTypeDCNRoute */
+	PRIVNET_FIB_VAL_TYPE_SUBNET_ROUTE	= 2,
+	/* MapEntryTypeStaticRoute */
+	PRIVNET_FIB_VAL_TYPE_STATIC_ROUTE	= 3,
+	/* MapEntryTypeEVNPRoute */
+	PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE	= 4,
+	/* MapEntryTypePeeringRoute */
+	PRIVNET_FIB_VAL_TYPE_PEERING_ROUTE	= 5,
+};
+
 struct privnet_fib_val {
 	union {
 		struct {
@@ -190,13 +206,10 @@ struct privnet_fib_val {
 		union v6addr	ip6;
 	};
 	union macaddr mac;
-	__u16 pad4;
+	__u8 pad4;
+	__u8 type;
 	__u8 flag_l2_announce:1,
-		flag_is_subnet_route:1,
-		flag_is_static_route:1,
-		flag_is_vxlan_route:1,
-		flag_is_external_ep:1,
-		pad:3;
+		pad:7;
 	__u8 family;
 	__u32 ifindex;
 	__u32 vni;
@@ -321,12 +334,24 @@ nat_v6_addr(struct __ctx_buff *ctx, int l3_off, const union v6addr *new_addr)
 	return CTX_ACT_OK;
 }
 
-static __always_inline bool is_privnet_route_entry(const struct privnet_fib_val *val)
+static __always_inline bool
+is_privnet_route_entry(const struct privnet_fib_val *val)
 {
 	if (!val)
 		return false;
 
-	return val->flag_is_subnet_route || val->flag_is_static_route || val->flag_is_vxlan_route;
+	switch (val->type) {
+	case PRIVNET_FIB_VAL_TYPE_SUBNET_ROUTE:
+		fallthrough;
+	case PRIVNET_FIB_VAL_TYPE_STATIC_ROUTE:
+		fallthrough;
+	case PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE:
+		fallthrough;
+	case PRIVNET_FIB_VAL_TYPE_PEERING_ROUTE:
+		return true;
+	}
+
+	return false;
 }
 
 #define V4_PRIVNET_KEY_LEN (sizeof(__u32) * 8)
@@ -390,7 +415,7 @@ privnet_fib_lookup(const struct privnet_fib_key *key) {
 	peering_ret = map_lookup_elem(&cilium_privnet_fib, &peer_key);
 	if (peering_ret &&
 	    !is_privnet_route_entry(peering_ret) &&
-	    !peering_ret->flag_is_external_ep)
+	    peering_ret->type != PRIVNET_FIB_VAL_TYPE_EXTERNAL_ENDPOINT)
 		return peering_ret;
 
 	return ret;
@@ -570,10 +595,10 @@ privnet_redirect_neigh_fib_ipv4(const struct privnet_fib_val *dip_val, __be32 da
 	if (!dip_val)
 		return DROP_UNROUTABLE;
 
-	if (dip_val->flag_is_subnet_route)
+	if (dip_val->type == PRIVNET_FIB_VAL_TYPE_SUBNET_ROUTE)
 		/* Subnet route: neigh lookup for destination IP */
 		nh_params.ipv4_nh = daddr;
-	else if (dip_val->flag_is_static_route)
+	else if (dip_val->type == PRIVNET_FIB_VAL_TYPE_STATIC_ROUTE)
 		/* Subnet route: neigh lookup for nexthop IP */
 		nh_params.ipv4_nh = dip_val->ip4;
 	else
@@ -609,7 +634,7 @@ static __always_inline int
 privnet_evpn_egress_ipv4(struct __ctx_buff *ctx, __u16 net_id,
 			 const struct privnet_fib_val *dip_val, __be32 daddr)
 {
-	if (CONFIG(evpn_enable) && dip_val->flag_is_vxlan_route)
+	if (CONFIG(evpn_enable) && dip_val->type == PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE)
 		return evpn_encap_and_redirect4(ctx, net_id, daddr);
 
 	return CTX_ACT_OK;
@@ -718,11 +743,11 @@ privnet_redirect_neigh_fib_ipv6(const struct privnet_fib_val *dip_val, const uni
 	if (!dip_val)
 		return DROP_UNROUTABLE;
 
-	if (dip_val->flag_is_subnet_route)
+	if (dip_val->type == PRIVNET_FIB_VAL_TYPE_SUBNET_ROUTE)
 		/* Subnet route: neigh lookup for destination IP */
 		__bpf_memcpy_builtin(&nh_params.ipv6_nh, daddr,
 				     sizeof(nh_params.ipv6_nh));
-	else if (dip_val->flag_is_static_route)
+	else if (dip_val->type == PRIVNET_FIB_VAL_TYPE_STATIC_ROUTE)
 		/* Subnet route: neigh lookup for nexthop IP */
 		__bpf_memcpy_builtin(&nh_params.ipv6_nh, &dip_val->ip6,
 				     sizeof(nh_params.ipv6_nh));
@@ -750,7 +775,7 @@ privnet_evpn_egress_ipv6(struct __ctx_buff *ctx, __u16 net_id,
 			 const struct privnet_fib_val *dip_val,
 			 union v6addr daddr)
 {
-	if (CONFIG(evpn_enable) && dip_val->flag_is_vxlan_route)
+	if (CONFIG(evpn_enable) && dip_val->type == PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE)
 		return evpn_encap_and_redirect6(ctx, net_id, daddr);
 
 	return CTX_ACT_OK;

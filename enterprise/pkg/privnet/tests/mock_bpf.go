@@ -29,6 +29,7 @@ import (
 
 	pnmaps "github.com/cilium/cilium/enterprise/pkg/maps/privnet"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/policy"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -55,7 +56,7 @@ func mockBPFMapCell(t testing.TB) cell.Cell {
 				pnmaps.FIBMapName, 512000, true,
 				&pnmaps.FIBKeyVal{
 					Key: pnmaps.NewFIBKey(5, 6, 0, netip.MustParsePrefix("172.16.2.1/32")),
-					Val: pnmaps.NewFIBVal(netip.MustParseAddr("172.16.1.1"), types.MACAddr{}, 0x0, 0, vni.MustFromUint32(0), 0, 0),
+					Val: pnmaps.NewFIBVal(netip.MustParseAddr("172.16.1.1"), types.MACAddr{}, tables.MapEntryTypeEndpoint, 0x0, 0, vni.MustFromUint32(0), 0, 0),
 				},
 			),
 			registerFakeBPFMap(
