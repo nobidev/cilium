@@ -193,8 +193,9 @@ func (s *Server) setup() error {
 			return fmt.Errorf("create raw socket: %w", err)
 		}
 		s.log.Debug("Listening",
-			logfields.LinkIndex, s.ifname,
-			logfields.MACAddr, s.ifmac)
+			logfields.LinkIndex, s.ifindex,
+			// slogloggercheck-to-string: use String() to pretty-print, otherwise shows raw array
+			logfields.MACAddr, s.ifmac.String())
 		return nil
 	})
 }
@@ -235,6 +236,7 @@ func (s *Server) sendResponse(ctx context.Context, ifindex int, dstMAC net.Hardw
 	copy(sll.Addr[:], ethDst)
 
 	s.log.Debug("Sending DHCP response",
+		logfields.Interface, ifindex,
 		logfields.SrcIP, srcIP,
 		logfields.DstIP, dstIP,
 		logfields.DstPort, dstPort,

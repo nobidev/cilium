@@ -193,7 +193,6 @@ func (l *LocalWorkloads) upsertEndpoint(ep endpoints.Endpoint) {
 			IfIndex: ep.GetIfIndex(),
 		},
 	}
-
 	_, _, err = l.tbl.Insert(wtx, lw)
 	if err != nil {
 		l.log.Error("BUG: Failed to insert local endpoint. "+

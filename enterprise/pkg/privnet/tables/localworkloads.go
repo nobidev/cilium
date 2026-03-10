@@ -29,9 +29,6 @@ type LocalWorkload struct {
 	// Namespace is the Kubernetes namespace this endpoint lives in.
 	Namespace string
 
-	// DHCP marks whether the network IP is allocated via DHCP.
-	DHCP bool
-
 	// Subnet is the name of the private network subnet this endpoint is attached to.
 	Subnet SubnetName
 

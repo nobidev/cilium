@@ -64,7 +64,6 @@ func setupHandlerTestState(t *testing.T) (*statedb.DB, statedb.RWTable[*tables.L
 	lw := &tables.LocalWorkload{
 		EndpointID: 10,
 		Namespace:  "ns",
-		DHCP:       true,
 		Subnet:     "default-v4",
 		Endpoint: iso_v1alpha1.PrivateNetworkEndpointSliceEndpoint{
 			Name: "pod",
@@ -89,6 +88,9 @@ func setupHandlerTestState(t *testing.T) (*statedb.DB, statedb.RWTable[*tables.L
 			Network: "blue",
 			Name:    "default-v4",
 			CIDRv4:  netip.MustParsePrefix("192.168.1.0/24"),
+		},
+		DHCP: iso_v1alpha1.PrivateNetworkSubnetDHCPSpec{
+			Mode: iso_v1alpha1.PrivateNetworkDHCPModeBroadcast,
 		},
 	})
 	wtxn.Commit()
@@ -146,7 +148,6 @@ func TestHandlerRenewsLeaseOnAckSameIP(t *testing.T) {
 	workloads.Insert(wtxn, &tables.LocalWorkload{
 		EndpointID: lw.EndpointID,
 		Namespace:  lw.Namespace,
-		DHCP:       lw.DHCP,
 		Subnet:     lw.Subnet,
 		Endpoint:   lw.Endpoint,
 		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
@@ -199,7 +200,6 @@ func TestHandlerClearsLeaseOnNak(t *testing.T) {
 	workloads.Insert(wtxn, &tables.LocalWorkload{
 		EndpointID: lw.EndpointID,
 		Namespace:  lw.Namespace,
-		DHCP:       lw.DHCP,
 		Subnet:     lw.Subnet,
 		Endpoint:   lw.Endpoint,
 		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
@@ -244,7 +244,6 @@ func TestHandlerClearsLeaseOnReleaseRequest(t *testing.T) {
 	workloads.Insert(wtxn, &tables.LocalWorkload{
 		EndpointID: lw.EndpointID,
 		Namespace:  lw.Namespace,
-		DHCP:       lw.DHCP,
 		Subnet:     lw.Subnet,
 		Endpoint:   lw.Endpoint,
 		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
@@ -286,7 +285,6 @@ func TestHandlerClearsLeaseOnDeclineRequest(t *testing.T) {
 	workloads.Insert(wtxn, &tables.LocalWorkload{
 		EndpointID: lw.EndpointID,
 		Namespace:  lw.Namespace,
-		DHCP:       lw.DHCP,
 		Subnet:     lw.Subnet,
 		Endpoint:   lw.Endpoint,
 		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
@@ -327,6 +325,64 @@ func TestHandlerIgnoresAckOutsideConfiguredSubnets(t *testing.T) {
 	require.NoError(t, err)
 	resp.YourIPAddr = net.IPv4(10, 10, 10, 10)
 	resp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeAck))
+	factory := &fakeRelayFactory{relay: &fakeRelay{resp: resp}}
+
+	h := newServerHandler(slog.Default(), db, workloads, leases, subnets, factory, 500*time.Millisecond)
+	_, resps, err := h.serverHandler()(t.Context(), nil, lw.EndpointID, req)
+	require.NoError(t, err)
+	require.Empty(t, resps)
+
+	txn := db.ReadTxn()
+	_, _, found := leases.Get(txn, tables.DHCPLeaseByNetworkMAC("blue", mac.MAC(reqMAC)))
+	require.False(t, found)
+}
+
+func TestHandlerIgnoresAckOutsideWorkloadSubnet(t *testing.T) {
+	db, workloads, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
+
+	wtxn := db.WriteTxn(subnets)
+	subnets.Insert(wtxn, tables.Subnet{
+		SubnetSpec: tables.SubnetSpec{
+			Network: "blue",
+			Name:    "other-v4",
+			CIDRv4:  netip.MustParsePrefix("192.168.2.0/24"),
+		},
+	})
+	wtxn.Commit()
+
+	resp, err := dhcpv4.NewReplyFromRequest(req)
+	require.NoError(t, err)
+	resp.YourIPAddr = net.IPv4(192, 168, 2, 10)
+	resp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeAck))
+	factory := &fakeRelayFactory{relay: &fakeRelay{resp: resp}}
+
+	h := newServerHandler(slog.Default(), db, workloads, leases, subnets, factory, 500*time.Millisecond)
+	_, resps, err := h.serverHandler()(t.Context(), nil, lw.EndpointID, req)
+	require.NoError(t, err)
+	require.Empty(t, resps)
+
+	txn := db.ReadTxn()
+	_, _, found := leases.Get(txn, tables.DHCPLeaseByNetworkMAC("blue", mac.MAC(reqMAC)))
+	require.False(t, found)
+}
+
+func TestHandlerIgnoresOfferOutsideWorkloadSubnet(t *testing.T) {
+	db, workloads, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
+
+	wtxn := db.WriteTxn(subnets)
+	subnets.Insert(wtxn, tables.Subnet{
+		SubnetSpec: tables.SubnetSpec{
+			Network: "blue",
+			Name:    "other-v4",
+			CIDRv4:  netip.MustParsePrefix("192.168.2.0/24"),
+		},
+	})
+	wtxn.Commit()
+
+	resp, err := dhcpv4.NewReplyFromRequest(req)
+	require.NoError(t, err)
+	resp.YourIPAddr = net.IPv4(192, 168, 2, 10)
+	resp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeOffer))
 	factory := &fakeRelayFactory{relay: &fakeRelay{resp: resp}}
 
 	h := newServerHandler(slog.Default(), db, workloads, leases, subnets, factory, 500*time.Millisecond)

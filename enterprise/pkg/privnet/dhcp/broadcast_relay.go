@@ -107,6 +107,7 @@ func (r *broadcastRelay) Relay(ctx context.Context, waitTime time.Duration, req 
 		logfields.Xid, req.TransactionID,
 		logfields.Chaddr, req.ClientHWAddr,
 		logfields.Interface, r.ifname,
+		logfields.Timeout, waitTime,
 	)
 
 	if err := r.send(ctx, req); err != nil {
@@ -128,6 +129,9 @@ func (r *broadcastRelay) Relay(ctx context.Context, waitTime time.Duration, req 
 				r.log.Error("Timed out waiting for DHCP response")
 				return nil, fmt.Errorf("timed out waiting for DHCP response")
 			}
+			r.log.Debug("Returning responses",
+				logfields.Count, len(responses),
+			)
 			return responses, nil
 		case resp := <-respCh:
 			if resp == nil {

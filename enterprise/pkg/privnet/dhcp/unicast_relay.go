@@ -125,6 +125,10 @@ func (r *unicastRelay) Relay(ctx context.Context, waitTime time.Duration, req *d
 				r.log.Info("Parse failure", logfields.Error, err)
 				continue
 			}
+			// Ignore echoed requests and only accept server replies.
+			if resp.OpCode != dhcpv4.OpcodeBootReply {
+				continue
+			}
 
 			if resp.TransactionID != req.TransactionID {
 				continue

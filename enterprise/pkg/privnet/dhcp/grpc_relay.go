@@ -24,6 +24,7 @@ import (
 	api "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/api/v1"
 	grpcclient "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/client"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -36,6 +37,7 @@ type GRPCRelayFactory struct {
 	Log     *slog.Logger
 	DB      *statedb.DB
 	INBs    statedb.Table[tables.INB]
+	Subnets statedb.Table[tables.Subnet]
 	Factory GRPCConnFactoryFn
 }
 
@@ -44,8 +46,16 @@ func (f *GRPCRelayFactory) RelayFor(lw *tables.LocalWorkload) (Relayer, error) {
 	if lw == nil {
 		return nil, errors.New("local workload is nil")
 	}
+	network := tables.NetworkName(lw.Interface.Network)
+	if network == "" {
+		return nil, fmt.Errorf("network missing on local workload %d", lw.EndpointID)
+	}
 	if lw.Subnet == "" {
 		return nil, fmt.Errorf("subnet missing on local workload %d", lw.EndpointID)
+	}
+	subnet, _, found := f.Subnets.Get(f.DB.ReadTxn(), tables.SubnetsByNetworkAndName(network, lw.Subnet))
+	if !found {
+		return nil, fmt.Errorf("subnet %q not found for network %q", lw.Subnet, network)
 	}
 
 	factory := f.Factory
@@ -59,8 +69,9 @@ func (f *GRPCRelayFactory) RelayFor(lw *tables.LocalWorkload) (Relayer, error) {
 		db:      f.DB,
 		inbs:    f.INBs,
 		factory: factory,
-		network: tables.NetworkName(lw.Interface.Network),
+		network: network,
 		subnet:  lw.Subnet,
+		cfg:     subnet.DHCP,
 	}, nil
 }
 
@@ -71,6 +82,7 @@ type grpcRelay struct {
 	factory GRPCConnFactoryFn
 	network tables.NetworkName
 	subnet  tables.SubnetName
+	cfg     iso_v1alpha1.PrivateNetworkSubnetDHCPSpec
 }
 
 // Relay forwards the DHCP request to the active INB via gRPC.
@@ -78,45 +90,36 @@ func (r *grpcRelay) Relay(ctx context.Context, waitTime time.Duration, req *dhcp
 	if req == nil {
 		return nil, errors.New("dhcp request is nil")
 	}
-	if r.network == "" {
-		return nil, errors.New("network is required")
-	}
-	if r.subnet == "" {
-		return nil, errors.New("subnet is required")
-	}
 	if waitTime <= 0 {
 		return nil, errors.New("wait time is required")
 	}
-	if r.factory == nil {
-		return nil, errors.New("gRPC connection factory is required")
+	mode, err := relayDHCPModeToProto(r.cfg)
+	if err != nil {
+		return nil, err
 	}
-	if r.log != nil {
-		r.log.Info("Relaying DHCP request via gRPC",
-			logfields.Network, r.network,
-			logfields.Type, req.MessageType(),
-			logfields.Xid, req.TransactionID,
-			logfields.Chaddr, req.ClientHWAddr,
-		)
-	}
+	log := r.log.With(
+		logfields.Network, r.network,
+		logfields.PrivateNetworkSubnet, r.subnet,
+	)
+	log.Info("Relaying DHCP request via gRPC",
+		logfields.Type, req.MessageType(),
+		logfields.Xid, req.TransactionID,
+		logfields.Chaddr, req.ClientHWAddr,
+	)
 
 	txn := r.db.ReadTxn()
 	inb, _, found := r.inbs.Get(txn, tables.INBsByNetworkAndRole(r.network, tables.INBRoleActive))
 	if !found {
-		if r.log != nil {
-			r.log.Info("Active INB not found for DHCP relay", logfields.Network, r.network)
-		}
+		log.Info("Active INB not found for DHCP relay")
 		return nil, fmt.Errorf("active INB not found for network %q", r.network)
 	}
 
 	conn, err := r.factory(inb.Node)
 	if err != nil {
-		if r.log != nil {
-			r.log.Info("Failed to dial INB for DHCP relay",
-				logfields.Network, r.network,
-				logfields.Target, inb.Node,
-				logfields.Error, err,
-			)
-		}
+		log.Info("Failed to dial INB for DHCP relay",
+			logfields.Target, inb.Node,
+			logfields.Error, err,
+		)
 		return nil, fmt.Errorf("dial INB %s: %w", inb.Node.String(), err)
 	}
 	defer conn.Close()
@@ -127,24 +130,20 @@ func (r *grpcRelay) Relay(ctx context.Context, waitTime time.Duration, req *dhcp
 		Subnet:   string(r.subnet),
 		Request:  req.ToBytes(),
 		WaitTime: durationpb.New(waitTime),
+		Mode:     mode,
+		Relay:    relayDHCPRelayModeConfigToProto(r.cfg),
 	})
 	if err != nil {
-		if r.log != nil {
-			r.log.Info("DHCP gRPC relay request failed",
-				logfields.Network, r.network,
-				logfields.Target, inb.Node,
-				logfields.Error, err,
-			)
-		}
+		log.Info("DHCP gRPC relay request failed",
+			logfields.Target, inb.Node,
+			logfields.Error, err,
+		)
 		return nil, err
 	}
 	if resp == nil || len(resp.Responses) == 0 {
-		if r.log != nil {
-			r.log.Info("DHCP gRPC relay returned empty response",
-				logfields.Network, r.network,
-				logfields.Target, inb.Node,
-			)
-		}
+		log.Info("DHCP gRPC relay returned empty response",
+			logfields.Target, inb.Node,
+		)
 		return nil, errors.New("empty DHCP response")
 	}
 
@@ -155,23 +154,17 @@ func (r *grpcRelay) Relay(ctx context.Context, waitTime time.Duration, req *dhcp
 		}
 		parsed, err := dhcpv4.FromBytes(payload)
 		if err != nil {
-			if r.log != nil {
-				r.log.Info("Failed to parse DHCP gRPC response",
-					logfields.Network, r.network,
-					logfields.Target, inb.Node,
-					logfields.Error, err,
-				)
-			}
+			log.Info("Failed to parse DHCP gRPC response",
+				logfields.Target, inb.Node,
+				logfields.Error, err,
+			)
 			return nil, fmt.Errorf("parse DHCP response: %w", err)
 		}
-		if r.log != nil {
-			r.log.Info("Received DHCP response via gRPC",
-				logfields.Network, r.network,
-				logfields.Type, parsed.MessageType(),
-				logfields.Xid, parsed.TransactionID,
-				logfields.IPv4, parsed.YourIPAddr,
-			)
-		}
+		log.Info("Received DHCP response via gRPC",
+			logfields.Type, parsed.MessageType(),
+			logfields.Xid, parsed.TransactionID,
+			logfields.IPv4, parsed.YourIPAddr,
+		)
 		responses = append(responses, parsed)
 	}
 
@@ -179,4 +172,32 @@ func (r *grpcRelay) Relay(ctx context.Context, waitTime time.Duration, req *dhcp
 		return nil, errors.New("empty DHCP response")
 	}
 	return responses, nil
+}
+
+func relayDHCPModeToProto(cfg iso_v1alpha1.PrivateNetworkSubnetDHCPSpec) (api.RelayRequest_Mode, error) {
+	switch cfg.Mode {
+	case iso_v1alpha1.PrivateNetworkDHCPModeRelay:
+		return api.RelayRequest_RELAY, nil
+	case iso_v1alpha1.PrivateNetworkDHCPModeBroadcast:
+		return api.RelayRequest_BROADCAST, nil
+	case iso_v1alpha1.PrivateNetworkDHCPModeNone:
+		return api.RelayRequest_UNKNOWN, fmt.Errorf("dhcp is disabled for subnet")
+	default:
+		return api.RelayRequest_UNKNOWN, fmt.Errorf("unknown dhcp mode %q", cfg.Mode)
+	}
+}
+
+func relayDHCPRelayModeConfigToProto(cfg iso_v1alpha1.PrivateNetworkSubnetDHCPSpec) *api.DHCPRelayModeConfig {
+	if cfg.Relay == nil {
+		return nil
+	}
+
+	out := &api.DHCPRelayModeConfig{
+		ServerAddress: cfg.Relay.ServerAddress,
+	}
+	if cfg.Relay.Option82 != nil {
+		out.Option82CircuitId = cfg.Relay.Option82.CircuitID
+		out.Option82RemoteId = cfg.Relay.Option82.RemoteID
+	}
+	return out
 }

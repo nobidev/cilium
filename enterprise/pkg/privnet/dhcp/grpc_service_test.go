@@ -136,7 +136,7 @@ func TestServiceRelayUsesFactory(t *testing.T) {
 		return fake, nil
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	resp, err := svc.Relay(ctx, &api.RelayRequest{
 		Network:  "blue",
 		Subnet:   "subnet-a",

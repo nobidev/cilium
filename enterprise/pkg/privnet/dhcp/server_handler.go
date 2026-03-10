@@ -22,6 +22,7 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/time"
@@ -64,6 +65,14 @@ func newServerHandler(log *slog.Logger, db *statedb.DB, workloads statedb.Table[
 	}
 }
 
+func (h *serverHandler) workloadUsesDHCP(txn statedb.ReadTxn, lw *tables.LocalWorkload) bool {
+	subnet, _, found := h.subnets.Get(txn, tables.SubnetsByNetworkAndName(
+		tables.NetworkName(lw.Interface.Network),
+		lw.Subnet,
+	))
+	return found && subnet.DHCP.Mode != iso_v1alpha1.PrivateNetworkDHCPModeNone
+}
+
 // serverHandler returns the handler function for DHCP server.
 func (h *serverHandler) serverHandler() Handler {
 	return func(ctx context.Context, health cell.Health, endpointID uint16, req *dhcpv4.DHCPv4) (int, []*dhcpv4.DHCPv4, error) {
@@ -78,7 +87,7 @@ func (h *serverHandler) serverHandler() Handler {
 			return 0, nil, nil
 		}
 
-		if !lw.DHCP {
+		if !h.workloadUsesDHCP(txn, lw) {
 			// FIXME: DHCP disabled, return response for the static IP. Requires that we enforce use
 			// of managed-tap as with the bridge mode we'll fight with the KubeVirt DHCP server.
 			h.log.Debug("DHCP disabled for workload, ignoring", logfields.EndpointID, endpointID)
@@ -125,7 +134,7 @@ func (h *serverHandler) serverHandler() Handler {
 			if resp == nil {
 				continue
 			}
-			if !h.offeredIPBelongsToWorkloadNetwork(lw, resp) {
+			if !h.offeredIPBelongsToWorkloadSubnet(lw, resp) {
 				continue
 			}
 			if resp.MessageType() == dhcpv4.MessageTypeOffer || resp.MessageType() == dhcpv4.MessageTypeAck {
@@ -158,31 +167,49 @@ func resolveServerAddr(raw string) (*net.UDPAddr, error) {
 	return net.ResolveUDPAddr("udp4", raw)
 }
 
-func (h *serverHandler) offeredIPBelongsToWorkloadNetwork(lw *tables.LocalWorkload, resp *dhcpv4.DHCPv4) bool {
+func (h *serverHandler) offeredIPBelongsToWorkloadSubnet(lw *tables.LocalWorkload, resp *dhcpv4.DHCPv4) bool {
 	if resp.MessageType() != dhcpv4.MessageTypeOffer && resp.MessageType() != dhcpv4.MessageTypeAck {
 		return true
 	}
 
+	log := h.log.With(
+		logfields.EndpointID, lw.EndpointID,
+		logfields.Network, lw.Interface.Network,
+		logfields.PrivateNetworkSubnet, lw.Subnet,
+		logfields.Type, resp.MessageType(),
+	)
+
 	ip, ok := netip.AddrFromSlice(resp.YourIPAddr)
 	if !ok {
+		log.Warn("Ignoring DHCP response with invalid offered IPv4",
+			logfields.IPv4, resp.YourIPAddr,
+		)
 		return false
 	}
 	ip = ip.Unmap()
 	if !ip.Is4() {
+		log.Warn("Ignoring DHCP response with non-IPv4 offer",
+			logfields.IPv4, ip,
+		)
 		return false
 	}
 
-	for subnet := range h.subnets.Prefix(h.db.ReadTxn(), tables.SubnetsByNetwork(tables.NetworkName(lw.Interface.Network))) {
-		if subnet.CIDRv4.IsValid() && subnet.CIDRv4.Contains(ip) {
-			return true
-		}
+	network := tables.NetworkName(lw.Interface.Network)
+	subnet, _, found := h.subnets.Get(h.db.ReadTxn(), tables.SubnetsByNetworkAndName(network, lw.Subnet))
+	if !found || !subnet.CIDRv4.IsValid() {
+		log.Warn("Ignoring DHCP response because workload subnet is not configured",
+			logfields.IPv4, ip,
+		)
+		return false
 	}
 
-	h.log.Warn("Ignoring DHCP response with offerred IP outside configured subnets",
-		logfields.EndpointID, lw.EndpointID,
-		logfields.Network, lw.Interface.Network,
-		logfields.Type, resp.MessageType(),
+	if subnet.CIDRv4.Contains(ip) {
+		return true
+	}
+
+	log.Warn("Ignoring DHCP response with offered IP outside workload subnet",
 		logfields.IPv4, ip,
+		logfields.CIDR, subnet.CIDRv4,
 	)
 	return false
 }
@@ -298,7 +325,7 @@ func (h *serverHandler) recordLeaseAck(endpointID uint16, req *dhcpv4.DHCPv4, re
 	wtxn := h.db.WriteTxn(h.leases, h.workloads)
 	defer wtxn.Commit()
 	lw, _, _ := h.workloads.Get(wtxn, tables.LocalWorkloadsByID(endpointID))
-	if lw == nil || !lw.DHCP {
+	if !h.workloadUsesDHCP(wtxn, lw) {
 		return
 	}
 	updated := h.updateLocalWorkload(wtxn, endpointID, ip)
@@ -344,7 +371,7 @@ func (h *serverHandler) invalidateLease(endpointID uint16, macAddr mac.MAC, ipHi
 	defer wtxn.Commit()
 
 	lw, _, _ := h.workloads.Get(wtxn, tables.LocalWorkloadsByID(endpointID))
-	if lw == nil || !lw.DHCP {
+	if !h.workloadUsesDHCP(wtxn, lw) {
 		return
 	}
 
@@ -360,7 +387,7 @@ func (h *serverHandler) invalidateLease(endpointID uint16, macAddr mac.MAC, ipHi
 
 func (h *serverHandler) updateLocalWorkload(wtxn statedb.WriteTxn, endpointID uint16, addr netip.Addr) *tables.LocalWorkload {
 	lw, _, _ := h.workloads.Get(wtxn, tables.LocalWorkloadsByID(endpointID))
-	if lw == nil || !lw.DHCP {
+	if !h.workloadUsesDHCP(wtxn, lw) {
 		return nil
 	}
 	leaseIP := addr.String()
@@ -375,7 +402,7 @@ func (h *serverHandler) updateLocalWorkload(wtxn statedb.WriteTxn, endpointID ui
 
 func (h *serverHandler) clearLocalWorkloadLeaseIP(wtxn statedb.WriteTxn, endpointID uint16) *tables.LocalWorkload {
 	lw, _, _ := h.workloads.Get(wtxn, tables.LocalWorkloadsByID(endpointID))
-	if lw == nil || !lw.DHCP || lw.Interface.Addressing.IPv4 == "" {
+	if !h.workloadUsesDHCP(wtxn, lw) || lw.Interface.Addressing.IPv4 == "" {
 		return nil
 	}
 	updated := *lw
