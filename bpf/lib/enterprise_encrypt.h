@@ -21,7 +21,10 @@ struct encryption_policy_entry {
 			pad:7;
 };
 
-#ifdef ENABLE_ENCRYPTION_POLICY
+ #ifndef ENCRYPTION_POLICY_MAP_SIZE
+ #define ENCRYPTION_POLICY_MAP_SIZE 16384
+ #endif
+
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct encryption_policy_key);
@@ -31,6 +34,7 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_encryption_policy_map __section_maps_btf;
 
+#ifdef ENABLE_ENCRYPTION_POLICY
 
 #include "lib/wireguard.h"
 

@@ -73,6 +73,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumEgressGwStandaloneV4Spec,
 	newCiliumEgresscallPolicySpec,
 	newCiliumEncryptStateSpec,
+	newCiliumEncryptionPolicyMapSpec,
 	newCiliumEventsSpec,
 	newCiliumEvpnFIBSpec,
 	newCiliumExtEpsPolicySpec,
@@ -519,6 +520,20 @@ func newCiliumEncryptStateSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Value:      anyTypeByName(btf, "encrypt_config"),
 		MaxEntries: 1,
 		Flags:      unix.BPF_F_RDONLY_PROG,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumEncryptionPolicyMapSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       "cilium_encryption_policy_map",
+		Type:       ebpf.LPMTrie,
+		KeySize:    16,
+		Key:        anyTypeByName(btf, "encryption_policy_key"),
+		ValueSize:  1,
+		Value:      anyTypeByName(btf, "encryption_policy_entry"),
+		MaxEntries: 65536,
+		Flags:      unix.BPF_F_NO_PREALLOC,
 		Pinning:    ebpf.PinByName,
 	}
 }
