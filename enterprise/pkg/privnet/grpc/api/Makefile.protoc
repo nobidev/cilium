@@ -8,7 +8,8 @@
 PROTOC ?= protoc
 
 PROTO_SOURCES := \
-	./v1/health.proto
+	./v1/health.proto \
+	./v1/dhcp.proto
 
 GO_TARGETS := $(PROTO_SOURCES:.proto=.pb.go)
 

@@ -1,0 +1,70 @@
+//  Copyright (C) Isovalent, Inc. - All Rights Reserved.
+//
+//  NOTICE: All information contained herein is, and remains the property of
+//  Isovalent Inc and its suppliers, if any. The intellectual and technical
+//  concepts contained herein are proprietary to Isovalent Inc and its suppliers
+//  and may be covered by U.S. and Foreign Patents, patents in process, and are
+//  protected by trade secret or copyright law.  Dissemination of this information
+//  or reproduction of this material is strictly forbidden unless prior written
+//  permission is obtained from Isovalent Inc.
+
+syntax = "proto3";
+
+package api;
+
+option go_package = "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/api/v1;v1";
+
+import "google/protobuf/duration.proto";
+
+// The DHCP service allows relaying DHCP packets to the active INB.
+service DHCPRelay {
+  // Relay forwards a DHCP request and returns the DHCP response bytes.
+  rpc Relay(RelayRequest) returns (RelayResponse) {};
+}
+
+message RelayRequest {
+  enum Mode {
+    UNKNOWN = 0;
+
+    // BROADCAST relays to local broadcast.
+    BROADCAST = 1;
+    
+    // RELAY relays to a specific DHCP server as a relay agent over unicast.
+    RELAY = 2;
+  }
+
+  // Network is the name of the private network.
+  string network = 1;
+
+  // Subnet is the name of the private network subnet.
+  string subnet = 2;
+
+  // Request is the raw DHCPv4 request bytes.
+  bytes request = 3;
+
+  // WaitTime is the maximum time to collect DHCP responses.
+  google.protobuf.Duration wait_time = 4;
+
+  // Mode is the relay mode (broadcast or relay).
+  Mode mode = 5;
+
+  // Relay contains settings for mode=relay.
+  DHCPRelayModeConfig relay = 6;
+}
+
+message RelayResponse {
+  // Responses are the raw DHCPv4 response bytes.
+  repeated bytes responses = 1;
+}
+
+
+message DHCPRelayModeConfig {
+  // ServerAddress is the relay target (ip[:port]).
+  string server_address = 1;
+
+  // Option82CircuitID configures option82 circuit-id.
+  string option82_circuit_id = 2;
+
+  // Option82RemoteID configures option82 remote-id.
+  string option82_remote_id = 3;
+}
