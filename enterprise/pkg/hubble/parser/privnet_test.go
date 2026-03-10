@@ -12,6 +12,7 @@ package parser
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -207,6 +208,21 @@ func TestL34_Privnet(t *testing.T) {
 			Source: source.Unspec,
 		})
 	parser.registerPrivnetEndpoint(txn, "net-a", 100, "pod-192.168.60.13", "192.168.60.13", "10.17.60.13")
+
+	parser.registerIdentity(&identity.Identity{
+		ID: 9911,
+		Labels: labels.FromSlice([]labels.Label{
+			labels.NewLabel("192.168.0.0/16", "", labels.LabelSourceCIDR),
+			labels.WorldLabelV4,
+		}),
+	})
+	parser.registerIdentity(&identity.Identity{
+		ID: 8822,
+		Labels: labels.FromSlice([]labels.Label{
+			labels.NewLabel("10.0.0.0/8", "", labels.LabelSourceCIDR),
+			labels.WorldLabelV4,
+		}),
+	})
 
 	txn.Commit()
 
@@ -751,6 +767,7 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "1.2.3.4", f.GetIP().GetDestination())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetDestinationPort())
 			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetDestination().GetIdentity())
+			assert.Equal(t, []string{"reserved:world-ipv4"}, f.GetDestination().GetLabels())
 
 			ext := getPrivnetExtension(t, f)
 			require.NotNil(t, ext)
@@ -773,6 +790,7 @@ func TestL34_Privnet(t *testing.T) {
 						Version:    monitor.TraceNotifyVersion2,
 						ExtVersion: monitor.TraceNotifyExtensionV1,
 						SrcLabel:   5678,
+						DstLabel:   9911,
 						Reason:     monitor.TraceReasonCtEstablished,
 						Source:     1234,
 					},
@@ -807,7 +825,8 @@ func TestL34_Privnet(t *testing.T) {
 
 			assert.Equal(t, "10.17.60.13", f.GetIP().GetDestination())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetDestinationPort())
-			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetDestination().GetIdentity())
+			assert.Equal(t, uint32(9911), f.GetDestination().GetIdentity())
+			assert.Equal(t, []string{"cidr:192.168.0.0/16", "reserved:world-ipv4"}, f.GetDestination().GetLabels())
 
 			ext := getPrivnetExtension(t, f)
 			require.NotNil(t, ext)
@@ -830,6 +849,7 @@ func TestL34_Privnet(t *testing.T) {
 						Version:    monitor.TraceNotifyVersion2,
 						ExtVersion: monitor.TraceNotifyExtensionV1,
 						SrcLabel:   identity.ReservedPrivnetUnknownFlow,
+						DstLabel:   8822,
 						Reason:     monitor.TraceReasonCtEstablished,
 						Source:     1234,
 					},
@@ -865,7 +885,8 @@ func TestL34_Privnet(t *testing.T) {
 
 			assert.Equal(t, "10.17.60.13", f.GetIP().GetDestination())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetDestinationPort())
-			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetDestination().GetIdentity())
+			assert.Equal(t, uint32(8822), f.GetDestination().GetIdentity())
+			assert.Equal(t, []string{"cidr:10.0.0.0/8", "reserved:world-ipv4"}, f.GetDestination().GetLabels())
 
 			ext := getPrivnetExtension(t, f)
 			require.NotNil(t, ext)
@@ -940,6 +961,7 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "10.17.60.13", f.GetIP().GetDestination())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetDestinationPort())
 			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetDestination().GetIdentity())
+			assert.Equal(t, []string{"reserved:world-ipv4"}, f.GetDestination().GetLabels())
 
 			ext := getPrivnetExtension(t, f)
 			require.NotNil(t, ext)
@@ -1015,6 +1037,7 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "10.17.60.13", f.GetIP().GetSource())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetSourcePort())
 			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetSource().GetIdentity())
+			assert.Equal(t, []string{"reserved:world-ipv4"}, f.GetSource().GetLabels())
 
 			ext := getPrivnetExtension(t, f)
 			require.NotNil(t, ext)
@@ -1073,6 +1096,7 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "10.17.60.13", f.GetIP().GetSource())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetSourcePort())
 			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetSource().GetIdentity())
+			assert.Equal(t, []string{"reserved:world-ipv4"}, f.GetSource().GetLabels())
 
 			ext := getPrivnetExtension(t, f)
 			require.NotNil(t, ext)
@@ -1145,6 +1169,7 @@ func TestL34_Privnet(t *testing.T) {
 			assert.Equal(t, "10.17.60.13", f.GetIP().GetDestination())
 			assert.Equal(t, uint32(80), f.L4.GetTCP().GetDestinationPort())
 			assert.Equal(t, identity.ReservedIdentityWorldIPv4.Uint32(), f.GetDestination().GetIdentity())
+			assert.Equal(t, []string{"reserved:world-ipv4"}, f.GetDestination().GetLabels())
 
 			ext := getPrivnetExtension(t, f)
 			require.NotNil(t, ext)
@@ -1707,7 +1732,6 @@ func TestL34_Privnet_INB(t *testing.T) {
 						ObsPoint:   monitorAPI.TraceToOverlay,
 						Version:    monitor.TraceNotifyVersion2,
 						ExtVersion: monitor.TraceNotifyExtensionV1,
-						SrcLabel:   7890,
 						Reason:     monitor.TraceReasonCtEstablished,
 					},
 					SrcNetID: 102,
@@ -2027,13 +2051,7 @@ func newTestParser(t testing.TB) testParser {
 	mes, err := tables.NewMapEntriesTable(db)
 	require.NoError(t, err)
 
-	adptr := &PrivnetAdapter{
-		db:                db,
-		privNetEps:        eps,
-		privNetMapEntries: mes,
-	}
 	tp := testParser{
-		PrivnetAdapter:    adptr,
 		privNetEps:        eps,
 		privNetMapentries: mes,
 		epByIP:            map[netip.Addr]getters.EndpointInfo{},
@@ -2044,6 +2062,18 @@ func newTestParser(t testing.TB) testParser {
 		ipcacheID:         map[netip.Addr]ipcache.Identity{},
 		services:          map[netip.AddrPort]*flowpb.Service{},
 	}
+
+	adptr := &PrivnetAdapter{
+		db:                db,
+		privNetEps:        eps,
+		privNetMapEntries: mes,
+		idResolver:        &tp,
+	}
+	tp.PrivnetAdapter = adptr
+
+	tp.registerIdentity(identity.NewIdentity(identity.ReservedIdentityWorld, labels.FromSlice([]labels.Label{labels.WorldLabel})))
+	tp.registerIdentity(identity.NewIdentity(identity.ReservedIdentityWorldIPv4, labels.FromSlice([]labels.Label{labels.WorldLabelV4})))
+	tp.registerIdentity(identity.NewIdentity(identity.ReservedIdentityWorldIPv6, labels.FromSlice([]labels.Label{labels.WorldLabelV6})))
 
 	p, err := parser.New(hivetest.Logger(t),
 		&testutils.FakeEndpointGetter{
@@ -2112,6 +2142,14 @@ func (tp *testParser) registerFQDN(epID uint32, ip string, fqdns []string) {
 func (tp *testParser) registerIPCacheEntry(ip string, k8s *ipcache.K8sMetadata, id ipcache.Identity) {
 	tp.ipcacheK8s[netip.MustParseAddr(ip)] = k8s
 	tp.ipcacheID[netip.MustParseAddr(ip)] = id
+}
+
+func (tp *testParser) registerIdentity(id *identity.Identity) {
+	tp.idntById[id.ID.Uint32()] = id
+}
+
+func (tp *testParser) LookupIdentityByID(ctx context.Context, id identity.NumericIdentity) *identity.Identity {
+	return tp.idntById[id.Uint32()]
 }
 
 func (tp *testParser) registerService(ip string, port uint16, svc *flowpb.Service) {

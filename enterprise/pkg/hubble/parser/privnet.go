@@ -11,6 +11,8 @@
 package parser
 
 import (
+	"context"
+	"log/slog"
 	"net/netip"
 
 	"google.golang.org/protobuf/types/known/anypb"
@@ -21,9 +23,10 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
+	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	parserOptions "github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/labels"
+	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/monitor"
 
 	"github.com/cilium/hive/cell"
@@ -46,18 +49,25 @@ var flowExtensionTypeURL = "isovalent.com/" + string((&extensions.FlowExtension{
 // OSS Hubble can understand.
 func NewPrivnetParserAdapter(in struct {
 	cell.In
+
+	Log *slog.Logger
+
 	DB                *statedb.DB
 	PrivNetEps        statedb.Table[tables.Endpoint]
 	PrivNetMapEntries statedb.Table[*tables.MapEntry]
+
+	IdentityAllocator identitycell.CachingIdentityAllocator
 }) (out struct {
 	cell.Out
 	ParserOption parserOptions.Option `group:"hubble-parser-options"`
 	Adapter      *PrivnetAdapter
 }) {
 	aptr := &PrivnetAdapter{
+		log:               in.Log,
 		db:                in.DB,
 		privNetEps:        in.PrivNetEps,
 		privNetMapEntries: in.PrivNetMapEntries,
+		idResolver:        in.IdentityAllocator,
 	}
 	out.ParserOption = aptr.parserOpts
 	out.Adapter = aptr
@@ -67,12 +77,16 @@ func NewPrivnetParserAdapter(in struct {
 // PrivnetAdapter wraps the OSS [parser.Parser] to make it Private Network
 // aware.
 type PrivnetAdapter struct {
+	log *slog.Logger
+
 	parser        parser.Decoder
 	packetDecoder parserOptions.L34PacketDecoder
 
 	db                *statedb.DB
 	privNetEps        statedb.Table[tables.Endpoint]
 	privNetMapEntries statedb.Table[*tables.MapEntry]
+
+	idResolver identityResolver
 
 	perFlowContext
 }
@@ -84,6 +98,12 @@ type perFlowContext struct {
 	srcNetIP, dstNetIP netip.Addr
 
 	srcEP, dstEP *extensions.PrivateNetworkEndpoint
+}
+
+type identityResolver interface {
+	// LookupIdentityByID returns the identity that corresponds to the given
+	// numeric identity.
+	LookupIdentityByID(ctx context.Context, id identity.NumericIdentity) *identity.Identity
 }
 
 func (p *PrivnetAdapter) parserOpts(opt *parserOptions.Options) {
@@ -324,14 +344,19 @@ func (p *PrivnetAdapter) translateToNetIP(decoded *flow.Flow) {
 	srcPrivnetEP := p.srcEP
 	dstPrivnetEP := p.dstEP
 
-	// This means we only have NetIP for the source, so the OSS parser was unable to get
-	// any endpoint information. Get it separately.
-	if p.srcNetIP.IsValid() && ip.GetSource() == "" {
+	// This means we only have NetIP for the source, and the OSS parser was unable to get
+	// any endpoint information based on numeric identity. Get it separately.
+	// NOTE: If the OSS paser was able to find an identity, without the IP (i.e only based
+	//       on the numeric identity), the set endpoint information is correct, and we don't
+	//       need to look it up again.
+	if p.srcNetIP.IsValid() && ip.GetSource() == "" &&
+		decoded.GetSource().Identity == identity.IdentityUnknown.Uint32() {
 		decoded.Source = p.getNetIPEndpoint(p.srcNetIP)
 	}
 	// Similarly, of we only have a NetIP for the destination, get the endpoint information
 	// based on it.
-	if p.dstNetIP.IsValid() && ip.GetDestination() == "" {
+	if p.dstNetIP.IsValid() && ip.GetDestination() == "" &&
+		decoded.GetDestination().Identity == identity.IdentityUnknown.Uint32() {
 		decoded.Destination = p.getNetIPEndpoint(p.dstNetIP)
 	}
 
@@ -365,12 +390,18 @@ func (p *PrivnetAdapter) translateToNetIP(decoded *flow.Flow) {
 
 // getNetIPEndpoint resolves the endpoint information for the provided NetIP
 func (p *PrivnetAdapter) getNetIPEndpoint(netIP netip.Addr) *flow.Endpoint {
-	// For now we treat all "unknown" NetIPs as WORLD. To be revised once policy can give us a better identity.
+	// For now we treat all "unknown" NetIPs as WORLD. To be revised, to look into the privnet-cidr-identites table.
+	numericID := identity.GetWorldIdentityFromIP(netIP)
+	var labels []string
+
+	id := p.idResolver.LookupIdentityByID(context.Background(), numericID)
+	if id != nil {
+		labels = common.SortAndFilterLabels(p.log, id.Labels.GetModel(), numericID)
+	}
+
 	return &flow.Endpoint{
-		Identity: identity.GetWorldIdentityFromIP(netIP).Uint32(),
-		Labels: []string{
-			labels.LabelSourceReserved + ":" + identity.GetWorldIdentityFromIP(netIP).String(),
-		},
+		Identity: numericID.Uint32(),
+		Labels:   labels,
 	}
 }
 
