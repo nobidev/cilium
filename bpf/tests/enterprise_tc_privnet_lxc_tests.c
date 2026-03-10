@@ -43,6 +43,7 @@ ASSIGN_CONFIG(__u32, privnet_unknown_sec_id, 99) /* tunnel id 99 is reserved for
 ASSIGN_CONFIG(__u32, interface_ifindex, IFINDEX)
 ASSIGN_CONFIG(__u32, cilium_dhcp_ifindex, CILIUM_DHCP_IFINDEX)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr}) /* set lxc mac */
+ASSIGN_CONFIG(__u32, security_label, 1234) /* set lxc security identity */
 
 static const union v4addr lxc_privnet_ipv4 = { .be32 = V4_NET_IP_1 };
 static const union v4addr lxc_privnet_ipv4_other = { .be32 = V4_NET_IP_2 };
@@ -84,6 +85,7 @@ int privnet_icmp_from_container_nat_src_dst_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
 
+	policy_delete_egress_all_entry();
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
@@ -132,6 +134,7 @@ int privnet_tcp_from_container_nat_src_dst_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
 
+	policy_delete_egress_all_entry();
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
@@ -180,6 +183,7 @@ int privnet_icmp_from_container_nat_src_route_dst_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, NET_ID);
 
+	policy_delete_egress_all_entry();
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_route(NET_ID, SUBNET_ID, V4_NET_IP_2);
 	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
@@ -236,8 +240,9 @@ int privnet_icmp_from_container_nat_src_miss_dst_check(struct __ctx_buff *ctx)
 	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, NET_ID);
 
 	__u64 count = 1;
-
 	assert_metrics_count(key, count);
+
+	policy_delete_egress_all_entry();
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
 	privnet_del_device_entry(IFINDEX);
@@ -282,6 +287,7 @@ int privnet_icmp_to_container_nat_src_dst_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(NET_ID, NET_ID);
 
+	policy_delete_entry(false, 0, 0, 0, 0);
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
@@ -327,6 +333,7 @@ int privnet_tcp_to_container_nat_src_dst_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(NET_ID, NET_ID);
 
+	policy_delete_entry(false, 0, 0, 0, 0);
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
@@ -354,6 +361,7 @@ int privnet_icmp_to_container_unknown_src_nat_dst_setup(struct __ctx_buff *ctx)
 
 	set_privnet_net_ids(PRIVNET_UNKNOWN_NET_ID, PRIVNET_PIP_NET_ID);
 
+	policy_add_ingress_allow_l3_l4_entry(0, 0, 0, 0);
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
 	return pod_receive_packet_by_tailcall(ctx);
 }
@@ -372,6 +380,7 @@ int privnet_icmp_to_container_unknown_src_nat_dst_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(NET_ID, NET_ID);
 
+	policy_delete_entry(false, 0, 0, 0, 0);
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
 	privnet_del_device_entry(IFINDEX);
@@ -397,6 +406,7 @@ int privnet_icmp_to_container_unknown_src_miss_dst_setup(struct __ctx_buff *ctx)
 
 	set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
 
+	policy_add_ingress_allow_l3_l4_entry(0, 0, 0, 0);
 	return pod_receive_packet_by_tailcall(ctx);
 }
 
@@ -409,6 +419,7 @@ int privnet_icmp_to_container_unknown_src_miss_dst_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
 
+	policy_delete_entry(false, 0, 0, 0, 0);
 	test_finish();
 }
 
@@ -793,6 +804,7 @@ int privnet_icmp_from_container_to_other_subnet_nat_src_dst_check(struct __ctx_b
 
 	privnet_v4_del_peering_route(NET_ID, SUBNET_ID, OTHER_SUBNET_V4, OTHER_SUBNET_V4_LEN);
 
+	policy_delete_egress_all_entry();
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, OTHER_SUBNET_ID, V4_NET_IP_3, V4_POD_IP_3);
 	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
@@ -842,6 +854,8 @@ int privnet_icmp_from_container_peering_route_conflict_check(struct __ctx_buff *
 			   sizeof(BUF(PODIP_X_ICMP_REQ)));
 
 	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
+	policy_delete_egress_all_entry();
 
 	privnet_v4_del_route(NET_ID, SUBNET_ID, V4_NET_IP_3);
 	privnet_v4_del_peering_route(NET_ID, SUBNET_ID, OTHER_SUBNET_V4, OTHER_SUBNET_V4_LEN);
@@ -898,6 +912,8 @@ int privnet_icmp_from_container_no_peering_route_match_check(struct __ctx_buff *
 
 	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, NET_ID);
 
+	policy_delete_egress_all_entry();
+
 	privnet_v4_del_route(NET_ID, SUBNET_ID, V4_NET_IP_2);
 	privnet_v4_del_peering_route(NET_ID, SUBNET_ID, OTHER_SUBNET_V4, OTHER_SUBNET_V4_LEN);
 
@@ -942,6 +958,8 @@ int privnet_icmp_from_container_no_peering_route_match_drop_check(struct __ctx_b
 	test_init();
 
 	assert_status_code(ctx, TC_ACT_SHOT);
+
+	policy_delete_egress_all_entry();
 
 	privnet_v4_del_peering_route(NET_ID, SUBNET_ID, OTHER_SUBNET_V4, OTHER_SUBNET_V4_LEN);
 
