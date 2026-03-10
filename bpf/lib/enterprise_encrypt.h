@@ -20,6 +20,7 @@ struct encryption_policy_key {
 struct encryption_policy_entry {
 	__u8	encrypt:1,
 			pad:7;
+	__u8	prefix_len;
 };
 
  #ifndef ENCRYPTION_POLICY_MAP_SIZE
@@ -42,12 +43,14 @@ DECLARE_ENTERPRISE_CONFIG(bool, encryption_policy_fallback_encrypt,
 
 #include "lib/wireguard.h"
 
-/* flow_needs_encrypt will check if the current packet needs encryption
- * by checking policy entries for both flow directions.
+/* encrypt_flow_lookup checks if the current packet needs encryption by looking
+ * up policy entries for both flow directions. It always performs both lookups
+ * and picks the result from whichever matched at a longer (more specific)
+ * prefix. On equal prefix length, encrypt takes precedence (security-first).
  */
 static __always_inline bool
 encrypt_flow_lookup(__u32 src_id, __be16 src_port, __u32 dst_id, __be16 dst_port, __u8 proto) {
-	const struct encryption_policy_entry *entry;
+	const struct encryption_policy_entry *fwd, *rev;
 	struct encryption_policy_key key = {
 		.lpm_key = { ENCRYPTION_POLICY_FULL_PREFIX, {} },
 		.src_sec_identity = src_id,
@@ -56,21 +59,37 @@ encrypt_flow_lookup(__u32 src_id, __be16 src_port, __u32 dst_id, __be16 dst_port
 		.port = dst_port,
 	};
 
-	/* check if current direction (src_id, dst_id, dst_port, proto) needs encryption */
-	entry = map_lookup_elem(&cilium_encryption_policy_map, &key);
-	if (entry)
-		return entry->encrypt;
+	/* forward direction: (src_id, dst_id, dst_port, proto) */
+	fwd = map_lookup_elem(&cilium_encryption_policy_map, &key);
 
-	/* check if reply direction (dst_id, src_id, src_port, proto) needs encryption */
+	/* A full-prefix encrypt match cannot be overridden by the reverse
+	 * lookup: no entry can be more specific, and on equal prefix length
+	 * encrypt wins. Skip the second lookup.
+	 */
+	if (fwd && fwd->prefix_len == ENCRYPTION_POLICY_FULL_PREFIX && fwd->encrypt)
+		return true;
+
+	/* reverse direction: (dst_id, src_id, src_port, proto) */
 	key.src_sec_identity = dst_id;
 	key.dst_sec_identity = src_id;
 	key.port = src_port;
 
-	entry = map_lookup_elem(&cilium_encryption_policy_map, &key);
-	if (entry)
-		return entry->encrypt;
+	rev = map_lookup_elem(&cilium_encryption_policy_map, &key);
 
-	return false;
+	if (fwd && rev) {
+		if (fwd->prefix_len > rev->prefix_len)
+			return fwd->encrypt;
+		if (rev->prefix_len > fwd->prefix_len)
+			return rev->encrypt;
+		/* equal prefix: encrypt wins */
+		return fwd->encrypt || rev->encrypt;
+	}
+	if (fwd)
+		return fwd->encrypt;
+	if (rev)
+		return rev->encrypt;
+
+	return CONFIG(encryption_policy_fallback_encrypt);
 }
 
 static __always_inline int
@@ -162,24 +181,28 @@ encrypt_policy_matches(struct __ctx_buff *ctx, __u8 l4_proto, __u32 l4_off,
 {
 	struct ipv4_frag_l4ports __maybe_unused ports;
 
-	/* For now encryption policies are only supported with UDP and TCP traffic */
 	switch (l4_proto) {
 	case IPPROTO_UDP:
 	case IPPROTO_TCP:
-		/* load sport + dport into tuple */
+	case IPPROTO_SCTP:
+		/* TODO: For non-initial IP fragments the L4 header is not
+		 * present at l4_off, so l4_load_ports will read arbitrary
+		 * payload data, leading to incorrect policy matching.
+		 */
 		if (l4_load_ports(ctx, l4_off, &ports.sport) < 0)
 			return false;
 
-		if (!encrypt_flow_lookup(src_sec_identity,
-					 ports.sport,
-					 dst_sec_identity,
-					 ports.dport,
-					 l4_proto))
-			return false;
-
-		return true;
+		return encrypt_flow_lookup(src_sec_identity,
+					   ports.sport,
+					   dst_sec_identity,
+					   ports.dport,
+					   l4_proto);
 	default:
-		return false;
+		/* For non-TCP/UDP/SCTP, look up without port info.
+		 * This matches wildcard entries (prefix <= 80).
+		 */
+		return encrypt_flow_lookup(src_sec_identity, 0,
+					   dst_sec_identity, 0, l4_proto);
 	}
 }
 

@@ -156,7 +156,13 @@ func (e *EncryptionPolicyEntry) BinaryKey() encoding.BinaryMarshaler {
 }
 
 func (e *EncryptionPolicyEntry) BinaryValue() encoding.BinaryMarshaler {
-	v := encryptionpolicymap.NewEncryptionPolicyVal(e.resolvedEncrypt())
+	k := encryptionpolicymap.NewEncryptionPolicyKey(
+		e.Subject.Uint32(),
+		e.Peer.Uint32(),
+		uint8(e.Proto),
+		e.Port,
+	)
+	v := encryptionpolicymap.NewEncryptionPolicyVal(e.resolvedEncrypt(), k.Prefixlen)
 	return bpf.StructBinaryMarshaler{Target: &v}
 }
 

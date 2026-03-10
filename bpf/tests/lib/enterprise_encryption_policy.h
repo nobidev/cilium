@@ -4,10 +4,12 @@
 #pragma once
 
 static __always_inline void
-add_encryption_policy_entry(__u32 src_sec_identity, __u32 dst_sec_identity, __u8 protocol, __u16 port, bool encrypt)
+add_encryption_policy_entry_with_prefix(__u32 prefix, __u32 src_sec_identity,
+					__u32 dst_sec_identity, __u8 protocol,
+					__u16 port, bool encrypt)
 {
 	struct encryption_policy_key key = {
-		.lpm_key = { ENCRYPTION_POLICY_FULL_PREFIX, {} },
+		.lpm_key = { prefix, {} },
 		.src_sec_identity   = src_sec_identity,
 		.dst_sec_identity   = dst_sec_identity,
 		.port = (__u16)port,
@@ -16,9 +18,105 @@ add_encryption_policy_entry(__u32 src_sec_identity, __u32 dst_sec_identity, __u8
 
 	struct encryption_policy_entry val = {
 		.encrypt = encrypt,
+		.prefix_len = (__u8)prefix,
 	};
 
 	map_update_elem(&cilium_encryption_policy_map, &key, &val, 0);
+}
+
+static __always_inline void
+add_encryption_policy_entry(__u32 src_sec_identity, __u32 dst_sec_identity,
+			    __u8 protocol, __u16 port, bool encrypt)
+{
+	add_encryption_policy_entry_with_prefix(ENCRYPTION_POLICY_FULL_PREFIX,
+						src_sec_identity, dst_sec_identity,
+						protocol, port, encrypt);
+}
+
+static __always_inline void
+del_encryption_policy_entry_with_prefix(__u32 prefix, __u32 src_sec_identity,
+					__u32 dst_sec_identity, __u8 protocol,
+					__u16 port)
+{
+	struct encryption_policy_key key = {
+		.lpm_key = { prefix, {} },
+		.src_sec_identity   = src_sec_identity,
+		.dst_sec_identity   = dst_sec_identity,
+		.port = (__u16)port,
+		.protocol = protocol
+	};
+
+	map_delete_elem(&cilium_encryption_policy_map, &key);
+}
+
+static __always_inline void
+del_encryption_policy_entry(__u32 src_sec_identity, __u32 dst_sec_identity,
+			    __u8 protocol, __u16 port)
+{
+	del_encryption_policy_entry_with_prefix(ENCRYPTION_POLICY_FULL_PREFIX,
+						src_sec_identity, dst_sec_identity,
+						protocol, port);
+}
+
+static __always_inline int
+encryption_policy_icmp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct icmphdr *icmp;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	icmp = pktgen__push_ipv4_icmp_packet(&builder,
+					     (__u8 *)POD1_MAC, (__u8 *)POD2_MAC,
+					     POD1_IPV4, POD2_IPV4,
+					     ICMP_ECHO);
+	if (!icmp)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+
+	set_identity_mark(ctx, POD1_SEC_IDENTITY, MARK_MAGIC_IDENTITY);
+
+	return 0;
+}
+
+static __always_inline int
+encryption_policy_sctp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct iphdr *l3;
+	struct sctphdr *l4;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	l3 = pktgen__push_ipv4_packet(&builder,
+				      (__u8 *)POD1_MAC, (__u8 *)POD2_MAC,
+				      POD1_IPV4, POD2_IPV4);
+	if (!l3)
+		return TEST_ERROR;
+
+	l4 = pktgen__push_default_sctphdr(&builder);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->source = POD1_L4_PORT;
+	l4->dest = POD2_L4_PORT;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+
+	set_identity_mark(ctx, POD1_SEC_IDENTITY, MARK_MAGIC_IDENTITY);
+
+	return 0;
 }
 
 static __always_inline int

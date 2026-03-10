@@ -54,7 +54,8 @@ type EncryptionPolicyKey struct {
 type policyEntryFlags uint8
 
 type EncryptionPolicyVal struct {
-	Flags policyEntryFlags
+	Flags     policyEntryFlags
+	PrefixLen uint8
 }
 
 type MapConfig struct {
@@ -176,11 +177,12 @@ func (v *EncryptionPolicyVal) String() string {
 	return fmt.Sprintf("flags=0x%04X", v.Flags)
 }
 
-func NewEncryptionPolicyVal(encrypt bool) EncryptionPolicyVal {
+func NewEncryptionPolicyVal(encrypt bool, prefixLen uint32) EncryptionPolicyVal {
+	v := EncryptionPolicyVal{PrefixLen: uint8(prefixLen)}
 	if encrypt {
-		return EncryptionPolicyVal{Flags: 1}
+		v.Flags = 1
 	}
-	return EncryptionPolicyVal{}
+	return v
 }
 
 func NewEncryptionPolicyValRaw(flags policyEntryFlags) EncryptionPolicyVal {

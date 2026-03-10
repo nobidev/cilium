@@ -245,8 +245,9 @@ type EncryptConfig struct {
 
 // EncryptionPolicyEntry is generated from the BPF C type encryption_policy_entry.
 type EncryptionPolicyEntry struct {
-	_ structs.HostLayout
-	_ [1]byte
+	_         structs.HostLayout
+	_         [1]byte /* unsupported bitfield */
+	PrefixLen uint8
 }
 
 // EncryptionPolicyKey is generated from the BPF C type encryption_policy_key.

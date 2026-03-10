@@ -536,7 +536,7 @@ func newCiliumEncryptionPolicyMapSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Type:       ebpf.LPMTrie,
 		KeySize:    16,
 		Key:        anyTypeByName(btf, "encryption_policy_key"),
-		ValueSize:  1,
+		ValueSize:  2,
 		Value:      anyTypeByName(btf, "encryption_policy_entry"),
 		MaxEntries: 65536,
 		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
