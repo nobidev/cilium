@@ -358,5 +358,19 @@ rules:
   verbs:
     - update
     - patch
+{{- if .Values.enterprise.privateNetworks.networkAttachmentDefinitions.enabled }}
+- apiGroups:
+    - k8s.cni.cncf.io
+  resources:
+    - network-attachment-definitions
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+{{- end }}
 {{- end }}
 {{- end }}

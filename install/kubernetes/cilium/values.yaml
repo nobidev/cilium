@@ -5311,6 +5311,14 @@ enterprise:
       # no health check response is received. Must be at least 50% higher than
       # the configured interval. Ignored in "bridge" mode.
       timeout: 5s
+    # Configure the Multus Network Attachment Definitions integration.
+    networkAttachmentDefinitions:
+      # Enable the Multus Network Attachment Definitions integration.
+      enabled: false
+      # The CNI logs path configured for managed Multus network attachment definitions.
+      cniLogFile: /var/run/cilium/cilium-cni.log
+      # The CNI logs format configured for managed Multus network attachment definitions.
+      cniLogFormat: text-ts
   healthServerWithoutActiveChecks:
     # -- Enable health server without active health checks.
     enabled: false

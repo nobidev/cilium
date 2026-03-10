@@ -262,6 +262,9 @@ private-networks-mode: {{ .Values.enterprise.privateNetworks.mode | quote }}
 private-networks-health-check-port: {{ .Values.enterprise.privateNetworks.healthcheck.port | quote }}
 private-networks-health-check-interval: {{ .Values.enterprise.privateNetworks.healthcheck.interval | quote }}
 private-networks-health-check-timeout: {{ .Values.enterprise.privateNetworks.healthcheck.timeout | quote }}
+private-networks-nad-integration-enabled: {{ .Values.enterprise.privateNetworks.networkAttachmentDefinitions.enabled | quote }}
+private-networks-nad-cni-log-file: {{ .Values.enterprise.privateNetworks.networkAttachmentDefinitions.cniLogFile | quote }}
+private-networks-nad-cni-log-format: {{ .Values.enterprise.privateNetworks.networkAttachmentDefinitions.cniLogFormat | quote }}
 
 enable-health-server-without-active-checks: {{ .Values.enterprise.healthServerWithoutActiveChecks.enabled | quote }}
 

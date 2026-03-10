@@ -2567,6 +2567,20 @@
                 "bridge",
                 "local-access"
               ]
+            },
+            "networkAttachmentDefinitions": {
+              "properties": {
+                "cniLogFile": {
+                  "type": "string"
+                },
+                "cniLogFormat": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
             }
           },
           "type": "object"
