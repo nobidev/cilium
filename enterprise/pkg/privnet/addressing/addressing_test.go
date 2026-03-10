@@ -210,6 +210,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			wantAddressing: &models.PrivateNetworkAddressing{
 				ActivatedAt: strfmt.DateTime(activatedAtActive),
 				Network:     "green-network",
+				Subnet:      "subnet1",
 				Address: &models.AddressPair{
 					IPV4: "192.168.11.11",
 					IPV6: "fd10:0:150::11",
@@ -234,6 +235,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			wantAddressing: &models.PrivateNetworkAddressing{
 				ActivatedAt: strfmt.DateTime(activatedAtInactive),
 				Network:     "green-network",
+				Subnet:      "subnet1",
 				Address: &models.AddressPair{
 					IPV4: "192.168.11.13",
 					IPV6: "fd10:0:150::13",
@@ -366,7 +368,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv6": "fd10:0:150::11",  "mac": "00:50:56:ad:11:02"}`,
 				},
 			),
-			wantErr: fmt.Sprintf(`invalid IPv4 address "invalid IP" in %q annotation`, types.PrivateNetworkAnnotation),
+			wantErr: "subnet must be specified for DHCP",
 		},
 		{
 			name: "requesting IPv4 and IPv6 in IPv6-only configuration",
@@ -379,6 +381,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			wantAddressing: &models.PrivateNetworkAddressing{
 				ActivatedAt: strfmt.DateTime(activatedAtActive),
 				Network:     "green-network",
+				Subnet:      "subnet1",
 				Address: &models.AddressPair{
 					IPV6: "fd10:0:150::11",
 				},
@@ -400,6 +403,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			wantAddressing: &models.PrivateNetworkAddressing{
 				ActivatedAt: strfmt.DateTime(activatedAtActive),
 				Network:     "green-network",
+				Subnet:      "subnet1",
 				Address: &models.AddressPair{
 					IPV4: "192.168.11.11",
 				},
@@ -472,6 +476,114 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			wantErr: `requested IPs are not in range of the requested subnet ("subnet2")`,
 		},
 		{
+			name:     "mismatching CNI configuration and attachment subnet",
+			override: override{network: ptr.To("green-network"), subnet: ptr.To("subnet2")},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "subnet": "subnet1", "ipv4": "192.168.11.11", "ipv6": "fd10:0:150::11", "mac": "00:50:56:ad:11:02"}`,
+				}),
+			wantErr: fmt.Sprintf(`mismatching target subnet in CNI configuration ("subnet2") and %q annotation on pod default/client ("subnet1")`, types.PrivateNetworkAnnotation),
+		},
+		{
+			name: "attachment subnet used when requested IP is unspecified",
+			cfg:  &cfgIPv4Only,
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "subnet": "subnet1", "ipv4": "0.0.0.0", "mac": "00:50:56:ad:11:02"}`,
+				},
+			),
+			wantAddressing: &models.PrivateNetworkAddressing{
+				ActivatedAt: strfmt.DateTime(activatedAtActive),
+				Network:     "green-network",
+				Subnet:      "subnet1",
+				Address: &models.AddressPair{
+					IPV4: "0.0.0.0",
+				},
+				Mac: "00:50:56:ad:11:02",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.1/32"},
+					{Destination: "0.0.0.0/0", Gateway: "169.254.0.1"},
+				},
+			},
+		},
+		{
+			name: "attachment subnet used when requested IP is empty",
+			cfg:  &cfgIPv4Only,
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "subnet": "subnet1", "mac": "00:50:56:ad:11:02"}`,
+				},
+			),
+			wantAddressing: &models.PrivateNetworkAddressing{
+				ActivatedAt: strfmt.DateTime(activatedAtActive),
+				Network:     "green-network",
+				Subnet:      "subnet1",
+				Address: &models.AddressPair{
+					IPV4: "0.0.0.0",
+				},
+				Mac: "00:50:56:ad:11:02",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.1/32"},
+					{Destination: "0.0.0.0/0", Gateway: "169.254.0.1"},
+				},
+			},
+		},
+
+		{
+			name:     "requested subnet used when requested IP is unspecified",
+			cfg:      &cfgIPv4Only,
+			override: override{network: ptr.To("green-network"), subnet: ptr.To("subnet1")},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "0.0.0.0", "mac": "00:50:56:ad:11:02"}`,
+				},
+			),
+			wantAddressing: &models.PrivateNetworkAddressing{
+				ActivatedAt: strfmt.DateTime(activatedAtActive),
+				Network:     "green-network",
+				Subnet:      "subnet1",
+				Address: &models.AddressPair{
+					IPV4: "0.0.0.0",
+				},
+				Mac: "00:50:56:ad:11:02",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.1/32"},
+					{Destination: "0.0.0.0/0", Gateway: "169.254.0.1"},
+				},
+			},
+		},
+		{
+			name: "subnet is required when requested IP is unspecified",
+			cfg:  &cfgIPv4Only,
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "0.0.0.0", "mac": "00:50:56:ad:11:02"}`,
+				},
+			),
+			wantErr: "subnet must be specified for DHCP",
+		},
+		{
+			name: "attachment subnet must exist when requested IP is unspecified",
+			cfg:  &cfgIPv4Only,
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "subnet": "missing", "ipv4": "0.0.0.0", "mac": "00:50:56:ad:11:02"}`,
+				},
+			),
+			wantErr: `invalid subnet "missing" for network "green-network"`,
+		},
+		{
+			name:     "requested subnet must exist",
+			cfg:      &cfgIPv4Only,
+			override: override{network: ptr.To("green-network"), subnet: ptr.To("missing")},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "0.0.0.0", "mac": "00:50:56:ad:11:02"}`,
+				},
+			),
+			wantErr: `invalid subnet "missing" for network "green-network"`,
+		},
+		{
 			name:     "valid network attachment annotation, matching CNI configuration",
 			override: override{network: ptr.To("green-network"), subnet: ptr.To("subnet1")},
 			pod: newPod("default", "client", "uid",
@@ -482,6 +594,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			wantAddressing: &models.PrivateNetworkAddressing{
 				ActivatedAt: strfmt.DateTime(activatedAtActive),
 				Network:     "green-network",
+				Subnet:      "subnet1",
 				Address: &models.AddressPair{
 					IPV4: "192.168.11.11",
 					IPV6: "fd10:0:150::11",
@@ -512,6 +625,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			wantAddressing: &models.PrivateNetworkAddressing{
 				ActivatedAt: strfmt.DateTime(activatedAtActive),
 				Network:     "green-network",
+				Subnet:      "subnet3",
 				Address: &models.AddressPair{
 					IPV4: "192.168.10.11",
 					IPV6: "fd10:0:140::11",
@@ -542,6 +656,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			wantAddressing: &models.PrivateNetworkAddressing{
 				ActivatedAt: strfmt.DateTime(activatedAtActive),
 				Network:     "green-network",
+				Subnet:      "subnet2",
 				Address: &models.AddressPair{
 					IPV4: "192.168.52.11",
 					IPV6: "fd10:0:152::11",
@@ -645,6 +760,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			wantAddressing: &models.PrivateNetworkAddressing{
 				ActivatedAt: strfmt.DateTime(activatedAtActive),
 				Network:     "green-network",
+				Subnet:      "subnet3",
 				Address: &models.AddressPair{
 					IPV4: "192.168.10.11",
 					IPV6: "fd10:0:140::11",
@@ -675,6 +791,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			wantAddressing: &models.PrivateNetworkAddressing{
 				ActivatedAt: strfmt.DateTime(activatedAtActive),
 				Network:     "green-network",
+				Subnet:      "subnet2",
 				Address: &models.AddressPair{
 					IPV4: "192.168.52.11",
 					IPV6: "fd10:0:152::11",
@@ -704,6 +821,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			wantAddressing: &models.PrivateNetworkAddressing{
 				ActivatedAt: strfmt.DateTime(activatedAtActive),
 				Network:     "green-network",
+				Subnet:      "subnet2",
 				Address: &models.AddressPair{
 					IPV4: "192.168.52.11",
 					IPV6: "fd10:0:152::11",

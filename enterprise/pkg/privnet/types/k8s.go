@@ -48,6 +48,7 @@ const (
 type NetworkAttachment struct {
 	Network   string     `json:"network"`
 	Interface string     `json:"interface,omitzero"`
+	Subnet    string     `json:"subnet,omitzero"`
 	IPv4      netip.Addr `json:"ipv4,omitzero"`
 	IPv6      netip.Addr `json:"ipv6,omitzero"`
 	MAC       mac.MAC    `json:"mac,omitempty"`

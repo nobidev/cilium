@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointstate"
-	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
@@ -168,18 +168,19 @@ func (l *LocalWorkloads) upsertEndpoint(ep endpoints.Endpoint) {
 	lw := &tables.LocalWorkload{
 		EndpointID: ep.GetID16(),
 		Namespace:  k8sNamespace,
-		Endpoint: v1alpha1.PrivateNetworkEndpointSliceEndpoint{
-			Addressing: v1alpha1.PrivateNetworkEndpointAddressing{
+		Subnet:     tables.SubnetName(privNetAddr.subnet),
+		Endpoint: iso_v1alpha1.PrivateNetworkEndpointSliceEndpoint{
+			Addressing: iso_v1alpha1.PrivateNetworkEndpointAddressing{
 				IPv4: ep.GetIPv4Address(),
 				IPv6: ep.GetIPv6Address(),
 			},
 			Name: k8sName,
 		},
-		Flags: v1alpha1.PrivateNetworkEndpointSliceFlags{
+		Flags: iso_v1alpha1.PrivateNetworkEndpointSliceFlags{
 			External: ep.IsProperty(endpoint.PropertyFakeEndpoint),
 		},
-		Interface: v1alpha1.PrivateNetworkEndpointSliceInterface{
-			Addressing: v1alpha1.PrivateNetworkEndpointAddressing{
+		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
+			Addressing: iso_v1alpha1.PrivateNetworkEndpointAddressing{
 				IPv4: privNetAddr.ipv4,
 				IPv6: privNetAddr.ipv6,
 			},
@@ -243,6 +244,7 @@ func (l *LocalWorkloads) EndpointDeleted(ep endpoints.Endpoint) {
 // privateNetworkAddressing contains the extracted private network endpoint properties
 type privateNetworkAddressing struct {
 	network string
+	subnet  string
 
 	ipv4 string
 	ipv6 string
@@ -267,6 +269,7 @@ func extractPrivateNetworkAddressing(ep endpoints.Endpoint) (*privateNetworkAddr
 
 	addr := &privateNetworkAddressing{
 		network:     properties.PrivateNetwork(),
+		subnet:      properties.PrivateSubnet(),
 		mac:         ep.LXCMac().String(),
 		activatedAt: activatedAt,
 	}

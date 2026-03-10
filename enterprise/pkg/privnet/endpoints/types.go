@@ -26,6 +26,9 @@ const (
 	// not attached to a custom private network.
 	PropertyPrivNetNetwork = "isovalent-privnet-network"
 
+	// PropertyPrivNetSubnet is the name of the subnet this endpoint is attached to.
+	PropertyPrivNetSubnet = "isovalent-privnet-subnet"
+
 	// PropertyPrivNetIPv4 contains the IPv4 address of the endpoint within the network.
 	PropertyPrivNetIPv4 = "isovalent-privnet-ipv4-addr"
 
@@ -98,6 +101,7 @@ type EndpointPropertyProvider interface {
 // EndpointProperties is a type proxy for accessing the properties of an endpoint.
 type EndpointProperties struct {
 	network string
+	subnet  string
 	ep      EndpointPropertyProvider
 }
 
@@ -109,8 +113,11 @@ func ExtractEndpointProperties(ep EndpointPropertyProvider) (*EndpointProperties
 		return nil, false
 	}
 
+	subnet, _ := ep.GetPropertyValue(PropertyPrivNetSubnet).(string)
+
 	return &EndpointProperties{
 		network: network,
+		subnet:  subnet,
 		ep:      ep,
 	}, true
 }
@@ -118,6 +125,11 @@ func ExtractEndpointProperties(ep EndpointPropertyProvider) (*EndpointProperties
 // PrivateNetwork returns the name of the private network this endpoint is attached to
 func (p *EndpointProperties) PrivateNetwork() string {
 	return p.network
+}
+
+// PrivateSubnet returns the name of the private network subnet this endpoint is attached to.
+func (p *EndpointProperties) PrivateSubnet() string {
+	return p.subnet
 }
 
 // NetworkIPv4 returns the IPv4 address of the endpoint within the network.

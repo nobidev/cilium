@@ -26,6 +26,7 @@ import (
 	multusutils "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	daemonK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/api/v1/models"
@@ -148,7 +149,6 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 			*p.Network, annotation, podNamespaceName, attachment.Network,
 		)
 	}
-
 	privnet, _, found := n.privateNetworks.Get(txn, tables.PrivateNetworkByName(tables.NetworkName(attachment.Network)))
 	if !found {
 		return nil, fmt.Errorf("invalid network %q in %q annotation on pod %s",
@@ -161,6 +161,45 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 			types.PrivateNetworkInactiveAnnotation, pod.Namespace, pod.Name, err)
 	}
 
+	if p.Subnet != nil && attachment.Subnet != "" && *p.Subnet != attachment.Subnet {
+		return nil, fmt.Errorf("mismatching target subnet in CNI configuration (%q) and %q annotation on pod %s (%q)",
+			*p.Subnet, annotation, podNamespaceName, attachment.Subnet,
+		)
+	}
+	requestedSubnet := tables.SubnetName(ptr.Deref(p.Subnet, attachment.Subnet))
+
+	var ipv4, ipv6 netip.Addr
+
+	if n.cfg.enableIPv4 {
+		if attachment.IPv4.IsUnspecified() || !attachment.IPv4.IsValid() {
+			// If ipv4 is not given or is 0.0.0.0 then subnet must be provided.
+			if requestedSubnet == "" {
+				return nil, fmt.Errorf("subnet must be specified for DHCP")
+			}
+			// From here on use 0.0.0.0 to mark for DHCP
+			ipv4 = netip.IPv4Unspecified()
+		} else {
+			if !attachment.IPv4.Is4() {
+				return nil, fmt.Errorf("invalid IPv4 address %q in %q annotation on pod %s",
+					attachment.IPv4, annotation, podNamespaceName)
+			}
+			ipv4 = attachment.IPv4
+		}
+	}
+
+	if n.cfg.enableIPv6 {
+		if !attachment.IPv6.Is6() {
+			return nil, fmt.Errorf("invalid IPv6 address %q in %q annotation on pod %s",
+				attachment.IPv6, annotation, podNamespaceName)
+		}
+		ipv6 = attachment.IPv6
+	}
+
+	subnet, err := n.subnetForIPs(txn, privnet.Name, requestedSubnet, ipv4, ipv6)
+	if err != nil {
+		return nil, err
+	}
+
 	activatedAt := time.Now().UTC()
 	if inactive {
 		activatedAt = time.Time{} // zero value means inactive
@@ -170,32 +209,16 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 		Address:     &models.AddressPair{},
 		Mac:         attachment.MAC.String(),
 		Network:     attachment.Network,
+		Subnet:      string(subnet.Name),
 		ActivatedAt: strfmt.DateTime(activatedAt),
 	}
 
-	var ipv4, ipv6 netip.Addr
-
 	if n.cfg.enableIPv4 {
-		if !attachment.IPv4.Is4() {
-			return nil, fmt.Errorf("invalid IPv4 address %q in %q annotation on pod %s",
-				attachment.IPv4, annotation, podNamespaceName)
-		}
-		addressing.Address.IPV4 = attachment.IPv4.String()
-		ipv4 = attachment.IPv4
+		addressing.Address.IPV4 = ipv4.String()
 	}
 
 	if n.cfg.enableIPv6 {
-		if !attachment.IPv6.Is6() {
-			return nil, fmt.Errorf("invalid IPv6 address %q in %q annotation on pod %s",
-				attachment.IPv6, annotation, podNamespaceName)
-		}
-		addressing.Address.IPV6 = attachment.IPv6.String()
-		ipv6 = attachment.IPv6
-	}
-
-	subnet, err := n.subnetForIPs(txn, privnet.Name, (*tables.SubnetName)(p.Subnet), ipv4, ipv6)
-	if err != nil {
-		return nil, err
+		addressing.Address.IPV6 = ipv6.String()
 	}
 
 	addressing.Routes = n.routes(nicidx, subnet)
@@ -279,35 +302,43 @@ func (n *PrivNetAPI) getAttachmentFor(pod metav1.Object, ifname string) (*types.
 	}
 }
 
-func (n *PrivNetAPI) subnetForIPs(txn statedb.ReadTxn, privnet tables.NetworkName, sname *tables.SubnetName, ipv4, ipv6 netip.Addr) (tables.Subnet, error) {
-	var subnet tables.Subnet
+func (n *PrivNetAPI) subnetForIPs(txn statedb.ReadTxn, privnet tables.NetworkName, sname tables.SubnetName, ipv4, ipv6 netip.Addr) (tables.Subnet, error) {
+	// Resolve subnet names based on the IPv4 and IPv6 addresses
 	var subnetv4, subnetv6 tables.SubnetName
-
-	if ipv4.IsValid() {
+	if ipv4.IsValid() && !ipv4.IsUnspecified() {
 		if sub, ok := tables.FindSubnetForIPs(n.subnets, txn, privnet, ipv4); ok {
-			subnet = sub
 			subnetv4 = sub.Name
+		} else {
+			return tables.Subnet{}, fmt.Errorf("requested IP %s not in range of defined subnets", ipv4)
 		}
 	}
 	if ipv6.IsValid() {
 		if sub, ok := tables.FindSubnetForIPs(n.subnets, txn, privnet, ipv6); ok {
-			subnet = sub
 			subnetv6 = sub.Name
+		} else {
+			return tables.Subnet{}, fmt.Errorf("requested IP %s not in range of defined subnets", ipv6)
 		}
 	}
 
-	switch {
-	case ipv4.IsValid() && subnetv4 == "":
-		return tables.Subnet{}, fmt.Errorf("requested IP %s not in range of defined subnets", ipv4)
-	case ipv6.IsValid() && subnetv6 == "":
-		return tables.Subnet{}, fmt.Errorf("requested IP %s not in range of defined subnets", ipv6)
-	case ipv4.IsValid() && ipv6.IsValid() && subnetv4 != subnetv6:
-		return tables.Subnet{}, fmt.Errorf("requested IP %s not in range of the subnet of the IP %s", ipv6, ipv4)
-	case sname != nil && *sname != cmp.Or(subnetv4, subnetv6):
-		return tables.Subnet{}, fmt.Errorf("requested IPs are not in range of the requested subnet (%q)", *sname)
-	default:
-		return subnet, nil
+	// Look up the subnet. We do this before the validation in order to fail first
+	// on missing subnet for a less confusing error message.
+	chosen := cmp.Or(sname, subnetv4, subnetv6)
+	subnet, _, found := n.subnets.Get(txn, tables.SubnetsByNetworkAndName(privnet, chosen))
+	if !found {
+		return tables.Subnet{}, fmt.Errorf("invalid subnet %q for network %q", chosen, privnet)
 	}
+
+	// Validate consistency of the subnet selection.
+	switch {
+	case subnetv4 != "" && subnetv6 != "" && subnetv4 != subnetv6:
+		return tables.Subnet{}, fmt.Errorf("requested IP %s not in range of the subnet of the IP %s", ipv6, ipv4)
+
+	case sname != "" && (subnetv4 != "" && subnetv4 != sname || subnetv6 != "" && subnetv6 != sname):
+		return tables.Subnet{}, fmt.Errorf("requested IPs are not in range of the requested subnet (%q)", sname)
+
+	}
+
+	return subnet, nil
 }
 
 // routes returns the list of routes to be configured for a private networks enabled endpoint.

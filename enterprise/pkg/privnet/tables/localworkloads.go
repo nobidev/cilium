@@ -32,6 +32,9 @@ type LocalWorkload struct {
 	// DHCP marks whether the network IP is allocated via DHCP.
 	DHCP bool
 
+	// Subnet is the name of the private network subnet this endpoint is attached to.
+	Subnet SubnetName
+
 	// Endpoint contains the identifiers from the pod network point of view.
 	Endpoint iso_v1alpha1.PrivateNetworkEndpointSliceEndpoint
 

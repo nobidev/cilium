@@ -198,6 +198,9 @@ definitions:
       network:
         description: Private network name
         type: string
+      subnet:
+        description: Private network subnet
+        type: string
       address:
         "$ref": "#/definitions/AddressPair"
       mac:

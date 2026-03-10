@@ -288,6 +288,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/NetworkAttachmentRoute"
           }
+        },
+        "subnet": {
+          "description": "Private network subnet",
+          "type": "string"
         }
       }
     },
@@ -652,6 +656,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/NetworkAttachmentRoute"
           }
+        },
+        "subnet": {
+          "description": "Private network subnet",
+          "type": "string"
         }
       }
     },

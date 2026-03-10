@@ -12,6 +12,7 @@ package privnet
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -175,7 +176,11 @@ func (h *addHooks) OnInterfaceConfigReady(state *cmd.CmdState, ep *models.Endpoi
 	if ep.Properties == nil {
 		ep.Properties = map[string]any{}
 	}
+	if h.privNetAddressing.Subnet == "" {
+		return errors.New("private network subnet is required")
+	}
 	ep.Properties[endpoints.PropertyPrivNetNetwork] = h.privNetAddressing.Network
+	ep.Properties[endpoints.PropertyPrivNetSubnet] = h.privNetAddressing.Subnet
 
 	// TODO: Should we allow this kind of label to be set via API or should it be treated like `reserved` labels
 	// and be set by the daemon on endpoint creation?
@@ -188,7 +193,6 @@ func (h *addHooks) OnInterfaceConfigReady(state *cmd.CmdState, ep *models.Endpoi
 			return fmt.Errorf("unable to parse private network IPv4 address: %w", err)
 		}
 		state.IP4 = netIPv4
-
 		ep.Properties[endpoints.PropertyPrivNetIPv4] = h.privNetAddressing.Address.IPV4
 	}
 
@@ -198,7 +202,6 @@ func (h *addHooks) OnInterfaceConfigReady(state *cmd.CmdState, ep *models.Endpoi
 			return fmt.Errorf("unable to parse private network IPv6 address: %w", err)
 		}
 		state.IP6 = netIPv6
-
 		ep.Properties[endpoints.PropertyPrivNetIPv6] = h.privNetAddressing.Address.IPV6
 	}
 

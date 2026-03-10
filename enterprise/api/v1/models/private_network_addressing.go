@@ -46,6 +46,9 @@ type PrivateNetworkAddressing struct {
 
 	// Network routes to configure for this endpoint
 	Routes []*NetworkAttachmentRoute `json:"routes"`
+
+	// Private network subnet
+	Subnet string `json:"subnet,omitempty"`
 }
 
 // Validate validates this private network addressing
