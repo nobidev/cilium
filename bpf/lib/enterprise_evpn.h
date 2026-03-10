@@ -47,7 +47,8 @@ struct evpn_fib_key {
 
 struct evpn_fib_val {
 	__u32 vni;
-	__u32 pad0;
+	__u8 family;
+	__u8 pad0[3];
 
 	/* Remote VTEP MAC address (inner destination MAC) */
 	union macaddr mac;
@@ -98,10 +99,41 @@ evpn_fib_lookup6(__u16 net_id, const union v6addr *addr)
 }
 
 static __always_inline __maybe_unused int
+evpn_set_tunnel_key(struct __ctx_buff *ctx, const struct evpn_fib_val *fib_val)
+{
+	int ret;
+	struct bpf_tunnel_key tunnel_key = {};
+
+	tunnel_key.tunnel_id = fib_val->vni;
+	tunnel_key.tunnel_ttl = IPDEFTTL;
+
+	if (fib_val->family == AF_INET) {
+		tunnel_key.remote_ipv4 = bpf_ntohl(fib_val->ip4);
+		ret = ctx_set_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP,
+					 BPF_F_ZERO_CSUM_TX);
+		if (ret < 0)
+			return DROP_WRITE_ERROR;
+	} else if (fib_val->family == AF_INET6) {
+		tunnel_key.remote_ipv6[0] = fib_val->ip6.p1;
+		tunnel_key.remote_ipv6[1] = fib_val->ip6.p2;
+		tunnel_key.remote_ipv6[2] = fib_val->ip6.p3;
+		tunnel_key.remote_ipv6[3] = fib_val->ip6.p4;
+		ret = ctx_set_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP,
+					 BPF_F_ZERO_CSUM_TX | BPF_F_TUNINFO_IPV6);
+		if (ret < 0)
+			return DROP_WRITE_ERROR;
+	} else {
+		/* Unsupported address family */
+		return DROP_INVALID;
+	}
+
+	return 0;
+}
+
+static __always_inline __maybe_unused int
 evpn_encap_and_redirect4(struct __ctx_buff *ctx, __u16 net_id, __be32 dst_ip)
 {
 	union macaddr evpn_mac = CONFIG(evpn_device_mac);
-	struct bpf_tunnel_key tunnel_key = {};
 	const struct evpn_fib_val *fib_val;
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
@@ -119,13 +151,9 @@ evpn_encap_and_redirect4(struct __ctx_buff *ctx, __u16 net_id, __be32 dst_ip)
 	memcpy(eth->h_dest, fib_val->mac.addr, ETH_ALEN);
 	memcpy(eth->h_source, evpn_mac.addr, ETH_ALEN);
 
-	tunnel_key.tunnel_id = fib_val->vni;
-	tunnel_key.remote_ipv4 = bpf_ntohl(fib_val->ip4);
-	tunnel_key.tunnel_ttl = IPDEFTTL;
-
-	ret = ctx_set_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP, BPF_F_ZERO_CSUM_TX);
+	ret = evpn_set_tunnel_key(ctx, fib_val);
 	if (ret < 0)
-		return DROP_WRITE_ERROR;
+		return ret;
 
 	return ctx_redirect(ctx, CONFIG(evpn_device_ifindex), 0);
 }
@@ -134,7 +162,6 @@ static __always_inline __maybe_unused int
 evpn_encap_and_redirect6(struct __ctx_buff *ctx, __u16 net_id, union v6addr dst_ip)
 {
 	union macaddr evpn_mac = CONFIG(evpn_device_mac);
-	struct bpf_tunnel_key tunnel_key = {};
 	const struct evpn_fib_val *fib_val;
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
@@ -152,17 +179,9 @@ evpn_encap_and_redirect6(struct __ctx_buff *ctx, __u16 net_id, union v6addr dst_
 	memcpy(eth->h_dest, fib_val->mac.addr, ETH_ALEN);
 	memcpy(eth->h_source, evpn_mac.addr, ETH_ALEN);
 
-	tunnel_key.tunnel_id = fib_val->vni;
-	tunnel_key.remote_ipv6[0] = fib_val->ip6.p1;
-	tunnel_key.remote_ipv6[1] = fib_val->ip6.p2;
-	tunnel_key.remote_ipv6[2] = fib_val->ip6.p3;
-	tunnel_key.remote_ipv6[3] = fib_val->ip6.p4;
-	tunnel_key.tunnel_ttl = IPDEFTTL;
-
-	ret = ctx_set_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP,
-				 BPF_F_ZERO_CSUM_TX | BPF_F_TUNINFO_IPV6);
+	ret = evpn_set_tunnel_key(ctx, fib_val);
 	if (ret < 0)
-		return DROP_WRITE_ERROR;
+		return ret;
 
 	return ctx_redirect(ctx, CONFIG(evpn_device_ifindex), 0);
 }

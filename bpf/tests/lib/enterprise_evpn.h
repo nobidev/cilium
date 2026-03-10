@@ -15,6 +15,7 @@ evpn_fib_v4_add(__u16 net_id, __be32 prefix, __u32 prefix_len, __u32 vni,
 	};
 	struct evpn_fib_val value = {
 		.vni = vni,
+		.family = AF_INET,
 		.mac = mac,
 		.ip4 = nexthop,
 	};
@@ -34,6 +35,7 @@ evpn_fib_v6_add(__u16 net_id, const union v6addr *prefix, __u32 prefix_len,
 	};
 	struct evpn_fib_val value = {
 		.vni = vni,
+		.family = AF_INET6,
 		.mac = mac,
 		.ip6 = *nexthop,
 	};
