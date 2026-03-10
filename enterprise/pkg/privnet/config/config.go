@@ -23,6 +23,10 @@ const (
 	// FlagEnable is the flag to enable private networking.
 	FlagEnable = "private-networks-enabled"
 
+	// DHCPInterfaceName is the name of the host dummy interface used to
+	// receive DHCP packets redirected from BPF.
+	DHCPInterfaceName = "cilium_dhcp"
+
 	// FlagMode is the flag to configure the private networking mode.
 	FlagMode = "private-networks-mode"
 

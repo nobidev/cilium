@@ -285,14 +285,14 @@ var File_v1_dhcp_proto protoreflect.FileDescriptor
 
 const file_v1_dhcp_proto_rawDesc = "" +
 	"\n" +
-	"\rv1/dhcp.proto\x12\x03api\x1a\x1egoogle/protobuf/duration.proto\"\xa7\x02\n" +
+	"\rv1/dhcp.proto\x12\x03api\x1a\x1egoogle/protobuf/duration.proto\"\x9d\x02\n" +
 	"\fRelayRequest\x12\x18\n" +
 	"\anetwork\x18\x01 \x01(\tR\anetwork\x12\x16\n" +
 	"\x06subnet\x18\x02 \x01(\tR\x06subnet\x12\x18\n" +
 	"\arequest\x18\x03 \x01(\fR\arequest\x126\n" +
 	"\twait_time\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\bwaitTime\x12*\n" +
 	"\x04mode\x18\x05 \x01(\x0e2\x16.api.RelayRequest.ModeR\x04mode\x12.\n" +
-	"\x05relay\x18\x06 \x01(\v2\x18.api.DHCPRelayModeConfigR\x05relay\"7\n" +
+	"\x05relay\x18\x06 \x01(\v2\x18.api.DHCPRelayModeConfigR\x05relay\"-\n" +
 	"\x04Mode\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\r\n" +
 	"\tBROADCAST\x10\x01\x12\t\n" +

@@ -29,6 +29,7 @@ var Cell = cell.Group(
 	SubnetMappingsCell,
 	NodeAttachmentCell,
 	CTMapsCell,
+	DhcpLeasesCell,
 
 	// Infrastructure shared between some of the reconcilers
 	cell.Provide(

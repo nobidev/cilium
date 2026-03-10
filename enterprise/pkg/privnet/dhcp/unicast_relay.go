@@ -20,6 +20,7 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/time"
@@ -29,6 +30,7 @@ import (
 // using UDP source port 67.
 type unicastRelay struct {
 	serverAddr *net.UDPAddr
+	option82   *v1alpha1.PrivateNetworkDHCPOption82Spec
 	log        *slog.Logger
 	netns      *netns.NetNS
 }
@@ -36,6 +38,7 @@ type unicastRelay struct {
 // unicastRelayFactory returns a unicastRelay for each workload.
 type unicastRelayFactory struct {
 	serverAddr *net.UDPAddr
+	option82   *v1alpha1.PrivateNetworkDHCPOption82Spec
 	log        *slog.Logger
 	netns      *netns.NetNS
 }
@@ -44,6 +47,7 @@ type unicastRelayFactory struct {
 func (f *unicastRelayFactory) RelayFor(*tables.LocalWorkload) (Relayer, error) {
 	return &unicastRelay{
 		serverAddr: f.serverAddr,
+		option82:   f.option82,
 		log:        f.log,
 		netns:      f.netns,
 	}, nil
@@ -141,7 +145,27 @@ func (r *unicastRelay) prepare(req *dhcpv4.DHCPv4, giaddr net.IP) (*dhcpv4.DHCPv
 	if giaddr != nil && !giaddr.IsUnspecified() {
 		copyReq.GatewayIPAddr = giaddr
 	}
+	r.applyOption82(copyReq)
 	return copyReq, nil
+}
+
+func (r *unicastRelay) applyOption82(req *dhcpv4.DHCPv4) {
+	if req == nil || r.option82 == nil {
+		return
+	}
+
+	opts := make([]dhcpv4.Option, 0, 2)
+	if circuitID := r.option82.CircuitID; circuitID != "" {
+		opts = append(opts, dhcpv4.OptGeneric(dhcpv4.AgentCircuitIDSubOption, []byte(circuitID)))
+	}
+	if remoteID := r.option82.RemoteID; remoteID != "" {
+		opts = append(opts, dhcpv4.OptGeneric(dhcpv4.AgentRemoteIDSubOption, []byte(remoteID)))
+	}
+	if len(opts) == 0 {
+		return
+	}
+
+	req.UpdateOption(dhcpv4.OptRelayAgentInfo(opts...))
 }
 
 func (r *unicastRelay) dialConn(ctx context.Context) (*net.UDPConn, error) {

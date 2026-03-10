@@ -12,6 +12,7 @@ package dhcp
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -69,36 +70,56 @@ func (h *serverHandler) serverHandler() Handler {
 		if h == nil || h.relayFactory == nil || req == nil || endpointID == 0 {
 			return 0, nil, nil
 		}
+		txn := h.db.ReadTxn()
 
-		lw, _, found := h.workloads.Get(h.db.ReadTxn(), tables.LocalWorkloadsByID(endpointID))
-		if !found || lw == nil || !lw.DHCP {
+		lw, _, found := h.workloads.Get(txn, tables.LocalWorkloadsByID(endpointID))
+		if !found || lw == nil {
+			h.log.Debug("No local workload found", logfields.EndpointID, endpointID)
+			return 0, nil, nil
+		}
+
+		if !lw.DHCP {
+			// FIXME: DHCP disabled, return response for the static IP. Requires that we enforce use
+			// of managed-tap as with the bridge mode we'll fight with the KubeVirt DHCP server.
+			h.log.Debug("DHCP disabled for workload, ignoring", logfields.EndpointID, endpointID)
 			return 0, nil, nil
 		}
 
 		log := h.log.With(
+			logfields.Interface, lw.LXC.IfIndex,
 			logfields.EndpointID, lw.EndpointID,
 			logfields.Network, lw.Interface.Network,
+			logfields.PrivateNetworkSubnet, lw.Subnet,
 		)
 
 		ifindex := lw.LXC.IfIndex
 
+		waitTime := h.waitTime
+
 		relay, err := h.relayFactory.RelayFor(lw)
-		if err != nil || relay == nil {
+		if err != nil {
+			h.log.Debug("Unable to construct relay", logfields.Error, err)
 			return 0, nil, err
+		}
+
+		if relay == nil {
+			// Relaying has been disabled with mode=none
+			return 0, nil, nil
 		}
 
 		// If this is release/decline invalidate the lease and drop network IP.
 		h.invalidateLeaseForRequest(endpointID, lw, req)
 
-		resps, err := relay.Relay(ctx, h.waitTime, req)
-		if err != nil || len(resps) == 0 {
-			return ifindex, nil, err
-		}
-		log.Debug("DHCP request",
+		log.Debug("Relaying DHCP request",
 			logfields.Type, req.MessageType(),
 			logfields.Xid, req.TransactionID,
 			logfields.Chaddr, req.ClientHWAddr,
 		)
+		resps, err := relay.Relay(ctx, waitTime, req)
+		if err != nil || len(resps) == 0 {
+			log.Debug("Error relaying", logfields.Error, err)
+			return ifindex, nil, err
+		}
 		out := make([]*dhcpv4.DHCPv4, 0, len(resps))
 		for _, resp := range resps {
 			if resp == nil {
@@ -125,6 +146,18 @@ func (h *serverHandler) serverHandler() Handler {
 	}
 }
 
+func resolveServerAddr(raw string) (*net.UDPAddr, error) {
+	if raw == "" {
+		return nil, errors.New("server address is required")
+	}
+	if _, _, err := net.SplitHostPort(raw); err != nil {
+		if addr := net.ParseIP(raw); addr != nil {
+			raw = net.JoinHostPort(raw, "67")
+		}
+	}
+	return net.ResolveUDPAddr("udp4", raw)
+}
+
 func (h *serverHandler) offeredIPBelongsToWorkloadNetwork(lw *tables.LocalWorkload, resp *dhcpv4.DHCPv4) bool {
 	if resp.MessageType() != dhcpv4.MessageTypeOffer && resp.MessageType() != dhcpv4.MessageTypeAck {
 		return true
@@ -139,8 +172,7 @@ func (h *serverHandler) offeredIPBelongsToWorkloadNetwork(lw *tables.LocalWorklo
 		return false
 	}
 
-	txn := h.db.ReadTxn()
-	for subnet := range h.subnets.Prefix(txn, tables.SubnetsByNetwork(tables.NetworkName(lw.Interface.Network))) {
+	for subnet := range h.subnets.Prefix(h.db.ReadTxn(), tables.SubnetsByNetwork(tables.NetworkName(lw.Interface.Network))) {
 		if subnet.CIDRv4.IsValid() && subnet.CIDRv4.Contains(ip) {
 			return true
 		}

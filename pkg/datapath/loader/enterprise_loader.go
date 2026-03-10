@@ -146,9 +146,7 @@ func (l *EnterpriseLoader) registerWireguardConfig() {
 	})
 }
 
-const CiliumDHCPInterfaceName = "cilium_dhcp"
-
-// newPrivnetDHCPDevice registers lifecycle hook to create [CiliumDHCPInterfaceName]
+// newPrivnetDHCPDevice registers lifecycle hook to create [pnconfig.DHCPInterfaceName]
 // and provides access to its ifindex. This is used in bpf/lib/enterprise_privnet.h
 // to redirect DHCP packets for processing by the agent.
 func newPrivnetDHCPDevice(lc cell.Lifecycle, fence regeneration.Fence, cfg pnconfig.Config) *privnetDHCPDevice {
@@ -187,9 +185,9 @@ func (p *privnetDHCPDevice) Start(ctx cell.HookContext) error {
 		return p.deleteDevice()
 	}
 
-	link, err := safenetlink.LinkByName(CiliumDHCPInterfaceName)
+	link, err := safenetlink.LinkByName(pnconfig.DHCPInterfaceName)
 	if err != nil {
-		dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: CiliumDHCPInterfaceName}}
+		dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: pnconfig.DHCPInterfaceName}}
 		if err := netlink.LinkAdd(dummy); err != nil {
 			return err
 		}
@@ -206,7 +204,7 @@ func (p *privnetDHCPDevice) Stop(cell.HookContext) error {
 }
 
 func (p *privnetDHCPDevice) deleteDevice() error {
-	link, _ := safenetlink.LinkByName(CiliumDHCPInterfaceName)
+	link, _ := safenetlink.LinkByName(pnconfig.DHCPInterfaceName)
 	if link != nil {
 		return netlink.LinkDel(link)
 	}

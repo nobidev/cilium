@@ -22,9 +22,51 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/testutils"
 )
+
+func TestUnicastRelayPrepareAppliesOption82(t *testing.T) {
+	req, err := dhcpv4.NewDiscovery(net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55})
+	require.NoError(t, err)
+	req.UpdateOption(dhcpv4.OptRelayAgentInfo(
+		dhcpv4.OptGeneric(dhcpv4.AgentCircuitIDSubOption, []byte("old-circuit")),
+	))
+
+	relay := &unicastRelay{
+		option82: &v1alpha1.PrivateNetworkDHCPOption82Spec{
+			CircuitID: "circuit-1",
+			RemoteID:  "remote-1",
+		},
+	}
+	out, err := relay.prepare(req, net.IPv4(192, 0, 2, 1))
+	require.NoError(t, err)
+
+	relayInfo := out.RelayAgentInfo()
+	require.NotNil(t, relayInfo)
+	require.Equal(t, []byte("circuit-1"), relayInfo.Options.Get(dhcpv4.AgentCircuitIDSubOption))
+	require.Equal(t, []byte("remote-1"), relayInfo.Options.Get(dhcpv4.AgentRemoteIDSubOption))
+	require.Equal(t, net.IPv4(192, 0, 2, 1).To4(), out.GatewayIPAddr.To4())
+	require.Equal(t, uint8(1), out.HopCount)
+
+	origRelayInfo := req.RelayAgentInfo()
+	require.NotNil(t, origRelayInfo)
+	require.Equal(t, []byte("old-circuit"), origRelayInfo.Options.Get(dhcpv4.AgentCircuitIDSubOption))
+	require.Nil(t, origRelayInfo.Options.Get(dhcpv4.AgentRemoteIDSubOption))
+}
+
+func TestUnicastRelayPrepareSkipsEmptyOption82(t *testing.T) {
+	req, err := dhcpv4.NewDiscovery(net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff})
+	require.NoError(t, err)
+
+	relay := &unicastRelay{
+		option82: &v1alpha1.PrivateNetworkDHCPOption82Spec{},
+	}
+	out, err := relay.prepare(req, nil)
+	require.NoError(t, err)
+	require.Nil(t, out.RelayAgentInfo())
+}
 
 func TestPrivilegedUnicastRelaySendUnicastSetsGIAddrAndHop(t *testing.T) {
 	testutils.PrivilegedTest(t)

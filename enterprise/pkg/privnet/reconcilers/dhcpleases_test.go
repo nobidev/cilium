@@ -12,6 +12,7 @@ package reconcilers
 
 import (
 	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/statedb"
@@ -29,10 +30,12 @@ func TestDhcpReconcilerDropsLeasesWhenDHCPDisabled(t *testing.T) {
 	require.NoError(t, err)
 	leases, err := tables.NewDHCPLeasesTable(db)
 	require.NoError(t, err)
+	subnets, err := tables.NewSubnetTable(db)
+	require.NoError(t, err)
 
 	lw := &tables.LocalWorkload{
 		EndpointID: 100,
-		DHCP:       true,
+		Subnet:     "default-v4",
 		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
 			Network: "blue",
 			MAC:     "02:aa:bb:cc:dd:ee",
@@ -42,8 +45,18 @@ func TestDhcpReconcilerDropsLeasesWhenDHCPDisabled(t *testing.T) {
 		},
 	}
 
-	wtxn := db.WriteTxn(workloads, leases)
+	wtxn := db.WriteTxn(workloads, leases, subnets)
 	workloads.Insert(wtxn, lw)
+	subnets.Insert(wtxn, tables.Subnet{
+		SubnetSpec: tables.SubnetSpec{
+			Network: "blue",
+			Name:    "default-v4",
+			CIDRv4:  netip.MustParsePrefix("192.168.1.0/24"),
+		},
+		DHCP: iso_v1alpha1.PrivateNetworkSubnetDHCPSpec{
+			Mode: iso_v1alpha1.PrivateNetworkDHCPModeBroadcast,
+		},
+	})
 	leases.Insert(wtxn, tables.DHCPLease{
 		Network:    "blue",
 		EndpointID: 100,
@@ -51,8 +64,13 @@ func TestDhcpReconcilerDropsLeasesWhenDHCPDisabled(t *testing.T) {
 	})
 	wtxn.Commit()
 
-	m := newDhcpLeaseReconciler(nil, nil, db, workloads, leases)
-	wtxn = db.WriteTxn(workloads, leases)
+	m := newDhcpLeaseReconciler(dhcpLeaseReconcilerParams{
+		DB:        db,
+		Workloads: workloads,
+		Leases:    leases,
+		Subnets:   subnets,
+	})
+	wtxn = db.WriteTxn(workloads, leases, subnets)
 	m.dropWorkloadLeases(wtxn, lw)
 	rtxn := wtxn.Commit()
 
@@ -70,12 +88,14 @@ func TestDhcpReconcilerClearsExpiredLease(t *testing.T) {
 	require.NoError(t, err)
 	leases, err := tables.NewDHCPLeasesTable(db)
 	require.NoError(t, err)
+	subnets, err := tables.NewSubnetTable(db)
+	require.NoError(t, err)
 
 	now := time.Now()
 
 	expired := &tables.LocalWorkload{
 		EndpointID: 100,
-		DHCP:       true,
+		Subnet:     "default-v4",
 		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
 			Network: "blue",
 			MAC:     "02:aa:bb:cc:dd:ee",
@@ -86,7 +106,7 @@ func TestDhcpReconcilerClearsExpiredLease(t *testing.T) {
 	}
 	active := &tables.LocalWorkload{
 		EndpointID: 101,
-		DHCP:       true,
+		Subnet:     "default-v4",
 		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
 			Network: "blue",
 			MAC:     "02:aa:bb:cc:dd:ef",
@@ -96,9 +116,19 @@ func TestDhcpReconcilerClearsExpiredLease(t *testing.T) {
 		},
 	}
 
-	wtx := db.WriteTxn(workloads, leases)
+	wtx := db.WriteTxn(workloads, leases, subnets)
 	workloads.Insert(wtx, expired)
 	workloads.Insert(wtx, active)
+	subnets.Insert(wtx, tables.Subnet{
+		SubnetSpec: tables.SubnetSpec{
+			Network: "blue",
+			Name:    "default-v4",
+			CIDRv4:  netip.MustParsePrefix("192.168.1.0/24"),
+		},
+		DHCP: iso_v1alpha1.PrivateNetworkSubnetDHCPSpec{
+			Mode: iso_v1alpha1.PrivateNetworkDHCPModeBroadcast,
+		},
+	})
 	leases.Insert(wtx, tables.DHCPLease{
 		Network:    "blue",
 		EndpointID: expired.EndpointID,
@@ -113,13 +143,18 @@ func TestDhcpReconcilerClearsExpiredLease(t *testing.T) {
 	})
 	wtx.Commit()
 
-	m := newDhcpLeaseReconciler(nil, nil, db, workloads, leases)
+	m := newDhcpLeaseReconciler(dhcpLeaseReconcilerParams{
+		DB:        db,
+		Workloads: workloads,
+		Leases:    leases,
+		Subnets:   subnets,
+	})
 	m.handleExpiredLeases()
 
 	rtx := db.ReadTxn()
 	gotExpired, _, found := workloads.Get(rtx, tables.LocalWorkloadsByID(expired.EndpointID))
 	require.True(t, found)
-	require.Empty(t, gotExpired.Interface.Addressing.IPv4)
+	require.Equal(t, "0.0.0.0", gotExpired.Interface.Addressing.IPv4)
 
 	gotActive, _, found := workloads.Get(rtx, tables.LocalWorkloadsByID(active.EndpointID))
 	require.True(t, found)

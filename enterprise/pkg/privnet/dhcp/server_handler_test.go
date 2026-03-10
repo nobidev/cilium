@@ -65,6 +65,7 @@ func setupHandlerTestState(t *testing.T) (*statedb.DB, statedb.RWTable[*tables.L
 		EndpointID: 10,
 		Namespace:  "ns",
 		DHCP:       true,
+		Subnet:     "default-v4",
 		Endpoint: iso_v1alpha1.PrivateNetworkEndpointSliceEndpoint{
 			Name: "pod",
 		},
@@ -146,6 +147,7 @@ func TestHandlerRenewsLeaseOnAckSameIP(t *testing.T) {
 		EndpointID: lw.EndpointID,
 		Namespace:  lw.Namespace,
 		DHCP:       lw.DHCP,
+		Subnet:     lw.Subnet,
 		Endpoint:   lw.Endpoint,
 		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
 			Network: lw.Interface.Network,
@@ -198,6 +200,7 @@ func TestHandlerClearsLeaseOnNak(t *testing.T) {
 		EndpointID: lw.EndpointID,
 		Namespace:  lw.Namespace,
 		DHCP:       lw.DHCP,
+		Subnet:     lw.Subnet,
 		Endpoint:   lw.Endpoint,
 		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
 			Network: lw.Interface.Network,
@@ -242,6 +245,7 @@ func TestHandlerClearsLeaseOnReleaseRequest(t *testing.T) {
 		EndpointID: lw.EndpointID,
 		Namespace:  lw.Namespace,
 		DHCP:       lw.DHCP,
+		Subnet:     lw.Subnet,
 		Endpoint:   lw.Endpoint,
 		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
 			Network: lw.Interface.Network,
@@ -283,6 +287,7 @@ func TestHandlerClearsLeaseOnDeclineRequest(t *testing.T) {
 		EndpointID: lw.EndpointID,
 		Namespace:  lw.Namespace,
 		DHCP:       lw.DHCP,
+		Subnet:     lw.Subnet,
 		Endpoint:   lw.Endpoint,
 		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
 			Network: lw.Interface.Network,
