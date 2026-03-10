@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "lib/enterprise_config.h"
 #include "lib/enterprise_vxlan.h"
 
 #define ENCRYPTION_POLICY_FULL_PREFIX						\
@@ -33,6 +34,9 @@ struct {
 	__uint(max_entries, ENCRYPTION_POLICY_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_encryption_policy_map __section_maps_btf;
+
+DECLARE_ENTERPRISE_CONFIG(bool, encryption_policy_fallback_encrypt,
+			  "True if encryption policy default action is encrypt.")
 
 #ifdef ENABLE_ENCRYPTION_POLICY
 

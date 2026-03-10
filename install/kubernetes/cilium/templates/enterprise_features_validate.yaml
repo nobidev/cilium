@@ -212,7 +212,7 @@ WARNING: A Limited feature EncryptionIPSec was enabled, but it is not an approve
     {{- end -}}
   {{- end -}}
 {{- end -}}
-{{- if (and (eq "true" (print .enterprise.encryption.policy.enabled)) (eq "plaintext" (print .enterprise.encryption.policy.fallbackBehavior)) ) -}}
+{{- if (eq "true" (print .enterprise.encryption.policy.enabled))  -}}
   {{- if (and (gt (get $featureMaturityLevels "Limited") $minimumMaturityOrder) (not (has "EncryptionPolicy" .enterprise.featureGate.approved))) -}}
     {{- if $strictFeatureGates -}}
       {{- fail "\nLimited feature: EncryptionPolicy was enabled, but is not an approved feature. Please contact Isovalent Support for more information on how to grant an exception." -}}

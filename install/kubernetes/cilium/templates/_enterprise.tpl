@@ -231,6 +231,9 @@ enable-phantom-services: {{ .Values.enterprise.clustermesh.phantomServices.enabl
 
 {{- if .Values.enterprise.encryption.policy.enabled }}
 enable-encryption-policy: {{ .Values.enterprise.encryption.policy.enabled | quote }}
+{{- if .Values.enterprise.encryption.policy.fallbackBehavior }}
+encryption-policy-fallback-behavior: {{ .Values.enterprise.encryption.policy.fallbackBehavior | quote }}
+{{- end }}
 {{- end }}
 
 {{- if .Values.enterprise.loadbalancer.enabled }}

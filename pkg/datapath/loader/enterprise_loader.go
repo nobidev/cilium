@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
 
+	encryptionPolicyTypes "github.com/cilium/cilium/enterprise/pkg/encryption/policy/types"
 	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
 	pnconfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	pnendpoints "github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
@@ -51,25 +52,28 @@ var EnterpriseCell = cell.Module(
 )
 
 type EnterpriseLoader struct {
-	privnetConfig pnconfig.Config
-	evpnConfig    evpnConfig.Config
-	db            *statedb.DB
-	deviceTable   statedb.Table[*tables.Device]
+	privnetConfig       pnconfig.Config
+	evpnConfig          evpnConfig.Config
+	encryptionPolicyCfg encryptionPolicyTypes.Config
+	db                  *statedb.DB
+	deviceTable         statedb.Table[*tables.Device]
 }
 
 func newEnterpriseLoader(in struct {
 	cell.In
 
-	PrivnetConfig pnconfig.Config
-	EvpnConfig    evpnConfig.Config
-	DB            *statedb.DB
-	DeviceTable   statedb.Table[*tables.Device]
+	PrivnetConfig       pnconfig.Config
+	EvpnConfig          evpnConfig.Config
+	EncryptionPolicyCfg encryptionPolicyTypes.Config
+	DB                  *statedb.DB
+	DeviceTable         statedb.Table[*tables.Device]
 }) *EnterpriseLoader {
 	return &EnterpriseLoader{
-		privnetConfig: in.PrivnetConfig,
-		evpnConfig:    in.EvpnConfig,
-		db:            in.DB,
-		deviceTable:   in.DeviceTable,
+		privnetConfig:       in.PrivnetConfig,
+		evpnConfig:          in.EvpnConfig,
+		encryptionPolicyCfg: in.EncryptionPolicyCfg,
+		db:                  in.DB,
+		deviceTable:         in.DeviceTable,
 	}
 }
 
@@ -126,6 +130,8 @@ func (l *EnterpriseLoader) registerOverlayConfig() {
 func (l *EnterpriseLoader) registerNetdevConfig() {
 	netdevConfigs.register(func(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link, _ netip.Addr, _ netip.Addr) any {
 		cfg := config.NewBPFHostEnterprise()
+
+		cfg.EncryptionPolicyFallbackEncrypt = l.encryptionPolicyCfg.FallbackEncrypt()
 
 		cfg.PrivnetEnable = l.privnetConfig.Enabled
 		cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()

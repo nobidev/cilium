@@ -1695,15 +1695,15 @@
    * - :spelling:ignore:`enterprise.encryption`
      - Transparent encryption
      - object
-     - ``{"policy":{"enabled":false,"fallbackBehavior":null}}``
+     - ``{"policy":{"enabled":false,"fallbackBehavior":"encrypt"}}``
    * - :spelling:ignore:`enterprise.encryption.policy.enabled`
      - Enables support for encryption policies
      - bool
      - ``false``
    * - :spelling:ignore:`enterprise.encryption.policy.fallbackBehavior`
-     - Defines the behavior for traffic which is not selected by an encryption policy. Currently the only supported value is "plaintext", which also needs to be explicitly provided for forward-compatibility with future Cilium versions (as future versions might implement a different default fallback behavior). @schema type: [null, string] @schema
+     - Defines the behavior for traffic which is not selected by an encryption policy. Supported values: "encrypt" (default, all traffic is encrypted; use plaintextPeers to opt-out specific flows), "plaintext" (traffic not selected by a policy is not encrypted). @schema enum: [plaintext, encrypt] @schema
      - string
-     - ``nil``
+     - ``"encrypt"``
    * - :spelling:ignore:`enterprise.evpn.enabled`
      - Enables support for EVPN
      - bool

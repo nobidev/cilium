@@ -394,7 +394,6 @@ features:
     skip-flag-check: true
     helm:
       enterprise.encryption.policy.enabled: true
-      enterprise.encryption.policy.fallbackBehavior: plaintext
 
   ### Envoy
 

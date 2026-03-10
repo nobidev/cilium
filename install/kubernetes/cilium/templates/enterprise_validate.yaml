@@ -1,8 +1,8 @@
 {{/* validate enterprise options */}}
 
 {{/*validate encryption policy fallback mode*/}}
-{{- if and .Values.enterprise.encryption.policy.enabled (ne .Values.enterprise.encryption.policy.fallbackBehavior "plaintext") }}
-  {{- fail "enterprise.encryption.policy.fallbackBehavior needs to be set explicitly set to 'plaintext' for forward-compatibility" }}
+{{- if and .Values.enterprise.encryption.policy.enabled (and (ne .Values.enterprise.encryption.policy.fallbackBehavior "plaintext") (ne .Values.enterprise.encryption.policy.fallbackBehavior "encrypt")) }}
+  {{- fail "enterprise.encryption.policy.fallbackBehavior must be set to 'plaintext' or 'encrypt'" }}
 {{- end }}
 
 {{/*validate deprecated and no longer supported Hubble exporter flags*/}}

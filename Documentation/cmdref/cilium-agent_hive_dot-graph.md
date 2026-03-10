@@ -140,6 +140,7 @@ cilium-agent hive dot-graph [flags]
       --enable-wireguard                                                 Enable WireGuard
       --enable-xt-socket-fallback                                        Enable fallback for missing xt_socket module (default true)
       --enable-ztunnel                                                   Use zTunnel as Cilium's encryption infrastructure
+      --encryption-policy-fallback-behavior string                       Defines the behavior for traffic not selected by an encryption policy. Accepted values: "encrypt" (default), "plaintext". (default "encrypt")
       --encryption-policy-map-max int                                    Maximum number of entries in encryption policy map (default 16384)
       --endpoint-bpf-prog-watchdog-interval duration                     Interval to trigger endpoint BPF programs load check watchdog (default 30s)
       --endpoint-regen-interval duration                                 Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable (default 2m0s)

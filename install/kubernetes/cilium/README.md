@@ -469,9 +469,9 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.egressGatewayHA.icmpHealthProbe | object | `{"enabled":true,"failureThreshold":3,"interval":"100ms"}` | Enables ICMP health probing of egress gateway nodes. When enabled, the cilium-operator periodically sends ICMP echo requests to gateway nodes to verify their availability. |
 | enterprise.egressGatewayHA.reconciliationTriggerInterval | string | `"1s"` | Time between triggers of egress gateway state reconciliations |
 | enterprise.egressGatewayHA.socketTermination | object | `{"enabled":false}` | Enables socket termination which will close client sockets on connections being forwarded to a egress gateway node when the node is no longer available. |
-| enterprise.encryption | object | `{"policy":{"enabled":false,"fallbackBehavior":null}}` | Transparent encryption |
+| enterprise.encryption | object | `{"policy":{"enabled":false,"fallbackBehavior":"encrypt"}}` | Transparent encryption |
 | enterprise.encryption.policy.enabled | bool | `false` | Enables support for encryption policies |
-| enterprise.encryption.policy.fallbackBehavior | string | `nil` | Defines the behavior for traffic which is not selected by an encryption policy. Currently the only supported value is "plaintext", which also needs to be explicitly provided for forward-compatibility with future Cilium versions (as future versions might implement a different default fallback behavior). @schema type: [null, string] @schema |
+| enterprise.encryption.policy.fallbackBehavior | string | `"encrypt"` | Defines the behavior for traffic which is not selected by an encryption policy. Supported values: "encrypt" (default, all traffic is encrypted; use plaintextPeers to opt-out specific flows), "plaintext" (traffic not selected by a policy is not encrypted). @schema enum: [plaintext, encrypt] @schema |
 | enterprise.evpn.enabled | bool | `false` | Enables support for EVPN |
 | enterprise.evpn.fibMapMax | int | `65536` | Maximum number of entries in the cilium_evpn_fib map |
 | enterprise.evpn.securityGroupTags.defaultGroupID | int | `0` | Default Security Group ID, used when no other configured Security Group matches the advertisement. |

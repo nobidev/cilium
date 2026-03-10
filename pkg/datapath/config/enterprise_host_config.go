@@ -18,6 +18,8 @@ type BPFHostEnterprise struct {
 	EVPNDeviceMAC types.MACAddr `config:"evpn_device_mac"`
 	// True if evpn feature is enabled.
 	EVPNEnable bool `config:"evpn_enable"`
+	// True if encryption policy default action is encrypt.
+	EncryptionPolicyFallbackEncrypt bool `config:"encryption_policy_fallback_encrypt"`
 	// True if running on network bridge.
 	PrivnetBridgeEnable bool `config:"privnet_bridge_enable"`
 	// True if the endpoint is in a non-default network.
@@ -37,7 +39,7 @@ type BPFHostEnterprise struct {
 func NewBPFHostEnterprise() *BPFHostEnterprise {
 	return &BPFHostEnterprise{0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-		false, false, false, false, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, false, false, false, false, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		false, 0x0}
 }

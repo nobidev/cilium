@@ -2460,9 +2460,9 @@
                   "type": "boolean"
                 },
                 "fallbackBehavior": {
-                  "type": [
-                    "null",
-                    "string"
+                  "enum": [
+                    "plaintext",
+                    "encrypt"
                   ]
                 }
               },

@@ -5265,13 +5265,12 @@ enterprise:
       # -- Enables support for encryption policies
       enabled: false
       # -- Defines the behavior for traffic which is not selected by an encryption policy.
-      # Currently the only supported value is "plaintext", which also needs to be explicitly
-      # provided for forward-compatibility with future Cilium versions (as future versions
-      # might implement a different default fallback behavior).
+      # Supported values: "encrypt" (default, all traffic is encrypted; use plaintextPeers to opt-out specific flows),
+      # "plaintext" (traffic not selected by a policy is not encrypted).
       # @schema
-      # type: [null, string]
+      # enum: [plaintext, encrypt]
       # @schema
-      fallbackBehavior: ~
+      fallbackBehavior: encrypt
   loadbalancer:
     # -- Enables Loadbalancer mode (Control Plane)
     enabled: false

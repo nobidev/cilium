@@ -43,8 +43,9 @@ var Cell = cell.Module(
 	"encryption-policy",
 	"Encryption Policy Control-Plane",
 
-	// Registers command-line flag
+	// Registers command-line flag and validates config
 	cell.Config(defaultConfig),
+	cell.Invoke(types.Config.Validate),
 
 	// K8s resource watcher
 	cell.ProvidePrivate(isovalentClusterwideEncryptionPolicyResource),
@@ -84,7 +85,8 @@ const (
 )
 
 var defaultConfig = types.Config{
-	EnableEncryptionPolicy: false,
+	EnableEncryptionPolicy:           false,
+	EncryptionPolicyFallbackBehavior: "encrypt",
 }
 
 func isovalentClusterwideEncryptionPolicyResource(cfg types.Config, lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*iso_v1alpha1.IsovalentClusterwideEncryptionPolicy], error) {
