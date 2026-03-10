@@ -63,6 +63,24 @@ db/cmp privnet-desired-nads desired-nads.v4.table
 # ... and assert that the updated NADs are observed back.
 db/cmp privnet-nads nads.v4.table
 
+# Manually update the NAD objects...
+k8s/update nad-crow-sturgeon-longhorn.v2.yaml nad-crow-sturgeon-starfish.v2.yaml
+
+# ... and validate that they are reconciled back, but only if managed by Cilium.
+k8s/list networkattachmentdefinitions crow -o nads.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' nads.actual.yaml
+* cmp nads-crow.v2.expected.yaml nads.actual.yaml
+
+# Manually delete a NAD object...
+k8s/get networkattachmentdefinitions bluegill/egret-ewe -o nad-delete.yaml
+k8s/delete nad-delete.yaml
+
+# ... and validate that it is reconciled back.
+* k8s/get networkattachmentdefinitions bluegill/egret-ewe
+
+# ... and assert that the updated NADs are observed back.
+db/cmp privnet-nads nads.v5.table
+
 # ---
 
 -- icpn-crd.yaml --
@@ -139,6 +157,66 @@ spec:
   config: '{"cniVersion": "0.3.1", "type": "cilium-cni", "enable-debug": false, "log-format":
     "text-ts", "log-file": "/var/run/cilium/cilium-cni.log", "private-networks": {"network":
     "sturgeon", "subnet": "longhorn"}}'
+-- EOR --
+
+-- nad-crow-sturgeon-longhorn.v2.yaml --
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: sturgeon-longhorn
+  namespace: crow
+  annotations:
+    foo: bar
+  labels:
+    app.kubernetes.io/managed-by: cilium
+spec:
+  config: '{"cniVersion": "0.3.1", "type": "cilium-cni", "enable-debug": false, "log-format":
+    "foo", "log-file": "/var/run/cilium/cilium-cni.log", "private-networks": {"network":
+    "sturgeon", "subnet": "baz"}}'
+
+-- nad-crow-sturgeon-starfish.v2.yaml --
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: sturgeon-starfish
+  namespace: crow
+  annotations:
+    qux: baz
+spec:
+  config: '{"cniVersion": "0.3.1", "type": "cilium-cni", "enable-debug": false, "log-format":
+    "text-ts","log-file": "/var/run/cilium/cilium-cni.log", "private-networks": {"network":
+    "sturgeon"}}'
+
+-- nads-crow.v2.expected.yaml --
+items:
+- apiVersion: k8s.cni.cncf.io/v1
+  kind: NetworkAttachmentDefinition
+  metadata:
+    annotations:
+      foo: bar
+    labels:
+      app.kubernetes.io/managed-by: cilium
+    name: sturgeon-longhorn
+    namespace: crow
+    resourceVersion: "<nr>"
+  spec:
+    config: '{"cniVersion": "0.3.1", "type": "cilium-cni", "enable-debug": false,
+      "log-format": "text-ts", "log-file": "/var/run/cilium/cilium-cni.log", "private-networks":
+      {"network": "sturgeon", "subnet": "longhorn"}}'
+- apiVersion: k8s.cni.cncf.io/v1
+  kind: NetworkAttachmentDefinition
+  metadata:
+    annotations:
+      qux: baz
+    name: sturgeon-starfish
+    namespace: crow
+    resourceVersion: "<nr>"
+  spec:
+    config: '{"cniVersion": "0.3.1", "type": "cilium-cni", "enable-debug": false,
+      "log-format": "text-ts","log-file": "/var/run/cilium/cilium-cni.log", "private-networks":
+      {"network": "sturgeon"}}'
+metadata:
+  resourceVersion: "<nr>"
 -- EOR --
 
 -- icpn-1.yaml --
@@ -317,6 +395,15 @@ bluegill    egret-opossum           cilium-cni    egret          opossum       t
 bluegill    egret-select-gull       cilium-cni    egret          select-gull   true
 crow        sturgeon-longhorn       cilium-cni    sturgeon       longhorn      true
 crow        sturgeon-starfish       cilium-cni    sturgeon       starfish      true
+spaniel     egret-parrot            cilium-cni    egret          parrot        false
+
+-- nads.v5.table --
+Namespace   Name                    Type          Network        Subnet        Managed
+bluegill    egret-ewe               cilium-cni    egret          ewe           true
+bluegill    egret-opossum           cilium-cni    egret          opossum       true
+bluegill    egret-select-gull       cilium-cni    egret          select-gull   true
+crow        sturgeon-longhorn       cilium-cni    sturgeon       longhorn      true
+crow        sturgeon-starfish       cilium-cni    sturgeon       __unknown__   false
 spaniel     egret-parrot            cilium-cni    egret          parrot        false
 
 -- desired-nads.v1.table --

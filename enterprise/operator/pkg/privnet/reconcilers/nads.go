@@ -261,9 +261,10 @@ func (n *NetworkAttachmentDefinitions) registerDesiredReconciler() {
 		}
 
 		health.OK("Primed")
-		wtx := n.db.WriteTxn(n.networks, n.namespaces)
+		wtx := n.db.WriteTxn(n.networks, n.namespaces, n.nads)
 		netsChangeIter, _ := n.networks.Changes(wtx)
 		nsesChangeIter, _ := n.namespaces.Changes(wtx)
+		nadsChangeIter, _ := n.nads.Changes(wtx)
 		wtx.Commit()
 
 		for {
@@ -272,7 +273,8 @@ func (n *NetworkAttachmentDefinitions) registerDesiredReconciler() {
 			wtx := n.db.WriteTxn(n.tbl)
 			netsChanges, netsWatch := netsChangeIter.Next(wtx)
 			nsesChanges, nsesWatch := nsesChangeIter.Next(wtx)
-			watchset.Add(netsWatch, nsesWatch)
+			nadsChanges, nadsWatch := nadsChangeIter.Next(wtx)
+			watchset.Add(netsWatch, nsesWatch, nadsWatch)
 
 			for change := range netsChanges {
 				if change.Deleted {
@@ -288,6 +290,16 @@ func (n *NetworkAttachmentDefinitions) registerDesiredReconciler() {
 				} else {
 					n.upsertDesiredNADsForNamespace(wtx, change.Object)
 				}
+			}
+
+			for change := range nadsChanges {
+				// Whenever we observe a NAD change, we mark the corresponding
+				// desired NAD, if any, as pending, so that the reconciler can
+				// check whether an update is necessary to enforce the desired
+				// state. We don't explicitly trigger the deletion of a managed
+				// NAD if the corresponding desired NAD doesn't exist, as that's
+				// taken care of by the periodic pruning process.
+				n.markDesiredNADPending(wtx, change.Object.NamespacedName)
 			}
 
 			if !initDone {
@@ -364,6 +376,15 @@ func (n *NetworkAttachmentDefinitions) deleteDesiredNADsForNamespace(wtx statedb
 	for nad := range n.tbl.Prefix(wtx, tables.DesiredNADsByNamespace(namespace)) {
 		n.tbl.Delete(wtx, nad)
 	}
+}
+
+func (n *NetworkAttachmentDefinitions) markDesiredNADPending(wtx statedb.WriteTxn, nn tables.NamespacedName) {
+	desired, _, found := n.tbl.Get(wtx, tables.DesiredNADByNamespacedName(nn))
+	if !found {
+		return
+	}
+
+	n.tbl.Insert(wtx, desired.SetStatus(reconciler.StatusPending()))
 }
 
 func (n *NetworkAttachmentDefinitions) upsertDesiredNADsForNetworkAndNamespace(
