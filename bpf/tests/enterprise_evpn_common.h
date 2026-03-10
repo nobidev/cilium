@@ -30,12 +30,12 @@ evpn_setup_fib(void) {
 	union v6addr v6_prefix_112 = EVPN_V6_PREFIX1;
 	union v6addr v6_prefix_0 = EVPN_V6_PREFIX2;
 
-	evpn_fib_v4_add(1, EVPN_V4_PREFIX0, 24, 100, mac0, v4_node_one); /* 10.0.1.0/24 */
-	evpn_fib_v4_add(1, EVPN_V4_PREFIX1, 16, 200, mac0, v4_node_one); /* 10.0.0.0/16 */
-	evpn_fib_v4_add(1, EVPN_V4_PREFIX2, 0, 300, mac0, v4_node_one); /* 0.0.0.0/0 */
-	evpn_fib_v6_add(1, &v6_prefix_120, 120, 100, mac0, &v6_nexthop0); /* fd00::0100/120 */
-	evpn_fib_v6_add(1, &v6_prefix_112, 112, 200, mac0, &v6_nexthop0); /* fd00::/112 */
-	evpn_fib_v6_add(1, &v6_prefix_0, 0, 300, mac0, &v6_nexthop0); /* ::/0 */
+	evpn_fib_v4_add_nh4(1, EVPN_V4_PREFIX0, 24, 100, mac0, v4_node_one); /* 10.0.1.0/24 */
+	evpn_fib_v4_add_nh4(1, EVPN_V4_PREFIX1, 16, 200, mac0, v4_node_one); /* 10.0.0.0/16 */
+	evpn_fib_v4_add_nh6(1, EVPN_V4_PREFIX2, 0, 300, mac0, &v6_nexthop0); /* 0.0.0.0/0 */
+	evpn_fib_v6_add_nh6(1, &v6_prefix_120, 120, 100, mac0, &v6_nexthop0); /* fd00::0100/120 */
+	evpn_fib_v6_add_nh6(1, &v6_prefix_112, 112, 200, mac0, &v6_nexthop0); /* fd00::/112 */
+	evpn_fib_v6_add_nh4(1, &v6_prefix_0, 0, 300, mac0, v4_node_one); /* ::/0 */
 }
 
 static __always_inline void

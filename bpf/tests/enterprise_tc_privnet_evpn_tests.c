@@ -261,7 +261,7 @@ int privnet_evpn_egress_v4_check(struct __ctx_buff *ctx)
 		union macaddr nexthop_mac = { .addr = mac_one_addr };
 
 		dip_val.type = PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE;
-		evpn_fib_v4_add(NET_ID, V4_NET_IP_1, 32, 100, nexthop_mac, v4_node_one);
+		evpn_fib_v4_add_nh4(NET_ID, V4_NET_IP_1, 32, 100, nexthop_mac, v4_node_one);
 		status_code = privnet_evpn_egress_ipv4(ctx, NET_ID, &dip_val, V4_NET_IP_1);
 		evpn_fib_v4_del(NET_ID, V4_NET_IP_1, 32);
 		if (status_code != TC_ACT_REDIRECT)
@@ -307,7 +307,7 @@ int privnet_evpn_egress_v6_check(struct __ctx_buff *ctx)
 		union macaddr nexthop_mac = { .addr = mac_one_addr };
 
 		dip_val.type = PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE;
-		evpn_fib_v6_add(NET_ID, &dst_ip, 128, 100, nexthop_mac, &v6_nexthop);
+		evpn_fib_v6_add_nh6(NET_ID, &dst_ip, 128, 100, nexthop_mac, &v6_nexthop);
 		status_code = privnet_evpn_egress_ipv6(ctx, NET_ID, &dip_val, dst_ip);
 		evpn_fib_v6_del(NET_ID, &dst_ip, 128);
 		if (status_code != TC_ACT_REDIRECT)
