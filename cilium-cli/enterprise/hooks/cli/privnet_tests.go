@@ -92,6 +92,7 @@ func newCmdPrivNetTest() *cobra.Command {
 			}()
 
 			vmClientA := t.VM(privnet.NetworkA, privnet.ClientVM(privnet.NetworkA))
+			vmClientADHCP := t.VM(privnet.NetworkA, privnet.VMName("client-dhcp-network-a"))
 			vmEchoA := t.VM(privnet.NetworkA, privnet.EchoVM(privnet.NetworkA))
 			vmEchoOtherA := t.VM(privnet.NetworkA, privnet.EchoOtherVM(privnet.NetworkA))
 
@@ -104,6 +105,9 @@ func newCmdPrivNetTest() *cobra.Command {
 
 			externalTarget := params.ExternalTarget
 			externalIPTarget := params.ExternalIPTarget
+
+			// DHCP validation for network-a via inb0.
+			t.Run(ctx, privnet.NewDHCP(t, vmClientADHCP), privnet.ExpectationOK)
 
 			t.Run(ctx, privnet.NewClientToEcho(t, vmClientA, vmEchoA), privnet.ExpectationOK)
 			t.Run(ctx, privnet.NewClientToEcho(t, vmClientA, vmEchoOtherA), privnet.ExpectationOK)

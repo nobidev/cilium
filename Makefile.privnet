@@ -21,6 +21,9 @@ PRIVNET_VM_IMAGE ?= $(shell grep -oP '"VMImage": "\K.*(?=@)' cilium-cli/enterpri
 # renovate: datasource=docker
 PRIVNET_CONTAINER_IMAGE ?= docker.io/nicolaka/netshoot:v0.15@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61
 
+# renovate: datasource=docker depName=4km3/dnsmasq
+PRIVNET_DNSMASQ_IMAGE ?= docker.io/4km3/dnsmasq:2.90-r3@sha256:52e25fb2601156ab66f6a0872c180b285df7cafaa41267d8d65689f066490641
+
 # renovate: datasource=github-releases depName=cert-manager/cert-manager
 PRIVNET_CERT_MANAGER_VERSION ?= v1.19.4
 
@@ -67,6 +70,7 @@ kind-privnet-up: kind-privnet-govmomi-image  ## Setup the privnet environment
 		PRIVNET_BRIDGE=privnet-sgmnts \
 		PRIVNET_KIND_IMAGE=$(PRIVNET_KIND_IMAGE) \
 		PRIVNET_CONTAINER_IMAGE=$(PRIVNET_CONTAINER_IMAGE) \
+		PRIVNET_DNSMASQ_IMAGE=$(PRIVNET_DNSMASQ_IMAGE) \
 		PRIVNET_GOVMOMI_IMAGE=$(PRIVNET_GOVMOMI_IMAGE) \
 		PRIVNET_DNS_SERVER=$(PRIVNET_DNS_SERVER) \
 		PRIVNET_FAKE_VM_SCRIPT=$(ROOT_DIR)/cilium-cli/enterprise/hooks/cli/privnet/manifests/vm-echo-script.py \

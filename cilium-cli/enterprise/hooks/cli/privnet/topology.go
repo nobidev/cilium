@@ -62,9 +62,10 @@ func (n NetworkName) String() string {
 }
 
 type VM struct {
-	ID      string
-	Name    VMName
-	NetName NetworkName
+	ID        string
+	Name      VMName
+	NetName   NetworkName
+	NetSubnet string
 
 	NetIPv4 netip.Addr
 	NetIPv6 netip.Addr
@@ -176,6 +177,19 @@ var networkTopology = map[NetworkName]NetworkData{
 				NetMAC:         "be:68:f6:fc:6a:4a",
 				Affinity:       OtherNode,
 				Kind:           VMKindEcho,
+			},
+			{
+				ID:             "",
+				Name:           VMName("client-dhcp-network-a"),
+				NetName:        NetworkA,
+				NetSubnet:      "subnet-0",
+				NetIPv4:        netip.MustParseAddr("0.0.0.0"), /* zero or missing IPv4 signals use of DHCP */
+				NetIPv6:        netip.MustParseAddr("fd10:0:250::15"),
+				NetIPv6Gateway: netip.MustParseAddr("fe80::100"),
+				NetDNSServer:   netip.MustParseAddr("192.168.250.254"),
+				NetMAC:         "02:00:00:e6:bb:ff",
+				Affinity:       SameNode,
+				Kind:           VMKindClient,
 			},
 		},
 	},

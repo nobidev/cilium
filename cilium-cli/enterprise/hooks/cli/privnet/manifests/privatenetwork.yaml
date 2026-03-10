@@ -23,6 +23,8 @@ spec:
       {{- else }}
       routes: []
       {{- end }}
+      dhcp:
+        mode: broadcast
     {{- end }}
   {{- if .INBClusterNames }}
   networkBridges:

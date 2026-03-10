@@ -202,6 +202,30 @@ topology:
             target: host
             phase: on-enter
 
+    dhcp-net-a:
+      kind: linux
+      group: vms
+      image: ${PRIVNET_DNSMASQ_IMAGE}
+      cmd: --interface=eth0 --listen-address=192.168.250.253 --keep-in-foreground --dhcp-range=192.168.250.100,192.168.250.150,255.255.255.0
+      exec:
+        - ip addr add 192.168.250.253/24 dev eth0
+        - ip -4 route replace default via 192.168.250.254
+      dns:
+        servers:
+        - 192.168.250.254
+        search:
+        - "."
+      stages:
+        create:
+          wait-for:
+          - node: ${PRIVNET_BRIDGE:-privnet-sgmnts}
+            stage: create-links
+        configure:
+          exec:
+          - command: ${BRIDGE:-/sbin/bridge} vlan add dev bpn-net-a3 vid 10 pvid untagged
+            target: host
+            phase: on-enter
+
     # Fake VMs --- net-b segment
     vm-net-b1:
       kind: linux
@@ -403,6 +427,8 @@ topology:
   - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-a1", "vm-net-a1:eth0"]
     mtu: 1500
   - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-a2", "vm-net-a2:eth0"]
+    mtu: 1500
+  - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-a3", "dhcp-net-a:eth0"]
     mtu: 1500
   - endpoints: ["${PRIVNET_BRIDGE:-privnet-sgmnts}:bpn-net-a9", "router-net-abc:ethA"]
     mtu: 1500
