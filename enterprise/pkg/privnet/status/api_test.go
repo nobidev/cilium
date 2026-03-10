@@ -100,9 +100,11 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: true,
-							Interface: Interface{
-								Name:  "eth2",
-								Index: 11,
+							Interfaces: []Interface{
+								{
+									Name:  "eth2",
+									Index: 11,
+								},
 							},
 							ActiveWorkloadNodes: []WorkloadNode{
 								{
@@ -155,9 +157,11 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: false,
-							Interface: Interface{
-								Name:  "eth1",
-								Error: `Interface "eth1" has "link-layer-down" operational status`,
+							Interfaces: []Interface{
+								{
+									Name:  "eth1",
+									Error: `Interface "eth1" has "link-layer-down" operational status`,
+								},
 							},
 						},
 					},
@@ -397,9 +401,11 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: true,
-							Interface: Interface{
-								Name:  "eth2",
-								Index: 11,
+							Interfaces: []Interface{
+								{
+									Name:  "eth2",
+									Index: 11,
+								},
 							},
 							ActiveWorkloadNodes: []WorkloadNode{
 								{
@@ -452,9 +458,11 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: false,
-							Interface: Interface{
-								Name:  "eth1",
-								Error: `Interface "eth1" has "link-layer-down" operational status`,
+							Interfaces: []Interface{
+								{
+									Name:  "eth1",
+									Error: `Interface "eth1" has "link-layer-down" operational status`,
+								},
 							},
 						},
 					},
@@ -529,9 +537,11 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: true,
-							Interface: Interface{
-								Name:  "eth2",
-								Index: 11,
+							Interfaces: []Interface{
+								{
+									Name:  "eth2",
+									Index: 11,
+								},
 							},
 							ActiveWorkloadNodes: []WorkloadNode{
 								{
@@ -584,9 +594,11 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: false,
-							Interface: Interface{
-								Name:  "eth1",
-								Error: `Interface "eth1" has "link-layer-down" operational status`,
+							Interfaces: []Interface{
+								{
+									Name:  "eth1",
+									Error: `Interface "eth1" has "link-layer-down" operational status`,
+								},
 							},
 						},
 					},
@@ -661,9 +673,11 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: true,
-							Interface: Interface{
-								Name:  "eth2",
-								Index: 11,
+							Interfaces: []Interface{
+								{
+									Name:  "eth2",
+									Index: 11,
+								},
 							},
 							ActiveWorkloadNodes: []WorkloadNode{
 								{
@@ -716,9 +730,11 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: false,
-							Interface: Interface{
-								Name:  "eth1",
-								Error: `Interface "eth1" has "link-layer-down" operational status`,
+							Interfaces: []Interface{
+								{
+									Name:  "eth1",
+									Error: `Interface "eth1" has "link-layer-down" operational status`,
+								},
 							},
 						},
 					},
@@ -794,9 +810,11 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: true,
-							Interface: Interface{
-								Name:  "eth2",
-								Index: 11,
+							Interfaces: []Interface{
+								{
+									Name:  "eth2",
+									Index: 11,
+								},
 							},
 							ActiveWorkloadNodes: []WorkloadNode{
 								{
@@ -849,9 +867,10 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: false,
-							Interface: Interface{
-								Name:  "eth1",
-								Error: `Interface "eth1" has "link-layer-down" operational status`,
+							Interfaces: []Interface{
+								{
+									Name:  "eth1",
+									Error: `Interface "eth1" has "link-layer-down" operational status`},
 							},
 						},
 					},
@@ -936,9 +955,11 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: true,
-							Interface: Interface{
-								Name:  "eth2",
-								Index: 11,
+							Interfaces: []Interface{
+								{
+									Name:  "eth2",
+									Index: 11,
+								},
 							},
 							ActiveWorkloadNodes: []WorkloadNode{
 								{
@@ -1001,9 +1022,10 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: false,
-							Interface: Interface{
-								Name:  "eth1",
-								Error: `Interface "eth1" has "link-layer-down" operational status`,
+							Interfaces: []Interface{
+								{
+									Name:  "eth1",
+									Error: `Interface "eth1" has "link-layer-down" operational status`},
 							},
 						},
 					},
@@ -1079,9 +1101,11 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: true,
-							Interface: Interface{
-								Name:  "eth2",
-								Index: 11,
+							Interfaces: []Interface{
+								{
+									Name:  "eth2",
+									Index: 11,
+								},
 							},
 							ActiveWorkloadNodes: []WorkloadNode{
 								{
@@ -1134,9 +1158,11 @@ func TestAPIStability(t *testing.T) {
 
 						INBStatus: INBStatus{
 							Serving: false,
-							Interface: Interface{
-								Name:  "eth1",
-								Error: `Interface "eth1" has "link-layer-down" operational status`,
+							Interfaces: []Interface{
+								{
+									Name:  "eth1",
+									Error: `Interface "eth1" has "link-layer-down" operational status`,
+								},
 							},
 						},
 					},

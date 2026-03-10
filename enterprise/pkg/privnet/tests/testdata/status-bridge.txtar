@@ -18,6 +18,7 @@ clustermesh/nodes/sync
 db/insert devices device.eth1.yaml
 db/insert devices device.eth2.yaml
 k8s/add icpn-1.yaml icpn-2.yaml
+k8s/add pnna-1.yaml pnna-2.yaml
 
 # Register the networks.
 checkerpool/register cougar default/foobar-worker-1 firefly
@@ -97,6 +98,19 @@ spec:
   - name: foo
     cidrv4: 192.168.250.0/24
 
+-- pnna-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkNodeAttachment
+metadata:
+  name: pnna-1
+spec:
+  privateNetworkRef:
+    name: maggot
+  attachments:
+    - interface: eth1
+      subnetRefs:
+        - name: foo
+
 -- icpn-2.yaml --
 apiVersion: isovalent.com/v1alpha1
 kind: ClusterwidePrivateNetwork
@@ -109,6 +123,19 @@ spec:
   subnets:
   - name: bar
     cidrv4: 192.168.251.0/24
+
+-- pnna-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkNodeAttachment
+metadata:
+  name: pnna-2
+spec:
+  privateNetworkRef:
+    name: firefly
+  attachments:
+    - interface: eth2
+      subnetRefs:
+        - name: bar
 
 -- local-workload-optimum-mouse.yaml --
 endpointid: 11
@@ -321,14 +348,18 @@ default/foobar-worker-1   maggot    Healthy, Confirmed
 -- status-1.txt --
 Network Bridge                             foobar-worker-1                                Status  OK
 
-  Network firefly                       Interface eth2 state UP                              SERVING
+  Network firefly                         Active Interfaces 1                                SERVING
+    Interfaces
+              eth2 (11), State UP, Subnets (bar)
     Subnets   192.168.251.0/24
     Routes    No routes defined for network
     External Endpoints 1                   Served Endpoints 1                      Total Endpoints 4
 
     Served Nodes        felidae        1/2 (1/2 endpoints)
 
-  Network maggot                        Interface eth1 state UP                              SERVING
+  Network maggot                          Active Interfaces 1                                SERVING
+    Interfaces
+              eth1 (10), State UP, Subnets (foo)
     Subnets   192.168.250.0/24
     Routes    No routes defined for network
     External Endpoints 0                   Served Endpoints 2                      Total Endpoints 4
@@ -404,10 +435,15 @@ Network Bridge                             foobar-worker-1                      
       ],
       "inbStatus": {
         "serving": true,
-        "interface": {
-          "name": "eth2",
-          "index": 11
-        },
+        "interfaces": [
+          {
+            "name": "eth2",
+            "index": 11,
+            "subnets": [
+              "bar"
+            ]
+          }
+        ],
         "activeWorkloadNodes": [
           {
             "name": "lion",
@@ -461,10 +497,15 @@ Network Bridge                             foobar-worker-1                      
       ],
       "inbStatus": {
         "serving": true,
-        "interface": {
-          "name": "eth1",
-          "index": 10
-        },
+        "interfaces": [
+          {
+            "name": "eth1",
+            "index": 10,
+            "subnets": [
+              "foo"
+            ]
+          }
+        ],
         "activeWorkloadNodes": [
           {
             "name": "cougar",
@@ -478,15 +519,19 @@ Network Bridge                             foobar-worker-1                      
 -- status-2.txt --
 Network Bridge                             foobar-worker-1                          Status  DEGRADED
 
-  Network firefly                       Interface eth2 state UP                              SERVING
+  Network firefly                         Active Interfaces 1                                SERVING
+    Interfaces
+              eth2 (11), State UP, Subnets (bar)
     Subnets   192.168.251.0/24
     Routes    No routes defined for network
     External Endpoints 1                   Served Endpoints 1                      Total Endpoints 4
 
     Served Nodes        felidae        1/2 (1/2 endpoints)
 
-  Network maggot                      Interface eth1 state ERROR                            DEGRADED
+  Network maggot                          Active Interfaces 0                               DEGRADED
       Interface "eth1" has "link-layer-down" operational status
+    Interfaces
+              eth1 (!), State DOWN, Subnets (foo)
     Subnets   192.168.250.0/24
     Routes    No routes defined for network
     External Endpoints 0                   Served Endpoints 0                      Total Endpoints 4
@@ -562,10 +607,15 @@ Network Bridge                             foobar-worker-1                      
       ],
       "inbStatus": {
         "serving": true,
-        "interface": {
-          "name": "eth2",
-          "index": 11
-        },
+        "interfaces": [
+          {
+            "name": "eth2",
+            "index": 11,
+            "subnets": [
+              "bar"
+            ]
+          }
+        ],
         "activeWorkloadNodes": [
           {
             "name": "lion",
@@ -622,11 +672,16 @@ Network Bridge                             foobar-worker-1                      
       ],
       "inbStatus": {
         "serving": false,
-        "interface": {
-          "name": "eth1",
-          "index": 0,
-          "error": "Interface \"eth1\" has \"link-layer-down\" operational status"
-        }
+        "interfaces": [
+          {
+            "name": "eth1",
+            "index": 0,
+            "error": "Interface \"eth1\" has \"link-layer-down\" operational status",
+            "subnets": [
+              "foo"
+            ]
+          }
+        ]
       }
     }
   ]

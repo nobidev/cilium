@@ -43,6 +43,7 @@ func (pn NetworkStatus) formatINBNetwork(connectedClusters []ConnectedCluster, l
 
 	sb.WriteString(fmtIndent(pn.inbNetworkStatusLine(98), 2))
 
+	sb.WriteString(fmtIndent(pn.INBStatus.formatInterfaces(96), 4))
 	sb.WriteString(fmtIndent(pn.formatSubnets(96), 4))
 	sb.WriteString(fmtIndent(pn.formatRoutes(96), 4))
 
@@ -59,8 +60,17 @@ func (pn NetworkStatus) inbNetworkStatusLine(width int) string {
 	if len(pn.Errors) > 0 {
 		errStr = fmtIndent(fmtErr(strings.Join(pn.Errors, "\n"))+"\n", 4)
 	}
+	activeInterfaces := 0
+	for _, intf := range pn.INBStatus.Interfaces {
+		if intf.Index > 0 {
+			activeInterfaces += 1
+		}
+	}
+
 	return fmtBar(
-		fmt.Sprintf("Network %s", fmtHghlt(pn.Name)), pn.INBStatus.formatInterface(), pn.inbNetworkStatus(),
+		fmt.Sprintf("Network %s", fmtHghlt(pn.Name)),
+		fmt.Sprintf("Active Interfaces %d", activeInterfaces),
+		pn.inbNetworkStatus(),
 		width,
 	) + errStr
 }
@@ -73,19 +83,35 @@ func (pn NetworkStatus) inbNetworkStatus() string {
 		return fmtErr("DEGRADED")
 	}
 }
-func (inbSt INBStatus) formatInterface() string {
-	ifaceStr := "Interface "
-	if inbSt.Interface.Name != "" {
-		ifaceStr += fmtHghlt(inbSt.Interface.Name) + " state "
-		if inbSt.Interface.Error != "" {
-			ifaceStr += fmtErr("ERROR")
-		} else {
-			ifaceStr += fmtOk("UP")
-		}
-	} else {
-		ifaceStr += fmtWrn("Not connected")
+
+func (inb INBStatus) formatInterfaces(width int) string {
+	if len(inb.Interfaces) == 0 {
+		return "Interfaces    " + fmtErr("No interfaces attached for network") + "\n"
 	}
-	return ifaceStr
+
+	var interfacesStr []string
+	for _, iface := range inb.Interfaces {
+		var sb strings.Builder
+		sb.WriteString(iface.String())
+		sb.WriteString(", State")
+
+		if iface.Index > 0 {
+			sb.WriteString(fmtOk(" UP"))
+		} else {
+			sb.WriteString(fmtWrn(" DOWN"))
+		}
+
+		sb.WriteString(", Subnets")
+		if len(iface.Subnets) == 0 { // when no subnet is specified, all subnets are served via the device
+			sb.WriteString(fmtOk(" (<all>)"))
+		} else {
+			sb.WriteString(fmtOk(fmt.Sprintf(" (%s)", strings.Join(iface.Subnets, ", "))))
+		}
+
+		interfacesStr = append(interfacesStr, sb.String())
+	}
+
+	return fmtWrapLineItemsTitle("Interfaces", interfacesStr, 10, width)
 }
 
 func (sum connectedEndpointsSummary) formatINBEndpointBar(width int) string {

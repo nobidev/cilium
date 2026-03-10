@@ -35,6 +35,7 @@ type statusCollector struct {
 
 	db              *statedb.DB
 	privateNetworks statedb.Table[tables.PrivateNetwork]
+	attachments     statedb.Table[*tables.NodeAttachment]
 	endpoints       statedb.Table[tables.Endpoint]
 	mapEntries      statedb.Table[*tables.MapEntry]
 	activeNetworks  statedb.Table[tables.ActiveNetwork]
@@ -63,9 +64,6 @@ func (sc *statusCollector) collectNodeStatus() status.NodeStatus {
 
 	for pn := range sc.privateNetworks.All(tx) {
 		errs := []string{}
-		if err := pn.Error(); err != "" {
-			errs = []string{err}
-		}
 		pns := status.NetworkStatus{
 			Name: pn.Name,
 			Subnets: cslices.Map(pn.Subnets, func(s tables.PrivateNetworkSubnet) status.Subnet {
@@ -99,14 +97,19 @@ func (sc *statusCollector) collectNodeStatus() status.NodeStatus {
 			pns.Errors = append(pns.Errors, "No Active INB")
 		}
 
+		inbInterfaces := sc.collectNetworkNodeAttachments(tx, pn.Name)
 		pns.INBStatus = status.INBStatus{
-			Interface: status.Interface{
-				Name:  pn.Interface.Name,
-				Index: pn.Interface.Index,
-				Error: pn.Interface.Error,
-			},
-			Serving:             pn.CanBeServedByINB(),
+			Interfaces: inbInterfaces,
+			Serving: slices.ContainsFunc(inbInterfaces, func(intf status.Interface) bool {
+				return intf.Index > 0 // at least one interface is active
+			}),
 			ActiveWorkloadNodes: activeWorkloadNodesByNet[pn.Name],
+		}
+
+		for _, intf := range inbInterfaces {
+			if intf.Error != "" {
+				pns.Errors = append(pns.Errors, intf.Error)
+			}
 		}
 
 		pns.Endpoints = sc.collectEndpointsForNet(tx, pns.Name)
@@ -236,4 +239,23 @@ func (sc *statusCollector) collectEndpointsForNet(tx statedb.ReadTxn, net tables
 	return slices.SortedFunc(maps.Values(epsByName), func(a, b status.EndpointStatus) int {
 		return cmp.Or(cmp.Compare(a.Cluster, b.Cluster), cmp.Compare(a.Name, b.Name))
 	})
+}
+
+func (sc *statusCollector) collectNetworkNodeAttachments(tx statedb.ReadTxn, net tables.NetworkName) []status.Interface {
+	var networkNodeAttachments []status.Interface
+	for attach := range sc.attachments.List(tx, tables.NodeAttachmentsByNetworkName(net)) {
+		if attach.NodeSelector.SelectorMatches {
+			var subnets []string
+			for _, subnet := range attach.Subnets {
+				subnets = append(subnets, string(subnet))
+			}
+			networkNodeAttachments = append(networkNodeAttachments, status.Interface{
+				Name:    string(attach.Interface.Name),
+				Index:   attach.Interface.Index,
+				Error:   attach.Interface.Error,
+				Subnets: subnets,
+			})
+		}
+	}
+	return networkNodeAttachments
 }

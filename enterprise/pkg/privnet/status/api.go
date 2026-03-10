@@ -13,6 +13,7 @@ package status
 import (
 	"encoding/json"
 	"net/netip"
+	"strconv"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
@@ -137,9 +138,12 @@ type EndpointStatus struct {
 type INBStatus struct {
 	// Whether the local node is an INB that is able to serve the network
 	Serving bool `json:"serving"`
-	// The network interface providing external connectivity to this private
+	// Interfaces are the node attachments providing external connectivity to this private
 	// network. Applies to the Isovalent Network Bridge cluster only.
-	Interface Interface `json:"interface"`
+	Interfaces []Interface `json:"interfaces"`
+	// Deprecated: The network interface providing external connectivity to this private
+	// network. Applies to the Isovalent Network Bridge cluster only.
+	DeprecatedInterface Interface `json:"interface,omitzero"`
 	// The list of WorkloadNodes that are being actively served by the local node
 	// as an INB.
 	ActiveWorkloadNodes []WorkloadNode `json:"activeWorkloadNodes,omitempty"`
@@ -156,6 +160,19 @@ type Interface struct {
 
 	// Error is the possible error occurred mapping the interface name to its index.
 	Error string `json:"error,omitzero"`
+
+	// Subnets is the list of subnets associated with this interface.
+	Subnets []string `json:"subnets,omitempty"`
+}
+
+func (i Interface) String() string {
+	var index = "!"
+
+	if i.Index != 0 {
+		index = strconv.Itoa(i.Index)
+	}
+
+	return string(i.Name) + " (" + index + ")"
 }
 
 // WorkloadNode represents a workload node served by an Isovalent Network Bridge (INB).
@@ -236,6 +253,12 @@ func (s *NodeStatus) UnmarshalJSON(b []byte) error {
 				s.Networks[i].Subnets[j].DeprecatedCIDR = netip.Prefix{}
 			}
 		}
+
+		inbIf := s.Networks[i].INBStatus.DeprecatedInterface
+		if inbIf.Name != "" && len(s.Networks[i].INBStatus.Interfaces) == 0 {
+			s.Networks[i].INBStatus.Interfaces = append(s.Networks[i].INBStatus.Interfaces, inbIf)
+		}
+		s.Networks[i].INBStatus.DeprecatedInterface = Interface{}
 	}
 	return nil
 }

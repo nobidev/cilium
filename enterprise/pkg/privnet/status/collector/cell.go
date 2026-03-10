@@ -44,6 +44,7 @@ func newCmd(in struct {
 	MapEntries      statedb.Table[*tables.MapEntry]
 	ActiveNetworks  statedb.Table[tables.ActiveNetwork]
 	INBs            statedb.Table[tables.INB]
+	Attachments     statedb.Table[*tables.NodeAttachment]
 
 	NM nomgr.NodeManager
 }) hive.ScriptCmdsOut {
@@ -57,6 +58,7 @@ func newCmd(in struct {
 		activeNetworks:  in.ActiveNetworks,
 		inbs:            in.INBs,
 		nm:              in.NM,
+		attachments:     in.Attachments,
 	}
 	return hive.NewScriptCmds(
 		map[string]script.Cmd{

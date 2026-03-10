@@ -119,9 +119,11 @@ func TestFormatGolden(t *testing.T) {
 						},
 						INBStatus: INBStatus{
 							Serving: true,
-							Interface: Interface{
-								Name:  "eth0",
-								Index: 45,
+							Interfaces: []Interface{
+								{
+									Name:  "eth0",
+									Index: 45,
+								},
 							},
 							ActiveWorkloadNodes: []WorkloadNode{
 								{
