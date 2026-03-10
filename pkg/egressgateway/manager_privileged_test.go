@@ -877,10 +877,22 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 		iface:      testInterface2,
 	})
 	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policy1)
-	ipV4ExpectedpolicyMap = assignEndpoints(eps, nodes, true)
-	ipV6ExpectedpolicyMap = assignEndpoints(eps, nodes, false)
+	assignEndpoints(eps, nodes, true)
+	assignEndpoints(eps, nodes, false)
 	assertEgressRules4(t, policyMap4, assignEndpoints(eps, nodes, true))
 	assertEgressRules6(t, policyMap6, assignEndpoints(eps, nodes, false))
+
+	// Update one gateway so it no longer matches the policy and check that the endpoints get
+	// redistributed across the remaining gateways.
+	nodes[1].labels = nodeGroupNotFoundLabels
+	updatedNode := newCiliumNode(node2, node2IP, nodes[1].labels)
+	addNodeAndReconcile(t, k, egressGatewayManager, &updatedNode)
+	nodes[1].node = &updatedNode
+
+	ipV4ExpectedpolicyMap = assignEndpoints(eps, []testNodes{nodes[0], nodes[2]}, true)
+	ipV6ExpectedpolicyMap = assignEndpoints(eps, []testNodes{nodes[0], nodes[2]}, false)
+	assertEgressRules4(t, policyMap4, ipV4ExpectedpolicyMap)
+	assertEgressRules6(t, policyMap6, ipV6ExpectedpolicyMap)
 
 	// Remove two gateways to ensure the endpoints are migrated to the single gateway left.
 	policy1.policyGwParams = policy1.policyGwParams[:1]
