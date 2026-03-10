@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/kvstore"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -144,6 +145,9 @@ func (ep *Endpoints) registerK8sReflector(sync promise.Promise[synced.CRDSync], 
 
 			current := make(map[tables.EndpointKey]tables.Endpoint)
 			for endpoint := range tables.EndpointsFromEndpointSlice(ep.log, ep.cname, slice) {
+				if !endpoint.HasUsableIP() {
+					continue
+				}
 				current[endpoint.Key()] = endpoint
 			}
 
@@ -211,22 +215,7 @@ func (ep *Endpoints) registerClusterMeshReflector(obs *observers.PrivateNetworkE
 				for _, ev := range buf {
 					switch ev.EventKind {
 					case resource.Upsert:
-						// Endpoints are keyed by cluster, network name and PIP inside
-						// etcd, so it is possible that all other fields are updated without
-						// changing the key. However, this table uses a different primary
-						// key, so we need to explicitly delete the old version, if present.
-						for other := range ep.tbl.List(wtx, tables.EndpointsByPIP(ev.Object.IP)) {
-							if other.Source.Cluster == ev.Object.Source.Cluster &&
-								other.Network.Name == ev.Object.Network.Name {
-								ep.tbl.Delete(wtx, other)
-							}
-						}
-
-						ep.tbl.Insert(wtx, tables.Endpoint{Endpoint: ev.Object})
-
-						// We enforce the invariant that all endpoint with the same source and name are in the same subnet or no subnet.
-						// We just added an endpoint that might have a conflict with another endpoint.
-						ep.enforceSubnetConsistency(wtx, ev.Object.Source, ev.Object.Name)
+						ep.upsertClusterMeshEndpoint(wtx, ev.Object)
 					case resource.Delete:
 						ep.tbl.Delete(wtx, tables.Endpoint{Endpoint: ev.Object})
 						// We enforce the invariant that all endpoint with the same source and name are in the same subnet or no subnet.
@@ -243,6 +232,29 @@ func (ep *Endpoints) registerClusterMeshReflector(obs *observers.PrivateNetworkE
 			}, obs,
 		),
 	)
+}
+
+func (ep *Endpoints) upsertClusterMeshEndpoint(wtx statedb.WriteTxn, endpoint *kvstore.Endpoint) {
+	// We enforce the invariant that all endpoint with the same source and name are
+	// in the same subnet or no subnet. We just added an endpoint that might have a
+	// conflict with another endpoint.
+	defer ep.enforceSubnetConsistency(wtx, endpoint.Source, endpoint.Name)
+
+	// Endpoints are keyed by cluster, network name and PIP inside etcd, so it is
+	// possible that all other fields are updated without changing the key.
+	// However, this table uses a different primary key, so we need to explicitly
+	// delete the old version, if present.
+	for other := range ep.tbl.List(wtx, tables.EndpointsByPIP(endpoint.IP)) {
+		if other.Source.Cluster == endpoint.Source.Cluster &&
+			other.Network.Name == endpoint.Network.Name {
+			ep.tbl.Delete(wtx, other)
+		}
+	}
+
+	tableEndpoint := tables.Endpoint{Endpoint: endpoint}
+	if tableEndpoint.HasUsableIP() {
+		ep.tbl.Insert(wtx, tableEndpoint)
+	}
 }
 
 type endpointSliceSharedListerWatcher k8s.SharedListerWatcher

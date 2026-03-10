@@ -52,6 +52,12 @@ func (ep Endpoint) MapEntryType() MapEntryType {
 	return MapEntryTypeEndpoint
 }
 
+// HasUsableIP reports whether the endpoint has a valid, non-unspecified network IP.
+func (ep Endpoint) HasUsableIP() bool {
+	return ep.Network.IP.IsValid() &&
+		!ep.Network.IP.IsUnspecified()
+}
+
 // ToMapEntry returns the MapEntry object created from the Endpoint and
 // subnet information.
 func (ep Endpoint) ToMapEntry(subnet SubnetSpec, bridgeMode, announce bool) *MapEntry {
