@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
+	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -335,6 +336,9 @@ func (n *PrivNetAPI) subnetForIPs(txn statedb.ReadTxn, privnet tables.NetworkNam
 
 	case sname != "" && (subnetv4 != "" && subnetv4 != sname || subnetv6 != "" && subnetv6 != sname):
 		return tables.Subnet{}, fmt.Errorf("requested IPs are not in range of the requested subnet (%q)", sname)
+
+	case ipv4.IsUnspecified() && subnet.DHCP.Mode == iso_v1alpha1.PrivateNetworkDHCPModeNone:
+		return tables.Subnet{}, fmt.Errorf("subnet %q does not support DHCP", subnet.Name)
 
 	}
 

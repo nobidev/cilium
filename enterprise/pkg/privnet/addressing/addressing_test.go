@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
+	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/time"
@@ -73,6 +74,9 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					CIDRv4:    netip.MustParsePrefix("192.168.11.0/24"),
 					CIDRv6:    netip.MustParsePrefix("fd10:0:150::/64"),
 				},
+				DHCP: iso_v1alpha1.PrivateNetworkSubnetDHCPSpec{
+					Mode: iso_v1alpha1.PrivateNetworkDHCPModeBroadcast,
+				},
 			})
 		subnets.Insert(wtxn,
 			tables.Subnet{
@@ -82,6 +86,9 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					Name:      "subnet2",
 					CIDRv4:    netip.MustParsePrefix("192.168.52.0/24"),
 					CIDRv6:    netip.MustParsePrefix("fd10:0:152::/64"),
+				},
+				DHCP: iso_v1alpha1.PrivateNetworkSubnetDHCPSpec{
+					Mode: iso_v1alpha1.PrivateNetworkDHCPModeNone,
 				},
 			},
 		)
@@ -551,6 +558,17 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 					{Destination: "0.0.0.0/0", Gateway: "169.254.0.1"},
 				},
 			},
+		},
+		{
+			name:     "requested subnet with DHCP mode none and unspecified IPv4",
+			cfg:      &cfgIPv4Only,
+			override: override{network: ptr.To("green-network"), subnet: ptr.To("subnet2")},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkAnnotation: `{"network": "green-network", "ipv4": "0.0.0.0", "mac": "00:50:56:ad:11:02"}`,
+				},
+			),
+			wantErr: `subnet "subnet2" does not support DHCP`,
 		},
 		{
 			name: "subnet is required when requested IP is unspecified",

@@ -459,3 +459,6 @@ subnets:
         - destination: fd10:0:255::/64
           gateway: fd10:0:250::200
           evpngateway: false
+      dhcp:
+        mode: none
+        relay: null

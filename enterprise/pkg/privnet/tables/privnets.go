@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	cslices "github.com/cilium/cilium/pkg/slices"
 )
@@ -152,6 +153,8 @@ type PrivateNetworkSubnet struct {
 	CIDRv6 netip.Prefix
 	// The set of routes configured for this subnet.
 	Routes []PrivateNetworkRoute
+	// DHCP configuration for this subnet.
+	DHCP v1alpha1.PrivateNetworkSubnetDHCPSpec
 }
 
 func (sub PrivateNetworkSubnet) CIDRs() iter.Seq[netip.Prefix] {

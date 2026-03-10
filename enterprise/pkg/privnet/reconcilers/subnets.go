@@ -210,6 +210,7 @@ func (r *Subnets) extractSubnets(privNet tables.PrivateNetwork) map[tables.Subne
 				EgressIfName:  privNet.Interface.Name,
 			},
 			Routes: subnet.Routes,
+			DHCP:   subnet.DHCP,
 		}
 		if hasConflicts(entry) {
 			continue

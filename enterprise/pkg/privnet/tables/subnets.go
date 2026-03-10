@@ -11,16 +11,19 @@
 package tables
 
 import (
+	"fmt"
 	"iter"
 	"math"
 	"net/netip"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 
 	"github.com/cilium/cilium/enterprise/pkg/vni"
+	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 type (
@@ -65,6 +68,9 @@ type Subnet struct {
 	// For subnet equality duplicates and slice order are ignored.
 	// The slice is not guaranteed to be sorted. Don't rely on its order.
 	Peers []SubnetPeer
+
+	// DHCP relay configuration for this subnet.
+	DHCP v1alpha1.PrivateNetworkSubnetDHCPSpec
 }
 
 type SubnetPeer struct {
@@ -113,7 +119,7 @@ type SubnetSpec struct {
 var _ statedb.TableWritable = Subnet{}
 
 func (s Subnet) TableHeader() []string {
-	return []string{"Network", "Name", "ID", "CIDRv4", "CIDRv6", "Routes"}
+	return []string{"Network", "Name", "ID", "CIDRv4", "CIDRv6", "Routes", "DHCP"}
 }
 
 func (s Subnet) TableRow() []string {
@@ -131,6 +137,7 @@ func (s Subnet) TableRow() []string {
 		fmtCIDR(s.CIDRv4),
 		fmtCIDR(s.CIDRv6),
 		strconv.FormatInt(int64(len(s.Routes)), 10),
+		formatSubnetDHCP(s.DHCP),
 	}
 }
 
@@ -139,7 +146,19 @@ func (s Subnet) Key() SubnetKey {
 }
 
 func (s Subnet) Equals(other Subnet) bool {
-	return s.SubnetSpec == other.SubnetSpec && slices.Equal(s.Routes, other.Routes) && equalElements(s.Peers, other.Peers)
+	return s.SubnetSpec == other.SubnetSpec &&
+		slices.Equal(s.Routes, other.Routes) &&
+		equalElements(s.Peers, other.Peers) &&
+		s.DHCP.DeepEqual(&other.DHCP)
+}
+
+func formatSubnetDHCP(cfg v1alpha1.PrivateNetworkSubnetDHCPSpec) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s", cfg.Mode)
+	if r := cfg.Relay; cfg.Mode == v1alpha1.PrivateNetworkDHCPModeRelay && r != nil {
+		fmt.Fprintf(&b, "(%s)", r.ServerAddress)
+	}
+	return b.String()
 }
 
 func (s Subnet) CIDRs() iter.Seq[netip.Prefix] {

@@ -302,6 +302,11 @@ func (pn *PrivateNetworks) extractSubnets(privnet *iso_v1alpha1.ClusterwidePriva
 		}
 
 		subnet.Routes = pn.extractRoutes(tables.NetworkName(privnet.Name), subnetPrefix)
+		dhcp := subnetPrefix.DHCP
+		if dhcp.Mode == "" {
+			dhcp.Mode = iso_v1alpha1.PrivateNetworkDHCPModeNone
+		}
+		subnet.DHCP = dhcp
 		if subnet.CIDRv4.IsValid() || subnet.CIDRv6.IsValid() {
 			subnets = append(subnets, subnet)
 		}

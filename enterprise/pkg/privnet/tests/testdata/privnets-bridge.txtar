@@ -168,6 +168,9 @@ subnets:
       cidrv4: 192.168.250.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 ---
 name: united-firefly
 id: 2
@@ -184,6 +187,9 @@ subnets:
       cidrv4: 192.168.251.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 -- privnet.expected.v2.yaml --
 name: direct-maggot
 id: 1
@@ -200,6 +206,9 @@ subnets:
       cidrv4: 192.168.250.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 ---
 name: united-firefly
 id: 2
@@ -216,6 +225,9 @@ subnets:
       cidrv4: 192.168.251.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 -- privnet.expected.v3.yaml --
 name: direct-maggot
 id: 1
@@ -232,6 +244,9 @@ subnets:
       cidrv4: 192.168.250.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 ---
 name: united-firefly
 id: 2
@@ -248,6 +263,9 @@ subnets:
       cidrv4: 192.168.251.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 -- privnet.expected.v4.yaml --
 name: direct-maggot
 id: 1
@@ -264,6 +282,9 @@ subnets:
       cidrv4: 192.168.250.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 ---
 name: united-firefly
 id: 2
@@ -280,6 +301,9 @@ subnets:
       cidrv4: 192.168.251.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 -- privnet.expected.v5.yaml --
 name: direct-maggot
 id: 1
@@ -296,6 +320,9 @@ subnets:
       cidrv4: 192.168.250.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 ---
 name: united-firefly
 id: 2
@@ -312,6 +339,9 @@ subnets:
       cidrv4: 192.168.251.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 -- privnet.expected.v6.yaml --
 name: direct-maggot
 id: 1
@@ -328,6 +358,9 @@ subnets:
       cidrv4: 192.168.250.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 ---
 name: outgoing-peacock
 id: 3
@@ -344,6 +377,9 @@ subnets:
       cidrv4: 192.168.252.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 ---
 name: united-firefly
 id: 2
@@ -360,6 +396,9 @@ subnets:
       cidrv4: 192.168.251.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 -- privnet.expected.v7.yaml --
 name: direct-maggot
 id: 1
@@ -376,6 +415,9 @@ subnets:
       cidrv4: 192.168.250.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 ---
 name: outgoing-peacock
 id: 3
@@ -392,6 +434,9 @@ subnets:
       cidrv4: 192.168.252.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 ---
 name: united-firefly
 id: 2
@@ -408,6 +453,9 @@ subnets:
       cidrv4: 192.168.251.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 -- privnet.expected.v8.yaml --
 name: direct-maggot
 id: 1
@@ -424,6 +472,9 @@ subnets:
       cidrv4: 192.168.250.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 ---
 name: united-firefly
 id: 2
@@ -440,6 +491,9 @@ subnets:
       cidrv4: 192.168.251.0/24
       cidrv6: ""
       routes: []
+      dhcp:
+        mode: none
+        relay: null
 -- subnets.expected.yaml --
 network: direct-maggot
 networkid: 1
@@ -452,6 +506,9 @@ egressifindex: 0
 egressifname: ""
 routes: []
 peers: []
+dhcp:
+    mode: none
+    relay: null
 ---
 network: united-firefly
 networkid: 2
@@ -464,3 +521,6 @@ egressifindex: 0
 egressifname: eth2
 routes: []
 peers: []
+dhcp:
+    mode: none
+    relay: null
