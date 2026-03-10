@@ -17,9 +17,11 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
+	"github.com/spf13/pflag"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/pkg/privnet"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/dhcp"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers/idpool"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
@@ -30,21 +32,53 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/time"
 )
 
+type dhcpTestConfig struct {
+	StaticRelay bool `mapstructure:"privnet-test-dhcp-static-relay"`
+}
+
+func (def dhcpTestConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("privnet-test-dhcp-static-relay", def.StaticRelay, "Use a static DHCP relay in privnet script tests")
+}
+
 func NewTestHive(t testing.TB) *hive.Hive {
+	extra := cell.Group()
+	if testutils.IsPrivileged() {
+		// Create a new network namespace for the privileged test cases.
+		ns, err := netns.New()
+		if err != nil {
+			t.Fatalf("failed to create netns: %v", err)
+		}
+		t.Cleanup(func() {
+			_ = ns.Close()
+		})
+
+		cfg := &dhcp.TestConfig{
+			NetNS:              ns,
+			LeaseSweepInterval: 100 * time.Millisecond,
+		}
+		extra = cell.Group(
+			cell.Provide(func() *dhcp.TestConfig { return cfg }),
+			cell.Provide(func() *netns.NetNS { return ns }),
+		)
+	}
+
 	return hive.New(
 		k8sClient.FakeClientCell(),
 
 		cell.Config(cmtypes.DefaultClusterInfo),
 		cell.Config(metrics.RegistryConfig{}),
+		cell.Config(dhcpTestConfig{StaticRelay: true}),
 
 		daemonk8s.ResourcesCell,
 		daemonk8s.TablesCell,
-
 		node.LocalNodeStoreTestCell,
 
 		mockEndpointCell(t),
@@ -97,7 +131,10 @@ func NewTestHive(t testing.TB) *hive.Hive {
 		ClusterMeshObservers,
 		Health(t.TempDir()),
 
+		dhcpScriptCmdsCell(),
+
 		privnet.Cell,
+		extra,
 	)
 }
 

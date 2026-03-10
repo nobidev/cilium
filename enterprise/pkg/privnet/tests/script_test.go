@@ -29,11 +29,21 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
+	runScriptTests(t, "testdata/*.txtar")
+}
+
+func TestPrivilegedScript(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	runScriptTests(t, "testdata/privileged/*.txtar")
+}
+
+func runScriptTests(t *testing.T, pattern string) {
 	version.Force(k8sTestutils.DefaultVersion)
 	nodeTypes.SetName(nodeName)
 
@@ -49,7 +59,6 @@ func TestScript(t *testing.T) {
 				logging.SetLogLevelToDebug()
 			}
 			log := hivetest.Logger(t, opts...)
-
 			h := NewTestHive(t)
 			t.Cleanup(func() {
 				assert.NoError(t, h.Stop(log, context.Background()))
@@ -64,9 +73,14 @@ func TestScript(t *testing.T) {
 			require.NoError(t, err, "ScriptCommands")
 			maps.Insert(cmds, maps.All(script.DefaultCmds()))
 
+			conds := map[string]script.Cond{
+				"privileged": script.BoolCondition("testutils.IsPrivileged", testutils.IsPrivileged()),
+			}
+
 			return &script.Engine{
 				Cmds:          cmds,
+				Conds:         conds,
 				RetryInterval: 10 * time.Millisecond,
 			}
-		}, []string{}, "testdata/*.txtar")
+		}, []string{}, pattern)
 }

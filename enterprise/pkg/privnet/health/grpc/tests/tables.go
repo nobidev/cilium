@@ -52,7 +52,7 @@ func (i Instance) String() string {
 }
 
 func (i Instance) SocketName() string {
-	return fmt.Sprintf("test-health-%s-%s.sock", i.Cluster, i.Name)
+	return fmt.Sprintf("%s-%s.sock", i.Cluster, i.Name)
 }
 
 func (i Instance) ToINBNode() tables.INBNode {
