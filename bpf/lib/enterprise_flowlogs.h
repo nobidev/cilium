@@ -3,8 +3,6 @@
 
 #pragma once
 
-#if defined(LB_FLOW_LOGS_ENABLED)
-
 #ifndef CILIUM_LB_FLOW_LOG_MAP_SIZE
 #define CILIUM_LB_FLOW_LOG_MAP_SIZE 200000
 #endif
@@ -321,7 +319,6 @@ lb_flow_log(struct __ctx_buff *ctx, __u16 proto)
 
 	return CTX_ACT_OK;
 }
-#endif /* LB_FLOW_LOGS_ENABLED */
 
 static __always_inline int
 lb_early_hook(struct __ctx_buff *ctx __maybe_unused, __u16 proto __maybe_unused)
