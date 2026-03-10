@@ -53,6 +53,8 @@
     // Override the release-note label in the packageRules section below for
     // those dependencies that are relevant to end users.
     'release-note/ignore',
+    // Automatic workflow rerun for all renovate PRs using Ariane rerun label.
+    'rerun-failed:5',
   ],
   // Extend the default fileMatch so that it matches enterprise values too.
   'helm-values': {
