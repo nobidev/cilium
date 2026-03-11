@@ -49,25 +49,6 @@ spec:
           spec:
             description: The private network specification.
             properties:
-              interface:
-                description: |-
-                  The network interface providing external connectivity to this private
-                  network. This stanza shall be specified in the Isovalent Network Bridge
-                  cluster only.
-                properties:
-                  name:
-                    description: |-
-                      The name of the network interface providing connectivity towards the
-                      given private network. This field shall be specified in the Isovalent
-                      Network Bridge cluster only.
-                    maxLength: 15
-                    minLength: 1
-                    pattern: ^[^:\s\/]+$
-                    type: string
-                    x-kubernetes-validations:
-                    - message: '''.'' and ''..'' are not valid interface names'
-                      rule: self != '.' && self != '..'
-                type: object
               networkAttachmentDefinitions:
                 description: |-
                   Configures the Multus Network Attachment Definitions integration for

@@ -68,13 +68,6 @@ type PrivateNetworkSpec struct {
 	// +listMapKey=cluster
 	INBs []INBRef `json:"networkBridges,omitempty"`
 
-	// The network interface providing external connectivity to this private
-	// network. This stanza shall be specified in the Isovalent Network Bridge
-	// cluster only.
-	//
-	// +kubebuilder:validation:Optional
-	Interface InterfaceSpec `json:"interface"`
-
 	// The set of subnets (that is, L2 domains) associated with, and directly
 	// reachable, from this private network.
 	//
@@ -262,15 +255,6 @@ type ClusterName = string
 
 type INBRefNodeSelector struct {
 	slim_metav1.LabelSelector `json:",inline"`
-}
-
-type InterfaceSpec struct {
-	// The name of the network interface providing connectivity towards the
-	// given private network. This field shall be specified in the Isovalent
-	// Network Bridge cluster only.
-	//
-	// +kubebuilder:validation:Optional
-	Name InterfaceName `json:"name,omitempty"`
 }
 
 // Interface names must be less than 16 characters, and not include forward
