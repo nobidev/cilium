@@ -11,16 +11,22 @@
 package reconcilerv2
 
 import (
+	"cmp"
 	"errors"
+	"fmt"
 	"log/slog"
+	"math"
+	"slices"
 	"sort"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	ceeTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	entTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
@@ -50,6 +56,16 @@ type (
 	// FamilyAdvertisements is a map of address family to its advertisements
 	FamilyAdvertisements map[v2.CiliumBGPFamily][]v1.BGPAdvertisement
 )
+
+// AdvertPathAttributes holds BGP path attributes configured in advertisements.
+type AdvertPathAttributes struct {
+	Communities      []uint32
+	LargeCommunities []*bgp.LargeCommunity
+	LocalPreference  *uint32
+}
+
+// FamilyAdvertPathAttributes is a map of BGP path attributes configured in advertisements per BGP family.
+type FamilyAdvertPathAttributes map[v2.CiliumBGPFamily]*AdvertPathAttributes
 
 type AdvertisementIn struct {
 	cell.In
@@ -306,4 +322,83 @@ func FamilyAdvertisementsEqual(first, second FamilyAdvertisements) bool {
 		}
 	}
 	return true
+}
+
+// GetFamilyAdvertPathAttributes aggregates BGP path attributes from all provided BGP advertisements per IP family.
+func GetFamilyAdvertPathAttributes(familyAdverts FamilyAdvertisements) (FamilyAdvertPathAttributes, error) {
+	res := make(FamilyAdvertPathAttributes, len(familyAdverts))
+	for family, adverts := range familyAdverts {
+		pathAttrs, err := GetAdvertPathAttributes(adverts)
+		if err != nil {
+			return nil, err
+		}
+		res[family] = pathAttrs
+	}
+	return res, nil
+}
+
+// GetAdvertPathAttributes aggregates BGP path attributes from all provided BGP advertisements.
+// Communities and large communities are deduplicated and sorted, and conflicting local preference values
+// resolve to the highest value to match the route-policy merge behavior.
+func GetAdvertPathAttributes(adverts []v1.BGPAdvertisement) (*AdvertPathAttributes, error) {
+	res := &AdvertPathAttributes{}
+	communitiesSet := sets.New[uint32]()
+	largeCommunitiesSet := sets.New[string]()
+
+	for _, advert := range adverts {
+		if advert.Attributes != nil {
+			if advert.Attributes.Communities != nil {
+				for _, standard := range advert.Attributes.Communities.Standard {
+					val, err := ceeTypes.ParseCommunity(string(standard))
+					if err != nil {
+						return nil, fmt.Errorf("failed parsing community value '%s': %w", standard, err)
+					}
+					communitiesSet.Insert(val)
+				}
+				for _, wellKnown := range advert.Attributes.Communities.WellKnown {
+					val, ok := bgp.WellKnownCommunityValueMap[string(wellKnown)]
+					if !ok {
+						return nil, fmt.Errorf("unknown well-known community value '%s'", wellKnown)
+					}
+					communitiesSet.Insert(uint32(val))
+				}
+				for _, large := range advert.Attributes.Communities.Large {
+					val, err := bgp.ParseLargeCommunity(string(large))
+					if err != nil {
+						return nil, fmt.Errorf("failed parsing large community value '%s': %w", large, err)
+					}
+					if !largeCommunitiesSet.Has(string(large)) {
+						largeCommunitiesSet.Insert(string(large))
+						res.LargeCommunities = append(res.LargeCommunities, val)
+					}
+				}
+			}
+			if advert.Attributes.LocalPreference != nil {
+				if *advert.Attributes.LocalPreference < 0 || *advert.Attributes.LocalPreference > math.MaxUint32 {
+					return nil, fmt.Errorf("invalid local preference value %d", *advert.Attributes.LocalPreference)
+				}
+				lp := uint32(*advert.Attributes.LocalPreference)
+				if res.LocalPreference == nil || lp > *res.LocalPreference {
+					res.LocalPreference = &lp
+				}
+			}
+		}
+	}
+
+	// sort resulting deduplicated communities
+	res.Communities = communitiesSet.UnsortedList()
+	slices.Sort(res.Communities)
+
+	// sort resulting large communities
+	slices.SortFunc(res.LargeCommunities, func(a, b *bgp.LargeCommunity) int {
+		if c := cmp.Compare(a.ASN, b.ASN); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.LocalData1, b.LocalData1); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.LocalData2, b.LocalData2)
+	})
+
+	return res, nil
 }

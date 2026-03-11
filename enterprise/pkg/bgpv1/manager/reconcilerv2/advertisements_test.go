@@ -15,10 +15,12 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -296,6 +298,127 @@ func TestVRFAdvertisements(t *testing.T) {
 			reconciledVRFAdverts, err := isoAdvert.GetConfiguredVRFAdvertisements(tt.reqBGPNodeInstance, tt.reqAdvertType)
 			req.NoError(err)
 			req.Equal(tt.expectedVRFAdverts, reconciledVRFAdverts)
+		})
+	}
+}
+
+func TestAdvertPathAttributes(t *testing.T) {
+	tests := []struct {
+		name        string
+		adverts     []v1.BGPAdvertisement
+		expected    *AdvertPathAttributes
+		expectedErr bool
+	}{
+		{
+			name: "merge attributes and pick highest local preference",
+			adverts: []v1.BGPAdvertisement{
+				{
+					AdvertisementType: v1.BGPPrivateNetworkAdvert,
+					Attributes: &v2.BGPAttributes{
+						Communities: &v2.BGPCommunities{
+							Standard:  []v2.BGPStandardCommunity{"65000:100"},
+							WellKnown: []v2.BGPWellKnownCommunity{"no-export"},
+							Large:     []v2.BGPLargeCommunity{"65000:2:2"},
+						},
+						LocalPreference: ptr.To[int64](100),
+					},
+				},
+				{
+					AdvertisementType: v1.BGPPrivateNetworkAdvert,
+					Attributes: &v2.BGPAttributes{
+						Communities: &v2.BGPCommunities{
+							Standard: []v2.BGPStandardCommunity{"65000:200", "65000:100"},
+							Large:    []v2.BGPLargeCommunity{"65000:1:1", "65000:2:2"},
+						},
+						LocalPreference: ptr.To[int64](200),
+					},
+				},
+				{
+					AdvertisementType: v1.BGPPrivateNetworkAdvert,
+					Attributes: &v2.BGPAttributes{
+						LocalPreference: ptr.To[int64](150),
+					},
+				},
+			},
+			expected: &AdvertPathAttributes{
+				Communities: []uint32{
+					types.NewCommunity(65000, 100),
+					types.NewCommunity(65000, 200),
+					uint32(bgp.COMMUNITY_NO_EXPORT),
+				},
+				LargeCommunities: []*bgp.LargeCommunity{
+					bgp.NewLargeCommunity(65000, 1, 1),
+					bgp.NewLargeCommunity(65000, 2, 2),
+				},
+				LocalPreference: ptr.To[uint32](200),
+			},
+		},
+		{
+			name: "invalid standard community",
+			adverts: []v1.BGPAdvertisement{
+				{
+					AdvertisementType: v1.BGPPrivateNetworkAdvert,
+					Attributes: &v2.BGPAttributes{
+						Communities: &v2.BGPCommunities{
+							Standard: []v2.BGPStandardCommunity{"not-a-community"},
+						},
+					},
+				},
+			},
+			expectedErr: true,
+		},
+		{
+			name: "invalid well-known community",
+			adverts: []v1.BGPAdvertisement{
+				{
+					AdvertisementType: v1.BGPPrivateNetworkAdvert,
+					Attributes: &v2.BGPAttributes{
+						Communities: &v2.BGPCommunities{
+							WellKnown: []v2.BGPWellKnownCommunity{"not-a-community"},
+						},
+					},
+				},
+			},
+			expectedErr: true,
+		},
+		{
+			name: "invalid large community",
+			adverts: []v1.BGPAdvertisement{
+				{
+					AdvertisementType: v1.BGPPrivateNetworkAdvert,
+					Attributes: &v2.BGPAttributes{
+						Communities: &v2.BGPCommunities{
+							Large: []v2.BGPLargeCommunity{"not-a-community"},
+						},
+					},
+				},
+			},
+			expectedErr: true,
+		},
+		{
+			name: "negative local preference",
+			adverts: []v1.BGPAdvertisement{
+				{
+					AdvertisementType: v1.BGPPrivateNetworkAdvert,
+					Attributes: &v2.BGPAttributes{
+						LocalPreference: ptr.To[int64](-1),
+					},
+				},
+			},
+			expectedErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			attrs, err := GetAdvertPathAttributes(tt.adverts)
+			if tt.expectedErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, attrs)
+			require.Equal(t, tt.expected, attrs)
 		})
 	}
 }
