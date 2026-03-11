@@ -23,6 +23,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
+	union v4addr dip4 __maybe_unused;
 	union v6addr dip6 __maybe_unused;
 	const struct privnet_fib_val *sip_val __maybe_unused = NULL;
 	const struct privnet_fib_val *dip_val __maybe_unused = NULL;
@@ -94,6 +95,11 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 
 		if (is_privnet_route_entry(sip_val)) {
 			/* see comment for IPv4 */
+			ret = privnet_ct_unknown_flow_ingress_ipv6(ctx, ip6, &dip6,
+								   *net_id, &trace);
+			if (IS_ERR(ret))
+				return ret;
+
 			return encap_and_redirect_with_nodeid(ctx, info,
 				CONFIG(privnet_unknown_sec_id),
 				info->sec_identity,
@@ -123,6 +129,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 							METRIC_INGRESS);
 
+		dip4.be32 = ip4->daddr;
 		subnet_id = privnet_subnet_id_lookup4(*net_id, ip4->daddr);
 
 		ret = privnet_local_access_ingress_ipv4(ctx, *net_id, subnet_id);
@@ -169,6 +176,13 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 			/* (i.e. there is no ep associated with it), */
 			/* we skip egress policy check and redirect to destination node */
 			/* using privnet_unknown_flow identity. */
+
+			/* Perform a CT lookup using the pre-NAT destination to populate trace */
+			ret = privnet_ct_unknown_flow_ingress_ipv4(ctx, ip4, &dip4,
+								   *net_id, &trace);
+			if (IS_ERR(ret))
+				return ret;
+
 			return encap_and_redirect_with_nodeid(ctx, info,
 				CONFIG(privnet_unknown_sec_id), info->sec_identity,
 				&trace, proto);
