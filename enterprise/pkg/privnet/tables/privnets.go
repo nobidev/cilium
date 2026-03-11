@@ -72,41 +72,9 @@ type PrivateNetwork struct {
 	// The candidate Isovalent Network Bridges (INBs) serving this private network.
 	INBs PrivateNetworkINBs
 
-	// The network interface providing external connectivity to this private
-	// network. Applies to the Isovalent Network Bridge cluster only.
-	Interface PrivateNetworkInterface
-
 	// The set of subnets (that is, L2 domains) associated with, and directly
 	// reachable, from this private network.
 	Subnets []PrivateNetworkSubnet
-}
-
-// PrivateNetworkInterface is the network interface providing external
-// connectivity to a private network.
-type PrivateNetworkInterface struct {
-	// Name is the name of the interface.
-	Name string
-
-	// Index is the (positive) index of the interface.
-	Index int
-
-	// Error is the possible error occurred mapping the interface name to its index.
-	Error string
-
-	// Conflict is true in case the interface is selected by multiple private networks.
-	Conflict bool
-}
-
-func (pni PrivateNetworkInterface) String() string {
-	if pni.Name == "" {
-		return "N/A"
-	}
-
-	if pni.Error == "" {
-		return pni.Name
-	}
-
-	return pni.Name + " !"
 }
 
 // PrivateNetworkINBs contains the network bridge configuration of the private network
@@ -159,7 +127,7 @@ func (sub PrivateNetworkSubnet) CIDRs() iter.Seq[netip.Prefix] {
 var _ statedb.TableWritable = PrivateNetwork{}
 
 func (pn PrivateNetwork) TableHeader() []string {
-	return []string{"Name", "ID", "VNI", "Interface", "INBClusters", "Subnets"}
+	return []string{"Name", "ID", "VNI", "INBClusters", "Subnets"}
 }
 
 func (pn PrivateNetwork) TableRow() []string {
@@ -167,23 +135,12 @@ func (pn PrivateNetwork) TableRow() []string {
 		string(pn.Name),
 		pn.ID.String(),
 		cmp.Or(pn.VNI.String(), "N/A"),
-		pn.Interface.String(),
 		cmp.Or(strings.Join(slices.Sorted(
 			cslices.MapIter(maps.Keys(pn.INBs.Selectors),
 				func(cn ClusterName) string { return string(cn) },
 			)), ","), "N/A"),
 		strconv.FormatInt(int64(len(pn.Subnets)), 10),
 	}
-}
-
-// CanBeServedByINB returns whether this private network can be served by an INB.
-func (pn PrivateNetwork) CanBeServedByINB() bool {
-	return pn.Interface.Index > 0
-}
-
-// Error returns any errors associated with this private network
-func (pn PrivateNetwork) Error() string {
-	return pn.Interface.Error
 }
 
 var (
@@ -196,18 +153,6 @@ var (
 		FromString: index.FromString,
 		Unique:     true,
 	}
-
-	privateNetworksInterfaceIndex = statedb.Index[PrivateNetwork, string]{
-		Name: "interface",
-		FromObject: func(obj PrivateNetwork) index.KeySet {
-			if ifname := obj.Interface.Name; ifname != "" {
-				return index.NewKeySet(index.String(ifname))
-			}
-			return index.NewKeySet()
-		},
-		FromKey:    index.String,
-		FromString: index.FromString,
-	}
 )
 
 // PrivateNetworkByName queries the private networks table by name
@@ -215,16 +160,10 @@ func PrivateNetworkByName(name NetworkName) statedb.Query[PrivateNetwork] {
 	return privateNetworksNameIndex.Query(string(name))
 }
 
-// PrivateNetworksByInterface queries the private networks table by interface name
-func PrivateNetworksByInterface(ifname string) statedb.Query[PrivateNetwork] {
-	return privateNetworksInterfaceIndex.Query(ifname)
-}
-
 func NewPrivateNetworksTable(db *statedb.DB) (statedb.RWTable[PrivateNetwork], error) {
 	return statedb.NewTable(
 		db,
 		"private-networks",
 		privateNetworksNameIndex,
-		privateNetworksInterfaceIndex,
 	)
 }

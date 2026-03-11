@@ -205,7 +205,6 @@ metadata:
   name: test0
   resourceVersion: "<nr>"
 spec:
-  interface: {}
   networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
@@ -229,7 +228,6 @@ metadata:
   name: test0
   resourceVersion: "<nr>"
 spec:
-  interface: {}
   networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
@@ -253,7 +251,6 @@ metadata:
   name: test1
   resourceVersion: "<nr>"
 spec:
-  interface: {}
   networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
@@ -277,7 +274,6 @@ metadata:
   name: test1
   resourceVersion: "<nr>"
 spec:
-  interface: {}
   networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
@@ -301,7 +297,6 @@ metadata:
   name: test0
   resourceVersion: "<nr>"
 spec:
-  interface: {}
   networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
@@ -324,7 +319,6 @@ metadata:
   name: test1
   resourceVersion: "<nr>"
 spec:
-  interface: {}
   networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
@@ -347,7 +341,6 @@ metadata:
   name: test0
   resourceVersion: "<nr>"
 spec:
-  interface: {}
   networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24
@@ -363,7 +356,6 @@ metadata:
   name: test1
   resourceVersion: "<nr>"
 spec:
-  interface: {}
   networkAttachmentDefinitions: {}
   subnets:
   - cidrv4: 10.0.0.0/24

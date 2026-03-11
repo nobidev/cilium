@@ -91,8 +91,6 @@ kind: ClusterwidePrivateNetwork
 metadata:
   name: maggot
 spec:
-  interface:
-    name: eth1
   routes: []
   subnets:
   - name: foo
@@ -117,8 +115,6 @@ kind: ClusterwidePrivateNetwork
 metadata:
   name: firefly
 spec:
-  interface:
-    name: eth2
   routes: []
   subnets:
   - name: bar

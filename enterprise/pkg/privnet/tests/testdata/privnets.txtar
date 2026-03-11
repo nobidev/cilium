@@ -63,7 +63,6 @@ kind: ClusterwidePrivateNetwork
 metadata:
   name: direct-maggot
 spec:
-  interface: {}
   networkBridges:
   - cluster: felidae
     nodeSelector:
@@ -92,8 +91,6 @@ kind: ClusterwidePrivateNetwork
 metadata:
   name: united-firefly
 spec:
-  interface:
-    name: eth1
   networkBridges:
   - cluster: camelidae
   subnets:
@@ -220,23 +217,23 @@ spec:
     cidrv6: fd10:0:100::/64
 
 -- privnet.table --
-Name             ID    VNI  Interface   INBClusters              Subnets
-direct-maggot    0x1   100  N/A         elephantidae,felidae     1
-united-firefly   0x2   200  N/A         camelidae                1
+Name             ID    VNI  INBClusters              Subnets
+direct-maggot    0x1   100  elephantidae,felidae     1
+united-firefly   0x2   200  camelidae                1
 
 -- privnet.table.v2 --
-Name             ID    VNI  Interface   INBClusters              Subnets
-direct-maggot    0x1   100  N/A         elephantidae,felidae     1
-united-firefly   0x2   200  N/A         camelidae                1
+Name             ID    VNI  INBClusters              Subnets
+direct-maggot    0x1   100  elephantidae,felidae     1
+united-firefly   0x2   200  camelidae                1
 
 -- privnet.table.v3 --
-Name             ID    VNI  Interface   INBClusters              Subnets
-united-firefly   0x2   200  N/A         camelidae                1
+Name             ID    VNI  INBClusters              Subnets
+united-firefly   0x2   200  camelidae                1
 
 -- privnet.table.v4 --
-Name             ID    VNI  Interface   INBClusters              Subnets
-direct-maggot    0x3   100  N/A         elephantidae,felidae     1
-united-firefly   0x2   200  N/A         camelidae                1
+Name             ID    VNI  INBClusters              Subnets
+direct-maggot    0x3   100  elephantidae,felidae     1
+united-firefly   0x2   200  camelidae                1
 
 -- subnets.table --
 Network          Name      CIDRv4            CIDRv6           Routes
@@ -437,11 +434,6 @@ inbs:
     selectors:
         elephantidae: ""
         felidae: kubernetes.io/arch=amd64
-interface:
-    name: ""
-    index: 0
-    error: ""
-    conflict: false
 subnets:
     - name: subnet1
       cidrv4: 192.168.250.0/24
