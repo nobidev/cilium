@@ -107,7 +107,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 		}
 
 		ret = privnet_ext_ep_policy_egress6(ctx, ip6, info->sec_identity,
-						    &ext_err);
+						    &trace, &ext_err);
 		if (ret != CTX_ACT_OK)
 			return send_drop_notify_ext(ctx, identity,
 						    info->sec_identity, 0,
@@ -192,7 +192,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 		 * it is not an unknown flow.
 		 */
 		ret = privnet_ext_ep_policy_egress4(ctx, ip4, info->sec_identity,
-						    &ext_err);
+						    &trace, &ext_err);
 		if (ret != CTX_ACT_OK)
 			return send_drop_notify_ext(ctx, identity,
 						    info->sec_identity, 0,

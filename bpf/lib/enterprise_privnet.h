@@ -1622,16 +1622,17 @@ static __always_inline int
 privnet_ext_ep_policy_egress4(struct __ctx_buff *ctx,
 			      struct iphdr *ip4,
 			      __u32 dst_sec_identity,
+			      struct trace_ctx *trace,
 			      __s8 *ext_err)
 {
-	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
-	__u16 proxy_port = 0;
-	__u8 audited = 0;
-	__u32 cookie = 0;
-	__u32 monitor = 0;
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
+	int verdict = CTX_ACT_OK;
+	__u16 proxy_port = 0;
+	__u32 monitor = 0;
+	__u8 audited = 0;
+	__u32 cookie = 0;
 	int l4_off;
 	int ct_ret;
 	int ret;
@@ -1644,6 +1645,10 @@ privnet_ext_ep_policy_egress4(struct __ctx_buff *ctx,
 
 	ct_ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, ip4, l4_off,
 			    CT_EGRESS, SCOPE_BIDIR, &ct_state, &monitor);
+	if (trace) {
+		trace->monitor = monitor;
+		trace->reason = (enum trace_reason)ct_ret;
+	}
 
 	/* Skip policy enforcement for return traffic. */
 	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
@@ -1746,14 +1751,15 @@ static __always_inline int
 privnet_ext_ep_policy_egress6(struct __ctx_buff *ctx,
 			      struct ipv6hdr *ip6,
 			      __u32 dst_sec_identity,
+			      struct trace_ctx *trace,
 			      __s8 *ext_err __maybe_unused)
 {
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	int verdict = CTX_ACT_OK;
 	__u16 proxy_port = 0;
+	__u32 monitor = 0;
 	__u8 audited = 0;
 	__u32 cookie = 0;
-	__u32 monitor = 0;
 
 	struct ipv6_ct_tuple tuple = {};
 	fraginfo_t fraginfo;
@@ -1772,6 +1778,11 @@ privnet_ext_ep_policy_egress6(struct __ctx_buff *ctx,
 			    fraginfo, l4_off,
 			    CT_EGRESS, SCOPE_BIDIR, NULL,
 			    &monitor);
+	if (trace) {
+		trace->monitor = monitor;
+		trace->reason = (enum trace_reason)ct_ret;
+	}
+
 	/* Skip policy enforcement for return traffic. */
 	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
 		return CTX_ACT_OK;
