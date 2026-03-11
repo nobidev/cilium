@@ -10,6 +10,7 @@
 #include "icmp6.h"
 #include "l4.h"
 #include "local_delivery.h"
+#include "trace.h"
 
 #include "enterprise_privnet_config.h"
 #include "enterprise_privnet_conntrack.h"
@@ -733,7 +734,8 @@ static __always_inline int
 privnet_unknown_policy_egress4(struct __ctx_buff *ctx,
 			       struct iphdr *ip4,
 			       __u16 net_id,
-			       __u32 sec_label)
+			       __u32 sec_label,
+			       struct trace_ctx *trace)
 {
 	const struct privnet_cidr_identity *info = NULL;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -774,6 +776,10 @@ privnet_unknown_policy_egress4(struct __ctx_buff *ctx,
 
 	ct_ret = ct_lookup4(ct_map, &tuple, ctx, ip4, l4_off,
 			    CT_EGRESS, SCOPE_BIDIR, &ct_state, &monitor);
+	if (trace) {
+		trace->monitor = monitor;
+		trace->reason = (enum trace_reason)ct_ret;
+	}
 
 	/* Skip policy enforcement for return traffic. */
 	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
@@ -830,7 +836,8 @@ privnet_unknown_policy_egress4(struct __ctx_buff *ctx,
 static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 					       __u32 sec_label, __u16 net_id, __u16 subnet_id,
 					       const struct privnet_fib_val **src_privnet_entry,
-					       const struct privnet_fib_val **dst_privnet_entry)
+					       const struct privnet_fib_val **dst_privnet_entry,
+					       struct trace_ctx *trace)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -872,7 +879,7 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
 		} else if (sec_label) {
 			/* enforce egress policy for unknown flow */
-			ret = privnet_unknown_policy_egress4(ctx, ip4, net_id, sec_label);
+			ret = privnet_unknown_policy_egress4(ctx, ip4, net_id, sec_label, trace);
 			if (ret != CTX_ACT_OK)
 				return ret;
 		}
@@ -912,7 +919,8 @@ static __always_inline int
 privnet_unknown_policy_egress6(struct __ctx_buff *ctx,
 			       struct ipv6hdr *ip6,
 			       __u16 net_id,
-			       __u32 sec_label)
+			       __u32 sec_label,
+			       struct trace_ctx *trace)
 {
 	const struct privnet_cidr_identity *info = NULL;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -949,6 +957,11 @@ privnet_unknown_policy_egress6(struct __ctx_buff *ctx,
 
 	ct_ret = ct_lookup6(ct_map, &tuple, ctx, ip6, fraginfo, l4_off,
 			    CT_INGRESS, SCOPE_BIDIR, &ct_state, &monitor);
+	if (trace) {
+		trace->monitor = monitor;
+		trace->reason = (enum trace_reason)ct_ret;
+	}
+
 	/* Skip policy enforcement for return traffic. */
 	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
 		return CTX_ACT_OK;
@@ -1039,7 +1052,8 @@ privnet_evpn_egress_ipv6(struct __ctx_buff *ctx, __u16 net_id,
 static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 					       __u32 sec_label, __u16 net_id, __u16 subnet_id,
 					       const struct privnet_fib_val **src_privnet_entry,
-					       const struct privnet_fib_val **dst_privnet_entry)
+					       const struct privnet_fib_val **dst_privnet_entry,
+					       struct trace_ctx *trace)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1076,7 +1090,7 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 			set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
 		} else if (sec_label) {
 			/* enforce egress policy for unknown flow */
-			ret = privnet_unknown_policy_egress6(ctx, ip6, net_id, sec_label);
+			ret = privnet_unknown_policy_egress6(ctx, ip6, net_id, sec_label, trace);
 			if (ret != CTX_ACT_OK)
 				return ret;
 		}

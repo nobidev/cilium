@@ -18,6 +18,10 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 	union v6addr sip6 __maybe_unused;
 	const struct privnet_fib_val *dip_val __maybe_unused;
 	const struct privnet_device_val *dev_val __maybe_unused;
+	struct trace_ctx trace __maybe_unused = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	int ret = CTX_ACT_OK;
 	__u16 net_id;
 
@@ -67,16 +71,12 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 
 		ret = privnet_egress_ipv6(ctx, SECLABEL_IPV6, net_id,
 					  privnet_subnet_id_lookup6(net_id, sip6),
-					  NULL, &dip_val);
+					  NULL, &dip_val,
+					  &trace);
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
 #ifdef TUNNEL_MODE
 		if (dip_val && is_privnet_route_entry(dip_val)) {
-			struct trace_ctx trace = {
-				.reason = TRACE_REASON_UNKNOWN,
-				.monitor = TRACE_PAYLOAD_LEN,
-			};
-
 			/* see comment for ipv4 */
 			struct remote_endpoint_info fake_info = {0};
 
@@ -118,17 +118,13 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 
 		ret = privnet_egress_ipv4(ctx, SECLABEL_IPV4, net_id,
 					  privnet_subnet_id_lookup4(net_id, ip4->saddr),
-					  NULL, &dip_val);
+					  NULL, &dip_val,
+					  &trace);
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
 
 #ifdef TUNNEL_MODE
 		if (dip_val && is_privnet_route_entry(dip_val)) {
-			struct trace_ctx trace = {
-				.reason = TRACE_REASON_UNKNOWN,
-				.monitor = TRACE_PAYLOAD_LEN,
-			};
-
 			/* dip_val is route entry, we can assume that the */
 			/* packet is going to INB. Encap the packet with IP */
 			/* stored in privnet nat map, it will be node IP of INB and */
