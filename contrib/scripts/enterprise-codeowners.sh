@@ -14,7 +14,7 @@ code_owners=$(go tool github.com/hmarr/codeowners/cmd/codeowners)
 unowned_enterprise_files=()
 for file in ${new_files}; do
   # Check if this new file exists in upstream.
-  if ! git ls-tree -r --name-only "${UPSTREAM_BRANCH}" | grep -q "^${file}$"; then
+  if ! git ls-tree -r --name-only "${UPSTREAM_BRANCH}" | grep "^${file}$" > /dev/null; then
     # if it doesn't exist in upstream, check if it's owned by a team in isovalent org.
     if echo "${code_owners}" | grep "^${file} " | grep -qv "@isovalent/"; then
       unowned_enterprise_files+=("$file")
