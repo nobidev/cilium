@@ -460,8 +460,12 @@ func (r *PrivateNetworkReconciler) getPrivNetAFPaths(desiredAdverts FamilyAdvert
 	if evpnVRFInfo == nil || subnetInfo == nil {
 		return desiredWorkloadAFPaths, nil
 	}
+	pathAttrs, err := GetFamilyAdvertPathAttributes(desiredAdverts)
+	if err != nil {
+		return nil, err
+	}
 	for _, w := range workloads {
-		afPaths, err := r.getWorkloadAFPaths(desiredAdverts, evpnVRFInfo, subnetInfo, w)
+		afPaths, err := r.getWorkloadAFPaths(desiredAdverts, evpnVRFInfo, subnetInfo, pathAttrs, w)
 		if err != nil {
 			return nil, err
 		}
@@ -480,7 +484,7 @@ func (r *PrivateNetworkReconciler) withdrawPrivNetAFPaths(workloads []*tables.Lo
 	return desiredWorkloadAFPaths
 }
 
-func (r *PrivateNetworkReconciler) getWorkloadAFPaths(desiredAdverts FamilyAdvertisements, evpVRFInfo *EvpnVRFInfo, subnetInfo *PrivnetSubnetInfo, w *tables.LocalWorkload) (reconciler.AFPathsMap, error) {
+func (r *PrivateNetworkReconciler) getWorkloadAFPaths(desiredAdverts FamilyAdvertisements, evpVRFInfo *EvpnVRFInfo, subnetInfo *PrivnetSubnetInfo, pathAttrs FamilyAdvertPathAttributes, w *tables.LocalWorkload) (reconciler.AFPathsMap, error) {
 	desiredAFPaths := make(reconciler.AFPathsMap)
 	for family := range desiredAdverts {
 		agentFamily := types.ToAgentFamily(family)
@@ -505,7 +509,7 @@ func (r *PrivateNetworkReconciler) getWorkloadAFPaths(desiredAdverts FamilyAdver
 			securityGroupID = &r.evpnConfig.DefaultSecurityGroupID
 		}
 		prefix := netip.PrefixFrom(addr, addr.BitLen())
-		path, pathKey, err := r.evpnPaths.GetEvpnRT5Path(prefix, evpVRFInfo, securityGroupID)
+		path, pathKey, err := r.evpnPaths.GetEvpnRT5Path(prefix, evpVRFInfo, securityGroupID, pathAttrs[family])
 		if err != nil {
 			return nil, err
 		}

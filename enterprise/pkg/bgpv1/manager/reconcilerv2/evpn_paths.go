@@ -121,7 +121,7 @@ func (p *evpnPaths) GetEvpnRoutersMAC() string {
 
 // GetEvpnRT5Path returns EVPN RT-5 (L3VPN) path with Router’s MAC Extended Community (a.k.a. Pure-RT-5)
 // for the provided prefix and EVPN VRF info.
-func (p *evpnPaths) GetEvpnRT5Path(prefix netip.Prefix, vrfInfo *EvpnVRFInfo, securityGroupID *uint16) (*types.Path, string, error) {
+func (p *evpnPaths) GetEvpnRT5Path(prefix netip.Prefix, vrfInfo *EvpnVRFInfo, securityGroupID *uint16, customAttrs *AdvertPathAttributes) (*types.Path, string, error) {
 	if vrfInfo == nil {
 		return nil, "", errMissingEvpnPathInfo
 	}
@@ -178,6 +178,19 @@ func (p *evpnPaths) GetEvpnRT5Path(prefix netip.Prefix, vrfInfo *EvpnVRFInfo, se
 		extComms = append(extComms, ceeTypes.GetGroupPolicyIDExtendedCommunity(*securityGroupID))
 	}
 	pathAttrs = append(pathAttrs, bgp.NewPathAttributeExtendedCommunities(extComms))
+
+	// Custom path attributes:
+	if customAttrs != nil {
+		if len(customAttrs.Communities) > 0 {
+			pathAttrs = append(pathAttrs, bgp.NewPathAttributeCommunities(customAttrs.Communities))
+		}
+		if len(customAttrs.LargeCommunities) > 0 {
+			pathAttrs = append(pathAttrs, bgp.NewPathAttributeLargeCommunities(customAttrs.LargeCommunities))
+		}
+		if customAttrs.LocalPreference != nil {
+			pathAttrs = append(pathAttrs, bgp.NewPathAttributeLocalPref(*customAttrs.LocalPreference))
+		}
+	}
 
 	path := &types.Path{
 		NLRI:           nlri,

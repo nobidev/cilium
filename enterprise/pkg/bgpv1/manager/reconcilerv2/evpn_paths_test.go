@@ -39,18 +39,25 @@ func TestEVPNPathsType5(t *testing.T) {
 		vni101             = vni.MustFromUint32(101)
 		vni102             = vni.MustFromUint32(102)
 		securityGroupID    = uint16(42)
+		community          = ceeTypes.NewCommunity(65000, 100)
+		largeCommunity     = bgp.NewLargeCommunity(65000, 200, 300)
+		localPreference    = uint32(200)
 	)
 	tests := []struct {
-		name             string
-		prefix           netip.Prefix
-		vrfInfo          *EvpnVRFInfo
-		securityGroupID  *uint16
-		upsertDevice     *tables.Device
-		deleteDevice     *tables.Device
-		expectSignal     bool
-		expectErr        error
-		expectRoutersMAC string
-		expectSGID       *uint16
+		name              string
+		prefix            netip.Prefix
+		vrfInfo           *EvpnVRFInfo
+		securityGroupID   *uint16
+		pathAttrs         *AdvertPathAttributes
+		upsertDevice      *tables.Device
+		deleteDevice      *tables.Device
+		expectSignal      bool
+		expectErr         error
+		expectRoutersMAC  string
+		expectSGID        *uint16
+		expectCommunities []uint32
+		expectLargeComms  []*bgp.LargeCommunity
+		expectLocalPref   *uint32
 	}{
 		{
 			name:         "no VRF info",
@@ -160,6 +167,14 @@ func TestEVPNPathsType5(t *testing.T) {
 			upsertDevice:     &tables.Device{Index: 1, Name: testEVPNDeviceName, HardwareAddr: tables.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}},
 			expectSignal:     true,
 			expectRoutersMAC: "aa:bb:cc:dd:ee:ff",
+			pathAttrs: &AdvertPathAttributes{
+				Communities:      []uint32{community},
+				LargeCommunities: []*bgp.LargeCommunity{largeCommunity},
+				LocalPreference:  &localPreference,
+			},
+			expectCommunities: []uint32{community},
+			expectLargeComms:  []*bgp.LargeCommunity{largeCommunity},
+			expectLocalPref:   &localPreference,
 		},
 		{
 			name:   "multiple RTs, mac address change, IPv6 path",
@@ -172,6 +187,14 @@ func TestEVPNPathsType5(t *testing.T) {
 			upsertDevice:     &tables.Device{Index: 1, Name: testEVPNDeviceName, HardwareAddr: tables.HardwareAddr{0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa}},
 			expectSignal:     true,
 			expectRoutersMAC: "ff:ee:dd:cc:bb:aa",
+			pathAttrs: &AdvertPathAttributes{
+				Communities:      []uint32{community},
+				LargeCommunities: []*bgp.LargeCommunity{largeCommunity},
+				LocalPreference:  &localPreference,
+			},
+			expectCommunities: []uint32{community},
+			expectLargeComms:  []*bgp.LargeCommunity{largeCommunity},
+			expectLocalPref:   &localPreference,
 		},
 	}
 
@@ -249,7 +272,7 @@ func TestEVPNPathsType5(t *testing.T) {
 			if test.vrfInfo != nil {
 				test.vrfInfo.RoutersMAC = paths.GetEvpnRoutersMAC()
 			}
-			path, key, err := paths.GetEvpnRT5Path(test.prefix, test.vrfInfo, test.securityGroupID)
+			path, key, err := paths.GetEvpnRT5Path(test.prefix, test.vrfInfo, test.securityGroupID, test.pathAttrs)
 			if test.expectErr != nil {
 				require.Equal(t, test.expectErr, err)
 				return
@@ -275,13 +298,24 @@ func TestEVPNPathsType5(t *testing.T) {
 			}
 
 			var (
-				gotEncap   bool
-				rts        []string
-				routersMac string
-				gotSGID    bool
-				sgID       uint16
+				gotEncap      bool
+				rts           []string
+				routersMac    string
+				gotSGID       bool
+				sgID          uint16
+				communities   []uint32
+				largeComms    []*bgp.LargeCommunity
+				localPrefAttr *uint32
 			)
 			for _, pa := range path.PathAttributes {
+				switch v := pa.(type) {
+				case *bgp.PathAttributeCommunities:
+					communities = append([]uint32(nil), v.Value...)
+				case *bgp.PathAttributeLargeCommunities:
+					largeComms = append([]*bgp.LargeCommunity(nil), v.Values...)
+				case *bgp.PathAttributeLocalPref:
+					localPrefAttr = &v.Value
+				}
 				if pa.GetType() == bgp.BGP_ATTR_TYPE_EXTENDED_COMMUNITIES {
 					for _, extComm := range pa.(*bgp.PathAttributeExtendedCommunities).Value {
 						_, subType := extComm.GetTypes()
@@ -317,6 +351,9 @@ func TestEVPNPathsType5(t *testing.T) {
 			} else {
 				require.False(t, gotSGID)
 			}
+			require.Equal(t, test.expectCommunities, communities)
+			require.Equal(t, test.expectLargeComms, largeComms)
+			require.Equal(t, test.expectLocalPref, localPrefAttr)
 		})
 	}
 }

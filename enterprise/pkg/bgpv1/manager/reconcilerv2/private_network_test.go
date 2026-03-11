@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -46,6 +47,10 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 		testVxlanDeviceMAC1        = "01:02:03:04:05:06"
 		testVxlanDeviceMAC2        = "06:05:04:03:02:01"
 		testDefaultSecurityGroupID = uint16(53)
+		testCommunity1Str          = "65001:101"
+		testCommunity2Str          = "65001:102"
+		testLargeCommunityStr      = "65001:201:301"
+		testLocalPreference        = uint32(200)
 
 		vrf1PrivNetConfig = &v1alpha1.IsovalentBGPVRFConfig{
 			ObjectMeta: metav1.ObjectMeta{
@@ -97,7 +102,16 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 				Labels: vrf1AdvertLabel,
 			},
 			Spec: v1.IsovalentBGPAdvertisementSpec{
-				Advertisements: []v1.BGPAdvertisement{{AdvertisementType: v1.BGPPrivateNetworkAdvert}},
+				Advertisements: []v1.BGPAdvertisement{{
+					AdvertisementType: v1.BGPPrivateNetworkAdvert,
+					Attributes: &v2.BGPAttributes{
+						Communities: &v2.BGPCommunities{
+							Standard: []v2.BGPStandardCommunity{v2.BGPStandardCommunity(testCommunity1Str), v2.BGPStandardCommunity(testCommunity2Str)},
+							Large:    []v2.BGPLargeCommunity{v2.BGPLargeCommunity(testLargeCommunityStr)},
+						},
+						LocalPreference: ptr.To[int64](int64(testLocalPreference)),
+					},
+				}},
 			},
 		}
 		vrf2PrivNetAdvert = &v1.IsovalentBGPAdvertisement{
@@ -111,11 +125,14 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 		}
 
 		v4OnlyPrivnetAdvertisement = FamilyAdvertisements{
-			{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{{AdvertisementType: v1.BGPPrivateNetworkAdvert}},
+			{Afi: "ipv4", Safi: "unicast"}: vrf1PrivNetAdvert.Spec.Advertisements,
 		}
 		dualStackPrivnetAdvertisement = FamilyAdvertisements{
-			{Afi: "ipv4", Safi: "unicast"}: []v1.BGPAdvertisement{{AdvertisementType: v1.BGPPrivateNetworkAdvert}},
-			{Afi: "ipv6", Safi: "unicast"}: []v1.BGPAdvertisement{{AdvertisementType: v1.BGPPrivateNetworkAdvert}},
+			{Afi: "ipv4", Safi: "unicast"}: vrf1PrivNetAdvert.Spec.Advertisements,
+			{Afi: "ipv6", Safi: "unicast"}: vrf1PrivNetAdvert.Spec.Advertisements,
+		}
+		v4OnlyPrivnetAdvertisementNoAttrs = FamilyAdvertisements{
+			{Afi: "ipv4", Safi: "unicast"}: vrf2PrivNetAdvert.Spec.Advertisements,
 		}
 
 		privNet1Name = "privnet-1"
@@ -263,6 +280,10 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 	vrf2EP1NLRI := bgp.NewEVPNIPPrefixRoute(vrf2RD, bgp.EthernetSegmentIdentifier{}, 0, 32, privNet2EP1.Interface.Addressing.IPv4, "0.0.0.0", privNet2.VNI.AsUint32())
 	vrf2EP2NLRI := bgp.NewEVPNIPPrefixRoute(vrf2RD, bgp.EthernetSegmentIdentifier{}, 0, 32, privNet2EP2.Interface.Addressing.IPv4, "0.0.0.0", privNet2.VNI.AsUint32())
 
+	testCommunity1, _ := ceeTypes.ParseCommunity(testCommunity1Str)
+	testCommunity2, _ := ceeTypes.ParseCommunity(testCommunity2Str)
+	testLargeCommunity, _ := bgp.ParseLargeCommunity(testLargeCommunityStr)
+
 	tests := []struct {
 		name                   string
 		bgpNodeInstance        *v1.IsovalentBGPNodeInstance
@@ -275,9 +296,12 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 		vxlanDeviceMac         string
 		evpnConfig             evpnConfig.Config
 
-		expectedAdverts         VRFAdvertisements
-		expectedPaths           vrfSimplePathsMap
-		expectedSecurityGroupID *uint16
+		expectedAdverts          VRFAdvertisements
+		expectedPaths            vrfSimplePathsMap
+		expectedSecurityGroupID  *uint16
+		expectedCommunities      map[string][]uint32
+		expectedLargeCommunities map[string][]*bgp.LargeCommunity
+		expectedLocalPreference  map[string]*uint32
 	}{
 		{
 			name:            "add VRF 1, no private network, advertise 0 paths",
@@ -332,6 +356,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 				},
 			},
 			expectedSecurityGroupID: &testDefaultSecurityGroupID,
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
+			},
 		},
 		{
 			name:                   "add VRF 2 and private network 2 with workload, advertise 2 paths (no security group tag)",
@@ -347,7 +380,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			},
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: v4OnlyPrivnetAdvertisement,
-				privNet2Name: v4OnlyPrivnetAdvertisement,
+				privNet2Name: v4OnlyPrivnetAdvertisementNoAttrs,
 			},
 			expectedPaths: vrfSimplePathsMap{
 				privNet1Name: resourceAFSimplePathsMap{
@@ -360,6 +393,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: []string{vrf2EP1NLRI.String()},
 					},
 				},
+			},
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
 			},
 		},
 		{
@@ -371,7 +413,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			vxlanDeviceMac:         testVxlanDeviceMAC1,
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: v4OnlyPrivnetAdvertisement,
-				privNet2Name: v4OnlyPrivnetAdvertisement,
+				privNet2Name: v4OnlyPrivnetAdvertisementNoAttrs,
 			},
 			expectedPaths: vrfSimplePathsMap{
 				privNet1Name: resourceAFSimplePathsMap{
@@ -388,6 +430,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 					},
 				},
 			},
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
+			},
 		},
 		{
 			name:                   "delete workload from private network 2, advertise 2 paths",
@@ -398,7 +449,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			vxlanDeviceMac:         testVxlanDeviceMAC1,
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: v4OnlyPrivnetAdvertisement,
-				privNet2Name: v4OnlyPrivnetAdvertisement,
+				privNet2Name: v4OnlyPrivnetAdvertisementNoAttrs,
 			},
 			expectedPaths: vrfSimplePathsMap{
 				privNet1Name: resourceAFSimplePathsMap{
@@ -411,6 +462,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: []string{vrf2EP2NLRI.String()},
 					},
 				},
+			},
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
 			},
 		},
 		{
@@ -428,6 +488,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: []string{vrf1EP1NLRI.String()},
 					},
 				},
+			},
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
 			},
 		},
 		{
@@ -450,6 +519,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 					},
 				},
 			},
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
+			},
 		},
 		{
 			name:            "add IPv6 AF into VRF config, advertise 2 IPv4 paths + 1 IPv6 path",
@@ -470,6 +548,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: []string{vrf1EP2IPv6NLRI.String()},
 					},
 				},
+			},
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
 			},
 		},
 		{
@@ -505,6 +592,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 					},
 				},
 			},
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
+			},
 		},
 		{
 			name:                   "delete workload 2 from private network 1, advertise 1 path",
@@ -522,6 +618,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: []string{vrf1EP1NLRI.String()},
 					},
 				},
+			},
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
 			},
 		},
 		{
@@ -541,6 +646,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 					},
 				},
 			},
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
+			},
 		},
 		{
 			name:                  "change vxlan device MAC, advertise 1 path with modified routers MAC",
@@ -558,6 +672,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: []string{vrf1EP1NLRIVNI500.String()},
 					},
 				},
+			},
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
 			},
 		},
 		{
@@ -593,6 +716,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 					},
 				},
 			},
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
+			},
 		},
 		{
 			name:                   "add workload outside EVPN-enabled subnet, do not advertise it",
@@ -613,6 +745,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: []string{vrf1EP2IPv4NLRIVNI500.String()},
 					},
 				},
+			},
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
 			},
 		},
 	}
@@ -714,15 +855,26 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			// check NLRI of advertised Paths
 			compareSimplePath(req, tt.expectedPaths, runningMetadata.vrfPaths)
 
-			// check router's MAC of advertised Paths
-			for _, vrfPaths := range runningMetadata.vrfPaths {
+			// check path attributes of advertised Paths
+			for vrfName, vrfPaths := range runningMetadata.vrfPaths {
 				for _, resourceAFPaths := range vrfPaths {
 					for _, afPaths := range resourceAFPaths {
 						for _, path := range afPaths {
 							hasRoutersMac := false
 							hasSecurityGroupID := false
 							securityGroupID := uint16(0)
+							var communities []uint32
+							var largeCommunities []*bgp.LargeCommunity
+							var localPreference *uint32
 							for _, pa := range path.PathAttributes {
+								switch v := pa.(type) {
+								case *bgp.PathAttributeCommunities:
+									communities = append([]uint32(nil), v.Value...)
+								case *bgp.PathAttributeLargeCommunities:
+									largeCommunities = append([]*bgp.LargeCommunity(nil), v.Values...)
+								case *bgp.PathAttributeLocalPref:
+									localPreference = &v.Value
+								}
 								if pa.GetType() == bgp.BGP_ATTR_TYPE_EXTENDED_COMMUNITIES {
 									for _, extComm := range pa.(*bgp.PathAttributeExtendedCommunities).Value {
 										_, subType := extComm.GetTypes()
@@ -748,6 +900,9 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 							} else {
 								require.False(t, hasSecurityGroupID, "Path should not have Security Group extended community")
 							}
+							require.Equal(t, tt.expectedCommunities[vrfName], communities)
+							require.Equal(t, tt.expectedLargeCommunities[vrfName], largeCommunities)
+							require.Equal(t, tt.expectedLocalPreference[vrfName], localPreference)
 						}
 					}
 				}
