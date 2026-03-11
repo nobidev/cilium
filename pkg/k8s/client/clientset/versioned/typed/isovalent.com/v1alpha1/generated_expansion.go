@@ -47,6 +47,8 @@ type IsovalentSRv6SIDManagerExpansion interface{}
 
 type IsovalentVRFExpansion interface{}
 
+type IsovalentWAFPolicyExpansion interface{}
+
 type LBBackendPoolExpansion interface{}
 
 type LBDeploymentExpansion interface{}

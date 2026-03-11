@@ -103,6 +103,11 @@ const (
 	LBDeploymentKindDefinition = "LBDeployment"
 	LBDeploymentName           = LBDeploymentPluralName + "." + CustomResourceDefinitionGroup
 
+	// IsovalentWAFPolicy
+	IsovalentWAFPolicyPluralName     = "isovalentwafpolicies"
+	IsovalentWAFPolicyKindDefinition = "IsovalentWAFPolicy"
+	IsovalentWAFPolicyName           = IsovalentWAFPolicyPluralName + "." + CustomResourceDefinitionGroup
+
 	// IsovalentNetworkPolicy (INP/INCP)
 	IsovalentNetworkPolicyPluralName                = "isovalentnetworkpolicies"
 	IsovalentClusterwideNetworkPolicyPluralName     = "isovalentclusterwidenetworkpolicies"
@@ -221,6 +226,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&LBVIPList{},
 		&LBDeployment{},
 		&LBDeploymentList{},
+		&IsovalentWAFPolicy{},
+		&IsovalentWAFPolicyList{},
 		&IsovalentNetworkPolicy{},
 		&IsovalentNetworkPolicyList{},
 		&IsovalentClusterwideNetworkPolicy{},

@@ -53,6 +53,8 @@ type Interface interface {
 	IsovalentSRv6SIDManagers() IsovalentSRv6SIDManagerInformer
 	// IsovalentVRFs returns a IsovalentVRFInformer.
 	IsovalentVRFs() IsovalentVRFInformer
+	// IsovalentWAFPolicies returns a IsovalentWAFPolicyInformer.
+	IsovalentWAFPolicies() IsovalentWAFPolicyInformer
 	// LBBackendPools returns a LBBackendPoolInformer.
 	LBBackendPools() LBBackendPoolInformer
 	// LBDeployments returns a LBDeploymentInformer.
@@ -185,6 +187,11 @@ func (v *version) IsovalentSRv6SIDManagers() IsovalentSRv6SIDManagerInformer {
 // IsovalentVRFs returns a IsovalentVRFInformer.
 func (v *version) IsovalentVRFs() IsovalentVRFInformer {
 	return &isovalentVRFInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// IsovalentWAFPolicies returns a IsovalentWAFPolicyInformer.
+func (v *version) IsovalentWAFPolicies() IsovalentWAFPolicyInformer {
+	return &isovalentWAFPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // LBBackendPools returns a LBBackendPoolInformer.

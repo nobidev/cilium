@@ -99,6 +99,10 @@ func (c *FakeIsovalentV1alpha1) IsovalentVRFs() v1alpha1.IsovalentVRFInterface {
 	return newFakeIsovalentVRFs(c)
 }
 
+func (c *FakeIsovalentV1alpha1) IsovalentWAFPolicies(namespace string) v1alpha1.IsovalentWAFPolicyInterface {
+	return newFakeIsovalentWAFPolicies(c, namespace)
+}
+
 func (c *FakeIsovalentV1alpha1) LBBackendPools(namespace string) v1alpha1.LBBackendPoolInterface {
 	return newFakeLBBackendPools(c, namespace)
 }

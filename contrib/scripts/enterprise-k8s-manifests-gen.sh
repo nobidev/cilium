@@ -39,6 +39,7 @@ CRDS_ISOVALENT_V1ALPHA1="isovalentfqdngroups \
                          isovalentbfdnodeconfigoverrides \
                          isovalentbgpvrfconfigs \
                          isovalentclusterwideencryptionpolicies \
+                         isovalentwafpolicies \
                          lbservices \
                          lbbackendpools \
                          lbvips \

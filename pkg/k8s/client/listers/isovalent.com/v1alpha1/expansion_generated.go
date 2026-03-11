@@ -93,6 +93,14 @@ type IsovalentSRv6SIDManagerListerExpansion interface{}
 // IsovalentVRFLister.
 type IsovalentVRFListerExpansion interface{}
 
+// IsovalentWAFPolicyListerExpansion allows custom methods to be added to
+// IsovalentWAFPolicyLister.
+type IsovalentWAFPolicyListerExpansion interface{}
+
+// IsovalentWAFPolicyNamespaceListerExpansion allows custom methods to be added to
+// IsovalentWAFPolicyNamespaceLister.
+type IsovalentWAFPolicyNamespaceListerExpansion interface{}
+
 // LBBackendPoolListerExpansion allows custom methods to be added to
 // LBBackendPoolLister.
 type LBBackendPoolListerExpansion interface{}
