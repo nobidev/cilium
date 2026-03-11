@@ -8,21 +8,11 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package evpn
+package datapath
 
-import (
-	"github.com/cilium/hive/cell"
+import "github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/enterprise/pkg/evpn/config"
-	"github.com/cilium/cilium/enterprise/pkg/evpn/datapath"
-	"github.com/cilium/cilium/enterprise/pkg/evpn/vni"
-)
-
-var Cell = cell.Module(
-	"evpn",
-	"EVPN",
-
-	config.Cell,
-	vni.Cell,
-	datapath.Cell,
+var Cell = cell.Group(
+	cell.Provide(newRIBDataPlane),
+	cell.Invoke(registerManager),
 )

@@ -88,7 +88,7 @@ type managerIn struct {
 	Devices statedb.Table[*tables.Device]
 }
 
-func RegisterManager(in managerIn) error {
+func registerManager(in managerIn) error {
 	m := &manager{
 		log:                   in.Logger,
 		sysctl:                in.Sysctl,
