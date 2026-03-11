@@ -19,3 +19,5 @@ add_type(struct privnet_pip_key);
 add_type(struct privnet_pip_val);
 add_type(struct vni_key);
 add_type(struct vni_val);
+add_type(struct evpn_fib_key);
+add_type(struct evpn_fib_val);

@@ -16,6 +16,7 @@ import (
 	cectnat "github.com/cilium/cilium/enterprise/pkg/maps/ctnat"
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	"github.com/cilium/cilium/enterprise/pkg/maps/encryptionpolicymap"
+	"github.com/cilium/cilium/enterprise/pkg/maps/evpn"
 	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
 	"github.com/cilium/cilium/enterprise/pkg/maps/privnet"
 	"github.com/cilium/cilium/enterprise/pkg/maps/vni"
@@ -42,4 +43,7 @@ var Cell = cell.Module(
 
 	// VNI map
 	vni.Cell,
+
+	// EVPN maps
+	evpn.Cell,
 )

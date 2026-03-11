@@ -22,6 +22,7 @@ cilium-agent hive [flags]
       --api-rate-limit string                                            API rate limiting configuration (example: --api-rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)
       --azure-interface-name string                                      InterfaceName the cilium-operator will use to allocate all the IPs on at the node level
       --bgp-maintenance-withdraw-time duration                           Withdraws BGP routes in configured time after the node goes into maintenance mode. Does not withdraw if 0.
+      --bpf-evpn-fib-map-max uint32                                      Maximum number of entries in the FIB BPF map. (default 65536)
       --bpf-lb-algorithm string                                          BPF load balancing algorithm ("random", "maglev") (default "random")
       --bpf-lb-algorithm-annotation                                      Enable service-level annotation for configuring BPF load balancing algorithm
       --bpf-lb-dsr-dispatch string                                       BPF load balancing DSR dispatch method ("opt", "ipip", "geneve") (default "opt")

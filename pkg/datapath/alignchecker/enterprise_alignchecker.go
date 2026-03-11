@@ -13,6 +13,7 @@ package alignchecker
 import (
 	"github.com/cilium/cilium/enterprise/pkg/maps/egressmapha"
 	"github.com/cilium/cilium/enterprise/pkg/maps/encryptionpolicymap"
+	"github.com/cilium/cilium/enterprise/pkg/maps/evpn"
 	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
 	"github.com/cilium/cilium/enterprise/pkg/maps/privnet"
 	vniMap "github.com/cilium/cilium/enterprise/pkg/maps/vni"
@@ -39,6 +40,8 @@ func init() {
 		"privnet_subnet_val":           {privnet.SubnetVal{}},
 		"vni_key":                      {vniMap.VNIKey{}},
 		"vni_val":                      {vniMap.VNIVal{}},
+		"evpn_fib_key":                 {evpn.FIBKey{}},
+		"evpn_fib_val":                 {evpn.FIBVal{}},
 	} {
 		toCheck[typ] = append(toCheck[typ], str...)
 	}

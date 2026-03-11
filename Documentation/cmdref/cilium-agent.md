@@ -46,6 +46,7 @@ cilium-agent [flags]
       --bpf-events-drop-enabled                                          Expose 'drop' events for Cilium monitor and/or Hubble (default true)
       --bpf-events-policy-verdict-enabled                                Expose 'policy verdict' events for Cilium monitor and/or Hubble (default true)
       --bpf-events-trace-enabled                                         Expose 'trace' events for Cilium monitor and/or Hubble (default true)
+      --bpf-evpn-fib-map-max uint32                                      Maximum number of entries in the FIB BPF map. (default 65536)
       --bpf-fragments-map-max int                                        Maximum number of entries in fragments tracking map (default 8192)
       --bpf-lb-acceleration string                                       BPF load balancing acceleration via XDP ("native", "disabled") (default "disabled")
       --bpf-lb-algorithm string                                          BPF load balancing algorithm ("random", "maglev") (default "random")
