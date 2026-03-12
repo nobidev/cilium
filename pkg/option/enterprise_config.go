@@ -28,6 +28,9 @@ const (
 
 	// MulticastEnabled enables the Multicast feature
 	MulticastEnabled = "multicast-enabled"
+
+	// EVPNEnabled flag enables the EVPN feature
+	EVPNEnabled = "enable-evpn"
 )
 
 type EnterpriseDaemonConfig struct {
@@ -48,6 +51,9 @@ type EnterpriseDaemonConfig struct {
 
 	// Enable private networks support
 	EnablePrivateNetworks bool
+
+	// Enable EVPN feature
+	EnableEVPN bool
 }
 
 func (ec *EnterpriseDaemonConfig) Populate(vp *viper.Viper) {
@@ -57,4 +63,5 @@ func (ec *EnterpriseDaemonConfig) Populate(vp *viper.Viper) {
 	ec.EnableMulticast = vp.GetBool(MulticastEnabled)
 	ec.EnableBFD = vp.GetBool(bfdtypes.EnableBFDFlag)
 	ec.EnablePrivateNetworks = vp.GetBool(pncfg.FlagEnable)
+	ec.EnableEVPN = vp.GetBool(EVPNEnabled)
 }
