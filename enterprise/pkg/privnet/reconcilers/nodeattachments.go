@@ -60,6 +60,7 @@ var NodeAttachmentCell = cell.Group(
 		(*nodeAttachments).reconcileNodeSelector,
 		(*nodeAttachments).registerConflictResolver,
 		(*nodeAttachments).triggerFinalizers,
+		(*nodeAttachments).registerDeviceIndexReconciler,
 	),
 )
 
@@ -345,7 +346,8 @@ func (na *nodeAttachments) reconcileNodeSelector() {
 					return err
 				}
 			}
-		}))
+		},
+	))
 }
 
 func (na *nodeAttachments) registerConflictResolver() {
@@ -514,6 +516,56 @@ func (na *nodeAttachments) newNodeAttachmentInterface(
 	}
 
 	return iface
+}
+
+func (na *nodeAttachments) registerDeviceIndexReconciler() {
+	if !na.cfg.IsLocallyConnected() {
+		return
+	}
+
+	// We don't need to register an initializer on the devices table here because the devices
+	// controller providing the table has a start hook that returns only after the first
+	// initialization completed. Hence, we are guaranteed that the devices table is already
+	// initialized when ingesting the PNNA resources in the k8s reflector above.
+
+	na.jg.Add(job.OneShot(
+		"reconcile-node-attachment-device-index",
+		func(ctx context.Context, health cell.Health) error {
+			health.OK("Starting")
+
+			var watchset = statedb.NewWatchSet()
+
+			for {
+				wtx := na.db.WriteTxn(na.tbl)
+
+				// Grab devices watch channel to reconcile again when devices change.
+				_, watch := na.devices.AllWatch(wtx)
+				watchset.Add(watch)
+
+				for attachment := range na.tbl.All(wtx) {
+					ifname := attachment.Interface.Name
+					dev, _, _ := na.devices.Get(wtx, dptables.DeviceNameIndex.Query(string(ifname)))
+					iface := na.newNodeAttachmentInterface(ifname, dev)
+					if attachment.Interface != iface {
+						cpy := attachment.Clone()
+						cpy.Interface = iface
+						na.tbl.Insert(wtx, cpy)
+					}
+				}
+
+				wtx.Commit()
+
+				health.OK("Reconciliation completed")
+
+				// Wait until there are new changes to consume.
+				_, err := watchset.Wait(ctx, SettleTime)
+				if err != nil {
+					return err
+				}
+			}
+		},
+	))
+
 }
 
 var _ reconciler.Operations[*tables.NodeAttachment] = &nodeAttachmentOps{}
