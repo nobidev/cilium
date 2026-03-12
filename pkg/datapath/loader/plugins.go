@@ -36,6 +36,23 @@ const (
 	bpfLoaderGCRetryInterval = time.Minute
 )
 
+func attachmentContextLXC(ep datapath.Endpoint) *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{
+		Context: &datapathplugins.AttachmentContext_Lxc{
+			Lxc: &datapathplugins.AttachmentContext_LXC{
+				Iface: &datapathplugins.AttachmentContext_InterfaceInfo{
+					Name: ep.InterfaceName(),
+				},
+				PodInfo: &datapathplugins.AttachmentContext_PodInfo{
+					Namespace:     ep.GetK8sNamespace(),
+					PodName:       ep.GetK8sPodName(),
+					ContainerName: ep.GetContainerName(),
+				},
+			},
+		},
+	}
+}
+
 // bpfCollectionLoader coordinates between datapath plugins when loading a BPF
 // collection. It provides an interface similar to the usual bpf.Load and
 // bpf.LoadAndAssign functions.
