@@ -68,26 +68,33 @@ type nodeAttachments struct {
 	jg  job.Group
 
 	cfg config.Config
-	db  *statedb.DB
 
-	tbl    statedb.RWTable[*tables.NodeAttachment]
-	nodes  statedb.Table[*node.LocalNode]
-	client cs_iso_v1alpha1.PrivateNetworkNodeAttachmentInterface
+	db      *statedb.DB
+	tbl     statedb.RWTable[*tables.NodeAttachment]
+	nodes   statedb.Table[*node.LocalNode]
+	devices statedb.Table[*dptables.Device]
 
 	desiredDevManager device.ManagerOperations
+
+	client cs_iso_v1alpha1.PrivateNetworkNodeAttachmentInterface
 }
 
 func newNodeAttachments(in struct {
 	cell.In
 
-	Log             *slog.Logger
-	JobGroup        job.Group
-	Config          config.Config
+	Log      *slog.Logger
+	JobGroup job.Group
+
+	Config config.Config
+
 	DB              *statedb.DB
 	NodeAttachments statedb.RWTable[*tables.NodeAttachment]
 	Nodes           statedb.Table[*node.LocalNode]
-	DeviceManager   device.ManagerOperations
-	Client          client.Clientset
+	Devices         statedb.Table[*dptables.Device]
+
+	DeviceManager device.ManagerOperations
+
+	Client client.Clientset
 }) (*nodeAttachments, error) {
 	reconciler := &nodeAttachments{
 		log:               in.Log,
@@ -96,6 +103,7 @@ func newNodeAttachments(in struct {
 		db:                in.DB,
 		tbl:               in.NodeAttachments,
 		nodes:             in.Nodes,
+		devices:           in.Devices,
 		desiredDevManager: in.DeviceManager,
 	}
 
@@ -217,14 +225,18 @@ func (na *nodeAttachments) registerK8sReflector(sync promise.Promise[synced.CRDS
 				// device name and type are set based on VLAN configuration
 				if attachmentObj.VlanID == nil {
 					attachment.Type = tables.DeviceTypeUserManaged
-					attachment.Name = tables.DeviceName(attachmentObj.Interface)
+					ifname := tables.DeviceName(attachmentObj.Interface)
+					dev, _, _ := na.devices.Get(txn, dptables.DeviceNameIndex.Query(string(ifname)))
+					attachment.Interface = na.newNodeAttachmentInterface(ifname, dev)
 				} else {
 					attachment.Type = tables.DeviceTypeCiliumManaged
 					attachment.Config = tables.DeviceConfiguration{
 						ParentInterfaceName: tables.DeviceName(attachmentObj.Interface),
 						VLANID:              *attachmentObj.VlanID,
 					}
-					attachment.Name = attachment.Config.GetDeviceName()
+					ifname := attachment.Config.GetDeviceName()
+					dev, _, _ := na.devices.Get(txn, dptables.DeviceNameIndex.Query(string(ifname)))
+					attachment.Interface = na.newNodeAttachmentInterface(ifname, dev)
 				}
 
 				desired[attachment.Key()] = attachment
@@ -374,7 +386,7 @@ func (na *nodeAttachments) conflictResolver(ctx context.Context, health cell.Hea
 			// this reconcilers' main job is to resolve conflict, so process objects which
 			// are marked as conflicting.
 			if change.Object.Conflict == tables.AttachmentConflictNetworks {
-				toProcess.Insert(change.Object.Name)
+				toProcess.Insert(change.Object.Interface.Name)
 			}
 		}
 
@@ -445,13 +457,13 @@ func (na *nodeAttachments) getAttachmentConflicts(
 	attachments := map[tables.NodeAttachmentPrimaryKey]*tables.NodeAttachment{
 		obj.Key(): obj, // include obj with latest state
 	}
-	for attach := range na.tbl.List(txn, tables.NodeAttachmentsByDeviceName(obj.Name)) {
+	for attach := range na.tbl.List(txn, tables.NodeAttachmentsByDeviceName(obj.Interface.Name)) {
 		if attach.Key() != obj.Key() {
 			attachments[attach.Key()] = attach
 		}
 	}
 	for key, attach := range pending {
-		if key == obj.Key() || attach.Name != obj.Name {
+		if key == obj.Key() || attach.Interface.Name != obj.Interface.Name {
 			continue
 		}
 		attachments[key] = attach
@@ -484,6 +496,26 @@ func (na *nodeAttachments) getAttachmentConflicts(
 	return updates
 }
 
+func (na *nodeAttachments) newNodeAttachmentInterface(
+	name tables.DeviceName,
+	dev *dptables.Device,
+) tables.NodeAttachmentInterface {
+	iface := tables.NodeAttachmentInterface{Name: name}
+
+	switch {
+	case dev == nil:
+		iface.Error = fmt.Sprintf("Interface %q not found", name)
+	case dev.OperStatus != "up":
+		iface.Error = fmt.Sprintf("Interface %q has %q operational status", name, dev.OperStatus)
+	case !dev.Selected:
+		iface.Error = fmt.Sprintf("Interface %q not selected by Cilium: %v", name, dev.NotSelectedReason)
+	default:
+		iface.Index = dev.Index
+	}
+
+	return iface
+}
+
 var _ reconciler.Operations[*tables.NodeAttachment] = &nodeAttachmentOps{}
 
 type nodeAttachmentOps struct {
@@ -514,7 +546,7 @@ func (ops *nodeAttachmentOps) Update(ctx context.Context, txn statedb.ReadTxn, r
 
 	desiredDevice := device.DesiredDevice{
 		Owner:      ops.deviceOwner,
-		Name:       string(obj.Name),
+		Name:       string(obj.Interface.Name),
 		DeviceSpec: newDesiredVLANDeviceSpec(obj, parentDevice.Index),
 	}
 
@@ -525,7 +557,7 @@ func (ops *nodeAttachmentOps) Update(ctx context.Context, txn statedb.ReadTxn, r
 
 	ops.log.Debug("added private-network device",
 		logfields.ClusterwidePrivateNetwork, obj.Network,
-		logfields.PrivateNetworkAttachment, obj.Name,
+		logfields.PrivateNetworkAttachment, obj.Interface.Name,
 	)
 
 	return nil
@@ -534,7 +566,7 @@ func (ops *nodeAttachmentOps) Update(ctx context.Context, txn statedb.ReadTxn, r
 func (ops *nodeAttachmentOps) Delete(_ context.Context, txn statedb.ReadTxn, _ statedb.Revision, obj *tables.NodeAttachment) error {
 	dev := device.DesiredDevice{
 		Owner:      ops.deviceOwner,
-		Name:       string(obj.Name),
+		Name:       string(obj.Interface.Name),
 		DeviceSpec: newDesiredVLANDeviceSpec(obj, 0), // parent device ifindex is not relevant for deletion
 	}
 
@@ -548,7 +580,7 @@ func (*nodeAttachmentOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq
 
 func newDesiredVLANDeviceSpec(obj *tables.NodeAttachment, parentIdx int) *device.DesiredVLANDeviceSpec {
 	return &device.DesiredVLANDeviceSpec{
-		Name:        string(obj.Name),
+		Name:        string(obj.Interface.Name),
 		VLANID:      obj.Config.VLANID,
 		ParentName:  string(obj.Config.ParentInterfaceName),
 		ParentIndex: parentIdx,

@@ -136,34 +136,34 @@ spec:
         - name: subnet-2
 
 -- node-attachments.v1.table --
-Name  Type          Config NodeSelected Network   Subnets  Conflict
-eth1  user-managed  N/A    true         network-1 subnet-1 none
+Interface  Type          Config NodeSelected Network   Subnets  Conflict
+eth1 (10)  user-managed  N/A    true         network-1 subnet-1 none
 
 -- node-attachments.v2.table --
-Name    Type              Config                  NodeSelected         Network     Subnets  Conflict
-eth1    user-managed      N/A                     true                 network-1   subnet-1 none
-eth1.10 cilium-managed    parent: eth1, VLAN: 10  false                network-2   subnet-2 none
+Interface   Type              Config                  NodeSelected         Network     Subnets  Conflict
+eth1 (10)   user-managed      N/A                     true                 network-1   subnet-1 none
+eth1.10 (!) cilium-managed    parent: eth1, VLAN: 10  false                network-2   subnet-2 none
 
 -- node-attachments.v3.table --
-Name    Type              Config                  NodeSelected     Network     Subnets  Conflict
-eth1    user-managed      N/A                     true             network-1   subnet-1 none
-eth1.10 cilium-managed    parent: eth1, VLAN: 10  true             network-2   subnet-2 none
+Interface   Type              Config                  NodeSelected     Network     Subnets  Conflict
+eth1 (10)   user-managed      N/A                     true             network-1   subnet-1 none
+eth1.10 (!) cilium-managed    parent: eth1, VLAN: 10  true             network-2   subnet-2 none
 
 -- desired-devices.v3.table --
 Owner                    Name        Properties
 privnet-node-attachments eth1.10     Type=vlan, ParentDevice=eth1, VLAN=10
 
 -- node-attachments.v4.table --
-Name    Type              Config                  NodeSelected     Network     Subnets  Conflict
-eth1    user-managed      N/A                     true             network-1   subnet-1 none
-eth1.10 cilium-managed    parent: eth1, VLAN: 10  true             network-2   subnet-2 device-overlap
-eth1.10 cilium-managed    parent: eth1, VLAN: 10  true             network-3   subnet-2 device-overlap
+Interface   Type              Config                  NodeSelected     Network     Subnets  Conflict
+eth1 (10)   user-managed      N/A                     true             network-1   subnet-1 none
+eth1.10 (!) cilium-managed    parent: eth1, VLAN: 10  true             network-2   subnet-2 device-overlap
+eth1.10 (!) cilium-managed    parent: eth1, VLAN: 10  true             network-3   subnet-2 device-overlap
 
 -- node-attachments.v5.table --
-Name    Type              Config                  NodeSelected     Network     Subnets  Conflict
-eth1    user-managed      N/A                     true             network-1   subnet-1 none
-eth1.10 cilium-managed    parent: eth1, VLAN: 10  true             network-2   subnet-2 none
-eth1.20 cilium-managed    parent: eth1, VLAN: 20  true             network-3   subnet-2 none
+Interface   Type              Config                  NodeSelected     Network     Subnets  Conflict
+eth1 (10)   user-managed      N/A                     true             network-1   subnet-1 none
+eth1.10 (!) cilium-managed    parent: eth1, VLAN: 10  true             network-2   subnet-2 none
+eth1.20 (!) cilium-managed    parent: eth1, VLAN: 20  true             network-3   subnet-2 none
 
 -- desired-devices.v5.table --
 Owner                    Name        Properties
@@ -171,18 +171,18 @@ privnet-node-attachments eth1.10     Type=vlan, ParentDevice=eth1, VLAN=10
 privnet-node-attachments eth1.20     Type=vlan, ParentDevice=eth1, VLAN=20
 
 -- node-attachments.v6.table --
-Name    Type              Config                  NodeSelected      Network     Subnets  Conflict
-eth1    user-managed      N/A                     true              network-1   subnet-1 none
-eth1.10 cilium-managed    parent: eth1, VLAN: 10  false             network-2   subnet-2 none
-eth1.20 cilium-managed    parent: eth1, VLAN: 20  false             network-3   subnet-2 none
+Interface   Type              Config                  NodeSelected      Network     Subnets  Conflict
+eth1 (10)   user-managed      N/A                     true              network-1   subnet-1 none
+eth1.10 (!) cilium-managed    parent: eth1, VLAN: 10  false             network-2   subnet-2 none
+eth1.20 (!) cilium-managed    parent: eth1, VLAN: 20  false             network-3   subnet-2 none
 
 -- node-attachments.v7.table --
-Name     Type              Config                  NodeSelected     Network     Subnets  Conflict
-eth1     user-managed      N/A                     true             network-1   subnet-1 none
-eth1.10  cilium-managed    parent: eth1, VLAN: 10  true             network-2   subnet-2 none
-eth1.20  cilium-managed    parent: eth1, VLAN: 20  true             network-3   subnet-2 none
-eth2.100 cilium-managed    parent: eth2, VLAN: 100 true             network-4   subnet-1 none
-eth2.200 cilium-managed    parent: eth2, VLAN: 200 true             network-4   subnet-2 none
+Interface    Type              Config                  NodeSelected     Network     Subnets  Conflict
+eth1 (10)    user-managed      N/A                     true             network-1   subnet-1 none
+eth1.10 (!)  cilium-managed    parent: eth1, VLAN: 10  true             network-2   subnet-2 none
+eth1.20 (!)  cilium-managed    parent: eth1, VLAN: 20  true             network-3   subnet-2 none
+eth2.100 (!) cilium-managed    parent: eth2, VLAN: 100 true             network-4   subnet-1 none
+eth2.200 (!) cilium-managed    parent: eth2, VLAN: 200 true             network-4   subnet-2 none
 
 -- desired-devices.v7.table --
 Owner                    Name        Properties

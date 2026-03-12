@@ -77,22 +77,29 @@ const (
 type NodeAttachment struct {
 	// Resource is the private network resource creating this device entry.
 	Resource types.PrivateNetworkResource
-	// Name is the Linux device name.
-	Name DeviceName
+
+	// Interface is the network interface.
+	Interface NodeAttachmentInterface
+
 	// Type is device origin type (user defined or managed by Cilium).
 	Type DeviceType
+
 	// Network is the private network associated with the device.
 	Network NetworkName
+
 	// NodeSelector is the node selector configuration.
 	NodeSelector NodeSelector
+
 	// Subnets for this device, this is reflection of NodeAttachment resource.
 	Subnets []SubnetName
+
 	// Config is the device configuration.
 	Config DeviceConfiguration
+
 	// Conflict is the conflict status for this device.
 	Conflict AttachmentConflict
 
-	// OpsStatus is reconciler status for attachment operations.
+	// OpsStatus is the reconciler status for attachment operations.
 	OpsStatus reconciler.Status
 }
 
@@ -105,17 +112,17 @@ func (a *NodeAttachment) IsManagedDevice() bool {
 var _ statedb.TableWritable = &NodeAttachment{}
 
 func (a *NodeAttachment) Key() NodeAttachmentPrimaryKey {
-	return newNodeAttachmentPrimaryKey(a.Resource, a.Name)
+	return newNodeAttachmentPrimaryKey(a.Resource, a.Interface.Name)
 }
 
 func (a *NodeAttachment) TableHeader() []string {
-	return []string{"Origin", "Name", "Type", "Config", "NodeSelected", "Network", "Subnets", "Conflict", "Status"}
+	return []string{"Origin", "Interface", "Type", "Config", "NodeSelected", "Network", "Subnets", "Conflict", "Status"}
 }
 
 func (a *NodeAttachment) TableRow() []string {
 	return []string{
 		a.Resource.String(),
-		string(a.Name),
+		a.Interface.String(),
 		string(a.Type),
 		cmp.Or(a.Config.String(), "N/A"),
 		strconv.FormatBool(a.NodeSelector.SelectorMatches),
@@ -139,6 +146,28 @@ func (a *NodeAttachment) Clone() *NodeAttachment {
 
 func (a *NodeAttachment) GetDeviceCreationStatus() reconciler.Status {
 	return a.OpsStatus
+}
+
+// NodeAttachmentInterface is the network interface associated with a node attachment.
+type NodeAttachmentInterface struct {
+	// Name is the name of the network interface.
+	Name DeviceName
+
+	// Index is the (positive) index of the network interface.
+	Index int
+
+	// Error is the possible error occurred mapping the network interface name to its index.
+	Error string
+}
+
+func (nai NodeAttachmentInterface) String() string {
+	var index = "!"
+
+	if nai.Index != 0 {
+		index = strconv.Itoa(nai.Index)
+	}
+
+	return string(nai.Name) + " (" + index + ")"
 }
 
 // NodeAttachmentPrimaryKey is <resource-type>/<resource-name>|<device-name>.
@@ -168,7 +197,7 @@ var (
 	nodeAttachmentDeviceNameIndex = statedb.Index[*NodeAttachment, string]{
 		Name: "device",
 		FromObject: func(obj *NodeAttachment) index.KeySet {
-			return index.NewKeySet(index.String(string(obj.Name)))
+			return index.NewKeySet(index.String(string(obj.Interface.Name)))
 		},
 		FromKey:    index.String,
 		FromString: index.FromString,
