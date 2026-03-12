@@ -19,6 +19,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
@@ -242,7 +243,7 @@ func loadAssignAttach(logger *slog.Logger, reg *registry.MapRegistry,
 			Constants:   xdpConfiguration(lnc, iface),
 			MapRenames:  xdpMapRenames(lnc, iface),
 			CollectionOptions: ebpf.CollectionOptions{
-				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+				Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath()},
 			},
 			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), xdpConfig),
 		})
@@ -252,7 +253,7 @@ func loadAssignAttach(logger *slog.Logger, reg *registry.MapRegistry,
 		defer obj.Close()
 
 		err = attachXDPProgram(logger, iface, obj.Entrypoint, symbolFromHostNetdevXDP,
-			bpffsDeviceLinksDir(bpf.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode))
+			bpffsDeviceLinksDir(bpffs.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode))
 		if errors.Is(err, unix.EINVAL) {
 			// EINVAL during attachment can have multiple causes. There are two common
 			// cases we can handle:
@@ -336,7 +337,7 @@ func attachXDPProgram(logger *slog.Logger, iface netlink.Link, prog *ebpf.Progra
 		return fmt.Errorf("updating link %s for program %s: %w", pin, progName, err)
 	}
 
-	if err := bpf.MkdirBPF(bpffsDir); err != nil {
+	if err := bpffs.MkdirBPF(bpffsDir); err != nil {
 		return fmt.Errorf("creating bpffs link dir for xdp attachment to device %s: %w", iface.Attrs().Name, err)
 	}
 

@@ -13,6 +13,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/registry"
@@ -77,7 +78,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, reg *regis
 		Constants:   overlayConfiguration(lnc, link),
 		MapRenames:  overlayMapRenames(lnc, link),
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath()},
 		},
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(link.Attrs().Name), overlayConfig),
 	})
@@ -86,7 +87,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, reg *regis
 	}
 	defer obj.Close()
 
-	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), link)
+	linkDir := bpffsDeviceLinksDir(bpffs.CiliumPath(), link)
 	if err := attachSKBProgram(logger, link, obj.FromOverlay, symbolFromOverlay,
 		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", link, err)

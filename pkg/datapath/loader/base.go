@@ -16,7 +16,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
@@ -165,9 +165,9 @@ func cleanIngressQdisc(logger *slog.Logger, devices []string) error {
 	return nil
 }
 
-// cleanCallsMaps is used to remove any pinned map matching mapNamePattern from bpf.TCGlobalsPath().
+// cleanCallsMaps is used to remove any pinned map matching mapNamePattern from bpffs.TCGlobalsPath().
 func cleanCallsMaps(mapNamePattern string) error {
-	matches, err := filepath.Glob(filepath.Join(bpf.TCGlobalsPath(), mapNamePattern))
+	matches, err := filepath.Glob(filepath.Join(bpffs.TCGlobalsPath(), mapNamePattern))
 	if err != nil {
 		return fmt.Errorf("failed to list maps with mapNamePattern %s: %w", mapNamePattern, err)
 	}
@@ -228,7 +228,7 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, reg *regist
 func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	lnc *config.Config, devices []string) error {
 	xdpConfig := lnc.XDPConfig
-	maybeUnloadObsoleteXDPPrograms(logger, devices, xdpConfig.Mode(), bpf.CiliumPath())
+	maybeUnloadObsoleteXDPPrograms(logger, devices, xdpConfig.Mode(), bpffs.CiliumPath())
 	if xdpConfig.Disabled() {
 		return nil
 	}
@@ -300,7 +300,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	}
 
 	// BPF file system setup.
-	if err := bpf.MkdirBPF(bpf.TCGlobalsPath()); err != nil {
+	if err := bpffs.MkdirBPF(bpffs.TCGlobalsPath()); err != nil {
 		return fmt.Errorf("failed to create bpffs directory: %w", err)
 	}
 

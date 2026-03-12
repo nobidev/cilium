@@ -13,6 +13,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -106,7 +107,7 @@ func attachCiliumHost(logger *slog.Logger, reg *registry.MapRegistry, ep endpoin
 	commit, err := bpf.LoadAndAssign(logger, &hostObj, spec, &bpf.CollectionOptions{
 		MapRegistry: reg,
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath()},
 		},
 		Constants:      ciliumHostConfiguration(ep, lnc),
 		MapRenames:     ciliumHostMapRenames(ep, lnc),
@@ -124,12 +125,12 @@ func attachCiliumHost(logger *slog.Logger, reg *registry.MapRegistry, ep endpoin
 
 	// Attach cil_to_host to cilium_host ingress.
 	if err := attachSKBProgram(logger, host, hostObj.ToHost, symbolToHostEp,
-		bpffsDeviceLinksDir(bpf.CiliumPath(), host), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+		bpffsDeviceLinksDir(bpffs.CiliumPath(), host), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", ep.InterfaceName(), err)
 	}
 	// Attach cil_from_host to cilium_host egress.
 	if err := attachSKBProgram(logger, host, hostObj.FromHost, symbolFromHostEp,
-		bpffsDeviceLinksDir(bpf.CiliumPath(), host), netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+		bpffsDeviceLinksDir(bpffs.CiliumPath(), host), netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s egress: %w", ep.InterfaceName(), err)
 	}
 
@@ -185,7 +186,7 @@ func attachCiliumNet(logger *slog.Logger, reg *registry.MapRegistry, ep endpoint
 	commit, err := bpf.LoadAndAssign(logger, &netObj, spec, &bpf.CollectionOptions{
 		MapRegistry: reg,
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath()},
 		},
 		Constants:      ciliumNetConfiguration(ep, lnc, net),
 		MapRenames:     ciliumNetMapRenames(ep, lnc, net),
@@ -198,7 +199,7 @@ func attachCiliumNet(logger *slog.Logger, reg *registry.MapRegistry, ep endpoint
 
 	// Attach cil_to_host to cilium_net.
 	if err := attachSKBProgram(logger, net, netObj.ToHost, symbolToHostEp,
-		bpffsDeviceLinksDir(bpf.CiliumPath(), net), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+		bpffsDeviceLinksDir(bpffs.CiliumPath(), net), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", defaults.SecondHostDevice, err)
 	}
 
@@ -275,7 +276,7 @@ func attachNetworkDevices(logger *slog.Logger, reg *registry.MapRegistry, ep end
 			continue
 		}
 
-		linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), iface)
+		linkDir := bpffsDeviceLinksDir(bpffs.CiliumPath(), iface)
 		masq4, masq6 := bpfMasqAddrs(iface.Attrs().Name, lnc,
 			option.Config.EnableIPv4Masquerade, option.Config.EnableIPv6Masquerade)
 
@@ -283,7 +284,7 @@ func attachNetworkDevices(logger *slog.Logger, reg *registry.MapRegistry, ep end
 		commit, err := bpf.LoadAndAssign(logger, &netdevObj, spec, &bpf.CollectionOptions{
 			MapRegistry: reg,
 			CollectionOptions: ebpf.CollectionOptions{
-				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+				Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath()},
 			},
 			Constants:      netdevConfiguration(ep, lnc, iface, masq4, masq6),
 			MapRenames:     netdevMapRenames(ep, lnc, iface),

@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -40,9 +40,9 @@ func TestPrivilegedMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 		require.NoError(t, netlink.LinkAdd(veth))
 
 		loLinkPath := bpffsDeviceLinksDir(basePath, lo)
-		require.NoError(t, bpf.MkdirBPF(loLinkPath))
+		require.NoError(t, bpffs.MkdirBPF(loLinkPath))
 		vethLinkPath := bpffsDeviceLinksDir(basePath, veth)
-		require.NoError(t, bpf.MkdirBPF(vethLinkPath))
+		require.NoError(t, bpffs.MkdirBPF(vethLinkPath))
 
 		// need to use symbolFromHostNetdevXDP as progName here as maybeUnloadObsoleteXDPPrograms explicitly uses that name.
 		require.NoError(t, attachXDPProgram(logger, lo, prog, symbolFromHostNetdevXDP, loLinkPath, link.XDPGenericMode))
@@ -127,7 +127,7 @@ func TestPrivilegedAttachXDPWithExistingLink(t *testing.T) {
 
 		basePath := testutils.TempBPFFS(t)
 		pinDir := bpffsDeviceLinksDir(basePath, lo)
-		require.NoError(t, bpf.MkdirBPF(pinDir))
+		require.NoError(t, bpffs.MkdirBPF(pinDir))
 
 		// At this point, we know bpf_link is supported, so attachXDPProgram should
 		// use it.

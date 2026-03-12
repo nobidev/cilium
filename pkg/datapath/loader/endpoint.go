@@ -19,6 +19,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -154,17 +155,17 @@ func (l *loader) Unload(ep endpoint.Endpoint) {
 
 	// Remove the links directory first to avoid removing program arrays before
 	// the entrypoints are detached.
-	if err := bpf.Remove(bpffsEndpointLinksDir(bpf.CiliumPath(), ep)); err != nil {
+	if err := bpffs.Remove(bpffsEndpointLinksDir(bpffs.CiliumPath(), ep)); err != nil {
 		log.Error("Failed to remove bpffs entry",
 			logfields.Error, err,
-			logfields.BPFFSEndpointLinksDir, bpffsEndpointLinksDir(bpf.CiliumPath(), ep),
+			logfields.BPFFSEndpointLinksDir, bpffsEndpointLinksDir(bpffs.CiliumPath(), ep),
 		)
 	}
 	// Finally, remove the endpoint's top-level directory.
-	if err := bpf.Remove(bpffsEndpointDir(bpf.CiliumPath(), ep)); err != nil {
+	if err := bpffs.Remove(bpffsEndpointDir(bpffs.CiliumPath(), ep)); err != nil {
 		log.Error("Failed to remove bpffs entry",
 			logfields.Error, err,
-			logfields.BPFFSEndpointDir, bpffsEndpointDir(bpf.CiliumPath(), ep),
+			logfields.BPFFSEndpointDir, bpffsEndpointDir(bpffs.CiliumPath(), ep),
 		)
 	}
 }
@@ -200,7 +201,7 @@ func reloadEndpoint(logger *slog.Logger, reg *registry.MapRegistry, db *statedb.
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		MapRegistry: reg,
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath()},
 		},
 		Constants:      endpointConfiguration(ep, lnc),
 		MapRenames:     endpointMapRenames(ep, lnc),
@@ -231,7 +232,7 @@ func reloadEndpoint(logger *slog.Logger, reg *registry.MapRegistry, db *statedb.
 		return fmt.Errorf("retrieving device %s: %w", device, err)
 	}
 
-	linkDir := bpffsEndpointLinksDir(bpf.CiliumPath(), ep)
+	linkDir := bpffsEndpointLinksDir(bpffs.CiliumPath(), ep)
 	if err := attachSKBProgram(logger, iface, obj.FromContainer, symbolFromEndpoint,
 		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", device, err)

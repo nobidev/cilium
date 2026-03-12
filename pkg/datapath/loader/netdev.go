@@ -13,7 +13,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -110,8 +110,8 @@ func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
 
 		// Remove the per-device bpffs directory containing pinned links and
 		// per-endpoint maps.
-		bpffsPath := bpffsDeviceDir(bpf.CiliumPath(), l)
-		if err := bpf.Remove(bpffsPath); err != nil {
+		bpffsPath := bpffsDeviceDir(bpffs.CiliumPath(), l)
+		if err := bpffs.Remove(bpffsPath); err != nil {
 			logger.Error("Failed to remove bpffs entry",
 				logfields.Error, err,
 				logfields.BPFFSPath, bpffsPath,

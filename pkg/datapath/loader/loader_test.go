@@ -18,6 +18,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -62,12 +63,12 @@ func initBpffs(tb testing.TB) {
 
 	tb.Helper()
 
-	require.NoError(tb, bpf.MkdirBPF(bpf.TCGlobalsPath()))
-	require.NoError(tb, bpf.MkdirBPF(bpf.CiliumPath()))
+	require.NoError(tb, bpffs.MkdirBPF(bpffs.TCGlobalsPath()))
+	require.NoError(tb, bpffs.MkdirBPF(bpffs.CiliumPath()))
 
 	tb.Cleanup(func() {
-		require.NoError(tb, os.RemoveAll(bpf.TCGlobalsPath()))
-		require.NoError(tb, os.RemoveAll(bpf.CiliumPath()))
+		require.NoError(tb, os.RemoveAll(bpffs.TCGlobalsPath()))
+		require.NoError(tb, os.RemoveAll(bpffs.CiliumPath()))
 	})
 }
 
