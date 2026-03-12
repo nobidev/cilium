@@ -20,6 +20,7 @@ evpn-vxlan-device: {{ .Values.enterprise.evpn.vxlanDevice | quote }}
 evpn-vxlan-port: {{ .Values.enterprise.evpn.vxlanPort | quote }}
 enable-evpn-security-group-tags: {{ .Values.enterprise.evpn.securityGroupTags.enabled | quote }}
 evpn-default-security-group-id: {{ .Values.enterprise.evpn.securityGroupTags.defaultGroupID | quote }}
+bpf-evpn-fib-map-max: {{ .Values.enterprise.evpn.fibMapMax | quote }}
 {{- end }}
 
 {{- if .Values.enterprise.bgpControlPlane.enabled }}

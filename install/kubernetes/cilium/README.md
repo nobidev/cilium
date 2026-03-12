@@ -469,6 +469,7 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.encryption.policy.enabled | bool | `false` | Enables support for encryption policies |
 | enterprise.encryption.policy.fallbackBehavior | string | `nil` | Defines the behavior for traffic which is not selected by an encryption policy. Currently the only supported value is "plaintext", which also needs to be explicitly provided for forward-compatibility with future Cilium versions (as future versions might implement a different default fallback behavior). @schema type: [null, string] @schema |
 | enterprise.evpn.enabled | bool | `false` | Enables support for EVPN |
+| enterprise.evpn.fibMapMax | int | `65536` | Maximum number of entries in the cilium_evpn_fib map |
 | enterprise.evpn.securityGroupTags.defaultGroupID | int | `0` | Default Security Group ID, used when no other configured Security Group matches the advertisement. |
 | enterprise.evpn.securityGroupTags.enabled | bool | `false` | Enables Security Group Tags in EVPN advertisements. |
 | enterprise.evpn.vxlanDevice | string | `"cilium_evpn"` | EVPN Vxlan device name |

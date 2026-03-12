@@ -70,6 +70,8 @@ enterprise:
       enabled: false
       # -- Default Security Group ID, used when no other configured Security Group matches the advertisement.
       defaultGroupID: 0
+    # -- Maximum number of entries in the cilium_evpn_fib map
+    fibMapMax: 65536
 
   bgpControlPlane:
     # -- Enables enterprise BGP control plane

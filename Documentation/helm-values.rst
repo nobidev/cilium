@@ -1692,6 +1692,10 @@
      - Enables support for EVPN
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.evpn.fibMapMax`
+     - Maximum number of entries in the cilium_evpn_fib map
+     - int
+     - ``65536``
    * - :spelling:ignore:`enterprise.evpn.securityGroupTags.defaultGroupID`
      - Default Security Group ID, used when no other configured Security Group matches the advertisement.
      - int

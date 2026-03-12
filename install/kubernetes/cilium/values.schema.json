@@ -2461,6 +2461,9 @@
             "enabled": {
               "type": "boolean"
             },
+            "fibMapMax": {
+              "type": "integer"
+            },
             "securityGroupTags": {
               "properties": {
                 "defaultGroupID": {
