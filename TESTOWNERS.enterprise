@@ -610,6 +610,7 @@
 /pkg/k8s/apis/isovalent.com/v1alpha1/bfd_types.go @isovalent/traffic-engineering
 /pkg/k8s/apis/isovalent.com/v1alpha1/bgp_*_types.go @isovalent/traffic-engineering
 /pkg/k8s/apis/isovalent.com/v1alpha1/encryption_types.go @isovalent/encryption
+/pkg/k8s/apis/isovalent.com/v1alpha1/fsg_types.go @isovalent/traffic-engineering
 /pkg/k8s/apis/isovalent.com/v1alpha1/lb_types* @isovalent/isovalent-loadbalancer
 /pkg/k8s/apis/isovalent.com/v1alpha1/podnetwork_types.go @isovalent/multi-network
 /pkg/k8s/apis/isovalent.com/v1alpha1/icnp_types.go @isovalent/policy-identity-networking
