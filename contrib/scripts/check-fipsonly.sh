@@ -30,6 +30,7 @@ EXCLUDED_DIRS=(
     "tools/sysctlfix"
     "tools/testowners"
     "tools/stackwhere"
+    "examples/datapath-plugin"
 )
 
 FIPSONLY_EXAMPLE=$(
