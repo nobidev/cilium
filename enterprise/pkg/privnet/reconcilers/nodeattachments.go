@@ -188,8 +188,8 @@ func (na *nodeAttachments) registerK8sReflector(sync promise.Promise[synced.CRDS
 			}
 
 			desired := make(map[tables.NodeAttachmentPrimaryKey]*tables.NodeAttachment)
-			for _, deviceObj := range attachObj.Spec.Attachments {
-				dev := &tables.NodeAttachment{
+			for _, attachmentObj := range attachObj.Spec.Attachments {
+				attachment := &tables.NodeAttachment{
 					Resource: types.PrivateNetworkResource{
 						Kind: iso_v1alpha1.PrivateNetworkNodeAttachmentKindDefinition,
 						Name: attachObj.Name,
@@ -198,8 +198,8 @@ func (na *nodeAttachments) registerK8sReflector(sync promise.Promise[synced.CRDS
 				}
 
 				// update configured subnets
-				for _, subnetRef := range deviceObj.SubnetRefs {
-					dev.Subnets = append(dev.Subnets, tables.SubnetName(subnetRef.Name))
+				for _, subnetRef := range attachmentObj.SubnetRefs {
+					attachment.Subnets = append(attachment.Subnets, tables.SubnetName(subnetRef.Name))
 				}
 
 				// update node selector labels and status
@@ -209,35 +209,35 @@ func (na *nodeAttachments) registerK8sReflector(sync promise.Promise[synced.CRDS
 					selector = slim_labels.Nothing()
 				}
 
-				dev.NodeSelector = tables.NodeSelector{
+				attachment.NodeSelector = tables.NodeSelector{
 					Selector:        selector,
 					SelectorMatches: selector.Matches(nodeLabels),
 				}
 
 				// device name and type are set based on VLAN configuration
-				if deviceObj.VlanID == nil {
-					dev.Type = tables.DeviceTypeUserManaged
-					dev.Name = tables.DeviceName(deviceObj.Interface)
+				if attachmentObj.VlanID == nil {
+					attachment.Type = tables.DeviceTypeUserManaged
+					attachment.Name = tables.DeviceName(attachmentObj.Interface)
 				} else {
-					dev.Type = tables.DeviceTypeCiliumManaged
-					dev.Config = tables.DeviceConfiguration{
-						ParentInterfaceName: tables.DeviceName(deviceObj.Interface),
-						VLANID:              *deviceObj.VlanID,
+					attachment.Type = tables.DeviceTypeCiliumManaged
+					attachment.Config = tables.DeviceConfiguration{
+						ParentInterfaceName: tables.DeviceName(attachmentObj.Interface),
+						VLANID:              *attachmentObj.VlanID,
 					}
-					dev.Name = dev.Config.GetDeviceName()
+					attachment.Name = attachment.Config.GetDeviceName()
 				}
 
-				desired[dev.Key()] = dev
+				desired[attachment.Key()] = attachment
 			}
 
 			current := make(map[tables.NodeAttachmentPrimaryKey]*tables.NodeAttachment)
-			for _, dev := range desired {
+			for _, attachment := range desired {
 				// getAttachmentConflicts will update dev as well as any
 				// other attachment which may get into conflict due to this change.
 				// Note, this does not account for stale entries so we may end up marking
 				// a device as conflicting temporarily. Once stale entries are removed, dedicated
 				// conflict detector reconciler will remove conflict state.
-				updates := na.getAttachmentConflicts(txn, dev, desired)
+				updates := na.getAttachmentConflicts(txn, attachment, desired)
 				for _, update := range updates {
 					update.OpsStatus = reconciler.StatusPending()
 					current[update.Key()] = update
