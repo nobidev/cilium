@@ -30,11 +30,28 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/google/uuid"
+	"github.com/vishvananda/netlink"
 )
 
 const (
 	bpfLoaderGCRetryInterval = time.Minute
 )
+
+func linkToInterfaceInfo(l netlink.Link) *datapathplugins.AttachmentContext_InterfaceInfo {
+	return &datapathplugins.AttachmentContext_InterfaceInfo{
+		Name: l.Attrs().Name,
+	}
+}
+
+func attachmentContextHost(ep datapath.Endpoint, device netlink.Link) *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{
+		Context: &datapathplugins.AttachmentContext_Host_{
+			Host: &datapathplugins.AttachmentContext_Host{
+				Iface: linkToInterfaceInfo(device),
+			},
+		},
+	}
+}
 
 func attachmentContextLXC(ep datapath.Endpoint) *datapathplugins.AttachmentContext {
 	return &datapathplugins.AttachmentContext{
