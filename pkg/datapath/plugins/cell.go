@@ -36,5 +36,6 @@ var Cell = cell.Module(
 	),
 	cell.Invoke(
 		registerDPPReflector,
+		registerDPPWatcher,
 	),
 )
