@@ -90,9 +90,8 @@ func (cfg Config) Validate(dcfg *option.DaemonConfig, cmcfg cecmcfg.Config, cnic
 			fallbackRoutingModeFlag, option.IPAM, dcfg.IPAM)
 	}
 
-	if lbcfg.LoadBalancerUsesDSR() {
-		return fmt.Errorf("currently, %s requires %s=%s",
-			fallbackRoutingModeFlag, lbcfg.LBMode, loadbalancer.LBModeSNAT)
+	if lbcfg.LBMode != loadbalancer.LBModeSNAT {
+		return fmt.Errorf("currently, %s requires %s=%s", fallbackRoutingModeFlag, lbcfg.LBMode, loadbalancer.LBModeSNAT)
 	}
 
 	if dcfg.DatapathMode != dpopt.DatapathModeVeth {
