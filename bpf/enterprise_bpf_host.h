@@ -17,7 +17,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
-		.monitor = TRACE_PAYLOAD_LEN,
+		.monitor = 0,
 	};
 
 	void __maybe_unused *data, *data_end;

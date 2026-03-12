@@ -20,7 +20,7 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 	const struct privnet_device_val *dev_val __maybe_unused;
 	struct trace_ctx trace __maybe_unused = {
 		.reason = TRACE_REASON_UNKNOWN,
-		.monitor = TRACE_PAYLOAD_LEN,
+		.monitor = 0,
 	};
 	int ret = CTX_ACT_OK;
 	__u16 net_id;
