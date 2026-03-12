@@ -34,6 +34,9 @@ const (
 	// endpoints are announced via gratuitous ARP/ND in bridge mode.
 	FlagBridgeGneighInterval = "private-networks-bridge-gneigh-interval"
 
+	// FlagHostReachability is the flag to allow (remote) host traffic into privnet.
+	FlagHostReachability = "private-networks-host-reachability"
+
 	// ModeDefault configures private networks to operate in default mode.
 	ModeDefault = "default"
 
@@ -61,6 +64,7 @@ var (
 		Common:               DefaultCommon,
 		Mode:                 ModeDefault,
 		BridgeGneighInterval: 1 * time.Minute,
+		HostReachability:     true,
 	}
 )
 
@@ -81,6 +85,7 @@ type Config struct {
 
 	Mode                 string        `mapstructure:"private-networks-mode"`
 	BridgeGneighInterval time.Duration `mapstructure:"private-networks-bridge-gneigh-interval"`
+	HostReachability     bool          `mapstructure:"private-networks-host-reachability"`
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -90,6 +95,9 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 
 	flags.Duration(FlagBridgeGneighInterval, def.BridgeGneighInterval,
 		fmt.Sprintf("Interval at which workload cluster endpoints are announced using gratuitous ARP/ND in %s or %s mode. Ignored in %s mode.", ModeBridge, ModeLocalAccess, ModeDefault))
+
+	flags.Bool(FlagHostReachability, def.HostReachability, "Allow (remote) host traffic into privnet")
+	flags.MarkHidden(FlagHostReachability)
 }
 
 // EnabledAsBridge returns whether private networking is enabled, and configured in bridge mode.

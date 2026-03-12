@@ -25,6 +25,8 @@ type BPFOverlayEnterprise struct {
 	PrivnetBridgeEnable bool `config:"privnet_bridge_enable"`
 	// True if the endpoint is in a non-default network.
 	PrivnetEnable bool `config:"privnet_enable"`
+	// True if host / remote node traffic is allowed into privnet.
+	PrivnetHostReachability bool `config:"privnet_host_reachability"`
 	// True if running in local access mode.
 	PrivnetLocalAccessEnable bool `config:"privnet_local_access_enable"`
 	// The security identifier for unknown network traffic.
@@ -33,5 +35,5 @@ type BPFOverlayEnterprise struct {
 
 func NewBPFOverlayEnterprise() *BPFOverlayEnterprise {
 	return &BPFOverlayEnterprise{false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, false, false, false, 0x0}
+		false, false, false, false, false, 0x0}
 }

@@ -13,6 +13,8 @@ DECLARE_ENTERPRISE_CONFIG(bool, privnet_bridge_enable,
 			  "True if running on network bridge")
 DECLARE_ENTERPRISE_CONFIG(bool, privnet_local_access_enable,
 			  "True if running in local access mode")
+DECLARE_ENTERPRISE_CONFIG(bool, privnet_host_reachability,
+			  "True if host / remote node traffic is allowed into privnet")
 
 #ifdef IS_BPF_LXC
 DECLARE_ENTERPRISE_CONFIG(__u32, cilium_dhcp_ifindex,

@@ -35,11 +35,13 @@ static __always_inline int mock_ctx_redirect(const struct __sk_buff __maybe_unus
 
 /* Include test helpers */
 #include "tests/lib/enterprise_privnet.h"
+#include "tests/lib/ipcache.h"
 #include "tests/lib/policy.h"
 
 /* Enable privnet */
 ASSIGN_CONFIG(bool, privnet_enable, true)
 ASSIGN_CONFIG(bool, privnet_local_access_enable, false)
+ASSIGN_CONFIG(bool, privnet_host_reachability, true)
 ASSIGN_CONFIG(__u32, privnet_unknown_sec_id, 99) /* tunnel id 99 is reserved for unknown privnet flow */
 ASSIGN_CONFIG(__u32, interface_ifindex, IFINDEX)
 ASSIGN_CONFIG(__u32, cilium_dhcp_ifindex, CILIUM_DHCP_IFINDEX)

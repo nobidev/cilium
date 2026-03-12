@@ -183,6 +183,19 @@ privnet_lxc_ns_self = (
       ICMPv6ND_NS(tgt=v6_pod_one_netip) /
       ICMPv6NDOptSrcLLAddr(lladdr=pd.mac_one)
 )
+privnet_host_to_pod_tcp_syn = (
+    Ether(src=pd.mac_one, dst=pd.mac_two) /
+    IP(src=pd.v4_node_one, dst=pd.v4_pod_one) /
+    TCP(sport=54321, dport=80, flags="S") /
+    Raw(load=b"syn")
+)
+privnet_pod_to_host_tcp_synack = (
+    Ether(src=pd.mac_one, dst=pd.mac_two) /
+    IP(src=v4_pod_one_netip, dst="169.254.7.1") /
+    TCP(sport=80, dport=54321, flags="SA") /
+    Raw(load=b"syn")
+)
+
 ### Packets coming to netdev
 privnet_netdev_ns = (
     Ether(src=pd.mac_one, dst=ns_pod_one_mmac) /
