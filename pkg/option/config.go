@@ -995,6 +995,9 @@ const (
 
 	// EnableCiliumNodeCRD is the name of the option to enable use of the CiliumNode CRD
 	EnableCiliumNodeCRDName = "enable-ciliumnode-crd"
+
+	// EnableDatapathPlugins is the name of the option to enable datapath plugins.
+	EnableDatapathPlugins = "enable-datapath-plugins"
 )
 
 // Default string arguments
@@ -1860,6 +1863,9 @@ type DaemonConfig struct {
 
 	// EnableCiliumNodeCRD enables the use of CiliumNode CRD
 	EnableCiliumNodeCRD bool
+
+	// Enables datapath plugins features.
+	EnableDatapathPlugins bool
 }
 
 var (
@@ -1920,6 +1926,8 @@ var (
 		EnableCiliumNodeCRD: defaults.EnableCiliumNodeCRD,
 
 		PolicyAccounting: defaults.PolicyAccounting,
+
+		EnableDatapathPlugins: defaults.EnableDatapathPlugins,
 	}
 )
 
@@ -2876,6 +2884,9 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		)
 		c.ConnectivityProbeFrequencyRatio = defaults.ConnectivityProbeFrequencyRatio
 	}
+
+	// Enable datapath plugins.
+	c.EnableDatapathPlugins = vp.GetBool(EnableDatapathPlugins)
 }
 
 func (c *DaemonConfig) PopulateEnableCiliumNodeCRD(logger *slog.Logger, vp *viper.Viper) {
