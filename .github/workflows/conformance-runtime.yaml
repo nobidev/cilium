@@ -2,6 +2,7 @@ name: Conformance Runtime (ci-runtime)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  pull_request: {}
   workflow_dispatch:
     inputs:
       PR-number:
@@ -91,7 +92,7 @@ jobs:
     name: Build Ginkgo Runtime
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: cilium/action-secure-checkout@504dcd59803138b7d1e330395efe159bda2e3059
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -217,7 +218,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: cilium/action-secure-checkout@504dcd59803138b7d1e330395efe159bda2e3059
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -530,7 +531,7 @@ jobs:
     needs: setup-and-test
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: cilium/action-secure-checkout@504dcd59803138b7d1e330395efe159bda2e3059
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false

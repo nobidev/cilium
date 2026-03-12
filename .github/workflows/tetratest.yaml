@@ -1,0 +1,23 @@
+name: tetratest
+on: pull_request
+
+jobs:
+    check:
+        name: test
+        runs-on: ubuntu-24.04
+        steps:
+        - name: actual secure checkout
+          uses: cilium/action-secure-checkout@504dcd59803138b7d1e330395efe159bda2e3059
+          with:
+            ref: ${{ github.sha }}
+            persist-credentials: false
+
+        - name: check if it's possible to change the code
+          run: |
+            if echo "2137" >> daemon/cmd/root.go; then
+              echo "Code is not protected by Tetragon, please check the secure checkout action"
+              exit 1
+            else
+              echo "Code is protected by Tetragon, changes are not allowed"
+            fi
+            git diff
