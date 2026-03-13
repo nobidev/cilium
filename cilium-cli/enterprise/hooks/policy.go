@@ -17,22 +17,22 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 )
 
-//go:embed manifests/client-ingress-to-echo-ordered-ns.yaml
+//go:embed manifests/network-policy/client-ingress-to-echo-ordered-ns.yaml
 var clientIngressToEchoOrderedNS string
 
-//go:embed manifests/client-ingress-to-echo-ordered-wildcard.yaml
+//go:embed manifests/network-policy/client-ingress-to-echo-ordered-wildcard.yaml
 var clientIngressToEchoOrderedWildcard string
 
-//go:embed manifests/client-ingress-to-echo-tiered-ns.yaml
+//go:embed manifests/network-policy/client-ingress-to-echo-tiered-ns.yaml
 var clientIngressToEchoTieredNS string
 
-//go:embed manifests/client-ingress-to-echo-tiered-wildcard.yaml
+//go:embed manifests/network-policy/client-ingress-to-echo-tiered-wildcard.yaml
 var clientIngressToEchoTieredWildcard string
 
-//go:embed manifests/client-ingress-to-echo-tiered-wildcard-pass.yaml
+//go:embed manifests/network-policy/client-ingress-to-echo-tiered-wildcard-pass.yaml
 var clientIngressToEchoTieredWildcardPass string
 
-//go:embed manifests/client-ingress-to-echo-ordered-portrange.yaml
+//go:embed manifests/network-policy/client-ingress-to-echo-ordered-portrange.yaml
 var clientIngressToEchoOrderedPortrange string
 
 var (
