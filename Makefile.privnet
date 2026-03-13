@@ -25,7 +25,7 @@ PRIVNET_CONTAINER_IMAGE ?= docker.io/nicolaka/netshoot:v0.15@sha256:47b907d662d1
 PRIVNET_DNSMASQ_IMAGE ?= docker.io/4km3/dnsmasq:2.90-r3@sha256:52e25fb2601156ab66f6a0872c180b285df7cafaa41267d8d65689f066490641
 
 # renovate: datasource=github-releases depName=cert-manager/cert-manager
-PRIVNET_CERT_MANAGER_VERSION ?= v1.19.4
+PRIVNET_CERT_MANAGER_VERSION ?= v1.20.0
 
 # renovate: datasource=github-releases depName=kubevirt/kubevirt
 PRIVNET_KUBEVIRT_VERSION ?= v1.7.1
