@@ -762,7 +762,7 @@ Makefile* @cilium/build
 #   Catch-all group for enterprise code in the Cilium core
 # - @isovalent/core-structure
 #   A team responsible for maintaining files related to Enterprise Lint GitHub
-#   workflow and TESTOWNERS.enterprise.
+#   workflow.
 # - @isovalent/dns-proxy
 #   Responsible for maintaining DNS Proxy HA
 # - @isovalent/egress-gateway
@@ -1086,5 +1086,5 @@ Makefile* @cilium/build
 /pkg/policy/types/enterprise_selector.go @isovalent/private-networking
 /plugins/cilium-cni/cmd/enterprise_* @isovalent/cilium-agent
 /RELEASE-NOTES* @isovalent/qa @isovalent/release-managers
-/TESTOWNERS.enterprise @isovalent/core-structure
+/TESTOWNERS.enterprise
 /vendor/
