@@ -162,20 +162,6 @@
 /* Based on enterprise/pkg/maps/privnet.FIBKeyTypePeering */
 #define PRIVNET_FIB_KEY_TYPE_PEERING 1
 
-/* TODO(brb) both will be configurable in a subsequent commit */
-
-/* Link-local IPv4 address (169.254.7.1) used to SNAT host traffic to PrivNet
- * to prevent P-IP and netIP overlaps
- */
-#define PRIVNET_LINK_LOCAL_SNAT_IPV4 0x0107fea9
-
-/* Link-local IPv6 address (fe80::a9fe:701) used to SNAT host traffic to PrivNet
- * to prevent P-IP and netIP overlaps
- */
-static const union v6addr PRIVNET_LINK_LOCAL_SNAT_IPV6 = {
-	.addr = { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xa9, 0xfe, 0x07, 0x01 },
-};
-
 struct privnet_fib_key {
 	struct bpf_lpm_trie_key lpm_key;
 	__u16 net_id;
@@ -662,7 +648,7 @@ privnet_host_snat_ingress4(struct __ctx_buff *ctx __maybe_unused)
 	int ret = 0;
 #if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
 	struct ipv4_nat_target target = {
-		.addr = PRIVNET_LINK_LOCAL_SNAT_IPV4,
+		.addr = CONFIG(privnet_host_snat_ipv4).be32,
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		/* No need to set .needs_ct, as the relevant CT entry should exist before this function is
@@ -722,7 +708,7 @@ privnet_host_snat_ingress6(struct __ctx_buff *ctx __maybe_unused)
 	int ret = 0;
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 	struct ipv6_nat_target target = {
-		.addr = PRIVNET_LINK_LOCAL_SNAT_IPV6,
+		.addr = CONFIG(privnet_host_snat_ipv6),
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
@@ -1105,7 +1091,7 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 
 	if (is_defined(IS_BPF_LXC) && CONFIG(privnet_host_reachability) &&
-	    ip4->daddr == PRIVNET_LINK_LOCAL_SNAT_IPV4 && sip_val && !dip_val) {
+	    ip4->daddr == CONFIG(privnet_host_snat_ipv4).be32 && sip_val && !dip_val) {
 		const struct remote_endpoint_info *info;
 		__u32 dst_sec_identity;
 
@@ -1341,8 +1327,10 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		if (ipv6_addr_equals((union v6addr *)&ip6->daddr,
-				     &PRIVNET_LINK_LOCAL_SNAT_IPV6) && !dip_val && sip_val) {
+		union v6addr snat_ipv6 = CONFIG(privnet_host_snat_ipv6);
+
+		if (ipv6_addr_equals((union v6addr *)&ip6->daddr, &snat_ipv6) &&
+		    !dip_val && sip_val) {
 			ret = privnet_host_rev_snat_egress6(ctx);
 			if (IS_ERR(ret))
 				return ret;

@@ -12,6 +12,7 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -36,6 +37,14 @@ const (
 
 	// FlagHostReachability is the flag to allow (remote) host traffic into privnet.
 	FlagHostReachability = "private-networks-host-reachability"
+
+	// FlagHostSNATIPv4 is the flag to configure the link-local IPv4 address used
+	// to SNAT host traffic destined to PrivNet workloads.
+	FlagHostSNATIPv4 = "private-networks-host-snat-ipv4"
+
+	// FlagHostSNATIPv6 is the flag to configure the link-local IPv6 address used
+	// to SNAT host traffic destined to PrivNet workloads.
+	FlagHostSNATIPv6 = "private-networks-host-snat-ipv6"
 
 	// ModeDefault configures private networks to operate in default mode.
 	ModeDefault = "default"
@@ -65,6 +74,8 @@ var (
 		Mode:                 ModeDefault,
 		BridgeGneighInterval: 1 * time.Minute,
 		HostReachability:     true,
+		HostSNATIPv4:         "169.254.7.1",
+		HostSNATIPv6:         "fe80::a9fe:701",
 	}
 )
 
@@ -86,6 +97,8 @@ type Flags struct {
 	Mode                 string        `mapstructure:"private-networks-mode"`
 	BridgeGneighInterval time.Duration `mapstructure:"private-networks-bridge-gneigh-interval"`
 	HostReachability     bool          `mapstructure:"private-networks-host-reachability"`
+	HostSNATIPv4         string        `mapstructure:"private-networks-host-snat-ipv4"`
+	HostSNATIPv6         string        `mapstructure:"private-networks-host-snat-ipv6"`
 }
 
 func (def Flags) Flags(flags *pflag.FlagSet) {
@@ -98,17 +111,11 @@ func (def Flags) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool(FlagHostReachability, def.HostReachability, "Allow (remote) host traffic into privnet")
 	flags.MarkHidden(FlagHostReachability)
-}
 
-func (f Flags) validate() error {
-	switch f.Mode {
-	case ModeDefault, ModeBridge, ModeLocalAccess:
-	default:
-		return fmt.Errorf("invalid private networks mode %q, should be one of: %q, %q, %q",
-			f.Mode, ModeDefault, ModeBridge, ModeLocalAccess)
-	}
-
-	return nil
+	flags.String(FlagHostSNATIPv4, def.HostSNATIPv4, "Link-local IPv4 address used to SNAT host traffic to PrivNet")
+	flags.MarkHidden(FlagHostSNATIPv4)
+	flags.String(FlagHostSNATIPv6, def.HostSNATIPv6, "Link-local IPv6 address used to SNAT host traffic to PrivNet")
+	flags.MarkHidden(FlagHostSNATIPv6)
 }
 
 // Config is the parsed private networking configuration.
@@ -117,12 +124,39 @@ type Config struct {
 	Mode                 string
 	BridgeGneighInterval time.Duration
 	HostReachability     bool
+	HostSNATIPv4         netip.Addr
+	HostSNATIPv6         netip.Addr
 }
 
 // NewConfig creates a Config from the parsed Flags.
 func NewConfig(f Flags) (Config, error) {
-	if err := f.validate(); err != nil {
-		return Config{}, err
+	switch f.Mode {
+	case ModeDefault, ModeBridge, ModeLocalAccess:
+	default:
+		return Config{}, fmt.Errorf("invalid private networks mode %q, should be one of: %q, %q, %q",
+			f.Mode, ModeDefault, ModeBridge, ModeLocalAccess)
+	}
+
+	snatIPv4, err := netip.ParseAddr(f.HostSNATIPv4)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid %s: %w", FlagHostSNATIPv4, err)
+	}
+	if !snatIPv4.Is4() {
+		return Config{}, fmt.Errorf("invalid %s: expected an IPv4 address", FlagHostSNATIPv4)
+	}
+	if !snatIPv4.IsLinkLocalUnicast() {
+		return Config{}, fmt.Errorf("invalid %s: expected to be a link-local address", FlagHostSNATIPv4)
+	}
+
+	snatIPv6, err := netip.ParseAddr(f.HostSNATIPv6)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid %s: %w", FlagHostSNATIPv6, err)
+	}
+	if !snatIPv6.Is6() {
+		return Config{}, fmt.Errorf("invalid %s: expected an IPv6 address", FlagHostSNATIPv6)
+	}
+	if !snatIPv6.IsLinkLocalUnicast() {
+		return Config{}, fmt.Errorf("invalid %s: expected to be a link-local address", FlagHostSNATIPv6)
 	}
 
 	return Config{
@@ -130,6 +164,8 @@ func NewConfig(f Flags) (Config, error) {
 		Mode:                 f.Mode,
 		BridgeGneighInterval: f.BridgeGneighInterval,
 		HostReachability:     f.HostReachability,
+		HostSNATIPv4:         snatIPv4,
+		HostSNATIPv6:         snatIPv6,
 	}, nil
 }
 

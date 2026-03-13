@@ -45,6 +45,7 @@ ASSIGN_CONFIG(__u32, privnet_unknown_sec_id, 99) /* tunnel id 99 is reserved for
 ASSIGN_CONFIG(__u32, interface_ifindex, IFINDEX)
 ASSIGN_CONFIG(__u32, cilium_dhcp_ifindex, CILIUM_DHCP_IFINDEX)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr}) /* set lxc mac */
+ASSIGN_CONFIG(union v4addr, privnet_host_snat_ipv4, {.be32 = 0x0107fea9}) /* 169.254.7.1 */
 
 static const union v4addr lxc_privnet_ipv4 = { .be32 = V4_NET_IP_1 };
 static const union v6addr lxc_privnet_ipv6 = { .addr = v6_svc_one_addr };
@@ -95,9 +96,9 @@ int host_snat_ingress_check(struct __ctx_buff *ctx)
 
 	ip4 = data;
 
-	if (ip4->saddr != PRIVNET_LINK_LOCAL_SNAT_IPV4)
+	if (ip4->saddr != CONFIG(privnet_host_snat_ipv4).be32)
 		test_fatal("expected src 169.254.7.1 (0x%x), got 0x%x",
-			   PRIVNET_LINK_LOCAL_SNAT_IPV4, ip4->saddr);
+			   CONFIG(privnet_host_snat_ipv4).be32, ip4->saddr);
 
 	if (ip4->daddr != V4_NET_IP_1)
 		test_fatal("expected dst netIP (0x%x), got 0x%x",
