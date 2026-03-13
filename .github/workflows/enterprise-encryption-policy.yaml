@@ -96,9 +96,15 @@ jobs:
         include:
           - name: '1'
             routing: 'tunnel'
+            fallback-behavior: 'plaintext'
 
           - name: '2'
             routing: 'native'
+            fallback-behavior: 'plaintext'
+
+          - name: '3'
+            routing: 'tunnel'
+            fallback-behavior: 'encrypt'
 
     steps:
       - name: Collect Workflow Telemetry
@@ -139,7 +145,7 @@ jobs:
             --helm-set=encryption.enabled=true \
             --helm-set=encryption.type=wireguard \
             --helm-set=enterprise.encryption.policy.enabled=true \
-            --helm-set=enterprise.encryption.policy.fallbackBehavior=plaintext \
+            --helm-set=enterprise.encryption.policy.fallbackBehavior=${{ matrix.fallback-behavior }} \
           "
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
