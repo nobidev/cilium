@@ -32,20 +32,35 @@ import (
 // The checks are implemented by curl'ing a server pod from a client pod, and
 // then inspecting tcpdump captures from the client and server pod's nodes.
 func PodToPodEncryptionPolicy() check.Scenario {
-	return &podToPodEncryptionPolicy{
+	return &podToPodEncryptionPolicyScenario{
 		ScenarioBase: check.NewScenarioBase(),
+		name:         "pod-to-pod-encryption-policy",
 	}
 }
 
-type podToPodEncryptionPolicy struct {
+// PodToPodEncryptionPolicyOptOut is a test case for the default-encrypt opt-out
+// flow. It relies on fallbackBehavior: encrypt being set on the cluster, which
+// encrypts all traffic by default. The test applies a plaintextPeers policy to
+// exempt client2→echo traffic. It then verifies:
+//   - Traffic from client (not opted out) to echo IS encrypted (via catch-all).
+//   - Traffic from client2 (opted out via plaintextPeers) to echo is NOT encrypted.
+func PodToPodEncryptionPolicyOptOut() check.Scenario {
+	return &podToPodEncryptionPolicyScenario{
+		ScenarioBase: check.NewScenarioBase(),
+		name:         "pod-to-pod-encryption-policy-optout",
+	}
+}
+
+type podToPodEncryptionPolicyScenario struct {
 	check.ScenarioBase
+	name string
 }
 
-func (s *podToPodEncryptionPolicy) Name() string {
-	return "pod-to-pod-encryption-policy"
+func (s *podToPodEncryptionPolicyScenario) Name() string {
+	return s.name
 }
 
-func (s *podToPodEncryptionPolicy) Run(ctx context.Context, t *check.Test) {
+func (s *podToPodEncryptionPolicyScenario) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	var client1 check.Pod

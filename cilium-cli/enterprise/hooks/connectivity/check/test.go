@@ -336,11 +336,21 @@ func (t *EnterpriseTest) WithIsovalentClusterwideEncryptionPolicy(policy string)
 		t.Fatalf("Parsing encryption policy YAML: %s", err)
 	}
 
-	// Ensure the correct test namespace is applied to all subjects and peers of the respective policy
+	// Ensure the correct test namespace is applied to all subjects and peers of the respective policy.
+	// Skip namespace scoping for policies with empty/nil MatchLabels (wildcard selectors).
 	for i := range pl {
-		pl[i].Spec.NamespaceSelector.MatchLabels[k8sConst.LabelMetadataName] = t.Test.Context().Params().TestNamespace
+		if pl[i].Spec.NamespaceSelector != nil && pl[i].Spec.NamespaceSelector.MatchLabels != nil {
+			pl[i].Spec.NamespaceSelector.MatchLabels[k8sConst.LabelMetadataName] = t.Test.Context().Params().TestNamespace
+		}
 		for _, p := range pl[i].Spec.Peers {
-			p.NamespaceSelector.MatchLabels[k8sConst.LabelMetadataName] = t.Test.Context().Params().TestNamespace
+			if p.NamespaceSelector != nil && p.NamespaceSelector.MatchLabels != nil {
+				p.NamespaceSelector.MatchLabels[k8sConst.LabelMetadataName] = t.Test.Context().Params().TestNamespace
+			}
+		}
+		for _, p := range pl[i].Spec.PlaintextPeers {
+			if p.NamespaceSelector != nil && p.NamespaceSelector.MatchLabels != nil {
+				p.NamespaceSelector.MatchLabels[k8sConst.LabelMetadataName] = t.Test.Context().Params().TestNamespace
+			}
 		}
 	}
 

@@ -1,0 +1,18 @@
+apiVersion: isovalent.com/v1alpha1
+kind: IsovalentClusterwideEncryptionPolicy
+metadata:
+  name: unencrypt-client2-to-echo
+spec:
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: cilium-test-1
+  podSelector:
+    matchLabels:
+      name: client2
+  plaintextPeers:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: cilium-test-1
+    podSelector:
+      matchLabels:
+        kind: echo

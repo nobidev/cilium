@@ -50,6 +50,9 @@ var clientEgressDNSToEchoYAML string
 //go:embed manifests/encrypt-client-to-echo-8080.yaml
 var encryptClientToEchoYAML string
 
+//go:embed manifests/unencrypt-client2-to-echo.yaml
+var unencryptClient2ToEchoYAML string
+
 type EnterpriseConnectivity struct {
 	externalCiliumDNSProxyPods map[string]check.Pod
 	mixedRoutingScenario       check.Scenario
@@ -406,8 +409,16 @@ func (ec *EnterpriseConnectivity) addEncryptionPolicyTests(cts ...*check.Connect
 
 	if versioncheck.MustCompile(">=1.16.0")(cts[0].CiliumVersion) {
 		newTest(cts[0], "pod-to-pod-encryption-policy").
+			WithFeatureRequirements(features.RequireDisabled(enterpriseFeatures.EncryptionPolicyFallbackEncrypt)).
 			WithIsovalentClusterwideEncryptionPolicy(encryptClientToEchoYAML).
 			WithScenarios(enterpriseTests.PodToPodEncryptionPolicy())
+	}
+
+	if versioncheck.MustCompile(">=1.19.0")(cts[0].CiliumVersion) {
+		newTest(cts[0], "pod-to-pod-encryption-policy-optout").
+			WithFeatureRequirements(features.RequireEnabled(enterpriseFeatures.EncryptionPolicyFallbackEncrypt)).
+			WithIsovalentClusterwideEncryptionPolicy(unencryptClient2ToEchoYAML).
+			WithScenarios(enterpriseTests.PodToPodEncryptionPolicyOptOut())
 	}
 
 	return nil
