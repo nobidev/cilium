@@ -226,18 +226,14 @@ func (na *nodeAttachments) registerK8sReflector(sync promise.Promise[synced.CRDS
 				// device name and type are set based on VLAN configuration
 				if attachmentObj.VlanID == nil {
 					attachment.Type = tables.DeviceTypeUserManaged
-					ifname := tables.DeviceName(attachmentObj.Interface)
-					dev, _, _ := na.devices.Get(txn, dptables.DeviceNameIndex.Query(string(ifname)))
-					attachment.Interface = na.newNodeAttachmentInterface(ifname, dev)
+					attachment.Interface = na.newNodeAttachmentInterface(txn, tables.DeviceName(attachmentObj.Interface))
 				} else {
 					attachment.Type = tables.DeviceTypeCiliumManaged
 					attachment.Config = tables.DeviceConfiguration{
 						ParentInterfaceName: tables.DeviceName(attachmentObj.Interface),
 						VLANID:              *attachmentObj.VlanID,
 					}
-					ifname := attachment.Config.GetDeviceName()
-					dev, _, _ := na.devices.Get(txn, dptables.DeviceNameIndex.Query(string(ifname)))
-					attachment.Interface = na.newNodeAttachmentInterface(ifname, dev)
+					attachment.Interface = na.newNodeAttachmentInterface(txn, attachment.Config.GetDeviceName())
 				}
 
 				desired[attachment.Key()] = attachment
@@ -499,10 +495,11 @@ func (na *nodeAttachments) getAttachmentConflicts(
 }
 
 func (na *nodeAttachments) newNodeAttachmentInterface(
+	txn statedb.ReadTxn,
 	name tables.DeviceName,
-	dev *dptables.Device,
 ) tables.NodeAttachmentInterface {
 	iface := tables.NodeAttachmentInterface{Name: name}
+	dev, _, _ := na.devices.Get(txn, dptables.DeviceNameIndex.Query(string(name)))
 
 	switch {
 	case dev == nil:
@@ -543,9 +540,7 @@ func (na *nodeAttachments) registerDeviceIndexReconciler() {
 				watchset.Add(watch)
 
 				for attachment := range na.tbl.All(wtx) {
-					ifname := attachment.Interface.Name
-					dev, _, _ := na.devices.Get(wtx, dptables.DeviceNameIndex.Query(string(ifname)))
-					iface := na.newNodeAttachmentInterface(ifname, dev)
+					iface := na.newNodeAttachmentInterface(wtx, attachment.Interface.Name)
 					if attachment.Interface != iface {
 						cpy := attachment.Clone()
 						cpy.Interface = iface
