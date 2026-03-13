@@ -109,12 +109,12 @@ func (def Flags) Flags(flags *pflag.FlagSet) {
 	flags.Duration(FlagBridgeGneighInterval, def.BridgeGneighInterval,
 		fmt.Sprintf("Interval at which workload cluster endpoints are announced using gratuitous ARP/ND in %s or %s mode. Ignored in %s mode.", ModeBridge, ModeLocalAccess, ModeDefault))
 
-	flags.Bool(FlagHostReachability, def.HostReachability, "Allow (remote) host traffic into privnet")
+	flags.Bool(FlagHostReachability, def.HostReachability, "Allow (remote) host traffic into private networks")
 	flags.MarkHidden(FlagHostReachability)
 
-	flags.String(FlagHostSNATIPv4, def.HostSNATIPv4, "Link-local IPv4 address used to SNAT host traffic to PrivNet")
+	flags.String(FlagHostSNATIPv4, def.HostSNATIPv4, "Link-local IPv4 address used to SNAT host traffic to private networks")
 	flags.MarkHidden(FlagHostSNATIPv4)
-	flags.String(FlagHostSNATIPv6, def.HostSNATIPv6, "Link-local IPv6 address used to SNAT host traffic to PrivNet")
+	flags.String(FlagHostSNATIPv6, def.HostSNATIPv6, "Link-local IPv6 address used to SNAT host traffic to private networks")
 	flags.MarkHidden(FlagHostSNATIPv6)
 }
 

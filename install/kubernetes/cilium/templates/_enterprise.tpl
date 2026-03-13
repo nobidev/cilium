@@ -272,7 +272,15 @@ private-networks-health-check-timeout: {{ .Values.enterprise.privateNetworks.hea
 private-networks-nad-integration-enabled: {{ .Values.enterprise.privateNetworks.networkAttachmentDefinitions.enabled | quote }}
 private-networks-nad-cni-log-file: {{ .Values.enterprise.privateNetworks.networkAttachmentDefinitions.cniLogFile | quote }}
 private-networks-nad-cni-log-format: {{ .Values.enterprise.privateNetworks.networkAttachmentDefinitions.cniLogFormat | quote }}
-
+{{- if not (kindIs "invalid" .Values.enterprise.privateNetworks.hostReachability) }}
+private-networks-host-reachability: {{ .Values.enterprise.privateNetworks.hostReachability | quote }}
+{{- end }}
+{{- if .Values.enterprise.privateNetworks.hostSNATIPv4 }}
+private-networks-host-snat-ipv4: {{ .Values.enterprise.privateNetworks.hostSNATIPv4 | quote }}
+{{- end }}
+{{- if .Values.enterprise.privateNetworks.hostSNATIPv6 }}
+private-networks-host-snat-ipv6: {{ .Values.enterprise.privateNetworks.hostSNATIPv6 | quote }}
+{{- end }}
 {{- if .Values.enterprise.privateNetworks.enabled }}
 private-networks-webhook-enabled: {{ .Values.enterprise.privateNetworks.webhook.enabled | quote }}
 private-networks-webhook-hostport: {{ print ":" .Values.enterprise.privateNetworks.webhook.port | quote }}
