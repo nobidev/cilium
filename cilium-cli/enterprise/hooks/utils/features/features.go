@@ -53,6 +53,8 @@ const (
 	EncryptionPolicy features.Feature = "enable-encryption-policy"
 	// RemoteEncryptionPolicy: whether encryption policies are enabled in the remote cluster
 	RemoteEncryptionPolicy features.Feature = "remote-encryption-policy"
+	// EncryptionPolicyFallbackEncrypt: whether the encryption policy fallback behavior is set to encrypt
+	EncryptionPolicyFallbackEncrypt features.Feature = "encryption-policy-fallback-encrypt"
 
 	// LoadBalancer: whether standalone loadbalancer is enabled
 	LoadBalancer features.Feature = "loadbalancer"
@@ -146,6 +148,10 @@ func extractFromConfigMap(ctx context.Context, ct *check.ConnectivityTest) error
 
 	ct.Features[EncryptionPolicy] = features.Status{
 		Enabled: cm.Data[string(EncryptionPolicy)] == "true",
+	}
+
+	ct.Features[EncryptionPolicyFallbackEncrypt] = features.Status{
+		Enabled: cm.Data["encryption-policy-fallback-behavior"] == "encrypt",
 	}
 
 	ct.Features[DedicatedEnvoyConfigPolicy] = features.Status{
