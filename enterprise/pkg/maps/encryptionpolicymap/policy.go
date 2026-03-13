@@ -118,7 +118,11 @@ func createPolicyMap(lc cell.Lifecycle, cfg MapConfig, pinning ebpf.PinType) *Po
 			case ebpf.PinNone:
 				return m.CreateUnpinned()
 			case ebpf.PinByName:
-				return m.OpenOrCreate()
+				// Re-create the map every time we restart the agent.
+				// The reconciler populating it has a regeneration fence
+				// ensuring the map is populated by the time endpoint
+				// regeneration starts.
+				return m.Recreate()
 			}
 			return fmt.Errorf("received unexpected pin type: %d", pinning)
 		},

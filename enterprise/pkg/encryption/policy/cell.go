@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/encryption/policy/types"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -36,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	networkPolicy "github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -131,6 +133,7 @@ type engineParams struct {
 	Health    cell.Health
 	Tunnel    tunnel.Config
 	Wireguard wgTypes.WireguardConfig
+	Fence     regeneration.Fence
 
 	IdentityChanges stream.Observable[IdentityChangeBatch]
 	DaemonConfig    *option.DaemonConfig
@@ -196,6 +199,46 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 
 		rulesByResource: map[resource.Key][]*encryptionRule{},
 	}
+
+	// Block endpoint regeneration until the encryption policy map has been
+	// populated. This is critical because the map is Recreate()'d on startup,
+	// so there is a window where it is empty.
+	params.Fence.Add("encryption-policy", func(ctx context.Context) error {
+		// Wait until all table initializers have completed (policies,
+		// identities, and clustermesh synced).
+		_, initDone := params.PolicyTable.Initialized(params.StateDB.ReadTxn())
+		select {
+		case <-initDone:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+
+		// Wait until no entries are in pending state.
+		// TODO: replace with Reconciler.WaitUntilReconciled in 1.20-ce
+		for {
+			entries, watch := params.PolicyTable.AllWatch(params.StateDB.ReadTxn())
+			ready := true
+			for entry := range entries {
+				if entry.Status.Kind == reconciler.StatusKindPending {
+					ready = false
+					break
+				}
+			}
+			if ready {
+				return nil
+			}
+			select {
+			case <-time.After(50 * time.Millisecond):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			select {
+			case <-watch:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	})
 
 	// Custom job group to obtain runtime metrics
 	jobGroup := params.Registry.NewGroup(params.Health,
