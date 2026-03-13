@@ -88,6 +88,9 @@ kind-privnet-up: kind-privnet-govmomi-image  ## Setup the privnet environment
 	NAMESERVER=${PRIVNET_DNS_SERVER} envsubst < contrib/testing/privnet/coredns-patch.yaml.tmpl | \
 		kubectl --context=kind-privnet-inb1 patch deployment -n kube-system coredns --patch-file=/dev/stdin
 
+	# Label nodes so that in-cluster ILB can run on them
+	kind get nodes --name privnet-cluster | xargs -IX kubectl --context=kind-privnet-cluster label node X service.cilium.io/node=t1-t2
+
 	$(MAKE) kind-privnet-populate-vcsim
 
 PRIVNET_VM_FOLDER ?= /DC0/vm/testing
@@ -272,6 +275,15 @@ kind-privnet-install-common: kind-privnet-jetstack-repo
 		--set enterprise.privateNetworks.webhook.enabled=true \
 		--set=enterprise.evpn.enabled=true \
 		--set cni.exclusive=false --set cni.confPath=/etc/cni/net.d/delegates \
+		--set=enterprise.loadbalancer.enabled=true \
+		--set=enterprise.bgpControlPlane.enabled=true \
+		--set=enterprise.bgpControlPlane.enableServiceHealthChecking=true \
+		--set=enterprise.bgpControlPlane.nodeMaintenance.withdrawTime=1ms \
+		--set=enterprise.bfd.enabled=true \
+		--set=envoyConfig.enabled=true \
+		--set=bpf.lbAlgorithmAnnotation=true \
+		--set=bpf.lbModeAnnotation=true \
+		--set=loadBalancer.dsrDispatch=ipip \
 		$(KIND_PRIVNET_VALUES_FILES) \
 		--version=
 
