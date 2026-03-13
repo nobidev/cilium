@@ -296,7 +296,7 @@ func TestPrivilegedScript(t *testing.T) {
 			cfg.SecurityGroupTagsEnabled = *enableEVPNSecurityGroupTags
 			cfg.DefaultSecurityGroupID = *defaultEVPNSecurityGroupID
 		})
-		hive.AddConfigOverride(h, func(cfg *privnetConfig.Config) {
+		hive.AddConfigOverride(h, func(cfg *privnetConfig.Flags) {
 			cfg.Enabled = true
 		})
 

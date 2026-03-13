@@ -143,37 +143,29 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 
 	cfgDefault := cfg{
 		privateNetworkConfig: config.Config{
-			Common: config.Common{
-				Enabled: true,
-			},
-			Mode: config.ModeDefault,
+			Enabled: true,
+			Mode:    config.ModeDefault,
 		},
 		enableIPv4: true,
 		enableIPv6: true,
 	}
 	cfgPrivNetDisabled := cfg{
 		privateNetworkConfig: config.Config{
-			Common: config.Common{
-				Enabled: false,
-			},
+			Enabled: false,
 		},
 	}
 	cfgIPv4Only := cfg{
 		privateNetworkConfig: config.Config{
-			Common: config.Common{
-				Enabled: true,
-			},
-			Mode: config.ModeDefault,
+			Enabled: true,
+			Mode:    config.ModeDefault,
 		},
 		enableIPv4: true,
 		enableIPv6: false,
 	}
 	cfgIPv6Only := cfg{
 		privateNetworkConfig: config.Config{
-			Common: config.Common{
-				Enabled: true,
-			},
-			Mode: config.ModeDefault,
+			Enabled: true,
+			Mode:    config.ModeDefault,
 		},
 		enableIPv4: false,
 		enableIPv6: true,

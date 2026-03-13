@@ -52,15 +52,15 @@ const (
 var (
 	// Cell registers the private networking configuration, and performs validation.
 	Cell = cell.Group(
-		cell.Config(defaultConfig),
-		cell.Invoke(Config.validate),
+		cell.Config(defaultFlags),
+		cell.Provide(NewConfig),
 	)
 
 	DefaultCommon = Common{
 		Enabled: false,
 	}
 
-	defaultConfig = Config{
+	defaultFlags = Flags{
 		Common:               DefaultCommon,
 		Mode:                 ModeDefault,
 		BridgeGneighInterval: 1 * time.Minute,
@@ -79,8 +79,8 @@ func (def Common) Flags(flags *pflag.FlagSet) {
 	flags.Bool(FlagEnable, def.Enabled, "Enable support for private networks")
 }
 
-// Config groups the private networking configuration.
-type Config struct {
+// Flags groups the private networking agent flags.
+type Flags struct {
 	Common `mapstructure:",squash"`
 
 	Mode                 string        `mapstructure:"private-networks-mode"`
@@ -88,7 +88,7 @@ type Config struct {
 	HostReachability     bool          `mapstructure:"private-networks-host-reachability"`
 }
 
-func (def Config) Flags(flags *pflag.FlagSet) {
+func (def Flags) Flags(flags *pflag.FlagSet) {
 	def.Common.Flags(flags)
 
 	flags.String(FlagMode, def.Mode, fmt.Sprintf("The private networks mode (%q, %q or %q)", ModeDefault, ModeLocalAccess, ModeBridge))
@@ -98,6 +98,39 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool(FlagHostReachability, def.HostReachability, "Allow (remote) host traffic into privnet")
 	flags.MarkHidden(FlagHostReachability)
+}
+
+func (f Flags) validate() error {
+	switch f.Mode {
+	case ModeDefault, ModeBridge, ModeLocalAccess:
+	default:
+		return fmt.Errorf("invalid private networks mode %q, should be one of: %q, %q, %q",
+			f.Mode, ModeDefault, ModeBridge, ModeLocalAccess)
+	}
+
+	return nil
+}
+
+// Config is the parsed private networking configuration.
+type Config struct {
+	Enabled              bool
+	Mode                 string
+	BridgeGneighInterval time.Duration
+	HostReachability     bool
+}
+
+// NewConfig creates a Config from the parsed Flags.
+func NewConfig(f Flags) (Config, error) {
+	if err := f.validate(); err != nil {
+		return Config{}, err
+	}
+
+	return Config{
+		Enabled:              f.Enabled,
+		Mode:                 f.Mode,
+		BridgeGneighInterval: f.BridgeGneighInterval,
+		HostReachability:     f.HostReachability,
+	}, nil
 }
 
 // EnabledAsBridge returns whether private networking is enabled, and configured in bridge mode.
@@ -115,15 +148,4 @@ func (cfg Config) EnabledAsLocalAccess() bool {
 // the node. Currently, INB or a K8s cluster in local access mode can egress via local device.
 func (cfg Config) IsLocallyConnected() bool {
 	return cfg.Enabled && (cfg.Mode == ModeBridge || cfg.Mode == ModeLocalAccess)
-}
-
-func (cfg Config) validate() error {
-	switch cfg.Mode {
-	case ModeDefault, ModeBridge, ModeLocalAccess:
-	default:
-		return fmt.Errorf("invalid private networks mode %q, should be one of: %q, %q, %q",
-			cfg.Mode, ModeDefault, ModeBridge, ModeLocalAccess)
-	}
-
-	return nil
 }

@@ -47,7 +47,7 @@ func TestPrivilegedMapPinning(t *testing.T) {
 	newHive := func() *hive.Hive {
 		return hive.New(
 			cell.Config(defaultConfig),
-			cell.Config(privnetcfg.Config{}),
+			privnetcfg.Cell,
 			cell.Config(evpnCfg.Config{}),
 
 			cell.Provide(
@@ -71,7 +71,7 @@ func TestPrivilegedMapPinning(t *testing.T) {
 	// Enabled
 	h := newHive()
 
-	hive.AddConfigOverride(h, func(cfg *privnetcfg.Config) {
+	hive.AddConfigOverride(h, func(cfg *privnetcfg.Flags) {
 		cfg.Enabled = true
 	})
 	hive.AddConfigOverride(h, func(cfg *evpnCfg.Config) {
