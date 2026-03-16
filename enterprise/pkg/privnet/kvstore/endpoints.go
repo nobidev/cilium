@@ -148,6 +148,11 @@ func (e *Endpoint) validate(key string) error {
 	return nil
 }
 
+var (
+	unspecifiedIPv4String = netip.IPv4Unspecified().String()
+	unspecifiedIPv6String = netip.IPv6Unspecified().String()
+)
+
 // EndpointsFromEndpointSliceEntry returns an iterator of Endpoint objects generated from the specific EndpointSlice.
 func EndpointsFromEndpointSlice(logger *slog.Logger, clusterName string, slice *iso_v1alpha1.PrivateNetworkEndpointSlice) iter.Seq[*Endpoint] {
 	return func(yield func(*Endpoint) bool) {
@@ -200,7 +205,9 @@ func EndpointsFromEndpointSlice(logger *slog.Logger, clusterName string, slice *
 				{ep.Endpoint.Addressing.IPv4, ep.Interface.Addressing.IPv4},
 				{ep.Endpoint.Addressing.IPv6, ep.Interface.Addressing.IPv6},
 			} {
-				if pair.epAddr == "" || pair.netAddr == "" {
+				if pair.epAddr == "" || pair.netAddr == "" ||
+					pair.netAddr == unspecifiedIPv4String ||
+					pair.netAddr == unspecifiedIPv6String {
 					continue
 				}
 

@@ -66,6 +66,10 @@ db/cmp privnet-endpoints endpoints.v8.table
 clustermesh/endpoints/delete blue-network/fd00:10:244:6::18 clustermesh-entry-4.json
 db/cmp privnet-endpoints endpoints.v9.table
 
+# Add an entry with unspecified IP (0.0.0.0). Check after the next upsert
+# so we know this is ingested.
+clustermesh/endpoints/upsert blue-network/10.245.5.71 clustermesh-entry-5.json
+
 # Add back clustermesh entry with correct IP - should be assigned to subnet
 # Add new blue subnets - random-pumpkin is in two networks
 clustermesh/endpoints/upsert blue-network/fd00:10:244:6::18 clustermesh-entry-4.json.v2
@@ -368,6 +372,24 @@ nodeName: crab
     "name": "blue-network",
     "ip": "fd00:10:100::40",
     "mac": "00:50:56:ad:14:19"
+  },
+  "nodeName": "hookworm",
+  "source": {
+    "cluster": "remote",
+    "namespace": "keen-calf",
+    "name": "slice-2"
+  }
+}
+
+-- clustermesh-entry-5.json --
+{
+  "activatedAt": "2025-06-20T15:52:02.511Z",
+  "ip": "10.245.5.71",
+  "name": "pointed-eagle",
+  "network": {
+    "name": "blue-network",
+    "ip": "0.0.0.0",
+    "mac": "00:50:56:ad:15:aa"
   },
   "nodeName": "hookworm",
   "source": {
