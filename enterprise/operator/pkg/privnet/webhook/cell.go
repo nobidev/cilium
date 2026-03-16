@@ -8,30 +8,17 @@
 // or reproduction of this material is strictly forbidden unless prior written
 // permission is obtained from Isovalent Inc.
 
-package privnet
+package webhook
 
 import (
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/config"
-	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/reconcilers"
-	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/webhook"
-	"github.com/cilium/cilium/operator/cmd"
+	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/webhook/config"
 )
 
 var Cell = cell.Module(
-	"private-networks",
-	"Support for Private Networks",
+	"private-networks-webhook",
+	"Private Networks Webhook",
 
-	// Cells that do not depend on leader election.
 	config.Cell,
-	reconcilers.Cell,
-	webhook.Cell,
-
-	// Cells that do depend on leader election.
-	cell.Decorate(
-		func(lc *cmd.LeaderLifecycle) cell.Lifecycle { return lc },
-
-		reconcilers.LeaderCell,
-	),
 )
