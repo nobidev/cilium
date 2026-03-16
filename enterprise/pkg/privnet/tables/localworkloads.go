@@ -12,6 +12,7 @@ package tables
 
 import (
 	"cmp"
+	"net/netip"
 	"strconv"
 
 	"github.com/cilium/statedb"
@@ -78,6 +79,22 @@ func (lw *LocalWorkload) TableRow() []string {
 		cmp.Or(lw.Endpoint.Addressing.IPv6, "N/A"),
 		formatActivatedAt(lw.ActivatedAt),
 	}
+}
+
+var (
+	unspecifiedIPv4String = netip.IPv4Unspecified().String()
+	unspecifiedIPv6String = netip.IPv4Unspecified().String()
+)
+
+// HasUsableIP returns true if the endpoint has a valid network IPv4 or IPv6
+func (lw *LocalWorkload) HasUsableIP() bool {
+	if lw.Interface.Addressing.IPv4 != "" && lw.Interface.Addressing.IPv4 != unspecifiedIPv4String {
+		return true
+	}
+	if lw.Interface.Addressing.IPv6 != "" && lw.Interface.Addressing.IPv6 != unspecifiedIPv6String {
+		return true
+	}
+	return false
 }
 
 var (

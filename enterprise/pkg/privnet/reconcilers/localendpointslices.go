@@ -305,6 +305,10 @@ func (r *endpointSlicesReconcilerOps) updateEndpointSlice(ctx context.Context, n
 	// Materialize list of endpoints in the requested namespace.
 	eps := []iso_v1alpha1.PrivateNetworkEndpointSliceEntry{}
 	for lw := range r.localWorkloads.List(txn, tables.LocalWorkloadsByNamespace(namespace)) {
+		if !lw.HasUsableIP() {
+			// The workload has no usable network IPv4 or IPv6. Skip publishing it altogether.
+			continue
+		}
 		eps = append(eps, iso_v1alpha1.PrivateNetworkEndpointSliceEntry{
 			Endpoint:    lw.Endpoint,
 			Interface:   lw.Interface,
