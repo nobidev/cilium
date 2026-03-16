@@ -11,9 +11,9 @@
 package ilb
 
 func curlCmdVerbose(extra string) string {
-	return "curl -w '%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}' --silent --fail --show-error " + extra
+	return "curl -w '%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}' --silent --fail --show-error --retry 3 --retry-all-errors --retry-delay 1 " + extra
 }
 
 func curlCmd(extra string) string {
-	return "curl --silent --fail --show-error " + extra
+	return "curl --silent --fail --show-error --retry 3 --retry-all-errors --retry-delay 1 " + extra
 }
