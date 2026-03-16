@@ -21,4 +21,6 @@ var Cell = cell.Module(
 	"Private Networks Webhook",
 
 	config.Cell,
+
+	cell.Invoke(register),
 )
