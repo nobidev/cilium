@@ -66,9 +66,24 @@ func TestLoadKeysNoFile(t *testing.T) {
 func TestInvalidLoadKeys(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
-	keys := bytes.NewReader(invalidKeysDat)
-	_, _, err := LoadIPSecKeys(log, keys)
-	require.Error(t, err)
+	testCases := []struct {
+		name     string
+		input    []byte
+		expError string
+	}{
+		{"invalid keys", invalidKeysDat, "unable to decode authentication key string"},
+		{"empty line", []byte(" \n"), "missing IPSec key or invalid format"},
+		{"blank second line", []byte("4 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n   \n"), "missing IPSec key or invalid format"},
+		{"leading space", []byte(" rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "the first argument of the IPsec secret is not a number"},
+		{"spi plus only", []byte("+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "the first argument of the IPsec secret is not a number"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			keys := bytes.NewReader(tc.input)
+			_, _, err := LoadIPSecKeys(log, keys)
+			require.ErrorContains(t, err, tc.expError)
+		})
+	}
 
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
 	require.NoError(t, err)
@@ -137,6 +152,7 @@ func TestParseSPI(t *testing.T) {
 		{"3+", 3, 0, false},
 		{"abc", 0, 0, true},
 		{"0", 0, 0, true},
+		{"+", 0, 0, true},
 	}
 	for _, tc := range testCases {
 		spi, off, err := parseSPI(log, tc.input)
