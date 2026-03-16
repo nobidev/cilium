@@ -63,6 +63,10 @@ spec:
                   If IP is specified, backends must be specified by IP address.
                   If Hostname is specified, backends must be specified by host name.
                   If K8sService is specified, backends must be specified by a reference to a K8s Service.
+
+                  For K8sService type, if a zone-aware traffic policy is enabled and
+                  two in-cluster Endpoints share the same IP but are labeled with different
+                  zones, the zone "unknown" will be used.
                 enum:
                 - IP
                 - Hostname
