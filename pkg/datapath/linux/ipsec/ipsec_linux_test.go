@@ -137,6 +137,7 @@ func TestPrivilegedParseSPI(t *testing.T) {
 		{"3+", 3, 0, false},
 		{"abc", 0, 0, true},
 		{"0", 0, 0, true},
+		{"+", 0, 0, true},
 	}
 	for _, tc := range testCases {
 		spi, off, err := parseSPI(log, tc.input)
