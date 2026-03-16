@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/policy"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers"
 	statuscollector "github.com/cilium/cilium/enterprise/pkg/privnet/status/collector"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 )
 
 var Cell = cell.Module(
@@ -29,6 +30,7 @@ var Cell = cell.Module(
 	"Support for Private Networks",
 
 	pncfg.Cell,
+	tables.DHCPLeasesCell,
 	reconcilers.Cell,
 	endpoints.Cell,
 	grpcserver.Cell,

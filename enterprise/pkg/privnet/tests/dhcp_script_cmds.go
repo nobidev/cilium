@@ -71,7 +71,7 @@ func dhcpScriptCmdsCell() cell.Cell {
 		}) *dhcpScriptState {
 			return newDHCPScriptState(in.Log, in.TestCfg)
 		}),
-		cell.Provide(func(state *dhcpScriptState, db *statedb.DB, workloads statedb.Table[*tables.LocalWorkload], leases statedb.RWTable[tables.DHCPLease], devices statedb.RWTable[*dptables.Device]) uhive.ScriptCmdsOut {
+		cell.Provide(func(state *dhcpScriptState, db *statedb.DB, workloads statedb.Table[*tables.LocalWorkload], leases statedb.Table[tables.DHCPLease], devices statedb.RWTable[*dptables.Device]) uhive.ScriptCmdsOut {
 			state.attach(db, workloads, leases, devices)
 			return uhive.NewScriptCmds(state.cmds())
 		}),
@@ -95,7 +95,7 @@ type dhcpScriptState struct {
 	netnses    map[string]*netns.NetNS
 	db         *statedb.DB
 	work       statedb.RWTable[*tables.LocalWorkload]
-	leases     statedb.RWTable[tables.DHCPLease]
+	leases     statedb.Table[tables.DHCPLease]
 	devices    statedb.RWTable[*dptables.Device]
 
 	hostNetns *netns.NetNS
@@ -120,7 +120,7 @@ func newDHCPScriptState(log *slog.Logger, testCfg *dhcp.TestConfig) *dhcpScriptS
 	}
 }
 
-func (s *dhcpScriptState) attach(db *statedb.DB, workloads statedb.Table[*tables.LocalWorkload], leases statedb.RWTable[tables.DHCPLease], devices statedb.RWTable[*dptables.Device]) {
+func (s *dhcpScriptState) attach(db *statedb.DB, workloads statedb.Table[*tables.LocalWorkload], leases statedb.Table[tables.DHCPLease], devices statedb.RWTable[*dptables.Device]) {
 	s.db = db
 	s.work = workloads.(statedb.RWTable[*tables.LocalWorkload])
 	s.leases = leases

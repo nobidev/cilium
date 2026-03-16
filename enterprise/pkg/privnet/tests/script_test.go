@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/hive"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
@@ -59,19 +60,34 @@ func runScriptTests(t *testing.T, pattern string) {
 				logging.SetLogLevelToDebug()
 			}
 			log := hivetest.Logger(t, opts...)
-			h := NewTestHive(t)
-			t.Cleanup(func() {
-				assert.NoError(t, h.Stop(log, context.Background()))
-			})
 
-			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
-			h.RegisterFlags(flags)
+			cmds := script.DefaultCmds()
+			var h *hive.Hive
+			setupHive := func() {
+				h = NewTestHive(t)
+				t.Cleanup(func() {
+					assert.NoError(t, h.Stop(log, context.Background()))
+				})
 
-			require.NoError(t, flags.Parse(args), "flags.Parse")
+				flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+				h.RegisterFlags(flags)
 
-			cmds, err := h.ScriptCommands(log)
-			require.NoError(t, err, "ScriptCommands")
-			maps.Insert(cmds, maps.All(script.DefaultCmds()))
+				require.NoError(t, flags.Parse(args), "flags.Parse")
+
+				hiveCmds, err := h.ScriptCommands(log)
+				require.NoError(t, err, "ScriptCommands")
+				maps.Copy(cmds, hiveCmds)
+			}
+			cmds["hive/recreate"] = script.Command(
+				script.CmdUsage{
+					Summary: "Recreate the hive",
+				},
+				func(_ *script.State, _ ...string) (script.WaitFunc, error) {
+					setupHive()
+					return nil, nil
+				},
+			)
+			setupHive()
 
 			conds := map[string]script.Cond{
 				"privileged": script.BoolCondition("testutils.IsPrivileged", testutils.IsPrivileged()),

@@ -35,7 +35,8 @@ type dhcpLeaseReconciler struct {
 	log           *slog.Logger
 	db            *statedb.DB
 	workloads     statedb.RWTable[*tables.LocalWorkload]
-	leases        statedb.RWTable[tables.DHCPLease]
+	leases        statedb.Table[tables.DHCPLease]
+	leaseWriter   *tables.DHCPLeaseWriter
 	subnets       statedb.Table[tables.Subnet]
 	sweepInterval time.Duration
 }
@@ -43,13 +44,13 @@ type dhcpLeaseReconciler struct {
 type dhcpLeaseReconcilerParams struct {
 	cell.In
 
-	Log       *slog.Logger
-	JobGroup  job.Group
-	DB        *statedb.DB
-	Workloads statedb.RWTable[*tables.LocalWorkload]
-	Leases    statedb.RWTable[tables.DHCPLease]
-	Subnets   statedb.Table[tables.Subnet]
-	TestCfg   *dhcp.TestConfig `optional:"true"`
+	Log         *slog.Logger
+	JobGroup    job.Group
+	DB          *statedb.DB
+	Workloads   statedb.RWTable[*tables.LocalWorkload]
+	LeaseWriter *tables.DHCPLeaseWriter
+	Subnets     statedb.Table[tables.Subnet]
+	TestCfg     *dhcp.TestConfig `optional:"true"`
 }
 
 // newDhcpLeaseReconciler constructs a DHCP lease manager.
@@ -63,7 +64,8 @@ func newDhcpLeaseReconciler(in dhcpLeaseReconcilerParams) *dhcpLeaseReconciler {
 		log:           in.Log,
 		db:            in.DB,
 		workloads:     in.Workloads,
-		leases:        in.Leases,
+		leases:        in.LeaseWriter.Table(),
+		leaseWriter:   in.LeaseWriter,
 		subnets:       in.Subnets,
 		sweepInterval: sweepInterval,
 	}
@@ -124,7 +126,7 @@ func (m *dhcpLeaseReconciler) dropWorkloadLeases(wtxn statedb.WriteTxn, lw *tabl
 		return
 	}
 	for lease := range m.leases.List(wtxn, tables.DHCPLeaseByNetworkMAC(tables.NetworkName(lw.Interface.Network), mac)) {
-		m.leases.Delete(wtxn, lease)
+		m.leaseWriter.Delete(wtxn, lease)
 	}
 }
 
@@ -135,11 +137,11 @@ func (m *dhcpLeaseReconciler) handleExpiredLeases() {
 	defer wtxn.Abort()
 
 	for lease := range m.leases.All(wtxn) {
-		if !lease.ExpireAt.IsZero() && !lease.ExpireAt.After(now) {
+		if !lease.ExpireAt.IsZero() && now.After(lease.ExpireAt) {
 			m.clearLocalWorkloadIP(wtxn, lease)
+			m.leaseWriter.Delete(wtxn, lease)
 		}
 	}
-
 	wtxn.Commit()
 }
 

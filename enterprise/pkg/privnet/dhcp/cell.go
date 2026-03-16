@@ -57,7 +57,6 @@ var Cell = cell.Module(
 
 	cell.Config(defaultConfig),
 	cell.Provide(
-		tables.NewDHCPLeasesTable,
 		newRelayFactory,
 	),
 	cell.Invoke(
@@ -118,7 +117,7 @@ type registerServerParams struct {
 	JG            job.Group
 	DB            *statedb.DB
 	Workloads     statedb.RWTable[*tables.LocalWorkload]
-	Leases        statedb.RWTable[tables.DHCPLease]
+	LeaseWriter   *tables.DHCPLeaseWriter
 	Subnets       statedb.Table[tables.Subnet]
 	RelayFactory  RelayFactory
 	TestCfg       *TestConfig `optional:"true"`
@@ -145,7 +144,7 @@ func registerServer(p registerServerParams) error {
 		relayNetNS = p.TestCfg.NetNS
 	}
 
-	handler := newServerHandler(p.Log, p.DB, p.Workloads, p.Leases, p.Subnets, p.RelayFactory, p.Config.WaitTime)
+	handler := newServerHandler(p.Log, p.DB, p.Workloads, p.LeaseWriter, p.Subnets, p.RelayFactory, p.Config.WaitTime)
 	srv, err := NewServer(p.Log, relayNetNS, pncfg.DHCPInterfaceName, handler.serverHandler())
 	if err != nil {
 		p.Log.Error("Failed to create DHCP server",

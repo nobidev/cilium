@@ -11,14 +11,23 @@
 package tables
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
+	"log/slog"
 	"net/netip"
+	"path"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/wal"
 )
 
 // DHCPLease represents a DHCP lease for a private network endpoint.
@@ -108,4 +117,143 @@ func NewDHCPLeasesTable(db *statedb.DB) (statedb.RWTable[DHCPLease], error) {
 		"privnet-dhcp-leases",
 		leasePrimaryIndex,
 	)
+}
+
+var DHCPLeasesCell = cell.Provide(
+	NewDHCPLeaseWriter,
+)
+
+const DHCPLeasesWALFile = "privnet-dhcp-leases.wal"
+
+// DHCPLeaseWriter wraps the DHCP lease table with WAL-backed persistence.
+type DHCPLeaseWriter struct {
+	log       *slog.Logger
+	db        *statedb.DB
+	leases    statedb.RWTable[DHCPLease]
+	walWriter *wal.Writer[dhcpLeaseWALEntry]
+
+	// walCount is the number of WAL entries written for deciding when to compact
+	// the log. Protected by the leases table lock.
+	walCount int
+}
+
+type dhcpLeaseWALEntry struct {
+	Deleted bool
+	Lease   DHCPLease
+}
+
+func (e dhcpLeaseWALEntry) MarshalBinary() ([]byte, error) {
+	return json.Marshal(e)
+}
+
+func NewDHCPLeaseWriter(log *slog.Logger, db *statedb.DB, cfg *option.DaemonConfig, lc cell.Lifecycle) (*DHCPLeaseWriter, statedb.Table[DHCPLease], error) {
+	table, err := NewDHCPLeasesTable(db)
+	if err != nil {
+		return nil, nil, err
+	}
+	leases := &DHCPLeaseWriter{log: log, db: db, leases: table}
+	walPath := path.Join(cfg.StateDir, DHCPLeasesWALFile)
+
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			if err := leases.restore(db, walPath); err != nil {
+				if !errors.Is(err, fs.ErrNotExist) {
+					log.Warn("Failed to restore DHCP leases WAL. DHCP lease state will not be restored",
+						logfields.File, walPath,
+						logfields.Error, err,
+					)
+				}
+			}
+			walWriter, err := wal.NewWriter[dhcpLeaseWALEntry](walPath)
+			if err != nil {
+				return err
+			}
+			leases.walWriter = walWriter
+			return nil
+		},
+		OnStop: func(cell.HookContext) error {
+			if leases.walWriter == nil {
+				return nil
+			}
+			return leases.walWriter.Close()
+		},
+	})
+
+	return leases, table, nil
+}
+
+func (l *DHCPLeaseWriter) Table() statedb.Table[DHCPLease] {
+	return l.leases
+}
+
+func (l *DHCPLeaseWriter) Insert(wtxn statedb.WriteTxn, lease DHCPLease) (old DHCPLease, hadOld bool, err error) {
+	defer l.writeWALEntry(wtxn, dhcpLeaseWALEntry{Lease: lease})
+	return l.leases.Insert(wtxn, lease)
+}
+
+func (l *DHCPLeaseWriter) Delete(wtxn statedb.WriteTxn, lease DHCPLease) (oldObj DHCPLease, hadOld bool, err error) {
+	oldObj, _, hadOld = l.leases.Get(wtxn, DHCPLeaseByNetworkMAC(lease.Network, lease.MAC))
+	if !hadOld {
+		return
+	}
+	defer l.writeWALEntry(wtxn, dhcpLeaseWALEntry{Deleted: true, Lease: oldObj})
+	return l.leases.Delete(wtxn, lease)
+}
+
+func (l *DHCPLeaseWriter) restore(db *statedb.DB, walPath string) error {
+	entries, err := wal.Read(walPath, func(data []byte) (dhcpLeaseWALEntry, error) {
+		var entry dhcpLeaseWALEntry
+		return entry, json.Unmarshal(data, &entry)
+	})
+	if err != nil {
+		return err
+	}
+
+	wtxn := db.WriteTxn(l.leases)
+	defer wtxn.Commit()
+
+	for entry, err := range entries {
+		if err != nil {
+			return err
+		}
+		lease := entry.Lease
+		if entry.Deleted {
+			if _, _, err := l.leases.Delete(wtxn, lease); err != nil {
+				return err
+			}
+		} else {
+			if _, _, err := l.leases.Insert(wtxn, lease); err != nil {
+				return err
+			}
+		}
+	}
+	l.log.Info("Restored DHCP leases from disk", logfields.Count, l.leases.NumObjects(wtxn))
+	return nil
+}
+
+// dhcpWALCompactThreshold is the number of WAL entries before the WAL is compacted.
+// The entries written during compaction are not counted towards this.
+const dhcpWALCompactThreshold = 1000
+
+// writeWALEntry to the write-ahead log. Must be called after Insert/Delete on the table
+// for this to be able to compact.
+func (l *DHCPLeaseWriter) writeWALEntry(wtxn statedb.WriteTxn, entry dhcpLeaseWALEntry) {
+	if l.walCount >= dhcpWALCompactThreshold {
+		l.walWriter.Compact(func(yield func(dhcpLeaseWALEntry) bool) {
+			for lease := range l.leases.All(wtxn) {
+				if !yield(dhcpLeaseWALEntry{Lease: lease}) {
+					break
+				}
+			}
+		})
+		l.walCount = 0
+	} else {
+		l.walCount++
+		if err := l.walWriter.Write(entry); err != nil {
+			// Writing to the WAL is best-effort. If we can't append due to e.g. disk being full
+			// we continue regardless. The impact of this is that we might not correctly expire a lease
+			// on restart and keep using a network IP that in principle is no longer valid.
+			l.log.Warn("Failed to append DHCP leases WAL entry. Lease expiry may not be correctly processed on restart.", logfields.Error, err)
+		}
+	}
 }

@@ -45,14 +45,25 @@ db/cmp privnet-device-mappings devmappings.table
 
 # Force lease expiration and ensure LocalWorkload is cleared
 db/insert privnet-dhcp-leases dhcp-lease-expired.yaml
-db/cmp privnet-dhcp-leases dhcp-leases.expired.table
 db/cmp privnet-local-workloads local-workloads.before.table
 db/cmp privnet-device-mappings devmappings.expired.table
+db/empty privnet-dhcp-leases
 
 # Check that endpoint slice has retracted the leased IPv4 after expiry.
 * k8s/get isovalent.com.v1alpha1.privatenetworkendpointslices default/foobar-worker-1 -o endpointslices.expired.yaml
 grep 'pod-100' endpointslices.expired.yaml
 ! grep 'ipv4: 192.168.100.10' endpointslices.expired.yaml
+
+# Perform the DHCP exchange again to populate leases.
+* dhcp/exchange 100
+db/cmp privnet-dhcp-leases dhcp-leases.table
+
+# Restart hive to test recovery from WAL
+hive/stop
+hive/recreate
+hive/start
+
+db/cmp privnet-dhcp-leases dhcp-leases.table
 
 # ---
 

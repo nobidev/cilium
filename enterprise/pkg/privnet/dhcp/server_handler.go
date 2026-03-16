@@ -45,20 +45,22 @@ type serverHandler struct {
 	waitTime     time.Duration
 	db           *statedb.DB
 	workloads    statedb.RWTable[*tables.LocalWorkload]
-	leases       statedb.RWTable[tables.DHCPLease]
+	leases       statedb.Table[tables.DHCPLease]
+	leaseWriter  *tables.DHCPLeaseWriter
 	subnets      statedb.Table[tables.Subnet]
 	log          *slog.Logger
 	now          func() time.Time
 }
 
 // newServerHandler returns a DHCP handler that relays requests and persists leases.
-func newServerHandler(log *slog.Logger, db *statedb.DB, workloads statedb.Table[*tables.LocalWorkload], leases statedb.RWTable[tables.DHCPLease], subnets statedb.Table[tables.Subnet], relayFactory RelayFactory, waitTime time.Duration) *serverHandler {
+func newServerHandler(log *slog.Logger, db *statedb.DB, workloads statedb.Table[*tables.LocalWorkload], leaseWriter *tables.DHCPLeaseWriter, subnets statedb.Table[tables.Subnet], relayFactory RelayFactory, waitTime time.Duration) *serverHandler {
 	return &serverHandler{
 		relayFactory: relayFactory,
 		waitTime:     waitTime,
 		db:           db,
 		workloads:    workloads.(statedb.RWTable[*tables.LocalWorkload]),
-		leases:       leases,
+		leases:       leaseWriter.Table(),
+		leaseWriter:  leaseWriter,
 		subnets:      subnets,
 		log:          log,
 		now:          time.Now,
@@ -342,7 +344,7 @@ func (h *serverHandler) recordLeaseAck(endpointID uint16, req *dhcpv4.DHCPv4, re
 		RenewAt:    renewAt,
 		ExpireAt:   expireAt,
 	}
-	h.leases.Insert(wtxn, lease)
+	h.leaseWriter.Insert(wtxn, lease)
 }
 
 func (h *serverHandler) invalidateLeaseForRequest(endpointID uint16, lw *tables.LocalWorkload, req *dhcpv4.DHCPv4) {
@@ -380,7 +382,7 @@ func (h *serverHandler) invalidateLease(endpointID uint16, macAddr mac.MAC, ipHi
 		return
 	}
 	if found {
-		h.leases.Delete(wtxn, lease)
+		h.leaseWriter.Delete(wtxn, lease)
 	}
 	h.clearLocalWorkloadLeaseIP(wtxn, endpointID)
 }

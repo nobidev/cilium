@@ -17,6 +17,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/stretchr/testify/require"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -46,14 +48,19 @@ func (f *fakeRelayFactory) RelayFor(*tables.LocalWorkload) (Relayer, error) {
 	return f.relay, nil
 }
 
-func setupHandlerTestState(t *testing.T) (*statedb.DB, statedb.RWTable[*tables.LocalWorkload], statedb.RWTable[tables.DHCPLease], statedb.RWTable[tables.Subnet], *tables.LocalWorkload, *dhcpv4.DHCPv4, net.HardwareAddr) {
+func setupHandlerTestState(t *testing.T) (*statedb.DB, statedb.RWTable[*tables.LocalWorkload], *tables.DHCPLeaseWriter, statedb.Table[tables.DHCPLease], statedb.RWTable[tables.Subnet], *tables.LocalWorkload, *dhcpv4.DHCPv4, net.HardwareAddr) {
 	t.Helper()
+	log := hivetest.Logger(t)
 
 	db := statedb.New()
 	workloads, err := tables.NewLocalWorkloadsTable(db)
 	require.NoError(t, err)
-	leases, err := tables.NewDHCPLeasesTable(db)
+
+	leaseWriter, leases, err := tables.NewDHCPLeaseWriter(log, db, &option.DaemonConfig{
+		StateDir: t.TempDir(),
+	}, hivetest.Lifecycle(t))
 	require.NoError(t, err)
+
 	subnets, err := tables.NewSubnetTable(db)
 	require.NoError(t, err)
 
@@ -95,11 +102,11 @@ func setupHandlerTestState(t *testing.T) (*statedb.DB, statedb.RWTable[*tables.L
 	})
 	wtxn.Commit()
 
-	return db, workloads, leases, subnets, lw, req, reqMAC
+	return db, workloads, leaseWriter, leases, subnets, lw, req, reqMAC
 }
 
 func TestHandlerWritesLeaseOnAck(t *testing.T) {
-	db, workloads, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
+	db, workloads, leaseWriter, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
 	resp, err := dhcpv4.NewReplyFromRequest(req)
 	require.NoError(t, err)
 	resp.YourIPAddr = net.IPv4(192, 168, 1, 10)
@@ -109,7 +116,7 @@ func TestHandlerWritesLeaseOnAck(t *testing.T) {
 	resp.UpdateOption(dhcpv4.OptRenewTimeValue(60 * time.Second))
 	factory := &fakeRelayFactory{relay: &fakeRelay{resp: resp}}
 
-	h := newServerHandler(slog.Default(), db, workloads, leases, subnets, factory, 500*time.Millisecond)
+	h := newServerHandler(slog.Default(), db, workloads, leaseWriter, subnets, factory, 500*time.Millisecond)
 	now := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
 	h.now = func() time.Time { return now }
 
@@ -137,7 +144,7 @@ func TestHandlerWritesLeaseOnAck(t *testing.T) {
 }
 
 func TestHandlerRenewsLeaseOnAckSameIP(t *testing.T) {
-	db, workloads, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
+	db, workloads, leaseWriter, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
 
 	oldNow := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
 	newNow := oldNow.Add(10 * time.Minute)
@@ -159,7 +166,7 @@ func TestHandlerRenewsLeaseOnAckSameIP(t *testing.T) {
 		},
 		LXC: lw.LXC,
 	})
-	leases.Insert(wtxn, tables.DHCPLease{
+	leaseWriter.Insert(wtxn, tables.DHCPLease{
 		Network:    "blue",
 		EndpointID: lw.EndpointID,
 		MAC:        mac.MAC(reqMAC),
@@ -179,7 +186,7 @@ func TestHandlerRenewsLeaseOnAckSameIP(t *testing.T) {
 	resp.UpdateOption(dhcpv4.OptRenewTimeValue(150 * time.Second))
 	factory := &fakeRelayFactory{relay: &fakeRelay{resp: resp}}
 
-	h := newServerHandler(slog.Default(), db, workloads, leases, subnets, factory, 500*time.Millisecond)
+	h := newServerHandler(slog.Default(), db, workloads, leaseWriter, subnets, factory, 500*time.Millisecond)
 	h.now = func() time.Time { return newNow }
 	_, _, err = h.serverHandler()(t.Context(), nil, lw.EndpointID, req)
 	require.NoError(t, err)
@@ -193,7 +200,7 @@ func TestHandlerRenewsLeaseOnAckSameIP(t *testing.T) {
 }
 
 func TestHandlerClearsLeaseOnNak(t *testing.T) {
-	db, workloads, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
+	db, workloads, leaseWriter, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
 	now := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
 
 	wtxn := db.WriteTxn(workloads, leases)
@@ -211,7 +218,7 @@ func TestHandlerClearsLeaseOnNak(t *testing.T) {
 		},
 		LXC: lw.LXC,
 	})
-	leases.Insert(wtxn, tables.DHCPLease{
+	leaseWriter.Insert(wtxn, tables.DHCPLease{
 		Network:    "blue",
 		EndpointID: lw.EndpointID,
 		MAC:        mac.MAC(reqMAC),
@@ -225,7 +232,7 @@ func TestHandlerClearsLeaseOnNak(t *testing.T) {
 	resp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeNak))
 	factory := &fakeRelayFactory{relay: &fakeRelay{resp: resp}}
 
-	h := newServerHandler(slog.Default(), db, workloads, leases, subnets, factory, 500*time.Millisecond)
+	h := newServerHandler(slog.Default(), db, workloads, leaseWriter, subnets, factory, 500*time.Millisecond)
 	_, _, err = h.serverHandler()(t.Context(), nil, lw.EndpointID, req)
 	require.NoError(t, err)
 
@@ -238,7 +245,7 @@ func TestHandlerClearsLeaseOnNak(t *testing.T) {
 }
 
 func TestHandlerClearsLeaseOnReleaseRequest(t *testing.T) {
-	db, workloads, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
+	db, workloads, leaseWriter, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
 
 	wtxn := db.WriteTxn(workloads, leases)
 	workloads.Insert(wtxn, &tables.LocalWorkload{
@@ -255,7 +262,7 @@ func TestHandlerClearsLeaseOnReleaseRequest(t *testing.T) {
 		},
 		LXC: lw.LXC,
 	})
-	leases.Insert(wtxn, tables.DHCPLease{
+	leaseWriter.Insert(wtxn, tables.DHCPLease{
 		Network:    "blue",
 		EndpointID: lw.EndpointID,
 		MAC:        mac.MAC(reqMAC),
@@ -265,7 +272,7 @@ func TestHandlerClearsLeaseOnReleaseRequest(t *testing.T) {
 
 	req.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeRelease))
 	req.ClientIPAddr = net.IPv4(192, 168, 1, 10)
-	h := newServerHandler(slog.Default(), db, workloads, leases, subnets, &fakeRelayFactory{relay: &fakeRelay{}}, 500*time.Millisecond)
+	h := newServerHandler(slog.Default(), db, workloads, leaseWriter, subnets, &fakeRelayFactory{relay: &fakeRelay{}}, 500*time.Millisecond)
 
 	_, _, err := h.serverHandler()(t.Context(), nil, lw.EndpointID, req)
 	require.NoError(t, err)
@@ -279,7 +286,7 @@ func TestHandlerClearsLeaseOnReleaseRequest(t *testing.T) {
 }
 
 func TestHandlerClearsLeaseOnDeclineRequest(t *testing.T) {
-	db, workloads, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
+	db, workloads, leaseWriter, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
 
 	wtxn := db.WriteTxn(workloads, leases)
 	workloads.Insert(wtxn, &tables.LocalWorkload{
@@ -296,7 +303,7 @@ func TestHandlerClearsLeaseOnDeclineRequest(t *testing.T) {
 		},
 		LXC: lw.LXC,
 	})
-	leases.Insert(wtxn, tables.DHCPLease{
+	leaseWriter.Insert(wtxn, tables.DHCPLease{
 		Network:    "blue",
 		EndpointID: lw.EndpointID,
 		MAC:        mac.MAC(reqMAC),
@@ -306,7 +313,7 @@ func TestHandlerClearsLeaseOnDeclineRequest(t *testing.T) {
 
 	req.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeDecline))
 	req.UpdateOption(dhcpv4.OptRequestedIPAddress(net.IPv4(192, 168, 1, 10)))
-	h := newServerHandler(slog.Default(), db, workloads, leases, subnets, &fakeRelayFactory{relay: &fakeRelay{}}, 500*time.Millisecond)
+	h := newServerHandler(slog.Default(), db, workloads, leaseWriter, subnets, &fakeRelayFactory{relay: &fakeRelay{}}, 500*time.Millisecond)
 
 	_, _, err := h.serverHandler()(t.Context(), nil, lw.EndpointID, req)
 	require.NoError(t, err)
@@ -320,14 +327,14 @@ func TestHandlerClearsLeaseOnDeclineRequest(t *testing.T) {
 }
 
 func TestHandlerIgnoresAckOutsideConfiguredSubnets(t *testing.T) {
-	db, workloads, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
+	db, workloads, leaseWriter, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
 	resp, err := dhcpv4.NewReplyFromRequest(req)
 	require.NoError(t, err)
 	resp.YourIPAddr = net.IPv4(10, 10, 10, 10)
 	resp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeAck))
 	factory := &fakeRelayFactory{relay: &fakeRelay{resp: resp}}
 
-	h := newServerHandler(slog.Default(), db, workloads, leases, subnets, factory, 500*time.Millisecond)
+	h := newServerHandler(slog.Default(), db, workloads, leaseWriter, subnets, factory, 500*time.Millisecond)
 	_, resps, err := h.serverHandler()(t.Context(), nil, lw.EndpointID, req)
 	require.NoError(t, err)
 	require.Empty(t, resps)
@@ -338,7 +345,7 @@ func TestHandlerIgnoresAckOutsideConfiguredSubnets(t *testing.T) {
 }
 
 func TestHandlerIgnoresAckOutsideWorkloadSubnet(t *testing.T) {
-	db, workloads, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
+	db, workloads, leaseWriter, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
 
 	wtxn := db.WriteTxn(subnets)
 	subnets.Insert(wtxn, tables.Subnet{
@@ -356,7 +363,7 @@ func TestHandlerIgnoresAckOutsideWorkloadSubnet(t *testing.T) {
 	resp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeAck))
 	factory := &fakeRelayFactory{relay: &fakeRelay{resp: resp}}
 
-	h := newServerHandler(slog.Default(), db, workloads, leases, subnets, factory, 500*time.Millisecond)
+	h := newServerHandler(slog.Default(), db, workloads, leaseWriter, subnets, factory, 500*time.Millisecond)
 	_, resps, err := h.serverHandler()(t.Context(), nil, lw.EndpointID, req)
 	require.NoError(t, err)
 	require.Empty(t, resps)
@@ -367,7 +374,7 @@ func TestHandlerIgnoresAckOutsideWorkloadSubnet(t *testing.T) {
 }
 
 func TestHandlerIgnoresOfferOutsideWorkloadSubnet(t *testing.T) {
-	db, workloads, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
+	db, workloads, leaseWriter, leases, subnets, lw, req, reqMAC := setupHandlerTestState(t)
 
 	wtxn := db.WriteTxn(subnets)
 	subnets.Insert(wtxn, tables.Subnet{
@@ -385,7 +392,7 @@ func TestHandlerIgnoresOfferOutsideWorkloadSubnet(t *testing.T) {
 	resp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeOffer))
 	factory := &fakeRelayFactory{relay: &fakeRelay{resp: resp}}
 
-	h := newServerHandler(slog.Default(), db, workloads, leases, subnets, factory, 500*time.Millisecond)
+	h := newServerHandler(slog.Default(), db, workloads, leaseWriter, subnets, factory, 500*time.Millisecond)
 	_, resps, err := h.serverHandler()(t.Context(), nil, lw.EndpointID, req)
 	require.NoError(t, err)
 	require.Empty(t, resps)
