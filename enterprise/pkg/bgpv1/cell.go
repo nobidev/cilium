@@ -15,7 +15,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/agent"
-	"github.com/cilium/cilium/enterprise/pkg/bgpv1/agent/commands"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/commands"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/manager/reconcilerv2"
 	ossAgent "github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/bgp/gobgp"

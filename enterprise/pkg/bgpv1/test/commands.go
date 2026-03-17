@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
-	ceeCommands "github.com/cilium/cilium/enterprise/pkg/bgpv1/agent/commands"
+	ceeCommands "github.com/cilium/cilium/enterprise/pkg/bgpv1/commands"
 	"github.com/cilium/cilium/pkg/bgp/api"
 	"github.com/cilium/cilium/pkg/bgp/gobgp"
 	"github.com/cilium/cilium/pkg/bgp/test/commands"
