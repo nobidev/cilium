@@ -585,6 +585,7 @@ jobs:
       - name: Wait for cluster to be ready
         timeout-minutes: 15
         id: wait-for-hosted
+        if: ${{ !cancelled() && steps.hcp-create.outcome == 'success' && steps.vars.outputs.hcp == 'true' }}
         env:
           KUBECONFIG: ${{ steps.hcp-create.outputs.hosted_kubeconfig }}
         run: |
