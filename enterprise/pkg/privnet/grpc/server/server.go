@@ -37,7 +37,6 @@ type (
 type server struct {
 	log        *slog.Logger
 	factory    ListenerFactory
-	registrars []Registrar
 	shutdowner hive.Shutdowner
 
 	gsrv *grpc.Server
@@ -61,7 +60,6 @@ func registerServer(in serverParams) {
 	srv := &server{
 		log:        in.Logger,
 		factory:    in.Factory,
-		registrars: in.Registrars,
 		shutdowner: in.Shutdowner,
 	}
 
