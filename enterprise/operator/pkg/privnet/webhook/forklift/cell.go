@@ -27,5 +27,19 @@ var Cell = cell.Module(
 		// Provides the Read and ReadWrite plans table.
 		NewPlansTable,
 		statedb.RWTable[Plan].ToTable,
+
+		// Provides the client to interact with Forklift resources.
+		newDynamicClient,
+
+		// Provides the k8s to tables reflector.
+		newReflector,
+	),
+
+	cell.Invoke(
+		// Registers the k8s to providers table reflector.
+		(*Reflector).ForProviders,
+
+		// Registers the k8s to plans table reflector.
+		(*Reflector).ForPlans,
 	),
 )

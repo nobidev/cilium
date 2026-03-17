@@ -9,6 +9,13 @@ hive/start
 k8s/add ns-1.yaml icpn-1.yaml icpn-2.yaml nad-1.yaml nad-2.yaml nad-3.yaml nad-4.yaml nad-5.yaml
 db/cmp privnet-nads nads.table
 
+# Populate the Forklift resources, and wait for them to be observed.
+k8s/add provider-1.yaml provider-2.yaml
+k8s/add plan-1.yaml plan-2.yaml plan-3.yaml
+
+db/cmp privnet-forklift-providers providers.table
+db/cmp privnet-forklift-plans plans.table
+
 # A vanilla VM should not be mutated.
 webhook/admit /virtualmachines/mutate create vm-1.yaml --expect-no-changes
 
@@ -140,6 +147,102 @@ metadata:
 spec:
   config: '{"cniVersion": "0.3.1", "type": "cilium-cni"}'
 
+-- provider-1.yaml --
+apiVersion: forklift.konveyor.io/v1beta1
+kind: Provider
+metadata:
+  name: guinea
+  namespace: muskrat
+  uid: 5e497cae-e26e-40f3-b391-135b4cbbdd82
+spec:
+  secret:
+    name: guinea
+    namespace: muskrat
+  type: vsphere
+
+-- provider-2.yaml --
+apiVersion: forklift.konveyor.io/v1beta1
+kind: Provider
+metadata:
+  name: kit
+  namespace: raptor
+  uid: 8e0d07b8-b7a6-4994-8bb0-027d9ef81ca2
+spec:
+  secret:
+    name: kit
+    namespace: raptor
+  type: other
+
+-- plan-1.yaml --
+apiVersion: forklift.konveyor.io/v1beta1
+kind: Plan
+metadata:
+  name: settling-ape
+  namespace: raptor
+  uid: 2dabc5ef-f1b5-4e63-9534-a8a17c0c0adf
+spec:
+  preserveStaticIPs: false
+  provider:
+    destination:
+      apiVersion: forklift.konveyor.io/v1beta1
+      kind: Provider
+      name: host
+      namespace: muskrat
+      uid: 20042b16-77a1-48c8-a2a0-ebc1241c53c3
+    source:
+      apiVersion: forklift.konveyor.io/v1beta1
+      kind: Provider
+      name: guinea
+      namespace: muskrat
+      uid: 5e497cae-e26e-40f3-b391-135b4cbbdd82
+
+-- plan-2.yaml --
+apiVersion: forklift.konveyor.io/v1beta1
+kind: Plan
+metadata:
+  name: amused-dory
+  namespace: raptor
+  uid: 532e2c42-f81b-4f6f-a797-c893ccefe3c5
+spec:
+  preserveStaticIPs: true
+  provider:
+    destination:
+      apiVersion: forklift.konveyor.io/v1beta1
+      kind: Provider
+      name: host
+      namespace: muskrat
+      uid: 20042b16-77a1-48c8-a2a0-ebc1241c53c3
+    source:
+      apiVersion: forklift.konveyor.io/v1beta1
+      kind: Provider
+      name: guinea
+      namespace: muskrat
+      uid: 5e497cae-e26e-40f3-b391-135b4cbbdd82
+
+-- plan-3.yaml --
+apiVersion: forklift.konveyor.io/v1beta1
+kind: Plan
+metadata:
+  name: popular-racer
+  namespace: raptor
+  uid: 84aed857-994a-4db0-804e-0add8a898204
+spec:
+  preserveStaticIPs: false
+  provider:
+    destination:
+      apiVersion: forklift.konveyor.io/v1beta1
+      kind: Provider
+      name: host
+      namespace: muskrat
+      uid: 20042b16-77a1-48c8-a2a0-ebc1241c53c3
+    source:
+      apiVersion: forklift.konveyor.io/v1beta1
+      kind: Provider
+      name: kit
+      namespace: raptor
+      uid: 8e0d07b8-b7a6-4994-8bb0-027d9ef81ca2
+
+
 -- nads.table --
 Namespace   Name             Type         Network       Subnet        Managed
 default     bull-calf        cilium-cni   bull          calf          false
@@ -150,6 +253,18 @@ default     other-calf       cilium-cni   other         calf          false
 spaniel     egret-ewe        cilium-cni   egret         ewe           true
 spaniel     egret-parrot     cilium-cni   egret         parrot        true
 spaniel     egret-seahorse   cilium-cni   egret         seahorse      true
+
+-- providers.table --
+Namespace   Name     UID                                    Type
+muskrat     guinea   5e497cae-e26e-40f3-b391-135b4cbbdd82   vsphere
+raptor      kit      8e0d07b8-b7a6-4994-8bb0-027d9ef81ca2   other
+
+-- plans.table --
+Namespace   Name            UID                                    SourceProvider   PreserveStaticIPs
+raptor      settling-ape    2dabc5ef-f1b5-4e63-9534-a8a17c0c0adf   muskrat/guinea   false
+raptor      amused-dory     532e2c42-f81b-4f6f-a797-c893ccefe3c5   muskrat/guinea   true
+raptor      popular-racer   84aed857-994a-4db0-804e-0add8a898204   raptor/kit       false
+
 
 -- vm-1.yaml --
 apiVersion: kubevirt.io/v1
