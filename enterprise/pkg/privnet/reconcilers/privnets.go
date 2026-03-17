@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/reconcilers/idpool"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
-	dptables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/k8s"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -72,9 +71,8 @@ type PrivateNetworks struct {
 
 	cfg config.Config
 
-	db   *statedb.DB
-	tbl  statedb.RWTable[tables.PrivateNetwork]
-	devs statedb.Table[*dptables.Device]
+	db  *statedb.DB
+	tbl statedb.RWTable[tables.PrivateNetwork]
 
 	client cs_iso_v1alpha1.ClusterwidePrivateNetworkInterface
 }
@@ -87,19 +85,17 @@ func newPrivateNetworks(in struct {
 
 	Config config.Config
 
-	DB      *statedb.DB
-	Table   statedb.RWTable[tables.PrivateNetwork]
-	Devices statedb.Table[*dptables.Device]
+	DB    *statedb.DB
+	Table statedb.RWTable[tables.PrivateNetwork]
 
 	Client client.Clientset
 }) (*PrivateNetworks, error) {
 	reconciler := &PrivateNetworks{
-		log:  in.Log,
-		jg:   in.JobGroup,
-		cfg:  in.Config,
-		db:   in.DB,
-		tbl:  in.Table,
-		devs: in.Devices,
+		log: in.Log,
+		jg:  in.JobGroup,
+		cfg: in.Config,
+		db:  in.DB,
+		tbl: in.Table,
 	}
 
 	if !in.Config.Enabled {
