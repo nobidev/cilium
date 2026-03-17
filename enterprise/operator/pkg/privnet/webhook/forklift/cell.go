@@ -8,25 +8,24 @@
 // or reproduction of this material is strictly forbidden unless prior written
 // permission is obtained from Isovalent Inc.
 
-package webhook
+package forklift
 
 import (
 	"github.com/cilium/hive/cell"
-
-	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/webhook/config"
-	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/webhook/forklift"
+	"github.com/cilium/statedb"
 )
 
 var Cell = cell.Module(
-	"private-networks-webhook",
-	"Private Networks Webhook",
-
-	config.Cell,
-	forklift.Cell,
+	"private-networks-forklift",
+	"Private Networks Forkift Integration",
 
 	cell.ProvidePrivate(
-		newVM,
-	),
+		// Provides the Read and ReadWrite providers table.
+		NewProvidersTable,
+		statedb.RWTable[Provider].ToTable,
 
-	cell.Invoke(register),
+		// Provides the Read and ReadWrite plans table.
+		NewPlansTable,
+		statedb.RWTable[Plan].ToTable,
+	),
 )
