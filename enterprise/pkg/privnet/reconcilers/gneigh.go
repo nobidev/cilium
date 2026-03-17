@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 )
 
@@ -109,8 +108,7 @@ type ndSender struct {
 }
 
 type GneighOps struct {
-	clusterInfo cmtypes.ClusterInfo
-	sender      gneigh.Sender
+	sender gneigh.Sender
 
 	// arpSenders are the gratuitous ARP senders per interface (indexed by ifindex).
 	arpSenders map[int]*arpSender
@@ -118,10 +116,9 @@ type GneighOps struct {
 	ndSenders map[int]*ndSender
 }
 
-func newGneighOps(clusterInfo cmtypes.ClusterInfo, sender gneigh.Sender) *GneighOps {
+func newGneighOps(sender gneigh.Sender) *GneighOps {
 	return &GneighOps{
-		clusterInfo: clusterInfo,
-		sender:      sender,
+		sender: sender,
 
 		arpSenders: make(map[int]*arpSender),
 		ndSenders:  make(map[int]*ndSender),
