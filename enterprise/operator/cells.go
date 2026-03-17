@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet"
 	"github.com/cilium/cilium/enterprise/operator/pkg/srv6/locatorpool"
+	"github.com/cilium/cilium/enterprise/operator/pkg/wafpolicy"
 	"github.com/cilium/cilium/enterprise/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/enterprise/pkg/clustermesh/phantom"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
@@ -74,6 +75,8 @@ var (
 			bgpv2.Cell,
 			bfd.Cell,
 			evpn.Cell,
+
+			wafpolicy.Cell,
 
 			lb.Cell,
 

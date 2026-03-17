@@ -187,6 +187,10 @@ cilium-operator-generic hive [flags]
       --synchronize-k8s-nodes                                          Perform GC of stale node entries from the KVStore (default true)
       --unmanaged-pod-watcher-interval duration                        Interval to check for unmanaged kube-dns pods (0 to disable) (default 15s)
       --validate-network-policy                                        Whether to enable or disable the informational network policy validator (default true)
+      --waf-enabled                                                    Enable WAF by default for operator-managed resources.
+      --waf-failure-mode string                                        Default WAF failure mode for operator-managed resources. Applicable values: Open, Close (default "Open")
+      --waf-mode string                                                Default WAF mode for operator-managed resources. Applicable values: Monitor, Enforce (default "Enforce")
+      --waf-policy-profile string                                      Default WAF policy profile for operator-managed resources. Applicable values: max_security, high_security, balanced, low_friction, min_friction (default "balanced")
 ```
 
 ### SEE ALSO
