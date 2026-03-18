@@ -273,9 +273,9 @@ static __always_inline int tail_handle_ipv6_privnet_unknown_ingress(struct __ctx
 	return ret;
 }
 
-static __always_inline int enterprise_privnet_lxc_policy(struct __ctx_buff *ctx,
-							 __u16 proto,
-							 __s8 *ext_err __maybe_unused)
+static __always_inline int
+enterprise_privnet_to_lxc_before_policy(struct __ctx_buff *ctx, __u16 proto,
+					__s8 *ext_err __maybe_unused)
 {
 	int ret = CTX_ACT_OK;
 
