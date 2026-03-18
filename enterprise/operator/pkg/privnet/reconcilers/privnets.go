@@ -146,6 +146,8 @@ func (pn *PrivateNetworks) extractSubnets(privnet *iso_v1alpha1.ClusterwidePriva
 		func(subnet iso_v1alpha1.SubnetSpec) tables.PrivateNetworkSubnet {
 			return tables.PrivateNetworkSubnet{
 				Name: tables.SubnetName(subnet.Name),
+				DHCP: subnet.DHCP.Mode == iso_v1alpha1.PrivateNetworkDHCPModeBroadcast ||
+					subnet.DHCP.Mode == iso_v1alpha1.PrivateNetworkDHCPModeRelay,
 			}
 		},
 	)
