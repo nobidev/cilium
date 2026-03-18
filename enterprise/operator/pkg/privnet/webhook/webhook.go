@@ -11,10 +11,12 @@
 package webhook
 
 import (
+	"cmp"
 	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"strconv"
@@ -28,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/webhook/config"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // Handler describes a handler to be registered into the private networks webhook.
@@ -143,4 +146,30 @@ func register(in struct {
 	)
 
 	return nil
+}
+
+func loggingHandler(log *slog.Logger, handler admission.HandlerFunc) admission.Handler {
+	return admission.HandlerFunc(
+		func(ctx context.Context, req admission.Request) (resp admission.Response) {
+			defer func() {
+				var result, level = "Allowed", slog.LevelDebug
+				if !resp.Allowed {
+					if resp.Result != nil {
+						result = resp.Result.Message
+					}
+					result, level = "Error: "+cmp.Or(result, "unknown"), slog.LevelInfo
+				}
+
+				log.Log(ctx, level, "Processed request",
+					logfields.Resource, req.Resource.String(),
+					logfields.Name, req.Name,
+					logfields.K8sNamespace, req.Namespace,
+					logfields.Operation, req.Operation,
+					logfields.Result, result,
+				)
+			}()
+
+			return handler(ctx, req)
+		},
+	)
 }

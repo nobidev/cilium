@@ -30,6 +30,8 @@ var (
 		HostPort:    ":11443",
 		TLSKeyFile:  "/var/lib/cilium/privnet/webhook/tls/server.key",
 		TLSCertFile: "/var/lib/cilium/privnet/webhook/tls/server.crt",
+
+		NetworkBinding: "",
 	}
 )
 
@@ -38,6 +40,8 @@ type Config struct {
 	HostPort    string `mapstructure:"private-networks-webhook-hostport"`
 	TLSKeyFile  string `mapstructure:"private-networks-webhook-tls-key-file"`
 	TLSCertFile string `mapstructure:"private-networks-webhook-tls-cert-file"`
+
+	NetworkBinding string `mapstructure:"private-networks-webhook-network-binding"`
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -49,6 +53,10 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 		"The path to the webhook TLS key for the private networks webhook")
 	flags.String("private-networks-webhook-tls-cert-file", def.TLSCertFile,
 		"The path to the webhook TLS certificate for the private networks webhook")
+
+	flags.String("private-networks-webhook-network-binding", def.NetworkBinding,
+		"The name of the KubeVirt network binding plugin enforced on mutated VMs",
+	)
 }
 
 func (cfg Config) validate(ocfg opncfg.Config) error {
@@ -58,6 +66,10 @@ func (cfg Config) validate(ocfg opncfg.Config) error {
 
 	if cfg.Enabled && !ocfg.NADIntegration.Enabled {
 		return fmt.Errorf("cannot enable the private networks webhook if the integration with Multus NADs is disabled")
+	}
+
+	if cfg.Enabled && cfg.NetworkBinding == "" {
+		return fmt.Errorf("cannot enable the private networks webhook if the network binding is unspecified")
 	}
 
 	return nil

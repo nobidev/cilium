@@ -191,6 +191,7 @@ cilium-operator-aws hive dot-graph [flags]
       --private-networks-nad-integration-enabled                       Enable the private networks integration with Multus network attachment definitions
       --private-networks-webhook-enabled                               Enable the private networks webhook
       --private-networks-webhook-hostport string                       The address and port the private networks webhook listens to (default ":11443")
+      --private-networks-webhook-network-binding string                The name of the KubeVirt network binding plugin enforced on mutated VMs
       --private-networks-webhook-tls-cert-file string                  The path to the webhook TLS certificate for the private networks webhook (default "/var/lib/cilium/privnet/webhook/tls/server.crt")
       --private-networks-webhook-tls-key-file string                   The path to the webhook TLS key for the private networks webhook (default "/var/lib/cilium/privnet/webhook/tls/server.key")
       --shell-sock-path string                                         Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")

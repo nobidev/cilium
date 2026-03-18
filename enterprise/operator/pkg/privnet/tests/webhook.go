@@ -11,22 +11,42 @@
 package tests
 
 import (
+	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
+	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/script"
+	jsonpatch "github.com/evanphx/json-patch/v5"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
+	admission_v1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/yaml"
 
 	whcfg "github.com/cilium/cilium/enterprise/operator/pkg/privnet/webhook/config"
+	"github.com/cilium/cilium/pkg/k8s/testutils"
+	"github.com/cilium/cilium/pkg/safeio"
 )
 
 func WebhookTestCell(t testing.TB) cell.Cell {
@@ -38,6 +58,7 @@ func WebhookTestCell(t testing.TB) cell.Cell {
 					root: x509.NewCertPool(),
 				}
 			},
+			(*webhook).cmds,
 		),
 
 		cell.Invoke(
@@ -73,6 +94,194 @@ type webhook struct {
 
 func (w *webhook) tlsKeyFile() string  { return path.Join(w.path, "tls.key") }
 func (w *webhook) tlsCertFile() string { return path.Join(w.path, "tls.crt") }
+
+func (w *webhook) cmds(cfg whcfg.Config) uhive.ScriptCmdsOut {
+	var (
+		admissionScheme = runtime.NewScheme()
+		admissionCodecs = serializer.NewCodecFactory(admissionScheme)
+
+		client = http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					RootCAs: w.root,
+				},
+			},
+		}
+	)
+
+	admission_v1.AddToScheme(admissionScheme)
+
+	return uhive.NewScriptCmds(map[string]script.Cmd{
+		"webhook/admit": script.Command(
+			script.CmdUsage{
+				Summary: "Post a request to a webhook",
+				Args:    "request-path operation file",
+				Flags: func(fs *pflag.FlagSet) {
+					fs.Duration("timeout", time.Second, "Timeout")
+					fs.StringP("out", "o", "", "File to write to instead of stdout")
+					fs.Bool("expect-no-changes", false, "Expect that the response contains no patch, and fail otherwise")
+				},
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				if len(args) != 3 {
+					return nil, fmt.Errorf("%w: expected number of arguments", script.ErrUsage)
+				}
+
+				reqpath, op, infile := args[0], admission_v1.Operation(strings.ToUpper(args[1])), args[2]
+				switch op {
+				case admission_v1.Create, admission_v1.Update, admission_v1.Delete, admission_v1.Connect:
+				default:
+					return nil, fmt.Errorf("operation %q is not supported", op)
+				}
+
+				timeout, err := s.Flags.GetDuration("timeout")
+				if err != nil {
+					return nil, fmt.Errorf("reading timeout flag: %w", err)
+				}
+
+				outfile, err := s.Flags.GetString("out")
+				if err != nil {
+					return nil, fmt.Errorf("reading out flag: %w", err)
+				}
+
+				expectNoChanges, err := s.Flags.GetBool("expect-no-changes")
+				if err != nil {
+					return nil, fmt.Errorf("reading expect-no-changes flag: %w", err)
+				}
+
+				orig, err := os.ReadFile(s.Path(infile))
+				if err != nil {
+					return nil, fmt.Errorf("reading %s: %w", infile, err)
+				}
+
+				obj, gvk, err := testutils.DecodeObjectGVK(orig)
+				if err != nil {
+					return nil, fmt.Errorf("decoding: %w", err)
+				}
+
+				objMeta, err := meta.Accessor(obj)
+				if err != nil {
+					return nil, fmt.Errorf("accessor: %w", err)
+				}
+
+				objRaw, err := runtime.Encode(unstructured.UnstructuredJSONScheme, obj)
+				if err != nil {
+					return nil, fmt.Errorf("encoding object: %w", err)
+				}
+
+				gvr, _ := meta.UnsafeGuessKindToResource(*gvk)
+				req := admission_v1.AdmissionReview{
+					Request: &admission_v1.AdmissionRequest{
+						Resource:  metav1.GroupVersionResource(gvr),
+						UID:       objMeta.GetUID(),
+						Name:      objMeta.GetName(),
+						Namespace: objMeta.GetNamespace(),
+						Operation: op,
+						Object: runtime.RawExtension{
+							Object: obj, Raw: objRaw,
+						},
+					},
+				}
+
+				var buf bytes.Buffer
+				err = unstructured.UnstructuredJSONScheme.Encode(&req, &buf)
+				if err != nil {
+					return nil, fmt.Errorf("encoding admission review: %w", err)
+				}
+
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					ctx, cancel := context.WithTimeout(s.Context(), timeout)
+					defer cancel()
+
+					httpreq, err := http.NewRequestWithContext(ctx, "POST",
+						fmt.Sprintf("https://%s/%s", cfg.HostPort, strings.TrimLeft(reqpath, "/")), &buf)
+					if err != nil {
+						return "", "", fmt.Errorf("constructing the HTTP request: %w", err)
+					}
+
+					httpreq.Header.Set("Content-Type", "application/json")
+					httpresp, err := client.Do(httpreq)
+					if err != nil {
+						// Override the error in case the root context is still valid,
+						// but we hit the timeout, as otherwise the script engine treats
+						// it as a failure, regardless of whether we use the "!" operator.
+						if errors.Is(err, context.DeadlineExceeded) && s.Context().Err() == nil {
+							return "", "", errors.New("timed out waiting for response")
+						}
+
+						return "", "", fmt.Errorf("http request: %w", err)
+					}
+
+					defer httpresp.Body.Close()
+					raw, err := safeio.ReadAllLimit(httpresp.Body, safeio.MB)
+					if err != nil {
+						return "", "", fmt.Errorf("reading the response body: %w", err)
+					}
+
+					if httpresp.StatusCode != http.StatusOK {
+						return "", string(raw), fmt.Errorf("unexpected status code %d", httpresp.StatusCode)
+					}
+
+					obj, _, err := admissionCodecs.UniversalDeserializer().Decode(raw, nil, &admission_v1.AdmissionReview{})
+					if err != nil {
+						return "", "", fmt.Errorf("decoding the response: %w", err)
+					}
+
+					resp, ok := obj.(*admission_v1.AdmissionReview)
+					if !ok {
+						return "", "", fmt.Errorf("decoding the response: unexpected type %T", obj)
+					}
+
+					if !resp.Response.Allowed {
+						var reason = "unknown"
+						if result := resp.Response.Result; result != nil {
+							reason = string(result.Message)
+						}
+
+						return "", reason + "\n", fmt.Errorf("not allowed: %s", reason)
+					}
+
+					if expectNoChanges {
+						if resp.Response.PatchType != nil {
+							return "", string(resp.Response.Patch), errors.New("expected no patches, but got some")
+						}
+
+						return "", "", nil
+					}
+
+					var out = orig
+					if ptr.Deref(resp.Response.PatchType, "") == admission_v1.PatchTypeJSONPatch {
+						patch, err := jsonpatch.DecodePatch(resp.Response.Patch)
+						if err != nil {
+							return "", "", fmt.Errorf("parsing the patch: %w", err)
+						}
+
+						patched, err := patch.Apply(objRaw)
+						if err != nil {
+							return "", "", fmt.Errorf("applying the patch: %w", err)
+						}
+
+						obj, _, err = testutils.DecodeObjectGVK(patched)
+						if err != nil {
+							return "", "", fmt.Errorf("decoding the patched object: %w", err)
+						}
+
+						out, err = yaml.Marshal(obj)
+						if err != nil {
+							return "", "", fmt.Errorf("marshaling the patched object: %w", err)
+						}
+					}
+
+					if outfile != "" {
+						return "", "", os.WriteFile(s.Path(outfile), out, 0644)
+					}
+
+					return string(out), "", nil
+				}, nil
+			},
+		),
+	})
+}
 
 func (w *webhook) generateTLSPair(cfg whcfg.Config) error {
 	if !cfg.Enabled {

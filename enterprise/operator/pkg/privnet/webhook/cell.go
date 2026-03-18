@@ -22,5 +22,9 @@ var Cell = cell.Module(
 
 	config.Cell,
 
+	cell.ProvidePrivate(
+		newVM,
+	),
+
 	cell.Invoke(register),
 )

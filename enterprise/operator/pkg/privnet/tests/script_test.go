@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	virt_v1 "kubevirt.io/api/core/v1"
 	ctrlruntime "sigs.k8s.io/controller-runtime"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
@@ -40,6 +41,10 @@ import (
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
+
+func init() {
+	virt_v1.AddToScheme(k8sTestutils.Scheme)
+}
 
 func TestScript(t *testing.T) {
 	version.Force(k8sTestutils.DefaultVersion)

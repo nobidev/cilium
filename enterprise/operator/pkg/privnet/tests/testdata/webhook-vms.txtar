@@ -1,0 +1,419 @@
+#! --private-networks-enabled --private-networks-nad-integration-enabled --private-networks-webhook-enabled --private-networks-webhook-network-binding=privnet
+
+# Create the ICPN and NAD CRDs to satisfy the existence check.
+k8s/add icpn-crd.yaml nad-crd.yaml
+
+hive/start
+
+# Populate the Kubernetes objects, and wait for them to be observed.
+k8s/add ns-1.yaml icpn-1.yaml icpn-2.yaml nad-1.yaml nad-2.yaml nad-3.yaml nad-4.yaml nad-5.yaml
+db/cmp privnet-nads nads.table
+
+# A vanilla VM should not be mutated.
+webhook/admit /virtualmachines/mutate create vm-1.yaml --expect-no-changes
+
+# A migrated VM should be mutated as expected.
+webhook/admit /virtualmachines/mutate create vm-2.yaml -o vm-actual.yaml
+cmp vm-actual.yaml vm-2-expected.yaml
+
+# Update and delete operations should be ignored.
+webhook/admit /virtualmachines/mutate update vm-2.yaml --expect-no-changes
+webhook/admit /virtualmachines/mutate delete vm-2.yaml --expect-no-changes
+
+# The pod network of a mutated VM should not be mangled with.
+webhook/admit /virtualmachines/mutate create vm-3.yaml -o vm-actual.yaml
+cmp vm-actual.yaml vm-3-expected.yaml
+
+# Expect an error if a migrated VM references a non-existing NAD.
+cp vm-2.yaml vm-nad-not-existing.yaml
+replace spaniel/egret-ewe something/else vm-nad-not-existing.yaml
+! webhook/admit /virtualmachines/mutate create vm-nad-not-existing.yaml
+cmp stderr err-nad-not-existing.txt
+
+# Expect an error if a migrated VM references a NAD for an unknown network.
+cp vm-2.yaml vm-net-not-existing.yaml
+replace spaniel/egret-ewe default/other-calf vm-net-not-existing.yaml
+! webhook/admit /virtualmachines/mutate create vm-net-not-existing.yaml
+cmp stderr err-net-not-existing.txt
+
+# Expect an error if a migrated VM references a NAD for an unknown subnet.
+cp vm-2.yaml vm-subnet-not-existing.yaml
+replace spaniel/egret-ewe default/bull-calf vm-subnet-not-existing.yaml
+! webhook/admit /virtualmachines/mutate create vm-subnet-not-existing.yaml
+cmp stderr err-subnet-not-existing.txt
+
+# ---
+
+-- icpn-crd.yaml --
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: clusterwideprivatenetworks.isovalent.com
+status:
+  conditions:
+  - type: "Established"
+    status: "True"
+
+-- nad-crd.yaml --
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: network-attachment-definitions.k8s.cni.cncf.io
+
+-- ns-1.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spaniel
+  labels:
+    kubernetes.io/metadata.name: spaniel
+
+-- icpn-1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: egret
+spec:
+  subnets:
+  - name: parrot
+  - name: ewe
+  - name: seahorse
+  networkAttachmentDefinitions:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: spaniel
+
+-- icpn-2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: bull
+spec:
+  subnets:
+  - name: cow
+
+-- nad-1.yaml --
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: external
+  namespace: default
+spec:
+  config: '{"cniVersion": "0.3.1", "type": "external"}'
+
+-- nad-2.yaml --
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: bull-cow
+  namespace: default
+spec:
+  config: '{"cniVersion": "0.3.1", "type": "cilium-cni",
+    "private-networks": {"network": "bull", "subnet": "cow"}}'
+
+-- nad-3.yaml --
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: other-calf
+  namespace: default
+spec:
+  config: '{"cniVersion": "0.3.1", "type": "cilium-cni",
+    "private-networks": {"network": "other", "subnet": "calf"}}'
+
+-- nad-4.yaml --
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: bull-calf
+  namespace: default
+spec:
+  config: '{"cniVersion": "0.3.1", "type": "cilium-cni",
+    "private-networks": {"network": "bull", "subnet": "calf"}}'
+
+-- nad-5.yaml --
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: bull-donkey
+  namespace: default
+spec:
+  config: '{"cniVersion": "0.3.1", "type": "cilium-cni"}'
+
+-- nads.table --
+Namespace   Name             Type         Network       Subnet        Managed
+default     bull-calf        cilium-cni   bull          calf          false
+default     bull-cow         cilium-cni   bull          cow           false
+default     bull-donkey      cilium-cni   __unknown__   __unknown__   false
+default     external         external     N/A           N/A           false
+default     other-calf       cilium-cni   other         calf          false
+spaniel     egret-ewe        cilium-cni   egret         ewe           true
+spaniel     egret-parrot     cilium-cni   egret         parrot        true
+spaniel     egret-seahorse   cilium-cni   egret         seahorse      true
+
+-- vm-1.yaml --
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: trusting-newt
+  namespace: grouper
+  uid: cc2a8419-636b-406e-af81-daecb1c34b02
+spec:
+  runStrategy: Always
+  template:
+    metadata:
+      labels:
+        app: trusting-newt
+    spec:
+      domain:
+        devices:
+          interfaces:
+          - masquerade: {}
+            macAddress: 00:11:22:33:44:55
+            name: net-0
+          - bridge: {}
+            macAddress: 00:11:22:33:44:66
+            name: net-1
+      networks:
+      - name: net-0
+        pod: {}
+      - multus:
+          networkName: spaniel/nad-1
+        name: net-1
+
+-- vm-2.yaml --
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: trusting-newt
+  namespace: spaniel
+  uid: cc2a8419-636b-406e-af81-daecb1c34b02
+  labels:
+    plan: 2dabc5ef-f1b5-4e63-9534-a8a17c0c0adf
+    vmID: trusting-newt-alpha
+spec:
+  runStrategy: Always
+  template:
+    metadata:
+      labels:
+        app: trusting-newt
+    spec:
+      domain:
+        devices:
+          interfaces:
+          - bridge: {}
+            macAddress: 00:11:22:33:44:55
+            name: net-0
+          - bridge: {}
+            macAddress: 00:11:22:33:44:66
+            name: net-1
+          - bridge: {}
+            macAddress: 00:11:22:33:44:77
+            name: net-2
+          - bridge: {}
+            macAddress: 00:11:22:33:44:88
+            name: net-3
+          - masquerade: {}
+            macAddress: 00:11:22:33:44:99
+            name: net-4
+          - bridge: {}
+            macAddress: 00:11:22:33:44:00
+            name: net-5
+      networks:
+      - multus:
+          default: true
+          networkName: spaniel/egret-ewe
+        name: net-0
+      - multus:
+          networkName: spaniel/egret-parrot
+        name: net-1
+      - multus:
+          networkName: egret-parrot
+        name: net-2
+      - multus:
+          networkName: default/external
+        name: net-3
+      - multus:
+          networkName: default/bull-cow
+        name: net-4
+      - multus:
+          networkName: default/bull-donkey
+        name: net-5
+
+-- vm-2-expected.yaml --
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    plan: 2dabc5ef-f1b5-4e63-9534-a8a17c0c0adf
+    vmID: trusting-newt-alpha
+  name: trusting-newt
+  namespace: spaniel
+  uid: cc2a8419-636b-406e-af81-daecb1c34b02
+spec:
+  runStrategy: Always
+  template:
+    metadata:
+      annotations:
+        privnet.isovalent.com/network-attachment: |-
+          {
+            "network": "egret",
+            "interface": "net-0",
+            "subnet": "ewe"
+          }
+        privnet.isovalent.com/secondary-network-attachments: |-
+          [
+            {
+              "network": "egret",
+              "interface": "net-1",
+              "subnet": "parrot"
+            },
+            {
+              "network": "egret",
+              "interface": "net-2",
+              "subnet": "parrot"
+            },
+            {
+              "network": "bull",
+              "interface": "net-4",
+              "subnet": "cow"
+            }
+          ]
+      labels:
+        app: trusting-newt
+    spec:
+      domain:
+        devices:
+          interfaces:
+          - binding:
+              name: privnet
+            macAddress: "00:11:22:33:44:55"
+            name: net-0
+          - binding:
+              name: privnet
+            macAddress: 00:11:22:33:44:66
+            name: net-1
+          - binding:
+              name: privnet
+            macAddress: 00:11:22:33:44:77
+            name: net-2
+          - bridge: {}
+            macAddress: 00:11:22:33:44:88
+            name: net-3
+          - binding:
+              name: privnet
+            macAddress: 00:11:22:33:44:99
+            name: net-4
+          - bridge: {}
+            macAddress: "00:11:22:33:44:00"
+            name: net-5
+        resources: {}
+      networks:
+      - multus:
+          default: true
+          networkName: spaniel/egret-ewe
+        name: net-0
+      - multus:
+          networkName: spaniel/egret-parrot
+        name: net-1
+      - multus:
+          networkName: egret-parrot
+        name: net-2
+      - multus:
+          networkName: default/external
+        name: net-3
+      - multus:
+          networkName: default/bull-cow
+        name: net-4
+      - multus:
+          networkName: default/bull-donkey
+        name: net-5
+status: {}
+-- EOR --
+
+-- vm-3.yaml --
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: trusting-newt
+  namespace: spaniel
+  uid: cc2a8419-636b-406e-af81-daecb1c34b02
+  labels:
+    plan: 2dabc5ef-f1b5-4e63-9534-a8a17c0c0adf
+    vmID: trusting-newt-beta
+spec:
+  runStrategy: Always
+  template:
+    metadata:
+      labels:
+        app: trusting-newt
+    spec:
+      domain:
+        devices:
+          interfaces:
+          - masquerade: {}
+            macAddress: 00:11:22:33:44:55
+            name: net-0
+          - bridge: {}
+            macAddress: 00:11:22:33:44:66
+            name: net-1
+      networks:
+      - name: net-0
+        pod: {}
+      - multus:
+          networkName: spaniel/egret-parrot
+        name: net-1
+
+-- vm-3-expected.yaml --
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    plan: 2dabc5ef-f1b5-4e63-9534-a8a17c0c0adf
+    vmID: trusting-newt-beta
+  name: trusting-newt
+  namespace: spaniel
+  uid: cc2a8419-636b-406e-af81-daecb1c34b02
+spec:
+  runStrategy: Always
+  template:
+    metadata:
+      annotations:
+        privnet.isovalent.com/secondary-network-attachments: |-
+          [
+            {
+              "network": "egret",
+              "interface": "net-1",
+              "subnet": "parrot"
+            }
+          ]
+      labels:
+        app: trusting-newt
+    spec:
+      domain:
+        devices:
+          interfaces:
+          - macAddress: "00:11:22:33:44:55"
+            masquerade: {}
+            name: net-0
+          - binding:
+              name: privnet
+            macAddress: 00:11:22:33:44:66
+            name: net-1
+        resources: {}
+      networks:
+      - name: net-0
+        pod: {}
+      - multus:
+          networkName: spaniel/egret-parrot
+        name: net-1
+status: {}
+-- EOR --
+
+-- err-nad-not-existing.txt --
+invalid NAD "something/else" for VM network "net-0": not found
+-- err-net-not-existing.txt --
+invalid NAD "default/other-calf" for VM network "net-0": private network "other" not found
+-- err-subnet-not-existing.txt --
+invalid NAD "default/bull-calf" for VM network "net-0": subnet "calf" not found in private network "bull"
+-- EOR --
