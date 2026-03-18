@@ -549,6 +549,19 @@ func (t *TestRun) SetupAndValidate(ctx context.Context) error {
 		return err
 	}
 
+	// update network definitions in inb clients and collect unknown endpoints
+	for network, networkData := range networkTopology {
+		err := t.applyINBNetworkTopology(ctx, network, networkData)
+		if err != nil {
+			return err
+		}
+
+		t.unk[network] = make(map[VMName]VM, len(networkData.Unknown))
+		for _, vm := range networkData.Unknown {
+			t.unk[network][vm.Name] = vm
+		}
+	}
+
 	for _, vms := range t.vms {
 		for vmName := range vms {
 			err := t.waitForVMToBeReady(ctx, t.params.TestNamespace, vmName.String())
@@ -573,19 +586,6 @@ func (t *TestRun) SetupAndValidate(ctx context.Context) error {
 			return fmt.Errorf("failed retrieving external VMs from cluster %s: %w", client.ClusterName(), err)
 		}
 		updateNetworkMap(t.ext, vms)
-	}
-
-	// update network definitions in inb clients and collect unknown endpoints
-	for network, networkData := range networkTopology {
-		err := t.applyINBNetworkTopology(ctx, network, networkData)
-		if err != nil {
-			return err
-		}
-
-		t.unk[network] = make(map[VMName]VM, len(networkData.Unknown))
-		for _, vm := range networkData.Unknown {
-			t.unk[network][vm.Name] = vm
-		}
 	}
 
 	if len(t.inbClients) > 0 && len(t.ext) == 0 {
