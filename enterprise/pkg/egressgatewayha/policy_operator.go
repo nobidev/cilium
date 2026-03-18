@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	core_v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -229,49 +228,6 @@ func (gc *groupConfig) selectActiveGatewaysByAZ(config *PolicyConfig, status *gr
 	}
 
 	return activeGatewayIPsByAZ
-}
-
-// selectCurrentLocalActiveGWs selects the current local active GWs.
-// It excludes unhealthy and non-gateway nodes
-func (gc *groupConfig) selectCurrentLocalActiveGWs(operatorManager *OperatorManager, az string, currentActiveGWs []netip.Addr) []netip.Addr {
-	return gc.selectActiveGWsIf(operatorManager, az, currentActiveGWs, func(nodeAZ, targetAZ string) bool {
-		return nodeAZ == targetAZ
-	})
-}
-
-// selectCurrentNonLocalActiveGWs selects the current non-local active GWs.
-// It excludes unhealthy and non-gateway nodes
-func (gc *groupConfig) selectCurrentNonLocalActiveGWs(operatorManager *OperatorManager, az string, currentActiveGWs []netip.Addr) []netip.Addr {
-	return gc.selectActiveGWsIf(operatorManager, az, currentActiveGWs, func(nodeAZ, targetAZ string) bool {
-		return nodeAZ != targetAZ
-	})
-}
-
-func (gc *groupConfig) selectActiveGWsIf(operatorManager *OperatorManager, az string, currentActiveGWs []netip.Addr, predicate func(nodeAZ, targetAZ string) bool) []netip.Addr {
-	var localGWs []netip.Addr
-	for _, gw := range currentActiveGWs {
-		node, nodeExists := operatorManager.nodesByIP[gw.String()]
-		if nodeExists {
-			if nodeAZ, azExists := node.Labels[core_v1.LabelTopologyZone]; azExists && predicate(nodeAZ, az) {
-				localGWs = append(localGWs, gw)
-			}
-		}
-	}
-
-	return gc.excludeUnavailableGWs(operatorManager, localGWs)
-}
-
-// excludeUnavailableGWs excludes unavailable or non-gateway nodes from the current active GWs.
-func (gc *groupConfig) excludeUnavailableGWs(operatorManager *OperatorManager, currentActiveGWs []netip.Addr) []netip.Addr {
-	var activeGWs []netip.Addr
-	for _, gw := range currentActiveGWs {
-		node, ok := operatorManager.nodesByIP[gw.String()]
-		if ok && operatorManager.nodeIsAvailable(node) && gc.selectsNodeAsGateway(node) {
-			activeGWs = append(activeGWs, gw)
-		}
-	}
-
-	return activeGWs
 }
 
 // selectActiveGWs selects the maxGW number of the active GWs from the healthy GWs
