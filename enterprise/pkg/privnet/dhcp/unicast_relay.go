@@ -79,9 +79,7 @@ func (r *unicastRelay) Relay(ctx context.Context, waitTime time.Duration, req *d
 	}
 
 	if _, err := conn.Write(sendReq.ToBytes()); err != nil {
-		if r.log != nil {
-			r.log.Error("Failed to send unicast DHCP request", logfields.Error, err)
-		}
+		r.log.Error("Failed to send unicast DHCP request", logfields.Error, err)
 		return nil, fmt.Errorf("send unicast request: %w", err)
 	}
 
@@ -92,13 +90,9 @@ func (r *unicastRelay) Relay(ctx context.Context, waitTime time.Duration, req *d
 	for {
 		select {
 		case <-waitCtx.Done():
-			if r.log != nil {
-				r.log.Error("DHCP relay context done", logfields.Error, waitCtx.Err())
-			}
+			r.log.Info("DHCP relay context done", logfields.Error, waitCtx.Err())
 			if errors.Is(waitCtx.Err(), context.DeadlineExceeded) {
-				if r.log != nil {
-					r.log.Error("Timed out waiting for DHCP response")
-				}
+				r.log.Info("Timed out waiting for DHCP response")
 				return nil, fmt.Errorf("timed out waiting for DHCP response")
 			}
 			return nil, waitCtx.Err()
@@ -111,9 +105,7 @@ func (r *unicastRelay) Relay(ctx context.Context, waitTime time.Duration, req *d
 				var ne net.Error
 				if errors.As(err, &ne) && ne.Timeout() {
 					if _, err := conn.Write(sendReq.ToBytes()); err != nil {
-						if r.log != nil {
-							r.log.Error("Failed to resend unicast DHCP request", logfields.Error, err)
-						}
+						r.log.Error("Failed to resend unicast DHCP request", logfields.Error, err)
 						return nil, fmt.Errorf("resend unicast request: %w", err)
 					}
 					continue

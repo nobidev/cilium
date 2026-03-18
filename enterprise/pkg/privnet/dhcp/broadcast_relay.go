@@ -111,7 +111,7 @@ func (r *broadcastRelay) Relay(ctx context.Context, waitTime time.Duration, req 
 	)
 
 	if err := r.send(ctx, req); err != nil {
-		r.log.Error("Failed to send broadcast DHCP request", logfields.Error, err)
+		r.log.Info("Failed to send broadcast DHCP request", logfields.Error, err)
 		return nil, fmt.Errorf("send broadcast request: %w", err)
 	}
 
@@ -122,11 +122,11 @@ func (r *broadcastRelay) Relay(ctx context.Context, waitTime time.Duration, req 
 	for {
 		select {
 		case <-ctx.Done():
-			r.log.Error("DHCP relay context done", logfields.Error, ctx.Err())
+			r.log.Info("DHCP relay context done", logfields.Error, ctx.Err())
 			return responses, ctx.Err()
 		case <-timer.C:
 			if len(responses) == 0 {
-				r.log.Error("Timed out waiting for DHCP response")
+				r.log.Info("Timed out waiting for DHCP response")
 				return nil, fmt.Errorf("timed out waiting for DHCP response")
 			}
 			r.log.Debug("Returning responses",
@@ -135,7 +135,7 @@ func (r *broadcastRelay) Relay(ctx context.Context, waitTime time.Duration, req 
 			return responses, nil
 		case resp := <-respCh:
 			if resp == nil {
-				r.log.Error("Received empty DHCP response")
+				r.log.Info("Received empty DHCP response")
 				continue
 			}
 			r.log.Debug("Received DHCP response",
