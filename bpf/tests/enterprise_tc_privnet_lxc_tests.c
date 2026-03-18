@@ -736,7 +736,7 @@ CHECK("tc", "17_tcp_from_container_spoofed_drop")
 int privnet_tcp_from_container_spoofed_drop_check(struct __ctx_buff *ctx)
 {
 	struct metrics_key key = {
-		.reason = (__u8)-DROP_UNROUTABLE,
+		.reason = (__u8)-DROP_INVALID_SIP,
 		.dir = METRIC_EGRESS,
 	};
 	struct metrics_value *entry = NULL;
