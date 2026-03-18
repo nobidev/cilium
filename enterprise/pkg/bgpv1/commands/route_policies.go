@@ -20,7 +20,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/cilium/hive"
 	"github.com/cilium/hive/script"
 	"github.com/spf13/pflag"
 	"go.yaml.in/yaml/v3"
@@ -34,12 +33,6 @@ const (
 	instanceFlag      = "instance"
 	instanceFlagShort = "i"
 )
-
-func BGPCommands(bgpMgr agent.EnterpriseBGPRouterManager) hive.ScriptCmdsOut {
-	return hive.NewScriptCmds(map[string]script.Cmd{
-		"bgp/route-policies-extended": BGPPRoutePolicies(bgpMgr),
-	})
-}
 
 func BGPPRoutePolicies(bgpMgr agent.EnterpriseBGPRouterManager) script.Cmd {
 	return script.Command(

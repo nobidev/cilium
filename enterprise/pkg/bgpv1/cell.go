@@ -44,9 +44,11 @@ var Cell = cell.Module(
 	// set enterprise BGP config object in agent
 	cell.Config(config.DefaultConfig),
 
+	// enterprise-specific commands
+	commands.Cell,
+
 	// enterprise BGP commands
 	cell.Provide(
-		commands.BGPCommands,
 
 		// provide enterprise router manager (used by the enterprise commands)
 		func(manager ossAgent.BGPRouterManager) agent.EnterpriseBGPRouterManager {
