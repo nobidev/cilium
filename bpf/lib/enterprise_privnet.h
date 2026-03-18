@@ -2065,10 +2065,10 @@ privnet_redirect_dhcp(struct __ctx_buff *ctx, struct iphdr *ip4)
 static __always_inline bool
 is_privnet_local_access_ingress(const struct privnet_fib_val *val)
 {
-	/* local access ingress for this device and for an endpoint */
+	/* local access ingress for this device and for a local endpoint */
 	return val &&
 		val->ifindex == CONFIG(interface_ifindex) &&
-		!is_privnet_route_entry(val);
+		val->type == PRIVNET_FIB_VAL_TYPE_ENDPOINT;
 }
 
 /* privnet_local_access_ingress_ipv4() - redirect packet to the endpoint's lxc
