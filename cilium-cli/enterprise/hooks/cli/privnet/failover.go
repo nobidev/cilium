@@ -11,22 +11,16 @@
 package privnet
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
 	"strings"
 	"time"
 
-	"sigs.k8s.io/yaml"
-
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type failover struct {
@@ -61,7 +55,7 @@ func (f *failover) Run(ctx context.Context, _ Expectation, _ ...features.IPFamil
 
 	var initial = make(map[NodeName]activeINBs)
 	for _, agent := range clusterAgents {
-		inbs, err := f.getINBs(ctx, agent, f.assertSteadyState())
+		inbs, err := f.t.getINBs(ctx, agent, f.t.assertSteadyState())
 		if err != nil {
 			f.fail(features.IPFamilyAny, "node %s: %v", agent.NodeName(), err)
 			return
@@ -97,7 +91,7 @@ func (f *failover) Run(ctx context.Context, _ Expectation, _ ...features.IPFamil
 
 	f.t.log.Info("🧐 Validating that INBs status converges on all workload nodes")
 	for _, agent := range clusterAgents {
-		_, err := f.waitForINBs(ctx, agent, f.assertDegradedState(initial[NodeName(agent.NodeName())]))
+		_, err := f.t.waitForINBs(ctx, agent, f.t.assertDegradedState(f.target, initial[NodeName(agent.NodeName())]))
 		if err != nil {
 			f.fail(features.IPFamilyAny, "node %s: %v", agent.NodeName(), err)
 			return
@@ -112,167 +106,12 @@ func (f *failover) Run(ctx context.Context, _ Expectation, _ ...features.IPFamil
 
 	f.t.log.Info("🧐 Validating that INBs status converges on all workload nodes")
 	for _, agent := range clusterAgents {
-		_, err := f.waitForINBs(ctx, agent, f.assertSteadyState())
+		_, err := f.t.waitForINBs(ctx, agent, f.t.assertSteadyState())
 		if err != nil {
 			f.fail(features.IPFamilyAny, "node %s: %v", agent.NodeName(), err)
 			return
 		}
 	}
-}
-
-type inbs struct {
-	active    NodeName
-	standby   []NodeName
-	unhealthy []NodeName
-}
-
-type activeINBs map[NetworkName]NodeName
-
-func (f *failover) getINBs(
-	ctx context.Context, agent check.Pod, validate func(NetworkName, NodeName, inbs) error,
-) (activeINBs, error) {
-	stdout, err := agent.K8sClient.ExecInPod(ctx, agent.Pod.Namespace, agent.Pod.Name, defaults.AgentContainerName,
-		[]string{"cilium-dbg", "shell", "--", "db/show", "privnet-inbs", "--format=yaml"},
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("retrieving INBs: %w", err)
-	}
-
-	var (
-		summary = make(map[NetworkName]inbs)
-		active  = make(activeINBs)
-	)
-
-	for item := range bytes.SplitSeq(stdout.Bytes(), []byte("\n---")) {
-		var inb tables.INB
-
-		err = yaml.Unmarshal(item, &inb)
-		if err != nil {
-			return nil, fmt.Errorf("parsing INBs: %w", err)
-		}
-
-		var (
-			network = NetworkName(inb.Network)
-			node    = NodeName(inb.Node.Name)
-			state   = summary[network]
-		)
-
-		switch inb.Role {
-		case tables.INBRoleActive:
-			state.active = node
-			active[network] = node
-		case tables.INBRoleStandby:
-			state.standby = append(state.standby, node)
-		case tables.INBRoleNone:
-			state.unhealthy = append(state.unhealthy, node)
-		}
-
-		summary[network] = state
-	}
-
-	for network := range f.t.Networks() {
-		if err := validate(network, NodeName(agent.NodeName()), summary[network]); err != nil {
-			return nil, fmt.Errorf("validating INBs: %w", err)
-		}
-	}
-
-	return active, nil
-}
-
-func (f *failover) waitForINBs(
-	ctx context.Context, agent check.Pod, validate func(NetworkName, NodeName, inbs) error,
-) (activeINBs, error) {
-	ctx, cancel := context.WithTimeout(ctx, check.ShortTimeout)
-	defer cancel()
-
-	f.t.log.Info(fmt.Sprintf("⌛ Waiting for INBs to converge on node %s", agent.NodeName()))
-
-	var lastErr error
-	for {
-		active, err := f.getINBs(ctx, agent, validate)
-		if err == nil {
-			return active, nil
-		}
-
-		lastErr = err
-		f.t.log.Debug("INB check failed, retrying",
-			logfields.Error, err,
-			logfields.Node, agent.NodeName(),
-			logfields.Interval, check.PollInterval,
-		)
-
-		select {
-		case <-time.After(check.PollInterval):
-		case <-ctx.Done():
-			return nil, fmt.Errorf("timeout out waiting for INBs to converge: %w", lastErr)
-		}
-	}
-}
-
-func (f *failover) assertSteadyState() func(NetworkName, NodeName, inbs) error {
-	return func(network NetworkName, node NodeName, state inbs) error {
-		switch {
-		case state.active == "":
-			return errors.New("no active INB")
-		case len(state.standby) != f.expectedStandby(network):
-			return fmt.Errorf("got %d standby INBs, %d expected", len(state.standby), f.expectedStandby(network))
-		case len(state.unhealthy) != 0:
-			return fmt.Errorf("got %d unhealthy INBs, 0 expected", len(state.unhealthy))
-
-		default:
-			f.t.log.Debug("INBs converged to steady state",
-				logfields.Network, network,
-				logfields.Node, node,
-				logfields.Active, state.active,
-			)
-			return nil
-		}
-	}
-}
-
-func (f *failover) assertDegradedState(previous activeINBs) func(NetworkName, NodeName, inbs) error {
-	return func(network NetworkName, node NodeName, state inbs) error {
-		var (
-			affected = f.target == previous[network]
-			standby  = f.expectedStandby(network)
-		)
-
-		switch {
-		case affected && state.active == previous[network]:
-			return errors.New("active INB should have changed")
-		case affected && standby == 0 && state.active != "":
-			// There was no standby INBs, so we should have no active INB now.
-			return errors.New("got active INB, none expected")
-		case affected && standby > 0 && state.active == "":
-			// There was at least one standby INB, so we should have an active INB now.
-			return errors.New("no active INB")
-
-		case !affected && state.active != previous[network]:
-			return errors.New("active INB should not have changed")
-
-		case len(state.standby) != max(standby-1, 0):
-			return fmt.Errorf("got %d standby INBs, %d expected", len(state.standby), max(standby-1, 0))
-
-		case (affected || standby > 0) && len(state.unhealthy) != 1:
-			return fmt.Errorf("got %d unhealthy INBs, 1 expected", len(state.unhealthy))
-		case (!affected && standby == 0) && len(state.unhealthy) != 0:
-			return fmt.Errorf("got %d unhealthy INBs, 0 expected", len(state.unhealthy))
-
-		default:
-			f.t.log.Debug("INBs converged to degraded state",
-				logfields.Network, network,
-				logfields.Node, node,
-				logfields.Active, state.active,
-			)
-			return nil
-		}
-	}
-}
-
-func (f *failover) expectedStandby(network NetworkName) int {
-	// This is correct under the assumption that INB clusters have a single node.
-	return max(len(networkTopology[network].INBs)-1, 0)
 }
 
 func (f *failover) iptables(ctx context.Context, agent check.Pod, op string) error {

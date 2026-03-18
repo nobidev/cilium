@@ -592,6 +592,14 @@ func (t *TestRun) SetupAndValidate(ctx context.Context) error {
 		return errors.New("INB clients specified, but no external VM found")
 	}
 
+	// Wait for INBs to become healthy
+	for nodeName, agent := range t.ciliumPodsCluster {
+		_, err := t.waitForINBs(ctx, agent, t.assertSteadyState())
+		if err != nil {
+			return fmt.Errorf("Failed to wait for INBs to become ready on node %q: %w", nodeName, err)
+		}
+	}
+
 	return nil
 }
 
