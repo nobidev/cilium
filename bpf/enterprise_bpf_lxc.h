@@ -106,7 +106,7 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 
 		/* If no network IP assigned drop IP packets until one is assigned. */
 		if (!dev_val->ipv4.be32)
-			return DROP_INVALID;
+			return DROP_INVALID_SIP;
 
 		/* revalidate data before accessing ip4, otherwise verifier will not be happy. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
