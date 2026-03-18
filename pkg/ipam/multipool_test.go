@@ -688,7 +688,9 @@ func (f *fakeK8sCiliumNodeAPIResource) Events(ctx context.Context, _ ...resource
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	f.c = make(chan resource.Event[*ciliumv2.CiliumNode])
+	if f.c == nil {
+		f.c = make(chan resource.Event[*ciliumv2.CiliumNode])
+	}
 	return f.c
 }
 
