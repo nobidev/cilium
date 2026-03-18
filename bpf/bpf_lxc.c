@@ -1966,7 +1966,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	if (*proxy_port > 0)
 		goto redirect_to_proxy;
 
-	ret = enterprise_privnet_to_lxc_ipv6_policy(ctx);
+	ret = enterprise_privnet_to_lxc_ipv6_after_policy(ctx);
 	if (IS_ERR(ret))
 		return ret;
 
@@ -2285,7 +2285,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	if (*proxy_port > 0)
 		goto redirect_to_proxy;
 
-	ret = enterprise_privnet_to_lxc_ipv4_policy(ctx);
+	ret = enterprise_privnet_to_lxc_ipv4_after_policy(ctx);
 	if (IS_ERR(ret))
 		return ret;
 

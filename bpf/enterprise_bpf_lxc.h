@@ -158,7 +158,8 @@ static __always_inline int enterprise_privnet_to_lxc(struct __ctx_buff *ctx __ma
 }
 
 #ifdef ENABLE_IPV4
-static __always_inline int enterprise_privnet_to_lxc_ipv4_policy(struct __ctx_buff *ctx)
+static __always_inline int
+enterprise_privnet_to_lxc_ipv4_after_policy(struct __ctx_buff *ctx)
 {
 	if (CONFIG(privnet_enable)) {
 		int ret;
@@ -177,7 +178,8 @@ static __always_inline int enterprise_privnet_to_lxc_ipv4_policy(struct __ctx_bu
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-static __always_inline int enterprise_privnet_to_lxc_ipv6_policy(struct __ctx_buff *ctx)
+static __always_inline int
+enterprise_privnet_to_lxc_ipv6_after_policy(struct __ctx_buff *ctx)
 {
 	if (CONFIG(privnet_enable)) {
 		int ret;
