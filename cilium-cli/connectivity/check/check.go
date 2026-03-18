@@ -57,6 +57,7 @@ type Parameters struct {
 	SingleNode                bool
 	PrintFlows                bool
 	ForceDeploy               bool
+	CleanupOnly               bool
 	Hubble                    bool
 	HubbleServer              string
 	K8sLocalHostTest          bool
@@ -91,6 +92,7 @@ type Parameters struct {
 	NamespaceLabels           map[string]string
 	NamespaceAnnotations      map[string]string
 	ExternalTargetIPv6Capable bool
+	ExternalTargetFakeDNS     bool
 	ExternalTarget            string
 	ExternalOtherTarget       string
 	ExternalCIDRv4            string
@@ -145,6 +147,7 @@ type Parameters struct {
 	CurlInsecure   bool
 	CurlParallel   uint
 
+	ExitZeroOnFailure       bool
 	CollectSysdumpOnFailure bool
 	SysdumpOptions          sysdump.Options
 

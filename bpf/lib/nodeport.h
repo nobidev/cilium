@@ -1201,7 +1201,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 # endif
 
 	if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
-	    (is_defined(ENABLE_IPV6_FRAGMENTS) && is_defined(IS_BPF_XDP)))
+	    (CONFIG(enable_ipv6_fragments) && is_defined(IS_BPF_XDP)))
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS, &ext_err);
 	else
 		ret = nodeport_rev_dnat_ingress_ipv6(ctx, &trace, &ext_err);
@@ -1402,15 +1402,15 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 				  CONFIG(interface_ifindex), TRACE_REASON_POLICY, monitor,
 				  bpf_htons(ETH_P_IPV6));
 
-#  if defined(ENABLE_TPROXY)
-		return ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
-#  else
+		/* See IPv4 codepath for comments. */
+		if (CONFIG(enable_tproxy) || CONFIG(proxy_redirect_via_cilium_net))
+			return ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
+
 		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
 		ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
 		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
 
 		*punt_to_stack = true;
-#  endif /* ENABLE_TPROXY */
 # endif /* IS_BPF_XDP */
 		return CTX_ACT_OK;
 	}
@@ -1515,8 +1515,8 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		 * IPv4-in-IPv6 converted addresses.
 		 */
 		ctx_store_meta(ctx, CB_NAT_46X64,
-			       !is_v4_in_v6(&key->address) &&
-			       lb6_to_lb4_service(svc));
+			       !is_v4_in_v6(&key->address) && lb6_to_lb4_service(svc) ?
+			       NAT46x64_MODE_XLATE : 0);
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS,
 					  ext_err);
 	}
@@ -2783,9 +2783,12 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 				  CONFIG(interface_ifindex), TRACE_REASON_POLICY, monitor,
 				  bpf_htons(ETH_P_IP));
 
-#  if defined(ENABLE_TPROXY)
-		return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
-#  else
+		/* Hairpin the packet through cilium_net when BPF tproxy is enabled
+		 * or when attaching the BPF program to a bridge network device.
+		 */
+		if (CONFIG(enable_tproxy) || CONFIG(proxy_redirect_via_cilium_net))
+			return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
+
 		/* Pass the packet straight to the proxy, without redirecting via
 		 * cilium_host.
 		 */
@@ -2794,7 +2797,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
 
 		*punt_to_stack = true;
-#  endif /* ENABLE_TPROXY */
 # endif /* IS_BPF_XDP */
 		return CTX_ACT_OK;
 	}

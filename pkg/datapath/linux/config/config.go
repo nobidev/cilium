@@ -126,19 +126,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, cfg.CiliumInternalIPv4.AsSlice()))
 	fmt.Fprintf(fw, " */\n\n")
 
-	if option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking {
-		cDefinesMap["ENABLE_IPV6_FRAGMENTS"] = "1"
-	}
-
 	cDefinesMap["CILIUM_IPV6_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
 
 	if option.Config.EnableIPv4 {
-		ipv4GW := cfg.CiliumInternalIPv4
-		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(ipv4GW))
-
-		if option.Config.EnableIPv4FragmentsTracking {
-			cDefinesMap["ENABLE_IPV4_FRAGMENTS"] = "1"
-		}
+		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(cfg.CiliumInternalIPv4))
 	}
 
 	cDefinesMap["CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
@@ -162,6 +153,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["LOCAL_NODE_ID"] = fmt.Sprintf("%d", identity.ReservedIdentityRemoteNode)
 	cDefinesMap["REMOTE_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameRemoteNode))
 	cDefinesMap["KUBE_APISERVER_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameKubeAPIServer))
+	cDefinesMap["INGRESS_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameIngress))
 	cDefinesMap["CILIUM_LB_SERVICE_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBServiceMapEntries)
 	cDefinesMap["CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBBackendMapEntries)
 	cDefinesMap["CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBRevNatEntries)
@@ -194,8 +186,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NO_COMMON_MEM_MAPS"] = "1"
 	}
 
-	cDefinesMap["EVENTS_MAP_RATE_LIMIT"] = fmt.Sprintf("%d", option.Config.BPFEventsDefaultRateLimit)
-	cDefinesMap["EVENTS_MAP_BURST_LIMIT"] = fmt.Sprintf("%d", option.Config.BPFEventsDefaultBurstLimit)
 	cDefinesMap["LB6_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", cfg.LBConfig.LBSockRevNatEntries)
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", cfg.LBConfig.LBSockRevNatEntries)
 	cDefinesMap["MTU"] = fmt.Sprintf("%d", cfg.DeviceMTU)
@@ -249,14 +239,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
-
-	if option.Config.EnableBPFTProxy {
-		cDefinesMap["ENABLE_TPROXY"] = "1"
-	}
-
-	if option.Config.EnableEndpointRoutes {
-		cDefinesMap["ENABLE_ENDPOINT_ROUTES"] = "1"
-	}
 
 	if option.Config.EnableEnvoyConfig {
 		cDefinesMap["ENABLE_L7_LB"] = "1"

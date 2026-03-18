@@ -55,30 +55,30 @@ db/cmp backends backends_only_local.table
 ###
 
 -- backends.table --
-Address              Instances         NodeName
-10.1.0.1:8080/TCP    test/echo (tcp)   nodeport-worker
-20.0.0.2:9090/TCP    test/echo (tcp)
+Service             Address              PortNames  NodeName
+test/echo           10.1.0.1:8080/TCP    tcp        nodeport-worker
+test/echo           20.0.0.2:9090/TCP    tcp
 
 -- backends_only_local.table --
-Address              Instances         NodeName
-10.1.0.1:8080/TCP    test/echo (tcp)   nodeport-worker
+Service             Address              PortNames  NodeName
+test/echo           10.1.0.1:8080/TCP    tcp        nodeport-worker
 
 -- backends_one_phantom.table --
-Address              Instances                 NodeName
-10.1.0.1:8080/TCP    test/echo (tcp)           nodeport-worker
-20.0.0.2:9090/TCP    test/echo (tcp)
-30.0.0.2:9090/TCP    cluster3/test/echo (tcp)
+Service             Address              PortNames  NodeName
+cluster3/test/echo  30.0.0.2:9090/TCP    tcp
+test/echo           10.1.0.1:8080/TCP    tcp        nodeport-worker
+test/echo           20.0.0.2:9090/TCP    tcp
 
 -- backends_two_phantoms.table --
-Address              Instances                 NodeName
-10.1.0.1:8080/TCP    test/echo (tcp)           nodeport-worker
-20.0.0.2:9090/TCP    cluster2/test/echo (tcp)
-30.0.0.2:9090/TCP    cluster3/test/echo (tcp)
+Service             Address              PortNames  NodeName
+cluster2/test/echo  20.0.0.2:9090/TCP    tcp
+cluster3/test/echo  30.0.0.2:9090/TCP    tcp
+test/echo           10.1.0.1:8080/TCP    tcp        nodeport-worker
 
 -- backends_phantom_3.table --
-Address              Instances                 NodeName
-10.1.0.1:8080/TCP    test/echo (tcp)           nodeport-worker
-30.0.0.2:9090/TCP    cluster3/test/echo (tcp)
+Service             Address              PortNames  NodeName
+cluster3/test/echo  30.0.0.2:9090/TCP    tcp
+test/echo           10.1.0.1:8080/TCP    tcp        nodeport-worker
 
 -- frontends.table --
 Address            Type       ServiceName         Status  Backends
@@ -202,5 +202,3 @@ ports:
     }
   }
 }
-
-

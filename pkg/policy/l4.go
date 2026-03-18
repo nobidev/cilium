@@ -10,6 +10,7 @@ import (
 	"iter"
 	"log/slog"
 	"math/bits"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -674,6 +675,22 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 	)
 }
 
+// Identities extracts the set of identities corresponding to selectors.
+func (l4 *L4Filter) Identities(txn SelectorSnapshot) iter.Seq[identity.NumericIdentity] {
+	return func(yield func(identity.NumericIdentity) bool) {
+		for cs := range l4.PerSelectorPolicies {
+			if cs == nil {
+				continue
+			}
+			for _, id := range cs.GetSelectionsAt(txn) {
+				if !yield(id) {
+					return
+				}
+			}
+		}
+	}
+}
+
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
 //
 // Note: It is possible for two selectors to select the same security ID.  To give priority to deny,
@@ -703,7 +720,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, tierPriority, nextTierPriori
 
 	// resolve named port
 	if port == 0 && l4.PortName != "" {
-		port = p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
+		port = p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto, l4.Identities(p.selectors))
 		if port == 0 {
 			return // nothing to be done for undefined named port
 		}
@@ -836,14 +853,6 @@ func (l4 *L4Filter) GetRuleLabels(cs CachedSelector) labels.LabelArrayList {
 		return ro.GetLabelArrayList()
 	}
 	return nil
-}
-
-func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, selectorCache *SelectorCache) CachedSelector {
-	cs, added := selectorCache.AddIdentitySelectorForTest(l4, sel)
-	if added {
-		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
-	}
-	return cs
 }
 
 // add L7 rules for all endpoints in the L7DataMap
@@ -1114,16 +1123,6 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 
 	for cs, sp := range l4.PerSelectorPolicies {
 		if sp != nil {
-			// Allow localhost if requested and this is a redirect that selects the host
-			if ctx.AllowLocalhost() && l4.Ingress && sp.IsRedirect() && cs.Selects(identity.ReservedIdentityHost) {
-				// Make sure host selector is in the selector cache.
-				host := api.ReservedEndpointSelectors[labels.IDNameHost]
-				// Add the cached host selector to the PerSelectorPolicies, if not
-				// already there. Use empty string labels due to this selector being
-				// added due to agent config rather than any specific rule.
-				l4.cacheIdentitySelector(host, ctx.GetSelectorCache())
-			}
-
 			// collect redirect types (if any)
 			redirectTypes |= sp.redirectType()
 
@@ -1271,6 +1270,7 @@ func (ls L4PolicyMaps) Filters() iter.Seq[*L4Filter] {
 
 // NewL4PolicyMapWithValues creates an new L4PolicMap, with an initial
 // set of values. The initMap argument does not support port ranges.
+// Only used for testing but from multiple packages.
 func NewL4PolicyMapWithValues(initMap map[string]*L4Filter) L4PolicyMaps {
 	l4M := L4PolicyMaps{makeL4PolicyMap()}
 	for k, v := range initMap {
@@ -1551,7 +1551,8 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 		l4.users[user] = struct{}{}
 	} else {
 		go user.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
-			Reason:            "selector policy has changed because of another endpoint with the same identity",
+			Reason:            regeneration.ReasonSelectorPolicyStale,
+			Message:           "selector policy has changed because of another endpoint with the same identity",
 			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 		})
 	}
@@ -1608,10 +1609,11 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 	l4Policy.mutex.RLock()
 	defer l4Policy.mutex.RUnlock()
 
+	idents := slices.Values(append(adds, deletes...))
 	for epPolicy := range l4Policy.users {
 		// resolve named port
 		if port == 0 && l4.PortName != "" {
-			port = epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
+			port = epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto, idents)
 			if port == 0 {
 				continue
 			}
@@ -1710,7 +1712,8 @@ func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpoint
 		for ePolicy := range l4.users {
 			if endpointID != ePolicy.PolicyOwner.GetID() {
 				go ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
-					Reason:            "selector policy has changed because of another endpoint with the same identity",
+					Reason:            regeneration.ReasonSelectorPolicyStale,
+					Message:           "selector policy has changed because of another endpoint with the same identity",
 					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 				})
 			}

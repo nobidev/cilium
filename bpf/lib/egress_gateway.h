@@ -41,7 +41,7 @@ struct {
 	__type(value, struct egress_gw_policy_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_egress_gw_policy_v4 __section_maps_btf;
 
 struct {
@@ -50,7 +50,7 @@ struct {
 	__type(value, struct egress_gw_policy_entry6);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_egress_gw_policy_v6 __section_maps_btf;
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
@@ -404,20 +404,31 @@ bool egress_gw_snat_needed_hook_v6(union v6addr *saddr, union v6addr *daddr,
 	return egress_gw_snat_needed_v6(saddr, daddr, snat_addr, egress_ifindex);
 }
 
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, int);
+	__type(value, struct bpf_fib_lookup_padded);
+} fib_params_storage __section_maps_btf;
+
 static __always_inline
 int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 					 const union v6addr *egress_ip,
 					 const union v6addr *daddr,
 					 __u32 egress_ifindex, __s8 *ext_err)
 {
-	struct bpf_fib_lookup_padded fib_params = {};
+	struct bpf_fib_lookup_padded *fib_params;
+	int ret, zero = 0;
 	__u32 oif;
-	int ret;
 
 	if (egress_ifindex && neigh_resolver_without_nh_available())
 		return redirect_neigh(egress_ifindex, NULL, 0, 0);
 
-	ret = (__s8)fib_lookup_v6(ctx, &fib_params,
+	fib_params = map_lookup_elem(&fib_params_storage, &zero);
+	if (!fib_params)
+		return DROP_INVALID;
+
+	ret = (__s8)fib_lookup_v6(ctx, fib_params,
 				  (struct in6_addr *)egress_ip,
 				  (struct in6_addr *)daddr, 0);
 
@@ -430,12 +441,12 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 		return DROP_NO_FIB;
 	}
 
-	oif = fib_params.l.ifindex;
+	oif = fib_params->l.ifindex;
 
 	if (is_defined(IS_BPF_HOST) && oif == ctx_get_ifindex(ctx))
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, &fib_params, false, ret, oif, ext_err);
+	return fib_do_redirect(ctx, true, fib_params, false, ret, oif, ext_err);
 }
 
 static __always_inline

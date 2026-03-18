@@ -66,5 +66,12 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.HashInit4Seed = lnc.MaglevConfig.SeedJhash0
 	node.HashInit6Seed = lnc.MaglevConfig.SeedJhash1
 
+	node.EnableTproxy = option.Config.EnableBPFTProxy
+
+	node.EventsMapRateLimit = option.Config.BPFEventsDefaultRateLimit
+	node.EventsMapBurstLimit = option.Config.BPFEventsDefaultBurstLimit
+
+	node.EnableEndpointRoutes = option.Config.EnableEndpointRoutes
+
 	return node
 }

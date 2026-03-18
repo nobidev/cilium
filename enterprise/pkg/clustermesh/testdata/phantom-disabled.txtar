@@ -41,8 +41,8 @@ Address            Type       ServiceName         Status  Backends
 10.0.0.1:90/TCP    ClusterIP  test/echo           Done
 
 -- backends.table --
-Address              Instances         NodeName
-20.0.0.2:9090/TCP    test/echo (tcp)
+Service             Address              PortNames  NodeName
+test/echo           20.0.0.2:9090/TCP    tcp
 
 -- service.yaml --
 apiVersion: v1

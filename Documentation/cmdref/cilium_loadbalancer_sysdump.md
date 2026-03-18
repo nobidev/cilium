@@ -24,6 +24,7 @@ cilium loadbalancer sysdump [flags]
       --cilium-spire-namespace string                           The namespace Cilium SPIRE installation is running in
       --cilium-spire-server-selector string                     The labels used to target Cilium spire-server pods (default "app=spire-server")
       --clustermesh-apiserver-label-selector string             The labels used to target 'clustermesh-apiserver' pods (default "k8s-app=clustermesh-apiserver")
+      --clustermesh-generate-certs-label-selector string        The labels used to target the Cluster Mesh generate certs pods (default "k8s-app=clustermesh-apiserver-generate-certs")
       --cni-config-directory string                             Directory where CNI configs are located (default "/etc/cni/net.d/")
       --cni-configmap-name string                               The name of the CNI config map (default "cni-configuration")
       --collect-logs-from-not-ready-agents                      Whether to collect logs from not ready Cilium agent pods (default true)

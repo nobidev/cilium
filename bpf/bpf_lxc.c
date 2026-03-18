@@ -106,7 +106,6 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
 # define ENABLE_PER_PACKET_LB 1
 #endif
 
-#if defined(ENABLE_PER_PACKET_LB) && defined(ENABLE_NODEPORT)
 struct nodeport_nat_info {
 	union v6addr nat_addr;
 	__be16 nat_port;
@@ -118,7 +117,6 @@ struct {
 	__type(value, struct nodeport_nat_info);
 	__uint(max_entries, 1);
 } cilium_nodeport_nat_buffer __section_maps_btf;
-#endif /* ENABLE_PER_PACKET_LB && ENABLE_NODEPORT */
 
 #ifdef ENABLE_IPV4
 static __always_inline void
@@ -810,6 +808,12 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	}
 
 pass_to_stack: __maybe_unused
+#ifndef ENABLE_ROUTING
+	/* See IPv4 path for comments. */
+	if (from_l7lb && ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
+		return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+#endif /* !ENABLE_ROUTING */
+
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
 			  trace->reason, trace->monitor, bpf_htons(ETH_P_IPV6));
@@ -963,8 +967,18 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						   auth_type, cookie);
 		}
 
-		if (verdict != CTX_ACT_OK)
+		if (verdict != CTX_ACT_OK) {
+			/* If policy_deny_response_enabled is set and the packet has been denied,
+			 * respond with an ICMPv6 "Destination Unreachable"
+			 */
+			if (CONFIG(policy_deny_response_enabled) &&
+			    (verdict == DROP_POLICY || verdict == DROP_POLICY_DENY)) {
+				ctx_store_meta(ctx, CB_VERDICT, verdict);
+				return tail_call_internal(ctx, CILIUM_CALL_IPV6_POLICY_DENIED,
+							ext_err);
+			}
 			return verdict;
+		}
 
 		break;
 	case CT_RELATED:
@@ -1070,19 +1084,19 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	fraginfo_t fraginfo __maybe_unused;
 	bool from_l7lb = false;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-#ifndef ENABLE_IPV6_FRAGMENTS
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-	if (ipfrag_is_fragment(fraginfo))
-		return DROP_FRAG_NOSUPPORT;
-#endif
+	if (!CONFIG(enable_ipv6_fragments)) {
+		fraginfo_t fraginfo = ipv6_get_fraginfo(ctx, ip6);
+
+		if (fraginfo < 0)
+			return (int)fraginfo;
+		if (ipfrag_is_fragment(fraginfo))
+			return DROP_FRAG_NOSUPPORT;
+	}
 
 	/* Handle special ICMPv6 NDP messages, and all remaining packets
 	 * are subjected to forwarding into the container.
@@ -1258,15 +1272,13 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	 */
 #if defined(ENABLE_VTEP)
 	{
-		struct vtep_key vkey = {};
-		struct vtep_value *vtep;
+		struct vtep_key vkey = {
+			.vtep_ip = ip4->daddr & CONFIG(vtep_mask),
+		};
+		const struct vtep_value *vtep;
 
-		vkey.vtep_ip = ip4->daddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
-		if (!vtep)
-			goto skip_vtep;
-
-		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
+		if (vtep && vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
 			fake_info.tunnel_endpoint.ip4 = vtep->tunnel_endpoint;
@@ -1277,7 +1289,6 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 								bpf_htons(ETH_P_IP));
 		}
 	}
-skip_vtep:
 #endif
 
 #if defined(TUNNEL_MODE)
@@ -1357,6 +1368,20 @@ skip_vtep:
 	}
 
 pass_to_stack: __maybe_unused
+#ifndef ENABLE_ROUTING
+	/* With per-endpoint routes, the `cil_lxc_policy_egress` will be
+	 * tail called from cil_to_container for packets sent by a L7 LB.
+	 * In case of a local backend, we execute this code already from the
+	 * backend pod ingress path, and returning CTX_ACT_OK would completely
+	 * bypass ingress policies. Therefore, we need to hairpin the packet
+	 * back to cil_to_container to ensure ingress policies are applied.
+	 * Without per-endpoint routes, endpoint policies are correctly
+	 * checked via tail call from bpf_host.
+	 */
+	if (from_l7lb && ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
+		return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+#endif /* !ENABLE_ROUTING */
+
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
 			  trace->reason, trace->monitor, bpf_htons(ETH_P_IP));
@@ -1647,21 +1672,20 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
-	fraginfo_t fraginfo __maybe_unused;
 	bool from_l7lb = false;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-/* If IPv4 fragmentation is disabled
- * AND a IPv4 fragmented packet is received,
- * then drop the packet.
- */
-#ifndef ENABLE_IPV4_FRAGMENTS
-	fraginfo = ipfrag_encode_ipv4(ip4);
-	if (ipfrag_is_fragment(fraginfo))
-		return DROP_FRAG_NOSUPPORT;
-#endif
+	/* If IPv4 fragmentation is disabled AND an IPv4 fragmented packet is
+	 * received, then drop the packet.
+	 */
+	if (!CONFIG(enable_ipv4_fragments)) {
+		fraginfo_t fraginfo = ipfrag_encode_ipv4(ip4);
+
+		if (ipfrag_is_fragment(fraginfo))
+			return DROP_FRAG_NOSUPPORT;
+	}
 
 #ifdef ENABLE_L7_LB
 	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
@@ -1828,7 +1852,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	struct ct_state *ct_state, ct_state_new = {};
 	int ifindex = CONFIG(interface_ifindex);
 	struct ipv6_ct_tuple *tuple;
-	bool is_untracked_fragment = false;
+	bool is_untracked_fragment;
 	fraginfo_t fraginfo;
 	int ret, verdict, l4_off, zero = 0;
 	struct ct_buffer6 *ct_buffer;
@@ -1857,12 +1881,10 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	l4_off = ct_buffer->l4_off;
 	fraginfo = ct_buffer->fraginfo;
 
-#ifndef ENABLE_IPV6_FRAGMENTS
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
 	 */
-	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
-#endif
+	is_untracked_fragment = !CONFIG(enable_ipv6_fragments) && ipfrag_is_fragment(fraginfo);
 
 	switch (ret) {
 	case CT_REPLY:
@@ -2137,7 +2159,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	int ifindex = CONFIG(interface_ifindex);
 	struct ipv4_ct_tuple *tuple;
 	fraginfo_t fraginfo;
-	bool is_untracked_fragment = false;
+	bool is_untracked_fragment;
 	struct ct_buffer4 *ct_buffer;
 	struct trace_ctx trace;
 	int ret, verdict, l4_off;
@@ -2152,12 +2174,10 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 
 	orig_sip = ip4->saddr;
 
-#ifndef ENABLE_IPV4_FRAGMENTS
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
 	 */
-	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
-#endif
+	is_untracked_fragment = !CONFIG(enable_ipv4_fragments) && ipfrag_is_fragment(fraginfo);
 
 	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
 	if (!ct_buffer)
@@ -2695,5 +2715,41 @@ int tail_policy_denied_ipv4(struct __ctx_buff *ctx)
 	return send_drop_notify_error(ctx, SECLABEL_IPV4, ret, METRIC_EGRESS);
 }
 #endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+__declare_tail(CILIUM_CALL_IPV6_POLICY_DENIED)
+int tail_policy_denied_ipv6(struct __ctx_buff *ctx)
+{
+	struct ratelimit_key rkey = {
+		.usage = RATELIMIT_USAGE_ICMPV6,
+	};
+	/* Rate limit to 100 ICMPv6 replies per second, burstable to 1000 responses/s */
+	struct ratelimit_settings settings = {
+		.bucket_size = 1000,
+		.tokens_per_topup = 100,
+		.topup_interval_ns = NSEC_PER_SEC,
+	};
+	__u32 verdict = ctx_load_meta(ctx, CB_VERDICT);
+	int ret;
+
+	rkey.key.icmpv6.netdev_idx = ctx_get_ifindex(ctx);
+	if (!ratelimit_check_and_take(&rkey, &settings))
+		goto drop_err;
+
+	ret = generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_ADM_PROHIBITED);
+	if (!ret) {
+		cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL_IPV6);
+		ret = redirect_self(ctx);
+
+		if (!IS_ERR(ret)) {
+			update_metrics(ctx_full_len(ctx), METRIC_EGRESS, __DROP_REASON(verdict));
+			return ret;
+		}
+	}
+
+drop_err:
+	return send_drop_notify_error(ctx, SECLABEL_IPV6, verdict, METRIC_EGRESS);
+}
+#endif /* ENABLE_IPV6 */
 
 BPF_LICENSE("Dual BSD/GPL");

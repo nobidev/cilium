@@ -1386,7 +1386,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	}
 
 	if !ct.params.SingleNode || ct.params.MultiCluster != "" {
-
 		_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
 		svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080, ct.Params().ServiceType)
 		if ct.params.MultiCluster != "" {
@@ -1479,7 +1478,9 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				}
 			}
 		}
+	}
 
+	if ct.Features[features.NodeWithoutCilium].Enabled {
 		_, err = ct.clients.src.GetDaemonSet(ctx, ct.params.TestNamespace, hostNetNSDeploymentNameNonCilium, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying %s daemonset...", hostNetNSDeploymentNameNonCilium, ct.clients.src.ClusterName())
@@ -1504,52 +1505,50 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		}
 
-		if ct.Features[features.NodeWithoutCilium].Enabled {
-			_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, echoExternalNodeDeploymentName, metav1.GetOptions{})
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, echoExternalNodeDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying echo-external-node deployment...", ct.clients.src.ClusterName())
+			// in case if test concurrency is > 1 port must be unique for each test namespace
+			port := ct.Params().ExternalDeploymentPort
+			echoExternalDeployment := newDeployment(deploymentParameters{
+				Name:           echoExternalNodeDeploymentName,
+				Kind:           kindEchoExternalNodeName,
+				Port:           port,
+				NamedPort:      fmt.Sprintf("http-%d", port),
+				HostPort:       port,
+				Image:          ct.params.JSONMockImage,
+				Labels:         map[string]string{"external": "echo"},
+				Annotations:    ct.params.DeploymentAnnotations.Match(echoExternalNodeDeploymentName),
+				NodeSelector:   map[string]string{"cilium.io/no-schedule": "true"},
+				ReadinessProbe: newLocalReadinessProbe(port, "/"),
+				HostNetwork:    true,
+				Tolerations: append(
+					[]corev1.Toleration{
+						{Operator: corev1.TolerationOpExists},
+					},
+					ct.params.GetTolerations()...,
+				),
+			})
+			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoExternalNodeDeploymentName), metav1.CreateOptions{})
 			if err != nil {
-				ct.Logf("✨ [%s] Deploying echo-external-node deployment...", ct.clients.src.ClusterName())
-				// in case if test concurrency is > 1 port must be unique for each test namespace
-				port := ct.Params().ExternalDeploymentPort
-				echoExternalDeployment := newDeployment(deploymentParameters{
-					Name:           echoExternalNodeDeploymentName,
-					Kind:           kindEchoExternalNodeName,
-					Port:           port,
-					NamedPort:      fmt.Sprintf("http-%d", port),
-					HostPort:       port,
-					Image:          ct.params.JSONMockImage,
-					Labels:         map[string]string{"external": "echo"},
-					Annotations:    ct.params.DeploymentAnnotations.Match(echoExternalNodeDeploymentName),
-					NodeSelector:   map[string]string{"cilium.io/no-schedule": "true"},
-					ReadinessProbe: newLocalReadinessProbe(port, "/"),
-					HostNetwork:    true,
-					Tolerations: append(
-						[]corev1.Toleration{
-							{Operator: corev1.TolerationOpExists},
-						},
-						ct.params.GetTolerations()...,
-					),
-				})
-				_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoExternalNodeDeploymentName), metav1.CreateOptions{})
-				if err != nil {
-					return fmt.Errorf("unable to create service account %s: %w", echoExternalNodeDeploymentName, err)
-				}
-				_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoExternalDeployment, metav1.CreateOptions{})
-				if err != nil {
-					return fmt.Errorf("unable to create deployment %s: %w", echoExternalNodeDeploymentName, err)
-				}
-
-				svc := newService(echoExternalNodeDeploymentName,
-					map[string]string{"name": echoExternalNodeDeploymentName, "kind": kindEchoExternalNodeName},
-					map[string]string{"kind": kindEchoExternalNodeName}, "http", port, "ClusterIP")
-				svc.Spec.ClusterIP = corev1.ClusterIPNone
-				_, err := ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
-				if err != nil {
-					return fmt.Errorf("unable to create service %s: %w", echoExternalNodeDeploymentName, err)
-				}
+				return fmt.Errorf("unable to create service account %s: %w", echoExternalNodeDeploymentName, err)
 			}
-		} else {
-			ct.Infof("Skipping tests that require a node Without Cilium")
+			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoExternalDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s: %w", echoExternalNodeDeploymentName, err)
+			}
+
+			svc := newService(echoExternalNodeDeploymentName,
+				map[string]string{"name": echoExternalNodeDeploymentName, "kind": kindEchoExternalNodeName},
+				map[string]string{"kind": kindEchoExternalNodeName}, "http", port, "ClusterIP")
+			svc.Spec.ClusterIP = corev1.ClusterIPNone
+			_, err := ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service %s: %w", echoExternalNodeDeploymentName, err)
+			}
 		}
+	} else {
+		ct.Infof("Skipping tests that require a node Without Cilium")
 	}
 
 	// Create one Ingress service for echo deployment
@@ -2619,6 +2618,40 @@ func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context,
 	return nil
 }
 
+// CleanupConnectivityTest removes all connectivity test artifacts from all configured clients.
+// This includes test namespaces (cilium-test-*), CCNP namespaces (cilium-test-ccnp1/2),
+// and all associated resources (deployments, services, policies, etc.).
+func (ct *ConnectivityTest) CleanupConnectivityTest(ctx context.Context) error {
+	if ct.clients == nil {
+		if err := ct.initClients(ctx); err != nil {
+			return err
+		}
+	}
+
+	for _, client := range ct.Clients() {
+		ct.Logf("🧹 [%s] Starting cleanup of connectivity test artifacts...", client.ClusterName())
+
+		// Delete main test deployments and namespace
+		if err := ct.deleteDeployments(ctx, client); err != nil {
+			ct.Warnf("[%s] Failed to delete deployments: %v", client.ClusterName(), err)
+		}
+
+		// Delete connection disruption test artifacts
+		if err := ct.DeleteConnDisruptTestDeployment(ctx, client); err != nil {
+			ct.Warnf("[%s] Failed to delete connection disruption test deployments: %v", client.ClusterName(), err)
+		}
+
+		// Delete CCNP test environments
+		if err := ct.DeleteCCNPTestEnv(ctx, client); err != nil {
+			ct.Warnf("[%s] Failed to delete CCNP test environment: %v", client.ClusterName(), err)
+		}
+
+		ct.Logf("✅ [%s] Cleanup complete", client.ClusterName())
+	}
+
+	return nil
+}
+
 func (ct *ConnectivityTest) validateDeploymentCommon(ctx context.Context, srcDeployments, dstDeployments []string) error {
 	ct.Debug("Validating Deployments...")
 
@@ -2988,7 +3021,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	}
 
 	// The host-netns-non-cilium DaemonSet is created in the source cluster only, also in case of multi-cluster tests.
-	if !ct.params.SingleNode || ct.params.MultiCluster != "" {
+	if ct.Features[features.NodeWithoutCilium].Enabled {
 		if err := WaitForDaemonSet(ctx, ct, ct.clients.src, ct.Params().TestNamespace, hostNetNSDeploymentNameNonCilium); err != nil {
 			return err
 		}

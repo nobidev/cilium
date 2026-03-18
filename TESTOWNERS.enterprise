@@ -7,6 +7,7 @@
 /.github/actions/kvstore/ @isovalent/clustermesh
 /.github/workflows/*cilium-cli*.yaml @isovalent/ci-structure
 /.github/workflows/*clustermesh*.yaml @isovalent/clustermesh
+/.github/workflows/*mcs-api*.yaml @isovalent/clustermesh
 /.github/workflows/*datapath*.yaml @isovalent/cni
 /.github/workflows/*gateway-api*.yaml @isovalent/service-mesh
 /.github/workflows/*hubble*.yaml @isovalent/hubble

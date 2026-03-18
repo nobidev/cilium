@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 )
 
 func GenerateL3IngressDenyRules(numRules int) (api.Rules, identity.IdentityMap) {
@@ -256,7 +257,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 					"80/TCP": {
-						Tier:     1,
+						Tier:     types.Normal,
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
@@ -320,9 +321,6 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
 	policy.Ready()
 
-	cachedSelectorHost := td.sc.findCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
-	require.NotNil(t, cachedSelectorHost)
-
 	expectedEndpointPolicy := EndpointPolicy{
 		SelectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
@@ -330,8 +328,20 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
+					api.PortProtocolAny: {
+						Tier:     types.DefaultPolicy,
+						Protocol: api.ProtoAny,
+						Ingress:  true,
+						PerSelectorPolicies: L7DataMap{
+							td.cachedSelectorHost: &PerSelectorPolicy{
+								Verdict:  types.Allow,
+								Priority: 10,
+							},
+						},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorHost: {nil}}),
+					},
 					"80/TCP": {
-						Tier:     1,
+						Tier:     types.Normal,
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
@@ -408,7 +418,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 					"80/TCP": {
-						Tier:     1,
+						Tier:     types.Normal,
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
@@ -553,7 +563,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 					"80/TCP": {
-						Tier:     1,
+						Tier:     types.Normal,
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,

@@ -63,7 +63,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.26.0
+  go-version: 1.26.1
 
 jobs:
   echo-inputs:
@@ -134,7 +134,7 @@ jobs:
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.26.0
+          go-version: 1.26.1
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -201,7 +201,7 @@ jobs:
 
           - focus: "privileged"
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            lvhImage: "6.18-20260217.190018"
+            lvhImage: "6.18-20260310.122539"
 
     timeout-minutes: 50
     steps:
@@ -274,7 +274,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.26.0
+          go-version: 1.26.1
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}

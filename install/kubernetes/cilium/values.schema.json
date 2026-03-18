@@ -4435,6 +4435,9 @@
                   },
                   "type": "object"
                 },
+                "readOnlyRootFilesystem": {
+                  "type": "boolean"
+                },
                 "runAsGroup": {
                   "type": "integer"
                 },
@@ -6105,6 +6108,9 @@
             }
           },
           "type": "object"
+        },
+        "serviceTopology": {
+          "type": "boolean"
         }
       },
       "type": "object"

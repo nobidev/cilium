@@ -25,10 +25,10 @@ LABEL version=${VERSION}
 USER 0:0
 # Configure gops to use a temporary directory, to prevent permissionAdd commentMore actions
 # issues depending on the UID configured to run the entrypoint.
-COPY --chmod=777 --from=scratch / /home/gops
-ENV GOPS_CONFIG_DIR=/home/gops
+ENV GOPS_CONFIG_DIR=/tmp
+WORKDIR /tmp
 COPY LICENSE /usr/share/licenses/isovalent/
-RUN mv LICENSE.all /usr/share/licenses/isovalent/LICENSE.dependencies && ln -s /usr/share/licenses /licenses
+RUN mv /LICENSE.all /usr/share/licenses/isovalent/LICENSE.dependencies && ln -s /usr/share/licenses /licenses
 # use uid:gid for the nonroot user for compatibility with runAsNonRoot
 USER 65532:65532
 ENTRYPOINT ["/usr/bin/hubble-relay"]

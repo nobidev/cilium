@@ -124,7 +124,6 @@ type engineParams struct {
 	cell.In
 
 	Log       *slog.Logger
-	Lifecycle cell.Lifecycle
 	Config    types.Config
 	Registry  job.Registry
 	Health    cell.Health
@@ -198,7 +197,6 @@ func newSelectiveEncryptionEngine(params engineParams) *Engine {
 
 	// Custom job group to obtain runtime metrics
 	jobGroup := params.Registry.NewGroup(params.Health,
-		params.Lifecycle,
 		job.WithMetrics(params.Metrics),
 		job.WithLogger(params.Log),
 	)

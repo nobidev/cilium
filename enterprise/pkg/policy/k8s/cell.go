@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
@@ -61,8 +60,8 @@ var Cell = cell.Module(
 )
 
 type PolicyManager interface {
-	PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
-	PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
+	PolicyAdd(rules api.Rules) (newRev uint64, err error)
+	PolicyDelete(labels labels.LabelArray) (newRev uint64, err error)
 }
 
 type ipc interface {
