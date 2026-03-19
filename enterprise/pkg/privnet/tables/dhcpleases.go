@@ -169,6 +169,16 @@ func NewDHCPLeaseWriter(log *slog.Logger, db *statedb.DB, cfg *option.DaemonConf
 				return err
 			}
 			leases.walWriter = walWriter
+
+			// Immediately compact the existing log to keep it short.
+			walWriter.Compact(func(yield func(dhcpLeaseWALEntry) bool) {
+				for lease := range table.All(db.ReadTxn()) {
+					if !yield(dhcpLeaseWALEntry{Lease: lease}) {
+						break
+					}
+				}
+			})
+
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
