@@ -58,6 +58,7 @@ type importRouteReconcilerIn struct {
 	DesiredRouteManager *routeReconciler.DesiredRouteManager
 	DesiredRouteTable   statedb.Table[*routeReconciler.DesiredRoute]
 	DeviceTable         statedb.Table[*tables.Device]
+	ErrorPathStore      *ErrorPathStore
 }
 
 type importRouteReconciler struct {
@@ -67,6 +68,7 @@ type importRouteReconciler struct {
 	db                *statedb.DB
 	desiredRoutetable statedb.Table[*routeReconciler.DesiredRoute]
 	deviceTable       statedb.Table[*tables.Device]
+	errorPathStore    *ErrorPathStore
 }
 
 func newImportRouteReconciler(in importRouteReconcilerIn) importRouteReconcilerOut {
@@ -81,6 +83,7 @@ func newImportRouteReconciler(in importRouteReconcilerIn) importRouteReconcilerO
 			db:                in.DB,
 			desiredRoutetable: in.DesiredRouteTable,
 			deviceTable:       in.DeviceTable,
+			errorPathStore:    in.ErrorPathStore,
 		},
 	}
 }
@@ -119,6 +122,14 @@ func (r *importRouteReconciler) Reconcile(ctx context.Context, _p reconciler.Sta
 		if p.DeletedInstance == "" {
 			instanceName = p.UpdatedInstance.Name
 		}
+		r.errorPathStore.Delete(instanceName, ossTypes.Family{
+			Afi:  ossTypes.AfiIPv4,
+			Safi: ossTypes.SafiUnicast,
+		})
+		r.errorPathStore.Delete(instanceName, ossTypes.Family{
+			Afi:  ossTypes.AfiIPv6,
+			Safi: ossTypes.SafiUnicast,
+		})
 		owner, err := r.drm.GetOwner(r.ownerName(instanceName))
 		if errors.Is(err, routeReconciler.ErrOwnerDoesNotExist) {
 			return nil
@@ -131,10 +142,27 @@ func (r *importRouteReconciler) Reconcile(ctx context.Context, _p reconciler.Sta
 		return err
 	}
 
-	desiredDsts, err := r.desiredDestinations(ctx, p.UpdatedInstance.Router)
+	desiredDsts, v4ErrPaths, v6ErrPaths, err := r.desiredDestinations(ctx, p.UpdatedInstance.Router)
 	if err != nil {
 		return err
 	}
+
+	r.errorPathStore.Update(
+		p.UpdatedInstance.Name,
+		ossTypes.Family{
+			Afi:  ossTypes.AfiIPv4,
+			Safi: ossTypes.SafiUnicast,
+		},
+		v4ErrPaths,
+	)
+	r.errorPathStore.Update(
+		p.UpdatedInstance.Name,
+		ossTypes.Family{
+			Afi:  ossTypes.AfiIPv6,
+			Safi: ossTypes.SafiUnicast,
+		},
+		v6ErrPaths,
+	)
 
 	rtxn := r.db.ReadTxn()
 
@@ -182,10 +210,15 @@ type path struct {
 	nexthop netip.Addr
 }
 
-func (r *importRouteReconciler) desiredDestinations(ctx context.Context, router types.EnterpriseRouter) (map[netip.Prefix]*destination, error) {
+func (r *importRouteReconciler) desiredDestinations(ctx context.Context, router types.EnterpriseRouter) (
+	map[netip.Prefix]*destination,
+	map[ErrorPathKey]ErrorPath,
+	map[ErrorPathKey]ErrorPath,
+	error,
+) {
 	global, err := router.GetBGP(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	resv4, err := router.GetRoutesExtended(ctx, &types.GetRoutesExtendedRequest{
@@ -199,15 +232,10 @@ func (r *importRouteReconciler) desiredDestinations(ctx context.Context, router 
 	})
 	if err != nil {
 		r.logger.Error("Error getting IPv4 routes", logfields.Error, err)
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	v4Dsts, err := r.parseRoutes(resv4.Routes, true, global.Global.ASN)
-	if err != nil {
-		// Just generate a log for the parse errors.
-		// TODO: Expose metrics per error type.
-		r.logger.Debug("Error parsing IPv4 routes", logfields.Error, err)
-	}
+	v4Dsts, v4ErrPaths := r.parseRoutes(resv4.Routes, true, global.Global.ASN)
 
 	resv6, err := router.GetRoutesExtended(ctx, &types.GetRoutesExtendedRequest{
 		GetRoutesRequest: ossTypes.GetRoutesRequest{
@@ -220,25 +248,19 @@ func (r *importRouteReconciler) desiredDestinations(ctx context.Context, router 
 	})
 	if err != nil {
 		r.logger.Error("Error getting IPv6 routes", logfields.Error, err)
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	v6Dsts, err := r.parseRoutes(resv6.Routes, false, global.Global.ASN)
-	if err != nil {
-		// Just generate a log for the parse errors.
-		// TODO: Expose metrics per error type.
-		r.logger.Debug("Error parsing IPv6 routes", logfields.Error, err)
-	}
+	v6Dsts, v6ErrPaths := r.parseRoutes(resv6.Routes, false, global.Global.ASN)
 
 	maps.Copy(v4Dsts, v6Dsts)
 
-	return v4Dsts, nil
+	return v4Dsts, v4ErrPaths, v6ErrPaths, nil
 }
 
-func (r *importRouteReconciler) parseRoutes(routes []*types.ExtendedRoute, isV4 bool, selfASN uint32) (map[netip.Prefix]*destination, error) {
-	var errs error
-
+func (r *importRouteReconciler) parseRoutes(routes []*types.ExtendedRoute, isV4 bool, selfASN uint32) (map[netip.Prefix]*destination, map[ErrorPathKey]ErrorPath) {
 	dsts := map[netip.Prefix]*destination{}
+	errPaths := map[ErrorPathKey]ErrorPath{}
 
 	for _, route := range routes {
 		bestPaths := []*types.ExtendedPath{}
@@ -255,7 +277,16 @@ func (r *importRouteReconciler) parseRoutes(routes []*types.ExtendedRoute, isV4 
 
 		p, err := netip.ParsePrefix(route.Prefix)
 		if err != nil {
-			errs = errors.Join(errs, err)
+			// This is not really possible since the route is
+			// already in the BGP RIB, but we record the error just
+			// in case (e.g. GoBGP's bug).
+			for _, path := range route.Paths {
+				k := ErrorPathKeyFromPath(path)
+				errPaths[k] = ErrorPath{
+					ErrorPathKey: k,
+					Error:        errMalformedPath,
+				}
+			}
 			continue
 		}
 
@@ -283,7 +314,11 @@ func (r *importRouteReconciler) parseRoutes(routes []*types.ExtendedRoute, isV4 
 			}
 
 			if err != nil {
-				errs = errors.Join(errs, err)
+				k := ErrorPathKeyFromPath(bestPath)
+				errPaths[k] = ErrorPath{
+					ErrorPathKey: k,
+					Error:        err,
+				}
 				continue
 			}
 
@@ -301,7 +336,7 @@ func (r *importRouteReconciler) parseRoutes(routes []*types.ExtendedRoute, isV4 
 		dsts[dst.prefix] = dst
 	}
 
-	return dsts, errs
+	return dsts, errPaths
 }
 
 func (r *importRouteReconciler) parseV4Path(p *types.ExtendedPath) (*path, error) {
