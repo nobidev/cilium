@@ -1,0 +1,176 @@
+#! --test-node-ip=192.168.0.10 --evpn-default-security-group-id=15
+
+hive start
+db/initialized evpn-security-groups
+
+# Upsert privnet-enabled endpoint cep-a
+k8s/add cep-a.v1.yaml
+test/ep-upsert default/cep-a 11 true
+
+# Validate that default security group ID is applied for the cep-a endpoint
+db/cmp evpn-endpoint-security-groups endpoint-sgs.v1
+
+# Upsert FabricSecurityGroup 100
+k8s/add fsg-100.yaml
+
+# Validate evpn-security-groups table content
+db/cmp evpn-security-groups security-groups.v1
+
+# Validate that security group 100 is now applied for the cep-a endpoint
+db/cmp evpn-endpoint-security-groups endpoint-sgs.v2
+
+# Upsert non-privnet-enabled endpoint cep-b
+k8s/add cep-b.yaml
+test/ep-upsert default/cep-b 22 false
+
+# Upsert non-local privnet-enabled endpoint cep-c
+k8s/add cep-c.v1.yaml
+test/ep-upsert default/cep-c 33 true
+
+# Validate that cep-b and cep-c endpoints are not in the table
+db/cmp evpn-endpoint-security-groups endpoint-sgs.v2
+
+# Upsert FabricSecurityGroup 200
+k8s/add fsg-200.yaml
+
+# Validate evpn-security-groups table content
+db/cmp evpn-security-groups security-groups.v2
+
+# Validate that security group 100 is still applied for the cep-a endpoint
+db/cmp evpn-endpoint-security-groups endpoint-sgs.v2
+
+# Update privnet-enabled endpoint cep-a to match with FabricSecurityGroup 200 as well
+k8s/add cep-a.v2.yaml
+
+# Validate that security group 200 (higher ID) is now applied for the cep-a endpoint
+db/cmp evpn-endpoint-security-groups endpoint-sgs.v3
+
+# Update privnet-enabled endpoint cep-c to be node-local
+k8s/update cep-c.v2.yaml
+
+# Validate that both cep-a and cep-c are matched now
+db/cmp evpn-endpoint-security-groups endpoint-sgs.v4
+
+# Delete cep-c endpoint
+test/ep-delete default/cep-c
+k8s/delete cep-c.v2.yaml
+
+# Validate that only cep-a is in the table now
+db/cmp evpn-endpoint-security-groups endpoint-sgs.v3
+
+# Delete FabricSecurityGroup 200
+k8s/delete fsg-200.yaml
+
+# Validate evpn-security-groups table content
+db/cmp evpn-security-groups security-groups.v1
+
+# Validate that security group 100 is again applied for the cep-a endpoint
+db/cmp evpn-endpoint-security-groups endpoint-sgs.v2
+
+-- cep-a.v1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  namespace: default
+  name: cep-a
+status:
+  identity:
+    labels:
+    - k8s:app=api
+  networking:
+    node: 192.168.0.10
+
+-- cep-a.v2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  namespace: default
+  name: cep-a
+status:
+  identity:
+    labels:
+    - k8s:app=api
+    - k8s:tier=backend
+  networking:
+    node: 192.168.0.10
+
+-- cep-b.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  namespace: default
+  name: cep-b
+status:
+  identity:
+    labels:
+    - k8s:app=api
+  networking:
+    node: 192.168.0.10
+
+-- cep-c.v1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  namespace: default
+  name: cep-c
+status:
+  identity:
+    labels:
+    - k8s:app=api
+  networking:
+    node: 192.168.0.99
+
+-- cep-c.v2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  namespace: default
+  name: cep-c
+status:
+  identity:
+    labels:
+    - k8s:app=api
+  networking:
+    node: 192.168.0.10
+
+-- fsg-100.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: FabricSecurityGroup
+metadata:
+  name: "100"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: api
+
+-- fsg-200.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: FabricSecurityGroup
+metadata:
+  name: "200"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: api
+      tier: backend
+
+-- security-groups.v1 --
+GroupID   EndpointSelector
+100       &LabelSelector{MatchLabels:map[string]string{k8s:app: api,},MatchExpressions:[]LabelSelectorRequirement{},}
+-- security-groups.v2 --
+GroupID   EndpointSelector
+100       &LabelSelector{MatchLabels:map[string]string{k8s:app: api,},MatchExpressions:[]LabelSelectorRequirement{},}
+200       &LabelSelector{MatchLabels:map[string]string{k8s:app: api,k8s:tier: backend,},MatchExpressions:[]LabelSelectorRequirement{},}
+-- endpoint-sgs.v1 --
+EndpointID   SecurityGroupID
+11           15
+-- endpoint-sgs.v2 --
+EndpointID   SecurityGroupID
+11           100
+-- endpoint-sgs.v3 --
+EndpointID   SecurityGroupID
+11           200
+-- endpoint-sgs.v4 --
+EndpointID   SecurityGroupID
+11           200
+33           100
