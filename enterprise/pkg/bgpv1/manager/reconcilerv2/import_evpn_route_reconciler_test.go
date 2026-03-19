@@ -446,6 +446,7 @@ func TestEVPNRouteImport(t *testing.T) {
 			tables.NewPrivateNetworksTable,
 			statedb.RWTable[tables.PrivateNetwork].ToTable,
 			newImportEVPNRouteReconciler,
+			newErrorPathStore,
 			func() types.StateNotificationCh {
 				return make(chan struct{}, 1)
 			},

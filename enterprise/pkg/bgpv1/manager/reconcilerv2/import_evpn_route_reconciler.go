@@ -24,16 +24,16 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
 	privnetConfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
-	"github.com/cilium/cilium/pkg/bgp/types"
+	ossTypes "github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type importEVPNRouteReconcilerIn struct {
@@ -47,8 +47,9 @@ type importEVPNRouteReconcilerIn struct {
 	RIB      *rib.RIB
 	Upgrader paramUpgrader
 
-	DB           *statedb.DB
-	PrivnetTable statedb.Table[tables.PrivateNetwork]
+	DB             *statedb.DB
+	PrivnetTable   statedb.Table[tables.PrivateNetwork]
+	ErrorPathStore *ErrorPathStore
 }
 
 type importEVPNRouteReconcilerOut struct {
@@ -62,8 +63,9 @@ type importEVPNRouteReconciler struct {
 	rib      *rib.RIB
 	upgrader paramUpgrader
 
-	db           *statedb.DB
-	privnetTable statedb.Table[tables.PrivateNetwork]
+	db             *statedb.DB
+	privnetTable   statedb.Table[tables.PrivateNetwork]
+	errorPathStore *ErrorPathStore
 }
 
 func newImportEVPNRouteReconciler(in importEVPNRouteReconcilerIn) importEVPNRouteReconcilerOut {
@@ -73,11 +75,12 @@ func newImportEVPNRouteReconciler(in importEVPNRouteReconcilerIn) importEVPNRout
 
 	return importEVPNRouteReconcilerOut{
 		Reconciler: &importEVPNRouteReconciler{
-			logger:       in.Logger.With(types.ReconcilerLogField, "ImportEVPNRoute"),
-			rib:          in.RIB,
-			upgrader:     in.Upgrader,
-			db:           in.DB,
-			privnetTable: in.PrivnetTable,
+			logger:         in.Logger.With(ossTypes.ReconcilerLogField, "ImportEVPNRoute"),
+			rib:            in.RIB,
+			upgrader:       in.Upgrader,
+			db:             in.DB,
+			privnetTable:   in.PrivnetTable,
+			errorPathStore: in.ErrorPathStore,
 		},
 	}
 }
@@ -117,16 +120,25 @@ func (r *importEVPNRouteReconciler) Reconcile(ctx context.Context, _p reconciler
 	if p.DeletedInstance != "" {
 		owner := ribOwnerName(p.DeletedInstance)
 		r.rib.DeleteRoutesByOwner(owner)
+
+		// Delete error paths managed by this reconciler associated with the deleted instance
+		r.errorPathStore.Delete(p.DeletedInstance, ossTypes.Family{
+			Afi:  ossTypes.AfiL2VPN,
+			Safi: ossTypes.SafiEvpn,
+		})
+
 		return nil
 	}
 
-	res, err := p.UpdatedInstance.Router.GetRoutes(
+	res, err := p.UpdatedInstance.Router.GetRoutesExtended(
 		ctx,
-		&types.GetRoutesRequest{
-			TableType: types.TableTypeLocRIB,
-			Family: types.Family{
-				Afi:  types.AfiL2VPN,
-				Safi: types.SafiEvpn,
+		&types.GetRoutesExtendedRequest{
+			GetRoutesRequest: ossTypes.GetRoutesRequest{
+				TableType: ossTypes.TableTypeLocRIB,
+				Family: ossTypes.Family{
+					Afi:  ossTypes.AfiL2VPN,
+					Safi: ossTypes.SafiEvpn,
+				},
 			},
 		},
 	)
@@ -137,7 +149,7 @@ func (r *importEVPNRouteReconciler) Reconcile(ctx context.Context, _p reconciler
 	owner := ribOwnerName(p.DesiredConfig.Name)
 
 	// Obtain the desired routes from BGP RIB
-	desiredRoutes, err := r.desiredRoutes(
+	desiredRoutes, desiredErrorPaths, err := r.desiredRoutes(
 		owner,
 		uint32(*p.DesiredConfig.LocalASN),
 		res.Routes,
@@ -146,6 +158,16 @@ func (r *importEVPNRouteReconciler) Reconcile(ctx context.Context, _p reconciler
 	if err != nil {
 		return fmt.Errorf("failed to get desired routes: %w", err)
 	}
+
+	// Update the error paths
+	r.errorPathStore.Update(
+		p.DesiredConfig.Name,
+		ossTypes.Family{
+			Afi:  ossTypes.AfiL2VPN,
+			Safi: ossTypes.SafiEvpn,
+		},
+		desiredErrorPaths,
+	)
 
 	// Obtain the current routes from the Cilium RIB
 	currentRoutes := r.rib.ListRoutes(owner)
@@ -159,14 +181,11 @@ func (r *importEVPNRouteReconciler) Reconcile(ctx context.Context, _p reconciler
 func (r *importEVPNRouteReconciler) desiredRoutes(
 	owner string,
 	localASN uint32,
-	bgpRoutes []*types.Route,
+	bgpRoutes []*types.ExtendedRoute,
 	bgpVRFs []v1.IsovalentBGPNodeVRF,
-) (map[uint32]*bitlpm.CIDRTrie[*rib.Route], error) {
+) (map[uint32]*bitlpm.CIDRTrie[*rib.Route], map[ErrorPathKey]ErrorPath, error) {
 	// First parse the BGP routes to extract EVPN routes
-	paths, err := r.parseRoutes(bgpRoutes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse VPN paths: %w", err)
-	}
+	paths, errPaths := r.parseRoutes(bgpRoutes)
 
 	rtxn := r.db.ReadTxn()
 
@@ -212,7 +231,7 @@ func (r *importEVPNRouteReconciler) desiredRoutes(
 		}
 	}
 
-	return desiredRoutes, nil
+	return desiredRoutes, errPaths, nil
 }
 
 type evpnRT5Path struct {
@@ -235,10 +254,12 @@ var (
 	errMissingRoutersMACExtComm  = errors.New("missing router's MAC extended-community")
 	errMissingEncapExtComm       = errors.New("missing encap extended-community")
 	errUnsupportedEncapType      = errors.New("unsupported tunnel type")
+	errECMPNotSupported          = errors.New("ECMP path is not supported")
 )
 
-func (r *importEVPNRouteReconciler) parseRoutes(routes []*types.Route) ([]*evpnRT5Path, error) {
-	paths := []*evpnRT5Path{}
+func (r *importEVPNRouteReconciler) parseRoutes(routes []*types.ExtendedRoute) ([]*evpnRT5Path, map[ErrorPathKey]ErrorPath) {
+	parsedPaths := []*evpnRT5Path{}
+	errorPaths := map[ErrorPathKey]ErrorPath{}
 
 	for _, route := range routes {
 		for _, path := range route.Paths {
@@ -247,40 +268,43 @@ func (r *importEVPNRouteReconciler) parseRoutes(routes []*types.Route) ([]*evpnR
 				continue
 			}
 
-			path, err := r.parsePath(path)
+			parsedPath, err := r.parsePath(path)
 			if err != nil {
-				// Generally, we cannot recover from parse
-				// errors by retrying. So, we just record the
-				// error and skip the path. It might be helpful
-				// to provide metrics with error types as a
-				// label helps users to identify the
-				// interpoerability issues.
+				// Record the error paths. This information can
+				// be used later for displaying.
 				if !errors.Is(err, errSelfOriginatedRoute) {
-					r.logger.Warn("skipping path due to parse error", logfields.Error, err)
+					k := ErrorPathKeyFromPath(path)
+					errorPaths[k] = ErrorPath{
+						ErrorPathKey: k,
+						Error:        err,
+					}
 				}
 				continue
 			}
 
-			// There's only one best path. GoBGP's RIB doesn't have
-			// a concept of ECMP as of today. It does support ECMP
-			// with Zebra, but what they do is lazily calculate
-			// ECMP paths when they notify the best path watchers
-			// (that watche best paths with Watch API) and they
-			// don't keep that information in the RIB. We're not
-			// using Watch API, so we cannot see ECMP.
-			//
-			// https://github.com/osrg/gobgp/blob/f733438a965b33813b23200ea10adfa1939f5a36/pkg/server/server.go#L1392-L1395
-			//
-			// Also, our dataplane cannot handle it, so we anyways
-			// should break here. Once we migrate to the
-			// GoBGP-Watcher-based implementation and add support
-			// in the datapath, we can get rid of this problem.
-			paths = append(paths, path)
+			// Our dataplane cannot handle ECMP, so we should break
+			// here. Once we support it, we can revisit here. For
+			// the sake of visibility, we record the error for other
+			// best paths if any.
+			parsedPaths = append(parsedPaths, parsedPath)
+
+			key := ErrorPathKeyFromPath(path)
+			for _, p := range route.Paths {
+				k := ErrorPathKeyFromPath(p)
+				if !p.Best || key == k {
+					continue
+				}
+				errorPaths[k] = ErrorPath{
+					ErrorPathKey: k,
+					Error:        errECMPNotSupported,
+				}
+			}
+
 			break
 		}
 	}
 
-	return paths, nil
+	return parsedPaths, errorPaths
 }
 
 func (r *importEVPNRouteReconciler) parseMPReachNLRI(p *bgp.PathAttributeMpReachNLRI) (netip.Prefix, vni.VNI, netip.Addr, error) {
@@ -423,7 +447,7 @@ func (r *importEVPNRouteReconciler) parseExtendedCommunity(p *bgp.PathAttributeE
 	return rts, rtmac, nil
 }
 
-func (r *importEVPNRouteReconciler) parsePath(path *types.Path) (*evpnRT5Path, error) {
+func (r *importEVPNRouteReconciler) parsePath(path *types.ExtendedPath) (*evpnRT5Path, error) {
 	var (
 		mpReachNLRIAttr    *bgp.PathAttributeMpReachNLRI
 		extCommunitiesAttr *bgp.PathAttributeExtendedCommunities
