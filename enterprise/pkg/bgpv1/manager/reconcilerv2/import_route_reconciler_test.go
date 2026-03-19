@@ -95,6 +95,23 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 			},
 		},
 		{
+			name: "Valid IPv4 NEXT_HOP self-originated",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI: nlri,
+					PathAttributes: []bgp.PathAttributeInterface{
+						bgp.NewPathAttributeNextHop("0.0.0.0"),
+					},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+			},
+			expectedErr: errSelfOriginatedRoute,
+		},
+		{
 			name: "Valid IPv4 MP_REACH_NLRI",
 			inputPath: &types.ExtendedPath{
 				Path: ossTypes.Path{
@@ -117,6 +134,28 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 			outputPath: &path{
 				nexthop: netip.MustParseAddr("192.168.0.1"),
 			},
+		},
+		{
+			name: "Valid IPv4 MP_REACH_NLRI self-originated",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI: nlri,
+					PathAttributes: []bgp.PathAttributeInterface{
+						bgp.NewPathAttributeMpReachNLRI(
+							"0.0.0.0",
+							[]bgp.AddrPrefixInterface{
+								nlri,
+							},
+						),
+					},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+			},
+			expectedErr: errSelfOriginatedRoute,
 		},
 		{
 			name: "Invalid missing required attributes",
@@ -357,6 +396,13 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 		},
 	)
 
+	mpReachNLRI_G_SelfOriginated := bgp.NewPathAttributeMpReachNLRI(
+		"::",
+		[]bgp.AddrPrefixInterface{
+			nlri,
+		},
+	)
+
 	mpReachNLRI_L := bgp.NewPathAttributeMpReachNLRI(
 		"fe80::1",
 		[]bgp.AddrPrefixInterface{
@@ -423,6 +469,22 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 			outputPath: &path{
 				nexthop: netip.MustParseAddr("fd00::1"),
 			},
+		},
+		{
+			name: "Valid G self-originated",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_G_SelfOriginated},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+				NeighborAddr: neighborAddrWithZone,
+			},
+			expectedErr: errSelfOriginatedRoute,
 		},
 		{
 			name: "Valid L with zone",

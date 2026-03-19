@@ -273,20 +273,17 @@ func (r *importRouteReconciler) parseRoutes(routes []*types.ExtendedRoute, isV4 
 
 			if isV4 {
 				parsed, err = r.parseV4Path(bestPath)
-				if err != nil {
-					errs = errors.Join(errs, err)
-					continue
-				}
 			} else {
 				parsed, err = r.parseV6Path(bestPath)
-				if err != nil {
-					errs = errors.Join(errs, err)
-					continue
-				}
 			}
 
-			if parsed.nexthop.IsUnspecified() {
+			if errors.Is(err, errSelfOriginatedRoute) {
 				// Skip self-originated routes
+				continue
+			}
+
+			if err != nil {
+				errs = errors.Join(errs, err)
 				continue
 			}
 
@@ -349,6 +346,9 @@ func (r *importRouteReconciler) parseV4Path(p *types.ExtendedPath) (*path, error
 		if !nexthop.Is4() {
 			return nil, errUnsupportedNexthop
 		}
+		if nexthop == netip.IPv4Unspecified() {
+			return nil, errSelfOriginatedRoute
+		}
 	}
 
 	return &path{
@@ -409,6 +409,10 @@ func (r *importRouteReconciler) parseMPReachNLRINexthop(mpReachNLRIAttr *bgp.Pat
 			return netip.Addr{}, errMalformedNexthop
 		}
 		globalNexthop = nh // This can be link-local (possible with BGP Unnumbered) or global
+	}
+
+	if !linkLocalNexthop.IsValid() && globalNexthop.IsUnspecified() {
+		return netip.Addr{}, errSelfOriginatedRoute
 	}
 
 	switch {
