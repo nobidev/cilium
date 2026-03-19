@@ -10,6 +10,27 @@
 #define __SCAPY_MAX_STR_LEN 128
 #define __SCAPY_MAX_ASSERTS 256
 
+/* macro which creates an assembly label and includes a binary packet definition
+ * at this label.
+ *
+ * an external C variable is then declared which the assembler will resolve to
+ * this label.
+ *
+ * the NAME##_size macro must be defined prior to this macro's use and be set
+ * to the size, this is done by inline_parser.py which creates the pkt_sizes.h
+ * header.
+ */
+#define SCAPY_PACKET(NAME)				\
+asm(							\
+	".section .rodata,\"a\"\n"			\
+	".local " #NAME "\n"				\
+	".type " #NAME ", @object\n"			\
+	#NAME ":\n"					\
+	".incbin \"" "output/" #NAME ".bin\"\n"	\
+	".previous\n"					\
+);							\
+extern const char NAME[NAME##_size];
+
 /**
  * Get the reference to the buffer (byte array) with 'NAME'
  */
@@ -272,4 +293,15 @@ bool __assert_map_add_failure(const char *name, const __u8 name_len,
 				    sizeof(BUF(BUF_NAME)), LEN);		\
 	} do {} while (0)
 
+/**
+ * Same as ASSERT_CTX_BUF_OFF but works on inline defined buffers
+ */
+#define ASSERT_CTX_INLINE_BUF_OFF(NAME, FIRST_LAYER, CTX, OFF, BUF_NAME, LEN)	\
+	{									\
+		ASSERT_CTX_BUF_OFF2(NAME, FIRST_LAYER, CTX, OFF,		\
+				    #BUF_NAME, (const unsigned char *)BUF_NAME,	\
+				    sizeof(BUF_NAME), LEN);			\
+	} do {} while (0)
+
 #include "output/gen_pkts.h"
+#include "output/pkt_sizes.h"
