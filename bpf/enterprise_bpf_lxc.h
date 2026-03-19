@@ -5,6 +5,7 @@
 
 #include "lib/encap.h"
 #include "lib/trace.h"
+#include "lib/edt.h"
 
 #include "lib/enterprise_privnet.h"
 #include "lib/enterprise_evpn.h"
@@ -69,28 +70,8 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		if (!ipv6_addr_equals(&sip6, &dev_val->ipv6))
 			return DROP_INVALID_SIP;
 
-		ret = privnet_egress_ipv6(ctx, SECLABEL_IPV6, net_id,
-					  privnet_subnet_id_lookup6(net_id, sip6),
-					  NULL, &dip_val,
-					  &trace);
-		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
-			return ret;
-#ifdef TUNNEL_MODE
-		if (dip_val && is_privnet_route_entry(dip_val)) {
-			/* see comment for IPv4 */
-			struct remote_endpoint_info fake_info = {0};
-
-			/* only support v4 underlay for unknown flows. */
-			fake_info.tunnel_endpoint.ip4 = dip_val->ip4;
-			fake_info.sec_identity = CONFIG(privnet_unknown_sec_id);
-
-			return encap_and_redirect_with_nodeid(ctx, &fake_info,
-							      CONFIG(privnet_unknown_sec_id),
-							      fake_info.sec_identity,
-							      &trace, proto);
-		}
-#endif /* TUNNEL_MODE */
-		break;
+		ctx_store_meta(ctx, CB_SRC_LABEL, net_id);
+		return tail_call_internal(ctx, CILIUM_CALL_IPV6_PRIVNET_LXC_EGRESS, NULL);
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_ARP):
@@ -116,37 +97,130 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 		if (ip4->saddr != dev_val->ipv4.be32)
 			return DROP_INVALID_SIP;
 
-		ret = privnet_egress_ipv4(ctx, SECLABEL_IPV4, net_id,
-					  privnet_subnet_id_lookup4(net_id, ip4->saddr),
-					  NULL, &dip_val,
-					  &trace);
-		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
-			return ret;
-
-#ifdef TUNNEL_MODE
-		if (dip_val && is_privnet_route_entry(dip_val)) {
-			/* dip_val is a route entry, thus we can assume that the
-			 * packet is going to an INB. Encap the packet with the
-			 * IP from the FIB map entry, which is the node IP of
-			 * the INB and with privnet_unknown_sec_id as VNI.
-			 */
-			struct remote_endpoint_info fake_info = {0};
-
-			fake_info.tunnel_endpoint.ip4 = dip_val->ip4;
-			fake_info.sec_identity = CONFIG(privnet_unknown_sec_id);
-
-			return encap_and_redirect_with_nodeid(ctx, &fake_info,
-							      CONFIG(privnet_unknown_sec_id),
-							      fake_info.sec_identity,
-							      &trace, proto);
-		}
-#endif /* TUNNEL_MODE */
-		break;
+		ctx_store_meta(ctx, CB_SRC_LABEL, net_id);
+		return tail_call_internal(ctx, CILIUM_CALL_IPV4_PRIVNET_LXC_EGRESS, NULL);
 #endif /* ENABLE_IPV4 */
 	default:
 		break;
 	}
 
+	return ret;
+}
+
+__declare_tail(CILIUM_CALL_IPV4_PRIVNET_LXC_EGRESS)
+static __always_inline int tail_handle_ipv4_privnet_lxc_egress(struct __ctx_buff *ctx)
+{
+	__u16 proto = bpf_htons(ETH_P_IP);
+	const struct privnet_fib_val *dip_val;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__s8 ext_err = 0;
+	__u16 net_id;
+	int ret;
+
+	net_id = (__u16)ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	ret = privnet_egress_ipv4(ctx, SECLABEL_IPV4, net_id,
+				  privnet_subnet_id_lookup4(net_id, ip4->saddr),
+				  NULL, &dip_val,
+				  &trace);
+	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+		goto out;
+
+#ifdef TUNNEL_MODE
+	if (dip_val && is_privnet_route_entry(dip_val)) {
+		/* dip_val is route entry, we can assume that the */
+		/* packet is going to INB. Encap the packet with IP */
+		/* stored in privnet nat map, it will be node IP of INB and */
+		/* with privnet_unknown_sec_id as VNI. */
+
+		struct remote_endpoint_info fake_info = {0};
+
+		fake_info.tunnel_endpoint.ip4 = dip_val->ip4;
+		fake_info.sec_identity = CONFIG(privnet_unknown_sec_id);
+
+		return encap_and_redirect_with_nodeid(ctx, &fake_info,
+						      CONFIG(privnet_unknown_sec_id),
+						      fake_info.sec_identity,
+						      &trace, proto);
+	}
+#endif /* TUNNEL_MODE */
+
+	send_trace_notify(ctx, TRACE_FROM_LXC, SECLABEL, UNKNOWN_ID,
+			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
+
+	edt_set_aggregate(ctx, LXC_ID);
+	ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_LXC, &ext_err);
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify_ext(ctx, SECLABEL_IPV4, UNKNOWN_ID,
+					    TRACE_EP_ID_UNKNOWN, ret, ext_err,
+					    METRIC_EGRESS);
+	return ret;
+}
+
+__declare_tail(CILIUM_CALL_IPV6_PRIVNET_LXC_EGRESS)
+static __always_inline int tail_handle_ipv6_privnet_lxc_egress(struct __ctx_buff *ctx)
+{
+	__u16 proto = bpf_htons(ETH_P_IPV6);
+	const struct privnet_fib_val *dip_val;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	__s8 ext_err = 0;
+	__u16 net_id;
+	int ret;
+
+	net_id = (__u16)ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	ret = privnet_egress_ipv6(ctx, SECLABEL_IPV6, net_id,
+				  privnet_subnet_id_lookup6(net_id, *(union v6addr *)&ip6->saddr),
+				  NULL, &dip_val,
+				  &trace);
+	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+		goto out;
+
+#ifdef TUNNEL_MODE
+	if (dip_val && is_privnet_route_entry(dip_val)) {
+		/* see comment for ipv4 */
+		struct remote_endpoint_info fake_info = {0};
+
+		/* only support v4 underlay for unknown flows. */
+		fake_info.tunnel_endpoint.ip4 = dip_val->ip4;
+		fake_info.sec_identity = CONFIG(privnet_unknown_sec_id);
+
+		return encap_and_redirect_with_nodeid(ctx, &fake_info,
+						      CONFIG(privnet_unknown_sec_id),
+						      fake_info.sec_identity,
+						      &trace, proto);
+	}
+#endif /* TUNNEL_MODE */
+
+	send_trace_notify(ctx, TRACE_FROM_LXC, SECLABEL, UNKNOWN_ID,
+			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
+
+	edt_set_aggregate(ctx, LXC_ID);
+	ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_LXC, &ext_err);
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify_ext(ctx, SECLABEL_IPV6, UNKNOWN_ID,
+					    TRACE_EP_ID_UNKNOWN, ret, ext_err,
+					    METRIC_EGRESS);
 	return ret;
 }
 
