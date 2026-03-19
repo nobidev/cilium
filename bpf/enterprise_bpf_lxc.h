@@ -214,9 +214,57 @@ static __always_inline bool is_privnet_unknown_inb_flow(struct __ctx_buff *ctx _
 }
 
 static __always_inline bool
+is_privnet_local_access_flow(struct __ctx_buff *ctx __maybe_unused)
+{
+	__u16 netdev_net_id __maybe_unused;
+	__u16 lxc_net_id __maybe_unused;
+	const struct privnet_device_val *netdev_dev_val __maybe_unused;
+	const struct privnet_device_val *lxc_dev_val __maybe_unused;
+
+	if (CONFIG(privnet_local_access_enable)) {
+		netdev_dev_val = privnet_get_device(ctx_get_ingress_ifindex(ctx));
+		/* Traffic coming from another lxc device within the same private-network
+		 * will also be present in privnet_get_device(lxc_idx). We need to explicitly
+		 * check ingress interface is netdev device and current interface is lxc.
+		 */
+		if (!netdev_dev_val || netdev_dev_val->type != PRIVNET_DEVICE_TYPE_NETDEV)
+			return false;
+
+		netdev_net_id = netdev_dev_val->net_id;
+		if (unlikely(!netdev_net_id))
+			return false;
+
+		lxc_dev_val = privnet_get_device(CONFIG(interface_ifindex));
+		if (!lxc_dev_val || lxc_dev_val->type != PRIVNET_DEVICE_TYPE_LXC)
+			return false;
+
+		lxc_net_id = lxc_dev_val->net_id;
+		if (unlikely(!lxc_net_id))
+			return false;
+
+		/* If the network ID of the ingress interface is the same as
+		 * the lxc interface, it is N/S flow coming from local access
+		 * interface.
+		 */
+		return netdev_net_id == lxc_net_id;
+	}
+
+	return false;
+}
+
+static __always_inline bool
+is_privnet_evpn_flow(struct __ctx_buff *ctx __maybe_unused)
+{
+	return (CONFIG(privnet_enable) && CONFIG(evpn_enable) &&
+		ctx_get_ingress_ifindex(ctx) == CONFIG(evpn_device_ifindex));
+}
+
+static __always_inline bool
 privnet_should_enforce_unknown_policy(struct __ctx_buff *ctx __maybe_unused)
 {
-	return is_privnet_unknown_inb_flow(ctx);
+	return is_privnet_unknown_inb_flow(ctx) ||
+	       is_privnet_local_access_flow(ctx) ||
+	       is_privnet_evpn_flow(ctx);
 }
 
 __declare_tail(CILIUM_CALL_IPV4_PRIVNET_UNKNOWN_INGRESS)
@@ -241,7 +289,8 @@ static __always_inline int tail_handle_ipv4_privnet_unknown_ingress(struct __ctx
 
 	ret = privnet_lxc_ingress_ipv4(ctx, SECLABEL_IPV4, *net_id,
 				       is_privnet_unknown_inb_flow(ctx),
-				       false);
+				       is_privnet_evpn_flow(ctx) ||
+					       is_privnet_local_access_flow(ctx));
 	if (IS_ERR(ret))
 		return ret;
 
@@ -271,7 +320,8 @@ static __always_inline int tail_handle_ipv6_privnet_unknown_ingress(struct __ctx
 
 	ret = privnet_lxc_ingress_ipv6(ctx, SECLABEL_IPV6, *net_id,
 				       is_privnet_unknown_inb_flow(ctx),
-				       false);
+				       is_privnet_evpn_flow(ctx) ||
+					       is_privnet_local_access_flow(ctx));
 	if (IS_ERR(ret))
 		return ret;
 
