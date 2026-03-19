@@ -372,7 +372,7 @@ int privnet_icmp_to_container_unknown_src_nat_dst_check(struct __ctx_buff *ctx)
 {
 	test_init();
 
-	assert_status_code(ctx, CTX_ACT_OK);
+	assert_status_code(ctx, CTX_ACT_REDIRECT);
 
 	BUF_DECL(UNKNOWN_ICMP_REQ, privnet_unknown_flow_icmp_req_out);
 	ASSERT_CTX_BUF_OFF("privnet_icmp_to_container_unknown_src_nat_dst", "IP", ctx,

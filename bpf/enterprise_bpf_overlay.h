@@ -78,8 +78,7 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 				return ret;
 		}
 
-		ret = privnet_ingress_ipv6(ctx, 0, 0, unknown_flow,
-					   &src_pip_val, &dst_pip_val);
+		ret = privnet_inb_ingress_ipv6(ctx, unknown_flow, &src_pip_val, &dst_pip_val);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -156,8 +155,7 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 				return ret;
 		}
 
-		ret = privnet_ingress_ipv4(ctx, 0, 0, unknown_flow,
-					   &src_pip_val, &dst_pip_val);
+		ret = privnet_inb_ingress_ipv4(ctx, unknown_flow, &src_pip_val, &dst_pip_val);
 		if (IS_ERR(ret))
 			return ret;
 

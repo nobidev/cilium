@@ -169,7 +169,7 @@ enterprise_privnet_to_lxc_ipv4_after_policy(struct __ctx_buff *ctx)
 		if (unlikely(!net_id || !(*net_id)))
 			return DROP_UNROUTABLE;
 
-		ret = privnet_ingress_ipv4(ctx, SECLABEL_IPV4, *net_id, false, NULL, NULL);
+		ret = privnet_lxc_ingress_ipv4(ctx, SECLABEL_IPV4, *net_id, false, false);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -189,7 +189,7 @@ enterprise_privnet_to_lxc_ipv6_after_policy(struct __ctx_buff *ctx)
 		if (unlikely(!net_id || !(*net_id)))
 			return DROP_UNROUTABLE;
 
-		ret = privnet_ingress_ipv6(ctx, SECLABEL_IPV6, *net_id, false, NULL, NULL);
+		ret = privnet_lxc_ingress_ipv6(ctx, SECLABEL_IPV6, *net_id, false, false);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -197,7 +197,7 @@ enterprise_privnet_to_lxc_ipv6_after_policy(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV6 */
 
-static __always_inline bool privnet_skip_policy_enforcement(struct __ctx_buff *ctx __maybe_unused)
+static __always_inline bool is_privnet_unknown_inb_flow(struct __ctx_buff *ctx __maybe_unused)
 {
 #ifdef HAVE_ENCAP
 	if (ctx_load_meta(ctx, CB_FROM_TUNNEL)) {
@@ -209,14 +209,19 @@ static __always_inline bool privnet_skip_policy_enforcement(struct __ctx_buff *c
 		if (tunnel_key.tunnel_id == CONFIG(privnet_unknown_sec_id))
 			return true;
 	}
-#endif
+#endif /* HAVE_ENCAP */
 	return false;
+}
+
+static __always_inline bool
+privnet_should_enforce_unknown_policy(struct __ctx_buff *ctx __maybe_unused)
+{
+	return is_privnet_unknown_inb_flow(ctx);
 }
 
 __declare_tail(CILIUM_CALL_IPV4_PRIVNET_UNKNOWN_INGRESS)
 static __always_inline int tail_handle_ipv4_privnet_unknown_ingress(struct __ctx_buff *ctx)
 {
-	bool do_redirect = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	bool from_tunnel = false;
 	int ret = CTX_ACT_OK;
@@ -234,20 +239,19 @@ static __always_inline int tail_handle_ipv4_privnet_unknown_ingress(struct __ctx
 	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 #endif
 
-	ret = privnet_ingress_ipv4(ctx, SECLABEL_IPV4, *net_id, true, NULL, NULL);
+	ret = privnet_lxc_ingress_ipv4(ctx, SECLABEL_IPV4, *net_id,
+				       is_privnet_unknown_inb_flow(ctx),
+				       false);
 	if (IS_ERR(ret))
 		return ret;
 
-	if (do_redirect)
-		ret = redirect_ep(ctx, CONFIG(interface_ifindex), from_host, from_tunnel);
-
-	return ret;
+	return redirect_ep(ctx, CONFIG(interface_ifindex),
+			   should_redirect_peer(from_host), from_tunnel);
 }
 
 __declare_tail(CILIUM_CALL_IPV6_PRIVNET_UNKNOWN_INGRESS)
 static __always_inline int tail_handle_ipv6_privnet_unknown_ingress(struct __ctx_buff *ctx)
 {
-	bool do_redirect = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	bool from_tunnel = false;
 	int ret = CTX_ACT_OK;
@@ -265,14 +269,14 @@ static __always_inline int tail_handle_ipv6_privnet_unknown_ingress(struct __ctx
 	from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 #endif
 
-	ret = privnet_ingress_ipv6(ctx, SECLABEL_IPV6, *net_id, true, NULL, NULL);
+	ret = privnet_lxc_ingress_ipv6(ctx, SECLABEL_IPV6, *net_id,
+				       is_privnet_unknown_inb_flow(ctx),
+				       false);
 	if (IS_ERR(ret))
 		return ret;
 
-	if (do_redirect)
-		ret = redirect_ep(ctx, CONFIG(interface_ifindex), from_host, from_tunnel);
-
-	return ret;
+	return redirect_ep(ctx, CONFIG(interface_ifindex),
+			   should_redirect_peer(from_host), from_tunnel);
 }
 
 static __always_inline int
@@ -284,7 +288,7 @@ enterprise_privnet_to_lxc_before_policy(struct __ctx_buff *ctx, __u16 proto,
 	if (!CONFIG(privnet_enable))
 		return ret;
 
-	if (!privnet_skip_policy_enforcement(ctx))
+	if (!privnet_should_enforce_unknown_policy(ctx))
 		return ret;
 
 	switch (proto) {
