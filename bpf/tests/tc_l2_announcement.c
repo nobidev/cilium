@@ -18,6 +18,26 @@
 
 #include "lib/bpf_host.h"
 
+/* SCAPY
+l2_announce_arp_req = (
+    Ether(dst=mac_bcast, src=mac_one) /
+    ARP(op="who-has", psrc=v4_ext_one, pdst=v4_svc_one, \
+        hwsrc=mac_one, hwdst=mac_bcast)
+)
+
+l2_announce_arp_reply = (
+    Ether(dst=mac_one, src=mac_two) /
+    ARP(op="is-at", psrc=v4_svc_one, pdst=v4_ext_one, \
+        hwsrc=mac_two, hwdst=mac_one)
+)
+SCAPY */
+const char l2_announce_arp_req[] = {
+	#embed "output/l2_announce_arp_req.bin"
+};
+const char l2_announce_arp_reply[] = {
+	#embed "output/l2_announce_arp_reply.bin"
+};
+
 ASSIGN_CONFIG(__u64, l2_announcements_max_liveness, 3000000000ULL)
 ASSIGN_CONFIG(bool, enable_l2_announcements, true)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
@@ -36,8 +56,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 	struct pktgen builder;
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(ARP_REQ, l2_announce_arp_req);
-	BUILDER_PUSH_BUF(builder, ARP_REQ);
+	scapy__push_data(&builder, (void *)l2_announce_arp_req, sizeof(l2_announce_arp_req));
 
 	pktgen__finish(&builder);
 
@@ -77,10 +96,9 @@ int l2_announcement_arp_no_entry_check(__maybe_unused const struct __ctx_buff *c
 
 	assert(*status_code == TC_ACT_OK);
 
-	BUF_DECL(EXPECTED_ARP_REQ, l2_announce_arp_req);
-	ASSERT_CTX_BUF_OFF("arp_req_no_entry_untouched", "Ether", ctx,
-			   sizeof(__u32), EXPECTED_ARP_REQ,
-			   sizeof(BUF(EXPECTED_ARP_REQ)));
+	ASSERT_CTX_INLINE_BUF_OFF("arp_req_no_entry_untouched", "Ether", ctx,
+			   sizeof(__u32), l2_announce_arp_req,
+			   sizeof(l2_announce_arp_req));
 	test_finish();
 
 }
@@ -128,9 +146,7 @@ int l2_announcement_arp_happy_path_check(__maybe_unused const struct __ctx_buff 
 
 	assert(*status_code == TC_ACT_REDIRECT);
 
-	BUF_DECL(EXPECTED_ARP_REP, l2_announce_arp_reply);
-
-	ASSERT_CTX_BUF_OFF("arp_rep_ok", "Ether", ctx, sizeof(__u32),
-			   EXPECTED_ARP_REP, sizeof(BUF(EXPECTED_ARP_REP)));
+	ASSERT_CTX_INLINE_BUF_OFF("arp_rep_ok", "Ether", ctx, sizeof(__u32),
+			   l2_announce_arp_reply, sizeof(l2_announce_arp_reply));
 	test_finish();
 }
