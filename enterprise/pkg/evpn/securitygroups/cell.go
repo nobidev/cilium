@@ -20,15 +20,21 @@ import (
 var Cell = cell.Group(
 	cell.ProvidePrivate(
 		tables.NewSecurityGroupsTable,
+		tables.NewEndpointSecurityGroupTable,
 
 		newSecurityGroups,
+		newEndpointSecurityGroups,
+
+		newEndpointLookupAdapter,
 	),
 
 	cell.Provide(
 		statedb.RWTable[tables.SecurityGroup].ToTable,
+		statedb.RWTable[tables.EndpointSecurityGroup].ToTable,
 	),
 
 	cell.Invoke(
 		(*securityGroups).registerK8sReflector,
+		(*endpointSecurityGroups).registerReconciler,
 	),
 )
