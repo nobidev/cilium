@@ -137,10 +137,6 @@ func TestHandlerWritesLeaseOnAck(t *testing.T) {
 	require.Equal(t, now.Add(60*time.Second), m.RenewAt)
 	require.Equal(t, now.Add(120*time.Second), m.ExpireAt)
 
-	// The workload should be updated to contain the allocated IP
-	lw, _, found = workloads.Get(txn, tables.LocalWorkloadsByID(lw.EndpointID))
-	require.True(t, found)
-	require.Equal(t, "192.168.1.10", lw.Interface.Addressing.IPv4)
 }
 
 func TestHandlerRenewsLeaseOnAckSameIP(t *testing.T) {
@@ -239,9 +235,6 @@ func TestHandlerClearsLeaseOnNak(t *testing.T) {
 	txn := db.ReadTxn()
 	_, _, found := leases.Get(txn, tables.DHCPLeaseByNetworkMAC("blue", mac.MAC(reqMAC)))
 	require.False(t, found)
-	lw, _, found = workloads.Get(txn, tables.LocalWorkloadsByID(lw.EndpointID))
-	require.True(t, found)
-	require.Empty(t, lw.Interface.Addressing.IPv4)
 }
 
 func TestHandlerClearsLeaseOnReleaseRequest(t *testing.T) {
@@ -280,9 +273,6 @@ func TestHandlerClearsLeaseOnReleaseRequest(t *testing.T) {
 	txn := db.ReadTxn()
 	_, _, found := leases.Get(txn, tables.DHCPLeaseByNetworkMAC("blue", mac.MAC(reqMAC)))
 	require.False(t, found)
-	lw, _, found = workloads.Get(txn, tables.LocalWorkloadsByID(lw.EndpointID))
-	require.True(t, found)
-	require.Empty(t, lw.Interface.Addressing.IPv4)
 }
 
 func TestHandlerClearsLeaseOnDeclineRequest(t *testing.T) {
@@ -321,9 +311,6 @@ func TestHandlerClearsLeaseOnDeclineRequest(t *testing.T) {
 	txn := db.ReadTxn()
 	_, _, found := leases.Get(txn, tables.DHCPLeaseByNetworkMAC("blue", mac.MAC(reqMAC)))
 	require.False(t, found)
-	lw, _, found = workloads.Get(txn, tables.LocalWorkloadsByID(lw.EndpointID))
-	require.True(t, found)
-	require.Empty(t, lw.Interface.Addressing.IPv4)
 }
 
 func TestHandlerIgnoresAckOutsideConfiguredSubnets(t *testing.T) {

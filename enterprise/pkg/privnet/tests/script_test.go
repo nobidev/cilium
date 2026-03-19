@@ -62,6 +62,7 @@ func runScriptTests(t *testing.T, pattern string) {
 			log := hivetest.Logger(t, opts...)
 
 			cmds := script.DefaultCmds()
+			cmds["text/template"] = templateCmd()
 			var h *hive.Hive
 			setupHive := func() {
 				h = NewTestHive(t)

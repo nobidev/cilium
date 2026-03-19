@@ -1,0 +1,125 @@
+#! --private-networks-enabled
+
+privnet/epm-finish-restoration
+k8s/add icpn.yaml
+hive/start
+db/cmp privnet-subnets subnets.table
+
+# Active lease is restored when a DHCP endpoint appears with the unspecified IP.
+text/template endpoint.json.tmpl endpoint-active.json ENDPOINT_ID=100 POD_NAME=pod-100 POD_IPV4=10.244.5.100 NETWORK_IPV4=0.0.0.0 MAC=02:aa:bb:cc:dd:01 ACTIVATED_AT=2025-09-17T12:40:00Z
+privnet/epm-create endpoint-active.json
+db/cmp privnet-local-workloads local-workloads.pending-active.table
+text/template lease.yaml.tmpl lease-active.yaml ENDPOINT_ID=100 MAC=02:aa:bb:cc:dd:01 NETWORK_IPV4=192.168.1.10 OBTAINED_AT=2025-09-17T12:40:00Z RENEW_AT=2048-09-17T12:50:00Z EXPIRE_AT=2048-09-17T13:40:00Z
+db/insert privnet-dhcp-leases lease-active.yaml
+db/cmp privnet-dhcp-leases dhcp-leases.table
+db/cmp privnet-local-workloads local-workloads.active.table
+
+# Validate endpoint property
+text/template endpoint.json.tmpl endpoint-active.expected.json ENDPOINT_ID=100 POD_NAME=pod-100 POD_IPV4=10.244.5.100 NETWORK_IPV4=192.168.1.10 MAC=02:aa:bb:cc:dd:01 ACTIVATED_AT=2025-09-17T12:40:00Z
+privnet/epm-get --output endpoint-active.actual.json 100
+* cmp endpoint-active.expected.json endpoint-active.actual.json
+
+# Expired lease is not restored for an unspecified-IP endpoint and gets deleted.
+text/template endpoint.json.tmpl endpoint-expired.json ENDPOINT_ID=101 POD_NAME=pod-101 POD_IPV4=10.244.5.101 NETWORK_IPV4=0.0.0.0 MAC=02:aa:bb:cc:dd:02 ACTIVATED_AT=2025-09-17T12:41:00Z
+privnet/epm-create endpoint-expired.json
+db/cmp privnet-local-workloads local-workloads.pending-expired.table
+text/template lease.yaml.tmpl lease-expired.yaml ENDPOINT_ID=101 MAC=02:aa:bb:cc:dd:02 NETWORK_IPV4=192.168.1.11 OBTAINED_AT=2025-09-17T12:41:00Z RENEW_AT=2025-09-17T12:41:30Z EXPIRE_AT=2025-09-17T12:41:31Z
+db/insert privnet-dhcp-leases lease-expired.yaml
+db/cmp privnet-dhcp-leases dhcp-leases.table
+db/cmp privnet-local-workloads local-workloads.pending-expired.table
+
+# Validate endpoint property
+text/template endpoint.json.tmpl endpoint-expired.expected.json ENDPOINT_ID=101 POD_NAME=pod-101 POD_IPV4=10.244.5.101 NETWORK_IPV4=0.0.0.0 MAC=02:aa:bb:cc:dd:02 ACTIVATED_AT=2025-09-17T12:41:00Z
+privnet/epm-get --output endpoint-expired.actual.json 101
+* cmp endpoint-expired.expected.json endpoint-expired.actual.json
+
+# An expired lease clears an already-populated endpoint back to the unspecified IP.
+text/template endpoint.json.tmpl endpoint-swept.json ENDPOINT_ID=102 POD_NAME=pod-102 POD_IPV4=10.244.5.102 NETWORK_IPV4=192.168.1.12 MAC=02:aa:bb:cc:dd:03 ACTIVATED_AT=2025-09-17T12:42:00Z
+privnet/epm-create endpoint-swept.json
+text/template lease.yaml.tmpl lease-swept-expired.yaml ENDPOINT_ID=102 MAC=02:aa:bb:cc:dd:03 NETWORK_IPV4=192.168.1.12 OBTAINED_AT=2025-09-17T12:42:00Z RENEW_AT=2025-09-17T12:42:30Z EXPIRE_AT=2025-09-17T12:42:31Z
+db/insert privnet-dhcp-leases lease-swept-expired.yaml
+db/cmp privnet-dhcp-leases dhcp-leases.table
+db/cmp privnet-local-workloads local-workloads.swept.table
+
+# Validate endpoint property
+text/template endpoint.json.tmpl endpoint-swept.expected.json ENDPOINT_ID=102 POD_NAME=pod-102 POD_IPV4=10.244.5.102 NETWORK_IPV4=0.0.0.0 MAC=02:aa:bb:cc:dd:03 ACTIVATED_AT=2025-09-17T12:42:00Z
+privnet/epm-get --output endpoint-swept.actual.json 102
+* cmp endpoint-swept.expected.json endpoint-swept.actual.json
+
+# Deleting the endpoint removes its matching lease.
+text/template lease.yaml.tmpl lease-delete.yaml ENDPOINT_ID=103 MAC=02:aa:bb:cc:dd:04 NETWORK_IPV4=192.168.1.13 OBTAINED_AT=2025-09-17T12:43:00Z RENEW_AT=2025-09-17T12:53:00Z EXPIRE_AT=2048-09-17T13:43:00Z
+db/insert privnet-dhcp-leases lease-delete.yaml
+text/template endpoint.json.tmpl endpoint-delete.json ENDPOINT_ID=103 POD_NAME=pod-103 POD_IPV4=10.244.5.103 NETWORK_IPV4=192.168.1.13 MAC=02:aa:bb:cc:dd:04 ACTIVATED_AT=2025-09-17T12:43:00Z
+privnet/epm-create endpoint-delete.json
+privnet/epm-delete default/pod-103
+db/cmp privnet-dhcp-leases dhcp-leases.table
+
+# ---
+
+-- icpn.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: ClusterwidePrivateNetwork
+metadata:
+  name: blue-network
+spec:
+  routes: []
+  subnets:
+  - name: default-v4
+    cidrv4: 192.168.1.0/24
+    dhcp:
+      mode: broadcast
+
+-- subnets.table --
+Network        Name         ID   CIDRv4
+blue-network   default-v4   0x1  192.168.1.0/24
+
+-- endpoint.json.tmpl --
+{
+  "addressing": {
+    "ipv4": "{{.Args.POD_IPV4}}"
+  },
+  "id": {{.Args.ENDPOINT_ID}},
+  "k8s-namespace": "default",
+  "k8s-pod-name": "{{.Args.POD_NAME}}",
+  "mac": "{{.Args.MAC}}",
+  "properties": {
+    "isovalent-privnet-activated-at": "{{.Args.ACTIVATED_AT}}",
+    "isovalent-privnet-ipv4-addr": "{{.Args.NETWORK_IPV4}}",
+    "isovalent-privnet-network": "blue-network",
+    "isovalent-privnet-subnet": "default-v4",
+    "property-fake-endpoint": true
+  },
+  "state": null
+}
+-- lease.yaml.tmpl --
+network: blue-network
+endpointid: {{.Args.ENDPOINT_ID}}
+mac: "{{.Args.MAC}}"
+ipv4: {{.Args.NETWORK_IPV4}}
+serverid: 192.168.1.1
+obtainedat: {{.Args.OBTAINED_AT}}
+renewat: {{.Args.RENEW_AT}}
+expireat: {{.Args.EXPIRE_AT}}
+
+-- local-workloads.active.table --
+Endpoint          ID   Network        NetworkIPv4    PodIPv4
+default/pod-100   100  blue-network   192.168.1.10   10.244.5.100
+
+-- local-workloads.pending-active.table --
+Endpoint          ID   Network        NetworkIPv4   PodIPv4
+default/pod-100   100  blue-network   0.0.0.0       10.244.5.100
+
+-- local-workloads.pending-expired.table --
+Endpoint          ID   Network        NetworkIPv4    PodIPv4
+default/pod-100   100  blue-network   192.168.1.10   10.244.5.100
+default/pod-101   101  blue-network   0.0.0.0        10.244.5.101
+
+-- local-workloads.swept.table --
+Endpoint          ID   Network        NetworkIPv4    PodIPv4
+default/pod-100   100  blue-network   192.168.1.10   10.244.5.100
+default/pod-101   101  blue-network   0.0.0.0        10.244.5.101
+default/pod-102   102  blue-network   0.0.0.0        10.244.5.102
+
+-- dhcp-leases.table --
+Network        EndpointID   MAC                 IPv4
+blue-network   100          02:aa:bb:cc:dd:01   192.168.1.10

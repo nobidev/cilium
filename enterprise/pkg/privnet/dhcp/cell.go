@@ -43,8 +43,9 @@ import (
 //     via a raw socket.
 //  3. The server decodes the endpoint ID, looks up the local workload to figure out how
 //     to relay for this subnet and passes to the relay implementation.
-//  4. The handler records leases in `privnet-dhcp-leases` table and updates `privnet-local-workloads`.
-//  5. The change to local workloads is reconciled to devmappings and endpoint slices.
+//  4. The handler records leases in `privnet-dhcp-leases` table.
+//  5. The DHCP lease reconciler projects leases into local workloads, endpoint properties,
+//     device mappings, and endpoint slices.
 //
 // For more details on operation see e.g. `tests/testdata/dhcp-grpc.txtar` or the other test files.
 //

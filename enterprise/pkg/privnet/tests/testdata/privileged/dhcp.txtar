@@ -52,9 +52,15 @@ db/cmp privnet-dhcp-leases dhcp-leases.table
 # Restart hive to test recovery from WAL
 hive/stop
 hive/recreate
+k8s/add icpn.yaml
 hive/start
 
+# Add the endpoint
+privnet/epm-create endpoint-100.json
+
+# The leases should now be restored and the local workloads should be synced.
 db/cmp privnet-dhcp-leases dhcp-leases.table
+db/cmp privnet-local-workloads local-workloads.table
 
 # ---
 
