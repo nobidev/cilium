@@ -102,6 +102,16 @@ func (r *broadcastRelay) Relay(ctx context.Context, waitTime time.Duration, req 
 	r.addPending(key, respCh)
 	defer r.removePending(key)
 
+	if req.MessageType() == dhcpv4.MessageTypeRequest &&
+		req.ClientIPAddr != nil && !req.ClientIPAddr.IsUnspecified() {
+		// Turn unicast renewals into a broadcast "init-reboot" request by filling the
+		// "requested IP address" option and unsetting the client IP.
+		dhcpv4.WithOption(dhcpv4.OptRequestedIPAddress(req.ClientIPAddr))(req)
+		req.ClientIPAddr = nil
+	}
+	// Set broadcast bit to request responses via broadcast.
+	req.SetBroadcast()
+
 	r.log.Debug("Relaying DHCP request",
 		logfields.Type, req.MessageType(),
 		logfields.Xid, req.TransactionID,
