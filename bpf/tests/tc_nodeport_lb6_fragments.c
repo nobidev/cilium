@@ -52,6 +52,26 @@ ASSIGN_CONFIG(bool, enable_ipv6_fragments, true)
 	.reason = REASON_FRAG_PACKET, \
 	.dir = METRIC_SERVICE }
 
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const unsigned char lb6_nodeport_fragment1[] = {
+	SCAPY_BUF_BYTES(lb6_nodeport_fragment1)
+};
+
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const unsigned char lb6_nodeport_fragment2[] = {
+	SCAPY_BUF_BYTES(lb6_nodeport_fragment2)
+};
+
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const unsigned char lb6_nodeport_fragment1_post_dnat[] = {
+	SCAPY_BUF_BYTES(lb6_nodeport_fragment1_post_dnat)
+};
+
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const unsigned char lb6_nodeport_fragment2_post_dnat[] = {
+	SCAPY_BUF_BYTES(lb6_nodeport_fragment2_post_dnat)
+};
+
 /* Test that the 1st fragment of an external-to-nodeport request is handled correctly */
 PKTGEN("tc", "tc_nodeport_lb6_fragment1")
 int nodeport_lb6_fragment1_pktgen(struct __ctx_buff *ctx)
@@ -60,8 +80,7 @@ int nodeport_lb6_fragment1_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(LB6_NODEPORT_FRAGMENT1, lb6_nodeport_fragment1);
-	BUILDER_PUSH_BUF(builder, LB6_NODEPORT_FRAGMENT1);
+	scapy__push_data(&builder, (void *)lb6_nodeport_fragment1, sizeof(lb6_nodeport_fragment1));
 
 	pktgen__finish(&builder);
 
@@ -115,16 +134,15 @@ int nodeport_lb6_fragment1_check(struct __ctx_buff *ctx)
 	assert_metrics_count(metric_key, count);
 
 	/* Ensure packet has been DNAT correctly. */
-	BUF_DECL(LB6_NODEPORT_FRAGMENT1_POST_DNAT, lb6_nodeport_fragment1_post_dnat);
 	ASSERT_CTX_BUF_OFF("tcp6_first_fragment_ok", "Ether", ctx, sizeof(__u32),
-			   LB6_NODEPORT_FRAGMENT1_POST_DNAT,
-			   sizeof(BUF(LB6_NODEPORT_FRAGMENT1_POST_DNAT)));
+			   lb6_nodeport_fragment1_post_dnat,
+			   sizeof(lb6_nodeport_fragment1_post_dnat));
 
 	/* Ensure CT entry is updated accordingly (SVC). */
 	ct_entry = map_lookup_elem(get_ct_map6(&expected_ct_tuple), &expected_ct_tuple);
 	assert(ct_entry);
 	assert(ct_entry->packets == count);
-	assert(ct_entry->bytes == sizeof(BUF(LB6_NODEPORT_FRAGMENT1_POST_DNAT)));
+	assert(ct_entry->bytes == sizeof(lb6_nodeport_fragment1_post_dnat));
 
 	test_finish();
 }
@@ -137,8 +155,7 @@ int nodeport_lb6_fragment2_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(LB6_NODEPORT_FRAGMENT2, lb6_nodeport_fragment2);
-	BUILDER_PUSH_BUF(builder, LB6_NODEPORT_FRAGMENT2);
+	scapy__push_data(&builder, (void *)lb6_nodeport_fragment2, sizeof(lb6_nodeport_fragment2));
 
 	pktgen__finish(&builder);
 
@@ -176,18 +193,16 @@ int nodeport_lb6_fragment2_check(struct __ctx_buff *ctx)
 	assert_metrics_count(metric_key, count);
 
 	/* Ensure packet has been DNAT correctly. */
-	BUF_DECL(LB6_NODEPORT_FRAGMENT1_POST_DNAT, lb6_nodeport_fragment1_post_dnat);
-	BUF_DECL(LB6_NODEPORT_FRAGMENT2_POST_DNAT, lb6_nodeport_fragment2_post_dnat);
 	ASSERT_CTX_BUF_OFF("tcp6_second_fragment_ok", "Ether", ctx, sizeof(__u32),
-			   LB6_NODEPORT_FRAGMENT2_POST_DNAT,
-			   sizeof(BUF(LB6_NODEPORT_FRAGMENT2_POST_DNAT)));
+			   lb6_nodeport_fragment2_post_dnat,
+			   sizeof(lb6_nodeport_fragment2_post_dnat));
 
 	/* Ensure CT entry is updated accordingly (SVC). */
 	ct_entry = map_lookup_elem(get_ct_map6(&expected_ct_tuple), &expected_ct_tuple);
 	assert(ct_entry);
 	assert(ct_entry->packets == count);
-	assert(ct_entry->bytes == sizeof(BUF(LB6_NODEPORT_FRAGMENT1_POST_DNAT)) +
-				  sizeof(BUF(LB6_NODEPORT_FRAGMENT2_POST_DNAT)));
+	assert(ct_entry->bytes == sizeof(lb6_nodeport_fragment1_post_dnat) +
+				  sizeof(lb6_nodeport_fragment2_post_dnat));
 
 	test_finish();
 }
