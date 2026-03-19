@@ -335,7 +335,7 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reconciler := &importRouteReconciler{}
-			parsedPath, err := reconciler.parseV4Path(tt.inputPath, 65000)
+			parsedPath, err := reconciler.parseV4Path(tt.inputPath)
 			if tt.expectedErr != nil {
 				require.ErrorIs(t, tt.expectedErr, err)
 			} else {
@@ -616,7 +616,7 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reconciler := &importRouteReconciler{}
-			parsedPath, err := reconciler.parseV6Path(tt.inputPath, 65000)
+			parsedPath, err := reconciler.parseV6Path(tt.inputPath)
 			if tt.expectedErr != nil {
 				require.ErrorIs(t, tt.expectedErr, err)
 			} else {

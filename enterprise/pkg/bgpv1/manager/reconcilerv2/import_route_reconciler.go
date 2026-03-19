@@ -138,14 +138,14 @@ func (r *importRouteReconciler) Reconcile(ctx context.Context, _p reconciler.Sta
 
 	rtxn := r.db.ReadTxn()
 
-	currentDsts, err := r.currentDestinations(ctx, rtxn, owner)
+	currentDsts, err := r.currentDestinations(rtxn, owner)
 	if err != nil {
 		return err
 	}
 
 	toUpsert, toDelete := r.calculateDiff(desiredDsts, currentDsts)
 
-	return r.reconcileDesiredRoutes(ctx, rtxn, owner, toUpsert, toDelete)
+	return r.reconcileDesiredRoutes(rtxn, owner, toUpsert, toDelete)
 }
 
 type destination struct {
@@ -253,15 +253,6 @@ func (r *importRouteReconciler) parseRoutes(routes []*types.ExtendedRoute, isV4 
 			continue
 		}
 
-		// All best paths must have the same protocol (iBGP or eBGP)
-		firstIsIBGP := bestPaths[0].SourceASN == selfASN
-		for _, p := range bestPaths[1:] {
-			if (p.SourceASN == selfASN) != firstIsIBGP {
-				errs = errors.Join(errs, errMalformedPath)
-				continue
-			}
-		}
-
 		p, err := netip.ParsePrefix(route.Prefix)
 		if err != nil {
 			errs = errors.Join(errs, err)
@@ -270,20 +261,24 @@ func (r *importRouteReconciler) parseRoutes(routes []*types.ExtendedRoute, isV4 
 
 		dst := &destination{
 			prefix: p,
-			isIBGP: firstIsIBGP,
+			// All best paths should have a same protocol (eBGP
+			// beats iBGP in the best path selection), so we can
+			// check the first one to determine if it's iBGP or
+			// eBGP.
+			isIBGP: bestPaths[0].SourceASN == selfASN,
 		}
 
 		for _, bestPath := range bestPaths {
 			var parsed *path
 
 			if isV4 {
-				parsed, err = r.parseV4Path(bestPath, selfASN)
+				parsed, err = r.parseV4Path(bestPath)
 				if err != nil {
 					errs = errors.Join(errs, err)
 					continue
 				}
 			} else {
-				parsed, err = r.parseV6Path(bestPath, selfASN)
+				parsed, err = r.parseV6Path(bestPath)
 				if err != nil {
 					errs = errors.Join(errs, err)
 					continue
@@ -298,6 +293,11 @@ func (r *importRouteReconciler) parseRoutes(routes []*types.ExtendedRoute, isV4 
 			dst.paths = append(dst.paths, parsed)
 		}
 
+		if len(dst.paths) == 0 {
+			// No valid paths for this route, skip it.
+			continue
+		}
+
 		// Sort paths to have a deterministic order
 		dst.sortPaths()
 
@@ -307,7 +307,7 @@ func (r *importRouteReconciler) parseRoutes(routes []*types.ExtendedRoute, isV4 
 	return dsts, errs
 }
 
-func (r *importRouteReconciler) parseV4Path(p *types.ExtendedPath, selfASN uint32) (*path, error) {
+func (r *importRouteReconciler) parseV4Path(p *types.ExtendedPath) (*path, error) {
 	// For IPv4, we have two possible nexthopAttr encodings. One is the legacy
 	// IPv4 NEXT_HOP attribute, and the other is the MP_REACH_NLRI
 	// attribute. We need to handle both cases.
@@ -356,7 +356,7 @@ func (r *importRouteReconciler) parseV4Path(p *types.ExtendedPath, selfASN uint3
 	}, nil
 }
 
-func (r *importRouteReconciler) parseV6Path(p *types.ExtendedPath, selfASN uint32) (*path, error) {
+func (r *importRouteReconciler) parseV6Path(p *types.ExtendedPath) (*path, error) {
 	// For IPv6, we only expect the MP_REACH_NLRI attribute to be present.
 	var mpReachNLRIAttr *bgp.PathAttributeMpReachNLRI
 
@@ -431,7 +431,7 @@ func (r *importRouteReconciler) parseMPReachNLRINexthop(mpReachNLRIAttr *bgp.Pat
 	}
 }
 
-func (r *importRouteReconciler) currentDestinations(ctx context.Context, rtxn statedb.ReadTxn, owner *routeReconciler.RouteOwner) (map[netip.Prefix]*destination, error) {
+func (r *importRouteReconciler) currentDestinations(rtxn statedb.ReadTxn, owner *routeReconciler.RouteOwner) (map[netip.Prefix]*destination, error) {
 	dsts := map[netip.Prefix]*destination{}
 
 	// List all routes owned by this BGP instance
@@ -583,7 +583,7 @@ func (r *importRouteReconciler) maybeWithZone(nexthop netip.Addr, device *tables
 	return nexthop
 }
 
-func (r *importRouteReconciler) reconcileDesiredRoutes(ctx context.Context, rtxn statedb.ReadTxn, owner *routeReconciler.RouteOwner, toUpsert, toDelete []*destination) error {
+func (r *importRouteReconciler) reconcileDesiredRoutes(rtxn statedb.ReadTxn, owner *routeReconciler.RouteOwner, toUpsert, toDelete []*destination) error {
 	var errs error
 	for _, dst := range toUpsert {
 		route, err := r.toTableRoute(rtxn, owner, dst)
