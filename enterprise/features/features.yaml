@@ -194,6 +194,24 @@ features:
     helm:
       enterprise.loadbalancer.gatewayAPI.enabled: true
 
+  BGPRouteImport:
+    maturity: Beta
+    description: Import routes to the kernel FIB from BGP
+    skip-flag-check: true
+    flags:
+      enable-bgp-route-import: true
+    helm:
+      enterprise.bgpControlPlane.routeImport.enabled: true
+
+  EVPN:
+    maturity: Beta
+    description: EVPN support
+    skip-flag-check: true
+    flags:
+      enable-evpn: true
+    helm:
+      enterprise.evpn.enabled: true
+
   ##########################################
   # OSS features
   ##########################################
