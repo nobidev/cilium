@@ -347,6 +347,7 @@ enet
 enetc
 eni
 enqueuing
+entrypoints
 etcd
 etcdinit
 eth
@@ -373,6 +374,7 @@ filesystems
 firewalling
 fortio
 fqdn
+freplace
 fromCIDR
 fromCIDRSet
 fromEndpoints
@@ -716,6 +718,7 @@ reconnections
 recv
 regenerations
 regexes
+reinitialization
 relocations
 removeNodeTaints
 reparsing
@@ -783,6 +786,7 @@ subclasses
 subcommand
 subcommands
 subdirectories
+subdirectory
 subfeatures
 subnet
 subnets
