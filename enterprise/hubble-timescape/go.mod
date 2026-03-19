@@ -8,7 +8,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/isovalent/hubble-timescape/api v1.18.3
 	github.com/stretchr/testify v1.11.1
-	google.golang.org/grpc v1.79.1
+	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 	k8s.io/api v0.35.2
 	k8s.io/apimachinery v0.35.2
