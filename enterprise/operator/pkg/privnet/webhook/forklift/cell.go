@@ -13,11 +13,14 @@ package forklift
 import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
+	"github.com/spf13/pflag"
 )
 
 var Cell = cell.Module(
 	"private-networks-forklift",
 	"Private Networks Forkift Integration",
+
+	cell.Config(defaultConfig),
 
 	cell.ProvidePrivate(
 		// Provides the Read and ReadWrite providers table.
@@ -43,3 +46,22 @@ var Cell = cell.Module(
 		(*Reflector).ForPlans,
 	),
 )
+
+type Config struct {
+	URL             string `mapstructure:"private-networks-webhook-inventory-url"`
+	CAPath          string `mapstructure:"private-networks-webhook-inventory-ca-bundle-file"`
+	BearerTokenPath string `mapstructure:"private-networks-webhook-inventory-bearer-token-file"`
+}
+
+var defaultConfig = Config{
+	URL: "", CAPath: "", BearerTokenPath: "",
+}
+
+func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.String("private-networks-webhook-inventory-url", def.URL,
+		"The URL of the Forklift inventory service")
+	flags.String("private-networks-webhook-inventory-ca-bundle-file", def.CAPath,
+		"The path to the CA bundle for the Forklift inventory service")
+	flags.String("private-networks-webhook-inventory-bearer-token-file", def.BearerTokenPath,
+		"The path to the bearer token file to authenticate with the Forklift inventory service")
+}

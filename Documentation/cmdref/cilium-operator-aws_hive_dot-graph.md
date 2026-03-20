@@ -191,6 +191,9 @@ cilium-operator-aws hive dot-graph [flags]
       --private-networks-nad-integration-enabled                       Enable the private networks integration with Multus network attachment definitions
       --private-networks-webhook-enabled                               Enable the private networks webhook
       --private-networks-webhook-hostport string                       The address and port the private networks webhook listens to (default ":11443")
+      --private-networks-webhook-inventory-bearer-token-file string    The path to the bearer token file to authenticate with the Forklift inventory service
+      --private-networks-webhook-inventory-ca-bundle-file string       The path to the CA bundle for the Forklift inventory service
+      --private-networks-webhook-inventory-url string                  The URL of the Forklift inventory service
       --private-networks-webhook-network-binding string                The name of the KubeVirt network binding plugin enforced on mutated VMs
       --private-networks-webhook-tls-cert-file string                  The path to the webhook TLS certificate for the private networks webhook (default "/var/lib/cilium/privnet/webhook/tls/server.crt")
       --private-networks-webhook-tls-key-file string                   The path to the webhook TLS key for the private networks webhook (default "/var/lib/cilium/privnet/webhook/tls/server.key")
