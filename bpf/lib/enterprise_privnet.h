@@ -1568,7 +1568,7 @@ privnet_evpn_ingress_ipv4(struct __ctx_buff *ctx, __u16 net_id)
 	/* We only want to handle EVPN => Endpoint ingress at this
 	 * point. Drop in any other case for now.
 	 */
-	if (is_privnet_route_entry(dip_val))
+	if (dip_val->type != PRIVNET_FIB_VAL_TYPE_ENDPOINT)
 		return DROP_UNROUTABLE;
 
 	/* When we don't have an endpoint, don't route further. */
@@ -1603,7 +1603,7 @@ privnet_evpn_ingress_ipv6(struct __ctx_buff *ctx, __u16 net_id)
 	/* We only want to handle EVPN => Endpoint ingress at this
 	 * point. Drop in any other case for now.
 	 */
-	if (is_privnet_route_entry(dip_val))
+	if (dip_val->type != PRIVNET_FIB_VAL_TYPE_ENDPOINT)
 		return DROP_UNROUTABLE;
 
 	/* When we don't have an endpoint, don't route further. */
