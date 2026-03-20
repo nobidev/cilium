@@ -38,6 +38,11 @@ var Cell = cell.Module(
 		newReflector,
 	),
 
+	cell.Provide(
+		// Provides the abstraction to interact with the Forklift inventory.
+		newInventory,
+	),
+
 	cell.Invoke(
 		// Registers the k8s to providers table reflector.
 		(*Reflector).ForProviders,
