@@ -128,14 +128,14 @@
  *			- cil_from_container -> enterprise_privnet hook
  *		b. Privnet egress
  *			- lookup for net-id:sip/dip in privnet-fib map
- *			- sip/dip go through stateless nat to their equivalent pod ips.
+ *			- sip/dip go through stateless NAT to their equivalent pod IPs.
  *			- segmentation enforcement
  *		c. Packet follows regular Cilium datapath ( via overlay reaches INB )
  *		d. In cil_from_overlay, ingress processing of packet is done. Starting with external EP L3/L4 ingress policy
  *		   checks.
  *		e. Privnet ingress
  *			- lookup in privnet-pip map for pod IP to get private IPs
- *			- sip/dip go through stateless rev-nat back to original IPs.
+ *			- sip/dip go through stateless revNAT back to original IPs.
  *			- ingress segmentation enforced.
  *		f. Packet is redirected out to the attached privnet link.
  *	3. External EP to Pod
@@ -547,8 +547,7 @@ static __always_inline bool privnet_agent_alive(void)
 	return true;
 }
 
-/*
- * cilium_privnet_cidr_identity contains a global prefix to identity mapping
+/* cilium_privnet_cidr_identity contains a global prefix to identity mapping
  * used by privnet "unknown flow" policy. It works similar to cilium_ipcache,
  * but only contains prefixes that are guaranteed to not be managed by Cilium.
  */
@@ -861,14 +860,14 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			return ret;
 
 		if (!is_privnet_route_entry(dip_val)) {
-			/* Only nat if entry is for the endpoint, for route
-			 * entries, skip natting.
+			/* Only NAT if entry is for the endpoint, for route
+			 * entries, skip NATing.
 			 */
 			ret = nat_v4_addr(ctx, IPV4_DADDR_OFF, &ip4->daddr, &dip_val->ip4);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
-					 * successfully NATed the packet
+					 * successfully NATed the packet.
 					 */
 					set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
 				return ret;
@@ -893,14 +892,14 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			*src_privnet_entry = sip_val;
 
 		if (!is_privnet_route_entry(sip_val)) {
-			/* Only nat if entry is for the endpoint, for route
-			 * entries, skip natting.
+			/* Only NAT if entry is for the endpoint, for route
+			 * entries, skip NATing.
 			 */
 			ret = nat_v4_addr(ctx, IPV4_SADDR_OFF, &ip4->saddr, &sip_val->ip4);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
-					 * successfully NATed the packet
+					 * successfully NATed the packet.
 					 */
 					set_privnet_net_src_id(PRIVNET_PIP_NET_ID);
 				return ret;
@@ -1046,7 +1045,7 @@ privnet_evpn_egress_ipv6(struct __ctx_buff *ctx, __u16 net_id,
 	return CTX_ACT_OK;
 }
 
-/* see ipv4 comment */
+/* See comment for privnet_egress_ipv4() */
 static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 					       __u32 sec_label, __u16 net_id, __u16 subnet_id,
 					       const struct privnet_fib_val **src_privnet_entry,
@@ -1140,7 +1139,7 @@ privnet_pip_lookup6(union v6addr addr) {
 
 /*
  * Semantics of enforce_privnet_ingress_segmentation are slightly different from
- * enforce_privnet_egress_segmentation. pip map does not contain route entries,
+ * enforce_privnet_egress_segmentation. PIP map does not contain route entries,
  * therefore for unknown flow, we do not get route hit.
  */
 static __always_inline int
@@ -1264,12 +1263,12 @@ privnet_unknown_policy_ingress4(struct __ctx_buff *ctx,
 	return verdict;
 }
 
-/* privnet_ingress_ipv4 should be called for privnet enabled endpoints when traffic is going to
- * those endpoints.
+/* privnet_ingress_ipv4 should be called for privnet enabled endpoints when
+ * traffic is going to those endpoints.
  *
  * Following changes are done in this call
  * - Lookup of private IP from PIPs.
- * - Translating pip to private IPs, for both source and destination.
+ * - Translating PIP to private IPs, for both source and destination.
  * - Enforce segmentation to prevent invalid traffic from going to the destination.
  */
 static __always_inline int
