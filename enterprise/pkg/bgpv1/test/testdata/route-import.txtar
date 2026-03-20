@@ -55,6 +55,10 @@ gobgp/add-route -s v6 -c 200:200 2001:db8:5::/72
 gobgp/add-route -s v4 -c 65001:200:200 10.6.0.0/26
 gobgp/add-route -s v6 -c 65001:200:200 2001:db8:6::/72
 
+# Advertise error routes (link-local nexthop from non-unnumbered peering)
+gobgp/add-route -s v4 10.0.0.1/32 fe80::1 fe80::1
+gobgp/add-route -s v6 2001:db8::1/128 fe80::1 fe80::1
+
 # Ensure all routes are in v4 server's RIB
 gobgp/routes -s v4 -o gobgp-rib-v4.actual ipv4 unicast
 * cmp gobgp-rib-v4.expected gobgp-rib-v4.actual
@@ -64,11 +68,11 @@ gobgp/routes -s v6 -o gobgp-rib-v6.actual ipv6 unicast
 * cmp gobgp-rib-v6.expected gobgp-rib-v6.actual
 
 # Ensure expected v4 routes are imported
-bgp/routes -o bgp-rib-v4.actual --no-age loc ipv4 unicast
+bgp/routes-extended -o bgp-rib-v4.actual --no-age loc ipv4 unicast
 * cmp bgp-rib-v4.expected bgp-rib-v4.actual
 
 # Ensure expected v6 routes are imported
-bgp/routes -o bgp-rib-v6.actual --no-age loc ipv6 unicast
+bgp/routes-extended -o bgp-rib-v6.actual --no-age loc ipv6 unicast
 * cmp bgp-rib-v6.expected bgp-rib-v6.actual
 
 # Ensure routes are written into the RIB
@@ -79,9 +83,9 @@ gobgp/delete-server v4
 gobgp/delete-server v6
 
 # Ensure routes are deleted
-bgp/routes -o bgp-rib-v4.actual --no-age loc ipv4 unicast
+bgp/routes-extended -o bgp-rib-v4.actual --no-age loc ipv4 unicast
 * cmp bgp-rib-empty.expected bgp-rib-v4.actual
-bgp/routes -o bgp-rib-v6.actual --no-age loc ipv6 unicast
+bgp/routes-extended -o bgp-rib-v6.actual --no-age loc ipv6 unicast
 * cmp bgp-rib-empty.expected bgp-rib-v6.actual
 
 # Ensure routes are removed from the RIB
@@ -173,6 +177,7 @@ spec:
           - prefix: 10.0.0.0/24
             minLen: 24
             maxLen: 28
+          - prefix: 10.0.0.1/32
           - prefix: 0.0.0.0/0
         prefixesV6:
           matchType: Or
@@ -180,6 +185,7 @@ spec:
           - prefix: 2001:db8::/64
             minLen: 64
             maxLen: 80
+          - prefix: 2001:db8::1/128
           - prefix: ::/0
       actions:
         routeAction: Accept
@@ -208,16 +214,16 @@ spec:
         routeAction: Accept
 
 -- bgp-policy.expected --
-Instance    Policy Name                                Type     Match Peers          Match Families   Match Prefixes (Min..Max Len)                     Match Communities                                          RIB Action   Path Actions
-instance0   allow-local                                import                                                                                                                                                      accept       
-instance0   import-user-defined-peer-v4-ipv4-unicast   import   10.100.100.1         ipv4/unicast                                                       ^65535:666$                                                reject       
-                                                                10.100.100.1         ipv4/unicast     (any) {0.0.0.0/0 (0..0)} {10.0.0.0/24 (24..28)}                                                              accept       
-                                                                10.100.100.1         ipv4/unicast                                                       ^65001:100$                                                accept       
-                                                                10.100.100.1         ipv4/unicast                                                       (all) {^65001:200$} {^65001:201$} Large: ^65001:200:200$   accept       
-instance0   import-user-defined-peer-v6-ipv6-unicast   import   fd00:10:100:100::1   ipv6/unicast                                                       ^65535:666$                                                reject       
-                                                                fd00:10:100:100::1   ipv6/unicast     (any) {::/0 (0..0)} {2001:db8::/64 (64..80)}                                                                 accept       
-                                                                fd00:10:100:100::1   ipv6/unicast                                                       ^65001:100$                                                accept       
-                                                                fd00:10:100:100::1   ipv6/unicast                                                       (all) {^65001:200$} {^65001:201$} Large: ^65001:200:200$   accept       
+Instance    Policy Name                                Type     Match Peers          Match Families   Match Prefixes (Min..Max Len)                                               Match Communities                                          RIB Action   Path Actions
+instance0   allow-local                                import                                                                                                                                                                                accept       
+instance0   import-user-defined-peer-v4-ipv4-unicast   import   10.100.100.1         ipv4/unicast                                                                                 ^65535:666$                                                reject       
+                                                                10.100.100.1         ipv4/unicast     (any) {0.0.0.0/0 (0..0)} {10.0.0.0/24 (24..28)} {10.0.0.1/32 (32..32)}                                                                 accept       
+                                                                10.100.100.1         ipv4/unicast                                                                                 ^65001:100$                                                accept       
+                                                                10.100.100.1         ipv4/unicast                                                                                 (all) {^65001:200$} {^65001:201$} Large: ^65001:200:200$   accept       
+instance0   import-user-defined-peer-v6-ipv6-unicast   import   fd00:10:100:100::1   ipv6/unicast                                                                                 ^65535:666$                                                reject       
+                                                                fd00:10:100:100::1   ipv6/unicast     (any) {::/0 (0..0)} {2001:db8::/64 (64..80)} {2001:db8::1/128 (128..128)}                                                              accept       
+                                                                fd00:10:100:100::1   ipv6/unicast                                                                                 ^65001:100$                                                accept       
+                                                                fd00:10:100:100::1   ipv6/unicast                                                                                 (all) {^65001:200$} {^65001:201$} Large: ^65001:200:200$   accept       
 -- gobgp-rib-v4.expected --
 Prefix        NextHop   Attrs
 0.0.0.0/0     0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
@@ -227,6 +233,7 @@ Prefix        NextHop   Attrs
 10.0.0.0/26   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
 10.0.0.0/28   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
 10.0.0.0/29   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
+10.0.0.1/32   fe80::1   [{Origin: i} {MpReach(ipv4-unicast): {Nexthop: fe80::1, NLRIs: [10.0.0.1/32]}}]
 10.1.0.0/24   0.0.0.0   [{Origin: i} {Communities: 65001:100} {Nexthop: 0.0.0.0}]
 10.2.0.0/24   0.0.0.0   [{Origin: i} {Communities: 65001:200, 65001:201} {LargeCommunity: [ 65001:200:200]} {Nexthop: 0.0.0.0}]
 10.3.0.0/24   0.0.0.0   [{Origin: i} {Nexthop: 0.0.0.0}]
@@ -247,23 +254,26 @@ Prefix            NextHop   Attrs
 2001:db8::/72     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/72]}}]
 2001:db8::/80     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/80]}}]
 2001:db8::/81     ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [2001:db8::/81]}}]
+2001:db8::1/128   fe80::1   [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: fe80::1, NLRIs: [2001:db8::1/128]}}]
 ::/0              ::        [{Origin: i} {MpReach(ipv6-unicast): {Nexthop: ::, NLRIs: [::/0]}}]
 -- bgp-rib-v4.expected --
-Instance    Prefix        NextHop        Best   Age
-instance0   0.0.0.0/0     10.100.100.1   true   -
-            10.0.0.0/24   10.100.100.1   true   -
-            10.0.0.0/26   10.100.100.1   true   -
-            10.0.0.0/28   10.100.100.1   true   -
-            10.1.0.0/24   10.100.100.1   true   -
-            10.2.0.0/24   10.100.100.1   true   -
+Instance    Peer      Prefix        NextHop        Best   Age   Error
+instance0   peer-v4   0.0.0.0/0     10.100.100.1   true   -     -
+                      10.0.0.0/24   10.100.100.1   true   -     -
+                      10.0.0.0/26   10.100.100.1   true   -     -
+                      10.0.0.0/28   10.100.100.1   true   -     -
+                      10.0.0.1/32   fe80::1        true   -     Unsupported Nexthop
+                      10.1.0.0/24   10.100.100.1   true   -     -
+                      10.2.0.0/24   10.100.100.1   true   -     -
 -- bgp-rib-v6.expected --
-Instance    Prefix            NextHop              Best   Age
-instance0   2001:db8:1::/64   fd00:10:100:100::1   true   -
-            2001:db8:2::/64   fd00:10:100:100::1   true   -
-            2001:db8::/64     fd00:10:100:100::1   true   -
-            2001:db8::/72     fd00:10:100:100::1   true   -
-            2001:db8::/80     fd00:10:100:100::1   true   -
-            ::/0              fd00:10:100:100::1   true   -
+Instance    Peer      Prefix            NextHop              Best   Age   Error
+instance0   peer-v6   2001:db8:1::/64   fd00:10:100:100::1   true   -     -
+                      2001:db8:2::/64   fd00:10:100:100::1   true   -     -
+                      2001:db8::/64     fd00:10:100:100::1   true   -     -
+                      2001:db8::/72     fd00:10:100:100::1   true   -     -
+                      2001:db8::/80     fd00:10:100:100::1   true   -     -
+                      2001:db8::1/128   fe80::1              true   -     Unsupported Nexthop
+                      ::/0              fd00:10:100:100::1   true   -     -
 -- desired-routes.expected --
 Owner           Table        Prefix            Priority   AD    Selected   Nexthop              Src    Device   MultiPath   MTU    Scope      Type
 bgp-instance0   main (254)   ::/0              none       200   true       fd00:10:100:100::1   none   none     none        none   universe   unicast
@@ -279,6 +289,6 @@ bgp-instance0   main (254)   2001:db8::/80     none       200   true       fd00:
 bgp-instance0   main (254)   2001:db8:1::/64   none       200   true       fd00:10:100:100::1   none   none     none        none   universe   unicast
 bgp-instance0   main (254)   2001:db8:2::/64   none       200   true       fd00:10:100:100::1   none   none     none        none   universe   unicast
 -- bgp-rib-empty.expected --
-Instance   Prefix   NextHop   Best   Age
+Instance   Peer   Prefix   NextHop   Best   Age   Error
 -- desired-routes-empty.expected --
 Owner             Table        Prefix          Priority   AD    Selected   Nexthop              Src    Device   MTU    Scope      Type

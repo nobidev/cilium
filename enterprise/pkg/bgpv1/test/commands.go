@@ -13,6 +13,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/netip"
 	"sort"
 	"strconv"
@@ -343,7 +344,7 @@ func AddRoute(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "Adds a route to the GoBGP RIB",
-			Args:    "prefix",
+			Args:    "prefix [nexthop] [llnexthop]",
 			Flags: func(fs *pflag.FlagSet) {
 				fs.StringP(
 					commands.ServerNameFlag,
@@ -366,22 +367,102 @@ func AddRoute(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
 			if len(args) < 1 {
-				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/add-route prefix nexthop'")
+				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/add-route prefix [nexthop] [llnexthop]'")
 			}
+			if len(args) > 3 {
+				return nil, fmt.Errorf("invalid command format, too many arguments: 'gobgp/add-route prefix [nexthop] [llnexthop]'")
+			}
+
+			prefix, err := netip.ParsePrefix(args[0])
+			if err != nil {
+				return nil, fmt.Errorf("invalid prefix: %s", args[0])
+			}
+
+			var nexthop, llnexthop netip.Addr
+			if len(args) >= 2 {
+				nexthop, err = netip.ParseAddr(args[1])
+				if err != nil {
+					return nil, fmt.Errorf("invalid nexthop: %s", args[1])
+				}
+			}
+			if len(args) >= 3 {
+				llnexthop, err = netip.ParseAddr(args[2])
+				if err != nil {
+					return nil, fmt.Errorf("invalid link-local nexthop: %s", args[2])
+				}
+			}
+
 			return func(*script.State) (stdout, stderr string, err error) {
 				goBGPServer, err := commands.GetGoBGPServer(s, cmdCtx)
 				if err != nil {
 					return "", "", fmt.Errorf("failed to get GoBGP server: %w", err)
 				}
 
-				prefix, err := netip.ParsePrefix(args[0])
-				if err != nil {
-					return "", "", fmt.Errorf("invalid prefix: %s", args[0])
+				originAttr := bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_IGP)
+
+				var nlri bgp.AddrPrefixInterface
+				if prefix.Addr().Is4() {
+					nlri = bgp.NewIPAddrPrefix(uint8(prefix.Bits()), prefix.Addr().String())
+				} else {
+					nlri = bgp.NewIPv6AddrPrefix(uint8(prefix.Bits()), prefix.Addr().String())
 				}
 
-				path, err := gobgp.ToGoBGPPath(types.NewPathForPrefix(prefix))
-				if err != nil {
-					return "", "", fmt.Errorf("failed to convert prefix to GoBGP path: %w", err)
+				var path *gobgpapi.Path
+				switch {
+				case len(args) == 1:
+					// Defaulting case. Keep the
+					// compatibility with the existing
+					// behavior.
+					path, err = gobgp.ToGoBGPPath(types.NewPathForPrefix(prefix))
+					if err != nil {
+						return "", "", fmt.Errorf("failed to convert prefix to GoBGP path: %w", err)
+					}
+				case len(args) == 2:
+					if prefix.Addr().Is4() && nexthop.Is4() {
+						// v4 prefix with v4 nexthop. Use regular NEXTHOP attribute.
+						nextHopAttr := bgp.NewPathAttributeNextHop(nexthop.String())
+						path, err = gobgp.ToGoBGPPath(&types.Path{
+							NLRI: nlri,
+							PathAttributes: []bgp.PathAttributeInterface{
+								originAttr,
+								nextHopAttr,
+							},
+						})
+						if err != nil {
+							return "", "", fmt.Errorf("failed to convert prefix and nexthop to GoBGP path: %w", err)
+						}
+					} else {
+						// Other cases (v4 prefix with
+						// v6 nexthop, v6 prefix with v6
+						// nexthop) are encoded using
+						// MP_REACH_NLRI attribute.
+						mpReachNLRIAttr := bgp.NewPathAttributeMpReachNLRI(nexthop.String(), []bgp.AddrPrefixInterface{nlri})
+						path, err = gobgp.ToGoBGPPath(&types.Path{
+							NLRI: nlri,
+							PathAttributes: []bgp.PathAttributeInterface{
+								originAttr,
+								mpReachNLRIAttr,
+							},
+						})
+						if err != nil {
+							return "", "", fmt.Errorf("failed to convert prefix and nexthop to GoBGP path: %w", err)
+						}
+					}
+				case len(args) >= 3:
+					// Link-local nexthop is only usable
+					// with MP_REACH_NLRI attribute.
+					mpReachNLRIAttr := bgp.NewPathAttributeMpReachNLRI(nexthop.String(), []bgp.AddrPrefixInterface{nlri})
+					mpReachNLRIAttr.LinkLocalNexthop = net.ParseIP(llnexthop.String())
+					path, err = gobgp.ToGoBGPPath(&types.Path{
+						NLRI: nlri,
+						PathAttributes: []bgp.PathAttributeInterface{
+							originAttr,
+							mpReachNLRIAttr,
+						},
+					})
+					if err != nil {
+						return "", "", fmt.Errorf("failed to convert prefix and nexthops to GoBGP path: %w", err)
+					}
 				}
 
 				commValues, err := s.Flags.GetStringSlice(communitiesFlag)
