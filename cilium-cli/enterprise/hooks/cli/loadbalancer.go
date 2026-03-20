@@ -21,6 +21,7 @@ func NewCmdLoadbalancer() *cobra.Command {
 	cmd.AddCommand(newCmdServiceStatus())
 	cmd.AddCommand(newCmdLoadbalancerT2ApplicationlogStreamer())
 	cmd.AddCommand(newCmdLoadbalancerT2AccesslogStreamer())
+	cmd.AddCommand(NewCmdK8sBackend())
 
 	return cmd
 }
