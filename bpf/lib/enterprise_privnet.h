@@ -9,6 +9,7 @@
 #include "drop_reasons.h"
 #include "eps.h"
 #include "icmp6.h"
+#include "ipfrag.h"
 #include "local_delivery.h"
 #include "trace.h"
 
@@ -319,16 +320,32 @@ privnet_nat_v4_addr(struct __ctx_buff *ctx, __be32 old_addr, __be32 new_addr, in
 }
 
 static __always_inline int
-nat_v6_addr(struct __ctx_buff *ctx, int l3_off, const union v6addr *new_addr)
+privnet_nat_v6_addr(struct __ctx_buff *ctx, const union v6addr *old_addr,
+		    const union v6addr *new_addr, int addr_off)
 {
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
+	fraginfo_t fraginfo;
+	__u8 nexthdr;
+	__wsum sum;
+	int hdrlen;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &nexthdr, &fraginfo);
+	if (hdrlen < 0)
+		return hdrlen;
 
-	if (ctx_store_bytes(ctx, ETH_HLEN + l3_off, new_addr, 16, 0) < 0)
+	sum = csum_diff(old_addr, 16, new_addr, 16, 0);
+	if (ctx_store_bytes(ctx, ETH_HLEN + addr_off, new_addr, 16, 0) < 0)
 		return DROP_WRITE_ERROR;
+
+	if (ipfrag_has_l4_header(fraginfo)) {
+		struct csum_offset csum = {};
+
+		csum_l4_offset_and_flags(nexthdr, &csum);
+
+		/* Amend the L4 checksum due to changing the addresses. */
+		if (csum.offset &&
+		    csum_l4_replace(ctx, ETH_HLEN + hdrlen, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+			return DROP_CSUM_L4;
+	}
 
 	return CTX_ACT_OK;
 }
@@ -1079,7 +1096,8 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 			return ret;
 
 		if (!is_privnet_route_entry(dip_val)) {
-			ret = nat_v6_addr(ctx, IPV6_DADDR_OFF, &dip_val->ip6);
+			ret = privnet_nat_v6_addr(ctx, &orig_dip, &dip_val->ip6,
+						  IPV6_DADDR_OFF);
 			if (IS_ERR(ret))
 				return ret;
 			/* Set net id to default network.*/
@@ -1098,7 +1116,8 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 			*src_privnet_entry = sip_val;
 
 		if (!is_privnet_route_entry(sip_val)) {
-			ret = nat_v6_addr(ctx, IPV6_SADDR_OFF, &sip_val->ip6);
+			ret = privnet_nat_v6_addr(ctx, &orig_sip, &sip_val->ip6,
+						  IPV6_SADDR_OFF);
 			if (IS_ERR(ret))
 				return ret;
 			/* Set net id to default network.*/
@@ -1475,7 +1494,8 @@ privnet_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id, bool
 			*src_privnet_entry = sip_val;
 
 		if (net_id == sip_val->net_id || net_id == 0) {
-			ret = nat_v6_addr(ctx, IPV6_SADDR_OFF, &sip_val->ip6);
+			ret = privnet_nat_v6_addr(ctx, &orig_sip, &sip_val->ip6,
+						  IPV6_SADDR_OFF);
 			if (IS_ERR(ret))
 				return ret;
 			/* Set net id to target network.*/
@@ -1496,7 +1516,8 @@ privnet_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id, bool
 
 		if (net_id == dip_val->net_id ||
 		    (sip_val && sip_val->net_id == dip_val->net_id)) {
-			ret = nat_v6_addr(ctx, IPV6_DADDR_OFF, &dip_val->ip6);
+			ret = privnet_nat_v6_addr(ctx, &orig_dip, &dip_val->ip6,
+						  IPV6_DADDR_OFF);
 			if (IS_ERR(ret))
 				return ret;
 			/* Set net id to target network.*/
