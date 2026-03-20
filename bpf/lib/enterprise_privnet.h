@@ -281,12 +281,12 @@ struct privnet_subnet_val {
 };
 
 static __always_inline int
-nat_v4_addr(struct __ctx_buff *ctx, int l3_off, const __be32 *old_addr, const __be32 *new_addr)
+privnet_nat_v4_addr(struct __ctx_buff *ctx, __be32 old_addr, __be32 new_addr, int addr_off)
 {
 	void *data, *data_end;
+	bool has_l4_header;
 	struct iphdr *ip4;
 	__u8 nexthdr;
-	bool has_l4_header;
 	__u64 l4_off;
 	__wsum sum;
 
@@ -297,22 +297,21 @@ nat_v4_addr(struct __ctx_buff *ctx, int l3_off, const __be32 *old_addr, const __
 	has_l4_header = ipfrag_has_l4_header(ipfrag_encode_ipv4(ip4));
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-	sum = csum_diff(old_addr, 4, new_addr, 4, 0);
-	if (ctx_store_bytes(ctx, ETH_HLEN + l3_off, new_addr, 4, 0) < 0)
+	sum = csum_diff(&old_addr, 4, &new_addr, 4, 0);
+	if (ctx_store_bytes(ctx, ETH_HLEN + addr_off, &new_addr, 4, 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0)
 		return DROP_CSUM_L3;
 
 	if (has_l4_header) {
-		int flags = BPF_F_PSEUDO_HDR;
 		struct csum_offset csum = {};
 
 		csum_l4_offset_and_flags(nexthdr, &csum);
 
 		/* Amend the L4 checksum due to changing the addresses. */
 		if (csum.offset &&
-		    csum_l4_replace(ctx, l4_off, &csum, 0, sum, flags) < 0)
+		    csum_l4_replace(ctx, l4_off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
 
@@ -863,7 +862,7 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			/* Only NAT if entry is for the endpoint, for route
 			 * entries, skip NATing.
 			 */
-			ret = nat_v4_addr(ctx, IPV4_DADDR_OFF, &ip4->daddr, &dip_val->ip4);
+			ret = privnet_nat_v4_addr(ctx, ip4->daddr, dip_val->ip4, IPV4_DADDR_OFF);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
@@ -895,7 +894,7 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			/* Only NAT if entry is for the endpoint, for route
 			 * entries, skip NATing.
 			 */
-			ret = nat_v4_addr(ctx, IPV4_SADDR_OFF, &ip4->saddr, &sip_val->ip4);
+			ret = privnet_nat_v4_addr(ctx, ip4->saddr, sip_val->ip4, IPV4_SADDR_OFF);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
@@ -1295,7 +1294,7 @@ privnet_ingress_ipv4(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id, bool
 			*src_privnet_entry = sip_val;
 
 		if (net_id == sip_val->net_id || net_id == 0) {
-			ret = nat_v4_addr(ctx, IPV4_SADDR_OFF, &ip4->saddr, &sip_val->ip4);
+			ret = privnet_nat_v4_addr(ctx, ip4->saddr, sip_val->ip4, IPV4_SADDR_OFF);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
@@ -1338,7 +1337,7 @@ privnet_ingress_ipv4(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id, bool
 		 */
 		if (net_id == dip_val->net_id ||
 		    (sip_val && sip_val->net_id == dip_val->net_id)) {
-			ret = nat_v4_addr(ctx, IPV4_DADDR_OFF, &ip4->daddr, &dip_val->ip4);
+			ret = privnet_nat_v4_addr(ctx, ip4->daddr, dip_val->ip4, IPV4_DADDR_OFF);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
