@@ -6,9 +6,9 @@
 #include "arp.h"
 #include "conntrack.h"
 #include "conntrack_map.h"
+#include "drop_reasons.h"
 #include "eps.h"
 #include "icmp6.h"
-#include "l4.h"
 #include "local_delivery.h"
 #include "trace.h"
 
@@ -16,8 +16,6 @@
 #include "enterprise_privnet_conntrack.h"
 #include "enterprise_ext_eps_policy.h"
 #include "enterprise_evpn.h"
-#include "lib/drop_reasons.h"
-#include "lib/local_delivery.h"
 
 /*
  * Privnet datapath for communication between kubernetes cluster and Isovalent Network Bridge.
