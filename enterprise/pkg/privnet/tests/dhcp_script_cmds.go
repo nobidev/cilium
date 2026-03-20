@@ -23,6 +23,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"testing"
 
 	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
@@ -32,6 +33,7 @@ import (
 	"github.com/gopacket/gopacket/layers"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/mdlayher/socket"
+	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -42,11 +44,44 @@ import (
 	dptables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func dhcpScriptCmdsCell() cell.Cell {
+type dhcpTestConfig struct {
+	StaticRelay bool `mapstructure:"privnet-test-dhcp-static-relay"`
+}
+
+func (def dhcpTestConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("privnet-test-dhcp-static-relay", def.StaticRelay, "Use a static DHCP relay in privnet script tests")
+}
+
+func dhcpScriptCmdsCell(t testing.TB) cell.Cell {
 	return cell.Group(
+		cell.Config(dhcpTestConfig{StaticRelay: true}),
+
+		cell.Provide(
+			func() (*dhcp.TestConfig, *netns.NetNS) {
+				cfg := &dhcp.TestConfig{
+					LeaseSweepInterval: 50 * time.Millisecond,
+				}
+
+				if testutils.IsPrivileged() {
+					// Create a new network namespace for the privileged test cases.
+					ns, err := netns.New()
+					if err != nil {
+						t.Fatalf("failed to create netns: %v", err)
+					}
+					t.Cleanup(func() {
+						_ = ns.Close()
+					})
+					cfg.NetNS = ns
+					return cfg, ns
+				}
+				return cfg, nil
+			},
+		),
+
 		cell.DecorateAll(func(cfg dhcpTestConfig, relay dhcp.RelayFactory, connFactory grpcclient.ConnFactoryFn) dhcp.RelayFactory {
 			if cfg.StaticRelay {
 				return &dhcp.StaticRelayFactory{Relay: &dhcp.StaticRelay{

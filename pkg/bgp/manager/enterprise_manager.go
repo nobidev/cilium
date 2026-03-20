@@ -14,8 +14,68 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
+	ossTypes "github.com/cilium/cilium/pkg/bgp/types"
 )
+
+var _ agent.EnterpriseBGPRouterManager = (*BGPRouterManager)(nil)
+
+// GetRoutesExtended returns BGP routes of the specified BGP instance from underlying router.
+func (m *BGPRouterManager) GetRoutesExtended(ctx context.Context, req *agent.GetRoutesExtendedRequest) (*agent.GetRoutesExtendedResponse, error) {
+	m.RLock()
+	defer m.RUnlock()
+
+	if !m.running {
+		return nil, fmt.Errorf("bgp router manager is not running")
+	}
+
+	var res agent.GetRoutesExtendedResponse
+	for _, i := range m.BGPInstances {
+		entRouter := i.Router.(types.EnterpriseRouter)
+
+		switch req.TableType {
+		case ossTypes.TableTypeAdjRIBIn, ossTypes.TableTypeAdjRIBOut:
+			peerState, err := i.Router.GetPeerState(ctx, &ossTypes.GetPeerStateRequest{})
+			if err != nil {
+				return nil, err
+			}
+
+			for _, peer := range peerState.Peers {
+				rs, err := entRouter.GetRoutesExtended(ctx, &types.GetRoutesExtendedRequest{
+					GetRoutesRequest: ossTypes.GetRoutesRequest{
+						TableType: req.TableType,
+						Family:    req.Family,
+						Neighbor:  peer.Address,
+					},
+				})
+				if err != nil {
+					return nil, err
+				}
+				res.Instances = append(res.Instances, agent.InstanceRoutesExtended{
+					InstanceName: i.Name,
+					NeighborName: peer.Name,
+					Routes:       rs.Routes,
+				})
+			}
+		default:
+			rs, err := entRouter.GetRoutesExtended(ctx, &types.GetRoutesExtendedRequest{
+				GetRoutesRequest: ossTypes.GetRoutesRequest{
+					TableType: req.TableType,
+					Family:    req.Family,
+				},
+			})
+			if err != nil {
+				return nil, err
+			}
+			res.Instances = append(res.Instances, agent.InstanceRoutesExtended{
+				InstanceName: i.Name,
+				Routes:       rs.Routes,
+			})
+		}
+	}
+	return &res, nil
+}
 
 // GetRoutePoliciesExtended returns BGP routing policies of the specified BGP instance from underlying router.
 func (m *BGPRouterManager) GetRoutePoliciesExtended(ctx context.Context, instanceName string) (map[string][]*types.ExtendedRoutePolicy, error) {

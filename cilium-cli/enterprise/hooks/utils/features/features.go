@@ -37,6 +37,7 @@ const (
 
 	EnterpriseBGPControlPlane features.Feature = "enable-enterprise-bgp-control-plane"
 	BFD                       features.Feature = "enable-bfd"
+	EVPN                      features.Feature = "enable-evpn"
 
 	// RemoteClusterTunnel: the routing mode configured in the remote cluster.
 	RemoteClusterTunnel features.Feature = "remote-cluster-tunnel"
@@ -135,6 +136,10 @@ func extractFromConfigMap(ctx context.Context, ct *check.ConnectivityTest) error
 		Enabled: cm.Data[string(BFD)] == "true",
 	}
 
+	ct.Features[EVPN] = features.Status{
+		Enabled: cm.Data[string(EVPN)] == "true",
+	}
+
 	ct.Features[PhantomServices] = features.Status{
 		Enabled: phantomServicesEnabled(cm.Data, ct.CiliumVersion),
 	}
@@ -193,6 +198,10 @@ func ExtractFromSysdumpCollector(collector *sysdump.Collector) error {
 
 	collector.FeatureSet[BFD] = features.Status{
 		Enabled: cm != nil && cm.Data[string(BFD)] == "true",
+	}
+
+	collector.FeatureSet[EVPN] = features.Status{
+		Enabled: cm != nil && cm.Data[string(EVPN)] == "true",
 	}
 
 	collector.FeatureSet[EncryptionPolicy] = features.Status{

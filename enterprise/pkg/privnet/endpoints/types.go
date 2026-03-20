@@ -44,6 +44,7 @@ const (
 type EndpointGetter interface {
 	Subscribe(s EndpointSubscriber)
 
+	LookupID(id uint16) (ep Endpoint)
 	LookupCEPName(nsname string) (ep Endpoint)
 	GetEndpointsByPodName(nsname string) iter.Seq[Endpoint]
 }

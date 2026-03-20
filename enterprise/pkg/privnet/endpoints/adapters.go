@@ -52,6 +52,17 @@ type endpointManagerAdapter struct {
 	epm endpointmanager.EndpointManager
 }
 
+// LookupID implements EndpointGetter.
+func (e endpointManagerAdapter) LookupID(id uint16) Endpoint {
+	ep := e.epm.LookupCiliumID(id)
+	if ep == nil {
+		// This is needed to avoid having the returned interface value
+		// holding a nil concrete value that is itself non-nil.
+		return nil
+	}
+	return ep
+}
+
 // RemoveByCEPName implements EndpointRemover.
 func (e endpointManagerAdapter) RemoveByCEPName(nsname string) (Endpoint, error) {
 	ep := e.epm.LookupCEPName(nsname)

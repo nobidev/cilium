@@ -175,9 +175,8 @@ spec:
                       x-kubernetes-map-type: atomic
                     name:
                       description: |-
-                        Name is an optional identifier for this discovery configuration.
-                        If specified, it will be used in status reporting to identify which
-                        configuration discovered each service.
+                        Name identifies this discovery configuration. It is used in status
+                        reporting to indicate which configuration discovered each service.
                       maxLength: 63
                       minLength: 1
                       type: string
@@ -190,8 +189,18 @@ spec:
                       maxItems: 100
                       type: array
                       x-kubernetes-list-type: set
+                  required:
+                  - name
                   type: object
                 type: array
+              targetNamespace:
+                description: |-
+                  TargetNamespace is the namespace where ILB resources (LBService, LBVIP,
+                  LBBackendPool) will be created. If not specified, defaults to
+                  "extlb-{clusterName}-{hashSuffix}" which is automatically created.
+                maxLength: 63
+                minLength: 1
+                type: string
             required:
             - authentication
             type: object
@@ -271,9 +280,8 @@ spec:
                     discoveryConfigName:
                       description: |-
                         DiscoveryConfigName is the name of the ServiceDiscoveryConfig that
-                        matched this service. This corresponds to the optional Name field
-                        in the discovery configuration. If the matching config had no name,
-                        this will be empty.
+                        matched this service. Empty when the service was discovered by the
+                        implicit catch-all configuration.
                       type: string
                     externalIP:
                       description: |-
@@ -284,30 +292,36 @@ spec:
                       description: LastError contains the last error message if the
                         service failed to sync.
                       type: string
-                    lbBackendPoolRef:
-                      description: LBBackendPoolRef is the reference to the created
-                        LBBackendPool resource.
-                      properties:
-                        name:
-                          type: string
-                        namespace:
-                          type: string
-                      required:
-                      - name
-                      - namespace
-                      type: object
-                    lbServiceRef:
-                      description: LBServiceRef is the reference to the created LBService
-                        resource.
-                      properties:
-                        name:
-                          type: string
-                        namespace:
-                          type: string
-                      required:
-                      - name
-                      - namespace
-                      type: object
+                    lbBackendPoolRefs:
+                      description: |-
+                        LBBackendPoolRefs are the references to the created LBBackendPool
+                        resources, one per port on the remote service.
+                      items:
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        required:
+                        - name
+                        - namespace
+                        type: object
+                      type: array
+                    lbServiceRefs:
+                      description: |-
+                        LBServiceRefs are the references to the created LBService resources,
+                        one per port on the remote service.
+                      items:
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        required:
+                        - name
+                        - namespace
+                        type: object
+                      type: array
                     lbVIPRef:
                       description: LBVIPRef is the reference to the created LBVIP
                         resource.

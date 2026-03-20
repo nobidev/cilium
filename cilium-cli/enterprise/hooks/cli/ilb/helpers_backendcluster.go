@@ -285,3 +285,174 @@ func (r *lbTestScenario) waitForLBK8sBackendClusterDisconnected(name string) {
 		return nil
 	}, longTimeout, pollInterval)
 }
+
+func (r *lbTestScenario) createLBK8sBackendClusterWithServiceDiscovery(
+	name string, secretName string, secretNamespace string,
+	discoveryConfigs []isovalentv1alpha1.LBK8sBackendClusterServiceDiscoveryConfig,
+) *isovalentv1alpha1.LBK8sBackendCluster {
+	lbK8sBackendCluster := &isovalentv1alpha1.LBK8sBackendCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				TestResourceLabelName: "true",
+			},
+		},
+		Spec: isovalentv1alpha1.LBK8sBackendClusterSpec{
+			Authentication: isovalentv1alpha1.LBK8sBackendClusterAuth{
+				SecretRef: isovalentv1alpha1.LBK8sBackendClusterSecretRef{
+					Name:      secretName,
+					Namespace: secretNamespace,
+				},
+			},
+			ServiceDiscovery: discoveryConfigs,
+			TargetNamespace:  &r.k8sNamespace,
+		},
+	}
+
+	if _, err := r.ciliumCli.IsovalentV1alpha1().LBK8sBackendClusters().Create(r.t.Context(), lbK8sBackendCluster, metav1.CreateOptions{}); err != nil {
+		r.t.Failedf("failed to create LBK8sBackendCluster: %s", err)
+	}
+
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		if _, err := r.ciliumCli.IsovalentV1alpha1().LBK8sBackendClusters().Get(ctx, name, metav1.GetOptions{}); errors.IsNotFound(err) {
+			return nil
+		}
+		return r.ciliumCli.IsovalentV1alpha1().LBK8sBackendClusters().Delete(ctx, name, metav1.DeleteOptions{GracePeriodSeconds: ptr.To[int64](0)})
+	})
+
+	return lbK8sBackendCluster
+}
+
+// createServiceInBackendCluster creates a LoadBalancer service in a backend kind cluster.
+// Uses docker exec to run kubectl inside the control-plane container rather than
+// running kubectl directly, since in CI the backend cluster's API server port
+// is only accessible inside the LVH VM.
+func (r *lbTestScenario) createServiceInBackendCluster(cluster *backendKindCluster, namespace string, serviceName string, port int32) {
+	serviceYAML := fmt.Sprintf(`
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: %s
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: %s
+  namespace: %s
+  labels:
+    ilb-discovery: "true"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: %d
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: test
+`, namespace, serviceName, namespace, port)
+
+	containerName := fmt.Sprintf("%s-control-plane", cluster.Name)
+	cmd := exec.CommandContext(r.t.Context(), "docker", "exec", "-i", containerName,
+		"kubectl", "--kubeconfig=/etc/kubernetes/admin.conf",
+		"apply", "-f", "-")
+	cmd.Stdin = strings.NewReader(serviceYAML)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		r.t.Failedf("failed to create service in backend cluster: %s\nOutput: %s", err, string(output))
+	}
+
+	r.t.RegisterCleanup(func(ctx context.Context) error {
+		cmd := exec.CommandContext(ctx, "docker", "exec", containerName,
+			"kubectl", "--kubeconfig=/etc/kubernetes/admin.conf",
+			"delete", "namespace", namespace, "--ignore-not-found")
+		_, _ = cmd.CombinedOutput()
+		return nil
+	})
+}
+
+func (r *lbTestScenario) waitForLBK8sBackendClusterServiceDiscovery(clusterName string, serviceNamespace string, serviceName string) *isovalentv1alpha1.LBK8sBackendClusterDiscoveredService {
+	var discoveredSvc *isovalentv1alpha1.LBK8sBackendClusterDiscoveredService
+
+	eventually(r.t, func() error {
+		lbK8sBackendCluster, err := r.ciliumCli.IsovalentV1alpha1().LBK8sBackendClusters().Get(r.t.Context(), clusterName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get LBK8sBackendCluster: %w", err)
+		}
+
+		for i := range lbK8sBackendCluster.Status.DiscoveredServices {
+			svc := &lbK8sBackendCluster.Status.DiscoveredServices[i]
+			if svc.RemoteNamespace == serviceNamespace && svc.RemoteName == serviceName {
+				if svc.Status != string(isovalentv1alpha1.LBK8sBackendClusterDiscoveredServiceStatusSynced) {
+					return fmt.Errorf("service status is %q, expected %q (error: %v)",
+						svc.Status, isovalentv1alpha1.LBK8sBackendClusterDiscoveredServiceStatusSynced, svc.LastError)
+				}
+				discoveredSvc = svc
+				return nil
+			}
+		}
+
+		return fmt.Errorf("service %s/%s not found in discovered services (found %d services)",
+			serviceNamespace, serviceName, len(lbK8sBackendCluster.Status.DiscoveredServices))
+	}, longTimeout, pollInterval)
+
+	return discoveredSvc
+}
+
+// waitForServiceExternalIP waits for a service in the backend cluster to have an external IP assigned.
+// Uses docker exec to run kubectl inside the control-plane container rather than
+// running kubectl directly, since in CI the backend cluster's API server port
+// is only accessible inside the LVH VM.
+func (r *lbTestScenario) waitForServiceExternalIP(cluster *backendKindCluster, namespace string, serviceName string) string {
+	var externalIP string
+
+	containerName := fmt.Sprintf("%s-control-plane", cluster.Name)
+	eventually(r.t, func() error {
+		cmd := exec.CommandContext(r.t.Context(), "docker", "exec", containerName,
+			"kubectl", "--kubeconfig=/etc/kubernetes/admin.conf",
+			"get", "service", serviceName, "-n", namespace,
+			"-o", "jsonpath={.status.loadBalancer.ingress[0].ip}")
+
+		output, err := cmd.Output()
+		if err != nil {
+			return fmt.Errorf("failed to get service external IP: %w", err)
+		}
+
+		ip := strings.TrimSpace(string(output))
+		if ip == "" {
+			return fmt.Errorf("service does not have an external IP yet")
+		}
+
+		externalIP = ip
+		return nil
+	}, longTimeout, pollInterval)
+
+	return externalIP
+}
+
+func (r *lbTestScenario) waitForServiceAnnotation(cluster *backendKindCluster, namespace string, serviceName string, annotationKey string) string {
+	var annotationValue string
+
+	containerName := fmt.Sprintf("%s-control-plane", cluster.Name)
+	eventually(r.t, func() error {
+		cmd := exec.CommandContext(r.t.Context(), "docker", "exec", containerName,
+			"kubectl", "--kubeconfig=/etc/kubernetes/admin.conf",
+			"get", "service", serviceName, "-n", namespace,
+			"-o", fmt.Sprintf(`go-template={{index .metadata.annotations "%s"}}`, annotationKey))
+
+		output, err := cmd.Output()
+		if err != nil {
+			return fmt.Errorf("failed to get service annotation: %w", err)
+		}
+
+		val := strings.TrimSpace(string(output))
+		if val == "" {
+			return fmt.Errorf("service does not have annotation %q yet", annotationKey)
+		}
+
+		annotationValue = val
+		return nil
+	}, longTimeout, pollInterval)
+
+	return annotationValue
+}

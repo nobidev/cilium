@@ -40,6 +40,15 @@ type LBK8sBackendClusterSpec struct {
 	// +required
 	Authentication LBK8sBackendClusterAuth `json:"authentication"`
 
+	// TargetNamespace is the namespace where ILB resources (LBService, LBVIP,
+	// LBBackendPool) will be created. If not specified, defaults to
+	// "extlb-{clusterName}-{hashSuffix}" which is automatically created.
+	//
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	TargetNamespace *string `json:"targetNamespace,omitempty"`
+
 	// ServiceDiscovery contains one or more service discovery configurations.
 	// These define how services in the remote cluster should be discovered and
 	// health checked. If no ServiceDiscovery configurations are provided, the
@@ -72,14 +81,13 @@ type LBK8sBackendClusterSecretRef struct {
 // LBK8sBackendClusterServiceDiscoveryConfig configures which services to discover
 // and how they should be health checked.
 type LBK8sBackendClusterServiceDiscoveryConfig struct {
-	// Name is an optional identifier for this discovery configuration.
-	// If specified, it will be used in status reporting to identify which
-	// configuration discovered each service.
+	// Name identifies this discovery configuration. It is used in status
+	// reporting to indicate which configuration discovered each service.
 	//
-	// +optional
+	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
-	Name *string `json:"name,omitempty"`
+	Name string `json:"name"`
 
 	// Namespaces limits service discovery to specific namespaces.
 	// If empty, services from all namespaces will be discovered.
@@ -232,12 +240,23 @@ func (r *LBK8sBackendCluster) UpdateResourceStatus() {
 }
 
 const (
-	ConditionTypeClusterConnected = "extlb.cilium.io/ClusterConnected"
+	ConditionTypeClusterConnected = "lbk8sbackendcluster.isovalent.com/ClusterConnected"
+	ConditionTypeSyncing          = "lbk8sbackendcluster.isovalent.com/Syncing"
+
+	// DeprecatedConditionTypeClusterConnected is the old condition type from earlier
+	// development. Cleaned up on reconcile.
+	DeprecatedConditionTypeClusterConnected = "extlb.cilium.io/ClusterConnected"
 )
 
 const (
-	ClusterConnectedReasonConnected        = "Connected"
-	ClusterConnectedReasonConnectionFailed = "ConnectionFailed"
+	ClusterConnectedReasonConnected           = "Connected"
+	ClusterConnectedReasonConnectionFailed    = "ConnectionFailed"
+	ClusterConnectedReasonAuthenticationError = "AuthenticationError"
+	ClusterConnectedReasonConnectionError     = "ConnectionError"
+	ClusterConnectedReasonSyncError           = "SyncError"
+
+	SyncingReasonSyncing     = "Syncing"
+	SyncingReasonPartialSync = "PartialSync"
 )
 
 // ExtLBResourceStatus represents the status of an external load balancer
@@ -271,27 +290,28 @@ type LBK8sBackendClusterDiscoveredService struct {
 	RemoteName string `json:"name"`
 
 	// DiscoveryConfigName is the name of the ServiceDiscoveryConfig that
-	// matched this service. This corresponds to the optional Name field
-	// in the discovery configuration. If the matching config had no name,
-	// this will be empty.
+	// matched this service. Empty when the service was discovered by the
+	// implicit catch-all configuration.
 	//
 	// +optional
-	DiscoveryConfigName *string `json:"discoveryConfigName,omitempty"`
+	DiscoveryConfigName string `json:"discoveryConfigName,omitempty"`
 
-	// LBServiceRef is the reference to the created LBService resource.
+	// LBServiceRefs are the references to the created LBService resources,
+	// one per port on the remote service.
 	//
 	// +optional
-	LBServiceRef *LBExternalLBResourceRef `json:"lbServiceRef,omitempty"`
+	LBServiceRefs []LBExternalLBResourceRef `json:"lbServiceRefs,omitempty"`
 
 	// LBVIPRef is the reference to the created LBVIP resource.
 	//
 	// +optional
 	LBVIPRef *LBExternalLBResourceRef `json:"lbVIPRef,omitempty"`
 
-	// LBBackendPoolRef is the reference to the created LBBackendPool resource.
+	// LBBackendPoolRefs are the references to the created LBBackendPool
+	// resources, one per port on the remote service.
 	//
 	// +optional
-	LBBackendPoolRef *LBExternalLBResourceRef `json:"lbBackendPoolRef,omitempty"`
+	LBBackendPoolRefs []LBExternalLBResourceRef `json:"lbBackendPoolRefs,omitempty"`
 
 	// ExternalIP is the allocated external IP that was written back to
 	// the source service.

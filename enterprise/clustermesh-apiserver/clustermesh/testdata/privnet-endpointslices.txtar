@@ -198,6 +198,19 @@ endpoints:
     network: yellow-network
   flags:
     external: false
+- activatedAt: "2025-06-20T16:24:09.627000Z"
+  endpoint:
+    addressing:
+      ipv4: 10.244.8.52
+    name: infallible-butterfly
+  interface:
+    # this endpoint has no network address yet (DHCP) and thus will be skipped.
+    addressing:
+      ipv4: 0.0.0.0
+    mac: 00:50:56:ad:aa:00
+    network: yellow-network
+  flags:
+    external: false
 nodeName: weasel
 
 -- entries-1+2.expected --

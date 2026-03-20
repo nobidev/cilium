@@ -20,8 +20,10 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/dhcp"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -37,6 +39,7 @@ type dhcpLeaseReconciler struct {
 	workloads     statedb.RWTable[*tables.LocalWorkload]
 	leases        statedb.Table[tables.DHCPLease]
 	leaseWriter   *tables.DHCPLeaseWriter
+	endpoints     endpoints.EndpointGetter
 	subnets       statedb.Table[tables.Subnet]
 	sweepInterval time.Duration
 }
@@ -49,6 +52,7 @@ type dhcpLeaseReconcilerParams struct {
 	DB          *statedb.DB
 	Workloads   statedb.RWTable[*tables.LocalWorkload]
 	LeaseWriter *tables.DHCPLeaseWriter
+	Endpoints   endpoints.EndpointGetter
 	Subnets     statedb.Table[tables.Subnet]
 	TestCfg     *dhcp.TestConfig `optional:"true"`
 }
@@ -66,6 +70,7 @@ func newDhcpLeaseReconciler(in dhcpLeaseReconcilerParams) *dhcpLeaseReconciler {
 		workloads:     in.Workloads,
 		leases:        in.LeaseWriter.Table(),
 		leaseWriter:   in.LeaseWriter,
+		endpoints:     in.Endpoints,
 		subnets:       in.Subnets,
 		sweepInterval: sweepInterval,
 	}
@@ -86,22 +91,48 @@ func (m *dhcpLeaseReconciler) workloadUsesDHCP(txn statedb.ReadTxn, lw *tables.L
 	return found && subnet.DHCP.Mode != iso_v1alpha1.PrivateNetworkDHCPModeNone
 }
 
-// run watches workloads and manages DHCP leases.
+// run watches workloads and leases and projects them into the local workload table.
 func (m *dhcpLeaseReconciler) run(ctx context.Context, _ cell.Health) error {
-	txn := m.db.WriteTxn(m.workloads)
-	iter, _ := m.workloads.Changes(txn)
-	txn.Commit()
+	// Wait for subnets to reconcile as we rely on them in [workloadUsesDHCP]
+	_, watch := m.subnets.Initialized(m.db.ReadTxn())
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-watch:
+	}
+
+	wtxn := m.db.WriteTxn(m.workloads, m.leases)
+	workloadIter, _ := m.workloads.Changes(wtxn)
+	leaseIter, _ := m.leases.Changes(wtxn)
+	wtxn.Commit()
 
 	sweep := time.NewTicker(m.sweepInterval)
 	defer sweep.Stop()
 
 	for {
+		watchset := statedb.NewWatchSet()
+
 		wtxn := m.db.WriteTxn(m.leases, m.workloads)
-		changes, watch := iter.Next(wtxn)
-		for change := range changes {
-			if lw := change.Object; lw != nil && m.workloadUsesDHCP(wtxn, lw) && change.Deleted {
-				m.dropWorkloadLeases(wtxn, lw)
+		workloadChanges, workloadWatch := workloadIter.Next(wtxn)
+		leaseChanges, leaseWatch := leaseIter.Next(wtxn)
+		watchset.Add(workloadWatch, leaseWatch)
+
+		for change := range workloadChanges {
+			if lw := change.Object; lw != nil && m.workloadUsesDHCP(wtxn, lw) {
+				if change.Deleted {
+					m.dropWorkloadLeases(wtxn, lw)
+					continue
+				}
+				m.syncWorkloadLease(wtxn, lw)
 			}
+		}
+
+		for change := range leaseChanges {
+			if change.Deleted {
+				m.clearWorkloadLease(wtxn, change.Object)
+				continue
+			}
+			m.syncLease(wtxn, change.Object)
 		}
 		wtxn.Commit()
 
@@ -110,17 +141,34 @@ func (m *dhcpLeaseReconciler) run(ctx context.Context, _ cell.Health) error {
 			return nil
 		case <-sweep.C:
 			m.handleExpiredLeases()
-		case <-watch:
+		default:
+			_, err := watchset.Wait(ctx, SettleTime)
+			if err != nil {
+				return nil
+			}
 		}
 	}
 }
 
-func (m *dhcpLeaseReconciler) dropWorkloadLeases(wtxn statedb.WriteTxn, lw *tables.LocalWorkload) {
-	if lw.Interface.Addressing.IPv4 != "" {
-		updated := *lw
-		updated.Interface.Addressing.IPv4 = ""
-		m.workloads.Insert(wtxn, &updated)
+func (m *dhcpLeaseReconciler) syncWorkloadLease(wtxn statedb.WriteTxn, lw *tables.LocalWorkload) {
+	macAddr, err := mac.ParseMAC(lw.Interface.MAC)
+	if err != nil {
+		return
 	}
+
+	lease, _, found := m.leases.Get(wtxn, tables.DHCPLeaseByNetworkMAC(tables.NetworkName(lw.Interface.Network), macAddr))
+	if !found {
+		return
+	}
+
+	if m.maybeRemoveExpiredLease(wtxn, lease) {
+		return
+	}
+
+	m.updateLocalWorkloadIP(wtxn, lease.EndpointID, lease.IPv4.String())
+}
+
+func (m *dhcpLeaseReconciler) dropWorkloadLeases(wtxn statedb.WriteTxn, lw *tables.LocalWorkload) {
 	mac, err := mac.ParseMAC(lw.Interface.MAC)
 	if err != nil {
 		return
@@ -130,32 +178,69 @@ func (m *dhcpLeaseReconciler) dropWorkloadLeases(wtxn statedb.WriteTxn, lw *tabl
 	}
 }
 
+func (m *dhcpLeaseReconciler) syncLease(wtxn statedb.WriteTxn, lease tables.DHCPLease) {
+	if m.maybeRemoveExpiredLease(wtxn, lease) {
+		return
+	}
+	m.updateLocalWorkloadIP(wtxn, lease.EndpointID, lease.IPv4.String())
+}
+
 func (m *dhcpLeaseReconciler) handleExpiredLeases() {
-	now := time.Now()
-
 	wtxn := m.db.WriteTxn(m.leases, m.workloads)
-	defer wtxn.Abort()
-
 	for lease := range m.leases.All(wtxn) {
-		if !lease.ExpireAt.IsZero() && now.After(lease.ExpireAt) {
-			m.clearLocalWorkloadIP(wtxn, lease)
-			m.leaseWriter.Delete(wtxn, lease)
-		}
+		m.maybeRemoveExpiredLease(wtxn, lease)
 	}
 	wtxn.Commit()
 }
 
+func (m *dhcpLeaseReconciler) maybeRemoveExpiredLease(wtxn statedb.WriteTxn, lease tables.DHCPLease) (deleted bool) {
+	if !lease.ExpireAt.IsZero() && time.Now().After(lease.ExpireAt) {
+		m.log.Debug("Removing expired lease and releasing network IP",
+			logfields.EndpointID, lease.EndpointID,
+			logfields.IPv4, lease.IPv4,
+			logfields.MACAddr, lease.MAC,
+			logfields.Expiration, lease.ExpireAt,
+		)
+		m.updateLocalWorkloadIP(wtxn, lease.EndpointID, zeroAddrString)
+		m.leaseWriter.Delete(wtxn, lease)
+		return true
+	}
+	return false
+}
+
 var zeroAddrString = netip.IPv4Unspecified().String()
 
-func (m *dhcpLeaseReconciler) clearLocalWorkloadIP(wtxn statedb.WriteTxn, lease tables.DHCPLease) {
-	lw, _, found := m.workloads.Get(wtxn, tables.LocalWorkloadsByID(lease.EndpointID))
+func (m *dhcpLeaseReconciler) clearWorkloadLease(wtxn statedb.WriteTxn, lease tables.DHCPLease) {
+	m.updateLocalWorkloadIP(wtxn, lease.EndpointID, zeroAddrString)
+}
+
+func (m *dhcpLeaseReconciler) updateLocalWorkloadIP(
+	wtxn statedb.WriteTxn,
+	endpointID uint16,
+	ipv4 string,
+) {
+	lw, _, found := m.workloads.Get(wtxn, tables.LocalWorkloadsByID(endpointID))
 	if !found {
 		return
 	}
-	if lw.Interface.Addressing.IPv4 == zeroAddrString {
+	if !m.workloadUsesDHCP(wtxn, lw) {
 		return
 	}
+	if lw.Interface.Addressing.IPv4 == ipv4 {
+		return
+	}
+
 	updated := *lw
-	updated.Interface.Addressing.IPv4 = zeroAddrString
+	updated.Interface.Addressing.IPv4 = ipv4
 	m.workloads.Insert(wtxn, &updated)
+
+	// Update the ipv4 property in the endpoint and persist. This ensures that updates to endpoint
+	// that propagate to LocalWorkload won't overwrite the IP and that the IP is persisted to disk
+	// and restored on restart.
+	if ep := m.endpoints.LookupID(endpointID); ep != nil {
+		if value, _ := ep.GetPropertyValue(endpoints.PropertyPrivNetIPv4).(string); value != ipv4 {
+			ep.SetPropertyValue(endpoints.PropertyPrivNetIPv4, ipv4)
+			ep.SyncEndpointHeaderFile()
+		}
+	}
 }

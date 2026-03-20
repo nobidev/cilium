@@ -95,6 +95,23 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 			},
 		},
 		{
+			name: "Valid IPv4 NEXT_HOP self-originated",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI: nlri,
+					PathAttributes: []bgp.PathAttributeInterface{
+						bgp.NewPathAttributeNextHop("0.0.0.0"),
+					},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+			},
+			expectedErr: errSelfOriginatedRoute,
+		},
+		{
 			name: "Valid IPv4 MP_REACH_NLRI",
 			inputPath: &types.ExtendedPath{
 				Path: ossTypes.Path{
@@ -117,6 +134,28 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 			outputPath: &path{
 				nexthop: netip.MustParseAddr("192.168.0.1"),
 			},
+		},
+		{
+			name: "Valid IPv4 MP_REACH_NLRI self-originated",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI: nlri,
+					PathAttributes: []bgp.PathAttributeInterface{
+						bgp.NewPathAttributeMpReachNLRI(
+							"0.0.0.0",
+							[]bgp.AddrPrefixInterface{
+								nlri,
+							},
+						),
+					},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv4,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+			},
+			expectedErr: errSelfOriginatedRoute,
 		},
 		{
 			name: "Invalid missing required attributes",
@@ -335,7 +374,7 @@ func TestRouteImportReconcilerParseV4Path(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reconciler := &importRouteReconciler{}
-			parsedPath, err := reconciler.parseV4Path(tt.inputPath, 65000)
+			parsedPath, err := reconciler.parseV4Path(tt.inputPath)
 			if tt.expectedErr != nil {
 				require.ErrorIs(t, tt.expectedErr, err)
 			} else {
@@ -352,6 +391,13 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 
 	mpReachNLRI_G := bgp.NewPathAttributeMpReachNLRI(
 		"fd00::1",
+		[]bgp.AddrPrefixInterface{
+			nlri,
+		},
+	)
+
+	mpReachNLRI_G_SelfOriginated := bgp.NewPathAttributeMpReachNLRI(
+		"::",
 		[]bgp.AddrPrefixInterface{
 			nlri,
 		},
@@ -423,6 +469,22 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 			outputPath: &path{
 				nexthop: netip.MustParseAddr("fd00::1"),
 			},
+		},
+		{
+			name: "Valid G self-originated",
+			inputPath: &types.ExtendedPath{
+				Path: ossTypes.Path{
+					NLRI:           nlri,
+					PathAttributes: []bgp.PathAttributeInterface{mpReachNLRI_G_SelfOriginated},
+					Family: ossTypes.Family{
+						Afi:  ossTypes.AfiIPv6,
+						Safi: ossTypes.SafiUnicast,
+					},
+					SourceASN: 65000,
+				},
+				NeighborAddr: neighborAddrWithZone,
+			},
+			expectedErr: errSelfOriginatedRoute,
 		},
 		{
 			name: "Valid L with zone",
@@ -616,7 +678,7 @@ func TestRouteImportReconcilerParseV6Path(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reconciler := &importRouteReconciler{}
-			parsedPath, err := reconciler.parseV6Path(tt.inputPath, 65000)
+			parsedPath, err := reconciler.parseV6Path(tt.inputPath)
 			if tt.expectedErr != nil {
 				require.ErrorIs(t, tt.expectedErr, err)
 			} else {

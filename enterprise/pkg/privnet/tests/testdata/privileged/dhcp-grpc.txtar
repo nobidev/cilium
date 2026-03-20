@@ -34,15 +34,6 @@ db/insert privnet-inbs inb.yaml
 # Wait for the blue network
 !* db/empty private-networks
 
-# Endpoint slice may exist, but should not contain the DHCP assigned interface IPv4 before lease allocation.
-* k8s/get isovalent.com.v1alpha1.privatenetworkendpointslices default/foobar-worker-1 -o endpointslices.before.yaml
-grep 'name: pod-100' endpointslices.before.yaml
-grep 'network: blue-network' endpointslices.before.yaml
-! grep 'ipv4: 192.168.100.10' endpointslices.before.yaml
-
-# Endpoint table should not contain this endpoint before DHCP lease allocation.
-db/empty privnet-endpoints
-
 # Workload doesn't have IP assigned.
 db/cmp privnet-local-workloads local-workloads.before.table
 
@@ -70,10 +61,9 @@ db/cmp privnet-dhcp-leases dhcp-leases.expired.table
 db/cmp privnet-local-workloads local-workloads.before.table
 db/cmp privnet-device-mappings devmappings.expired.table
 
-# Check that endpoint slice has retracted the leased IPv4 after expiry.
-* k8s/get isovalent.com.v1alpha1.privatenetworkendpointslices default/foobar-worker-1 -o endpointslices.expired.yaml
-grep 'name: pod-100' endpointslices.expired.yaml
-! grep 'ipv4: 192.168.100.10' endpointslices.expired.yaml
+# Check that endpoint slice is now removed as there are no publishable local
+# workloads.
+!* k8s/get isovalent.com.v1alpha1.privatenetworkendpointslices default/foobar-worker-1
 
 -- dhcp-leases.table --
 Network        EndpointID   MAC                 IPv4            ServerID
@@ -115,7 +105,6 @@ endpoints:
   endpoint:
     addressing:
       ipv4: 10.244.5.112
-      ipv6: fd00:10:244:5::112
     name: pod-100
   flags:
     external: true
@@ -149,8 +138,7 @@ expireat: 2025-01-01T00:00:01Z
 {
   "ID": 100,
   "addressing": {
-    "ipv4": "10.244.5.112",
-    "ipv6": "fd00:10:244:5::112"
+    "ipv4": "10.244.5.112"
   },
   "mac": "02:00:00:00:00:01",
   "k8s-pod-name": "pod-100",

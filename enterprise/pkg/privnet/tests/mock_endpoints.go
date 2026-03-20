@@ -19,12 +19,14 @@ import (
 	"net/netip"
 	"os"
 	"slices"
+	"strconv"
 	"testing"
 
 	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/hive/script"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
@@ -74,6 +76,28 @@ type fakeEP struct {
 }
 
 var _ endpoints.Endpoint = &fakeEP{}
+
+// MarshalJSON the fake endpoint as an EndpointChangeRequest to match the format
+// used by epm-create.
+func (f *fakeEP) MarshalJSON() ([]byte, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return json.Marshal(
+		models.EndpointChangeRequest{
+			ID:             int64(f.ID),
+			InterfaceName:  f.IfName,
+			InterfaceIndex: int64(f.IfIndex),
+			K8sPodName:     f.PodName,
+			K8sNamespace:   f.Namespace,
+			Properties:     f.Properties,
+			Addressing: &models.AddressPair{
+				IPV4: f.GetIPv4Address(),
+				IPV6: f.GetIPv6Address(),
+			},
+			Mac: f.MAC.String(),
+		},
+	)
+}
 
 // GetID16 implements endpoints.Endpoint.
 func (f *fakeEP) GetID16() uint16 {
@@ -323,6 +347,18 @@ func (f *fakeEPM) GetEndpointsByPodName(nsname string) iter.Seq[endpoints.Endpoi
 	}
 }
 
+// LookupID implements endpoints.EndpointGetter.
+func (f *fakeEPM) LookupID(id uint16) (ep endpoints.Endpoint) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i := range f.eps {
+		if f.eps[i].GetID16() == id {
+			return f.eps[i]
+		}
+	}
+	return nil
+}
+
 // LookupCEPName implements endpoints.EndpointGetter.
 func (f *fakeEPM) LookupCEPName(nsname string) (ep endpoints.Endpoint) {
 	f.mu.Lock()
@@ -345,11 +381,56 @@ func (f *fakeEPM) Subscribe(s endpoints.EndpointSubscriber) {
 func (f *fakeEPM) cmds() map[string]script.Cmd {
 	return map[string]script.Cmd{
 		"privnet/epm-create":  f.createEPCmd(),
+		"privnet/epm-get":     f.getEPCmd(),
 		"privnet/epm-delete":  f.deleteEPCmd(),
 		"privnet/epm-restore": f.restoreEPCmd(),
 
 		"privnet/epm-finish-restoration": f.finishRestorationCmd(),
 	}
+}
+
+func (f *fakeEPM) getEPCmd() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "get a fake endpoint as JSON",
+			Args:    "endpoint-id",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP("output", "o", "", "output file name")
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 1 {
+				return nil, fmt.Errorf("%w: expected endpoint-id", script.ErrUsage)
+			}
+			id, err := strconv.ParseUint(args[0], 10, 16)
+			if err != nil {
+				return nil, err
+			}
+			out, err := s.Flags.GetString("output")
+			if err != nil {
+				return nil, err
+			}
+
+			return func(s *script.State) (stdout string, stderr string, err error) {
+				ep := f.LookupID(uint16(id))
+				if ep == nil {
+					return "", "", fmt.Errorf("endpoint %d not found", id)
+				}
+				b, err := json.MarshalIndent(ep, "", "  ")
+				if err != nil {
+					return "", "", err
+				}
+				b = append(b, '\n')
+				if out == "" {
+					return string(b), "", nil
+				}
+				if err := os.WriteFile(s.Path(out), b, 0o644); err != nil {
+					return "", "", err
+				}
+				return "", "", nil
+			}, nil
+		},
+	)
 }
 
 func parseEndpointJSON(s *script.State, args []string) (*models.EndpointChangeRequest, error) {

@@ -330,10 +330,6 @@ func (h *serverHandler) recordLeaseAck(endpointID uint16, req *dhcpv4.DHCPv4, re
 	if !h.workloadUsesDHCP(wtxn, lw) {
 		return
 	}
-	updated := h.updateLocalWorkload(wtxn, endpointID, ip)
-	if updated != nil {
-		lw = updated
-	}
 	lease := tables.DHCPLease{
 		Network:    tables.NetworkName(lw.Interface.Network),
 		EndpointID: lw.EndpointID,
@@ -384,31 +380,4 @@ func (h *serverHandler) invalidateLease(endpointID uint16, macAddr mac.MAC, ipHi
 	if found {
 		h.leaseWriter.Delete(wtxn, lease)
 	}
-	h.clearLocalWorkloadLeaseIP(wtxn, endpointID)
-}
-
-func (h *serverHandler) updateLocalWorkload(wtxn statedb.WriteTxn, endpointID uint16, addr netip.Addr) *tables.LocalWorkload {
-	lw, _, _ := h.workloads.Get(wtxn, tables.LocalWorkloadsByID(endpointID))
-	if !h.workloadUsesDHCP(wtxn, lw) {
-		return nil
-	}
-	leaseIP := addr.String()
-	if lw.Interface.Addressing.IPv4 == leaseIP {
-		return nil
-	}
-	updated := *lw
-	updated.Interface.Addressing.IPv4 = leaseIP
-	h.workloads.Insert(wtxn, &updated)
-	return &updated
-}
-
-func (h *serverHandler) clearLocalWorkloadLeaseIP(wtxn statedb.WriteTxn, endpointID uint16) *tables.LocalWorkload {
-	lw, _, _ := h.workloads.Get(wtxn, tables.LocalWorkloadsByID(endpointID))
-	if !h.workloadUsesDHCP(wtxn, lw) || lw.Interface.Addressing.IPv4 == "" {
-		return nil
-	}
-	updated := *lw
-	updated.Interface.Addressing.IPv4 = ""
-	h.workloads.Insert(wtxn, &updated)
-	return &updated
 }
