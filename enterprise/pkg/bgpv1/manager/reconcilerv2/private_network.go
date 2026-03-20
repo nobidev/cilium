@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/bgpv2/config"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/utils"
 	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
+	evpnTables "github.com/cilium/cilium/enterprise/pkg/evpn/securitygroups/tables"
 	privnetConfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
@@ -56,9 +57,10 @@ type PrivateNetworkReconcilerIn struct {
 	Adverts   *IsovalentAdvertisement
 	EVPNPaths *evpnPaths
 
-	DB                  *statedb.DB
-	PrivateNetworkTable statedb.Table[tables.PrivateNetwork]
-	LocalWorkloadTable  statedb.Table[*tables.LocalWorkload]
+	DB                   *statedb.DB
+	PrivateNetworkTable  statedb.Table[tables.PrivateNetwork]
+	LocalWorkloadTable   statedb.Table[*tables.LocalWorkload]
+	EPSecurityGroupTable statedb.Table[evpnTables.EndpointSecurityGroup]
 }
 
 type PrivateNetworkReconcilerOut struct {
@@ -80,6 +82,7 @@ type PrivateNetworkReconciler struct {
 	db               *statedb.DB
 	privateNetworks  statedb.Table[tables.PrivateNetwork]
 	privnetWorkloads statedb.Table[*tables.LocalWorkload]
+	epSecurityGroups statedb.Table[evpnTables.EndpointSecurityGroup]
 
 	metadata map[string]privateNetworkReconcilerMetadata
 }
@@ -92,6 +95,8 @@ type privateNetworkReconcilerMetadata struct {
 
 	workloadChanges            statedb.ChangeIterator[*tables.LocalWorkload]
 	workloadChangesInitialized bool
+	epGroupChanges             statedb.ChangeIterator[evpnTables.EndpointSecurityGroup]
+	epGroupChangesInitialized  bool
 }
 
 // EvpnVRFInfos is a map of EVPN information per BGP VRF.
@@ -132,6 +137,7 @@ func NewPrivateNetworkReconciler(in PrivateNetworkReconcilerIn) PrivateNetworkRe
 		db:               in.DB,
 		privateNetworks:  in.PrivateNetworkTable,
 		privnetWorkloads: in.LocalWorkloadTable,
+		epSecurityGroups: in.EPSecurityGroupTable,
 		metadata:         make(map[string]privateNetworkReconcilerMetadata),
 	}
 
@@ -147,6 +153,13 @@ func NewPrivateNetworkReconciler(in PrivateNetworkReconcilerIn) PrivateNetworkRe
 			return utils.SignalBGPUponTableEvents(ctx, r.db, r.privnetWorkloads, r.signaler, limiter)
 		}),
 	)
+	if in.EVPNConfig.SecurityGroupTagsEnabled {
+		in.JobGroup.Add(
+			job.OneShot("endpoint-security-groups-signaler", func(ctx context.Context, _ cell.Health) error {
+				return utils.SignalBGPUponTableEvents(ctx, r.db, r.epSecurityGroups, r.signaler, nil)
+			}),
+		)
+	}
 
 	return PrivateNetworkReconcilerOut{
 		Reconciler: r,
@@ -179,6 +192,13 @@ func (r *PrivateNetworkReconciler) Init(i *instance.BGPInstance) error {
 // Cleanup is called when a new BGP instance is being removed.
 func (r *PrivateNetworkReconciler) Cleanup(i *instance.BGPInstance) {
 	if i != nil {
+		metadata := r.metadata[i.Name]
+		if metadata.workloadChanges != nil {
+			metadata.workloadChanges.Close()
+		}
+		if metadata.epGroupChanges != nil {
+			metadata.epGroupChanges.Close()
+		}
 		delete(r.metadata, i.Name)
 	}
 }
@@ -211,6 +231,13 @@ func (r *PrivateNetworkReconciler) Reconcile(ctx context.Context, ossParams reco
 		r.logger.Debug("Private networks workloads table not initialized, skipping reconciliation")
 		return nil
 	}
+	if r.evpnConfig.SecurityGroupTagsEnabled {
+		initialized, _ = r.epSecurityGroups.Initialized(tx)
+		if !initialized {
+			r.logger.Debug("Endpoint security groups table not initialized, skipping reconciliation")
+			return nil
+		}
+	}
 
 	desiredVRFAdverts, err := r.adverts.GetConfiguredVRFAdvertisements(p.DesiredConfig, v1.BGPPrivateNetworkAdvert)
 	if err != nil {
@@ -221,14 +248,15 @@ func (r *PrivateNetworkReconciler) Reconcile(ctx context.Context, ossParams reco
 		return fmt.Errorf("failed to populate private network EVPN info: %w", err)
 	}
 
+	metadata := r.getMetadata(p.BGPInstance)
+
 	// run the reconciliation
-	err = r.reconcilePrivateNetworks(ctx, p, desiredVRFAdverts, desiredVRFEvpnInfos, privnetEvpnSubnets, tx)
+	err = r.reconcilePrivateNetworks(ctx, p, &metadata, desiredVRFAdverts, desiredVRFEvpnInfos, privnetEvpnSubnets, tx)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile private networks vrfAdverts %w", err)
 	}
 
 	// update metadata if the reconciliation was successful
-	metadata := r.getMetadata(p.BGPInstance)
 	metadata.vrfAdverts = desiredVRFAdverts
 	metadata.vrfEvpnInfos = desiredVRFEvpnInfos
 	metadata.privnetEvpnSubnets = privnetEvpnSubnets
@@ -316,10 +344,17 @@ func (r *PrivateNetworkReconciler) getEVPNEnabledSubnets(privnet tables.PrivateN
 	return subnetInfo
 }
 
-func (r *PrivateNetworkReconciler) reconcilePrivateNetworks(ctx context.Context, p EnterpriseReconcileParams, desiredVRFAdverts VRFAdvertisements, desiredVRFEVPN EvpnVRFInfos, evpnSubnets PrivnetSubnets, tx statedb.ReadTxn) error {
-	metadata := r.getMetadata(p.BGPInstance)
+func (r *PrivateNetworkReconciler) reconcilePrivateNetworks(
+	ctx context.Context,
+	p EnterpriseReconcileParams,
+	metadata *privateNetworkReconcilerMetadata,
+	desiredVRFAdverts VRFAdvertisements,
+	desiredVRFEVPN EvpnVRFInfos,
+	evpnSubnets PrivnetSubnets,
+	tx statedb.ReadTxn,
+) error {
 
-	reqFullReconcile := r.configModified(p, desiredVRFAdverts, desiredVRFEVPN, evpnSubnets)
+	reqFullReconcile := r.configModified(metadata, desiredVRFAdverts, desiredVRFEVPN, evpnSubnets)
 	// if workload changes iterator has not been initialized yet (first reconcile), perform full reconciliation
 	if !metadata.workloadChangesInitialized {
 		reqFullReconcile = true
@@ -330,7 +365,7 @@ func (r *PrivateNetworkReconciler) reconcilePrivateNetworks(ctx context.Context,
 
 	if reqFullReconcile {
 		r.logger.Debug("Full private network advertisements reconciliation")
-		allWorkloads, err := r.fullReconciliationWorkloadList(p) // note: can be called only once per reconcile
+		allWorkloads, err := r.fullReconciliationWorkloadList(metadata) // note: can be called only once per reconcile
 		if err != nil {
 			return err
 		}
@@ -340,7 +375,7 @@ func (r *PrivateNetworkReconciler) reconcilePrivateNetworks(ctx context.Context,
 			}
 			privNetName := vrf.PrivateNetworkRef.Name
 			// populate paths for the workloads of this VRF / privnet
-			desiredPaths, err := r.getPrivNetAFPaths(desiredVRFAdverts[privNetName], desiredVRFEVPN[privNetName], evpnSubnets[privNetName], allWorkloads[privNetName])
+			desiredPaths, err := r.getPrivNetAFPaths(desiredVRFAdverts[privNetName], desiredVRFEVPN[privNetName], evpnSubnets[privNetName], allWorkloads[privNetName], tx)
 			if err != nil {
 				return err
 			}
@@ -354,7 +389,7 @@ func (r *PrivateNetworkReconciler) reconcilePrivateNetworks(ctx context.Context,
 		}
 	} else {
 		r.logger.Debug("Diff private network advertisements reconciliation")
-		toReconcile, toWithdraw, err := r.diffReconciliationWorkloadList(p, tx) // note: can be called only once per reconcile
+		toReconcile, toWithdraw, err := r.diffReconciliationWorkloadList(metadata, tx) // note: can be called only once per reconcile
 		if err != nil {
 			return err
 		}
@@ -364,7 +399,7 @@ func (r *PrivateNetworkReconciler) reconcilePrivateNetworks(ctx context.Context,
 			}
 			privNetName := vrf.PrivateNetworkRef.Name
 			// populate paths for modified workloads of this VRF / privnet
-			diffPaths, err := r.getPrivNetAFPaths(desiredVRFAdverts[privNetName], desiredVRFEVPN[privNetName], evpnSubnets[privNetName], toReconcile[privNetName])
+			diffPaths, err := r.getPrivNetAFPaths(desiredVRFAdverts[privNetName], desiredVRFEVPN[privNetName], evpnSubnets[privNetName], toReconcile[privNetName], tx)
 			if err != nil {
 				return err
 			}
@@ -392,58 +427,96 @@ func (r *PrivateNetworkReconciler) reconcilePrivateNetworks(ctx context.Context,
 		Logger:       r.logger,
 		Ctx:          ctx,
 		BGPInstance:  p.BGPInstance,
-		CurrentPaths: r.getMetadata(p.BGPInstance).vrfPaths,
+		CurrentPaths: metadata.vrfPaths,
 		DesiredPaths: desiredVRFPaths,
 	})
 }
 
-func (r *PrivateNetworkReconciler) configModified(p EnterpriseReconcileParams, desiredAdverts VRFAdvertisements, desiredEVPNInfos EvpnVRFInfos, evpnSubnets PrivnetSubnets) bool {
-	metadata := r.getMetadata(p.BGPInstance)
-
+func (r *PrivateNetworkReconciler) configModified(metadata *privateNetworkReconcilerMetadata, desiredAdverts VRFAdvertisements, desiredEVPNInfos EvpnVRFInfos, evpnSubnets PrivnetSubnets) bool {
 	return !VRFAdvertisementsEqual(metadata.vrfAdverts, desiredAdverts) ||
 		(desiredEVPNInfos != nil && !desiredEVPNInfos.DeepEqual(&metadata.vrfEvpnInfos) ||
 			evpnSubnets != nil && !evpnSubnets.DeepEqual(&metadata.privnetEvpnSubnets))
 }
 
-func (r *PrivateNetworkReconciler) fullReconciliationWorkloadList(p EnterpriseReconcileParams) (map[string][]*tables.LocalWorkload, error) {
-	var err error
-	metadata := r.getMetadata(p.BGPInstance)
-
-	// re-init changes interator, so that it contains changes since the last full reconciliation
-	tx := r.db.WriteTxn(r.privnetWorkloads)
-	metadata.workloadChanges, err = r.privnetWorkloads.Changes(tx)
+func (r *PrivateNetworkReconciler) fullReconciliationWorkloadList(metadata *privateNetworkReconcilerMetadata) (map[string][]*tables.LocalWorkload, error) {
+	rx, err := r.initFullReconciliationChangeIterators(metadata)
 	if err != nil {
-		tx.Abort()
-		return nil, fmt.Errorf("error subscribing to private network workloads changes: %w", err)
+		return nil, err
 	}
-	rx := tx.Commit()
-	metadata.workloadChangesInitialized = true
-	r.setMetadata(p.BGPInstance, metadata)
 
 	toReconcile := make(map[string][]*tables.LocalWorkload)
 
 	// the initial set of changes emits all existing workloads
-	events, _ := metadata.workloadChanges.Next(rx)
-	for event := range events {
+	workloadEvents, _ := metadata.workloadChanges.Next(rx)
+	for event := range workloadEvents {
 		w := event.Object
 		privNet := w.Interface.Network
 		toReconcile[privNet] = append(toReconcile[privNet], w)
 	}
+	if r.evpnConfig.SecurityGroupTagsEnabled {
+		// Drain the initial endpoint security group changes so that the next diff reconciliation
+		// only observes actual changes since this full reconciliation. All workloads are already in toReconcile.
+		sgEvents, _ := metadata.epGroupChanges.Next(rx)
+		for range sgEvents {
+		}
+	}
 	return toReconcile, nil
 }
 
-func (r *PrivateNetworkReconciler) diffReconciliationWorkloadList(p EnterpriseReconcileParams, rx statedb.ReadTxn) (toReconcile, toWithdraw map[string][]*tables.LocalWorkload, err error) {
-	metadata := r.getMetadata(p.BGPInstance)
+func (r *PrivateNetworkReconciler) initFullReconciliationChangeIterators(metadata *privateNetworkReconcilerMetadata) (statedb.ReadTxn, error) {
+	var err error
+	oldWorkloadChanges := metadata.workloadChanges
+	oldEPGroupChanges := metadata.epGroupChanges
+
+	txTables := []statedb.TableMeta{r.privnetWorkloads}
+	if r.evpnConfig.SecurityGroupTagsEnabled {
+		txTables = append(txTables, r.epSecurityGroups)
+	}
+	tx := r.db.WriteTxn(txTables...)
+	defer tx.Abort()
+
+	metadata.workloadChanges, err = r.privnetWorkloads.Changes(tx)
+	if err != nil {
+		return nil, fmt.Errorf("error subscribing to private network workloads changes: %w", err)
+	}
+
+	if r.evpnConfig.SecurityGroupTagsEnabled {
+		metadata.epGroupChanges, err = r.epSecurityGroups.Changes(tx)
+		if err != nil {
+			metadata.workloadChanges.Close()
+			return nil, fmt.Errorf("error subscribing to endpoint security groups changes: %w", err)
+		}
+	}
+
+	metadata.workloadChangesInitialized = true
+	metadata.epGroupChangesInitialized = true
+	rx := tx.Commit()
+
+	// Cleanup old trackers to graveyard deleted items
+	// (needs to be done after the write transaction is committed to not cause deadlock)
+	if oldWorkloadChanges != nil {
+		oldWorkloadChanges.Close()
+	}
+	if oldEPGroupChanges != nil {
+		oldEPGroupChanges.Close()
+	}
+	return rx, nil
+}
+
+func (r *PrivateNetworkReconciler) diffReconciliationWorkloadList(metadata *privateNetworkReconcilerMetadata, rx statedb.ReadTxn) (toReconcile, toWithdraw map[string][]*tables.LocalWorkload, err error) {
 	if !metadata.workloadChangesInitialized {
 		return nil, nil, fmt.Errorf("BUG: private network workload changes tracker not initialized, cannot perform diff reconciliation")
+	}
+	if r.evpnConfig.SecurityGroupTagsEnabled && !metadata.epGroupChangesInitialized {
+		return nil, nil, fmt.Errorf("BUG: endpoint security group changes tracker not initialized, cannot perform diff reconciliation")
 	}
 
 	toReconcile = make(map[string][]*tables.LocalWorkload)
 	toWithdraw = make(map[string][]*tables.LocalWorkload)
 
 	// list workload which changed since the last reconciliation
-	events, _ := metadata.workloadChanges.Next(rx)
-	for event := range events {
+	workloadEvents, _ := metadata.workloadChanges.Next(rx)
+	for event := range workloadEvents {
 		w := event.Object
 		privNet := w.Interface.Network
 		if event.Deleted {
@@ -452,10 +525,21 @@ func (r *PrivateNetworkReconciler) diffReconciliationWorkloadList(p EnterpriseRe
 			toReconcile[privNet] = append(toReconcile[privNet], w)
 		}
 	}
+	if r.evpnConfig.SecurityGroupTagsEnabled {
+		sgEvents, _ := metadata.epGroupChanges.Next(rx)
+		for event := range sgEvents {
+			w, _, found := r.privnetWorkloads.Get(rx, tables.LocalWorkloadsByID(event.Object.EndpointID))
+			if !found {
+				continue
+			}
+			privNet := w.Interface.Network
+			toReconcile[privNet] = append(toReconcile[privNet], w)
+		}
+	}
 	return
 }
 
-func (r *PrivateNetworkReconciler) getPrivNetAFPaths(desiredAdverts FamilyAdvertisements, evpnVRFInfo *EvpnVRFInfo, subnetInfo *PrivnetSubnetInfo, workloads []*tables.LocalWorkload) (reconciler.ResourceAFPathsMap, error) {
+func (r *PrivateNetworkReconciler) getPrivNetAFPaths(desiredAdverts FamilyAdvertisements, evpnVRFInfo *EvpnVRFInfo, subnetInfo *PrivnetSubnetInfo, workloads []*tables.LocalWorkload, tx statedb.ReadTxn) (reconciler.ResourceAFPathsMap, error) {
 	desiredWorkloadAFPaths := make(reconciler.ResourceAFPathsMap)
 	if evpnVRFInfo == nil || subnetInfo == nil {
 		return desiredWorkloadAFPaths, nil
@@ -465,7 +549,7 @@ func (r *PrivateNetworkReconciler) getPrivNetAFPaths(desiredAdverts FamilyAdvert
 		return nil, err
 	}
 	for _, w := range workloads {
-		afPaths, err := r.getWorkloadAFPaths(desiredAdverts, evpnVRFInfo, subnetInfo, pathAttrs, w)
+		afPaths, err := r.getWorkloadAFPaths(desiredAdverts, evpnVRFInfo, subnetInfo, pathAttrs, w, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -484,7 +568,7 @@ func (r *PrivateNetworkReconciler) withdrawPrivNetAFPaths(workloads []*tables.Lo
 	return desiredWorkloadAFPaths
 }
 
-func (r *PrivateNetworkReconciler) getWorkloadAFPaths(desiredAdverts FamilyAdvertisements, evpVRFInfo *EvpnVRFInfo, subnetInfo *PrivnetSubnetInfo, pathAttrs FamilyAdvertPathAttributes, w *tables.LocalWorkload) (reconciler.AFPathsMap, error) {
+func (r *PrivateNetworkReconciler) getWorkloadAFPaths(desiredAdverts FamilyAdvertisements, evpVRFInfo *EvpnVRFInfo, subnetInfo *PrivnetSubnetInfo, pathAttrs FamilyAdvertPathAttributes, w *tables.LocalWorkload, tx statedb.ReadTxn) (reconciler.AFPathsMap, error) {
 	desiredAFPaths := make(reconciler.AFPathsMap)
 	for family := range desiredAdverts {
 		agentFamily := types.ToAgentFamily(family)
@@ -505,8 +589,14 @@ func (r *PrivateNetworkReconciler) getWorkloadAFPaths(desiredAdverts FamilyAdver
 		}
 		var securityGroupID *uint16
 		if r.evpnConfig.SecurityGroupTagsEnabled {
-			// we support only default security group ID for now
-			securityGroupID = &r.evpnConfig.DefaultSecurityGroupID
+			gid, found := r.getWorkloadSecurityGroupID(w, tx)
+			if !found {
+				// Do not advertise the workload if security group is not yet known.
+				// This prevents unnecessary changes in group membership for new endpoints
+				// if this reconciliation happens before endpoint security group reconciliation.
+				continue
+			}
+			securityGroupID = &gid
 		}
 		prefix := netip.PrefixFrom(addr, addr.BitLen())
 		path, pathKey, err := r.evpnPaths.GetEvpnRT5Path(prefix, evpVRFInfo, securityGroupID, pathAttrs[family])
@@ -516,6 +606,14 @@ func (r *PrivateNetworkReconciler) getWorkloadAFPaths(desiredAdverts FamilyAdver
 		reconciler.AddPathToAFPathsMap(desiredAFPaths, agentFamily, path, pathKey)
 	}
 	return desiredAFPaths, nil
+}
+
+func (r *PrivateNetworkReconciler) getWorkloadSecurityGroupID(w *tables.LocalWorkload, tx statedb.ReadTxn) (uint16, bool) {
+	entry, _, found := r.epSecurityGroups.Get(tx, evpnTables.EndpointSecurityGroupByEndpointID(w.EndpointID))
+	if !found {
+		return 0, false
+	}
+	return entry.SecurityGroupID, true
 }
 
 func addrInEVPNEnabledSubnet(subnetInfo *PrivnetSubnetInfo, addr netip.Addr) bool {
