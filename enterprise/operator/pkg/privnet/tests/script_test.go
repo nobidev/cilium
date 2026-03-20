@@ -40,6 +40,7 @@ import (
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
@@ -85,6 +86,10 @@ func TestScript(t *testing.T) {
 				cell.DecorateAll(k8sClient.NewFakeNADsClientset),
 				cell.DecorateAll(k8sClient.NewFakeDynamicClient),
 				daemonk8s.NamespaceTableCell,
+
+				cell.Provide(func() *option.DaemonConfig {
+					return &option.DaemonConfig{EnableIPv4: true, EnableIPv6: true}
+				}),
 
 				privnet.Cell,
 				evpn.Cell,
