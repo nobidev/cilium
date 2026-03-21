@@ -1,0 +1,116 @@
+#! --test-peering-ips=10.100.96.1
+
+hive start
+db/initialized
+
+# Configure gobgp server
+gobgp/add-server server0 --router-id=1.2.3.4 65001 10.100.96.1 1790
+gobgp/add-peer -s server0 10.100.96.1 65001 --families=l2vpn/evpn
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml
+* bgptest/sync-oss-resources
+
+# Add private networks used by the VRFs
+db/insert private-networks private-networks.yaml
+
+# Wait for peering to be established
+gobgp/wait-state -s server0 10.100.96.1 ESTABLISHED
+
+# Advertise EVPN routes to be imported
+gobgp/add-route -s server0 -c rt:65001:100,rtrmac:aa:bb:cc:dd:ee:ff,encap:vxlan EVPN[5][65001:100][single-homed][0][10.0.0.0/24][0.0.0.0][100] 100.64.1.1
+gobgp/add-route -s server0 -c rt:65001:200,rtrmac:11:22:33:44:55:66,encap:vxlan EVPN[5][65001:200][single-homed][0][10.0.1.0/24][0.0.0.0][200] 100.64.2.1
+
+# Ensure routes are imported into the BGP LocRIB
+bgp/routes-extended --no-age loc l2vpn evpn
+* cmp stdout bgp-locrib.expected
+
+# Ensure routes are imported into the Cilium RIB in the right VRFs, including the leaked routes
+rib/list
+* cmp stdout cilium-rib.expected
+
+# Delete the peer to remove the imported routes
+gobgp/delete-server server0
+
+# Ensure routes are removed from the BGP LocRIB
+bgp/routes-extended -o bgp-locrib-empty.actual --no-age loc l2vpn evpn
+* cmp bgp-locrib-empty.expected bgp-locrib-empty.actual
+
+# Ensure routes are removed from the Cilium RIB
+rib/list
+* cmp stdout cilium-rib-empty.expected
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+
+-- bgp-node-config.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - name: instance0
+    localASN: 65001
+    routerID: 5.6.7.8
+    peers:
+    - name: peer0
+      peerASN: 65001
+      peerAddress: 10.100.96.1
+      peerConfigRef:
+        name: peer-config
+    vrfs:
+    - privateNetworkRef:
+        name: red
+    - privateNetworkRef:
+        name: blue
+    - privateNetworkRef:
+        name: leak
+      importRTs:
+      - 65001:100
+      - 65001:200
+
+-- bgp-peer-config.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPeerConfig
+metadata:
+  name: peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: l2vpn
+    safi: evpn
+
+-- private-networks.yaml --
+name: red
+id: 1
+vni: 100
+---
+name: blue
+id: 2
+vni: 200
+---
+name: leak
+id: 3
+vni: 300
+
+-- bgp-locrib.expected --
+Instance    Peer    Prefix                                                    NextHop      Best   Age   Error
+instance0   peer0   [type:Prefix][rd:65001:100][etag:0][prefix:10.0.0.0/24]   100.64.1.1   true   -     -
+                    [type:Prefix][rd:65001:200][etag:0][prefix:10.0.1.0/24]   100.64.2.1   true   -     -
+-- cilium-rib.expected --
+Best    VRF    Prefix         Owner            Protocol    NextHop
+*       1      10.0.0.0/24    bgp-instance0    iBGP        VXLANEncap vni 100 vtep 100.64.1.1 inner-dst-mac aa:bb:cc:dd:ee:ff
+*       2      10.0.1.0/24    bgp-instance0    iBGP        VXLANEncap vni 200 vtep 100.64.2.1 inner-dst-mac 11:22:33:44:55:66
+*       3      10.0.0.0/24    bgp-instance0    iBGP        VXLANEncap vni 100 vtep 100.64.1.1 inner-dst-mac aa:bb:cc:dd:ee:ff
+*       3      10.0.1.0/24    bgp-instance0    iBGP        VXLANEncap vni 200 vtep 100.64.2.1 inner-dst-mac 11:22:33:44:55:66
+-- bgp-locrib-empty.expected --
+Instance   Peer   Prefix   NextHop   Best   Age   Error
+-- cilium-rib-empty.expected --
+Best    VRF    Prefix    Owner    Protocol    NextHop
