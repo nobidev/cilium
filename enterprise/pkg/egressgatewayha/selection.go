@@ -151,6 +151,8 @@ func computeAvailableHealthyGatewayIPs(healthyGatewayIPs []gatewayNodeIP) []neti
 
 type zoneToAvailable map[string]int
 
+// hasAvailableGateways returns whether there exists at least one available
+// gateway for all policy selected nodes, inside the zone.
 func (za zoneToAvailable) hasAvailableGateways(zone string) bool {
 	return za[zone] > 0
 }
@@ -179,6 +181,8 @@ func computeAvailableHealthyGatewaysByAZ(allAZs sets.Set[string], policyHealthyG
 	return availGWs, policyAvailByZone
 }
 
+// doSelection performs an active gateway selection, given a status active (i.e. currently active) and available set.
+// Priority is given to current status active to ensure stability across selections and selectionKey.
 func doSelection(statusActiveGateways, availableHealthyGatewayIPs []netip.Addr, selectionKey string, maxGatewayNodes int) []netip.Addr {
 	var currentLocalActiveGWs []netip.Addr
 	if len(statusActiveGateways) != 0 {
