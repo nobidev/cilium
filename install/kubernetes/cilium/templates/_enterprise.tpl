@@ -266,6 +266,19 @@ private-networks-nad-integration-enabled: {{ .Values.enterprise.privateNetworks.
 private-networks-nad-cni-log-file: {{ .Values.enterprise.privateNetworks.networkAttachmentDefinitions.cniLogFile | quote }}
 private-networks-nad-cni-log-format: {{ .Values.enterprise.privateNetworks.networkAttachmentDefinitions.cniLogFormat | quote }}
 
+{{- if .Values.enterprise.privateNetworks.enabled }}
+private-networks-webhook-enabled: {{ .Values.enterprise.privateNetworks.webhook.enabled | quote }}
+private-networks-webhook-hostport: {{ print ":" .Values.enterprise.privateNetworks.webhook.port | quote }}
+private-networks-webhook-tls-key-file: /var/lib/cilium/privnet/webhook/tls/server.key
+private-networks-webhook-tls-cert-file: /var/lib/cilium/privnet/webhook/tls/server.crt
+private-networks-webhook-network-binding: {{ .Values.enterprise.privateNetworks.webhook.vms.networkBinding | quote }}
+private-networks-webhook-inventory-url: {{ .Values.enterprise.privateNetworks.webhook.vms.inventory.url | quote }}
+private-networks-webhook-inventory-bearer-token-file: "/var/lib/cilium/privnet/webhook/forklift-inventory/token"
+{{- if .Values.enterprise.privateNetworks.webhook.vms.inventory.caBundle.configMap.name }}
+private-networks-webhook-inventory-ca-bundle-file: "/var/lib/cilium/privnet/webhook/forklift-inventory/ca.crt"
+{{- end }}
+{{- end }}
+
 enable-health-server-without-active-checks: {{ .Values.enterprise.healthServerWithoutActiveChecks.enabled | quote }}
 
 {{- end }}

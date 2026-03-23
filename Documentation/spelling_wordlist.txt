@@ -325,6 +325,7 @@ dns
 dnsProxy
 dockerd
 dockerhub
+domainAttachmentType
 dpaa
 dropdown
 dryRun
@@ -469,6 +470,7 @@ ipsec
 ipsets
 iptables
 ipv
+issuerRef
 istio
 iteratively
 ixgbe
@@ -566,6 +568,7 @@ maglev
 mainboard
 makefile
 mana
+managedTap
 marshallable
 marshalled
 masq

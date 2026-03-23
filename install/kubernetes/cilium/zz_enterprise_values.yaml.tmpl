@@ -218,6 +218,91 @@ enterprise:
       # The CNI logs format configured for managed Multus network attachment definitions.
       cniLogFormat: text-ts
 
+    # Configure the private networks webhook.
+    webhook:
+      # -- Enables the private networks webhook.
+      enabled: false
+
+      # -- The port the private networks webhook listens on.
+      port: 11443
+
+      # Configure the parameters specific to the webhook mutating the VMs created
+      # by Forklift/MTV.
+      vms:
+        # -- The name of the KubeVirt network binding plugin enforced on mutated VMs.
+        # Must match a binding registered in the KubeVirt CR
+        # (spec.configuration.network.binding) with domainAttachmentType managedTap.
+        # @schema
+        # type: [null, string]
+        # @schema
+        networkBinding: ~
+
+        # -- The selector selecting the namespaces subject to the VMs webhook.
+        # @schema
+        # type: [null, object]
+        # @schema
+        namespaceSelector: ~
+
+        # -- The selector selecting the objects subject to the VMs webhook.
+        # @schema
+        # type: [null, object]
+        # @schema
+        objectSelector: ~
+
+        # -- The VMs webhook failure policy.
+        # @schema
+        # enum: ["Fail", "Ignore"]
+        # @schema
+        failurePolicy: Fail
+
+        # Configure the parameters to connect to the Forklift/MTV inventory.
+        inventory:
+          # -- The base URL of the inventory service.
+          url: https://forklift-inventory.openshift-mtv.svc:8443
+
+          # -- The reference to the CA bundle for the inventory service.
+          # Uses the system CA if set to null.
+          # Defaults to using the OpenShift service serving CA.
+          caBundle:
+            configMap:
+              # -- Name of the target ConfigMap.
+              # @schema
+              # type: [null, string]
+              # @schema
+              name: "openshift-service-ca.crt"
+              # -- Name of the target field within the ConfigMap.
+              key: "service-ca.crt"
+
+      # Configure the TLS certificates for the webhook.
+      tls:
+        # -- The method to provide or generate the certificates. Supported values:
+        # - `manual`       The certificate and corresponding private key are manually provided.
+        # - `servingcert`  This method uses OpenShift service serving certs. Only available on OpenShift
+        # - `certmanager`  This method use cert-manager to generate & rotate the certificate.
+        method: servingcert
+
+        # Configure the manually provided certificate. Only applicable when method is "manual".
+        manual:
+          # -- Name of the Secret containing the webhook certificate and key.
+          existingSecret: ""
+
+          # -- PEM encoded CA bundle to validate the provided certificate. System
+          # trust roots on the Kubernetes API Server are used, if unspecified.
+          caBundle: ""
+
+        # Configure the cert-manager specific parameters. Only applicable when method is "certmanager".
+        certmanager:
+          # -- cert-manager issuer used for certificate generation.
+          # [Example]
+          # issuerRef:
+          #   group: cert-manager.io
+          #   kind: ClusterIssuer
+          #   name: issuer
+          issuerRef: {}
+
+          # -- Validity duration of the generated certificate, in days.
+          certValidityDuration: 365
+
   healthServerWithoutActiveChecks:
     # -- Enable health server without active health checks.
     enabled: false

@@ -27,9 +27,55 @@ dnsPolicy: {{ .Values.dnsPolicy }}
 Allow packagers to add extra volumes to cilium-operator.
 */}}
 {{- define "cilium-operator.volumes.extra" }}
+{{- if and
+  .Values.enterprise.privateNetworks.enabled
+  .Values.enterprise.privateNetworks.webhook.enabled
+}}
+- name: privnet-webhook-certs
+  secret:
+    defaultMode: 0400
+    {{- if eq .Values.enterprise.privateNetworks.webhook.tls.method "manual" }}
+    secretName: {{ .Values.enterprise.privateNetworks.webhook.tls.manual.existingSecret }}
+    {{- else }}
+    secretName: cilium-private-networks-webhook-cert
+    {{- end }}
+    optional: true
+    items:
+    - key: tls.crt
+      path: server.crt
+    - key: tls.key
+      path: server.key
+- name: privnet-webhook-inventory
+  projected:
+    defaultMode: 0400
+    sources:
+    {{- if .Values.enterprise.privateNetworks.webhook.vms.inventory.caBundle.configMap.name }}
+    - configMap:
+        name: {{ .Values.enterprise.privateNetworks.webhook.vms.inventory.caBundle.configMap.name }}
+        items:
+        - key: {{ .Values.enterprise.privateNetworks.webhook.vms.inventory.caBundle.configMap.key }}
+          path: ca.crt
+    {{- end }}
+    - secret:
+        name: cilium-private-networks-forklift-inventory-token
+        items:
+        - key: token
+          path: token
+{{- end }}
 {{- end }}
 
 {{- define "cilium-operator.volumeMounts.extra" }}
+{{- if and
+  .Values.enterprise.privateNetworks.enabled
+  .Values.enterprise.privateNetworks.webhook.enabled
+}}
+- mountPath: /var/lib/cilium/privnet/webhook/tls
+  name: privnet-webhook-certs
+  readOnly: true
+- mountPath: /var/lib/cilium/privnet/webhook/forklift-inventory
+  name: privnet-webhook-inventory
+  readOnly: true
+{{- end }}
 {{- end }}
 
 {{/*

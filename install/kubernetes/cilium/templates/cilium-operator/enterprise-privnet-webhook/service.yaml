@@ -1,0 +1,28 @@
+{{- if and
+  .Values.operator.enabled
+  .Values.enterprise.privateNetworks.enabled
+  .Values.enterprise.privateNetworks.webhook.enabled
+}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-private-networks-webhook
+  namespace: {{ include "cilium.namespace" . }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- if eq .Values.enterprise.privateNetworks.webhook.tls.method "servingcert" }}
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: cilium-private-networks-webhook-cert
+{{- end }}
+spec:
+  selector:
+    app.kubernetes.io/name: cilium-operator
+  ports:
+  - name: https
+    port: 443
+    targetPort: {{ .Values.enterprise.privateNetworks.webhook.port }}
+{{- end }}

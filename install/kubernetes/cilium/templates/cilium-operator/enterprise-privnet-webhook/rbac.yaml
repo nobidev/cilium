@@ -1,0 +1,69 @@
+{{- if and
+  .Values.operator.enabled
+  .Values.enterprise.privateNetworks.enabled
+  .Values.enterprise.privateNetworks.webhook.enabled
+}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium-private-networks-forklift-inventory
+  namespace: {{ include "cilium.namespace" . }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cilium-private-networks-forklift-inventory-token
+  namespace: {{ include "cilium.namespace" . }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    kubernetes.io/service-account.name: cilium-private-networks-forklift-inventory
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cilium-private-networks-forklift-inventory
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+rules:
+- apiGroups:
+  - forklift.konveyor.io
+  resources:
+    - providers
+    - plans
+  verbs:
+    - list
+    - watch
+    - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cilium-private-networks-forklift-inventory
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cilium-private-networks-forklift-inventory
+subjects:
+- kind: ServiceAccount
+  name: cilium-private-networks-forklift-inventory
+  namespace: {{ include "cilium.namespace" . }}
+{{- end }}

@@ -492,6 +492,21 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.privateNetworks.networkAttachmentDefinitions.cniLogFile | string | `"/var/run/cilium/cilium-cni.log"` |  |
 | enterprise.privateNetworks.networkAttachmentDefinitions.cniLogFormat | string | `"text-ts"` |  |
 | enterprise.privateNetworks.networkAttachmentDefinitions.enabled | bool | `false` |  |
+| enterprise.privateNetworks.webhook.enabled | bool | `false` | Enables the private networks webhook. |
+| enterprise.privateNetworks.webhook.port | int | `11443` | The port the private networks webhook listens on. |
+| enterprise.privateNetworks.webhook.tls.certmanager.certValidityDuration | int | `365` | Validity duration of the generated certificate, in days. |
+| enterprise.privateNetworks.webhook.tls.certmanager.issuerRef | object | `{}` | cert-manager issuer used for certificate generation. [Example] issuerRef:   group: cert-manager.io   kind: ClusterIssuer   name: issuer |
+| enterprise.privateNetworks.webhook.tls.manual.caBundle | string | `""` | PEM encoded CA bundle to validate the provided certificate. System trust roots on the Kubernetes API Server are used, if unspecified. |
+| enterprise.privateNetworks.webhook.tls.manual.existingSecret | string | `""` | Name of the Secret containing the webhook certificate and key. |
+| enterprise.privateNetworks.webhook.tls.method | string | `"servingcert"` | The method to provide or generate the certificates. Supported values: - `manual`       The certificate and corresponding private key are manually provided. - `servingcert`  This method uses OpenShift service serving certs. Only available on OpenShift - `certmanager`  This method use cert-manager to generate & rotate the certificate. |
+| enterprise.privateNetworks.webhook.vms.failurePolicy | string | `"Fail"` | The VMs webhook failure policy. @schema enum: ["Fail", "Ignore"] @schema |
+| enterprise.privateNetworks.webhook.vms.inventory.caBundle | object | `{"configMap":{"key":"service-ca.crt","name":"openshift-service-ca.crt"}}` | The reference to the CA bundle for the inventory service. Uses the system CA if set to null. Defaults to using the OpenShift service serving CA. |
+| enterprise.privateNetworks.webhook.vms.inventory.caBundle.configMap.key | string | `"service-ca.crt"` | Name of the target field within the ConfigMap. |
+| enterprise.privateNetworks.webhook.vms.inventory.caBundle.configMap.name | string | `"openshift-service-ca.crt"` | Name of the target ConfigMap. @schema type: [null, string] @schema |
+| enterprise.privateNetworks.webhook.vms.inventory.url | string | `"https://forklift-inventory.openshift-mtv.svc:8443"` | The base URL of the inventory service. |
+| enterprise.privateNetworks.webhook.vms.namespaceSelector | string | `nil` | The selector selecting the namespaces subject to the VMs webhook. @schema type: [null, object] @schema |
+| enterprise.privateNetworks.webhook.vms.networkBinding | string | `nil` | The name of the KubeVirt network binding plugin enforced on mutated VMs. Must match a binding registered in the KubeVirt CR (spec.configuration.network.binding) with domainAttachmentType managedTap. @schema type: [null, string] @schema |
+| enterprise.privateNetworks.webhook.vms.objectSelector | string | `nil` | The selector selecting the objects subject to the VMs webhook. @schema type: [null, object] @schema |
 | enterprise.srv6.enabled | bool | `false` | Enable SRv6 encapsulation support. |
 | enterprise.srv6.encapMode | string | `"reduced"` | Specify SRv6 SID encapsulation. |
 | enterprise.srv6.locatorPoolEnabled | bool | `false` | Enables custom SRv6 SID locator pool operator support. |

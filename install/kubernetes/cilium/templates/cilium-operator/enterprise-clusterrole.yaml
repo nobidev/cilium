@@ -398,5 +398,16 @@ rules:
     - patch
     - delete
 {{- end }}
+{{- if .Values.enterprise.privateNetworks.webhook.enabled }}
+- apiGroups:
+  - forklift.konveyor.io
+  resources:
+    - providers
+    - plans
+  verbs:
+    - list
+    - watch
+    - get
+{{- end }}
 {{- end }}
 {{- end }}

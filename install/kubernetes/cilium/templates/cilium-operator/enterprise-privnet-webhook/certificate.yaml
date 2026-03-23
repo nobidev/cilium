@@ -1,0 +1,30 @@
+{{- if and
+  .Values.operator.enabled
+  .Values.enterprise.privateNetworks.enabled
+  .Values.enterprise.privateNetworks.webhook.enabled
+  (eq .Values.enterprise.privateNetworks.webhook.tls.method "certmanager")
+}}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cilium-private-networks-webhook
+  namespace: {{ include "cilium.namespace" . }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  secretName: cilium-private-networks-webhook-cert
+  commonName: "cilium-private-networks-webhook.{{ include "cilium.namespace" . }}.svc"
+  dnsNames:
+  - "cilium-private-networks-webhook.{{ include "cilium.namespace" . }}.svc"
+  issuerRef:
+    {{- toYaml .Values.enterprise.privateNetworks.webhook.tls.certmanager.issuerRef | nindent 4 }}
+  duration: {{ printf "%dh0m0s" (mul .Values.enterprise.privateNetworks.webhook.tls.certmanager.certValidityDuration 24) }}
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+{{- end }}

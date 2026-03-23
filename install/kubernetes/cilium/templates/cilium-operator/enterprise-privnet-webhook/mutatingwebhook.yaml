@@ -1,0 +1,54 @@
+{{- if and
+  .Values.operator.enabled
+  .Values.enterprise.privateNetworks.enabled
+  .Values.enterprise.privateNetworks.webhook.enabled
+}}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: cilium-private-networks
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- if eq .Values.enterprise.privateNetworks.webhook.tls.method "certmanager" }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ include "cilium.namespace" . }}/cilium-private-networks-webhook
+{{- else if eq .Values.enterprise.privateNetworks.webhook.tls.method "servingcert" }}
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+{{- end }}
+
+webhooks:
+- name: privnet-vms.isovalent.com
+  failurePolicy: {{ .Values.enterprise.privateNetworks.webhook.vms.failurePolicy }}
+  admissionReviewVersions:
+  - v1
+  rules:
+  - apiGroups:   ["kubevirt.io"]
+    apiVersions: ["v1", "v1alpha3"]
+    operations:  ["CREATE"]
+    resources:   ["virtualmachines"]
+  clientConfig:
+    service:
+      name: cilium-private-networks-webhook
+      namespace: {{ include "cilium.namespace" . }}
+      path: /virtualmachines/mutate
+      port: 443
+    {{- if eq .Values.enterprise.privateNetworks.webhook.tls.method "manual" }}
+    {{- with .Values.enterprise.privateNetworks.webhook.tls.manual.caBundle }}
+    caBundle: {{ . | b64enc }}
+    {{- end }}
+    {{- end }}
+  {{- with .Values.enterprise.privateNetworks.webhook.vms.namespaceSelector }}
+  namespaceSelector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.enterprise.privateNetworks.webhook.vms.objectSelector }}
+  objectSelector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  sideEffects: None
+{{- end }}

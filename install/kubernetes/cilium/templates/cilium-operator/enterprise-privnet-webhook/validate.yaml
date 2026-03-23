@@ -1,0 +1,28 @@
+{{- if and
+  .Values.operator.enabled
+  .Values.enterprise.privateNetworks.enabled
+  .Values.enterprise.privateNetworks.webhook.enabled
+}}
+
+{{- $whcfg := .Values.enterprise.privateNetworks.webhook -}}
+
+{{- if not .Values.enterprise.privateNetworks.networkAttachmentDefinitions.enabled -}}
+{{- fail "The Multus NAD integration must be enabled when the private networks webhook is enabled" }}
+{{- end }}
+{{- if not $whcfg.vms.networkBinding -}}
+{{- fail "A network binding must be set when the private networks webhook is enabled" }}
+{{- end }}
+
+{{- if eq $whcfg.tls.method "manual" }}
+{{- if not $whcfg.tls.manual.existingSecret }}
+{{- fail "The TLS certificate secret must be set when the private networks webhook is enabled and TLS method is manual" }}
+{{- end }}
+{{- else if eq $whcfg.tls.method "certmanager" -}}
+{{- if not $whcfg.tls.certmanager.issuerRef }}
+{{- fail "The cert-manager issuer must be set when the private networks webhook is enabled and TLS method is certmanager" }}
+{{- end }}
+{{- else if ne $whcfg.tls.method "servingcert" -}}
+{{- fail "Unsupported TLS method for the private networks webhook" }}
+{{- end }}
+
+{{- end }}

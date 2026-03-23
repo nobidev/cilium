@@ -1784,6 +1784,66 @@
      - 
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.enabled`
+     - Enables the private networks webhook.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.port`
+     - The port the private networks webhook listens on.
+     - int
+     - ``11443``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.tls.certmanager.certValidityDuration`
+     - Validity duration of the generated certificate, in days.
+     - int
+     - ``365``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.tls.certmanager.issuerRef`
+     - cert-manager issuer used for certificate generation. [Example] issuerRef:   group: cert-manager.io   kind: ClusterIssuer   name: issuer
+     - object
+     - ``{}``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.tls.manual.caBundle`
+     - PEM encoded CA bundle to validate the provided certificate. System trust roots on the Kubernetes API Server are used, if unspecified.
+     - string
+     - ``""``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.tls.manual.existingSecret`
+     - Name of the Secret containing the webhook certificate and key.
+     - string
+     - ``""``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.tls.method`
+     - The method to provide or generate the certificates. Supported values: - ``manual``       The certificate and corresponding private key are manually provided. - ``servingcert``  This method uses OpenShift service serving certs. Only available on OpenShift - ``certmanager``  This method use cert-manager to generate & rotate the certificate.
+     - string
+     - ``"servingcert"``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.vms.failurePolicy`
+     - The VMs webhook failure policy. @schema enum: ["Fail", "Ignore"] @schema
+     - string
+     - ``"Fail"``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.vms.inventory.caBundle`
+     - The reference to the CA bundle for the inventory service. Uses the system CA if set to null. Defaults to using the OpenShift service serving CA.
+     - object
+     - ``{"configMap":{"key":"service-ca.crt","name":"openshift-service-ca.crt"}}``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.vms.inventory.caBundle.configMap.key`
+     - Name of the target field within the ConfigMap.
+     - string
+     - ``"service-ca.crt"``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.vms.inventory.caBundle.configMap.name`
+     - Name of the target ConfigMap. @schema type: [null, string] @schema
+     - string
+     - ``"openshift-service-ca.crt"``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.vms.inventory.url`
+     - The base URL of the inventory service.
+     - string
+     - ``"https://forklift-inventory.openshift-mtv.svc:8443"``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.vms.namespaceSelector`
+     - The selector selecting the namespaces subject to the VMs webhook. @schema type: [null, object] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.vms.networkBinding`
+     - The name of the KubeVirt network binding plugin enforced on mutated VMs. Must match a binding registered in the KubeVirt CR (spec.configuration.network.binding) with domainAttachmentType managedTap. @schema type: [null, string] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`enterprise.privateNetworks.webhook.vms.objectSelector`
+     - The selector selecting the objects subject to the VMs webhook. @schema type: [null, object] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`enterprise.srv6.enabled`
      - Enable SRv6 encapsulation support.
      - bool

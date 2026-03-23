@@ -2581,6 +2581,103 @@
                 }
               },
               "type": "object"
+            },
+            "webhook": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "port": {
+                  "type": "integer"
+                },
+                "tls": {
+                  "properties": {
+                    "certmanager": {
+                      "properties": {
+                        "certValidityDuration": {
+                          "type": "integer"
+                        },
+                        "issuerRef": {
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "manual": {
+                      "properties": {
+                        "caBundle": {
+                          "type": "string"
+                        },
+                        "existingSecret": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "method": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "vms": {
+                  "properties": {
+                    "failurePolicy": {
+                      "enum": [
+                        "Fail",
+                        "Ignore"
+                      ]
+                    },
+                    "inventory": {
+                      "properties": {
+                        "caBundle": {
+                          "properties": {
+                            "configMap": {
+                              "properties": {
+                                "key": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ]
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "url": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "namespaceSelector": {
+                      "type": [
+                        "null",
+                        "object"
+                      ]
+                    },
+                    "networkBinding": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "objectSelector": {
+                      "type": [
+                        "null",
+                        "object"
+                      ]
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
             }
           },
           "type": "object"
