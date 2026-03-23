@@ -232,58 +232,53 @@ jobs:
           else
             sha="${{ github.event.pull_request.head.sha }}"
           fi
-
-          extra_args_raw='${{ inputs.extra-args }}'
-          extra_args_raw="${extra_args_raw:='{}'}"
-
-          if ! echo "$extra_args_raw" | jq -e . > /dev/null 2>&1; then
-            echo "❌ ERROR: extra-args is not valid JSON. Aborting."
-            exit 1
+          if [ "${{ github.event_name }}" == 'schedule' ]; then
+            kubevirt='true'
+            ossm='true'
+            hcp='true'
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            extra_args_raw='${{ inputs.extra-args }}'
+            extra_args_raw="${extra_args_raw:='{}'}"
+            if ! echo "$extra_args_raw" | jq -e . > /dev/null 2>&1; then
+              echo "❌ ERROR: extra-args is not valid JSON. Aborting."
+              exit 1
+            fi
+            unknown_keys=$(echo "$extra_args_raw" | jq -r 'keys[] | select(. as $k | ["kpr","ocp_version","kubevirt","ossm","hcp","region"] | index($k) | not)' 2>/dev/null || echo "")
+            if [[ -n "$unknown_keys" ]]; then
+              echo "❌ ERROR: Unknown keys in extra-args: ${unknown_keys}"
+              exit 1
+            fi
+            kpr=$(echo "$extra_args_raw" | jq -r '.kpr // empty')
+            ocp_version=$(echo "$extra_args_raw" | jq -r '.ocp_version // empty')
+            kubevirt=$(echo "$extra_args_raw" | jq -r '.kubevirt // empty')
+            ossm=$(echo "$extra_args_raw" | jq -r '.ossm // empty')
+            hcp=$(echo "$extra_args_raw" | jq -r '.hcp // empty')
+            region=$(echo "$extra_args_raw" | jq -r '.region // empty')
+            if [[ -n "$kpr" ]] && [[ ! "$kpr" =~ ^(true|false)$ ]]; then
+              echo "❌ ERROR: Invalid kpr value. Must be 'true' or 'false', got: ${kpr}"
+              exit 1
+            fi
+            if [[ -n "$ocp_version" ]] && [[ ! "$ocp_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9]+)?$ ]]; then
+              echo "❌ ERROR: Invalid ocp_version format. Expected X.Y.Z or X.Y.Z-suffix, got: ${ocp_version}"
+              exit 1
+            fi
+            if [[ -n "$kubevirt" ]] && [[ ! "$kubevirt" =~ ^(true|false)$ ]]; then
+              echo "❌ ERROR: Invalid kubevirt value. Must be 'true' or 'false', got: ${kubevirt}"
+              exit 1
+            fi
+            if [[ -n "$ossm" ]] && [[ ! "$ossm" =~ ^(true|false)$ ]]; then
+              echo "❌ ERROR: Invalid ossm value. Must be 'true' or 'false', got: ${ossm}"
+              exit 1
+            fi
+            if [[ -n "$hcp" ]] && [[ ! "$hcp" =~ ^(true|false)$ ]]; then
+              echo "❌ ERROR: Invalid hcp value. Must be 'true' or 'false', got: ${hcp}"
+              exit 1
+            fi
+            if [[ -n "$region" ]] && [[ ! "$region" =~ ^[a-z]{2}-[a-z]+-[0-9]+$ ]]; then
+              echo "❌ ERROR: Invalid region format. Expected 'xx-yyyy-#', got: ${region}"
+              exit 1
+            fi
           fi
-
-          unknown_keys=$(echo "$extra_args_raw" | jq -r 'keys[] | select(. as $k | ["kpr","ocp_version","kubevirt","ossm","hcp","region"] | index($k) | not)' 2>/dev/null || echo "")
-          if [[ -n "$unknown_keys" ]]; then
-            echo "❌ ERROR: Unknown keys in extra-args: ${unknown_keys}"
-            exit 1
-          fi
-
-          kpr=$(echo "$extra_args_raw" | jq -r '.kpr // empty')
-          ocp_version=$(echo "$extra_args_raw" | jq -r '.ocp_version // empty')
-          kubevirt=$(echo "$extra_args_raw" | jq -r '.kubevirt // empty')
-          ossm=$(echo "$extra_args_raw" | jq -r '.ossm // empty')
-          hcp=$(echo "$extra_args_raw" | jq -r '.hcp // empty')
-          region=$(echo "$extra_args_raw" | jq -r '.region // empty')
-
-          if [[ -n "$kpr" ]] && [[ ! "$kpr" =~ ^(true|false)$ ]]; then
-            echo "❌ ERROR: Invalid kpr value. Must be 'true' or 'false', got: ${kpr}"
-            exit 1
-          fi
-
-          if [[ -n "$ocp_version" ]] && [[ ! "$ocp_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9]+)?$ ]]; then
-            echo "❌ ERROR: Invalid ocp_version format. Expected X.Y.Z or X.Y.Z-suffix, got: ${ocp_version}"
-            exit 1
-          fi
-
-          if [[ -n "$kubevirt" ]] && [[ ! "$kubevirt" =~ ^(true|false)$ ]]; then
-            echo "❌ ERROR: Invalid kubevirt value. Must be 'true' or 'false', got: ${kubevirt}"
-            exit 1
-          fi
-
-          if [[ -n "$ossm" ]] && [[ ! "$ossm" =~ ^(true|false)$ ]]; then
-            echo "❌ ERROR: Invalid ossm value. Must be 'true' or 'false', got: ${ossm}"
-            exit 1
-          fi
-
-          if [[ -n "$hcp" ]] && [[ ! "$hcp" =~ ^(true|false)$ ]]; then
-            echo "❌ ERROR: Invalid hcp value. Must be 'true' or 'false', got: ${hcp}"
-            exit 1
-          fi
-
-          if [[ -n "$region" ]] && [[ ! "$region" =~ ^[a-z]{2}-[a-z]+-[0-9]+$ ]]; then
-            echo "❌ ERROR: Invalid region format. Expected 'xx-yyyy-#', got: ${region}"
-            exit 1
-          fi
-
           kpr="${kpr:-true}"
           kubevirt="${kubevirt:-false}"
           ossm="${ossm:-false}"
