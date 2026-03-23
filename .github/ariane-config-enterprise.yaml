@@ -130,6 +130,8 @@ schedule:
   nightly:
     workflows:
     - conformance-gke.yaml
+    - enterprise-egress-gateway-ha-aks.yaml
+    - enterprise-egress-gateway-ha-eks.yaml
 
 workflows:
   enterprise-clustermesh-mixed-routing.yaml:
