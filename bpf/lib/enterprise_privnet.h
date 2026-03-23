@@ -250,13 +250,19 @@ struct privnet_pip_val {
 	__u32 ifindex;
 };
 
+enum privnet_device_type {
+	PRIVNET_DEVICE_TYPE_LXC = 0,
+	PRIVNET_DEVICE_TYPE_NETDEV = 1,
+};
+
 struct privnet_device_key {
 	__u32 ifindex;
 };
 
 struct privnet_device_val {
 	__u16 net_id;
-	__u16 pad1;
+	__u8 type;
+	__u8 pad1;
 	union v4addr ipv4;
 	union v6addr ipv6;
 };

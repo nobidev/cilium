@@ -63,7 +63,7 @@ func mockBPFMapCell(t testing.TB) cell.Cell {
 				pnmaps.DevicesMapName, 16384, true,
 				&pnmaps.DeviceKeyVal{
 					Key: pnmaps.NewDeviceKey(1),
-					Val: pnmaps.NewDeviceVal(0x42, netip.MustParseAddr("172.16.1.1"), netip.MustParseAddr("2001::1")),
+					Val: pnmaps.NewDeviceVal(0x42, pnmaps.DeviceValTypeLxc, netip.MustParseAddr("172.16.1.1"), netip.MustParseAddr("2001::1")),
 				},
 			),
 			registerFakeBPFMap(

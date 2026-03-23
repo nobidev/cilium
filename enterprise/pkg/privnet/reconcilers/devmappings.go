@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"strconv"
+	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -47,6 +48,15 @@ var DeviceMappingsCell = cell.Group(
 		// Registers the reconciler updating the BPF map.
 		(*DeviceMappings).registerBPFReconciler,
 	),
+)
+
+const (
+	// ownerPrefixNodeAttachment prefix used in Owner reference for PrivateNetworkNodeAttachment devices. These are
+	// netdev interfaces in Cilium
+	ownerPrefixNodeAttachment = "pnna"
+	// ownerPrefixLocalWorkload prefix used in Owner reference for LocalWorkload devices. These are lxc interfaces
+	// in Cilium.
+	ownerPrefixLocalWorkload = "lw"
 )
 
 // DeviceMappings is a reconciler which populates the DeviceMappings table,
@@ -257,7 +267,7 @@ func (dm *DeviceMappings) reconcileLocalWorkloads(wtx statedb.WriteTxn, network 
 
 func (dm *DeviceMappings) forNetworkAttachment(network tables.PrivateNetwork, na *tables.NodeAttachment) tables.DeviceMapping {
 	mapping := tables.DeviceMapping{
-		Owner:       tables.NewDeviceMappingOwner("pnna", na.Resource.Name),
+		Owner:       tables.NewDeviceMappingOwner(ownerPrefixNodeAttachment, na.Resource.Name),
 		DeviceName:  string(na.Interface.Name),
 		NetworkName: network.Name,
 		NetworkID:   network.ID,
@@ -280,7 +290,7 @@ func (dm *DeviceMappings) forLocalWorkload(lw *tables.LocalWorkload) tables.Devi
 	ipv6, _ := netip.ParseAddr(lw.Interface.Addressing.IPv6)
 
 	return tables.DeviceMapping{
-		Owner:       tables.NewDeviceMappingOwner("lw", strconv.FormatUint(uint64(lw.EndpointID), 10)),
+		Owner:       tables.NewDeviceMappingOwner(ownerPrefixLocalWorkload, strconv.FormatUint(uint64(lw.EndpointID), 10)),
 		DeviceIndex: lw.LXC.IfIndex,
 		DeviceName:  lw.LXC.IfName,
 		NetworkName: network,
@@ -361,6 +371,15 @@ func (ops *deviceMappingsOps) Prune(ctx context.Context,
 func (ops *deviceMappingsOps) KeyVal(obj tables.DeviceMapping) *pnmaps.DeviceKeyVal {
 	return &pnmaps.DeviceKeyVal{
 		Key: pnmaps.NewDeviceKey(uint32(obj.DeviceIndex)),
-		Val: pnmaps.NewDeviceVal(obj.NetworkID, obj.NetworkIPv4, obj.NetworkIPv6),
+		Val: pnmaps.NewDeviceVal(obj.NetworkID, ops.deviceMappingObjType(obj), obj.NetworkIPv4, obj.NetworkIPv6),
+	}
+}
+
+// deviceMappingObjType returns the type of the device mapping object.
+func (ops *deviceMappingsOps) deviceMappingObjType(obj tables.DeviceMapping) pnmaps.DeviceValType {
+	if strings.HasPrefix(string(obj.Owner), ownerPrefixNodeAttachment) {
+		return pnmaps.DeviceValTypeNetdev
+	} else {
+		return pnmaps.DeviceValTypeLxc
 	}
 }

@@ -30,6 +30,21 @@ import (
 
 const DevicesMapName = "cilium_privnet_devices"
 
+type DeviceValType uint8
+
+const (
+	DeviceValTypeLxc DeviceValType = iota
+	DeviceValTypeNetdev
+)
+
+func (d DeviceValType) String() string {
+	if d == 0 {
+		return "lxc"
+	} else {
+		return "netdev"
+	}
+}
+
 // DeviceKey is the privnet_devices map key.
 type DeviceKey struct {
 	IfIndex uint32 `align:"ifindex"`
@@ -38,7 +53,8 @@ type DeviceKey struct {
 // DeviceVal is the privnet_devices map value.
 type DeviceVal struct {
 	NetworkID tables.NetworkID `align:"net_id"`
-	Pad1      uint16           `align:"pad1"`
+	Type      DeviceValType    `align:"type"`
+	Pad1      uint8            `align:"pad1"`
 	IPv4      types.IPv4       `align:"ipv4"`
 	IPv6      types.IPv6       `align:"ipv6"`
 }
@@ -118,9 +134,10 @@ func (*DeviceKey) New() bpf.MapKey {
 }
 
 // NewDeviceVal constructs a new privnet_devices map value.
-func NewDeviceVal(netID tables.NetworkID, ipv4, ipv6 netip.Addr) DeviceVal {
+func NewDeviceVal(netID tables.NetworkID, devType DeviceValType, ipv4, ipv6 netip.Addr) DeviceVal {
 	val := DeviceVal{
 		NetworkID: netID,
+		Type:      devType,
 	}
 	copy(val.IPv4[:], ipv4.Unmap().AsSlice())
 	copy(val.IPv6[:], ipv6.Unmap().AsSlice())
@@ -128,8 +145,9 @@ func NewDeviceVal(netID tables.NetworkID, ipv4, ipv6 netip.Addr) DeviceVal {
 }
 
 func (v DeviceVal) String() string {
-	return fmt.Sprintf("%s %s %s",
+	return fmt.Sprintf("%s %s %s %s",
 		v.NetworkID,
+		v.Type,
 		v.IPv4,
 		v.IPv6)
 }
