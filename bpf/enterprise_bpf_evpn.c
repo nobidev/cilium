@@ -7,8 +7,13 @@
 #include <bpf/config/global.h>
 #include <bpf/config/node.h>
 
+#define SECLABEL WORLD_ID
+#define SECLABEL_IPV4 WORLD_IPV4_ID
+#define SECLABEL_IPV6 WORLD_IPV6_ID
+
 #include "lib/common.h"
 #include "lib/drop_reasons.h"
+#include "lib/nodeport.h"
 #include "lib/enterprise_privnet.h"
 #include "lib/enterprise_evpn.h"
 #include "lib/enterprise_vni.h"
@@ -97,3 +102,5 @@ int cil_to_evpn(struct __ctx_buff __maybe_unused *ctx)
 {
 	return CTX_ACT_OK;
 }
+
+BPF_LICENSE("Dual BSD/GPL");

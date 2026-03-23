@@ -317,3 +317,5 @@ int privnet_evpn_egress_v6_check(struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+BPF_LICENSE("Dual BSD/GPL");
