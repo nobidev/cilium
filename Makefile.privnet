@@ -268,7 +268,9 @@ kind-privnet-install-common: kind-privnet-jetstack-repo
 		--set ipv6NativeRoutingCIDR=fd00:10:196::/56 \
 		--set enterprise.clustermesh.mixedRoutingMode.enabled=true \
 		--set enterprise.privateNetworks.networkAttachmentDefinitions.enabled=true \
+		--set=enterprise.privateNetworks.mode=local-access \
 		--set enterprise.privateNetworks.webhook.enabled=true \
+		--set=enterprise.evpn.enabled=true \
 		--set cni.exclusive=false --set cni.confPath=/etc/cni/net.d/delegates \
 		$(KIND_PRIVNET_VALUES_FILES) \
 		--version=

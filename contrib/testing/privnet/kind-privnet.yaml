@@ -39,6 +39,7 @@ enterprise:
     - DatapathIPModeDualStack
     - PrivateNetworks
     - ClusterMeshMixedRoutingMode
+    - EVPN
 
   privateNetworks:
     enabled: true
