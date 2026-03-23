@@ -19,18 +19,26 @@ type typedListWatcher[T k8sRuntime.Object] interface {
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
 
-// genListWatcher takes a typed list watcher and implements cache.ListWatch
-// using it.
+// genListWatcher takes a typed list watcher and implements cache.ListerWatcher
+// and cache.ListerWatcherWithContext using it.
 type genListWatcher[T k8sRuntime.Object] struct {
 	lw typedListWatcher[T]
 }
 
+func (g *genListWatcher[T]) ListWithContext(ctx context.Context, opts metav1.ListOptions) (k8sRuntime.Object, error) {
+	return g.lw.List(ctx, opts)
+}
+
+func (g *genListWatcher[T]) WatchWithContext(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	return g.lw.Watch(ctx, opts)
+}
+
 func (g *genListWatcher[T]) List(opts metav1.ListOptions) (k8sRuntime.Object, error) {
-	return g.lw.List(context.Background(), opts)
+	return g.ListWithContext(context.Background(), opts)
 }
 
 func (g *genListWatcher[T]) Watch(opts metav1.ListOptions) (watch.Interface, error) {
-	return g.lw.Watch(context.Background(), opts)
+	return g.WatchWithContext(context.Background(), opts)
 }
 
 // ListerWatcherFromTyped adapts a typed k8s client to cache.ListerWatcher so it can be used
@@ -41,18 +49,26 @@ func ListerWatcherFromTyped[T k8sRuntime.Object](lw typedListWatcher[T]) cache.L
 }
 
 type listWatcherWithModifier struct {
-	inner        cache.ListerWatcher
+	inner        cache.ListerWatcherWithContext
 	optsModifier func(*metav1.ListOptions)
 }
 
-func (lw *listWatcherWithModifier) List(opts metav1.ListOptions) (k8sRuntime.Object, error) {
+func (lw *listWatcherWithModifier) ListWithContext(ctx context.Context, opts metav1.ListOptions) (k8sRuntime.Object, error) {
 	lw.optsModifier(&opts)
-	return lw.inner.List(opts)
+	return lw.inner.ListWithContext(ctx, opts)
+}
+
+func (lw *listWatcherWithModifier) WatchWithContext(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	lw.optsModifier(&opts)
+	return lw.inner.WatchWithContext(ctx, opts)
+}
+
+func (lw *listWatcherWithModifier) List(opts metav1.ListOptions) (k8sRuntime.Object, error) {
+	return lw.ListWithContext(context.Background(), opts)
 }
 
 func (lw *listWatcherWithModifier) Watch(opts metav1.ListOptions) (watch.Interface, error) {
-	lw.optsModifier(&opts)
-	return lw.inner.Watch(opts)
+	return lw.WatchWithContext(context.Background(), opts)
 }
 
 func ListerWatcherWithFields(lw cache.ListerWatcher, fieldSelector fields.Selector) cache.ListerWatcher {
@@ -63,7 +79,7 @@ func ListerWatcherWithFields(lw cache.ListerWatcher, fieldSelector fields.Select
 
 func ListerWatcherWithModifier(lw cache.ListerWatcher, optsModifier func(*metav1.ListOptions)) cache.ListerWatcher {
 	return &listWatcherWithModifier{
-		inner:        lw,
+		inner:        cache.ToListerWatcherWithContext(lw),
 		optsModifier: optsModifier,
 	}
 }
