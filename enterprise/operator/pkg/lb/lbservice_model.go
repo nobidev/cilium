@@ -369,8 +369,16 @@ const (
 	tierModeT2
 )
 
+type fwdModeType int
+
+const (
+	fwdModeSNAT fwdModeType = iota
+	fwdModeDSR
+)
+
 type lbApplicationTCPProxy struct {
 	tierMode tierModeType
+	fwdMode  fwdModeType
 	routes   []lbRouteTCPProxy
 }
 
@@ -382,8 +390,13 @@ func (r lbService) isTCPProxyT1OnlyMode() bool {
 	return r.applications.tcpProxy != nil && r.applications.tcpProxy.tierMode == tierModeT1
 }
 
+func (r lbService) isTCPProxyT1OnlyWithDSR() bool {
+	return r.applications.tcpProxy != nil && r.applications.tcpProxy.tierMode == tierModeT1 && r.applications.tcpProxy.fwdMode == fwdModeDSR
+}
+
 type lbApplicationUDPProxy struct {
 	tierMode tierModeType
+	fwdMode  fwdModeType
 	routes   []lbRouteUDPProxy
 }
 
@@ -393,6 +406,10 @@ func (r lbService) isUDPProxy() bool {
 
 func (r lbService) isUDPProxyT1OnlyMode() bool {
 	return r.applications.udpProxy != nil && r.applications.udpProxy.tierMode == tierModeT1
+}
+
+func (r lbService) isUDPProxyT1OnlyWithDSR() bool {
+	return r.applications.udpProxy != nil && r.applications.udpProxy.tierMode == tierModeT1 && r.applications.udpProxy.fwdMode == fwdModeDSR
 }
 
 type lbRouteHTTP struct {

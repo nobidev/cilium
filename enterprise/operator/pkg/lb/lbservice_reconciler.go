@@ -331,7 +331,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 
 	r.updateNodesAssignedInStatus(model, lbsvc)
 	r.updateAssignedIpInStatus(model, lbsvc)
-	r.updateDeploymentModeInStatus(model, lbsvc)
+	r.updateModesInStatus(model, lbsvc)
 
 	// Stop reconciliation if assigned IP is not available or some status
 	// conditions on the LBService aren't met yet. Also, we
@@ -908,30 +908,40 @@ func (*lbServiceReconciler) updateAssignedIpInStatus(model *lbService, lbsvc *is
 	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
 }
 
-func (*lbServiceReconciler) updateDeploymentModeInStatus(model *lbService, lbsvc *isovalentv1alpha1.LBService) {
+func (*lbServiceReconciler) updateModesInStatus(model *lbService, lbsvc *isovalentv1alpha1.LBService) {
 	appStatus := isovalentv1alpha1.LBServiceApplicationsStatus{}
 
 	if model.isTCPProxy() {
 		tcpProxyDeploymentMode := isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1T2
+		tcpProxyForwardingMode := isovalentv1alpha1.LBTCPProxyForwardingModeDSR
 
 		if model.isTCPProxyT1OnlyMode() {
 			tcpProxyDeploymentMode = isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1Only
+			if !model.isTCPProxyT1OnlyWithDSR() {
+				tcpProxyForwardingMode = isovalentv1alpha1.LBTCPProxyForwardingModeSNAT
+			}
 		}
 
 		appStatus.TCPProxy = &isovalentv1alpha1.LBServiceApplicationTCPProxyStatus{
 			DeploymentMode: &tcpProxyDeploymentMode,
+			ForwardingMode: &tcpProxyForwardingMode,
 		}
 	}
 
 	if model.isUDPProxy() {
 		udpProxyDeploymentMode := isovalentv1alpha1.LBUDPProxyDeploymentModeTypeT1T2
+		udpProxyForwardingMode := isovalentv1alpha1.LBUDPProxyForwardingModeDSR
 
 		if model.isUDPProxyT1OnlyMode() {
 			udpProxyDeploymentMode = isovalentv1alpha1.LBUDPProxyDeploymentModeTypeT1Only
+			if !model.isUDPProxyT1OnlyWithDSR() {
+				udpProxyForwardingMode = isovalentv1alpha1.LBUDPProxyForwardingModeSNAT
+			}
 		}
 
 		appStatus.UDPProxy = &isovalentv1alpha1.LBServiceApplicationUDPProxyStatus{
 			DeploymentMode: &udpProxyDeploymentMode,
+			ForwardingMode: &udpProxyForwardingMode,
 		}
 	}
 
