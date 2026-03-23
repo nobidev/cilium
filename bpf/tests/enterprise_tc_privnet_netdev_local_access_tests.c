@@ -17,32 +17,39 @@
 #define DEBUG
 
 #define LXC_IFINDEX 142
-
-static int redirect_target_ifindex;
-
-#define ctx_redirect mock_ctx_redirect
-static __always_inline int
-mock_ctx_redirect(const struct __sk_buff __maybe_unused *ctx, int ifindex,
-		  __u32 __maybe_unused flags)
-{
-	redirect_target_ifindex = ifindex;
-
-	return CTX_ACT_REDIRECT;
-}
-
-#define ctx_redirect_peer mock_ctx_redirect_peer
-static __always_inline int
-mock_ctx_redirect_peer(const struct __sk_buff __maybe_unused *ctx, int ifindex,
-		       __u32 __maybe_unused flags)
-{
-	redirect_target_ifindex = ifindex;
-
-	return CTX_ACT_REDIRECT;
-}
+#define LXC_ID 142
 
 #include "enterprise_privnet_common.h"
 #include <bpf/config/node.h>
 #include <lib/enterprise_ext_eps_maps.h>
+
+/* Mock lxc policy call - will be called from privnet_local_access_ingress
+ *
+ */
+__section_entry
+	int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
+{
+	return TC_ACT_REDIRECT;
+}
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(max_entries, 256);
+	__array(values, int());
+} mock_policy_call_map __section(".maps") = {
+	.values = {
+		   [LXC_ID] = &mock_handle_policy,
+		   },
+};
+
+# define tail_call_dynamic mock_tail_call_dynamic
+static __always_inline __maybe_unused void
+mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
+		       const void *map __maybe_unused, __u32 slot __maybe_unused)
+{
+	tail_call(ctx, &mock_policy_call_map, slot);
+}
 
 static __always_inline int
 mock_ext_eps_policy_can_access(struct __ctx_buff __maybe_unused *ctx,
@@ -88,7 +95,8 @@ int privnet_local_access_ingress_from_netdev_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_local_access_ingress_from_netdev")
 int privnet_local_access_ingress_from_netdev_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(V4_POD_IP_2, LXC_IFINDEX, 0, 0, 0, 0, NULL, NULL);
+	endpoint_v4_add_entry(V4_POD_IP_2, LXC_IFINDEX, LXC_ID, 0, 0, 0,
+			      (const __u8 *)mac_two, (const __u8 *)mac_one);
 
 	privnet_add_device_entry(IFINDEX, NET_ID, NULL, NULL);
 	privnet_add_device_entry(LXC_IFINDEX, NET_ID, NULL, NULL);
@@ -107,15 +115,11 @@ int privnet_local_access_ingress_from_netdev_check(struct __ctx_buff *ctx)
 	/* packets are redirected to lxc device */
 	assert_status_code(ctx, TC_ACT_REDIRECT);
 
-	if (redirect_target_ifindex != LXC_IFINDEX)
-		test_fatal("unexpected redirect ifindex (got %d, want %d)",
-			   redirect_target_ifindex, LXC_IFINDEX);
-
 	/* check inner packet headers, src & dst should remain untranslated */
-	BUF_DECL(NETIP_TCP_SYN, privnet_net_ip_tcp_syn);
-	ASSERT_CTX_BUF_OFF("privnet_local_access_from_netdev_no_nat", "IP", ctx,
-			   sizeof(__u32), NETIP_TCP_SYN,
-			   sizeof(BUF(NETIP_TCP_SYN)));
+	BUF_DECL(NETIP_TCP_SYN_TTL, privnet_net_ip_tcp_syn_ttl_dec);
+	ASSERT_CTX_BUF_OFF("privnet_local_access_from_netdev_no_nat", "Ether", ctx,
+			   sizeof(__u32), NETIP_TCP_SYN_TTL,
+			   sizeof(BUF(NETIP_TCP_SYN_TTL)));
 
 	assert_privnet_net_ids(NET_ID, NET_ID);
 
@@ -126,8 +130,6 @@ int privnet_local_access_ingress_from_netdev_check(struct __ctx_buff *ctx)
 	privnet_del_device_entry(IFINDEX);
 
 	endpoint_v4_del_entry(V4_POD_IP_2);
-
-	redirect_target_ifindex = 0;
 
 	test_finish();
 }
@@ -143,8 +145,8 @@ int privnet_local_access_icmpv6_ns_ingress_from_netdev_pktgen(struct __ctx_buff 
 SETUP("tc", "02_local_access_icmpv6_ns_ingress_from_netdev")
 int privnet_local_access_icmpv6_ns_ingress_from_netdev_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v6_add_entry((const union v6addr *)V6_POD_IP_2,
-			      LXC_IFINDEX, 0, 0, 0, NULL, NULL);
+	endpoint_v6_add_entry((const union v6addr *)V6_POD_IP_2, LXC_IFINDEX, LXC_ID,
+			      0, 0, (const __u8 *)mac_two, (const __u8 *)mac_one);
 
 	privnet_add_device_entry(IFINDEX, NET_ID, NULL, NULL);
 	privnet_add_device_entry(LXC_IFINDEX, NET_ID, NULL, NULL);
@@ -169,10 +171,6 @@ int privnet_local_access_icmpv6_ns_ingress_from_netdev_check(struct __ctx_buff *
 	/* packets are not redirected to lxc device but handled in */
 	assert_status_code(ctx, TC_ACT_OK);
 
-	if (redirect_target_ifindex != 0)
-		test_fatal("packet unexpectedly redirected to ifindex %d)",
-			   redirect_target_ifindex);
-
 	BUF_DECL(NETDEV_ICMP6_NS, privnet_netdev_ns);
 	ASSERT_CTX_BUF_OFF("privnet_local_access_icmpv6_ns_ingress_from_netdev_no_nat",
 			   "Ether", ctx,
@@ -189,10 +187,7 @@ int privnet_local_access_icmpv6_ns_ingress_from_netdev_check(struct __ctx_buff *
 	privnet_v6_del_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN);
 	privnet_del_device_entry(LXC_IFINDEX);
 	privnet_del_device_entry(IFINDEX);
-
 	/* endpoint_v6_del_entry((const union v6addr *)V6_POD_IP_2); */
-
-	redirect_target_ifindex = 0;
 
 	test_finish();
 }

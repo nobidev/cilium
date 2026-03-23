@@ -3,6 +3,12 @@
 
 import pkt_defs as pd
 from scapy.all import *
+def with_ttl_decremented(pkt):
+    """Return a new packet with TTL decremented by 1 and recalculated checksum."""
+    new_pkt = pkt.copy()
+    new_pkt[IP].ttl -= 1
+    del new_pkt[IP].chksum
+    return Ether(bytes(new_pkt))
 
 # IPv4 privnet addresses for pods in the cluster, reusing svc addresses.
 v4_pod_one_netip    = pd.v4_svc_one
@@ -79,6 +85,8 @@ privnet_net_ip_tcp_syn = (
     TCP(sport=1234, dport=80, flags="S") /
     Raw(load=b"syn")
 )
+privnet_net_ip_tcp_syn_ttl_dec = with_ttl_decremented(privnet_net_ip_tcp_syn)
+
 privnet_pod_ip_tcp_syn = (
     Ether(src=pd.mac_one, dst=pd.mac_two) /
     IP(src=pd.v4_pod_one, dst=pd.v4_pod_two) /

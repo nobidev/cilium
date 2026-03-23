@@ -878,6 +878,20 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 		if (dst_privnet_entry)
 			*dst_privnet_entry = dip_val;
 
+		/* Apply egress unknown policy before local-access or evpn
+		 * redirect. Unknown policy is applied under these conditions:
+		 * (a) Destination is route entry, corollary, destination is not
+		 * Cilium managed endpoint - dst will remain in private-network space.
+		 * (b) Apply policy at lxc egress, this is indirectly enforced by
+		 * sec_label, which will be set when called from bpf_lxc.
+		 */
+		if (is_privnet_route_entry(dip_val) && sec_label) {
+			/* enforce egress policy for unknown flow */
+			ret = privnet_unknown_policy_egress4(ctx, ip4, net_id, sec_label, trace);
+			if (ret != CTX_ACT_OK)
+				return ret;
+		}
+
 		ret = privnet_local_access_egress_ipv4(dip_val, ip4->daddr);
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
@@ -902,11 +916,6 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			}
 			/* Set net id to default network.*/
 			set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
-		} else if (sec_label) {
-			/* enforce egress policy for unknown flow */
-			ret = privnet_unknown_policy_egress4(ctx, ip4, net_id, sec_label, trace);
-			if (ret != CTX_ACT_OK)
-				return ret;
 		}
 	}
 
@@ -1098,6 +1107,14 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 		if (dst_privnet_entry)
 			*dst_privnet_entry = dip_val;
 
+		if (is_privnet_route_entry(dip_val) && sec_label) {
+			/* enforce egress policy for unknown flow */
+			ret = privnet_unknown_policy_egress6(ctx, ip6, net_id,
+							     sec_label, trace);
+			if (ret != CTX_ACT_OK)
+				return ret;
+		}
+
 		ret = privnet_local_access_egress_ipv6(dip_val, &orig_dip);
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
@@ -1114,11 +1131,6 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 				return ret;
 			/* Set net id to default network.*/
 			set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
-		} else if (sec_label) {
-			/* enforce egress policy for unknown flow */
-			ret = privnet_unknown_policy_egress6(ctx, ip6, net_id, sec_label, trace);
-			if (ret != CTX_ACT_OK)
-				return ret;
 		}
 	}
 
@@ -1707,7 +1719,8 @@ privnet_evpn_ingress_ipv4(struct __ctx_buff *ctx, __u16 net_id)
 	if (!ep)
 		return DROP_UNROUTABLE;
 
-	return redirect_ep(ctx, ep->ifindex, true, false);
+	return ipv4_local_delivery(ctx, ETH_HLEN, WORLD_IPV4_ID, MARK_MAGIC_IDENTITY,
+				   ip4, ep, METRIC_INGRESS, false, false, 0);
 }
 
 static __always_inline int
@@ -1742,7 +1755,8 @@ privnet_evpn_ingress_ipv6(struct __ctx_buff *ctx, __u16 net_id)
 	if (!ep)
 		return DROP_UNROUTABLE;
 
-	return redirect_ep(ctx, ep->ifindex, true, false);
+	return ipv6_local_delivery(ctx, ETH_HLEN, WORLD_IPV6_ID, MARK_MAGIC_IDENTITY,
+				   ep, METRIC_INGRESS, false, false);
 }
 
 static __always_inline int
@@ -2252,8 +2266,10 @@ privnet_local_access_ingress_ipv4(struct __ctx_buff *ctx, const __u16 net_id,
 		 */
 		ep = __lookup_ip4_endpoint(dip_val->ip4);
 		if (ep) {
-			/* Redirect to the corresponding endpoint's lxc interface without policy. */
-			return redirect_ep(ctx, ep->ifindex, true, false);
+			/* Redirect to the corresponding endpoint's lxc policy program. */
+			return ipv4_local_delivery(ctx, ETH_HLEN, WORLD_IPV4_ID,
+						   MARK_MAGIC_IDENTITY, ip4, ep,
+						   METRIC_INGRESS, false, false, 0);
 		}
 
 		/* No local endpoint found to redirect to. */
@@ -2293,8 +2309,10 @@ privnet_local_access_ingress_ipv6(struct __ctx_buff *ctx, const __u16 net_id,
 		 */
 		ep = __lookup_ip6_endpoint(&dip_val->ip6);
 		if (ep) {
-			/* Redirect to the corresponding endpoint's lxc interface without policy. */
-			return redirect_ep(ctx, ep->ifindex, true, false);
+			/* Redirect to the corresponding endpoint's lxc interface policy program. */
+			return ipv6_local_delivery(ctx, ETH_HLEN, WORLD_IPV6_ID,
+						   MARK_MAGIC_IDENTITY, ep,
+						   METRIC_INGRESS, false, false);
 		}
 
 		/* No local endpoint found to redirect to. */

@@ -12,9 +12,39 @@
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define privnet_tunnel_id 99
+#define LXC_IFINDEX 321
+#define LXC_ID 123
 
 /* Enable debug output */
 #define DEBUG
+
+/* Mock lxc policy call - will be called from privnet_evpn_ingress
+ *
+ */
+__section_entry
+	int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
+{
+	return TC_ACT_REDIRECT;
+}
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(max_entries, 256);
+	__array(values, int());
+} mock_policy_call_map __section(".maps") = {
+	.values = {
+		   [LXC_ID] = &mock_handle_policy,
+		   },
+};
+
+# define tail_call_dynamic mock_tail_call_dynamic
+static __always_inline __maybe_unused void
+mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
+		       const void *map __maybe_unused, __u32 slot __maybe_unused)
+{
+	tail_call(ctx, &mock_policy_call_map, slot);
+}
 
 #include <bpf/config/node.h>
 
@@ -49,8 +79,8 @@ int privnet_evpn_ingress_v4_check(struct __ctx_buff *ctx)
 
 		privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 		privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_1);
-		endpoint_v4_add_entry(V4_POD_IP_1, 1, 0, 0, 0, 0, (const __u8 *)mac_four,
-				      (const __u8 *)mac_five);
+		endpoint_v4_add_entry(V4_POD_IP_1, LXC_IFINDEX, LXC_ID, 0, 0, 0,
+				      (const __u8 *)mac_four, (const __u8 *)mac_five);
 
 		status_code = __privnet_evpn_ingress(ctx, NET_ID);
 
@@ -134,7 +164,7 @@ int privnet_evpn_ingress_v6_check(struct __ctx_buff *ctx)
 		privnet_v6_add_endpoint_entry(NET_ID, SUBNET_ID,
 					      (const union v6addr *)V6_NET_IP_1,
 					      (const union v6addr *)V6_POD_IP_1);
-		endpoint_v6_add_entry((const union v6addr *)V6_POD_IP_1, 1, 0, 0, 0,
+		endpoint_v6_add_entry((const union v6addr *)V6_POD_IP_1, LXC_IFINDEX, LXC_ID, 0, 0,
 				      (const __u8 *)mac_four, (const __u8 *)mac_five);
 
 		status_code = __privnet_evpn_ingress(ctx, NET_ID);
