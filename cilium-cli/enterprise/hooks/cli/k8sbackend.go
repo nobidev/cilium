@@ -81,6 +81,7 @@ func NewCmdK8sBackend() *cobra.Command {
 	}
 
 	cmd.AddCommand(newCmdK8sBackendAddCluster())
+	cmd.AddCommand(newCmdK8sBackendDeleteCluster())
 
 	return cmd
 }
@@ -144,6 +145,190 @@ Example:
 	cmd.MarkFlagRequired("external-kubeconfig")
 
 	return cmd
+}
+
+type K8sBackendDeleteClusterOptions struct {
+	SecretNamespace                 string
+	ExternalClusterName             string
+	ExternalKubeconfig              string
+	ExternalKubeconfigContext       string
+	ExternalServiceAccountNamespace string
+}
+
+func newCmdK8sBackendDeleteCluster() *cobra.Command {
+	opts := &K8sBackendDeleteClusterOptions{
+		SecretNamespace:                 "cilium-secrets",
+		ExternalServiceAccountNamespace: "kube-system",
+	}
+
+	cmd := &cobra.Command{
+		Use:   "deletecluster",
+		Short: "Remove a remote Kubernetes cluster as a backend source",
+		Long: `Remove a remote Kubernetes cluster as a backend source for cross-cluster load balancing.
+
+This command:
+1. Deletes the LBK8sBackendCluster resource from the ILB cluster
+2. Deletes the authentication Secret from the ILB cluster
+3. Optionally cleans up RBAC resources on the external cluster (if --external-kubeconfig is provided)
+
+Example:
+  cilium lb k8s deletecluster --external-cluster-name us-west-2 \
+    --external-kubeconfig /path/to/us-west-2.kubeconfig \
+    --external-kubeconfig-context us-west-2 \
+    --context ilb-cluster`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDeleteCluster(cmd.Context(), opts)
+		},
+	}
+
+	flags := cmd.Flags()
+	flags.StringVar(&opts.ExternalClusterName,
+		"external-cluster-name", "",
+		"Name of the LBK8sBackendCluster resource to delete (required)")
+	flags.StringVar(&opts.ExternalKubeconfig,
+		"external-kubeconfig", "",
+		"Path to kubeconfig for the external cluster (if provided, RBAC resources are cleaned up)")
+	flags.StringVar(&opts.ExternalKubeconfigContext,
+		"external-kubeconfig-context", "",
+		"Context in the external kubeconfig to use")
+	flags.StringVar(&opts.SecretNamespace,
+		"secret-namespace", opts.SecretNamespace,
+		"Namespace for the authentication secret in the ILB cluster")
+	flags.StringVar(&opts.ExternalServiceAccountNamespace,
+		"external-service-account-namespace",
+		opts.ExternalServiceAccountNamespace,
+		"Namespace for the ServiceAccount in the external cluster")
+
+	cmd.MarkFlagRequired("external-cluster-name")
+
+	return cmd
+}
+
+func runDeleteCluster(ctx context.Context, opts *K8sBackendDeleteClusterOptions) error {
+	ilbClient := ciliumcli.RootK8sClient
+	fmt.Printf("Connected to ILB cluster: %s\n", ilbClient.Config.Host)
+
+	// Delete LBK8sBackendCluster
+	fmt.Printf("\nDeleting LBK8sBackendCluster %q...\n", opts.ExternalClusterName)
+	err := ilbClient.DynamicClientset.Resource(k8sBackendClusterGVR).Delete(
+		ctx, opts.ExternalClusterName, metav1.DeleteOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			fmt.Println("LBK8sBackendCluster not found, skipping")
+		} else {
+			return fmt.Errorf("failed to delete LBK8sBackendCluster: %w", err)
+		}
+	} else {
+		fmt.Println("Deleted LBK8sBackendCluster")
+	}
+
+	// Delete auth Secret
+	secretName := opts.ExternalClusterName + authSecretSuffix
+	fmt.Printf("\nDeleting Secret %s/%s from ILB cluster...\n",
+		opts.SecretNamespace, secretName)
+	err = ilbClient.Clientset.CoreV1().Secrets(opts.SecretNamespace).Delete(
+		ctx, secretName, metav1.DeleteOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			fmt.Println("Secret not found, skipping")
+		} else {
+			return fmt.Errorf("failed to delete Secret: %w", err)
+		}
+	} else {
+		fmt.Println("Deleted Secret")
+	}
+
+	// Clean up external cluster RBAC if kubeconfig is provided
+	if opts.ExternalKubeconfig != "" {
+		if err := cleanupExternalCluster(ctx, opts); err != nil {
+			return err
+		}
+	} else {
+		fmt.Println("\nSkipping external cluster RBAC cleanup (no --external-kubeconfig provided)")
+	}
+
+	fmt.Printf("\nBackend cluster %q has been removed.\n", opts.ExternalClusterName)
+	return nil
+}
+
+func cleanupExternalCluster(
+	ctx context.Context,
+	opts *K8sBackendDeleteClusterOptions,
+) error {
+	targetConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: opts.ExternalKubeconfig},
+		&clientcmd.ConfigOverrides{CurrentContext: opts.ExternalKubeconfigContext},
+	).ClientConfig()
+	if err != nil {
+		return fmt.Errorf("failed to build target cluster config: %w", err)
+	}
+
+	targetClient, err := kubernetes.NewForConfig(targetConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create target cluster client: %w", err)
+	}
+
+	fmt.Printf("\nConnected to external cluster: %s\n", targetConfig.Host)
+	fmt.Println("Cleaning up RBAC resources...")
+
+	// Delete token secret
+	tokenSecretName := k8sBackendServiceAccountName + tokenSecretSuffix
+	fmt.Printf("\nDeleting Secret %s/%s...\n",
+		opts.ExternalServiceAccountNamespace, tokenSecretName)
+	err = targetClient.CoreV1().Secrets(
+		opts.ExternalServiceAccountNamespace,
+	).Delete(ctx, tokenSecretName, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete token secret: %w", err)
+	}
+	if k8serrors.IsNotFound(err) {
+		fmt.Println("Token secret not found, skipping")
+	} else {
+		fmt.Println("Deleted token secret")
+	}
+
+	// Delete ClusterRoleBinding
+	fmt.Printf("\nDeleting ClusterRoleBinding %s...\n", k8sBackendClusterRoleName)
+	err = targetClient.RbacV1().ClusterRoleBindings().Delete(
+		ctx, k8sBackendClusterRoleName, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete ClusterRoleBinding: %w", err)
+	}
+	if k8serrors.IsNotFound(err) {
+		fmt.Println("ClusterRoleBinding not found, skipping")
+	} else {
+		fmt.Println("Deleted ClusterRoleBinding")
+	}
+
+	// Delete ClusterRole
+	fmt.Printf("\nDeleting ClusterRole %s...\n", k8sBackendClusterRoleName)
+	err = targetClient.RbacV1().ClusterRoles().Delete(
+		ctx, k8sBackendClusterRoleName, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete ClusterRole: %w", err)
+	}
+	if k8serrors.IsNotFound(err) {
+		fmt.Println("ClusterRole not found, skipping")
+	} else {
+		fmt.Println("Deleted ClusterRole")
+	}
+
+	// Delete ServiceAccount
+	fmt.Printf("\nDeleting ServiceAccount %s/%s...\n",
+		opts.ExternalServiceAccountNamespace, k8sBackendServiceAccountName)
+	err = targetClient.CoreV1().ServiceAccounts(
+		opts.ExternalServiceAccountNamespace,
+	).Delete(ctx, k8sBackendServiceAccountName, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete ServiceAccount: %w", err)
+	}
+	if k8serrors.IsNotFound(err) {
+		fmt.Println("ServiceAccount not found, skipping")
+	} else {
+		fmt.Println("Deleted ServiceAccount")
+	}
+
+	return nil
 }
 
 func runAddCluster(ctx context.Context, opts *K8sBackendAddClusterOptions) error {
