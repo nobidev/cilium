@@ -3396,6 +3396,14 @@ func (in *LBServiceApplicationTCPProxy) DeepEqual(other *LBServiceApplicationTCP
 		}
 	}
 
+	if (in.ForceForwardingMode == nil) != (other.ForceForwardingMode == nil) {
+		return false
+	} else if in.ForceForwardingMode != nil {
+		if *in.ForceForwardingMode != *other.ForceForwardingMode {
+			return false
+		}
+	}
+
 	if ((in.Routes != nil) && (other.Routes != nil)) || ((in.Routes == nil) != (other.Routes == nil)) {
 		in, other := &in.Routes, &other.Routes
 		if other == nil {
@@ -3427,6 +3435,14 @@ func (in *LBServiceApplicationTCPProxyStatus) DeepEqual(other *LBServiceApplicat
 		return false
 	} else if in.DeploymentMode != nil {
 		if *in.DeploymentMode != *other.DeploymentMode {
+			return false
+		}
+	}
+
+	if (in.ForwardingMode == nil) != (other.ForwardingMode == nil) {
+		return false
+	} else if in.ForwardingMode != nil {
+		if *in.ForwardingMode != *other.ForwardingMode {
 			return false
 		}
 	}
@@ -3507,6 +3523,14 @@ func (in *LBServiceApplicationUDPProxy) DeepEqual(other *LBServiceApplicationUDP
 		}
 	}
 
+	if (in.ForceForwardingMode == nil) != (other.ForceForwardingMode == nil) {
+		return false
+	} else if in.ForceForwardingMode != nil {
+		if *in.ForceForwardingMode != *other.ForceForwardingMode {
+			return false
+		}
+	}
+
 	if ((in.Routes != nil) && (other.Routes != nil)) || ((in.Routes == nil) != (other.Routes == nil)) {
 		in, other := &in.Routes, &other.Routes
 		if other == nil {
@@ -3538,6 +3562,14 @@ func (in *LBServiceApplicationUDPProxyStatus) DeepEqual(other *LBServiceApplicat
 		return false
 	} else if in.DeploymentMode != nil {
 		if *in.DeploymentMode != *other.DeploymentMode {
+			return false
+		}
+	}
+
+	if (in.ForwardingMode == nil) != (other.ForwardingMode == nil) {
+		return false
+	} else if in.ForwardingMode != nil {
+		if *in.ForwardingMode != *other.ForwardingMode {
 			return false
 		}
 	}

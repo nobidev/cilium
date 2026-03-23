@@ -491,6 +491,35 @@ type LBServiceApplicationTCPProxy struct {
 	// +kubebuilder:validation:Optional
 	ForceDeploymentMode *LBTCPProxyForceDeploymentModeType `json:"forceDeploymentMode,omitempty"`
 
+	// Enforces a specific forwarding mode for the "t1-only" deployed
+	// TCPProxy application. This configuration should be used
+	// only when the infrastructure can handle the forwarding mode,
+	// for example, it can terminate DSR.
+	//
+	// Following options are available:
+	//
+	// auto : The LB controller automatically chooses the most
+	//        suitable implementation for given configuration.
+	//
+	// snat : Enforces TCPProxy to be realized via SNAT for the
+	//        T1-only LBService. This means reply traffic comes back
+	//        to the load balancer for reverse translation. There
+	//        are no further infrastructure requirements to handle
+	//        such traffic.
+	//
+	// dsr  : Enforces TCPProxy to be realized via DSR for the
+	//        T1-only LBService. This means reply traffic does not
+	//        come back to the load balancer and the backends reply
+	//        directly back to the client. This is more efficient
+	//        than the "snat" option, however, the infrastructure
+	//        must handle tunnel termination at the backend side
+	//        for the encapsulated original request.
+	//
+	// Optional, Default: auto
+	//
+	// +kubebuilder:validation:Optional
+	ForceForwardingMode *LBTCPProxyForceForwardingModeType `json:"forceForwardingMode,omitempty"`
+
 	// The TCP proxy routing configuration.
 	//
 	// +kubebuilder:validation:Required
@@ -573,6 +602,15 @@ const (
 	LBTCPProxyForceDeploymentModeT2   LBTCPProxyForceDeploymentModeType = "t1-t2"
 )
 
+// +kubebuilder:validation:Enum=auto;snat;dsr
+type LBTCPProxyForceForwardingModeType string
+
+const (
+	LBTCPProxyForceForwardingModeAuto LBTCPProxyForceForwardingModeType = "auto"
+	LBTCPProxyForceForwardingModeSNAT LBTCPProxyForceForwardingModeType = "snat"
+	LBTCPProxyForceForwardingModeDSR  LBTCPProxyForceForwardingModeType = "dsr"
+)
+
 type LBServiceApplicationUDPProxy struct {
 	// Enforces specific implementation to be used to realize
 	// UDPProxy application. This configuration should be used
@@ -596,6 +634,35 @@ type LBServiceApplicationUDPProxy struct {
 	//
 	// +kubebuilder:validation:Optional
 	ForceDeploymentMode *LBUDPProxyForceDeploymentModeType `json:"forceDeploymentMode,omitempty"`
+
+	// Enforces a specific forwarding mode for the "t1-only" deployed
+	// UDPProxy application. This configuration should be used
+	// only when the infrastructure can handle the forwarding mode,
+	// for example, it can terminate DSR.
+	//
+	// Following options are available:
+	//
+	// auto : The LB controller automatically chooses the most
+	//        suitable implementation for given configuration.
+	//
+	// snat : Enforces UDPProxy to be realized via SNAT for the
+	//        T1-only LBService. This means reply traffic comes back
+	//        to the load balancer for reverse translation. There
+	//        are no further infrastructure requirements to handle
+	//        such traffic.
+	//
+	// dsr  : Enforces UDPProxy to be realized via DSR for the
+	//        T1-only LBService. This means reply traffic does not
+	//        come back to the load balancer and the backends reply
+	//        directly back to the client. This is more efficient
+	//        than the "snat" option, however, the infrastructure
+	//        must handle tunnel termination at the backend side
+	//        for the encapsulated original request.
+	//
+	// Optional, Default: auto
+	//
+	// +kubebuilder:validation:Optional
+	ForceForwardingMode *LBUDPProxyForceForwardingModeType `json:"forceForwardingMode,omitempty"`
 
 	// The UDP proxy routing configuration.
 	//
@@ -639,6 +706,15 @@ const (
 	LBUDPProxyForceDeploymentModeAuto LBUDPProxyForceDeploymentModeType = "auto"
 	LBUDPProxyForceDeploymentModeT1   LBUDPProxyForceDeploymentModeType = "t1-only"
 	LBUDPProxyForceDeploymentModeT2   LBUDPProxyForceDeploymentModeType = "t1-t2"
+)
+
+// +kubebuilder:validation:Enum=auto;snat;dsr
+type LBUDPProxyForceForwardingModeType string
+
+const (
+	LBUDPProxyForceForwardingModeAuto LBUDPProxyForceForwardingModeType = "auto"
+	LBUDPProxyForceForwardingModeSNAT LBUDPProxyForceForwardingModeType = "snat"
+	LBUDPProxyForceForwardingModeDSR  LBUDPProxyForceForwardingModeType = "dsr"
 )
 
 type LBServiceUDPRoutePersistentBackend struct {
@@ -1480,6 +1556,14 @@ type LBServiceApplicationTCPProxyStatus struct {
 	// deployment mode is evaluated based on other configuration / enabled
 	// features.
 	DeploymentMode *LBTCPProxyDeploymentModeType `json:"deploymentMode,omitempty"`
+
+	// The applied forwarding mode of the TCPProxy application.
+	//
+	// This depends on the configured forceForwardingMode on the TCPProxy application.
+	// This is especially important for the mode `auto` where the actual
+	// forwarding mode is evaluated based on other configuration / enabled
+	// features.
+	ForwardingMode *LBTCPProxyForwardingModeType `json:"forwardingMode,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=t1-only;t1-t2
@@ -1490,6 +1574,14 @@ const (
 	LBTCPProxyDeploymentModeTypeT1T2   LBTCPProxyDeploymentModeType = "t1-t2"
 )
 
+// +kubebuilder:validation:Enum=snat;dsr
+type LBTCPProxyForwardingModeType string
+
+const (
+	LBTCPProxyForwardingModeSNAT LBTCPProxyForwardingModeType = "snat"
+	LBTCPProxyForwardingModeDSR  LBTCPProxyForwardingModeType = "dsr"
+)
+
 type LBServiceApplicationUDPProxyStatus struct {
 	// The applied deployment mode of the UDPProxy application.
 	//
@@ -1498,6 +1590,14 @@ type LBServiceApplicationUDPProxyStatus struct {
 	// deployment mode is evaluated based on other configuration / enabled
 	// features.
 	DeploymentMode *LBUDPProxyDeploymentModeType `json:"deploymentMode,omitempty"`
+
+	// The applied forwarding mode of the UDPProxy application.
+	//
+	// This depends on the configured forceForwardingMode on the UDPProxy application.
+	// This is especially important for the mode `auto` where the actual
+	// forwarding mode is evaluated based on other configuration / enabled
+	// features.
+	ForwardingMode *LBUDPProxyForwardingModeType `json:"forwardingMode,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=t1-only;t1-t2
@@ -1506,6 +1606,14 @@ type LBUDPProxyDeploymentModeType string
 const (
 	LBUDPProxyDeploymentModeTypeT1Only LBUDPProxyDeploymentModeType = "t1-only"
 	LBUDPProxyDeploymentModeTypeT1T2   LBUDPProxyDeploymentModeType = "t1-t2"
+)
+
+// +kubebuilder:validation:Enum=snat;dsr
+type LBUDPProxyForwardingModeType string
+
+const (
+	LBUDPProxyForwardingModeSNAT LBUDPProxyForwardingModeType = "snat"
+	LBUDPProxyForwardingModeDSR  LBUDPProxyForwardingModeType = "dsr"
 )
 
 const (

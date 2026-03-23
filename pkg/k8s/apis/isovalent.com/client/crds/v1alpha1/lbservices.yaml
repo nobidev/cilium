@@ -1526,6 +1526,38 @@ spec:
                         - t1-only
                         - t1-t2
                         type: string
+                      forceForwardingMode:
+                        description: |-
+                          Enforces a specific forwarding mode for the "t1-only" deployed
+                          TCPProxy application. This configuration should be used
+                          only when the infrastructure can handle the forwarding mode,
+                          for example, it can terminate DSR.
+
+                          Following options are available:
+
+                          auto : The LB controller automatically chooses the most
+                                 suitable implementation for given configuration.
+
+                          snat : Enforces TCPProxy to be realized via SNAT for the
+                                 T1-only LBService. This means reply traffic comes back
+                                 to the load balancer for reverse translation. There
+                                 are no further infrastructure requirements to handle
+                                 such traffic.
+
+                          dsr  : Enforces TCPProxy to be realized via DSR for the
+                                 T1-only LBService. This means reply traffic does not
+                                 come back to the load balancer and the backends reply
+                                 directly back to the client. This is more efficient
+                                 than the "snat" option, however, the infrastructure
+                                 must handle tunnel termination at the backend side
+                                 for the encapsulated original request.
+
+                          Optional, Default: auto
+                        enum:
+                        - auto
+                        - snat
+                        - dsr
+                        type: string
                       routes:
                         description: The TCP proxy routing configuration.
                         items:
@@ -2284,6 +2316,38 @@ spec:
                         - t1-only
                         - t1-t2
                         type: string
+                      forceForwardingMode:
+                        description: |-
+                          Enforces a specific forwarding mode for the "t1-only" deployed
+                          UDPProxy application. This configuration should be used
+                          only when the infrastructure can handle the forwarding mode,
+                          for example, it can terminate DSR.
+
+                          Following options are available:
+
+                          auto : The LB controller automatically chooses the most
+                                 suitable implementation for given configuration.
+
+                          snat : Enforces UDPProxy to be realized via SNAT for the
+                                 T1-only LBService. This means reply traffic comes back
+                                 to the load balancer for reverse translation. There
+                                 are no further infrastructure requirements to handle
+                                 such traffic.
+
+                          dsr  : Enforces UDPProxy to be realized via DSR for the
+                                 T1-only LBService. This means reply traffic does not
+                                 come back to the load balancer and the backends reply
+                                 directly back to the client. This is more efficient
+                                 than the "snat" option, however, the infrastructure
+                                 must handle tunnel termination at the backend side
+                                 for the encapsulated original request.
+
+                          Optional, Default: auto
+                        enum:
+                        - auto
+                        - snat
+                        - dsr
+                        type: string
                       routes:
                         description: The UDP proxy routing configuration.
                         items:
@@ -2501,6 +2565,18 @@ spec:
                         - t1-only
                         - t1-t2
                         type: string
+                      forwardingMode:
+                        description: |-
+                          The applied forwarding mode of the TCPProxy application.
+
+                          This depends on the configured forceForwardingMode on the TCPProxy application.
+                          This is especially important for the mode `auto` where the actual
+                          forwarding mode is evaluated based on other configuration / enabled
+                          features.
+                        enum:
+                        - snat
+                        - dsr
+                        type: string
                     type: object
                   udpProxy:
                     description: Status information of the UDPProxy application.
@@ -2516,6 +2592,18 @@ spec:
                         enum:
                         - t1-only
                         - t1-t2
+                        type: string
+                      forwardingMode:
+                        description: |-
+                          The applied forwarding mode of the UDPProxy application.
+
+                          This depends on the configured forceForwardingMode on the UDPProxy application.
+                          This is especially important for the mode `auto` where the actual
+                          forwarding mode is evaluated based on other configuration / enabled
+                          features.
+                        enum:
+                        - snat
+                        - dsr
                         type: string
                     type: object
                 type: object
