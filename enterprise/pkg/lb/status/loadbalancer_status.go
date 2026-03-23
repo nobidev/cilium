@@ -548,49 +548,50 @@ func (s *LoadbalancerClient) getBackends(lbsvc isovalentv1alpha1.LBService, node
 		}
 	}
 
-	var status map[string]map[string]int
-	nrOfNodes := 0
-
 	if s.isT1Only(lbsvc) {
-		status = s.getBackendStatusFromT1(lbsvc, nodeT1Services)
-		nrOfNodes = len(nodeT1Services)
-	} else {
-		status = s.getBackendStatusFromT2(lbsvc, nodeEnvoyConfigs)
-		nrOfNodes = len(nodeEnvoyConfigs)
+		return s.groupBackendStatusCounts(s.getBackendStatusFromT1(lbsvc, nodeT1Services))
 	}
 
-	total := 0
-	totalOk := 0
+	return s.groupBackendStatusCounts(s.getBackendStatusFromT2(lbsvc, nodeEnvoyConfigs))
+}
 
-	groups := []LoadbalancerStatusModelSimpleStatus{}
+type backendStatusCounter struct {
+	active   int
+	expected int
+}
+
+func (s *LoadbalancerClient) groupBackendStatusCounts(status map[string]map[string]backendStatusCounter) LoadbalancerStatusModelGroupedStatus {
+	total := 0
+	totalOK := 0
+	groups := make([]LoadbalancerStatusModelSimpleStatus, 0, len(status))
 
 	for _, endpoints := range status {
-		nrOk := 0
-		for _, v := range endpoints {
+		groupOK := 0
+		for _, counts := range endpoints {
 			total++
-			if v == nrOfNodes {
-				nrOk++
-				totalOk++
+			if counts.expected > 0 && counts.active == counts.expected {
+				groupOK++
+				totalOK++
 			}
 		}
 
 		groups = append(groups, LoadbalancerStatusModelSimpleStatus{
-			Status: s.statusText(nrOk, len(endpoints)),
-			OK:     nrOk,
+			Status: s.statusText(groupOK, len(endpoints)),
+			OK:     groupOK,
 			Total:  len(endpoints),
 		})
 	}
 
 	return LoadbalancerStatusModelGroupedStatus{
-		Status: s.statusText(totalOk, total),
+		Status: s.statusText(totalOK, total),
 		Groups: groups,
 	}
 }
 
-func (s *LoadbalancerClient) getBackendStatusFromT1(lbsvc isovalentv1alpha1.LBService, nodeT1Services map[string][]*models.Service) map[string]map[string]int {
-	status := map[string]map[string]int{}
+func (c *LoadbalancerClient) getBackendStatusFromT1(lbsvc isovalentv1alpha1.LBService, nodeT1Services map[string][]*models.Service) map[string]map[string]backendStatusCounter {
+	status := map[string]map[string]backendStatusCounter{}
 
-	for _, sn := range nodeT1Services {
+	for nodeName, sn := range nodeT1Services {
 		for _, s := range sn {
 			if s.Status != nil && s.Status.Realized != nil && s.Status.Realized.FrontendAddress != nil && s.Status.Realized.Flags != nil &&
 				s.Status.Realized.Flags.Type == "LoadBalancer" &&
@@ -598,19 +599,19 @@ func (s *LoadbalancerClient) getBackendStatusFromT1(lbsvc isovalentv1alpha1.LBSe
 				s.Status.Realized.FrontendAddress.IP == *lbsvc.Status.Addresses.IPv4 &&
 				s.Status.Realized.FrontendAddress.Port == uint16(lbsvc.Spec.Port) {
 
+				groupKey := s.Spec.Flags.Namespace + "-" + s.Spec.Flags.Name
+				if _, ok := status[groupKey]; !ok {
+					status[groupKey] = map[string]backendStatusCounter{}
+				}
+
 				for _, b := range s.Status.Realized.BackendAddresses {
-					if _, ok := status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name]; !ok {
-						status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name] = map[string]int{}
-					}
-
 					key := fmt.Sprintf("%s-%d", *b.IP, b.Port)
-					if _, ok := status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name][key]; !ok {
-						status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name][key] = 0
-					}
-
+					counter := status[groupKey][key]
+					counter.expected = c.expectedT1BackendNodeCount(lbsvc, nodeName, nodeT1Services, b.Zone)
 					if b.State == "active" {
-						status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name][key] = status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name][key] + 1
+						counter.active++
 					}
+					status[groupKey][key] = counter
 				}
 			}
 		}
@@ -619,8 +620,31 @@ func (s *LoadbalancerClient) getBackendStatusFromT1(lbsvc isovalentv1alpha1.LBSe
 	return status
 }
 
-func (s *LoadbalancerClient) getBackendStatusFromT2(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) map[string]map[string]int {
-	status := map[string]map[string]int{}
+func (s *LoadbalancerClient) expectedT1BackendNodeCount(lbsvc isovalentv1alpha1.LBService, nodeName string, nodeT1Services map[string][]*models.Service, backendZone string) int {
+	if !s.isZoneAware(lbsvc) || backendZone == "" {
+		return len(nodeT1Services)
+	}
+
+	nodeZone := s.t1NodeZones[nodeName]
+	if nodeZone == "" {
+		return len(nodeT1Services)
+	}
+
+	expected := 0
+	for candidateNode := range nodeT1Services {
+		if s.t1NodeZones[candidateNode] == backendZone {
+			expected++
+		}
+	}
+	return expected
+}
+
+func (s *LoadbalancerClient) isZoneAware(lbsvc isovalentv1alpha1.LBService) bool {
+	return lbsvc.Spec.TrafficPolicy != nil && lbsvc.Spec.TrafficPolicy.ZoneAware != nil
+}
+
+func (s *LoadbalancerClient) getBackendStatusFromT2(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) map[string]map[string]backendStatusCounter {
+	status := map[string]map[string]backendStatusCounter{}
 
 	for _, ecn := range nodeEnvoyConfigs {
 		for _, c := range ecn.Configs {
@@ -632,17 +656,16 @@ func (s *LoadbalancerClient) getBackendStatusFromT2(lbsvc isovalentv1alpha1.LBSe
 						for _, ep := range e.EndpointConfig.Endpoints {
 							for _, epc := range ep.LbEndpoints {
 								if _, ok := status[e.EndpointConfig.ClusterName]; !ok {
-									status[e.EndpointConfig.ClusterName] = map[string]int{}
+									status[e.EndpointConfig.ClusterName] = map[string]backendStatusCounter{}
 								}
 
 								key := fmt.Sprintf("%s-%d", epc.Endpoint.Address.SocketAddress.Address, epc.Endpoint.Address.SocketAddress.PortValue)
-								if _, ok := status[e.EndpointConfig.ClusterName][key]; !ok {
-									status[e.EndpointConfig.ClusterName][key] = 0
-								}
-
+								counter := status[e.EndpointConfig.ClusterName][key]
+								counter.expected = len(nodeEnvoyConfigs)
 								if epc.HealthStatus == "HEALTHY" {
-									status[e.EndpointConfig.ClusterName][key] = status[e.EndpointConfig.ClusterName][key] + 1
+									counter.active++
 								}
+								status[e.EndpointConfig.ClusterName][key] = counter
 							}
 						}
 					}
