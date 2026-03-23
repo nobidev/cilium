@@ -941,28 +941,51 @@ func (r *lbK8sBackendClusterReconciler) cleanupRemoteServiceIngress(
 }
 
 // cleanupILBResources cleans up ILB resources created for an LBK8sBackendCluster.
-// It deletes across all namespaces by label, which handles the case where the
-// target namespace was changed between reconciliations.
+// It lists then deletes across all namespaces by label, which handles the case
+// where the target namespace was changed between reconciliations.
+// We use list+delete instead of DeleteAllOf because controller-runtime cannot
+// perform DeleteAllOf across all namespaces for namespaced resources.
 func (r *lbK8sBackendClusterReconciler) cleanupILBResources(
 	ctx context.Context,
 	cluster *isovalentv1alpha1.LBK8sBackendCluster,
 ) error {
-	labelSelector := client.MatchingLabels{
+	clusterLabels := client.MatchingLabels{
 		labelCluster: cluster.Name,
 	}
 
 	var errs []error
 
-	if err := r.client.DeleteAllOf(ctx, &isovalentv1alpha1.LBService{}, labelSelector); err != nil {
+	var lbServices isovalentv1alpha1.LBServiceList
+	if err := r.client.List(ctx, &lbServices, clusterLabels); err != nil {
 		errs = append(errs, err)
+	} else {
+		for _, svc := range lbServices.Items {
+			if err := r.client.Delete(ctx, &svc); err != nil && !k8serrors.IsNotFound(err) {
+				errs = append(errs, err)
+			}
+		}
 	}
 
-	if err := r.client.DeleteAllOf(ctx, &isovalentv1alpha1.LBBackendPool{}, labelSelector); err != nil {
+	var lbPools isovalentv1alpha1.LBBackendPoolList
+	if err := r.client.List(ctx, &lbPools, clusterLabels); err != nil {
 		errs = append(errs, err)
+	} else {
+		for _, pool := range lbPools.Items {
+			if err := r.client.Delete(ctx, &pool); err != nil && !k8serrors.IsNotFound(err) {
+				errs = append(errs, err)
+			}
+		}
 	}
 
-	if err := r.client.DeleteAllOf(ctx, &isovalentv1alpha1.LBVIP{}, labelSelector); err != nil {
+	var lbVIPs isovalentv1alpha1.LBVIPList
+	if err := r.client.List(ctx, &lbVIPs, clusterLabels); err != nil {
 		errs = append(errs, err)
+	} else {
+		for _, vip := range lbVIPs.Items {
+			if err := r.client.Delete(ctx, &vip); err != nil && !k8serrors.IsNotFound(err) {
+				errs = append(errs, err)
+			}
+		}
 	}
 
 	return errors.Join(errs...)
