@@ -591,7 +591,7 @@ func (s *LoadbalancerClient) groupBackendStatusCounts(status map[string]map[stri
 func (c *LoadbalancerClient) getBackendStatusFromT1(lbsvc isovalentv1alpha1.LBService, nodeT1Services map[string][]*models.Service) map[string]map[string]backendStatusCounter {
 	status := map[string]map[string]backendStatusCounter{}
 
-	for nodeName, sn := range nodeT1Services {
+	for _, sn := range nodeT1Services {
 		for _, s := range sn {
 			if s.Status != nil && s.Status.Realized != nil && s.Status.Realized.FrontendAddress != nil && s.Status.Realized.Flags != nil &&
 				s.Status.Realized.Flags.Type == "LoadBalancer" &&
@@ -607,7 +607,7 @@ func (c *LoadbalancerClient) getBackendStatusFromT1(lbsvc isovalentv1alpha1.LBSe
 				for _, b := range s.Status.Realized.BackendAddresses {
 					key := fmt.Sprintf("%s-%d", *b.IP, b.Port)
 					counter := status[groupKey][key]
-					counter.expected = c.expectedT1BackendNodeCount(lbsvc, nodeName, nodeT1Services, b.Zone)
+					counter.expected = c.expectedT1BackendNodeCount(lbsvc, nodeT1Services, b.Zone)
 					if b.State == "active" {
 						counter.active++
 					}
@@ -620,13 +620,14 @@ func (c *LoadbalancerClient) getBackendStatusFromT1(lbsvc isovalentv1alpha1.LBSe
 	return status
 }
 
-func (s *LoadbalancerClient) expectedT1BackendNodeCount(lbsvc isovalentv1alpha1.LBService, nodeName string, nodeT1Services map[string][]*models.Service, backendZone string) int {
+func (s *LoadbalancerClient) expectedT1BackendNodeCount(lbsvc isovalentv1alpha1.LBService, nodeT1Services map[string][]*models.Service, backendZone string) int {
 	if !s.isZoneAware(lbsvc) || backendZone == "" {
 		return len(nodeT1Services)
 	}
 
-	nodeZone := s.t1NodeZones[nodeName]
-	if nodeZone == "" {
+	// If at least one T1 node has no known zone, fall back to the non-zone-aware
+	// expectation to keep status deterministic.
+	if len(s.t1NodeZones) != len(nodeT1Services) {
 		return len(nodeT1Services)
 	}
 

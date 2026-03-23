@@ -361,6 +361,54 @@ func TestGetBackends(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "preferSameZone falls back when some T1 nodes have no zone",
+			lbsvc: isovalentv1alpha1.LBService{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-svc",
+				},
+				Spec: isovalentv1alpha1.LBServiceSpec{
+					Port: 80,
+					Applications: isovalentv1alpha1.LBServiceApplications{
+						TCPProxy: &isovalentv1alpha1.LBServiceApplicationTCPProxy{
+							ForceDeploymentMode: &forceT1,
+						},
+					},
+					TrafficPolicy: &isovalentv1alpha1.LBTrafficPolicy{
+						ZoneAware: &isovalentv1alpha1.LBZoneAware{
+							Mode: isovalentv1alpha1.LBZoneAwareModePreferSameZone,
+						},
+					},
+				},
+				Status: isovalentv1alpha1.LBServiceStatus{
+					Addresses: isovalentv1alpha1.LBServiceVIPAddresses{
+						IPv4: &ipv4,
+					},
+				},
+			},
+			t1NodeZones: map[string]string{
+				"t1-a": "zone-a",
+			},
+			nodeServices: map[string][]*models.Service{
+				"t1-a": {
+					newT1BackendStatusService("test-ns", "lbfe-test-svc", ipv4, 80, "172.18.0.7", 8080, "zone-a"),
+				},
+				"t1-b": {
+					newT1BackendStatusService("test-ns", "lbfe-test-svc", ipv4, 80, "172.18.0.8", 8080, "zone-b"),
+				},
+			},
+			expected: LoadbalancerStatusModelGroupedStatus{
+				Status: "DEG",
+				Groups: []LoadbalancerStatusModelSimpleStatus{
+					{
+						Status: "DEG",
+						OK:     0,
+						Total:  2,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
