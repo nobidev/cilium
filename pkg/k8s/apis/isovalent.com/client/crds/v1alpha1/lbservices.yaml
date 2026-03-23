@@ -33,6 +33,9 @@ spec:
     - jsonPath: .spec.port
       name: Port
       type: string
+    - jsonPath: .spec.trafficPolicy.zoneAware.mode
+      name: Zone Aware
+      type: string
     - jsonPath: .status.status
       name: Status
       type: string
