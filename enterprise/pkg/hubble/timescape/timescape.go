@@ -208,10 +208,21 @@ func (s *Exporter) Run(ctx context.Context) error {
 	err := s.run(ctx)
 	cancel()
 	wg.Wait()
-	for range s.buffer {
-		// Drain the buffer.
-	}
+	s.drainBuffer()
 	return err
+}
+
+// drainBuffer is a best effort attempt to clear any remaining flows from the buffer channel when
+// the exporter is stopped. There is no guarantee that all flows will be drained, as new flows may
+// be added to the buffer by an ongoing Export call.
+func (s *Exporter) drainBuffer() {
+	for {
+		select {
+		case <-s.buffer:
+		default:
+			return
+		}
+	}
 }
 
 func (s *Exporter) run(ctx context.Context) error {
