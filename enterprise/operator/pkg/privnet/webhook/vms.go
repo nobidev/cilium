@@ -113,7 +113,7 @@ func (v *vm) mutate(vm *virt_v1.VirtualMachine) *httpError {
 	// networks only contains the information about the VM networks targeting Cilium
 	// and associated with a known private network, and excludes all the ones we don't
 	// want to mangle with, as not managed by us.
-	networks, err := v.collectNetworks(vm.GetNamespace(), vm.Spec.Template.Spec.Networks)
+	networks, hasPrimary, err := v.collectNetworks(vm.GetNamespace(), vm.Spec.Template.Spec.Networks)
 	if err != nil {
 		return newHTTPError(http.StatusBadRequest, err)
 	}
@@ -129,7 +129,28 @@ func (v *vm) mutate(vm *virt_v1.VirtualMachine) *httpError {
 		vm.Spec.Template.ObjectMeta.Annotations = annotations
 	}
 
+	// Forklift does not mark any Multus network as the default one. However,
+	// that means that the resulting virt-launcher pod eventually gets one
+	// extra interface attached to the pod network, in addition to the Multus
+	// ones. Even though only the Multus ones get then propagated to the actual
+	// VM, this is still suboptimal, as it creates unnecessary endpoints, and
+	// causes the primary pod IP to no longer map to an actual network IP,
+	// hence breaking services and alike. Let's prevent this ensuring that the
+	// network corresponding to the first interface targeting Cilium is
+	// explicitly marked as the default one.
 	var ifaces = vm.Spec.Template.Spec.Domain.Devices.Interfaces
+	if !hasPrimary {
+		for _, iface := range ifaces {
+			net, ok := networks[vmNetworkName(iface.Name)]
+			if ok {
+				net.primary = true
+				networks[vmNetworkName(iface.Name)] = net
+				vm.Spec.Template.Spec.Networks[net.index].Multus.Default = true
+				break
+			}
+		}
+	}
+
 	for idx, iface := range ifaces {
 		net, ok := networks[vmNetworkName(iface.Name)]
 		if !ok {
@@ -182,7 +203,8 @@ type (
 	vmNetworkMap  map[vmNetworkName]vmNetwork
 
 	vmNetwork struct {
-		name vmNetworkName
+		name  vmNetworkName
+		index uint
 
 		// nad references the target Multus NetworkAttachmentDefinition.
 		nad tables.NamespacedName
@@ -197,28 +219,31 @@ type (
 	}
 )
 
-func (v *vm) collectNetworks(vmns string, networks []virt_v1.Network) (vmNetworkMap, error) {
+func (v *vm) collectNetworks(vmns string, networks []virt_v1.Network) (nm vmNetworkMap, hasPrimary bool, err error) {
 	var (
 		nets = make(vmNetworkMap, len(networks))
 		txn  = v.db.ReadTxn()
 	)
 
-	for _, n := range networks {
+	for idx, n := range networks {
 		if n.Multus == nil {
+			hasPrimary = hasPrimary || n.Pod != nil
 			continue
 		}
 
 		if n.Multus.NetworkName == "" {
-			return nil, fmt.Errorf("unspecified NAD name for VM network %q", n.Name)
+			return nil, false, fmt.Errorf("unspecified NAD name for VM network %q", n.Name)
 		}
 
 		ns, name, err := cache.SplitMetaNamespaceKey(n.Multus.NetworkName)
 		if err != nil {
-			return nil, fmt.Errorf("invalid NAD name for VM network %q: %w", n.Name, err)
+			return nil, false, fmt.Errorf("invalid NAD name for VM network %q: %w", n.Name, err)
 		}
 
+		hasPrimary = hasPrimary || n.Multus.Default
 		var net = vmNetwork{
-			name: vmNetworkName(n.Name),
+			name:  vmNetworkName(n.Name),
+			index: uint(idx),
 			nad: tables.NamespacedName{
 				Namespace: cmp.Or(ns, vmns), Name: name,
 			},
@@ -227,7 +252,7 @@ func (v *vm) collectNetworks(vmns string, networks []virt_v1.Network) (vmNetwork
 
 		nad, _, found := v.nads.Get(txn, tables.NADByNamespacedName(net.nad))
 		if !found {
-			return nil, fmt.Errorf("invalid NAD %q for VM network %q: not found", net.nad.String(), n.Name)
+			return nil, false, fmt.Errorf("invalid NAD %q for VM network %q: not found", net.nad.String(), n.Name)
 		}
 
 		switch {
@@ -244,14 +269,14 @@ func (v *vm) collectNetworks(vmns string, networks []virt_v1.Network) (vmNetwork
 		net.network = nad.Network()
 		net.subnet, err = v.lookupSubnet(txn, net.network, nad.Subnet())
 		if err != nil {
-			return nil, fmt.Errorf("invalid NAD %q for VM network %q: %w", net.nad.String(), n.Name, err)
+			return nil, false, fmt.Errorf("invalid NAD %q for VM network %q: %w", net.nad.String(), n.Name, err)
 		}
 
 		net.primary = n.Multus.Default
 		nets[net.name] = net
 	}
 
-	return nets, nil
+	return nets, hasPrimary, nil
 }
 
 func (v *vm) lookupSubnet(

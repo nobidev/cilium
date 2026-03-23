@@ -221,7 +221,6 @@ spec:
             name: net-5
       networks:
       - multus:
-          default: true
           networkName: spaniel/egret-ewe
         name: net-0
       - multus:
