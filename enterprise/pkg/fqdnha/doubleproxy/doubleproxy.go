@@ -125,7 +125,7 @@ type proxyWrapper struct {
 // decorateDNSProxy wraps the existing local DNS proxy, adding a shim to intercept
 // updateAllowed calls.
 func DecorateDNSProxy(dp *DoubleProxy, dnsProxy fqdnproxy.DNSProxier) fqdnproxy.DNSProxier {
-	if dp == nil {
+	if dp == nil || dnsProxy == nil {
 		return dnsProxy
 	}
 
