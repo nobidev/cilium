@@ -268,6 +268,7 @@ kind-privnet-install-common: kind-privnet-jetstack-repo
 		--set ipv6NativeRoutingCIDR=fd00:10:196::/56 \
 		--set enterprise.clustermesh.mixedRoutingMode.enabled=true \
 		--set enterprise.privateNetworks.networkAttachmentDefinitions.enabled=true \
+		--set enterprise.privateNetworks.webhook.enabled=true \
 		--set cni.exclusive=false --set cni.confPath=/etc/cni/net.d/delegates \
 		$(KIND_PRIVNET_VALUES_FILES) \
 		--version=
@@ -389,7 +390,7 @@ kind-privnet-kubevirt:  ## Deploy kubevirt in the Cilium cluster
 		quay.io/kubevirt/virt-controller:$(PRIVNET_KUBEVIRT_VERSION) $(PRIVNET_VM_IMAGE))
 
 	$(QUIET) kubectl --context kind-privnet-cluster apply -f "https://github.com/kubevirt/kubevirt/releases/download/$(PRIVNET_KUBEVIRT_VERSION)/kubevirt-operator.yaml"
-	$(QUIET) kubectl --context kind-privnet-cluster apply -f "https://github.com/kubevirt/kubevirt/releases/download/$(PRIVNET_KUBEVIRT_VERSION)/kubevirt-cr.yaml"
+	$(QUIET) kubectl --context kind-privnet-cluster apply -f $(ROOT_DIR)/contrib/testing/privnet/kubevirt.yaml -n kubevirt
 	$(QUIET) kubectl --context kind-privnet-cluster -n kubevirt wait kubevirt/kubevirt --for condition=Available --timeout=300s
 
 .PHONY: kind-privnet-forklift-crds

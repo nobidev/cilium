@@ -47,6 +47,24 @@ enterprise:
       interval: 500ms
       timeout: 2s
 
+    webhook:
+      vms:
+        networkBinding: isovalent-networking
+
+        inventory:
+          url: http://privnet-inventory:8000
+          caBundle:
+            configMap:
+              name: ""
+
+      tls:
+        method: certmanager
+        certmanager:
+          issuerRef:
+            group: cert-manager.io
+            kind: Issuer
+            name: cilium
+
 envoy:
   image:
     pullPolicy: Never
