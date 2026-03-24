@@ -98,6 +98,56 @@ func TestOverallStatus(t *testing.T) {
 	}
 }
 
+func TestRelationText(t *testing.T) {
+	testCases := []struct {
+		name           string
+		status         string
+		ok             int
+		total          int
+		relationOutput string
+		expected       string
+	}{
+		{
+			name:           "percentage with zero total falls back to zero percent",
+			status:         "DEG",
+			ok:             0,
+			total:          0,
+			relationOutput: RelationOutputPercentage,
+			expected:       "[0%]",
+		},
+		{
+			name:           "percentage with non-zero total is computed normally",
+			status:         "DEG",
+			ok:             1,
+			total:          2,
+			relationOutput: RelationOutputPercentage,
+			expected:       "[50%]",
+		},
+		{
+			name:           "numbers output preserves zero total",
+			status:         "DEG",
+			ok:             0,
+			total:          0,
+			relationOutput: RelationOutputNumbers,
+			expected:       "[0/0]",
+		},
+		{
+			name:           "n/a status omits relation text",
+			status:         "N/A",
+			ok:             0,
+			total:          0,
+			relationOutput: RelationOutputPercentage,
+			expected:       "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.expected, relationText(tc.status, tc.ok, tc.total, tc.relationOutput))
+		})
+	}
+}
+
 func TestGetT2Status(t *testing.T) {
 	ipv4 := "1.1.1.1"
 	testCases := []struct {

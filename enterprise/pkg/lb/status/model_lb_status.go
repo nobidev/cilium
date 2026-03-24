@@ -257,6 +257,9 @@ func relationText(status string, ok, total int, relationOutput string) string {
 	}
 
 	if relationOutput == RelationOutputPercentage {
+		if total == 0 {
+			return "[0%]"
+		}
 		return fmt.Sprintf("[%d%%]", ok*100/total)
 	}
 
