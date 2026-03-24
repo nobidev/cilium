@@ -54,13 +54,20 @@ spec:
           interfaces:
           - bridge: {}
             name: default
+            macAddress: {{ .NetMAC }}
           rng: {}
         resources:
           requests:
             memory: 1024M
       networks:
       - name: default
+        {{- if .NAD }}
+        multus:
+          networkName: "{{ .TestNamespace }}/{{ .NAD }}"
+          default: true
+        {{- else }}
         pod: {}
+        {{- end }}
       readinessProbe:
         exec:
           command:
@@ -116,7 +123,15 @@ spec:
             version: 2
             ethernets:
               eth0:
+                {{- if .NeedsAnnotation }}
                 dhcp4: true
                 addresses: [ {{ .NetIPv6 }}/128 ]
                 gateway6: {{ .NetIPv6Gateway }}
+                {{- else }}
+                addresses: [ {{ .NetIPv4 }}/32, {{ .NetIPv6 }}/128 ]
+                gateway4: {{ .NetIPv4Gateway }}
+                gateway6: {{ .NetIPv6Gateway }}
+                nameservers:
+                  addresses: [ {{ .NetDNSServer }} ]
+                {{- end }}
         name: cloudinitdisk

@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	k8stypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
@@ -326,7 +327,12 @@ func (t *TestRun) renderClusterNetworkTopology(network NetworkName, ndata Networ
 		return nil, fmt.Errorf("failed deserializing manifest for network %s: %w", network, err)
 	}
 
-	objs := toK8sObjects(networkObjs)
+	return toK8sObjects(networkObjs), nil
+}
+
+func (t *TestRun) renderClusterVMs(ndata NetworkData) ([]k8s.Object, error) {
+	var objs []k8s.Object
+
 	for _, vm := range ndata.VMs {
 		var tmpl string
 		switch vm.Kind {
@@ -454,6 +460,31 @@ func (t *TestRun) waitForVMToBeReady(ctx context.Context, namespace, name string
 	}
 }
 
+func (t *TestRun) waitForNAD(ctx context.Context, namespace string, name string) error {
+	ctx, cancel := context.WithTimeout(ctx, check.ShortTimeout)
+	defer cancel()
+
+	t.log.Info(fmt.Sprintf("⌛ Waiting for NetworkAttachmentDefinition %s/%s to appear", namespace, name))
+	for {
+		nad := &unstructured.Unstructured{}
+		nad.SetGroupVersionKind(schema.GroupVersionKind{
+			Group: "k8s.cni.cncf.io", Version: "v1", Kind: "NetworkAttachmentDefinition",
+		})
+
+		_, err := t.client.GetGeneric(ctx, namespace, name, nad)
+		if err == nil {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for NetworkAttachmentDefinition %s/%s to appear (last error: %w)",
+				namespace, name, err)
+		case <-time.After(check.PollInterval):
+		}
+	}
+}
+
 func (t *TestRun) retrieveExternalVMs(ctx context.Context, client *enterpriseK8s.EnterpriseClient) ([]VM, error) {
 	imes, err := client.EnterpriseCiliumClientset.IsovalentV1alpha1().
 		PrivateNetworkExternalEndpoints(t.params.TestNamespace).List(ctx, metav1.ListOptions{})
@@ -535,17 +566,47 @@ func (t *TestRun) SetupAndValidate(ctx context.Context) error {
 		return err
 	}
 
-	toApply := []k8s.Object{}
+	var (
+		nets, vms []k8s.Object
+		nads      = sets.New[string]()
+	)
 	for network, networkData := range networkTopology {
 		objs, err := t.renderClusterNetworkTopology(network, networkData)
 		if err != nil {
 			return err
 		}
-		toApply = slices.Concat(toApply, objs)
+		nets = slices.Concat(nets, objs)
+
+		objs, err = t.renderClusterVMs(networkData)
+		if err != nil {
+			return err
+		}
+		vms = slices.Concat(vms, objs)
+
 		updateNetworkMap(t.vms, networkData.VMs)
+
+		for _, vm := range networkData.VMs {
+			if vm.NAD != "" {
+				nads.Insert(vm.NAD)
+			}
+		}
 	}
 
-	if _, _, err := t.applyObjs(ctx, t.client, toApply); err != nil {
+	if _, _, err := t.applyObjs(ctx, t.client, nets); err != nil {
+		return err
+	}
+
+	// Wait for the NetworkAttachmentDefinitions to be generated, before trying
+	// to apply the VMs. Otherwise, the webhook would fail if the target NAD
+	// does not exist yet.
+	for nad := range nads {
+		err := t.waitForNAD(ctx, t.params.TestNamespace, nad)
+		if err != nil {
+			return err
+		}
+	}
+
+	if _, _, err := t.applyObjs(ctx, t.client, vms); err != nil {
 		return err
 	}
 
