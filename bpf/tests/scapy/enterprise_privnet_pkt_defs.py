@@ -82,6 +82,20 @@ privnet_pod_ip_tcp_syn = (
     TCP(sport=1234, dport=80, flags="S") /
     Raw(load=b"syn")
 )
+
+privnet_net_ipv6_tcp_syn = (
+    Ether(src=pd.mac_one, dst=pd.mac_two) /
+    IPv6(src=v6_pod_one_netip, dst=v6_pod_two_netip, hlim=255) /
+    TCP(sport=1234, dport=80, flags="S") /
+    Raw(load=b"syn")
+)
+privnet_pod_ipv6_tcp_syn = (
+    Ether(src=pd.mac_one, dst=pd.mac_two) /
+    IPv6(src=pd.v6_pod_one, dst=pd.v6_pod_two, hlim=255) /
+    TCP(sport=1234, dport=80, flags="S") /
+    Raw(load=b"syn")
+)
+
 ## Unknown flow packet, source is translated whereas destination is not.
 privnet_unknown_flow_icmp_req_out = (
     Ether(src=pd.mac_one, dst=pd.mac_two) /
