@@ -18,6 +18,7 @@ spec:
     source:
       name: mock
       namespace: ${NAMESPACE}
+      uid: ${PROVIDER_UID}
   targetNamespace: ${NAMESPACE}
   vms:
   - name: the-vm
