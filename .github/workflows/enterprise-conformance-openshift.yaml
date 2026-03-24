@@ -23,6 +23,7 @@ on:
     paths:
         - 'enterprise/olm/**'
         - 'install/kubernetes/**'
+        - '.github/workflows/enterprise-conformance-openshift.yaml'
   workflow_dispatch:
     inputs:
       PR-number:
