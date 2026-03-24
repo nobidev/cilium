@@ -17,16 +17,16 @@ const (
 	paddingChar = ' '
 )
 
-var (
-	Default = "\033[39m"
-	Red     = "\033[31m"
-	Yellow  = "\033[33m"
-	Blue    = "\033[34m"
-	Green   = "\033[32m"
-	Magenta = "\033[35m"
-	Cyan    = "\033[36m"
-	Bold    = "\033[1m"
-	Reset   = "\033[0m"
+const (
+	ansiDefault = "\033[39m"
+	ansiRed     = "\033[31m"
+	ansiYellow  = "\033[33m"
+	ansiBlue    = "\033[34m"
+	ansiGreen   = "\033[32m"
+	ansiMagenta = "\033[35m"
+	ansiCyan    = "\033[36m"
+	ansiBold    = "\033[1m"
+	ansiReset   = "\033[0m"
 )
 
 const (
@@ -37,6 +37,36 @@ const (
 type LoadbalancerStatusModel struct {
 	Summary  LoadbalancerStatusModelSummary   `json:"summary,omitempty"`
 	Services []LoadbalancerStatusModelService `json:"services,omitempty"`
+}
+
+type ansiPalette struct {
+	Default string
+	Red     string
+	Yellow  string
+	Blue    string
+	Green   string
+	Magenta string
+	Cyan    string
+	Bold    string
+	Reset   string
+}
+
+func newANSIPalette(enabled bool) ansiPalette {
+	if !enabled {
+		return ansiPalette{}
+	}
+
+	return ansiPalette{
+		Default: ansiDefault,
+		Red:     ansiRed,
+		Yellow:  ansiYellow,
+		Blue:    ansiBlue,
+		Green:   ansiGreen,
+		Magenta: ansiMagenta,
+		Cyan:    ansiCyan,
+		Bold:    ansiBold,
+		Reset:   ansiReset,
+	}
 }
 
 func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) error {
@@ -51,17 +81,7 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 		return nil
 	}
 
-	if !params.Colors {
-		Default = ""
-		Red = ""
-		Yellow = ""
-		Blue = ""
-		Green = ""
-		Magenta = ""
-		Cyan = ""
-		Bold = ""
-		Reset = ""
-	}
+	colors := newANSIPalette(params.Colors)
 
 	if !params.Verbose {
 
@@ -88,19 +108,19 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 	}
 
 	tableTabWriter := tabwriter.NewWriter(out, minWidth, 0, padding, paddingChar, 0)
-	fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Namespace", "Name", Default+"VIP"+Reset, "Port", "Type", Default+"D-Mode"+Reset, Default+"BGP Peers"+Reset, Default+"BGP Routes"+Reset, Default+"T1"+Reset, Default+"HC T1->[T2|B]"+Reset, Default+"T2"+Reset, Default+"HC T2->B"+Reset, Default+"Backendpools"+Reset, Default+"Status"+Reset)
-	fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "---------", "----", Default+"---"+Reset, "----", "----", Default+"------"+Reset, Default+"---------"+Reset, Default+"----------"+Reset, Default+"--"+Reset, Default+"-------------"+Reset, Default+"--"+Reset, Default+"--------"+Reset, Default+"------------"+Reset, Default+"------"+Reset)
+	fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Namespace", "Name", colors.Default+"VIP"+colors.Reset, "Port", "Type", colors.Default+"D-Mode"+colors.Reset, colors.Default+"BGP Peers"+colors.Reset, colors.Default+"BGP Routes"+colors.Reset, colors.Default+"T1"+colors.Reset, colors.Default+"HC T1->[T2|B]"+colors.Reset, colors.Default+"T2"+colors.Reset, colors.Default+"HC T2->B"+colors.Reset, colors.Default+"Backendpools"+colors.Reset, colors.Default+"Status"+colors.Reset)
+	fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "---------", "----", colors.Default+"---"+colors.Reset, "----", "----", colors.Default+"------"+colors.Reset, colors.Default+"---------"+colors.Reset, colors.Default+"----------"+colors.Reset, colors.Default+"--"+colors.Reset, colors.Default+"-------------"+colors.Reset, colors.Default+"--"+colors.Reset, colors.Default+"--------"+colors.Reset, colors.Default+"------------"+colors.Reset, colors.Default+"------"+colors.Reset)
 	for _, f := range lsm.Services {
-		fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", f.Namespace, f.Name, statusText(f.VIP), f.Port, f.Type,
-			statusText(f.DeploymentMode),
-			printSimpleStatusCell(f.BGPPeerStatus.LoadbalancerStatusModelSimpleStatus, params.RelationOutput),
-			printSimpleStatusCell(f.BGPRouteStatus, params.RelationOutput),
-			printSimpleStatusCell(f.T1NodeStatus, params.RelationOutput),
-			printSimpleStatusCell(f.T1T2HCStatus.LoadbalancerStatusModelSimpleStatus, params.RelationOutput),
-			printSimpleStatusCell(f.T2NodeStatus, params.RelationOutput),
-			printSimpleStatusCell(f.T2BackendHCStatus.LoadbalancerStatusModelSimpleStatus, params.RelationOutput),
-			printGroupedStatusCell(f.BackendpoolStatus, params.RelationOutput),
-			renderOverallStatus(f.Status))
+		fmt.Fprintf(tableTabWriter, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", f.Namespace, f.Name, statusText(f.VIP, colors), f.Port, f.Type,
+			statusText(f.DeploymentMode, colors),
+			printSimpleStatusCell(f.BGPPeerStatus.LoadbalancerStatusModelSimpleStatus, params.RelationOutput, colors),
+			printSimpleStatusCell(f.BGPRouteStatus, params.RelationOutput, colors),
+			printSimpleStatusCell(f.T1NodeStatus, params.RelationOutput, colors),
+			printSimpleStatusCell(f.T1T2HCStatus.LoadbalancerStatusModelSimpleStatus, params.RelationOutput, colors),
+			printSimpleStatusCell(f.T2NodeStatus, params.RelationOutput, colors),
+			printSimpleStatusCell(f.T2BackendHCStatus.LoadbalancerStatusModelSimpleStatus, params.RelationOutput, colors),
+			printGroupedStatusCell(f.BackendpoolStatus, params.RelationOutput, colors),
+			renderOverallStatus(f.Status, colors))
 	}
 
 	tableTabWriter.Flush()
@@ -113,31 +133,31 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 
 	fmt.Fprintln(out, "")
 
-	fmt.Fprintln(verboseTabWriter, Bold+"BGP Peers"+Reset)
-	fmt.Fprintln(verboseTabWriter, Bold+"---------"+Reset)
+	fmt.Fprintln(verboseTabWriter, colors.Bold+"BGP Peers"+colors.Reset)
+	fmt.Fprintln(verboseTabWriter, colors.Bold+"---------"+colors.Reset)
 	for _, p := range lsm.Services[0].BGPPeerStatus.Peers {
-		fmt.Fprintf(verboseTabWriter, "%s(%s)\n", p.Name, statusTextFromBool(p.IsHealthy))
+		fmt.Fprintf(verboseTabWriter, "%s(%s)\n", p.Name, statusTextFromBool(p.IsHealthy, colors))
 	}
 	fmt.Fprintln(verboseTabWriter)
 
-	fmt.Fprintln(verboseTabWriter, Bold+"HC T1->[T2|B]"+Reset)
-	fmt.Fprintln(verboseTabWriter, Bold+"-------------"+Reset)
+	fmt.Fprintln(verboseTabWriter, colors.Bold+"HC T1->[T2|B]"+colors.Reset)
+	fmt.Fprintln(verboseTabWriter, colors.Bold+"-------------"+colors.Reset)
 	hcByFrom := hcsByFrom(lsm.Services[0].T1T2HCStatus.HealthChecks)
 	for from, hc := range hcByFrom {
 		fmt.Fprintf(verboseTabWriter, "%s:", from)
 		for _, h := range hc {
-			fmt.Fprintf(verboseTabWriter, "\t%s(%s)\n", h.Endpoint, statusTextFromBool(h.IsHealthy))
+			fmt.Fprintf(verboseTabWriter, "\t%s(%s)\n", h.Endpoint, statusTextFromBool(h.IsHealthy, colors))
 		}
 	}
 	fmt.Fprintln(verboseTabWriter)
 
-	fmt.Fprintln(verboseTabWriter, Bold+"HC T2->B"+Reset)
-	fmt.Fprintln(verboseTabWriter, Bold+"--------"+Reset)
+	fmt.Fprintln(verboseTabWriter, colors.Bold+"HC T2->B"+colors.Reset)
+	fmt.Fprintln(verboseTabWriter, colors.Bold+"--------"+colors.Reset)
 	hcByFrom = hcsByFrom(lsm.Services[0].T2BackendHCStatus.HealthChecks)
 	for from, hc := range hcByFrom {
 		fmt.Fprintf(verboseTabWriter, "%s:", from)
 		for _, h := range hc {
-			fmt.Fprintf(verboseTabWriter, "\t%s(%s)\n", h.Endpoint, statusTextFromBool(h.IsHealthy))
+			fmt.Fprintf(verboseTabWriter, "\t%s(%s)\n", h.Endpoint, statusTextFromBool(h.IsHealthy, colors))
 		}
 	}
 	fmt.Fprintln(verboseTabWriter)
@@ -205,50 +225,50 @@ type HealthChecksStatus struct {
 	HealthChecks []HCStatus `json:"endpoints"`
 }
 
-func printSimpleStatusCell(status LoadbalancerStatusModelSimpleStatus, rel string) string {
-	return fmt.Sprintf("%s %s", statusText(status.Status), relationText(status.Status, status.OK, status.Total, rel))
+func printSimpleStatusCell(status LoadbalancerStatusModelSimpleStatus, rel string, colors ansiPalette) string {
+	return fmt.Sprintf("%s %s", statusText(status.Status, colors), relationText(status.Status, status.OK, status.Total, rel))
 }
 
-func printGroupedStatusCell(status LoadbalancerStatusModelGroupedStatus, rel string) string {
+func printGroupedStatusCell(status LoadbalancerStatusModelGroupedStatus, rel string, colors ansiPalette) string {
 	statusString := strings.Builder{}
 
 	for _, g := range status.Groups {
 		statusString.WriteString(relationText(status.Status, g.OK, g.Total, rel))
 	}
 
-	return fmt.Sprintf("%s %s", statusText(status.Status), statusString.String())
+	return fmt.Sprintf("%s %s", statusText(status.Status, colors), statusString.String())
 }
 
-func renderOverallStatus(status string) string {
+func renderOverallStatus(status string, colors ansiPalette) string {
 	switch status {
 	case "ONLINE":
-		return Green + status + Reset
+		return colors.Green + status + colors.Reset
 	case "OFFLINE":
-		return Red + status + Reset
+		return colors.Red + status + colors.Reset
 	default:
-		return Default + status + Reset
+		return colors.Default + status + colors.Reset
 	}
 }
 
-func statusText(statusText string) string {
+func statusText(statusText string, colors ansiPalette) string {
 	switch statusText {
 	case "OK":
-		return Green + "OK " + Reset
+		return colors.Green + "OK " + colors.Reset
 	case "DEG":
-		return Yellow + "DEG" + Reset
+		return colors.Yellow + "DEG" + colors.Reset
 	case "N/A":
-		return Yellow + "N/A" + Reset
+		return colors.Yellow + "N/A" + colors.Reset
 	}
 
-	return Default + statusText + Reset
+	return colors.Default + statusText + colors.Reset
 }
 
-func statusTextFromBool(ok bool) string {
+func statusTextFromBool(ok bool, colors ansiPalette) string {
 	if ok {
-		return Green + "OK" + Reset
+		return colors.Green + "OK" + colors.Reset
 	}
 
-	return Yellow + "DEG" + Reset
+	return colors.Yellow + "DEG" + colors.Reset
 }
 
 func relationText(status string, ok, total int, relationOutput string) string {

@@ -4,6 +4,7 @@
 package status
 
 import (
+	"bytes"
 	"slices"
 	"testing"
 
@@ -146,6 +147,71 @@ func TestRelationText(t *testing.T) {
 			require.Equal(t, tc.expected, relationText(tc.status, tc.ok, tc.total, tc.relationOutput))
 		})
 	}
+}
+
+func TestOutputColorsDoNotLeakAcrossCalls(t *testing.T) {
+	lsm := &LoadbalancerStatusModel{
+		Services: []LoadbalancerStatusModelService{
+			{
+				Namespace:      "test-ns",
+				Name:           "test-svc",
+				VIP:            "100.64.0.10",
+				Port:           80,
+				Type:           "TCP Proxy",
+				DeploymentMode: "T1",
+				BGPPeerStatus: BGPPeerStatus{
+					LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+						Status: "OK",
+						OK:     1,
+						Total:  1,
+					},
+				},
+				BGPRouteStatus: LoadbalancerStatusModelSimpleStatus{
+					Status: "OK",
+					OK:     1,
+					Total:  1,
+				},
+				T1NodeStatus: LoadbalancerStatusModelSimpleStatus{
+					Status: "OK",
+					OK:     1,
+					Total:  1,
+				},
+				T1T2HCStatus: HealthChecksStatus{
+					LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+						Status: "OK",
+						OK:     1,
+						Total:  1,
+					},
+				},
+				T2NodeStatus: LoadbalancerStatusModelSimpleStatus{
+					Status: "OK",
+					OK:     1,
+					Total:  1,
+				},
+				T2BackendHCStatus: HealthChecksStatus{
+					LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+						Status: "OK",
+						OK:     1,
+						Total:  1,
+					},
+				},
+				BackendpoolStatus: LoadbalancerStatusModelGroupedStatus{
+					Status: "OK",
+				},
+				Status: "ONLINE",
+			},
+		},
+	}
+
+	var noColorOut bytes.Buffer
+	err := lsm.Output(&noColorOut, Parameters{Output: "summary", Colors: false})
+	require.NoError(t, err)
+	require.NotContains(t, noColorOut.String(), ansiDefault)
+
+	var colorOut bytes.Buffer
+	err = lsm.Output(&colorOut, Parameters{Output: "summary", Colors: true})
+	require.NoError(t, err)
+	require.Contains(t, colorOut.String(), ansiDefault)
 }
 
 func TestGetT2Status(t *testing.T) {
