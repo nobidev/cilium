@@ -169,3 +169,10 @@ annotations:
       displayName: Cilium Gateway Class Config
       description: |
         CiliumGatewayClassConfig defines a configuration for Gateway API GatewayClass.
+    - kind: CiliumVRF
+      version: v2
+      name: ciliumvrfs.cilium.io
+      displayName: Cilium VRF
+      description: |
+        CiliumVRF defines a Virtual Routing and Forwarding domain that binds
+        selected pods and network interfaces into an isolated routing table.

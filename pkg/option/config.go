@@ -921,6 +921,9 @@ const (
 	// filters to be inserted prior to the cilium filter.
 	TCFilterPriority = "bpf-filter-priority"
 
+	// Flag to enable VRF support
+	EnableVRF = "enable-vrf"
+
 	// Flag to enable BGP control plane features
 	EnableBGPControlPlane = "enable-bgp-control-plane"
 
@@ -1794,6 +1797,9 @@ type DaemonConfig struct {
 	// filters to be inserted prior to the cilium filter.
 	TCFilterPriority uint16
 
+	// Enables VRF support.
+	EnableVRF bool
+
 	// Enables BGP control plane features.
 	EnableBGPControlPlane bool
 
@@ -1927,6 +1933,7 @@ var (
 		DatapathMode:                    defaults.DatapathMode,
 
 		EnableVTEP:                           defaults.EnableVTEP,
+		EnableVRF:                            defaults.EnableVRF,
 		EnableBGPControlPlane:                defaults.EnableBGPControlPlane,
 		EnableK8sNetworkPolicy:               defaults.EnableK8sNetworkPolicy,
 		EnableK8sClusterNetworkPolicy:        defaults.EnableK8sClusterNetworkPolicy,
@@ -2867,6 +2874,9 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	// VTEP integration enable option
 	c.EnableVTEP = vp.GetBool(EnableVTEP)
+
+	// Enable VRF support
+	c.EnableVRF = vp.GetBool(EnableVRF)
 
 	// Enable BGP control plane features
 	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)

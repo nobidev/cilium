@@ -176,6 +176,17 @@ const (
 
 	// LBIPPoolName is the full name of Cilium Load Balancer IP Pool
 	LBIPPoolName = PoolPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumVRF (CVRF)
+
+	// CVRFPluralName is the plural name of CiliumVRF
+	CVRFPluralName = "ciliumvrfs"
+
+	// CVRFKindDefinition is the kind name for CiliumVRF
+	CVRFKindDefinition = "CiliumVRF"
+
+	// CVRFName is the full name of CiliumVRF
+	CVRFName = CVRFPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -253,6 +264,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumBGPNodeConfigOverrideList{},
 		&CiliumLoadBalancerIPPool{},
 		&CiliumLoadBalancerIPPoolList{},
+		&CiliumVRF{},
+		&CiliumVRFList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

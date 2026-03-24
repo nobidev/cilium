@@ -472,6 +472,9 @@ const (
 	EnableVTEP     = false
 	MaxVTEPDevices = 8
 
+	// Enable VRF support.
+	EnableVRF = false
+
 	// Enable BGP control plane features.
 	EnableBGPControlPlane = false
 

@@ -509,6 +509,13 @@ type NodeStatus struct {
 	//
 	// +kubebuilder:validation:Optional
 	AlibabaCloud alibabaCloudTypes.ENIStatus `json:"alibaba-cloud,omitempty"`
+
+	// VRF is the per-VRF status of each VRF active on this node,
+	// keyed by CiliumVRF CR name.
+	//
+	// +deepequal-gen=false
+	// +kubebuilder:validation:Optional
+	VRF map[string]VRFNodeStatus `json:"vrf,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

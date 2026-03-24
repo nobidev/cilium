@@ -86,6 +86,9 @@ func agentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v2.BGPNCName))
 		result = append(result, CRDResourceName(v2.BGPNCOName))
 	}
+	if option.Config.EnableVRF {
+		result = append(result, CRDResourceName(v2.CVRFName))
+	}
 
 	result = append(result,
 		CRDResourceName(v2.LBIPPoolName),
