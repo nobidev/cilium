@@ -323,11 +323,17 @@ static __always_inline int
 privnet_nat_v6_addr(struct __ctx_buff *ctx, const union v6addr *old_addr,
 		    const union v6addr *new_addr, int addr_off)
 {
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
 	fraginfo_t fraginfo;
 	__u8 nexthdr;
 	__wsum sum;
 	int hdrlen;
 
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	nexthdr = ip6->nexthdr;
 	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &nexthdr, &fraginfo);
 	if (hdrlen < 0)
 		return hdrlen;
