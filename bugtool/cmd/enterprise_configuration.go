@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 
+	bgpTypes "github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/defaults"
 )
 
@@ -48,8 +49,32 @@ func enterpriseCommands(confDir string, _ string) []string {
 	commands = append(commands, bpfMapDumpCommands(bpfMapsPath)...)
 	commands = append(commands, infoCommands...)
 	commands = append(commands, fqdnProxyCommands()...)
+	commands = append(commands, bgpRIBDumpCommands()...)
+	commands = append(commands, ribDumpCommand())
 
 	return commands
+}
+
+func bgpRIBDumpCommands() []string {
+	var cmds []string
+	for _, family := range []bgpTypes.Family{
+		{Afi: bgpTypes.AfiIPv4, Safi: bgpTypes.SafiUnicast},
+		{Afi: bgpTypes.AfiIPv6, Safi: bgpTypes.SafiUnicast},
+		{Afi: bgpTypes.AfiL2VPN, Safi: bgpTypes.SafiEvpn},
+		{Afi: bgpTypes.AfiIPv4, Safi: bgpTypes.SafiMplsVpn},
+	} {
+
+		afi := family.Afi.String()
+		safi := family.Safi.String()
+		cmds = append(cmds, fmt.Sprintf("cilium-dbg shell -- bgp/routes-extended in %s %s", afi, safi))
+		cmds = append(cmds, fmt.Sprintf("cilium-dbg shell -- bgp/routes-extended loc %s %s", afi, safi))
+		cmds = append(cmds, fmt.Sprintf("cilium-dbg shell -- bgp/routes-extended out %s %s", afi, safi))
+	}
+	return cmds
+}
+
+func ribDumpCommand() string {
+	return "cilium-dbg shell -- rib/list"
 }
 
 func fqdnProxyCommands() []string {
