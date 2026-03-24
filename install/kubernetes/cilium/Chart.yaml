@@ -395,3 +395,10 @@ annotations:
       description: |
         FabricSecurityGroup defines binding of Kubernetes resources to a fabric-level Security Group.
         Each object represents single fabric Security Group identified by metadata.name.
+    - kind: CiliumVRF
+      version: v2
+      name: ciliumvrfs.cilium.io
+      displayName: Cilium VRF
+      description: |
+        CiliumVRF defines a Virtual Routing and Forwarding domain that binds
+        selected pods and network interfaces into an isolated routing table.

@@ -83,6 +83,10 @@ func (c *FakeCiliumV2) CiliumNodeConfigs(namespace string) v2.CiliumNodeConfigIn
 	return newFakeCiliumNodeConfigs(c, namespace)
 }
 
+func (c *FakeCiliumV2) CiliumVRFs() v2.CiliumVRFInterface {
+	return newFakeCiliumVRFs(c)
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeCiliumV2) RESTClient() rest.Interface {
