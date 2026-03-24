@@ -31,6 +31,7 @@ rules:
   - isovalentclusterwideencryptionpolicies.isovalent.com
   - isovalentnetworkpolicies.isovalent.com
   - isovalentclusterwidenetworkpolicies.isovalent.com
+  - isovalentwafpolicies.isovalent.com
 {{- if .Values.enterprise.bgpControlPlane.enabled }}
   - isovalentbgpclusterconfigs.isovalent.com
   - isovalentbgppeerconfigs.isovalent.com
@@ -108,6 +109,24 @@ rules:
   - get
   - list
   - watch
+{{- if .Values.enterprise.waf.enabled }}
+- apiGroups:
+  - isovalent.com
+  resources:
+  - isovalentwafpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - isovalent.com
+  resources:
+  - isovalentwafpolicies/status
+  verbs:
+  - get
+  - update
+  - patch
+{{- end }}
 {{- if .Values.enterprise.loadbalancer.enabled }}
 - apiGroups:
   - isovalent.com

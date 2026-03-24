@@ -247,6 +247,13 @@ bpf-lb-ipip-sock-mark: "true"
 loadbalancer-gateway-api-enabled: {{ .Values.enterprise.loadbalancer.gatewayAPI.enabled | quote }}
 {{- end }}
 
+waf-enabled: {{ .Values.enterprise.waf.enabled | quote }}
+{{- if .Values.enterprise.waf.enabled }}
+waf-mode: {{ .Values.enterprise.waf.mode | quote }}
+waf-policy-profile: {{ .Values.enterprise.waf.policyProfile | quote }}
+waf-failure-mode: {{ .Values.enterprise.waf.failureMode | quote }}
+{{- end }}
+
 {{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}
 envoy-config-policy-mode: {{ .Values.envoyConfig.policy.mode | quote }}
 envoy-config-policy-regen-interval: {{ include "validateDuration" .Values.envoyConfig.policy.regenerationInterval | quote }}

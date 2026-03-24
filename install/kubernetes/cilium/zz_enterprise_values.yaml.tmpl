@@ -148,6 +148,22 @@ enterprise:
       # -- Enable support for Gateway API in ILB
       enabled: false
 
+  waf:
+    # -- Enable WAF policy validation and default WAF settings in the enterprise operator.
+    enabled: false
+    # -- Default WAF mode for operator-managed resources.
+    #
+    # Valid values are: Monitor, Enforce
+    mode: Enforce
+    # -- Default WAF managed policy profile for operator-managed resources.
+    #
+    # Valid values are: max_security, high_security, balanced, low_friction, min_friction
+    policyProfile: balanced
+    # -- Default WAF failure mode for operator-managed resources.
+    #
+    # Valid values are: Open, Close
+    failureMode: Open
+
   # -- Diagnostics
   diagnostics:
     # -- Path to the file to which diagnostics status updates are appended.
