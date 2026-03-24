@@ -16,19 +16,23 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 const (
 	backendClusterReadyTimeout = 5 * time.Minute
+
+	ilbControlPlaneContainer = "kind-control-plane"
+	containerCLIPath         = "/usr/local/bin/cilium"
+	containerKubeconfig      = "/etc/kubernetes/admin.conf"
 )
+
+var ensureCLIInContainerOnce sync.Once
 
 type backendKindCluster struct {
 	Name string
@@ -78,9 +82,6 @@ func (r *lbTestScenario) deleteBackendKindCluster(clusterName string) error {
 	return nil
 }
 
-// getBackendKindClusterKubeconfig retrieves the kubeconfig for a kind cluster.
-// TODO(ajs): Use a kubeconfig constructed by a Cilium CLI subcommand which
-// installs an appropriate ServiceAccount on the cluster
 func (r *lbTestScenario) getBackendKindClusterKubeconfig(clusterName string) string {
 	cmd := exec.CommandContext(r.t.Context(), "kind", "get", "kubeconfig", "--name", clusterName)
 	output, err := cmd.Output()
@@ -90,15 +91,10 @@ func (r *lbTestScenario) getBackendKindClusterKubeconfig(clusterName string) str
 	return string(output)
 }
 
-// getBackendKindClusterInternalKubeconfig retrieves the kubeconfig for a kind cluster
-// with the server address modified to use the internal Docker network address.
-// TODO(ajs): Remove this once Cilium CLI can install a kubeconfig.
 func (r *lbTestScenario) getBackendKindClusterInternalKubeconfig(clusterName string) string {
-	// Get the standard kubeconfig
 	kubeconfig := r.getBackendKindClusterKubeconfig(clusterName)
 
-	// Get the control plane container IP on the kind-cilium network.
-	// We must look up the IP on the specific network rather than using
+	// Look up the IP on the specific network rather than using
 	// GetContainerIPs, which returns a random network's IP from the map.
 	containerName := fmt.Sprintf("%s-control-plane", clusterName)
 	ipv4, _, err := r.dockerCli.GetContainerIPsOnNetwork(r.t.Context(), containerName, FlagNetworkName)
@@ -106,7 +102,6 @@ func (r *lbTestScenario) getBackendKindClusterInternalKubeconfig(clusterName str
 		r.t.Failedf("failed to get container IP for %q on network %q: %s", containerName, FlagNetworkName, err)
 	}
 
-	// Replace the localhost:port with the container IP:6443
 	lines := strings.Split(kubeconfig, "\n")
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -121,10 +116,6 @@ func (r *lbTestScenario) getBackendKindClusterInternalKubeconfig(clusterName str
 func (r *lbTestScenario) waitForBackendKindClusterReady(cluster *backendKindCluster) {
 	containerName := fmt.Sprintf("%s-control-plane", cluster.Name)
 	eventually(r.t, func() error {
-		// Use docker exec to run kubectl inside the control-plane container
-		// rather than running kubectl directly from the test runner. This is
-		// necessary in CI where the backend kind cluster's API server port is
-		// only accessible inside the LVH VM, not from the GHA runner.
 		cmd := exec.CommandContext(r.t.Context(), "docker", "exec", containerName,
 			"kubectl", "--kubeconfig=/etc/kubernetes/admin.conf",
 			"get", "namespaces",
@@ -143,67 +134,87 @@ func (r *lbTestScenario) waitForBackendKindClusterReady(cluster *backendKindClus
 	}, backendClusterReadyTimeout, pollInterval)
 }
 
-func (r *lbTestScenario) createLBK8sBackendClusterSecret(cluster *backendKindCluster, secretName string) *corev1.Secret {
-	internalKubeconfig := r.getBackendKindClusterInternalKubeconfig(cluster.Name)
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: r.k8sNamespace,
-			Labels: map[string]string{
-				TestResourceLabelName: "true",
-			},
-		},
-		Type: corev1.SecretTypeOpaque,
-		Data: map[string][]byte{
-			"kubeconfig": []byte(internalKubeconfig),
-		},
-	}
-
-	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Create(r.t.Context(), secret, metav1.CreateOptions{}); err != nil {
-		r.t.Failedf("failed to create LBK8sBackendCluster secret: %s", err)
-	}
-
-	r.t.RegisterCleanup(func(ctx context.Context) error {
-		if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Get(ctx, secretName, metav1.GetOptions{}); errors.IsNotFound(err) {
-			return nil
+func (r *lbTestScenario) ensureCLIInContainer() {
+	ensureCLIInContainerOnce.Do(func() {
+		cliPath, err := os.Executable()
+		if err != nil {
+			r.t.Failedf("failed to resolve current executable path: %s", err)
 		}
-		return r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Delete(ctx, secretName, metav1.DeleteOptions{GracePeriodSeconds: ptr.To[int64](0)})
-	})
 
-	return secret
+		cmd := exec.CommandContext(r.t.Context(),
+			"docker", "cp", cliPath, ilbControlPlaneContainer+":"+containerCLIPath)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			r.t.Failedf("failed to copy cilium binary to %s: %s\nOutput: %s",
+				ilbControlPlaneContainer, err, string(output))
+		}
+	})
 }
 
-func (r *lbTestScenario) createLBK8sBackendCluster(name string, secretName string, secretNamespace string) *isovalentv1alpha1.LBK8sBackendCluster {
-	lbK8sBackendCluster := &isovalentv1alpha1.LBK8sBackendCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				TestResourceLabelName: "true",
-			},
-		},
-		Spec: isovalentv1alpha1.LBK8sBackendClusterSpec{
-			Authentication: isovalentv1alpha1.LBK8sBackendClusterAuth{
-				SecretRef: isovalentv1alpha1.LBK8sBackendClusterSecretRef{
-					Name:      secretName,
-					Namespace: secretNamespace,
-				},
-			},
-		},
+func (r *lbTestScenario) addK8sBackendCluster(cluster *backendKindCluster, clusterName string, extraArgs ...string) {
+	r.ensureCLIInContainer()
+
+	internalKubeconfig := r.getBackendKindClusterInternalKubeconfig(cluster.Name)
+
+	containerKubeconfigPath := fmt.Sprintf("/tmp/%s.kubeconfig", clusterName)
+
+	writeCmd := exec.CommandContext(r.t.Context(),
+		"docker", "exec", "-i", ilbControlPlaneContainer,
+		"sh", "-c", fmt.Sprintf("cat > %s", containerKubeconfigPath))
+	writeCmd.Stdin = strings.NewReader(internalKubeconfig)
+	if output, err := writeCmd.CombinedOutput(); err != nil {
+		r.t.Failedf("failed to write kubeconfig to container: %s\nOutput: %s", err, string(output))
 	}
 
-	if _, err := r.ciliumCli.IsovalentV1alpha1().LBK8sBackendClusters().Create(r.t.Context(), lbK8sBackendCluster, metav1.CreateOptions{}); err != nil {
-		r.t.Failedf("failed to create LBK8sBackendCluster: %s", err)
+	cliArgs := []string{
+		"lb", "k8s", "addcluster",
+		"--external-cluster-name", clusterName,
+		"--external-kubeconfig", containerKubeconfigPath,
+		"--external-kubeconfig-context", "kind-" + cluster.Name,
+		"--secret-namespace", r.k8sNamespace,
+		"--kubeconfig", containerKubeconfig,
 	}
+	cliArgs = append(cliArgs, extraArgs...)
+
+	dockerArgs := append([]string{"exec", ilbControlPlaneContainer, containerCLIPath}, cliArgs...)
+
+	// The backend cluster's API server may take a moment to become reachable
+	// on the Docker network after waitForBackendKindClusterReady succeeds.
+	eventually(r.t, func() error {
+		cmd := exec.CommandContext(r.t.Context(), "docker", dockerArgs...)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			r.t.Log("addcluster attempt failed, retrying: %s\nOutput: %s", err, string(output))
+			return fmt.Errorf("cilium lb k8s addcluster failed for %q: %w\nOutput: %s",
+				clusterName, err, string(output))
+		}
+		return nil
+	}, backendClusterReadyTimeout, pollInterval)
 
 	r.t.RegisterCleanup(func(ctx context.Context) error {
-		if _, err := r.ciliumCli.IsovalentV1alpha1().LBK8sBackendClusters().Get(ctx, name, metav1.GetOptions{}); errors.IsNotFound(err) {
-			return nil
-		}
-		return r.ciliumCli.IsovalentV1alpha1().LBK8sBackendClusters().Delete(ctx, name, metav1.DeleteOptions{GracePeriodSeconds: ptr.To[int64](0)})
+		return r.removeK8sBackendCluster(ctx, clusterName)
 	})
+}
 
-	return lbK8sBackendCluster
+func (r *lbTestScenario) removeK8sBackendCluster(ctx context.Context, clusterName string) error {
+	r.ensureCLIInContainer()
+
+	cliArgs := []string{
+		"lb", "k8s", "deletecluster",
+		"--external-cluster-name", clusterName,
+		"--secret-namespace", r.k8sNamespace,
+		"--kubeconfig", containerKubeconfig,
+	}
+
+	dockerArgs := append([]string{"exec", ilbControlPlaneContainer, containerCLIPath}, cliArgs...)
+
+	cmd := exec.CommandContext(ctx, "docker", dockerArgs...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("cilium lb k8s deletecluster failed for %q: %w\nOutput: %s",
+			clusterName, err, string(output))
+	}
+	return nil
 }
 
 func (r *lbTestScenario) waitForLBK8sBackendClusterConnected(name string) {
@@ -217,7 +228,6 @@ func (r *lbTestScenario) waitForLBK8sBackendClusterConnected(name string) {
 			return fmt.Errorf("status not yet set")
 		}
 
-		// Verify the Connected condition
 		var connectedCondition *metav1.Condition
 		for i := range lbK8sBackendCluster.Status.Conditions {
 			if lbK8sBackendCluster.Status.Conditions[i].Type == isovalentv1alpha1.ConditionTypeClusterConnected {
@@ -238,21 +248,6 @@ func (r *lbTestScenario) waitForLBK8sBackendClusterConnected(name string) {
 
 		return nil
 	}, longTimeout, pollInterval)
-}
-
-func (r *lbTestScenario) updateLBK8sBackendClusterSecret(cluster *backendKindCluster, secretName string) {
-	internalKubeconfig := r.getBackendKindClusterInternalKubeconfig(cluster.Name)
-
-	secret, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Get(r.t.Context(), secretName, metav1.GetOptions{})
-	if err != nil {
-		r.t.Failedf("failed to get LBK8sBackendCluster secret: %s", err)
-	}
-
-	secret.Data["kubeconfig"] = []byte(internalKubeconfig)
-
-	if _, err := r.k8sCli.CoreV1().Secrets(r.k8sNamespace).Update(r.t.Context(), secret, metav1.UpdateOptions{}); err != nil {
-		r.t.Failedf("failed to update LBK8sBackendCluster secret: %s", err)
-	}
 }
 
 func (r *lbTestScenario) waitForLBK8sBackendClusterDisconnected(name string) {
@@ -286,47 +281,6 @@ func (r *lbTestScenario) waitForLBK8sBackendClusterDisconnected(name string) {
 	}, longTimeout, pollInterval)
 }
 
-func (r *lbTestScenario) createLBK8sBackendClusterWithServiceDiscovery(
-	name string, secretName string, secretNamespace string,
-	discoveryConfigs []isovalentv1alpha1.LBK8sBackendClusterServiceDiscoveryConfig,
-) *isovalentv1alpha1.LBK8sBackendCluster {
-	lbK8sBackendCluster := &isovalentv1alpha1.LBK8sBackendCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				TestResourceLabelName: "true",
-			},
-		},
-		Spec: isovalentv1alpha1.LBK8sBackendClusterSpec{
-			Authentication: isovalentv1alpha1.LBK8sBackendClusterAuth{
-				SecretRef: isovalentv1alpha1.LBK8sBackendClusterSecretRef{
-					Name:      secretName,
-					Namespace: secretNamespace,
-				},
-			},
-			ServiceDiscovery: discoveryConfigs,
-			TargetNamespace:  &r.k8sNamespace,
-		},
-	}
-
-	if _, err := r.ciliumCli.IsovalentV1alpha1().LBK8sBackendClusters().Create(r.t.Context(), lbK8sBackendCluster, metav1.CreateOptions{}); err != nil {
-		r.t.Failedf("failed to create LBK8sBackendCluster: %s", err)
-	}
-
-	r.t.RegisterCleanup(func(ctx context.Context) error {
-		if _, err := r.ciliumCli.IsovalentV1alpha1().LBK8sBackendClusters().Get(ctx, name, metav1.GetOptions{}); errors.IsNotFound(err) {
-			return nil
-		}
-		return r.ciliumCli.IsovalentV1alpha1().LBK8sBackendClusters().Delete(ctx, name, metav1.DeleteOptions{GracePeriodSeconds: ptr.To[int64](0)})
-	})
-
-	return lbK8sBackendCluster
-}
-
-// createServiceInBackendCluster creates a LoadBalancer service in a backend kind cluster.
-// Uses docker exec to run kubectl inside the control-plane container rather than
-// running kubectl directly, since in CI the backend cluster's API server port
-// is only accessible inside the LVH VM.
 func (r *lbTestScenario) createServiceInBackendCluster(cluster *backendKindCluster, namespace string, serviceName string, port int32) {
 	serviceYAML := fmt.Sprintf(`
 apiVersion: v1
@@ -399,10 +353,6 @@ func (r *lbTestScenario) waitForLBK8sBackendClusterServiceDiscovery(clusterName 
 	return discoveredSvc
 }
 
-// waitForServiceExternalIP waits for a service in the backend cluster to have an external IP assigned.
-// Uses docker exec to run kubectl inside the control-plane container rather than
-// running kubectl directly, since in CI the backend cluster's API server port
-// is only accessible inside the LVH VM.
 func (r *lbTestScenario) waitForServiceExternalIP(cluster *backendKindCluster, namespace string, serviceName string) string {
 	var externalIP string
 
