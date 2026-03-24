@@ -44,6 +44,60 @@ func TestExpectedStatus(t *testing.T) {
 	}
 }
 
+func TestOverallStatus(t *testing.T) {
+	testCases := []struct {
+		name           string
+		bgpRouteStatus LoadbalancerStatusModelSimpleStatus
+		bgpPeerStatus  LoadbalancerStatusModelSimpleStatus
+		expected       string
+	}{
+		{
+			name: "online requires both bgp routes and peers",
+			bgpRouteStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "OK",
+				OK:     1,
+				Total:  1,
+			},
+			bgpPeerStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "OK",
+				OK:     1,
+				Total:  1,
+			},
+			expected: "ONLINE",
+		},
+		{
+			name: "offline when peers are missing",
+			bgpRouteStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "OK",
+				OK:     1,
+				Total:  1,
+			},
+			bgpPeerStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "DEG",
+				OK:     0,
+				Total:  1,
+			},
+			expected: "OFFLINE",
+		},
+		{
+			name: "offline when vip is not assigned",
+			bgpRouteStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "N/A",
+			},
+			bgpPeerStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "N/A",
+			},
+			expected: "OFFLINE",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.expected, overallStatus(tc.bgpRouteStatus, tc.bgpPeerStatus))
+		})
+	}
+}
+
 func TestGetT2Status(t *testing.T) {
 	ipv4 := "1.1.1.1"
 	testCases := []struct {

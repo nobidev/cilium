@@ -100,7 +100,7 @@ func (lsm *LoadbalancerStatusModel) Output(out io.Writer, params Parameters) err
 			printSimpleStatusCell(f.T2NodeStatus, params.RelationOutput),
 			printSimpleStatusCell(f.T2BackendHCStatus.LoadbalancerStatusModelSimpleStatus, params.RelationOutput),
 			printGroupedStatusCell(f.BackendpoolStatus, params.RelationOutput),
-			getOverallStatus(f.BGPRouteStatus, f.BGPPeerStatus.LoadbalancerStatusModelSimpleStatus))
+			renderOverallStatus(f.Status))
 	}
 
 	tableTabWriter.Flush()
@@ -219,16 +219,15 @@ func printGroupedStatusCell(status LoadbalancerStatusModelGroupedStatus, rel str
 	return fmt.Sprintf("%s %s", statusText(status.Status), statusString.String())
 }
 
-func getOverallStatus(bgpRouteStatus LoadbalancerStatusModelSimpleStatus, bgpPeerStatus LoadbalancerStatusModelSimpleStatus) string {
-	if bgpRouteStatus.Status == "N/A" || bgpPeerStatus.Status == "N/A" {
-		return Red + "OFFLINE" + Reset
+func renderOverallStatus(status string) string {
+	switch status {
+	case "ONLINE":
+		return Green + status + Reset
+	case "OFFLINE":
+		return Red + status + Reset
+	default:
+		return Default + status + Reset
 	}
-
-	if bgpRouteStatus.OK == 0 || bgpPeerStatus.OK == 0 {
-		return Red + "OFFLINE" + Reset
-	}
-
-	return Green + "ONLINE" + Reset
 }
 
 func statusText(statusText string) string {

@@ -80,6 +80,9 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 			return nil, err
 		}
 
+		bgpPeerStatus := s.getBGPPeerStatus(f, bgpPeers, bgpPeersFromCRDByAddr, bgpPeersForSvc)
+		bgpRouteStatus := s.getBGPRoutesStatus(f, bgpRoutes)
+
 		serviceModel := LoadbalancerStatusModelService{
 			Namespace:         f.Namespace,
 			Name:              f.Name,
@@ -87,14 +90,14 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 			Port:              uint(f.Spec.Port),
 			Type:              s.getType(f),
 			DeploymentMode:    s.getDeploymentMode(f),
-			BGPPeerStatus:     s.getBGPPeerStatus(f, bgpPeers, bgpPeersFromCRDByAddr, bgpPeersForSvc),
-			BGPRouteStatus:    s.getBGPRoutesStatus(f, bgpRoutes),
+			BGPPeerStatus:     bgpPeerStatus,
+			BGPRouteStatus:    bgpRouteStatus,
 			T1NodeStatus:      s.getT1Status(f, t1ServicesRoutes),
 			T1T2HCStatus:      s.getHCT1T2(f, t1ServicesRoutes),
 			T2NodeStatus:      s.getT2Status(f, t2EnvoyConfigs),
 			T2BackendHCStatus: s.getHCT2Backends(f, t2EnvoyConfigs),
 			BackendpoolStatus: s.getBackends(f, t1ServicesRoutes, t2EnvoyConfigs),
-			Status:            s.getOverallStatus(f, bgpRoutes),
+			Status:            overallStatus(bgpRouteStatus, bgpPeerStatus.LoadbalancerStatusModelSimpleStatus),
 		}
 
 		if s.includedInFilter(serviceModel) {
@@ -678,32 +681,22 @@ func (s *LoadbalancerClient) getBackendStatusFromT2(lbsvc isovalentv1alpha1.LBSe
 	return status
 }
 
-func (s *LoadbalancerClient) getOverallStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute) string {
-	if lbsvc.Status.Addresses.IPv4 == nil {
-		return "OFFLINE"
-	}
-
-	nrOk := 0
-
-	for _, r := range nodeBGPRoutes {
-		for _, br := range r {
-			if br.Prefix == *lbsvc.Status.Addresses.IPv4+"/32" {
-				nrOk++
-			}
-		}
-	}
-
-	if nrOk == 0 {
-		return "OFFLINE"
-	}
-
-	return "ONLINE"
-}
-
 func (s *LoadbalancerClient) statusText(ok, total int) string {
 	if total > 0 && ok == total {
 		return "OK"
 	}
 
 	return "DEG"
+}
+
+func overallStatus(bgpRouteStatus LoadbalancerStatusModelSimpleStatus, bgpPeerStatus LoadbalancerStatusModelSimpleStatus) string {
+	if bgpRouteStatus.Status == "N/A" || bgpPeerStatus.Status == "N/A" {
+		return "OFFLINE"
+	}
+
+	if bgpRouteStatus.OK == 0 || bgpPeerStatus.OK == 0 {
+		return "OFFLINE"
+	}
+
+	return "ONLINE"
 }
