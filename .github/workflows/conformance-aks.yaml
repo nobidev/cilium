@@ -270,11 +270,19 @@ jobs:
             OWNER="${OWNER//[.\/]/-}"
           fi
 
+          # Create unique cluster name including version to avoid conflicts
+          # when multiple versions use same region, but fit within 32 character limit
+          VERSION_SANITIZED="${{ matrix.version }}"
+          VERSION_SANITIZED="${VERSION_SANITIZED//[.]/-}"
+
+          CLUSTER_NAME_HASH=$(echo -n "${{ env.name }}" | sha256sum | cut -c1-10)
+          HELM_CLUSTER_NAME="cilium-${CLUSTER_NAME_HASH}-${VERSION_SANITIZED}"
+
           # We explicity set the cluster-pool Pod CIDR here to not clash with the AKS default Service CIDRs
           # which are 10.0.0.0/16 and fd12:3456:789a:1::/108
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --datapath-mode=aks-byocni \
-            --helm-set=cluster.name=${{ env.name }} \
+            --helm-set=cluster.name=${HELM_CLUSTER_NAME} \
             --helm-set=loadBalancer.l7.backend=envoy \
             --helm-set=azure.resourceGroup=${{ env.name }} \
             --helm-set=ipv4.enabled=true \
