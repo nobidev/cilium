@@ -6613,7 +6613,6 @@ func (in *PrivateNetworkExternalEndpointSpec) DeepCopy() *PrivateNetworkExternal
 func (in *PrivateNetworkExternalEndpointStatus) DeepCopyInto(out *PrivateNetworkExternalEndpointStatus) {
 	*out = *in
 	in.ActivatedAt.DeepCopyInto(&out.ActivatedAt)
-	out.Addressing = in.Addressing
 	return
 }
 

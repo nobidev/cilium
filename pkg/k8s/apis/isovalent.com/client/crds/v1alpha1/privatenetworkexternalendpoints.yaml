@@ -106,6 +106,9 @@ spec:
                 - mac
                 - network
                 type: object
+                x-kubernetes-validations:
+                - message: External endpoint interface is immutable
+                  rule: self == oldSelf
             required:
             - interface
             type: object
@@ -115,28 +118,11 @@ spec:
               activatedAt:
                 description: |-
                   The instant in time in which this entry was marked as active. If
-                  multiple entries are advertized by different nodes and/or clusters for
+                  multiple entries are advertised by different nodes and/or clusters for
                   the same private network endpoint, the latest that has been activated
                   takes precedence.
                 format: date-time
                 type: string
-              addressing:
-                description: |-
-                  The endpoint addresses (IPv4 and/or IPv6) from the pod network point
-                  of view.
-                minProperties: 1
-                properties:
-                  ipv4:
-                    description: The IPv4 endpoint address.
-                    format: ipv4
-                    type: string
-                  ipv6:
-                    description: The IPv6 endpoint address.
-                    format: ipv6
-                    type: string
-                type: object
-            required:
-            - addressing
             type: object
         required:
         - spec
