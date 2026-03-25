@@ -21,8 +21,11 @@ import (
 	"github.com/cilium/hive/script"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/spf13/pflag"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	ossAgent "github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/bgp/api"
@@ -30,7 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func BGPRoutesExtendedCmd(bgpMgr agent.EnterpriseBGPRouterManager) script.Cmd {
+func BGPRoutesExtendedCmd(bgpMgr agent.EnterpriseBGPRouterManager, errorPathStore *reconcilerv2.ErrorPathStore) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "List BGP routes on Cilium",
@@ -108,7 +111,7 @@ func BGPRoutesExtendedCmd(bgpMgr agent.EnterpriseBGPRouterManager) script.Cmd {
 				}
 
 				isAdjRIB := tableType == ossTypes.TableTypeAdjRIBIn || tableType == ossTypes.TableTypeAdjRIBOut
-				PrintRoutes(tw, routesRes.Instances, peerMaps, noAge, isAdjRIB)
+				PrintRoutes(tw, routesRes.Instances, peerMaps, errorPathStore, noAge, isAdjRIB)
 				tw.Flush()
 
 				return buf.String(), "", nil
@@ -130,7 +133,13 @@ func parseTableTypeArg(arg string) (ossTypes.TableType, error) {
 	}
 }
 
-func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutesExtended, peerMaps map[string]map[netip.Addr]string, noAge, isAdjRIB bool) {
+func PrintRoutes(
+	tw *tabwriter.Writer,
+	instances []agent.InstanceRoutesExtended,
+	peerMaps map[string]map[netip.Addr]string,
+	errorPathStore *reconcilerv2.ErrorPathStore,
+	noAge, isAdjRIB bool,
+) {
 	type row struct {
 		Instance string
 		Peer     string
@@ -138,13 +147,17 @@ func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutesExtended,
 		NextHop  string
 		Best     string
 		Age      string
+		Error    string
 	}
 
 	var rows []row
 	for _, instance := range instances {
 		for _, route := range instance.Routes {
 			for _, path := range route.Paths {
-				var peerName string
+				var (
+					peerName string
+					errStr   = "-"
+				)
 				if isAdjRIB {
 					peerName = instance.NeighborName
 				} else {
@@ -157,6 +170,21 @@ func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutesExtended,
 							peerName = name
 						}
 					}
+					// Find the route import error
+					// associated with this path if it
+					// exists.
+					errPath, found := errorPathStore.Get(
+						instance.InstanceName,
+						path.Family,
+						reconcilerv2.ErrorPathKeyFromPath(path),
+					)
+					if found {
+						// The error string is
+						// lowercase. To make it more
+						// readable, we convert it to
+						// title case.
+						errStr = cases.Title(language.English).String(errPath.Error.Error())
+					}
 				}
 				r := row{
 					Instance: instance.InstanceName,
@@ -165,6 +193,7 @@ func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutesExtended,
 					NextHop:  api.NextHopFromPathAttributes(path.PathAttributes),
 					Best:     strconv.FormatBool(path.Best),
 					Age:      time.Duration(path.AgeNanoseconds).Truncate(time.Second).String(),
+					Error:    errStr,
 				}
 				if noAge {
 					r.Age = "-"
@@ -193,6 +222,7 @@ func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutesExtended,
 		NextHop:  "NextHop",
 		Best:     "Best",
 		Age:      "Age",
+		Error:    "Error",
 	})
 
 	prevInstance := ""
@@ -214,7 +244,7 @@ func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutesExtended,
 		if isAdjRIB {
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", row.Instance, row.Peer, row.Prefix, row.NextHop, row.Age)
 		} else {
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", row.Instance, row.Peer, row.Prefix, row.NextHop, row.Best, row.Age)
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Instance, row.Peer, row.Prefix, row.NextHop, row.Best, row.Age, row.Error)
 		}
 
 		if row.Instance != "" {

@@ -77,7 +77,7 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 			return ret;
 #ifdef TUNNEL_MODE
 		if (dip_val && is_privnet_route_entry(dip_val)) {
-			/* see comment for ipv4 */
+			/* see comment for IPv4 */
 			struct remote_endpoint_info fake_info = {0};
 
 			/* only support v4 underlay for unknown flows. */
@@ -125,11 +125,11 @@ static __always_inline int enterprise_privnet_from_lxc(struct __ctx_buff *ctx __
 
 #ifdef TUNNEL_MODE
 		if (dip_val && is_privnet_route_entry(dip_val)) {
-			/* dip_val is route entry, we can assume that the */
-			/* packet is going to INB. Encap the packet with IP */
-			/* stored in privnet nat map, it will be node IP of INB and */
-			/* with privnet_unknown_sec_id as VNI. */
-
+			/* dip_val is a route entry, thus we can assume that the
+			 * packet is going to an INB. Encap the packet with the
+			 * IP from the FIB map entry, which is the node IP of
+			 * the INB and with privnet_unknown_sec_id as VNI.
+			 */
 			struct remote_endpoint_info fake_info = {0};
 
 			fake_info.tunnel_endpoint.ip4 = dip_val->ip4;

@@ -4,12 +4,14 @@
 package status
 
 import (
+	"bytes"
 	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/api/v1/models"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	ciliumMetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -41,6 +43,175 @@ func TestExpectedStatus(t *testing.T) {
 	for _, tc := range testCases {
 		require.Equal(t, tc.expectedStatus, lb.statusText(tc.ok, tc.total))
 	}
+}
+
+func TestOverallStatus(t *testing.T) {
+	testCases := []struct {
+		name           string
+		bgpRouteStatus LoadbalancerStatusModelSimpleStatus
+		bgpPeerStatus  LoadbalancerStatusModelSimpleStatus
+		expected       string
+	}{
+		{
+			name: "online requires both bgp routes and peers",
+			bgpRouteStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "OK",
+				OK:     1,
+				Total:  1,
+			},
+			bgpPeerStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "OK",
+				OK:     1,
+				Total:  1,
+			},
+			expected: "ONLINE",
+		},
+		{
+			name: "offline when peers are missing",
+			bgpRouteStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "OK",
+				OK:     1,
+				Total:  1,
+			},
+			bgpPeerStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "DEG",
+				OK:     0,
+				Total:  1,
+			},
+			expected: "OFFLINE",
+		},
+		{
+			name: "offline when vip is not assigned",
+			bgpRouteStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "N/A",
+			},
+			bgpPeerStatus: LoadbalancerStatusModelSimpleStatus{
+				Status: "N/A",
+			},
+			expected: "OFFLINE",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.expected, overallStatus(tc.bgpRouteStatus, tc.bgpPeerStatus))
+		})
+	}
+}
+
+func TestRelationText(t *testing.T) {
+	testCases := []struct {
+		name           string
+		status         string
+		ok             int
+		total          int
+		relationOutput string
+		expected       string
+	}{
+		{
+			name:           "percentage with zero total falls back to zero percent",
+			status:         "DEG",
+			ok:             0,
+			total:          0,
+			relationOutput: RelationOutputPercentage,
+			expected:       "[0%]",
+		},
+		{
+			name:           "percentage with non-zero total is computed normally",
+			status:         "DEG",
+			ok:             1,
+			total:          2,
+			relationOutput: RelationOutputPercentage,
+			expected:       "[50%]",
+		},
+		{
+			name:           "numbers output preserves zero total",
+			status:         "DEG",
+			ok:             0,
+			total:          0,
+			relationOutput: RelationOutputNumbers,
+			expected:       "[0/0]",
+		},
+		{
+			name:           "n/a status omits relation text",
+			status:         "N/A",
+			ok:             0,
+			total:          0,
+			relationOutput: RelationOutputPercentage,
+			expected:       "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.expected, relationText(tc.status, tc.ok, tc.total, tc.relationOutput))
+		})
+	}
+}
+
+func TestOutputColorsDoNotLeakAcrossCalls(t *testing.T) {
+	lsm := &LoadbalancerStatusModel{
+		Services: []LoadbalancerStatusModelService{
+			{
+				Namespace:      "test-ns",
+				Name:           "test-svc",
+				VIP:            "100.64.0.10",
+				Port:           80,
+				Type:           "TCP Proxy",
+				DeploymentMode: "T1",
+				BGPPeerStatus: BGPPeerStatus{
+					LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+						Status: "OK",
+						OK:     1,
+						Total:  1,
+					},
+				},
+				BGPRouteStatus: LoadbalancerStatusModelSimpleStatus{
+					Status: "OK",
+					OK:     1,
+					Total:  1,
+				},
+				T1NodeStatus: LoadbalancerStatusModelSimpleStatus{
+					Status: "OK",
+					OK:     1,
+					Total:  1,
+				},
+				T1T2HCStatus: HealthChecksStatus{
+					LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+						Status: "OK",
+						OK:     1,
+						Total:  1,
+					},
+				},
+				T2NodeStatus: LoadbalancerStatusModelSimpleStatus{
+					Status: "OK",
+					OK:     1,
+					Total:  1,
+				},
+				T2BackendHCStatus: HealthChecksStatus{
+					LoadbalancerStatusModelSimpleStatus: LoadbalancerStatusModelSimpleStatus{
+						Status: "OK",
+						OK:     1,
+						Total:  1,
+					},
+				},
+				BackendpoolStatus: LoadbalancerStatusModelGroupedStatus{
+					Status: "OK",
+				},
+				Status: "ONLINE",
+			},
+		},
+	}
+
+	var noColorOut bytes.Buffer
+	err := lsm.Output(&noColorOut, Parameters{Output: "summary", Colors: false})
+	require.NoError(t, err)
+	require.NotContains(t, noColorOut.String(), ansiDefault)
+
+	var colorOut bytes.Buffer
+	err = lsm.Output(&colorOut, Parameters{Output: "summary", Colors: true})
+	require.NoError(t, err)
+	require.Contains(t, colorOut.String(), ansiDefault)
 }
 
 func TestGetT2Status(t *testing.T) {
@@ -210,6 +381,214 @@ func TestGetT2Status(t *testing.T) {
 	}
 }
 
+func TestGetBackends(t *testing.T) {
+	ipv4 := "100.64.0.10"
+	forceT1 := isovalentv1alpha1.LBTCPProxyForceDeploymentModeT1
+
+	testCases := []struct {
+		name         string
+		lbsvc        isovalentv1alpha1.LBService
+		t1NodeZones  map[string]string
+		nodeServices map[string][]*models.Service
+		expected     LoadbalancerStatusModelGroupedStatus
+	}{
+		{
+			name: "preferSameZone counts only matching T1 nodes",
+			lbsvc: isovalentv1alpha1.LBService{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-svc",
+				},
+				Spec: isovalentv1alpha1.LBServiceSpec{
+					Port: 80,
+					Applications: isovalentv1alpha1.LBServiceApplications{
+						TCPProxy: &isovalentv1alpha1.LBServiceApplicationTCPProxy{
+							ForceDeploymentMode: &forceT1,
+						},
+					},
+					TrafficPolicy: &isovalentv1alpha1.LBTrafficPolicy{
+						ZoneAware: &isovalentv1alpha1.LBZoneAware{
+							Mode: isovalentv1alpha1.LBZoneAwareModePreferSameZone,
+						},
+					},
+				},
+				Status: isovalentv1alpha1.LBServiceStatus{
+					Addresses: isovalentv1alpha1.LBServiceVIPAddresses{
+						IPv4: &ipv4,
+					},
+				},
+			},
+			t1NodeZones: map[string]string{
+				"t1-a": "zone-a",
+				"t1-b": "zone-b",
+			},
+			nodeServices: map[string][]*models.Service{
+				"t1-a": {
+					newT1BackendStatusService("test-ns", "lbfe-test-svc", ipv4, 80, "172.18.0.7", 8080, "zone-a"),
+				},
+				"t1-b": {
+					newT1BackendStatusService("test-ns", "lbfe-test-svc", ipv4, 80, "172.18.0.8", 8080, "zone-b"),
+				},
+			},
+			expected: LoadbalancerStatusModelGroupedStatus{
+				Status: "OK",
+				Groups: []LoadbalancerStatusModelSimpleStatus{
+					{
+						Status: "OK",
+						OK:     2,
+						Total:  2,
+					},
+				},
+			},
+		},
+		{
+			name: "non zone aware is OK when all backends are active on all T1 nodes",
+			lbsvc: isovalentv1alpha1.LBService{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-svc",
+				},
+				Spec: isovalentv1alpha1.LBServiceSpec{
+					Port: 80,
+					Applications: isovalentv1alpha1.LBServiceApplications{
+						TCPProxy: &isovalentv1alpha1.LBServiceApplicationTCPProxy{
+							ForceDeploymentMode: &forceT1,
+						},
+					},
+				},
+				Status: isovalentv1alpha1.LBServiceStatus{
+					Addresses: isovalentv1alpha1.LBServiceVIPAddresses{
+						IPv4: &ipv4,
+					},
+				},
+			},
+			t1NodeZones: map[string]string{
+				"t1-a": "zone-a",
+				"t1-b": "zone-b",
+			},
+			nodeServices: map[string][]*models.Service{
+				"t1-a": {
+					newT1BackendStatusService("test-ns", "lbfe-test-svc", ipv4, 80, "172.18.0.7", 8080, ""),
+					newT1BackendStatusService("test-ns", "lbfe-test-svc", ipv4, 80, "172.18.0.8", 8080, ""),
+				},
+				"t1-b": {
+					newT1BackendStatusService("test-ns", "lbfe-test-svc", ipv4, 80, "172.18.0.7", 8080, ""),
+					newT1BackendStatusService("test-ns", "lbfe-test-svc", ipv4, 80, "172.18.0.8", 8080, ""),
+				},
+			},
+			expected: LoadbalancerStatusModelGroupedStatus{
+				Status: "OK",
+				Groups: []LoadbalancerStatusModelSimpleStatus{
+					{
+						Status: "OK",
+						OK:     2,
+						Total:  2,
+					},
+				},
+			},
+		},
+		{
+			name: "non zone aware is DEG when not all backends are active on all T1 nodes",
+			lbsvc: isovalentv1alpha1.LBService{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-svc",
+				},
+				Spec: isovalentv1alpha1.LBServiceSpec{
+					Port: 80,
+					Applications: isovalentv1alpha1.LBServiceApplications{
+						TCPProxy: &isovalentv1alpha1.LBServiceApplicationTCPProxy{
+							ForceDeploymentMode: &forceT1,
+						},
+					},
+				},
+				Status: isovalentv1alpha1.LBServiceStatus{
+					Addresses: isovalentv1alpha1.LBServiceVIPAddresses{
+						IPv4: &ipv4,
+					},
+				},
+			},
+			t1NodeZones: map[string]string{
+				"t1-a": "zone-a",
+				"t1-b": "zone-b",
+			},
+			nodeServices: map[string][]*models.Service{
+				"t1-a": {
+					newT1BackendStatusService("test-ns", "lbfe-test-svc", ipv4, 80, "172.18.0.7", 8080, ""),
+				},
+				"t1-b": {
+					newT1BackendStatusService("test-ns", "lbfe-test-svc", ipv4, 80, "172.18.0.8", 8080, ""),
+				},
+			},
+			expected: LoadbalancerStatusModelGroupedStatus{
+				Status: "DEG",
+				Groups: []LoadbalancerStatusModelSimpleStatus{
+					{
+						Status: "DEG",
+						OK:     0,
+						Total:  2,
+					},
+				},
+			},
+		},
+		{
+			name: "preferSameZone falls back when some T1 nodes have no zone",
+			lbsvc: isovalentv1alpha1.LBService{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-svc",
+				},
+				Spec: isovalentv1alpha1.LBServiceSpec{
+					Port: 80,
+					Applications: isovalentv1alpha1.LBServiceApplications{
+						TCPProxy: &isovalentv1alpha1.LBServiceApplicationTCPProxy{
+							ForceDeploymentMode: &forceT1,
+						},
+					},
+					TrafficPolicy: &isovalentv1alpha1.LBTrafficPolicy{
+						ZoneAware: &isovalentv1alpha1.LBZoneAware{
+							Mode: isovalentv1alpha1.LBZoneAwareModePreferSameZone,
+						},
+					},
+				},
+				Status: isovalentv1alpha1.LBServiceStatus{
+					Addresses: isovalentv1alpha1.LBServiceVIPAddresses{
+						IPv4: &ipv4,
+					},
+				},
+			},
+			t1NodeZones: map[string]string{
+				"t1-a": "zone-a",
+			},
+			nodeServices: map[string][]*models.Service{
+				"t1-a": {
+					newT1BackendStatusService("test-ns", "lbfe-test-svc", ipv4, 80, "172.18.0.7", 8080, "zone-a"),
+				},
+				"t1-b": {
+					newT1BackendStatusService("test-ns", "lbfe-test-svc", ipv4, 80, "172.18.0.8", 8080, "zone-b"),
+				},
+			},
+			expected: LoadbalancerStatusModelGroupedStatus{
+				Status: "DEG",
+				Groups: []LoadbalancerStatusModelSimpleStatus{
+					{
+						Status: "DEG",
+						OK:     0,
+						Total:  2,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			lb := &LoadbalancerClient{t1NodeZones: tc.t1NodeZones}
+			require.Equal(t, tc.expected, lb.getBackends(tc.lbsvc, tc.nodeServices, nil))
+		})
+	}
+}
+
 func TestMatchLabelsToLabelSelector(t *testing.T) {
 	testCases := []struct {
 		labelValues map[string]ciliumMetav1.MatchLabelsValue
@@ -312,5 +691,47 @@ func TestDeduplicateSlice(t *testing.T) {
 		actual := deduplicateSlice(tc.actual)
 
 		require.Equal(t, tc.expected, actual)
+	}
+}
+
+func newT1BackendStatusService(namespace, name, frontendIP string, frontendPort uint16, backendIP string, backendPort uint16, backendZone string) *models.Service {
+	backendIPCopy := backendIP
+
+	spec := &models.ServiceSpec{
+		Flags: &models.ServiceSpecFlags{
+			Name:      name,
+			Namespace: namespace,
+		},
+		FrontendAddress: &models.FrontendAddress{
+			IP:   frontendIP,
+			Port: frontendPort,
+		},
+	}
+
+	realized := &models.ServiceSpec{
+		Flags: &models.ServiceSpecFlags{
+			Name:      name,
+			Namespace: namespace,
+			Type:      "LoadBalancer",
+		},
+		FrontendAddress: &models.FrontendAddress{
+			IP:   frontendIP,
+			Port: frontendPort,
+		},
+		BackendAddresses: []*models.BackendAddress{
+			{
+				IP:    &backendIPCopy,
+				Port:  backendPort,
+				State: "active",
+				Zone:  backendZone,
+			},
+		},
+	}
+
+	return &models.Service{
+		Spec: spec,
+		Status: &models.ServiceStatus{
+			Realized: realized,
+		},
 	}
 }

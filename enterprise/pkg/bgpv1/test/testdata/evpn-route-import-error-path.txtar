@@ -1,0 +1,151 @@
+#! --test-peering-ips=10.100.98.1,10.100.98.2,10.100.98.3
+
+hive start
+db/initialized
+
+# Configure gobgp server. Two servers to test ECMP cases.
+gobgp/add-server server0 --router-id=1.2.3.4 65001 10.100.98.2 1790
+gobgp/add-peer -s server0 10.100.98.1 65001 --families=l2vpn/evpn
+gobgp/add-server server1 --router-id=2.3.4.1 65001 10.100.98.3 1790
+gobgp/add-peer -s server1 10.100.98.1 65001 --families=l2vpn/evpn
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml
+* bgptest/sync-oss-resources
+
+# Add private network used by the VRF
+db/insert private-networks private-networks.yaml
+
+# Wait for peering to be established
+gobgp/wait-state -s server0 10.100.98.1 ESTABLISHED
+gobgp/wait-state -s server1 10.100.98.1 ESTABLISHED
+
+# Advertise the malformed EVPN route
+gobgp/add-route -s server0 -c rt:65001:100,rtrmac:de:ad:be:ef:00:01 EVPN[5][65001:100][single-homed][0][10.0.1.0/24][0.0.0.0][100] 100.64.1.2
+
+# Advertise the unsupported ECMP paths
+gobgp/add-route -s server0 -c rt:65001:200,rtrmac:de:ad:be:ef:00:01,encap:vxlan EVPN[5][65001:200][single-homed][0][10.0.2.0/24][0.0.0.0][200] 100.64.1.2
+gobgp/add-route -s server1 -c rt:65001:200,rtrmac:de:ad:be:ef:00:02,encap:vxlan EVPN[5][65001:200][single-homed][0][10.0.2.0/24][0.0.0.0][200] 100.64.1.3
+
+# Ensure the route shows an import error and is not installed
+bgp/routes-extended --no-age loc l2vpn evpn
+* cmp stdout bgp-locrib.expected
+rib/list
+* cmp stdout cilium-rib.expected
+
+# Delete the instance to clear imported routes and error paths
+k8s/delete bgp-node-config.yaml
+* bgptest/sync-oss-resources
+
+# Ensure deleting the instance removes the routes
+bgp/routes-extended --no-age loc l2vpn evpn
+* cmp stdout bgp-locrib-empty.expected
+rib/list
+* cmp stdout cilium-rib-empty.expected
+
+# Replace the malformed EVPN route with the valid version while the instance is absent
+gobgp/delete-route -s server0 EVPN[5][65001:100][single-homed][0][10.0.1.0/24][0.0.0.0][100]
+gobgp/add-route -s server0 -c rt:65001:100,rtrmac:de:ad:be:ef:00:01,encap:vxlan EVPN[5][65001:100][single-homed][0][10.0.1.0/24][0.0.0.0][100] 100.64.1.2
+
+# Restore the instance and ensure the stale error path is gone
+k8s/add bgp-node-config.yaml
+* bgptest/sync-oss-resources
+gobgp/wait-state -s server0 10.100.98.1 ESTABLISHED
+gobgp/wait-state -s server1 10.100.98.1 ESTABLISHED
+
+bgp/routes-extended --no-age loc l2vpn evpn
+* cmp stdout bgp-locrib-restored.expected
+rib/list
+* cmp stdout cilium-rib-restored.expected
+
+# Delete the peer to remove the imported routes
+gobgp/delete-server server0
+gobgp/delete-server server1
+
+# Ensure routes are removed from the BGP LocRIB
+bgp/routes-extended --no-age loc l2vpn evpn
+* cmp stdout bgp-locrib-empty.expected
+
+# Ensure routes are removed from the Cilium RIB
+rib/list
+* cmp stdout cilium-rib-empty.expected
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+
+-- bgp-node-config.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - name: instance0
+    localASN: 65001
+    routerID: 5.6.7.8
+    peers:
+    - name: peer0
+      peerASN: 65001
+      localAddress: 10.100.98.1
+      peerAddress: 10.100.98.2
+      peerConfigRef:
+        name: peer-config
+    - name: peer1
+      peerASN: 65001
+      localAddress: 10.100.98.1
+      peerAddress: 10.100.98.3
+      peerConfigRef:
+        name: peer-config
+    vrfs:
+    - privateNetworkRef:
+        name: red
+    - privateNetworkRef:
+        name: blue
+
+-- bgp-peer-config.yaml --
+apiVersion: isovalent.com/v1
+kind: IsovalentBGPPeerConfig
+metadata:
+  name: peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: l2vpn
+    safi: evpn
+
+-- private-networks.yaml --
+name: red
+id: 1
+vni: 100
+---
+name: blue
+id: 2
+vni: 200
+
+-- bgp-locrib.expected --
+Instance    Peer    Prefix                                                    NextHop      Best   Age   Error
+instance0   peer0   [type:Prefix][rd:65001:100][etag:0][prefix:10.0.1.0/24]   100.64.1.2   true   -     Missing Encap Extended-Community
+                    [type:Prefix][rd:65001:200][etag:0][prefix:10.0.2.0/24]   100.64.1.2   true   -     -
+            peer1   [type:Prefix][rd:65001:200][etag:0][prefix:10.0.2.0/24]   100.64.1.3   true   -     Ecmp Path Is Not Supported
+-- bgp-locrib-restored.expected --
+Instance    Peer    Prefix                                                    NextHop      Best   Age   Error
+instance0   peer0   [type:Prefix][rd:65001:100][etag:0][prefix:10.0.1.0/24]   100.64.1.2   true   -     -
+                    [type:Prefix][rd:65001:200][etag:0][prefix:10.0.2.0/24]   100.64.1.2   true   -     -
+            peer1   [type:Prefix][rd:65001:200][etag:0][prefix:10.0.2.0/24]   100.64.1.3   true   -     Ecmp Path Is Not Supported
+-- bgp-locrib-empty.expected --
+Instance   Peer   Prefix   NextHop   Best   Age   Error
+-- cilium-rib.expected --
+Best    VRF    Prefix         Owner            Protocol    NextHop
+*       2      10.0.2.0/24    bgp-instance0    iBGP        VXLANEncap vni 200 vtep 100.64.1.2 inner-dst-mac de:ad:be:ef:00:01
+-- cilium-rib-restored.expected --
+Best    VRF    Prefix         Owner            Protocol    NextHop
+*       1      10.0.1.0/24    bgp-instance0    iBGP        VXLANEncap vni 100 vtep 100.64.1.2 inner-dst-mac de:ad:be:ef:00:01
+*       2      10.0.2.0/24    bgp-instance0    iBGP        VXLANEncap vni 200 vtep 100.64.1.2 inner-dst-mac de:ad:be:ef:00:01
+-- cilium-rib-empty.expected --
+Best    VRF    Prefix    Owner    Protocol    NextHop

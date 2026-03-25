@@ -6,9 +6,10 @@
 #include "arp.h"
 #include "conntrack.h"
 #include "conntrack_map.h"
+#include "drop_reasons.h"
 #include "eps.h"
 #include "icmp6.h"
-#include "l4.h"
+#include "ipfrag.h"
 #include "local_delivery.h"
 #include "trace.h"
 
@@ -16,8 +17,6 @@
 #include "enterprise_privnet_conntrack.h"
 #include "enterprise_ext_eps_policy.h"
 #include "enterprise_evpn.h"
-#include "lib/drop_reasons.h"
-#include "lib/local_delivery.h"
 
 /*
  * Privnet datapath for communication between kubernetes cluster and Isovalent Network Bridge.
@@ -130,14 +129,14 @@
  *			- cil_from_container -> enterprise_privnet hook
  *		b. Privnet egress
  *			- lookup for net-id:sip/dip in privnet-fib map
- *			- sip/dip go through stateless nat to their equivalent pod ips.
+ *			- sip/dip go through stateless NAT to their equivalent pod IPs.
  *			- segmentation enforcement
  *		c. Packet follows regular Cilium datapath ( via overlay reaches INB )
  *		d. In cil_from_overlay, ingress processing of packet is done. Starting with external EP L3/L4 ingress policy
  *		   checks.
  *		e. Privnet ingress
  *			- lookup in privnet-pip map for pod IP to get private IPs
- *			- sip/dip go through stateless rev-nat back to original IPs.
+ *			- sip/dip go through stateless revNAT back to original IPs.
  *			- ingress segmentation enforced.
  *		f. Packet is redirected out to the attached privnet link.
  *	3. External EP to Pod
@@ -283,12 +282,12 @@ struct privnet_subnet_val {
 };
 
 static __always_inline int
-nat_v4_addr(struct __ctx_buff *ctx, int l3_off, const __be32 *old_addr, const __be32 *new_addr)
+privnet_nat_v4_addr(struct __ctx_buff *ctx, __be32 old_addr, __be32 new_addr, int addr_off)
 {
 	void *data, *data_end;
+	bool has_l4_header;
 	struct iphdr *ip4;
 	__u8 nexthdr;
-	bool has_l4_header;
 	__u64 l4_off;
 	__wsum sum;
 
@@ -299,22 +298,21 @@ nat_v4_addr(struct __ctx_buff *ctx, int l3_off, const __be32 *old_addr, const __
 	has_l4_header = ipfrag_has_l4_header(ipfrag_encode_ipv4(ip4));
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-	sum = csum_diff(old_addr, 4, new_addr, 4, 0);
-	if (ctx_store_bytes(ctx, ETH_HLEN + l3_off, new_addr, 4, 0) < 0)
+	sum = csum_diff(&old_addr, 4, &new_addr, 4, 0);
+	if (ctx_store_bytes(ctx, ETH_HLEN + addr_off, &new_addr, 4, 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0)
 		return DROP_CSUM_L3;
 
 	if (has_l4_header) {
-		int flags = BPF_F_PSEUDO_HDR;
 		struct csum_offset csum = {};
 
 		csum_l4_offset_and_flags(nexthdr, &csum);
 
 		/* Amend the L4 checksum due to changing the addresses. */
 		if (csum.offset &&
-		    csum_l4_replace(ctx, l4_off, &csum, 0, sum, flags) < 0)
+		    csum_l4_replace(ctx, l4_off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
 
@@ -322,16 +320,38 @@ nat_v4_addr(struct __ctx_buff *ctx, int l3_off, const __be32 *old_addr, const __
 }
 
 static __always_inline int
-nat_v6_addr(struct __ctx_buff *ctx, int l3_off, const union v6addr *new_addr)
+privnet_nat_v6_addr(struct __ctx_buff *ctx, const union v6addr *old_addr,
+		    const union v6addr *new_addr, int addr_off)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	fraginfo_t fraginfo;
+	__u8 nexthdr;
+	__wsum sum;
+	int hdrlen;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	if (ctx_store_bytes(ctx, ETH_HLEN + l3_off, new_addr, 16, 0) < 0)
+	nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &nexthdr, &fraginfo);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	sum = csum_diff(old_addr, 16, new_addr, 16, 0);
+	if (ctx_store_bytes(ctx, ETH_HLEN + addr_off, new_addr, 16, 0) < 0)
 		return DROP_WRITE_ERROR;
+
+	if (ipfrag_has_l4_header(fraginfo)) {
+		struct csum_offset csum = {};
+
+		csum_l4_offset_and_flags(nexthdr, &csum);
+
+		/* Amend the L4 checksum due to changing the addresses. */
+		if (csum.offset &&
+		    csum_l4_replace(ctx, ETH_HLEN + hdrlen, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+			return DROP_CSUM_L4;
+	}
 
 	return CTX_ACT_OK;
 }
@@ -549,8 +569,7 @@ static __always_inline bool privnet_agent_alive(void)
 	return true;
 }
 
-/*
- * cilium_privnet_cidr_identity contains a global prefix to identity mapping
+/* cilium_privnet_cidr_identity contains a global prefix to identity mapping
  * used by privnet "unknown flow" policy. It works similar to cilium_ipcache,
  * but only contains prefixes that are guaranteed to not be managed by Cilium.
  */
@@ -863,14 +882,14 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			return ret;
 
 		if (!is_privnet_route_entry(dip_val)) {
-			/* Only nat if entry is for the endpoint, for route
-			 * entries, skip natting.
+			/* Only NAT if entry is for the endpoint, for route
+			 * entries, skip NATing.
 			 */
-			ret = nat_v4_addr(ctx, IPV4_DADDR_OFF, &ip4->daddr, &dip_val->ip4);
+			ret = privnet_nat_v4_addr(ctx, ip4->daddr, dip_val->ip4, IPV4_DADDR_OFF);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
-					 * successfully NATed the packet
+					 * successfully NATed the packet.
 					 */
 					set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
 				return ret;
@@ -895,14 +914,14 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			*src_privnet_entry = sip_val;
 
 		if (!is_privnet_route_entry(sip_val)) {
-			/* Only nat if entry is for the endpoint, for route
-			 * entries, skip natting.
+			/* Only NAT if entry is for the endpoint, for route
+			 * entries, skip NATing.
 			 */
-			ret = nat_v4_addr(ctx, IPV4_SADDR_OFF, &ip4->saddr, &sip_val->ip4);
+			ret = privnet_nat_v4_addr(ctx, ip4->saddr, sip_val->ip4, IPV4_SADDR_OFF);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
-					 * successfully NATed the packet
+					 * successfully NATed the packet.
 					 */
 					set_privnet_net_src_id(PRIVNET_PIP_NET_ID);
 				return ret;
@@ -1048,7 +1067,7 @@ privnet_evpn_egress_ipv6(struct __ctx_buff *ctx, __u16 net_id,
 	return CTX_ACT_OK;
 }
 
-/* see ipv4 comment */
+/* See comment for privnet_egress_ipv4() */
 static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 					       __u32 sec_label, __u16 net_id, __u16 subnet_id,
 					       const struct privnet_fib_val **src_privnet_entry,
@@ -1083,7 +1102,8 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 			return ret;
 
 		if (!is_privnet_route_entry(dip_val)) {
-			ret = nat_v6_addr(ctx, IPV6_DADDR_OFF, &dip_val->ip6);
+			ret = privnet_nat_v6_addr(ctx, &orig_dip, &dip_val->ip6,
+						  IPV6_DADDR_OFF);
 			if (IS_ERR(ret))
 				return ret;
 			/* Set net id to default network.*/
@@ -1102,7 +1122,8 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 			*src_privnet_entry = sip_val;
 
 		if (!is_privnet_route_entry(sip_val)) {
-			ret = nat_v6_addr(ctx, IPV6_SADDR_OFF, &sip_val->ip6);
+			ret = privnet_nat_v6_addr(ctx, &orig_sip, &sip_val->ip6,
+						  IPV6_SADDR_OFF);
 			if (IS_ERR(ret))
 				return ret;
 			/* Set net id to default network.*/
@@ -1142,7 +1163,7 @@ privnet_pip_lookup6(union v6addr addr) {
 
 /*
  * Semantics of enforce_privnet_ingress_segmentation are slightly different from
- * enforce_privnet_egress_segmentation. pip map does not contain route entries,
+ * enforce_privnet_egress_segmentation. PIP map does not contain route entries,
  * therefore for unknown flow, we do not get route hit.
  */
 static __always_inline int
@@ -1266,12 +1287,12 @@ privnet_unknown_policy_ingress4(struct __ctx_buff *ctx,
 	return verdict;
 }
 
-/* privnet_ingress_ipv4 should be called for privnet enabled endpoints when traffic is going to
- * those endpoints.
+/* privnet_ingress_ipv4 should be called for privnet enabled endpoints when
+ * traffic is going to those endpoints.
  *
  * Following changes are done in this call
  * - Lookup of private IP from PIPs.
- * - Translating pip to private IPs, for both source and destination.
+ * - Translating PIP to private IPs, for both source and destination.
  * - Enforce segmentation to prevent invalid traffic from going to the destination.
  */
 static __always_inline int
@@ -1298,7 +1319,7 @@ privnet_ingress_ipv4(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id, bool
 			*src_privnet_entry = sip_val;
 
 		if (net_id == sip_val->net_id || net_id == 0) {
-			ret = nat_v4_addr(ctx, IPV4_SADDR_OFF, &ip4->saddr, &sip_val->ip4);
+			ret = privnet_nat_v4_addr(ctx, ip4->saddr, sip_val->ip4, IPV4_SADDR_OFF);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
@@ -1341,7 +1362,7 @@ privnet_ingress_ipv4(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id, bool
 		 */
 		if (net_id == dip_val->net_id ||
 		    (sip_val && sip_val->net_id == dip_val->net_id)) {
-			ret = nat_v4_addr(ctx, IPV4_DADDR_OFF, &ip4->daddr, &dip_val->ip4);
+			ret = privnet_nat_v4_addr(ctx, ip4->daddr, dip_val->ip4, IPV4_DADDR_OFF);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
@@ -1479,7 +1500,8 @@ privnet_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id, bool
 			*src_privnet_entry = sip_val;
 
 		if (net_id == sip_val->net_id || net_id == 0) {
-			ret = nat_v6_addr(ctx, IPV6_SADDR_OFF, &sip_val->ip6);
+			ret = privnet_nat_v6_addr(ctx, &orig_sip, &sip_val->ip6,
+						  IPV6_SADDR_OFF);
 			if (IS_ERR(ret))
 				return ret;
 			/* Set net id to target network.*/
@@ -1500,7 +1522,8 @@ privnet_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id, bool
 
 		if (net_id == dip_val->net_id ||
 		    (sip_val && sip_val->net_id == dip_val->net_id)) {
-			ret = nat_v6_addr(ctx, IPV6_DADDR_OFF, &dip_val->ip6);
+			ret = privnet_nat_v6_addr(ctx, &orig_dip, &dip_val->ip6,
+						  IPV6_DADDR_OFF);
 			if (IS_ERR(ret))
 				return ret;
 			/* Set net id to target network.*/
@@ -1551,7 +1574,7 @@ privnet_evpn_ingress_ipv4(struct __ctx_buff *ctx, __u16 net_id)
 	/* We only want to handle EVPN => Endpoint ingress at this
 	 * point. Drop in any other case for now.
 	 */
-	if (is_privnet_route_entry(dip_val))
+	if (dip_val->type != PRIVNET_FIB_VAL_TYPE_ENDPOINT)
 		return DROP_UNROUTABLE;
 
 	/* When we don't have an endpoint, don't route further. */
@@ -1586,7 +1609,7 @@ privnet_evpn_ingress_ipv6(struct __ctx_buff *ctx, __u16 net_id)
 	/* We only want to handle EVPN => Endpoint ingress at this
 	 * point. Drop in any other case for now.
 	 */
-	if (is_privnet_route_entry(dip_val))
+	if (dip_val->type != PRIVNET_FIB_VAL_TYPE_ENDPOINT)
 		return DROP_UNROUTABLE;
 
 	/* When we don't have an endpoint, don't route further. */

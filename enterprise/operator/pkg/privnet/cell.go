@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/reconcilers"
+	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/webhook"
 	"github.com/cilium/cilium/operator/cmd"
 )
 
@@ -25,6 +26,7 @@ var Cell = cell.Module(
 	// Cells that do not depend on leader election.
 	config.Cell,
 	reconcilers.Cell,
+	webhook.Cell,
 
 	// Cells that do depend on leader election.
 	cell.Decorate(

@@ -22,9 +22,12 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/hive/script/scripttest"
+	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	virt_v1 "kubevirt.io/api/core/v1"
+	ctrlruntime "sigs.k8s.io/controller-runtime"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/operator/pkg/evpn"
@@ -38,6 +41,10 @@ import (
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
+
+func init() {
+	virt_v1.AddToScheme(k8sTestutils.Scheme)
+}
 
 func TestScript(t *testing.T) {
 	version.Force(k8sTestutils.DefaultVersion)
@@ -55,6 +62,9 @@ func TestScript(t *testing.T) {
 			}
 			log := hivetest.Logger(t, opts...)
 
+			// Configure our test logger as the sink for controller-runtime logs as well.
+			ctrlruntime.SetLogger(logr.New(logr.FromSlogHandler(log.Handler()).GetSink()))
+
 			h := hive.New(
 				k8sClient.FakeClientCell(),
 				cell.DecorateAll(k8sClient.NewFakeNADsClientset),
@@ -62,6 +72,8 @@ func TestScript(t *testing.T) {
 
 				privnet.Cell,
 				evpn.Cell,
+
+				WebhookTestCell(t),
 
 				// Ensure consistent a CNI logs debug setting, regardless of whether
 				// debug logs are enabled or not in the test.
@@ -85,5 +97,9 @@ func TestScript(t *testing.T) {
 				Cmds:          cmds,
 				RetryInterval: 10 * time.Millisecond,
 			}
-		}, []string{}, "testdata/*.txtar")
+		}, []string{}, "testdata/*.txtar",
+		// The controller-runtime logger is configured via a global variable,
+		// which means that we cannot run the tests in parallel.
+		scripttest.NoParallel,
+	)
 }

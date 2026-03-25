@@ -95,7 +95,7 @@ int privnet_icmp_from_container_nat_src_dst_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-/* TCP syn packet, this test is required to validate checksum is calculated
+/* IPv4 TCP SYN packet, this test is required to validate checksum is calculated
  * correctly post NAT.
  */
 
@@ -1157,5 +1157,62 @@ int privnet_icmp_to_container_unknown_policy_explicit_deny_check(struct __ctx_bu
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
 	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
 	privnet_del_device_entry(IFINDEX);
+	test_finish();
+}
+
+/* IPv6 TCP SYN packet, this test is required to validate checksum is calculated
+ * correctly post NAT.
+ */
+
+PKTGEN("tc", "26_tcp_from_container_v6_nat_src_dst")
+int privnet_tcp_from_container_v6_nat_src_dst_pktgen(struct __ctx_buff *ctx)
+{
+	BUF_DECL(NETIP_V6_TCP_SYN, privnet_net_ipv6_tcp_syn);
+	build_privnet_packet(ctx, NETIP_V6_TCP_SYN);
+	return 0;
+}
+
+SETUP("tc", "26_tcp_from_container_v6_nat_src_dst")
+int privnet_tcp_from_container_v6_nat_src_dst_setup(struct __ctx_buff *ctx)
+{
+	privnet_add_device_entry(IFINDEX, NET_ID, &lxc_privnet_ipv4, &lxc_privnet_ipv6);
+	privnet_v6_add_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN, SUBNET_ID);
+	privnet_v6_add_endpoint_entry(NET_ID, SUBNET_ID,
+				      (const union v6addr *)V6_NET_IP_1,
+				      (const union v6addr *)V6_POD_IP_1);
+	privnet_v6_add_endpoint_entry(NET_ID, SUBNET_ID,
+				      (const union v6addr *)V6_NET_IP_2,
+				      (const union v6addr *)V6_POD_IP_2);
+
+	/* allow traffic from endpoints */
+	policy_add_egress_allow_all_entry();
+
+	return pod_send_packet(ctx);
+}
+
+CHECK("tc", "26_tcp_from_container_v6_nat_src_dst")
+int privnet_tcp_from_container_v6_nat_src_dst_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	assert_status_code(ctx, TC_ACT_OK);
+
+	BUF_DECL(PODIP_V6_TCP_SYN, privnet_pod_ipv6_tcp_syn);
+	ASSERT_CTX_BUF_OFF("privnet_tcp_from_container_v6_nat_src_dst", "IPv6", ctx,
+			   sizeof(__u32), PODIP_V6_TCP_SYN,
+			   sizeof(BUF(PODIP_V6_TCP_SYN)));
+
+	assert_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
+	policy_delete_egress_all_entry();
+	privnet_v6_del_endpoint_entry(NET_ID, SUBNET_ID,
+				      (const union v6addr *)V6_NET_IP_1,
+				      (const union v6addr *)V6_POD_IP_1);
+	privnet_v6_del_endpoint_entry(NET_ID, SUBNET_ID,
+				      (const union v6addr *)V6_NET_IP_2,
+				      (const union v6addr *)V6_POD_IP_2);
+	privnet_v6_del_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN);
+	privnet_del_device_entry(IFINDEX);
+
 	test_finish();
 }

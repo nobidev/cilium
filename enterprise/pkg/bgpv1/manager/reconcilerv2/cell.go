@@ -67,6 +67,9 @@ var ConfigReconcilers = cell.Group(
 		newImportRouteReconciler,
 	),
 
+	// error path store
+	cell.Provide(newErrorPathStore),
+
 	// config of the enterprise reconcilers
 	cell.Config(defaultConfig),
 

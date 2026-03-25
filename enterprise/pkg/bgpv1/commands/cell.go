@@ -16,13 +16,14 @@ import (
 	"github.com/cilium/hive/script"
 
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/enterprise/pkg/bgpv1/manager/reconcilerv2"
 )
 
 var Cell = cell.Provide(BGPCommands)
 
-func BGPCommands(bgpMgr agent.EnterpriseBGPRouterManager) hive.ScriptCmdsOut {
+func BGPCommands(bgpMgr agent.EnterpriseBGPRouterManager, errorPathStore *reconcilerv2.ErrorPathStore) hive.ScriptCmdsOut {
 	return hive.NewScriptCmds(map[string]script.Cmd{
-		"bgp/routes-extended":         BGPRoutesExtendedCmd(bgpMgr),
+		"bgp/routes-extended":         BGPRoutesExtendedCmd(bgpMgr, errorPathStore),
 		"bgp/route-policies-extended": BGPPRoutePolicies(bgpMgr),
 	})
 }

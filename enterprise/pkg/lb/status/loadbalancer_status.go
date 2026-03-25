@@ -80,6 +80,9 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 			return nil, err
 		}
 
+		bgpPeerStatus := s.getBGPPeerStatus(f, bgpPeers, bgpPeersFromCRDByAddr, bgpPeersForSvc)
+		bgpRouteStatus := s.getBGPRoutesStatus(f, bgpRoutes)
+
 		serviceModel := LoadbalancerStatusModelService{
 			Namespace:         f.Namespace,
 			Name:              f.Name,
@@ -87,14 +90,14 @@ func (s *LoadbalancerClient) GetLoadbalancerStatusModel(ctx context.Context) (*L
 			Port:              uint(f.Spec.Port),
 			Type:              s.getType(f),
 			DeploymentMode:    s.getDeploymentMode(f),
-			BGPPeerStatus:     s.getBGPPeerStatus(f, bgpPeers, bgpPeersFromCRDByAddr, bgpPeersForSvc),
-			BGPRouteStatus:    s.getBGPRoutesStatus(f, bgpRoutes),
+			BGPPeerStatus:     bgpPeerStatus,
+			BGPRouteStatus:    bgpRouteStatus,
 			T1NodeStatus:      s.getT1Status(f, t1ServicesRoutes),
 			T1T2HCStatus:      s.getHCT1T2(f, t1ServicesRoutes),
 			T2NodeStatus:      s.getT2Status(f, t2EnvoyConfigs),
 			T2BackendHCStatus: s.getHCT2Backends(f, t2EnvoyConfigs),
 			BackendpoolStatus: s.getBackends(f, t1ServicesRoutes, t2EnvoyConfigs),
-			Status:            s.getOverallStatus(f, bgpRoutes),
+			Status:            overallStatus(bgpRouteStatus, bgpPeerStatus.LoadbalancerStatusModelSimpleStatus),
 		}
 
 		if s.includedInFilter(serviceModel) {
@@ -548,47 +551,48 @@ func (s *LoadbalancerClient) getBackends(lbsvc isovalentv1alpha1.LBService, node
 		}
 	}
 
-	var status map[string]map[string]int
-	nrOfNodes := 0
-
 	if s.isT1Only(lbsvc) {
-		status = s.getBackendStatusFromT1(lbsvc, nodeT1Services)
-		nrOfNodes = len(nodeT1Services)
-	} else {
-		status = s.getBackendStatusFromT2(lbsvc, nodeEnvoyConfigs)
-		nrOfNodes = len(nodeEnvoyConfigs)
+		return s.groupBackendStatusCounts(s.getBackendStatusFromT1(lbsvc, nodeT1Services))
 	}
 
-	total := 0
-	totalOk := 0
+	return s.groupBackendStatusCounts(s.getBackendStatusFromT2(lbsvc, nodeEnvoyConfigs))
+}
 
-	groups := []LoadbalancerStatusModelSimpleStatus{}
+type backendStatusCounter struct {
+	active   int
+	expected int
+}
+
+func (s *LoadbalancerClient) groupBackendStatusCounts(status map[string]map[string]backendStatusCounter) LoadbalancerStatusModelGroupedStatus {
+	total := 0
+	totalOK := 0
+	groups := make([]LoadbalancerStatusModelSimpleStatus, 0, len(status))
 
 	for _, endpoints := range status {
-		nrOk := 0
-		for _, v := range endpoints {
+		groupOK := 0
+		for _, counts := range endpoints {
 			total++
-			if v == nrOfNodes {
-				nrOk++
-				totalOk++
+			if counts.expected > 0 && counts.active == counts.expected {
+				groupOK++
+				totalOK++
 			}
 		}
 
 		groups = append(groups, LoadbalancerStatusModelSimpleStatus{
-			Status: s.statusText(nrOk, len(endpoints)),
-			OK:     nrOk,
+			Status: s.statusText(groupOK, len(endpoints)),
+			OK:     groupOK,
 			Total:  len(endpoints),
 		})
 	}
 
 	return LoadbalancerStatusModelGroupedStatus{
-		Status: s.statusText(totalOk, total),
+		Status: s.statusText(totalOK, total),
 		Groups: groups,
 	}
 }
 
-func (s *LoadbalancerClient) getBackendStatusFromT1(lbsvc isovalentv1alpha1.LBService, nodeT1Services map[string][]*models.Service) map[string]map[string]int {
-	status := map[string]map[string]int{}
+func (c *LoadbalancerClient) getBackendStatusFromT1(lbsvc isovalentv1alpha1.LBService, nodeT1Services map[string][]*models.Service) map[string]map[string]backendStatusCounter {
+	status := map[string]map[string]backendStatusCounter{}
 
 	for _, sn := range nodeT1Services {
 		for _, s := range sn {
@@ -598,19 +602,19 @@ func (s *LoadbalancerClient) getBackendStatusFromT1(lbsvc isovalentv1alpha1.LBSe
 				s.Status.Realized.FrontendAddress.IP == *lbsvc.Status.Addresses.IPv4 &&
 				s.Status.Realized.FrontendAddress.Port == uint16(lbsvc.Spec.Port) {
 
+				groupKey := s.Spec.Flags.Namespace + "-" + s.Spec.Flags.Name
+				if _, ok := status[groupKey]; !ok {
+					status[groupKey] = map[string]backendStatusCounter{}
+				}
+
 				for _, b := range s.Status.Realized.BackendAddresses {
-					if _, ok := status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name]; !ok {
-						status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name] = map[string]int{}
-					}
-
 					key := fmt.Sprintf("%s-%d", *b.IP, b.Port)
-					if _, ok := status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name][key]; !ok {
-						status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name][key] = 0
-					}
-
+					counter := status[groupKey][key]
+					counter.expected = c.expectedT1BackendNodeCount(lbsvc, nodeT1Services, b.Zone)
 					if b.State == "active" {
-						status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name][key] = status[s.Spec.Flags.Namespace+"-"+s.Spec.Flags.Name][key] + 1
+						counter.active++
 					}
+					status[groupKey][key] = counter
 				}
 			}
 		}
@@ -619,8 +623,32 @@ func (s *LoadbalancerClient) getBackendStatusFromT1(lbsvc isovalentv1alpha1.LBSe
 	return status
 }
 
-func (s *LoadbalancerClient) getBackendStatusFromT2(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) map[string]map[string]int {
-	status := map[string]map[string]int{}
+func (s *LoadbalancerClient) expectedT1BackendNodeCount(lbsvc isovalentv1alpha1.LBService, nodeT1Services map[string][]*models.Service, backendZone string) int {
+	if !s.isZoneAware(lbsvc) || backendZone == "" {
+		return len(nodeT1Services)
+	}
+
+	// If at least one T1 node has no known zone, fall back to the non-zone-aware
+	// expectation to keep status deterministic.
+	if len(s.t1NodeZones) != len(nodeT1Services) {
+		return len(nodeT1Services)
+	}
+
+	expected := 0
+	for candidateNode := range nodeT1Services {
+		if s.t1NodeZones[candidateNode] == backendZone {
+			expected++
+		}
+	}
+	return expected
+}
+
+func (s *LoadbalancerClient) isZoneAware(lbsvc isovalentv1alpha1.LBService) bool {
+	return lbsvc.Spec.TrafficPolicy != nil && lbsvc.Spec.TrafficPolicy.ZoneAware != nil
+}
+
+func (s *LoadbalancerClient) getBackendStatusFromT2(lbsvc isovalentv1alpha1.LBService, nodeEnvoyConfigs map[string]*EnvoyConfigModel) map[string]map[string]backendStatusCounter {
+	status := map[string]map[string]backendStatusCounter{}
 
 	for _, ecn := range nodeEnvoyConfigs {
 		for _, c := range ecn.Configs {
@@ -632,17 +660,16 @@ func (s *LoadbalancerClient) getBackendStatusFromT2(lbsvc isovalentv1alpha1.LBSe
 						for _, ep := range e.EndpointConfig.Endpoints {
 							for _, epc := range ep.LbEndpoints {
 								if _, ok := status[e.EndpointConfig.ClusterName]; !ok {
-									status[e.EndpointConfig.ClusterName] = map[string]int{}
+									status[e.EndpointConfig.ClusterName] = map[string]backendStatusCounter{}
 								}
 
 								key := fmt.Sprintf("%s-%d", epc.Endpoint.Address.SocketAddress.Address, epc.Endpoint.Address.SocketAddress.PortValue)
-								if _, ok := status[e.EndpointConfig.ClusterName][key]; !ok {
-									status[e.EndpointConfig.ClusterName][key] = 0
-								}
-
+								counter := status[e.EndpointConfig.ClusterName][key]
+								counter.expected = len(nodeEnvoyConfigs)
 								if epc.HealthStatus == "HEALTHY" {
-									status[e.EndpointConfig.ClusterName][key] = status[e.EndpointConfig.ClusterName][key] + 1
+									counter.active++
 								}
+								status[e.EndpointConfig.ClusterName][key] = counter
 							}
 						}
 					}
@@ -654,32 +681,22 @@ func (s *LoadbalancerClient) getBackendStatusFromT2(lbsvc isovalentv1alpha1.LBSe
 	return status
 }
 
-func (s *LoadbalancerClient) getOverallStatus(lbsvc isovalentv1alpha1.LBService, nodeBGPRoutes map[string][]*models.BgpRoute) string {
-	if lbsvc.Status.Addresses.IPv4 == nil {
-		return "OFFLINE"
-	}
-
-	nrOk := 0
-
-	for _, r := range nodeBGPRoutes {
-		for _, br := range r {
-			if br.Prefix == *lbsvc.Status.Addresses.IPv4+"/32" {
-				nrOk++
-			}
-		}
-	}
-
-	if nrOk == 0 {
-		return "OFFLINE"
-	}
-
-	return "ONLINE"
-}
-
 func (s *LoadbalancerClient) statusText(ok, total int) string {
 	if total > 0 && ok == total {
 		return "OK"
 	}
 
 	return "DEG"
+}
+
+func overallStatus(bgpRouteStatus LoadbalancerStatusModelSimpleStatus, bgpPeerStatus LoadbalancerStatusModelSimpleStatus) string {
+	if bgpRouteStatus.Status == "N/A" || bgpPeerStatus.Status == "N/A" {
+		return "OFFLINE"
+	}
+
+	if bgpRouteStatus.OK == 0 || bgpPeerStatus.OK == 0 {
+		return "OFFLINE"
+	}
+
+	return "ONLINE"
 }

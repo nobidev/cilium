@@ -52,23 +52,17 @@ type IsovalentWAFPolicySpec struct {
 	// +kubebuilder:validation:Optional
 	Mode *IsovalentWAFPolicyModeType `json:"mode,omitempty"`
 
-	// PolicyProfile selects the built-in WAF profile applied on top of the baseline CRS.
-	// If omitted, the global WAF setting is used.
-	//
-	// +kubebuilder:validation:Optional
-	PolicyProfile *IsovalentWAFPolicyProfileType `json:"policyProfile,omitempty"`
-
 	// FailureMode controls what happens when the WAF backend cannot evaluate a request.
 	// If omitted, the global WAF setting is used.
 	//
 	// +kubebuilder:validation:Optional
 	FailureMode *WAFFailureModeType `json:"failureMode,omitempty"`
 
-	// RuleSource defines the rule input for this policy.
+	// Rules selects either a managed WAF profile or a fully custom ruleset.
 	// If omitted, the global WAF rules are used.
 	//
 	// +kubebuilder:validation:Optional
-	RuleSource *IsovalentWAFPolicyRuleSource `json:"ruleSource,omitempty"`
+	Rules *IsovalentWAFPolicyRules `json:"rules,omitempty"`
 }
 
 type IsovalentWAFPolicyTargets struct {
@@ -91,12 +85,32 @@ type IsovalentWAFPolicyLBServices struct {
 	LabelSelector *slim_metav1.LabelSelector `json:"labelSelector,omitempty"`
 }
 
-type IsovalentWAFPolicyRuleSource struct {
-	// Inline provides rule content directly in the resource. Multi-line values
-	// should be provided as a YAML block scalar.
+// +kubebuilder:validation:XValidation:message="exactly one of managed or custom must be specified",rule="has(self.managed) != has(self.custom)"
+type IsovalentWAFPolicyRules struct {
+	// Managed selects the built-in WAF rules shipped by the platform.
 	//
 	// +kubebuilder:validation:Optional
-	Inline *string `json:"inline,omitempty"`
+	Managed *IsovalentWAFManagedRules `json:"managed,omitempty"`
+
+	// Custom provides a fully custom WAF ruleset.
+	//
+	// +kubebuilder:validation:Optional
+	Custom *IsovalentWAFCustomRules `json:"custom,omitempty"`
+}
+
+type IsovalentWAFManagedRules struct {
+	// Profile selects the built-in WAF profile to use with managed rules.
+	//
+	// +kubebuilder:validation:Required
+	Profile IsovalentWAFPolicyProfileType `json:"profile"`
+}
+
+type IsovalentWAFCustomRules struct {
+	// Inline provides a fully custom WAF ruleset directly in the resource.
+	// Multi-line values should be provided as a YAML block scalar.
+	//
+	// +kubebuilder:validation:Required
+	Inline string `json:"inline"`
 }
 
 // +kubebuilder:validation:Enum=Monitor;Enforce
@@ -251,19 +265,14 @@ func (in *IsovalentWAFPolicySpec) DeepCopyInto(out *IsovalentWAFPolicySpec) {
 		*out = new(IsovalentWAFPolicyModeType)
 		**out = **in
 	}
-	if in.PolicyProfile != nil {
-		in, out := &in.PolicyProfile, &out.PolicyProfile
-		*out = new(IsovalentWAFPolicyProfileType)
-		**out = **in
-	}
 	if in.FailureMode != nil {
 		in, out := &in.FailureMode, &out.FailureMode
 		*out = new(WAFFailureModeType)
 		**out = **in
 	}
-	if in.RuleSource != nil {
-		in, out := &in.RuleSource, &out.RuleSource
-		*out = new(IsovalentWAFPolicyRuleSource)
+	if in.Rules != nil {
+		in, out := &in.Rules, &out.Rules
+		*out = new(IsovalentWAFPolicyRules)
 		(*in).DeepCopyInto(*out)
 	}
 }
@@ -313,20 +322,51 @@ func (in *IsovalentWAFPolicyLBServices) DeepCopy() *IsovalentWAFPolicyLBServices
 	return out
 }
 
-func (in *IsovalentWAFPolicyRuleSource) DeepCopyInto(out *IsovalentWAFPolicyRuleSource) {
+func (in *IsovalentWAFPolicyRules) DeepCopyInto(out *IsovalentWAFPolicyRules) {
 	*out = *in
-	if in.Inline != nil {
-		in, out := &in.Inline, &out.Inline
-		*out = new(string)
+	if in.Managed != nil {
+		in, out := &in.Managed, &out.Managed
+		*out = new(IsovalentWAFManagedRules)
+		**out = **in
+	}
+	if in.Custom != nil {
+		in, out := &in.Custom, &out.Custom
+		*out = new(IsovalentWAFCustomRules)
 		**out = **in
 	}
 }
 
-func (in *IsovalentWAFPolicyRuleSource) DeepCopy() *IsovalentWAFPolicyRuleSource {
+func (in *IsovalentWAFPolicyRules) DeepCopy() *IsovalentWAFPolicyRules {
 	if in == nil {
 		return nil
 	}
-	out := new(IsovalentWAFPolicyRuleSource)
+	out := new(IsovalentWAFPolicyRules)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *IsovalentWAFManagedRules) DeepCopyInto(out *IsovalentWAFManagedRules) {
+	*out = *in
+}
+
+func (in *IsovalentWAFManagedRules) DeepCopy() *IsovalentWAFManagedRules {
+	if in == nil {
+		return nil
+	}
+	out := new(IsovalentWAFManagedRules)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *IsovalentWAFCustomRules) DeepCopyInto(out *IsovalentWAFCustomRules) {
+	*out = *in
+}
+
+func (in *IsovalentWAFCustomRules) DeepCopy() *IsovalentWAFCustomRules {
+	if in == nil {
+		return nil
+	}
+	out := new(IsovalentWAFCustomRules)
 	in.DeepCopyInto(out)
 	return out
 }

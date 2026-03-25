@@ -53,7 +53,7 @@ func TestTCPProxyT1OnlyPreferSameZone(t T) {
 	ciliumCli, k8sCli := NewCiliumAndK8sCli(t)
 	dockerCli := NewDockerCli(t)
 
-	minVersion := ">=1.18.0"
+	minVersion := ">=1.19.0"
 	currentVersion := GetCiliumVersion(t, k8sCli)
 	if !versioncheck.MustCompile(minVersion)(currentVersion) {
 		fmt.Printf("skipping due to version mismatch - expected: %s - current: %s\n", minVersion, currentVersion.String())

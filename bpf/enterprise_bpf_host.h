@@ -42,9 +42,10 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 
 	net_id = privnet_get_net_id(CONFIG(interface_ifindex));
 	if (!net_id)
-		/* This interface is not associated to a network ID; nothing to do here. */
-		/* We don't treat net_id == 0 specially, the different paths will handle */
-		/* a miss in the FIB map as appropriate (either punt to stack or drop).  */
+		/* This interface is not associated to a network ID; nothing to do here.
+		 * We don't treat net_id == 0 specially, the different paths will handle
+		 * a miss in the FIB map as appropriate (either punt to stack or drop).
+		 */
 		return ret;
 
 	switch (proto) {
@@ -59,10 +60,11 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 						      METRIC_INGRESS);
 
 		if (is_icmp6_ndp(ctx, ip6, ETH_HLEN)) {
-			/* Reply to the neighbor solicitation messages if necessary */
-			/* (i.e., they target a known IP reachable through this INB), */
-			/* and punt all the others up to the stack unmodified, to */
-			/* make sure we don't break local neighbor discovery. */
+			/* Reply to the neighbor solicitation messages if necessary
+			 * (i.e., they target a known IP reachable through this INB),
+			 * and punt all the others up to the stack unmodified, to
+			 * make sure we don't break local neighbor discovery.
+			 */
 			return handle_privnet_ns(ctx, *net_id, NULL);
 		}
 
@@ -142,15 +144,16 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 			return ret;
 
 		if (!sip_val) {
-			/* Source IP is not translated and there is no source route match, */
-			/* so there is no way to route back to the sender. It is better to */
-			/* drop the packet now. */
+			/* Source IP is not translated and there is no source route match,
+			 * so there is no way to route back to the sender. It is better to
+			 * drop the packet now.
+			 */
 			return DROP_UNROUTABLE;
 		}
 
 		if (!dip_val || is_privnet_route_entry(dip_val)) {
-			/* dst_ip is not translated to exact endpoint or dip_val exists but
-			 * for a route entry ( there is no ep associated with it).
+			/* dst_ip is not translated to an exact endpoint or dip_val exists but
+			 * for a route entry (there is no endpoint associated with it).
 			 * In both cases, we want to drop the packet to avoid network
 			 * segmentation leakage.
 			 */
@@ -163,19 +166,21 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 #ifdef TUNNEL_MODE
 		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 		if (!info || !info->flag_has_tunnel_ep || info->flag_skip_tunnel) {
-			/* If the destination is not a Cilium-managed endpoint (i.e. there is no IPCache
-			 * entry with an associated tunnel endpoint), drop the packet. Neither unknown
-			 * flow nor external endpoint sources should send us packets that are not targeting
-			 * a Cilium-managed endpoint.
+			/* If the destination is not a Cilium-managed endpoint (i.e. there
+			 * is no IPCache entry with an associated tunnel endpoint), drop
+			 * the packet. Neither unknown flow nor external endpoint sources
+			 * should send us packets that are not targeting a Cilium-managed
+			 * endpoint.
 			 */
 			return DROP_UNROUTABLE;
 		}
 
 		if (is_privnet_route_entry(sip_val)) {
-			/* if packet is coming from source which matches a route */
-			/* (i.e. there is no ep associated with it), */
-			/* we skip egress policy check and redirect to destination node */
-			/* using privnet_unknown_flow identity. */
+			/* If the packet is coming from a source which matches a route
+			 * (i.e. there is no endpoint associated with it), we skip the
+			 * egress policy check and redirect to the destination node using
+			 * the privnet_unknown_flow identity.
+			 */
 
 			/* Perform a CT lookup using the pre-NAT destination to populate trace */
 			ret = privnet_ct_unknown_flow_ingress_ipv4(ctx, ip4, &dip4,
@@ -188,7 +193,7 @@ enterprise_privnet_do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_
 				&trace, proto);
 		}
 
-		/* egress policy check is done after nat to pip and concluding that
+		/* egress policy check is done after NAT to PIP and concluding that
 		 * it is not an unknown flow.
 		 */
 		ret = privnet_ext_ep_policy_egress4(ctx, ip4, info->sec_identity,

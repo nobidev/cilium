@@ -18,6 +18,7 @@ import (
 // +kubebuilder:printcolumn:JSONPath=".status.addresses.ipv4",name="VIP IPv4",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.addresses.ipv6",name="VIP IPv6",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.port",name="Port",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.trafficPolicy.zoneAware.mode",name="Zone Aware",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.status",name="Status",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status

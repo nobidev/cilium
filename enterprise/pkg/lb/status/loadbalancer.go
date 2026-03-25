@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -42,6 +43,7 @@ type LoadbalancerClient struct {
 	client      execClient
 	t1AgentPods []*Pod
 	t2AgentPods []*Pod
+	t1NodeZones map[string]string
 }
 
 type Pod struct {
@@ -62,7 +64,7 @@ func NewLoadbalancerClient(k8sClient kubernetes.Interface, ciliumClient ciliumCl
 }
 
 func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
-	t1NodeNames, t2NodeNames, err := s.getLBNodes(ctx)
+	t1NodeZones, t2NodeZones, err := s.getLBNodes(ctx)
 	if err != nil {
 		return err
 	}
@@ -76,7 +78,7 @@ func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
 	t2AgentPods := []*Pod{}
 
 	for _, ap := range agentPods.Items {
-		if slices.Contains(t1NodeNames, ap.Spec.NodeName) {
+		if _, ok := t1NodeZones[ap.Spec.NodeName]; ok {
 			t1AgentPods = append(t1AgentPods, &Pod{
 				Name:      ap.Name,
 				Namespace: ap.Namespace,
@@ -84,7 +86,7 @@ func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
 			})
 		}
 
-		if slices.Contains(t2NodeNames, ap.Spec.NodeName) {
+		if _, ok := t2NodeZones[ap.Spec.NodeName]; ok {
 			t2AgentPods = append(t2AgentPods, &Pod{
 				Name:      ap.Name,
 				Namespace: ap.Namespace,
@@ -95,6 +97,7 @@ func (s *LoadbalancerClient) InitNodeAgentPods(ctx context.Context) error {
 
 	s.t1AgentPods = t1AgentPods
 	s.t2AgentPods = t2AgentPods
+	s.t1NodeZones = getOnlyZonedNodes(t1NodeZones)
 
 	return nil
 }
@@ -124,7 +127,7 @@ const (
 	defaultT2Selector = t1T2SelectorKey + " in ( " + t2OnlyLabel + " , " + t1T2Label + " )"
 )
 
-func (s *LoadbalancerClient) getLBNodes(ctx context.Context) ([]string, []string, error) {
+func (s *LoadbalancerClient) getLBNodes(ctx context.Context) (map[string]string, map[string]string, error) {
 	deployments, err := s.getLBDeployments(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -147,29 +150,29 @@ func (s *LoadbalancerClient) getLBNodes(ctx context.Context) ([]string, []string
 	t1Selectors = deduplicateSlice(t1Selectors)
 	t2Selectors = deduplicateSlice(t2Selectors)
 
-	var t1NodeNames, t2NodeNames []string
+	var t1NameZone, t2NameZone map[string]string
 	eg := errgroup.Group{}
 	eg.Go(func() error {
-		names, err := s.getNodeNamesBySelector(ctx, t1Selectors)
+		nameZone, err := s.getNodeZoneBySelector(ctx, t1Selectors)
 		if err != nil {
 			return err
 		}
-		t1NodeNames = names
+		t1NameZone = nameZone
 		return nil
 	})
 	eg.Go(func() error {
-		names, err := s.getNodeNamesBySelector(ctx, t2Selectors)
+		nameZone, err := s.getNodeZoneBySelector(ctx, t2Selectors)
 		if err != nil {
 			return err
 		}
-		t2NodeNames = names
+		t2NameZone = nameZone
 		return nil
 	})
 
 	if err := eg.Wait(); err != nil {
 		return nil, nil, err
 	}
-	return t1NodeNames, t2NodeNames, nil
+	return t1NameZone, t2NameZone, nil
 }
 
 func (s *LoadbalancerClient) getLBDeployments(ctx context.Context) ([]v1alpha1.LBDeployment, error) {
@@ -189,18 +192,18 @@ func (s *LoadbalancerClient) getLBDeployments(ctx context.Context) ([]v1alpha1.L
 	return deployments, nil
 }
 
-func (s *LoadbalancerClient) getNodeNamesBySelector(ctx context.Context, labelSelectors []string) ([]string, error) {
-	nodeNames := make([]string, 0)
+func (s *LoadbalancerClient) getNodeZoneBySelector(ctx context.Context, labelSelectors []string) (map[string]string, error) {
+	nodeZone := make(map[string]string)
 	for _, selector := range labelSelectors {
 		nodes, err := s.client.k8sClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: selector})
 		if err != nil {
 			return nil, err
 		}
 		for _, node := range nodes.Items {
-			nodeNames = append(nodeNames, node.Name)
+			nodeZone[node.Name] = node.Labels[corev1.LabelTopologyZone]
 		}
 	}
-	return deduplicateSlice(nodeNames), nil
+	return nodeZone, nil
 }
 
 func matchLabelsToLabelSelectors(labelValues map[string]ciliumMetav1.MatchLabelsValue) []string {
@@ -229,6 +232,16 @@ func matchExpressionsToLabelSelectors(requirements []ciliumMetav1.LabelSelectorR
 
 func labelSelectorString(key string, operator ciliumMetav1.LabelSelectorOperator, values ...string) string {
 	return fmt.Sprintf("%s %s ( %s )", key, strings.ToLower(string(operator)), strings.Join(values, " , "))
+}
+
+func getOnlyZonedNodes(nodeZone map[string]string) map[string]string {
+	result := make(map[string]string)
+	for node, zone := range nodeZone {
+		if zone != "" {
+			result[node] = zone
+		}
+	}
+	return result
 }
 
 func deduplicateSlice(s []string) []string {

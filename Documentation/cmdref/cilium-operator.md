@@ -220,6 +220,11 @@ cilium-operator [flags]
       --private-networks-nad-cni-log-file string                       CNI logs path configured for managed Multus network attachment definitions (default "/var/run/cilium/cilium-cni.log")
       --private-networks-nad-cni-log-format string                     CNI logs format configured for managed Multus network attachment definitions (default "text-ts")
       --private-networks-nad-integration-enabled                       Enable the private networks integration with Multus network attachment definitions
+      --private-networks-webhook-enabled                               Enable the private networks webhook
+      --private-networks-webhook-hostport string                       The address and port the private networks webhook listens to (default ":11443")
+      --private-networks-webhook-network-binding string                The name of the KubeVirt network binding plugin enforced on mutated VMs
+      --private-networks-webhook-tls-cert-file string                  The path to the webhook TLS certificate for the private networks webhook (default "/var/lib/cilium/privnet/webhook/tls/server.crt")
+      --private-networks-webhook-tls-key-file string                   The path to the webhook TLS key for the private networks webhook (default "/var/lib/cilium/privnet/webhook/tls/server.key")
       --remove-cilium-node-taints                                      Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)
       --set-cilium-is-up-condition                                     Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)
       --set-cilium-node-taints                                         Set node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes if Cilium is scheduled but not up and running

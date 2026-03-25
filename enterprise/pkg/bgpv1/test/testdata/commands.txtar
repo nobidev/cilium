@@ -186,21 +186,21 @@ instance1   peer0   established     -        ipv4-unicast   1          1        
             peer1   established     -        ipv4-unicast   1          1          1
                                              ipv6-unicast   1          1          1
 -- bgp-routes-loc-ipv4-unicast.expected --
-Instance    Peer     Prefix          NextHop           Best   Age
-instance0   (self)   10.244.0.0/24   0.0.0.0           true   -
-            peer0    10.0.0.0/24     fd00:10:99:8::1   true   -
-            peer1    10.0.0.0/24     fd00:10:99:8::2   true   -
-instance1   (self)   10.244.0.0/24   0.0.0.0           true   -
-            peer0    10.0.1.0/24     fd00:10:99:8::3   true   -
-            peer1    10.0.2.0/24     fd00:10:99:8::4   true   -
+Instance    Peer     Prefix          NextHop           Best   Age   Error
+instance0   (self)   10.244.0.0/24   0.0.0.0           true   -     -
+            peer0    10.0.0.0/24     fd00:10:99:8::1   true   -     -
+            peer1    10.0.0.0/24     fd00:10:99:8::2   true   -     -
+instance1   (self)   10.244.0.0/24   0.0.0.0           true   -     -
+            peer0    10.0.1.0/24     fd00:10:99:8::3   true   -     -
+            peer1    10.0.2.0/24     fd00:10:99:8::4   true   -     -
 -- bgp-routes-loc-ipv6-unicast.expected --
-Instance    Peer     Prefix             NextHop           Best   Age
-instance0   (self)   fd00:10:244::/64   ::                true   -
-            peer0    fd00:10::/64       fd00:10:99:8::1   true   -
-            peer1    fd00:10::/64       fd00:10:99:8::2   true   -
-instance1   (self)   fd00:10:244::/64   ::                true   -
-            peer0    fd00:10:1::/64     fd00:10:99:8::3   true   -
-            peer1    fd00:10:2::/64     fd00:10:99:8::4   true   -
+Instance    Peer     Prefix             NextHop           Best   Age   Error
+instance0   (self)   fd00:10:244::/64   ::                true   -     -
+            peer0    fd00:10::/64       fd00:10:99:8::1   true   -     -
+            peer1    fd00:10::/64       fd00:10:99:8::2   true   -     -
+instance1   (self)   fd00:10:244::/64   ::                true   -     -
+            peer0    fd00:10:1::/64     fd00:10:99:8::3   true   -     -
+            peer1    fd00:10:2::/64     fd00:10:99:8::4   true   -     -
 -- bgp-routes-out-ipv4-unicast.expected --
 Instance    Peer    Prefix          NextHop           Age
 instance0   peer0   10.244.0.0/24   fd00:10:99:8::5   -

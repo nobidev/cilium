@@ -189,8 +189,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_ipmasq_v4 __section_maps_btf;
 
-#include "lib/enterprise_nat.h"
-
 #if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
 static __always_inline void *
 get_cluster_snat_map_v4(__u32 cluster_id __maybe_unused)

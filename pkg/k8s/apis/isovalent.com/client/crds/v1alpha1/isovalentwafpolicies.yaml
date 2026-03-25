@@ -74,28 +74,43 @@ spec:
                 - Monitor
                 - Enforce
                 type: string
-              policyProfile:
+              rules:
                 description: |-
-                  PolicyProfile selects the built-in WAF profile applied on top of the baseline CRS.
-                  If omitted, the global WAF setting is used.
-                enum:
-                - max_security
-                - high_security
-                - balanced
-                - low_friction
-                - min_friction
-                type: string
-              ruleSource:
-                description: |-
-                  RuleSource defines the rule input for this policy.
+                  Rules selects either a managed WAF profile or a fully custom ruleset.
                   If omitted, the global WAF rules are used.
                 properties:
-                  inline:
-                    description: |-
-                      Inline provides rule content directly in the resource. Multi-line values
-                      should be provided as a YAML block scalar.
-                    type: string
+                  custom:
+                    description: Custom provides a fully custom WAF ruleset.
+                    properties:
+                      inline:
+                        description: |-
+                          Inline provides a fully custom WAF ruleset directly in the resource.
+                          Multi-line values should be provided as a YAML block scalar.
+                        type: string
+                    required:
+                    - inline
+                    type: object
+                  managed:
+                    description: Managed selects the built-in WAF rules shipped by
+                      the platform.
+                    properties:
+                      profile:
+                        description: Profile selects the built-in WAF profile to use
+                          with managed rules.
+                        enum:
+                        - max_security
+                        - high_security
+                        - balanced
+                        - low_friction
+                        - min_friction
+                        type: string
+                    required:
+                    - profile
+                    type: object
                 type: object
+                x-kubernetes-validations:
+                - message: exactly one of managed or custom must be specified
+                  rule: has(self.managed) != has(self.custom)
               targets:
                 anyOf:
                 - properties:

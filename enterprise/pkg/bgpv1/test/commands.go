@@ -13,6 +13,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/netip"
 	"sort"
 	"strconv"
@@ -338,12 +339,150 @@ func CEEGoBGPScriptCmds(cmdCtx *commands.GoBGPCmdContext) map[string]script.Cmd 
 	}
 }
 
+func nextParam(s string) (string, int, error) {
+	var param string
+
+	if !strings.HasPrefix(s, "[") {
+		return "", 0, fmt.Errorf("expected parameter to be enclosed in '[]', got: %s", s)
+	}
+
+	foundEnd := false
+	for _, r := range s[1:] {
+		if r == ']' {
+			foundEnd = true
+			break
+		}
+		param = param + string(r)
+	}
+
+	if !foundEnd {
+		return "", 0, fmt.Errorf("expected parameter to be enclosed in '[]', got: %s", s)
+	}
+
+	return param, len(param) + 2, nil
+}
+
+// parseEVPNRT5Prefix parses the EVPN RT5 prefix
+// [RD][ESI][ETag][Prefix][GWIP][VNI] and returns it as a
+// bgp.AddrPrefixInterface.
+func parseEVPNRT5Prefix(s string) (bgp.AddrPrefixInterface, error) {
+	param, n, err := nextParam(s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract RD string: %w", err)
+	}
+
+	rd, err := bgp.ParseRouteDistinguisher(param)
+	if err != nil {
+		return nil, fmt.Errorf("invalid RD in EVPN prefix: %w", err)
+	}
+
+	sub := s[n:]
+	param, n, err = nextParam(sub)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract ESI string: %w", err)
+	}
+
+	if param != "single-homed" {
+		return nil, fmt.Errorf("unsupported ESI in EVPN prefix (must be 'single-homed'): %s", param)
+	}
+
+	esi, err := bgp.ParseEthernetSegmentIdentifier([]string{param})
+	if err != nil {
+		return nil, fmt.Errorf("invalid ESI in EVPN prefix: %w", err)
+	}
+
+	sub = sub[n:]
+	param, n, err = nextParam(sub)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract ETag string: %w", err)
+	}
+
+	eTag, err := strconv.ParseUint(param, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ETag in EVPN prefix: %w", err)
+	}
+
+	sub = sub[n:]
+	param, n, err = nextParam(sub)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract Prefix string: %w", err)
+	}
+
+	prefix, err := netip.ParsePrefix(param)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Prefix in EVPN prefix: %w", err)
+	}
+
+	sub = sub[n:]
+	param, n, err = nextParam(sub)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract GatewayIP string: %w", err)
+	}
+
+	gwip, err := netip.ParseAddr(param)
+	if err != nil {
+		return nil, fmt.Errorf("invalid GatewayIP in EVPN prefix: %w", err)
+	}
+
+	sub = sub[n:]
+	param, _, err = nextParam(sub)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract VNI string: %w", err)
+	}
+
+	vni, err := strconv.ParseUint(param, 10, 24)
+	if err != nil {
+		return nil, fmt.Errorf("invalid VNI in EVPN prefix: %w", err)
+	}
+
+	return bgp.NewEVPNIPPrefixRoute(
+		rd,
+		esi,
+		uint32(eTag),
+		uint8(prefix.Bits()),
+		prefix.Addr().String(),
+		gwip.String(),
+		uint32(vni),
+	), nil
+}
+
+func parsePrefix(s string) (bgp.AddrPrefixInterface, error) {
+	// First try to interpret as an IPv4 or IPv6 prefix
+	if prefix, err := netip.ParsePrefix(s); err == nil {
+		if prefix.Addr().Is4() {
+			return bgp.NewIPAddrPrefix(uint8(prefix.Bits()), prefix.Addr().String()), nil
+		}
+		return bgp.NewIPv6AddrPrefix(uint8(prefix.Bits()), prefix.Addr().String()), nil
+	}
+
+	if strings.HasPrefix(s, "EVPN") {
+		sub := s[4:]
+
+		param, n, err := nextParam(sub)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract RD string: %w", err)
+		}
+
+		typ, err := strconv.ParseUint(param, 10, 8)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Route Type in EVPN prefix: %w", err)
+		}
+		if typ != 5 {
+			return nil, fmt.Errorf("unsupported Route Type in EVPN prefix: %d", typ)
+		}
+
+		return parseEVPNRT5Prefix(sub[n:])
+	}
+
+	return nil, fmt.Errorf("invalid prefix format: %s", s)
+}
+
 // AddRoute adds a route to the GoBGP RIB.
 func AddRoute(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "Adds a route to the GoBGP RIB",
-			Args:    "prefix",
+			Args:    "prefix [nexthop] [llnexthop]",
 			Flags: func(fs *pflag.FlagSet) {
 				fs.StringP(
 					commands.ServerNameFlag,
@@ -355,33 +494,157 @@ func AddRoute(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
 					communitiesFlag,
 					communitiesFlagShort,
 					nil,
-					"BGP communities (standard / large) to be associated with the route. Multiple comma-separated values are accepted.",
+					"BGP communities (standard / large / extended) to be associated with the route. Multiple comma-separated values are accepted.",
 				)
 			},
 			Detail: []string{
 				"Adds a route to the GoBGP RIB.",
 				"",
-				"'Prefix' is IPv4 or IPv6 prefix.",
+				"'Prefix' is one of the following formats:",
+				"  - IPv4 prefix (e.g. 10.0.0.0/24)",
+				"  - IPv6 prefix (e.g. 2001:db8::/32)",
+				"  - EVPN RT5 prefix EVPN[5][RD][ESI][ETag][Prefix][GWIP][VNI]",
+				"    - RD: Route Distinguisher in any format",
+				"    - ESI: Ethernet Segment Identifier, only 'single-homed' is supported at this point",
+				"    - ETag: Ethernet Tag ID, a 32-bit unsigned integer",
+				"    - Prefix: IPv4 or IPv6 prefix",
+				"    - GWIP: Gateway IP address for the prefix",
+				"    - VNI: VXLAN Network Identifier, a 24-bit unsigned integer",
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
 			if len(args) < 1 {
-				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/add-route prefix nexthop'")
+				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/add-route prefix [nexthop] [llnexthop]'")
 			}
+			if len(args) > 3 {
+				return nil, fmt.Errorf("invalid command format, too many arguments: 'gobgp/add-route prefix [nexthop] [llnexthop]'")
+			}
+
+			nlri, err := parsePrefix(args[0])
+			if err != nil {
+				return nil, fmt.Errorf("invalid prefix: %s: %w", args[0], err)
+			}
+
+			var nexthop, llnexthop netip.Addr
+			if len(args) >= 2 {
+				nexthop, err = netip.ParseAddr(args[1])
+				if err != nil {
+					return nil, fmt.Errorf("invalid nexthop: %s", args[1])
+				}
+			}
+			if len(args) >= 3 {
+				llnexthop, err = netip.ParseAddr(args[2])
+				if err != nil {
+					return nil, fmt.Errorf("invalid link-local nexthop: %s", args[2])
+				}
+			}
+
 			return func(*script.State) (stdout, stderr string, err error) {
 				goBGPServer, err := commands.GetGoBGPServer(s, cmdCtx)
 				if err != nil {
 					return "", "", fmt.Errorf("failed to get GoBGP server: %w", err)
 				}
 
-				prefix, err := netip.ParsePrefix(args[0])
-				if err != nil {
-					return "", "", fmt.Errorf("invalid prefix: %s", args[0])
-				}
+				originAttr := bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_IGP)
 
-				path, err := gobgp.ToGoBGPPath(types.NewPathForPrefix(prefix))
-				if err != nil {
-					return "", "", fmt.Errorf("failed to convert prefix to GoBGP path: %w", err)
+				var path *gobgpapi.Path
+				switch {
+				case len(args) == 1:
+					// Defaulting case. Keep the
+					// compatibility with the existing
+					// behavior.
+					var p *types.Path
+					switch nlri := nlri.(type) {
+					case *bgp.IPAddrPrefix:
+						p = &types.Path{
+							NLRI: nlri,
+							PathAttributes: []bgp.PathAttributeInterface{
+								originAttr,
+								bgp.NewPathAttributeNextHop("0.0.0.0"),
+							},
+						}
+					case *bgp.IPv6AddrPrefix:
+						p = &types.Path{
+							NLRI: nlri,
+							PathAttributes: []bgp.PathAttributeInterface{
+								originAttr,
+								bgp.NewPathAttributeMpReachNLRI("::", []bgp.AddrPrefixInterface{nlri}),
+							},
+						}
+					case *bgp.EVPNNLRI:
+						p = &types.Path{
+							NLRI: nlri,
+							PathAttributes: []bgp.PathAttributeInterface{
+								originAttr,
+							},
+						}
+						rt5 := nlri.RouteTypeData.(*bgp.EVPNIPPrefixRoute)
+						if rt5.IPPrefix.To4() != nil {
+							p.PathAttributes = append(
+								p.PathAttributes,
+								bgp.NewPathAttributeMpReachNLRI("0.0.0.0", []bgp.AddrPrefixInterface{nlri}),
+							)
+						} else {
+							p.PathAttributes = append(
+								p.PathAttributes,
+								bgp.NewPathAttributeMpReachNLRI("::", []bgp.AddrPrefixInterface{nlri}),
+							)
+						}
+					default:
+						return "", "", fmt.Errorf("unsupported NLRI type: %T", nlri)
+					}
+					path, err = gobgp.ToGoBGPPath(p)
+					if err != nil {
+						return "", "", fmt.Errorf("failed to convert prefix to GoBGP path: %w", err)
+					}
+				case len(args) == 2:
+					if nlri.AFI() == bgp.AFI_IP && nexthop.Is4() {
+						// v4 prefix with v4 nexthop.
+						// Use regular NEXTHOP
+						// attribute.
+						nextHopAttr := bgp.NewPathAttributeNextHop(nexthop.String())
+						path, err = gobgp.ToGoBGPPath(&types.Path{
+							NLRI: nlri,
+							PathAttributes: []bgp.PathAttributeInterface{
+								originAttr,
+								nextHopAttr,
+							},
+						})
+						if err != nil {
+							return "", "", fmt.Errorf("failed to convert prefix and nexthop to GoBGP path: %w", err)
+						}
+					} else {
+						// Other cases (v4 prefix with
+						// v6 nexthop, v6 prefix with v6
+						// nexthop) are encoded using
+						// MP_REACH_NLRI attribute.
+						mpReachNLRIAttr := bgp.NewPathAttributeMpReachNLRI(nexthop.String(), []bgp.AddrPrefixInterface{nlri})
+						path, err = gobgp.ToGoBGPPath(&types.Path{
+							NLRI: nlri,
+							PathAttributes: []bgp.PathAttributeInterface{
+								originAttr,
+								mpReachNLRIAttr,
+							},
+						})
+						if err != nil {
+							return "", "", fmt.Errorf("failed to convert prefix and nexthop to GoBGP path: %w", err)
+						}
+					}
+				case len(args) >= 3:
+					// Link-local nexthop is only usable
+					// with MP_REACH_NLRI attribute.
+					mpReachNLRIAttr := bgp.NewPathAttributeMpReachNLRI(nexthop.String(), []bgp.AddrPrefixInterface{nlri})
+					mpReachNLRIAttr.LinkLocalNexthop = net.ParseIP(llnexthop.String())
+					path, err = gobgp.ToGoBGPPath(&types.Path{
+						NLRI: nlri,
+						PathAttributes: []bgp.PathAttributeInterface{
+							originAttr,
+							mpReachNLRIAttr,
+						},
+					})
+					if err != nil {
+						return "", "", fmt.Errorf("failed to convert prefix and nexthops to GoBGP path: %w", err)
+					}
 				}
 
 				commValues, err := s.Flags.GetStringSlice(communitiesFlag)
@@ -389,10 +652,39 @@ func AddRoute(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
 					return "", "", err
 				}
 				var (
-					communities      []uint32
-					largeCommunities []*bgp.LargeCommunity
+					communities         []uint32
+					largeCommunities    []*bgp.LargeCommunity
+					extendedCommunities []bgp.ExtendedCommunityInterface
 				)
 				for _, community := range commValues {
+					// First check the extended community
+					// prefixes.
+					switch {
+					case strings.HasPrefix(community, "rt:"):
+						rt, err := bgp.ParseRouteTarget(community[3:])
+						if err != nil {
+							return "", "", fmt.Errorf("invalid RT format: %w", err)
+						}
+						extendedCommunities = append(extendedCommunities, rt)
+						continue
+
+					case strings.HasPrefix(community, "rtrmac:"):
+						rtrmac := bgp.NewRoutersMacExtended(community[7:])
+						if rtrmac == nil {
+							return "", "", fmt.Errorf("invalid Router's MAC format: %s", community[7:])
+						}
+						extendedCommunities = append(extendedCommunities, rtrmac)
+						continue
+
+					case strings.HasPrefix(community, "encap:"):
+						encap, err := bgp.ParseExtendedCommunity(bgp.EC_SUBTYPE_ENCAPSULATION, community[6:])
+						if encap == nil {
+							return "", "", fmt.Errorf("invalid Encap format: %w", err)
+						}
+						extendedCommunities = append(extendedCommunities, encap)
+						continue
+					}
+
 					elems := strings.Split(community, ":")
 					if len(elems) == 2 {
 						fst, _ := strconv.ParseUint(elems[0], 10, 16)
@@ -407,13 +699,16 @@ func AddRoute(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
 						return "", "", fmt.Errorf("invalid communities value")
 					}
 				}
-				if len(communities) > 0 || len(largeCommunities) > 0 {
+				if len(communities) > 0 || len(largeCommunities) > 0 || len(extendedCommunities) > 0 {
 					var pathAttrs []bgp.PathAttributeInterface
 					if len(communities) > 0 {
 						pathAttrs = append(pathAttrs, bgp.NewPathAttributeCommunities(communities))
 					}
 					if len(largeCommunities) > 0 {
 						pathAttrs = append(pathAttrs, bgp.NewPathAttributeLargeCommunities(largeCommunities))
+					}
+					if len(extendedCommunities) > 0 {
+						pathAttrs = append(pathAttrs, bgp.NewPathAttributeExtendedCommunities(extendedCommunities))
 					}
 					pattrs, err := apiutil.MarshalPathAttributes(pathAttrs)
 					if err != nil {
@@ -462,18 +757,22 @@ func DeleteRoute(cmdCtx *commands.GoBGPCmdContext) script.Cmd {
 			if len(args) < 1 {
 				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/delete-route prefix nexthop'")
 			}
+			nlri, err := parsePrefix(args[0])
+			if err != nil {
+				return nil, fmt.Errorf("invalid prefix: %s: %w", args[0], err)
+			}
 			return func(*script.State) (stdout, stderr string, err error) {
 				goBGPServer, err := commands.GetGoBGPServer(s, cmdCtx)
 				if err != nil {
 					return "", "", fmt.Errorf("failed to get GoBGP server: %w", err)
 				}
 
-				prefix, err := netip.ParsePrefix(args[0])
-				if err != nil {
-					return "", "", fmt.Errorf("invalid prefix: %s", args[0])
-				}
-
-				path, err := gobgp.ToGoBGPPath(types.NewPathForPrefix(prefix))
+				path, err := gobgp.ToGoBGPPath(&types.Path{
+					NLRI: nlri,
+					PathAttributes: []bgp.PathAttributeInterface{
+						bgp.NewPathAttributeMpReachNLRI("::", []bgp.AddrPrefixInterface{nlri}),
+					},
+				})
 				if err != nil {
 					return "", "", fmt.Errorf("failed to convert prefix to GoBGP path: %w", err)
 				}
