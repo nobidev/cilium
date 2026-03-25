@@ -147,6 +147,14 @@ rules:
 - apiGroups:
   - cilium.io
   resources:
+  - ciliumvrfs
+  - ciliumvrfs/status
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
   - ciliumendpoints/status
   - ciliumendpoints
   - ciliuml2announcementpolicies/status

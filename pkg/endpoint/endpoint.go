@@ -1863,7 +1863,8 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 		if tidInt, err := strconv.ParseUint(tid, 10, 32); err == nil {
 			e.SetFibTableID(uint32(tidInt))
 		}
-	} else {
+		// if VRF is enabled, it maybe controlling the container's table ID.
+	} else if !option.Config.EnableVRF {
 		e.SetFibTableID(0)
 	}
 

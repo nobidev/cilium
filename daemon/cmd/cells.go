@@ -86,6 +86,7 @@ import (
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/subnet"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
+	"github.com/cilium/cilium/pkg/vrf"
 	"github.com/cilium/cilium/pkg/ztunnel"
 )
 
@@ -372,6 +373,9 @@ var (
 
 		// Subnet topology watcher and management.
 		subnet.Cell,
+
+		// VRF control plane for managing Virtual Routing and Forwarding domains.
+		vrf.Cell,
 	)
 )
 
