@@ -106,6 +106,7 @@ rules:
     - isovalent.com
   resources:
     - clusterwideprivatenetworks
+    - clusterwideprivatenetworks/status
     - privatenetworknodeattachments
   verbs:
     - list
