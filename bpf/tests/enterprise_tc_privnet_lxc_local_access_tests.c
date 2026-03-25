@@ -43,6 +43,7 @@ ASSIGN_CONFIG(bool, privnet_local_access_enable, true)
 ASSIGN_CONFIG(__u32, privnet_unknown_sec_id, 99) /* tunnel id 99 is reserved for unknown privnet flow */
 ASSIGN_CONFIG(__u32, interface_ifindex, LXC_IFINDEX)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr}) /* set lxc mac */
+ASSIGN_CONFIG(__u32, security_label, 100) /* set lxc security label */
 
 static const union v4addr lxc_privnet_ipv4 = { .be32 = V4_NET_IP_1 };
 static const union v6addr lxc_privnet_ipv6 = { .addr = v6_svc_one_addr };
@@ -64,6 +65,7 @@ int privnet_local_access_egress_from_lxc_setup(struct __ctx_buff *ctx)
 	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_add_subnet_route(NET_ID, SUBNET_ID, V4_NET_IP_2, GATEWAY_IP, NETDEV_IFINDEX);
 
+	policy_add_egress_allow_all_entry();
 	return pod_send_packet(ctx);
 }
 
@@ -87,6 +89,7 @@ int privnet_local_access_egress_from_lxc_check(struct __ctx_buff *ctx)
 
 	assert_privnet_net_ids(NET_ID, NET_ID);
 
+	policy_delete_entry(false, 0, 0, 0, 0);
 	privnet_v4_del_route(NET_ID, SUBNET_ID, V4_NET_IP_2);
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);

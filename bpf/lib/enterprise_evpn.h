@@ -13,6 +13,7 @@
 #include "socket.h"
 #include "eth.h"
 #include "drop_reasons.h"
+#include "trace.h"
 
 DECLARE_ENTERPRISE_CONFIG(bool, evpn_enable,
 			  "True if evpn feature is enabled")
@@ -131,7 +132,8 @@ evpn_set_tunnel_key(struct __ctx_buff *ctx, const struct evpn_fib_val *fib_val)
 }
 
 static __always_inline __maybe_unused int
-evpn_encap_and_redirect4(struct __ctx_buff *ctx, __u16 net_id, __be32 dst_ip)
+evpn_encap_and_redirect4(struct __ctx_buff *ctx, __u16 net_id, __u32 sec_label,
+			 __be32 dst_ip, struct trace_ctx *trace)
 {
 	union macaddr evpn_mac = CONFIG(evpn_device_mac);
 	const struct evpn_fib_val *fib_val;
@@ -155,11 +157,16 @@ evpn_encap_and_redirect4(struct __ctx_buff *ctx, __u16 net_id, __be32 dst_ip)
 	if (ret < 0)
 		return ret;
 
+	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, WORLD_IPV4_ID, TRACE_EP_ID_UNKNOWN,
+			  CONFIG(evpn_device_ifindex), trace->reason, trace->monitor,
+			  bpf_htons(ETH_P_IP));
+
 	return ctx_redirect(ctx, CONFIG(evpn_device_ifindex), 0);
 }
 
 static __always_inline __maybe_unused int
-evpn_encap_and_redirect6(struct __ctx_buff *ctx, __u16 net_id, union v6addr dst_ip)
+evpn_encap_and_redirect6(struct __ctx_buff *ctx, __u16 net_id, __u32 sec_label,
+			 union v6addr dst_ip, struct trace_ctx *trace)
 {
 	union macaddr evpn_mac = CONFIG(evpn_device_mac);
 	const struct evpn_fib_val *fib_val;
@@ -182,6 +189,10 @@ evpn_encap_and_redirect6(struct __ctx_buff *ctx, __u16 net_id, union v6addr dst_
 	ret = evpn_set_tunnel_key(ctx, fib_val);
 	if (ret < 0)
 		return ret;
+
+	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, WORLD_IPV6_ID, TRACE_EP_ID_UNKNOWN,
+			  CONFIG(evpn_device_ifindex), trace->reason, trace->monitor,
+			  bpf_htons(ETH_P_IPV6));
 
 	return ctx_redirect(ctx, CONFIG(evpn_device_ifindex), 0);
 }
