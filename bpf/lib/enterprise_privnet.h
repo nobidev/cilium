@@ -1233,7 +1233,8 @@ static __always_inline int
 privnet_unknown_policy_ingress4(struct __ctx_buff *ctx,
 				struct iphdr *ip4,
 				__u16 net_id,
-				__u32 sec_label)
+				__u32 sec_label,
+				struct trace_ctx *trace)
 {
 	const struct privnet_cidr_identity *info = NULL;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1275,7 +1276,10 @@ privnet_unknown_policy_ingress4(struct __ctx_buff *ctx,
 
 	ct_ret = ct_lookup4(ct_map, &tuple, ctx, ip4, l4_off,
 			    CT_INGRESS, SCOPE_BIDIR, &ct_state, &monitor);
-
+	if (trace) {
+		trace->monitor = monitor;
+		trace->reason = (enum trace_reason)ct_ret;
+	}
 	/* Skip policy enforcement for return traffic. */
 	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
 		return CTX_ACT_OK;
@@ -1323,7 +1327,8 @@ privnet_unknown_policy_ingress4(struct __ctx_buff *ctx,
 static __always_inline int
 privnet_lxc_ingress_ipv4(struct __ctx_buff *ctx,
 			 __u32 sec_label, __u16 net_id,
-			 bool unknown_flow, bool unxlated_flow)
+			 bool unknown_flow, bool unxlated_flow,
+			 struct trace_ctx *trace)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1341,7 +1346,7 @@ privnet_lxc_ingress_ipv4(struct __ctx_buff *ctx,
 	 */
 	if (unxlated_flow) {
 		set_privnet_net_ids(net_id, net_id);
-		return privnet_unknown_policy_ingress4(ctx, ip4, net_id, sec_label);
+		return privnet_unknown_policy_ingress4(ctx, ip4, net_id, sec_label, trace);
 	}
 
 	sip_val = privnet_pip_lookup4(ip4->saddr);
@@ -1398,7 +1403,7 @@ privnet_lxc_ingress_ipv4(struct __ctx_buff *ctx,
 
 	/* enforce ingress policy for unknown flow */
 	if (unknown_flow) {
-		ret = privnet_unknown_policy_ingress4(ctx, ip4, net_id, sec_label);
+		ret = privnet_unknown_policy_ingress4(ctx, ip4, net_id, sec_label, trace);
 		if (ret != CTX_ACT_OK)
 			return ret;
 	}
@@ -1498,7 +1503,8 @@ static __always_inline int
 privnet_unknown_policy_ingress6(struct __ctx_buff *ctx,
 				struct ipv6hdr *ip6,
 				__u16 net_id,
-				__u32 sec_label)
+				__u32 sec_label,
+				struct trace_ctx *trace)
 {
 	const struct privnet_cidr_identity *info = NULL;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1535,6 +1541,10 @@ privnet_unknown_policy_ingress6(struct __ctx_buff *ctx,
 
 	ct_ret = ct_lookup6(ct_map, &tuple, ctx, ip6, fraginfo, l4_off,
 			    CT_INGRESS, SCOPE_BIDIR, &ct_state, &monitor);
+	if (trace) {
+		trace->monitor = monitor;
+		trace->reason = (enum trace_reason)ct_ret;
+	}
 	/* Skip policy enforcement for return traffic. */
 	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
 		return CTX_ACT_OK;
@@ -1573,7 +1583,7 @@ privnet_unknown_policy_ingress6(struct __ctx_buff *ctx,
 
 static __always_inline int
 privnet_lxc_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id,
-			 bool unknown_flow, bool unxlated_flow)
+			 bool unknown_flow, bool unxlated_flow, struct trace_ctx *trace)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1588,7 +1598,7 @@ privnet_lxc_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id,
 	/* check comment in privnet_lxc_ingress_ipv4 */
 	if (unxlated_flow) {
 		set_privnet_net_ids(net_id, net_id);
-		return privnet_unknown_policy_ingress6(ctx, ip6, net_id, sec_label);
+		return privnet_unknown_policy_ingress6(ctx, ip6, net_id, sec_label, trace);
 	}
 
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
@@ -1627,7 +1637,8 @@ privnet_lxc_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id,
 
 	/* enforce ingress policy for unknown flow */
 	if (unknown_flow) {
-		ret = privnet_unknown_policy_ingress6(ctx, ip6, net_id, sec_label);
+		ret = privnet_unknown_policy_ingress6(ctx, ip6, net_id,
+						      sec_label, trace);
 		if (ret != CTX_ACT_OK)
 			return ret;
 	}
