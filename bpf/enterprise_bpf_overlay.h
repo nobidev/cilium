@@ -214,7 +214,10 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		break;
 	}
 
-	return ret;
+	/*  Shouldn't ever end up here. The packet wasn't redirected. Drop it
+	 *  just to be safe.
+	 */
+	return DROP_UNROUTABLE;
 }
 
 static __always_inline int enterprise_privnet_to_overlay(struct __ctx_buff *ctx __maybe_unused,
