@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/daemon/cmd/cni"
@@ -21,6 +22,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/vrf"
 )
 
 const endpointAPIModuleID = "endpoint-api"
@@ -67,6 +69,8 @@ type endpointAPIManagerParams struct {
 	Clientset        k8sClient.Clientset
 	CNIConfigManager cni.CNIConfigManager
 	IPAM             *ipam.IPAM
+	DB               *statedb.DB
+	VRFTable         statedb.Table[vrf.VRF] `optional:"true"`
 }
 
 func newEndpointAPIManager(params endpointAPIManagerParams) EndpointAPIManager {
@@ -80,6 +84,8 @@ func newEndpointAPIManager(params endpointAPIManagerParams) EndpointAPIManager {
 		clientset:         params.Clientset,
 		cniConfigManager:  params.CNIConfigManager,
 		ipam:              params.IPAM,
+		db:                params.DB,
+		vrfTable:          params.VRFTable,
 	}
 }
 

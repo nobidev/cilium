@@ -16,6 +16,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/daemon/cmd/cni"
@@ -30,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
+
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
@@ -39,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/vrf"
 )
 
 type EndpointAPIManager interface {
@@ -61,6 +65,8 @@ type endpointAPIManager struct {
 	clientset        k8sClient.Clientset
 	cniConfigManager cni.CNIConfigManager
 	ipam             *ipam.IPAM
+	db               *statedb.DB
+	vrfTable         statedb.Table[vrf.VRF]
 }
 
 var _ EndpointAPIManager = &endpointAPIManager{}
@@ -269,6 +275,25 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 						logfields.Annotation, annotation.FIBTableID,
 						logfields.Error, err,
 					)
+				}
+			} else if m.vrfTable != nil && option.Config.EnableVRF {
+				// Fetch namespace labels for VRF namespace selector matching.
+				var nsLabels map[string]string
+				if ns, err := m.clientset.CoreV1().Namespaces().Get(ctx, epTemplate.K8sNamespace, metav1.GetOptions{}); err != nil {
+					m.logger.Warn("Failed to fetch namespace labels for VRF matching",
+						logfields.K8sPodName, epTemplate.K8sPodName, logfields.Error, err,
+					)
+				} else {
+					nsLabels = ns.Labels
+				}
+
+				// Check if this pod is selected by a CiliumVRF.
+				if matched, err := vrf.FindVRFByLabels(m.db.ReadTxn(), m.vrfTable, pod.Labels, nsLabels); err != nil {
+					m.logger.Warn("Error resolving VRF for pod", logfields.K8sPodName,
+						epTemplate.K8sPodName, logfields.Error, err,
+					)
+				} else if matched != nil {
+					ep.SetFibTableID(uint32(matched.Table))
 				}
 			}
 		}

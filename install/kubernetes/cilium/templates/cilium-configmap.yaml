@@ -1297,6 +1297,10 @@ data:
   {{- end }}
 {{- end }}
 
+{{- if .Values.vrf.enabled }}
+  enable-vrf: "true"
+{{- end }}
+
 {{- if .Values.bgpControlPlane.enabled }}
   enable-bgp-control-plane: "true"
   bgp-secrets-namespace: {{ .Values.bgpControlPlane.secretsNamespace.name | quote }}
