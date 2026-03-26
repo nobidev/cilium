@@ -416,6 +416,7 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngr
 		StatPrefix: "proxy",
 		UpgradeConfigs: []*envoy_config_http.HttpConnectionManager_UpgradeConfig{
 			{UpgradeType: "websocket"},
+			{UpgradeType: "CONNECT"},
 		},
 		UseRemoteAddress:  &wrapperspb.BoolValue{Value: true},
 		SkipXffAppend:     true,
@@ -440,6 +441,23 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngr
 					Name:    "default_route",
 					Domains: []string{"*"},
 					Routes: []*envoy_config_route.Route{{
+						Match: &envoy_config_route.RouteMatch{
+							PathSpecifier: &envoy_config_route.RouteMatch_ConnectMatcher_{
+								ConnectMatcher: &envoy_config_route.RouteMatch_ConnectMatcher{},
+							},
+						},
+						Action: &envoy_config_route.Route_Route{
+							Route: &envoy_config_route.RouteAction{
+								ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
+									Cluster: clusterName,
+								},
+								UpgradeConfigs: []*envoy_config_route.RouteAction_UpgradeConfig{{
+									UpgradeType:   "CONNECT",
+									ConnectConfig: &envoy_config_route.RouteAction_UpgradeConfig_ConnectConfig{},
+								}},
+							},
+						},
+					}, {
 						Match: &envoy_config_route.RouteMatch{
 							PathSpecifier: &envoy_config_route.RouteMatch_Prefix{Prefix: "/"},
 							Grpc:          &envoy_config_route.RouteMatch_GrpcRouteMatchOptions{},
@@ -492,7 +510,7 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngr
 
 	// Idle timeout can only be specified if non-zero
 	if idleTimeout > 0 {
-		hcmConfig.GetRouteConfig().VirtualHosts[0].Routes[1].GetRoute().IdleTimeout = &durationpb.Duration{Seconds: idleTimeout}
+		hcmConfig.GetRouteConfig().VirtualHosts[0].Routes[2].GetRoute().IdleTimeout = &durationpb.Duration{Seconds: idleTimeout}
 	}
 
 	chain := &envoy_config_listener.FilterChain{
