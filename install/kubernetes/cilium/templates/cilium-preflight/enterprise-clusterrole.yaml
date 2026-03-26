@@ -106,6 +106,7 @@ rules:
   resources:
     - clusterwideprivatenetworks
     - clusterwideprivatenetworks/status
+    - privatenetworkexternalendpoints
     - privatenetworknodeattachments
   verbs:
     - list
@@ -115,6 +116,7 @@ rules:
     - isovalent.com
   resources:
     - privatenetworkendpointslices
+    - privatenetworkexternalendpoints/status
   verbs:
     - list
     - watch
