@@ -21,6 +21,7 @@ var Cell = cell.Group(
 	PodsCell,
 	LocalWorkloadsCell,
 	LocalEndpointSlicesCell,
+	ExternalEndpointsCell,
 	INBsCell,
 	GneighCell,
 	PIPFIBMapCell,
