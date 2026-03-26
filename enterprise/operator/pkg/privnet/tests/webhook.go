@@ -106,6 +106,8 @@ func (w *webhook) cmds(cfg whcfg.Config) uhive.ScriptCmdsOut {
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
 					RootCAs: w.root,
+
+					MinVersion: tls.VersionTLS12,
 				},
 			},
 		}
