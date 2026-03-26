@@ -34,17 +34,11 @@ const (
 )
 
 const (
-	// EnableMetrics enables prometheus metrics.
-	EnableMetrics = "enable-metrics"
-
 	// EndpointGCInterval is the interval between attempts of the CEP GC
 	// controller.
 	// Note that only one node per cluster should run this, and most iterations
 	// will simply return.
 	EndpointGCInterval = "cilium-endpoint-gc-interval"
-
-	// NodesGCInterval is the duration for which the cilium nodes are GC.
-	NodesGCInterval = "nodes-gc-interval"
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
@@ -154,6 +148,10 @@ const (
 	// tries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod = "leader-election-retry-period"
 
+	// LeaderElectionResourceLockTimeout is the timeout for the HTTP requests to acquire/renew
+	// the leader election resource lock. When set to 0, defaults to max(1s, RenewDeadline/2).
+	LeaderElectionResourceLockTimeout = "leader-election-resource-lock-timeout"
+
 	// AlibabaCloud options
 
 	// AlibabaCloudVPCID allows user to specific vpc
@@ -208,12 +206,6 @@ const (
 
 // OperatorConfig is the configuration used by the operator.
 type OperatorConfig struct {
-	// NodesGCInterval is the GC interval for CiliumNodes
-	NodesGCInterval time.Duration
-
-	// EnableMetrics enables prometheus metrics.
-	EnableMetrics bool
-
 	// EndpointGCInterval is the interval between attempts of the CEP GC
 	// controller.
 	// Note that only one node per cluster should run this, and most iterations
@@ -237,6 +229,10 @@ type OperatorConfig struct {
 	// LeaderElectionRetryPeriod is the duration that LeaderElector clients should wait between
 	// retries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod time.Duration
+
+	// LeaderElectionResourceLockTimeout is the timeout for the HTTP requests to acquire/renew
+	// the leader election resource lock. When set to 0, defaults to max(1s, RenewDeadline/2).
+	LeaderElectionResourceLockTimeout time.Duration
 
 	// IPAM options
 
@@ -313,8 +309,6 @@ type OperatorConfig struct {
 
 // Populate sets all options with the values from viper.
 func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
-	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
-	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)
@@ -325,6 +319,7 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.LeaderElectionLeaseDuration = vp.GetDuration(LeaderElectionLeaseDuration)
 	c.LeaderElectionRenewDeadline = vp.GetDuration(LeaderElectionRenewDeadline)
 	c.LeaderElectionRetryPeriod = vp.GetDuration(LeaderElectionRetryPeriod)
+	c.LeaderElectionResourceLockTimeout = vp.GetDuration(LeaderElectionResourceLockTimeout)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
 	if c.ProxyIdleTimeoutSeconds == 0 {

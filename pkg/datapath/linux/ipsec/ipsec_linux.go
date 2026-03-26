@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand/v2"
 	"net"
 	"os"
 	"strconv"
@@ -69,6 +70,9 @@ const (
 
 	// DefaultReqID is the default reqid used for all IPSec rules.
 	DefaultReqID = ipsec.DefaultReqID
+
+	// logMaxJitter is the logfield key for the maximum jitter duration.
+	logMaxJitter = "maxJitter"
 )
 
 type dir string
@@ -444,6 +448,7 @@ func (a *Agent) xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) er
 	if !deletedSomething {
 		return firstAttemptErr
 	}
+	scopedLog.Info("Retrying XFRM state add after deleting conflicting state")
 	return a.xfrmStateCache.XfrmStateAdd(new)
 }
 
@@ -1195,6 +1200,7 @@ func (a *Agent) setIPSecSPI(spi uint8) error {
 		return err
 	}
 	a.spi = spi
+	a.log.Debug("Updated BPF encrypt map with new SPI", logfields.SPI, spi)
 	return nil
 }
 
@@ -1231,12 +1237,44 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 				continue
 			}
 
+			// Apply jitter before loading keys to prevent thundering herd on K8s API
+			// during key rotations in large clusters. Jitter is randomly selected
+			// from [0, keyRotationDuration/10]
+			if maxJitter := a.config.MaxKeyRotationJitter(); maxJitter > 0 {
+				jitter := time.Duration(rand.Int64N(int64(maxJitter)))
+				a.log.Info("Applying jitter before loading IPsec keys",
+					logfields.Duration, jitter,
+					logMaxJitter, maxJitter,
+				)
+				select {
+				case <-time.After(jitter):
+					// Jitter complete, proceed with key loading
+				case <-ctx.Done():
+					health.Stopped("Context done during jitter")
+					watcher.Close()
+					return nil
+				}
+			}
+
 			_, spi, err := a.loadIPSecKeysFile(keyfilePath)
 			if err != nil {
 				health.Degraded(fmt.Sprintf("Failed to load keyfile %q", keyfilePath), err)
 				a.log.Error("Failed to load IPsec keyfile", logfields.Error, err)
 				continue
 			}
+			a.log.Info("Loaded IPsec keyfile",
+				logfields.SPI, spi,
+				logfields.Path, keyfilePath,
+			)
+
+			// AllNodeValidateImplementation will eventually call
+			// nodeUpdate(), which is responsible for updating the
+			// IPSec policies and states for all the different EPs
+			// with ipsec.UpsertIPsecEndpoint(). We do this before
+			// advertising the new SPI to ensure our ingress XFRM
+			// states are ready before peers start sending traffic
+			// encrypted with the new key.
+			nodeHandler.AllNodeValidateImplementation()
 
 			// Update the IPSec key identity in the local node.
 			// This will set addrs.ipsecKeyIdentity in the node
@@ -1245,12 +1283,6 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 			a.localNode.Update(func(ln *node.LocalNode) {
 				ln.EncryptionKey = spi
 			})
-
-			// AllNodeValidateImplementation will eventually call
-			// nodeUpdate(), which is responsible for updating the
-			// IPSec policies and states for all the different EPs
-			// with ipsec.UpsertIPsecEndpoint()
-			nodeHandler.AllNodeValidateImplementation()
 
 			// Push SPI update into BPF datapath now that XFRM state
 			// is configured.
@@ -1431,6 +1463,8 @@ func (a *Agent) onTimer(ctx context.Context) error {
 }
 
 func NewTestIPsecAgent(tb testing.TB) *Agent {
+	tb.Helper()
+
 	agent := &Agent{
 		log:        hivetest.Logger(tb),
 		localNode:  nil,
@@ -1443,13 +1477,6 @@ func NewTestIPsecAgent(tb testing.TB) *Agent {
 		ipSecKeysRemovalTime: map[uint8]time.Time{},
 		xfrmStateCache:       NewXfrmStateListCache(time.Minute, true),
 	}
-
-	tb.Cleanup(func() {
-		err := agent.DeleteXFRM(AllReqID)
-		if err != nil {
-			tb.Errorf("Failed cleaning XFRM state: %v", err)
-		}
-	})
 
 	return agent
 }

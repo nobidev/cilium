@@ -702,7 +702,12 @@ spec:
                                     Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                     with transport ports (TCP, UDP, SCTP) match.
 
-                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                    "IPV6", "ESP", "AH", "ANY"
+
+                                    Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                    extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                    flag to be set. These protocols do not use transport-layer ports.
 
                                     Matching on ICMP is not supported.
 
@@ -714,6 +719,11 @@ spec:
                                   - SCTP
                                   - VRRP
                                   - IGMP
+                                  - GRE
+                                  - IPIP
+                                  - IPV6
+                                  - ESP
+                                  - AH
                                   - ANY
                                   type: string
                               type: object
@@ -1625,7 +1635,12 @@ spec:
                                     Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                     with transport ports (TCP, UDP, SCTP) match.
 
-                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                    "IPV6", "ESP", "AH", "ANY"
+
+                                    Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                    extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                    flag to be set. These protocols do not use transport-layer ports.
 
                                     Matching on ICMP is not supported.
 
@@ -1637,6 +1652,11 @@ spec:
                                   - SCTP
                                   - VRRP
                                   - IGMP
+                                  - GRE
+                                  - IPIP
+                                  - IPV6
+                                  - ESP
+                                  - AH
                                   - ANY
                                   type: string
                               type: object
@@ -2395,7 +2415,12 @@ spec:
                                     Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                     with transport ports (TCP, UDP, SCTP) match.
 
-                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                    "IPV6", "ESP", "AH", "ANY"
+
+                                    Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                    extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                    flag to be set. These protocols do not use transport-layer ports.
 
                                     Matching on ICMP is not supported.
 
@@ -2407,6 +2432,11 @@ spec:
                                   - SCTP
                                   - VRRP
                                   - IGMP
+                                  - GRE
+                                  - IPIP
+                                  - IPV6
+                                  - ESP
+                                  - AH
                                   - ANY
                                   type: string
                               type: object
@@ -3232,7 +3262,12 @@ spec:
                                     Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                     with transport ports (TCP, UDP, SCTP) match.
 
-                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                    "IPV6", "ESP", "AH", "ANY"
+
+                                    Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                    extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                    flag to be set. These protocols do not use transport-layer ports.
 
                                     Matching on ICMP is not supported.
 
@@ -3244,6 +3279,11 @@ spec:
                                   - SCTP
                                   - VRRP
                                   - IGMP
+                                  - GRE
+                                  - IPIP
+                                  - IPV6
+                                  - ESP
+                                  - AH
                                   - ANY
                                   type: string
                               type: object
@@ -4013,7 +4053,12 @@ spec:
                                       Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                       with transport ports (TCP, UDP, SCTP) match.
 
-                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                      "IPV6", "ESP", "AH", "ANY"
+
+                                      Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                      extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                      flag to be set. These protocols do not use transport-layer ports.
 
                                       Matching on ICMP is not supported.
 
@@ -4025,6 +4070,11 @@ spec:
                                     - SCTP
                                     - VRRP
                                     - IGMP
+                                    - GRE
+                                    - IPIP
+                                    - IPV6
+                                    - ESP
+                                    - AH
                                     - ANY
                                     type: string
                                 type: object
@@ -4937,7 +4987,12 @@ spec:
                                       Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                       with transport ports (TCP, UDP, SCTP) match.
 
-                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                      "IPV6", "ESP", "AH", "ANY"
+
+                                      Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                      extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                      flag to be set. These protocols do not use transport-layer ports.
 
                                       Matching on ICMP is not supported.
 
@@ -4949,6 +5004,11 @@ spec:
                                     - SCTP
                                     - VRRP
                                     - IGMP
+                                    - GRE
+                                    - IPIP
+                                    - IPV6
+                                    - ESP
+                                    - AH
                                     - ANY
                                     type: string
                                 type: object
@@ -5708,7 +5768,12 @@ spec:
                                       Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                       with transport ports (TCP, UDP, SCTP) match.
 
-                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                      "IPV6", "ESP", "AH", "ANY"
+
+                                      Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                      extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                      flag to be set. These protocols do not use transport-layer ports.
 
                                       Matching on ICMP is not supported.
 
@@ -5720,6 +5785,11 @@ spec:
                                     - SCTP
                                     - VRRP
                                     - IGMP
+                                    - GRE
+                                    - IPIP
+                                    - IPV6
+                                    - ESP
+                                    - AH
                                     - ANY
                                     type: string
                                 type: object
@@ -6546,7 +6616,12 @@ spec:
                                       Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                       with transport ports (TCP, UDP, SCTP) match.
 
-                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                      "IPV6", "ESP", "AH", "ANY"
+
+                                      Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                      extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                      flag to be set. These protocols do not use transport-layer ports.
 
                                       Matching on ICMP is not supported.
 
@@ -6558,6 +6633,11 @@ spec:
                                     - SCTP
                                     - VRRP
                                     - IGMP
+                                    - GRE
+                                    - IPIP
+                                    - IPV6
+                                    - ESP
+                                    - AH
                                     - ANY
                                     type: string
                                 type: object
@@ -7440,7 +7520,12 @@ spec:
                                     Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                     with transport ports (TCP, UDP, SCTP) match.
 
-                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                    "IPV6", "ESP", "AH", "ANY"
+
+                                    Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                    extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                    flag to be set. These protocols do not use transport-layer ports.
 
                                     Matching on ICMP is not supported.
 
@@ -7452,6 +7537,11 @@ spec:
                                   - SCTP
                                   - VRRP
                                   - IGMP
+                                  - GRE
+                                  - IPIP
+                                  - IPV6
+                                  - ESP
+                                  - AH
                                   - ANY
                                   type: string
                               type: object
@@ -8363,7 +8453,12 @@ spec:
                                     Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                     with transport ports (TCP, UDP, SCTP) match.
 
-                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                    "IPV6", "ESP", "AH", "ANY"
+
+                                    Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                    extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                    flag to be set. These protocols do not use transport-layer ports.
 
                                     Matching on ICMP is not supported.
 
@@ -8375,6 +8470,11 @@ spec:
                                   - SCTP
                                   - VRRP
                                   - IGMP
+                                  - GRE
+                                  - IPIP
+                                  - IPV6
+                                  - ESP
+                                  - AH
                                   - ANY
                                   type: string
                               type: object
@@ -9133,7 +9233,12 @@ spec:
                                     Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                     with transport ports (TCP, UDP, SCTP) match.
 
-                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                    "IPV6", "ESP", "AH", "ANY"
+
+                                    Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                    extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                    flag to be set. These protocols do not use transport-layer ports.
 
                                     Matching on ICMP is not supported.
 
@@ -9145,6 +9250,11 @@ spec:
                                   - SCTP
                                   - VRRP
                                   - IGMP
+                                  - GRE
+                                  - IPIP
+                                  - IPV6
+                                  - ESP
+                                  - AH
                                   - ANY
                                   type: string
                               type: object
@@ -9970,7 +10080,12 @@ spec:
                                     Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                     with transport ports (TCP, UDP, SCTP) match.
 
-                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                    Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                    "IPV6", "ESP", "AH", "ANY"
+
+                                    Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                    extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                    flag to be set. These protocols do not use transport-layer ports.
 
                                     Matching on ICMP is not supported.
 
@@ -9982,6 +10097,11 @@ spec:
                                   - SCTP
                                   - VRRP
                                   - IGMP
+                                  - GRE
+                                  - IPIP
+                                  - IPV6
+                                  - ESP
+                                  - AH
                                   - ANY
                                   type: string
                               type: object
@@ -10751,7 +10871,12 @@ spec:
                                       Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                       with transport ports (TCP, UDP, SCTP) match.
 
-                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                      "IPV6", "ESP", "AH", "ANY"
+
+                                      Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                      extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                      flag to be set. These protocols do not use transport-layer ports.
 
                                       Matching on ICMP is not supported.
 
@@ -10763,6 +10888,11 @@ spec:
                                     - SCTP
                                     - VRRP
                                     - IGMP
+                                    - GRE
+                                    - IPIP
+                                    - IPV6
+                                    - ESP
+                                    - AH
                                     - ANY
                                     type: string
                                 type: object
@@ -11675,7 +11805,12 @@ spec:
                                       Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                       with transport ports (TCP, UDP, SCTP) match.
 
-                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                      "IPV6", "ESP", "AH", "ANY"
+
+                                      Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                      extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                      flag to be set. These protocols do not use transport-layer ports.
 
                                       Matching on ICMP is not supported.
 
@@ -11687,6 +11822,11 @@ spec:
                                     - SCTP
                                     - VRRP
                                     - IGMP
+                                    - GRE
+                                    - IPIP
+                                    - IPV6
+                                    - ESP
+                                    - AH
                                     - ANY
                                     type: string
                                 type: object
@@ -12446,7 +12586,12 @@ spec:
                                       Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                       with transport ports (TCP, UDP, SCTP) match.
 
-                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                      "IPV6", "ESP", "AH", "ANY"
+
+                                      Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                      extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                      flag to be set. These protocols do not use transport-layer ports.
 
                                       Matching on ICMP is not supported.
 
@@ -12458,6 +12603,11 @@ spec:
                                     - SCTP
                                     - VRRP
                                     - IGMP
+                                    - GRE
+                                    - IPIP
+                                    - IPV6
+                                    - ESP
+                                    - AH
                                     - ANY
                                     type: string
                                 type: object
@@ -13284,7 +13434,12 @@ spec:
                                       Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
                                       with transport ports (TCP, UDP, SCTP) match.
 
-                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+                                      Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+                                      "IPV6", "ESP", "AH", "ANY"
+
+                                      Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+                                      extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+                                      flag to be set. These protocols do not use transport-layer ports.
 
                                       Matching on ICMP is not supported.
 
@@ -13296,6 +13451,11 @@ spec:
                                     - SCTP
                                     - VRRP
                                     - IGMP
+                                    - GRE
+                                    - IPIP
+                                    - IPV6
+                                    - ESP
+                                    - AH
                                     - ANY
                                     type: string
                                 type: object

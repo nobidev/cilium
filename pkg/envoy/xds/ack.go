@@ -94,6 +94,12 @@ type AckingResourceMutator interface {
 	// A call to the returned revert function reverts the effects of this
 	// method call.
 	Delete(typeURL string, resourceName string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc
+
+	// CancelCompletions completes all pending completions on the given TypeURL.
+	// Called only when it is known that the TypeURL client has stopped processing updates.
+	// Completions are completed without an error, as the resource updater can not react in
+	// any way to the resource client going away.
+	CancelCompletions(typeURL string)
 }
 
 // AckingResourceMutatorWrapper is an AckingResourceMutator which wraps a
@@ -261,6 +267,43 @@ func (m *AckingResourceMutatorWrapper) DeleteNode(nodeID string) {
 	delete(m.ackedNodes, nodeID)
 }
 
+// CancelCompletions is called after it is known the xDS client has been terminated, so that waiting
+// for any N/ACKs is futile. Full resource sync will happen when the xDS client start again (if it
+// does). Completions are terminated without an error, as there is nothing do, even it an error
+// status was used instead. This mirrors the behavior when it is known the xDS client has not yet
+// been started, when we do not even try to wait for any N/ACKs.
+func (m *AckingResourceMutatorWrapper) CancelCompletions(typeURL string) {
+	scopedLogger := m.logger.With(
+		logfields.XDSTypeURL, typeURL,
+	)
+
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	for comp, pending := range m.pendingCompletions {
+		if comp.Err() != nil {
+			// Completion was canceled or timed out.
+			// Remove from pending list.
+			scopedLogger.Debug(
+				"completion context was canceled",
+				logfields.PendingCompletions, pending,
+			)
+			delete(m.pendingCompletions, comp)
+			continue
+		}
+
+		if pending.typeURL == typeURL {
+			clear(pending.remainingNodesResources)
+			m.metrics.IncreaseCancel(typeURL)
+			scopedLogger.Debug("completing cancel",
+				logfields.WaitVersion, pending.version)
+			comp.Complete(nil)
+			delete(m.pendingCompletions, comp)
+			continue
+		}
+	}
+}
+
 func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc {
 	m.locker.Lock()
 	defer m.locker.Unlock()
@@ -356,6 +399,11 @@ func (m *AckingResourceMutatorWrapper) currentVersionAcked(nodeIDs []string) boo
 }
 
 func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc {
+	scopedLogger := m.logger.With(
+		logfields.XDSResourceName, resourceName,
+		logfields.XDSTypeURL, typeURL,
+	)
+
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
@@ -382,6 +430,28 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	var updated bool
 	var revert ResourceMutatorRevertFunc
 	m.version, updated, revert = m.mutator.Delete(typeURL, resourceName)
+
+	// remove any possible pending completions for the deleted resourceName
+	for comp, pending := range m.pendingCompletions {
+		if comp.Err() != nil {
+			// Completion was canceled or timed out.
+			// Remove from pending list.
+			scopedLogger.Debug(
+				"completion context was canceled",
+				logfields.PendingCompletions, pending,
+			)
+			delete(m.pendingCompletions, comp)
+			continue
+		}
+		if pending.typeURL == typeURL {
+			for _, resourceNames := range pending.remainingNodesResources {
+				// resourceNames map is left in place even if empty, so that
+				// it can be found by HandleResourceVersionAck to complete
+				// the pending completion when an N/ACK is received
+				delete(resourceNames, resourceName)
+			}
+		}
+	}
 
 	if !updated {
 		if wait {

@@ -126,6 +126,7 @@ mkdir "${TMPDIR}/.modcache"
 pushd enterprise/olm
 export GOCACHE="/tmp/.cache"
 export GOMODCACHE="/tmp/.modcache"
+go mod vendor
 make generate
 popd
 

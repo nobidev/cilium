@@ -50,7 +50,7 @@ func newNodeStatusTestFixture() *nodeStatusTestFixture {
 
 	f.hive = hive.New(
 		cell.Module("node-status-test", "BGP node status test",
-			k8s.LocalNodeCell,
+			k8s.ResourcesCell,
 
 			cell.Config(config.Config{
 				Enabled: true,

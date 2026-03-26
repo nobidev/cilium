@@ -46,7 +46,6 @@ SUBDIRS := $(filter-out $(foreach dir,$(SUBDIRS),$(dir)/%),$(SUBDIRS))
 # Because is treated as a Go package pattern, the special '...' sequence is supported,
 # meaning 'all subpackages of the given package'.
 TESTPKGS ?= ./...
-UNPARALLELTESTPKGS ?= ./pkg/datapath/linux/... ./pkg/datapath/loader/... ./pkg/datapath/neighbor/test/...
 
 GOTEST_BASE := -timeout 720s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
@@ -97,33 +96,15 @@ $(SUBDIRS): force ## Execute default make target(make all) for the provided subd
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
 tests-privileged-only: ## Run Go only the unit tests that require elevated privileges.
-	@$(ECHO_CHECK) running privileged tests...
-	## We split tests into two parts: one that can be run in parallel
-	## and tests that cannot be run in parallel with other packages
-	## One drawback of this approach is that
-	## if first set of tests fails, second one is not run
-	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
-		$(TESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" $(GOTEST_COVER_OPTS) \
-	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
-		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" \
-		-json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
-	tail -n+2 coverage2.out >> coverage.out
-	rm coverage2.out
+	@$(ECHO_CHECK) running only privileged tests...
+	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(TESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 
 tests-privileged: ## Run Go tests including ones that require elevated privileges.
 	@$(ECHO_CHECK) running privileged tests...
-	## We split tests into two parts: one that can be run in parallel
-	## and tests that cannot be run in parallel with other packages
-	## One drawback of this approach is that
-	## if first set of tests fails, second one is not run
-	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
-		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
-	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
-		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) \
-		-json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
-	tail -n+2 coverage2.out >> coverage.out
-	rm coverage2.out
+	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 
 start-kvstores: ## Start running kvstores (etcd container) for integration tests.
@@ -493,8 +474,6 @@ endif
 	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
 	$(QUIET) contrib/scripts/check-log-newlines.sh
-	@$(ECHO_CHECK) contrib/scripts/check-test-tags.sh
-	$(QUIET) contrib/scripts/check-test-tags.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
 	@$(ECHO_CHECK) contrib/scripts/check-viper.sh
@@ -507,6 +486,8 @@ endif
 	$(QUIET) contrib/scripts/check-time.sh
 	@$(ECHO_CHECK) contrib/scripts/check-go-testdata.sh
 	$(QUIET) contrib/scripts/check-go-testdata.sh
+	@$(ECHO_CHECK) contrib/scripts/check-go-test-tags.sh
+	$(QUIET) contrib/scripts/check-go-test-tags.sh
 	@$(ECHO_CHECK) contrib/scripts/check-source-info.sh
 	$(QUIET) contrib/scripts/check-source-info.sh
 	@$(ECHO_CHECK) contrib/scripts/check-xfrmstate.sh
@@ -588,7 +569,7 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 	$(call print_help_line,"docker-standalone-dns-proxy-image","Build standalone DNS proxy docker image")
 
-.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder gateway-api-conformance
+.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder gateway-api-conformance mcs-api-conformance
 force :;
 
 KIND_NET_CIDR ?= $(shell docker network inspect kind-cilium -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
@@ -606,6 +587,15 @@ gateway-api-conformance: ## Run Gateway API conformance tests.
 		--all-features \
 		--allow-crds-mismatch\
 		--cleanup-base-resources=false \
+	| $(GOTEST_FORMATTER)
+
+MCS_API_CONFORMANCE_TEST_NAME ?= TestConformance
+mcs-api-conformance: ## Run MCS-API conformance tests.
+	@$(ECHO_CHECK) running MCS-API conformance tests...
+	MCS_API_CONFORMANCE_TESTS=1 \
+	$(GO_TEST) $(GO_TEST_FLAGS) -p 4 -v ./pkg/clustermesh/mcsapi/conformance \
+		$(MCS_API_TEST_FLAGS) \
+		-test.run $(MCS_API_CONFORMANCE_TEST_NAME) \
 	| $(GOTEST_FORMATTER)
 
 BPF_TEST ?= ""
@@ -633,5 +623,5 @@ renovate-local: ## Run a local linter for the renovate configuration
 		-e GITHUB_COM_TOKEN="$(RENOVATE_GITHUB_COM_TOKEN)" \
 		-v /tmp:/tmp \
 		-v $(ROOT_DIR):/usr/src/app \
-		docker.io/renovate/renovate:slim \
+		docker.io/renovate/renovate:latest \
 			renovate --platform=local

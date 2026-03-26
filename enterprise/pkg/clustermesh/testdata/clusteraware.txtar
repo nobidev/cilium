@@ -30,15 +30,15 @@ db/cmp frontends frontends.table
 ###
 
 -- backends-2+3.table --
-Address              Instances         NodeName
-10.1.0.1:8080/TCP    test/echo (tcp)   nodeport-worker
-20.0.0.2@2:9090/TCP  test/echo (tcp)
-30.0.0.3@3:9090/TCP  test/echo (tcp)
+Service             Address              PortNames  NodeName
+test/echo           10.1.0.1:8080/TCP    tcp        nodeport-worker
+test/echo           20.0.0.2@2:9090/TCP  tcp
+test/echo           30.0.0.3@3:9090/TCP  tcp
 
 -- backends-3.table --
-Address              Instances         NodeName
-10.1.0.1:8080/TCP    test/echo (tcp)   nodeport-worker
-30.0.0.3@3:9090/TCP  test/echo (tcp)
+Service             Address              PortNames  NodeName
+test/echo           10.1.0.1:8080/TCP    tcp        nodeport-worker
+test/echo           30.0.0.3@3:9090/TCP  tcp
 
 -- frontends.table --
 Address            Type       ServiceName   Status  Backends
@@ -135,4 +135,3 @@ ports:
 - name: tcp
   port: 8080
   protocol: TCP
-

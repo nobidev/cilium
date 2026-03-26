@@ -31,6 +31,9 @@ func EvpnBase(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
+	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
+
 	return cfg
 }
 

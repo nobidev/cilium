@@ -614,7 +614,7 @@ func TestServiceVRFFullReconciler(t *testing.T) {
 			nextBackendRevision := statedb.Revision(1)
 			for _, svc := range tt.services {
 				for _, backend := range svc.backends {
-					svc.frontend.Backends = concatBackend(svc.frontend.Backends, *backend.GetInstance(svc.frontend.Service.Name), nextBackendRevision)
+					svc.frontend.Backends = concatBackend(svc.frontend.Backends, *backend, nextBackendRevision)
 					nextBackendRevision++
 				}
 				_, _, err = frontendsTable.Insert(tx, svc.frontend)
@@ -1061,7 +1061,7 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			nextBackendRevision := statedb.Revision(1)
 			for _, svc := range tt.services {
 				for _, backend := range svc.backends {
-					svc.frontend.Backends = concatBackend(svc.frontend.Backends, *backend.GetInstance(svc.frontend.Service.Name), nextBackendRevision)
+					svc.frontend.Backends = concatBackend(svc.frontend.Backends, *backend, nextBackendRevision)
 					nextBackendRevision++
 				}
 				_, _, err = frontendsTable.Insert(tx, svc.frontend)
@@ -1118,7 +1118,7 @@ func TestServiceVRFPartialReconcile(t *testing.T) {
 			tx = db.WriteTxn(frontendsTable)
 			for _, svc := range tt.updatedServices {
 				for _, backend := range svc.backends {
-					svc.frontend.Backends = concatBackend(svc.frontend.Backends, *backend.GetInstance(svc.frontend.Service.Name), nextBackendRevision)
+					svc.frontend.Backends = concatBackend(svc.frontend.Backends, *backend, nextBackendRevision)
 					nextBackendRevision++
 				}
 				_, _, err = frontendsTable.Insert(tx, svc.frontend)

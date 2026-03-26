@@ -111,9 +111,7 @@ func TestReconcileParamsUpgrader(t *testing.T) {
 			func() store.BGPCPResourceStore[*v1.IsovalentBGPNodeConfig] {
 				return store.InitMockStore([]*v1.IsovalentBGPNodeConfig{ceeNode})
 			},
-			func(r job.Registry, lc cell.Lifecycle, health cell.Health) job.Group {
-				return r.NewGroup(health, lc)
-			},
+			job.Registry.NewGroup,
 			// enterprise bgp is enabled
 			func() config.Config {
 				return config.Config{

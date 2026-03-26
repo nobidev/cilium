@@ -21,6 +21,10 @@ type BPFLXC struct {
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Apply Network Policy for ICMP packets.
 	EnableICMPRule bool `config:"enable_icmp_rule"`
+	// Enable IPv4 fragments tracking.
+	EnableIPv4Fragments bool `config:"enable_ipv4_fragments"`
+	// Enable IPv6 fragments tracking.
+	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Enable support for Local Redirect Policy.
 	EnableLRP bool `config:"enable_lrp"`
 	// Use netkit devices for pods.
@@ -57,6 +61,8 @@ type BPFLXC struct {
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 	// The log level for policy verdicts in workload endpoints.
 	PolicyVerdictLogFilter uint32 `config:"policy_verdict_log_filter"`
+	// Whether to redirect to the proxy via cilium_net (hairpin) or via stack.
+	ProxyRedirectViaCiliumNet bool `config:"proxy_redirect_via_cilium_net"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
 	// Port number used for the overlay network.
@@ -71,10 +77,10 @@ type BPFLXC struct {
 
 func NewBPFLXC(node Node) *BPFLXC {
 	return &BPFLXC{false, 0x5dc, false, false, false, false, false, false, false,
-		false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
+		false, false, false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		0x0, 0x0, 0x0, 0x0, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0, 0x0, 0x0, 0x0, node}
+		0x0, false, 0x0, 0x0, 0x0, 0x0, node}
 }

@@ -40,7 +40,7 @@ func newCmdConnectivity(hooks api.Hooks) *cobra.Command {
 }
 
 var params = check.Parameters{
-	ExternalDeploymentPort: 8080,
+	ExternalDeploymentPort: 8090,
 	EchoServerHostPort:     4000,
 	Writer:                 os.Stdout,
 	SysdumpOptions: sysdump.Options{
@@ -137,6 +137,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().BoolVar(&params.PrintFlows, "print-flows", false, "Print flow logs for each test")
 	cmd.Flags().DurationVar(&params.PostTestSleepDuration, "post-test-sleep", 0, "Wait time after each test before next test starts")
 	cmd.Flags().BoolVar(&params.ForceDeploy, "force-deploy", false, "Force re-deploying test artifacts")
+	cmd.Flags().BoolVar(&params.CleanupOnly, "cleanup", false, "Cleanup all connectivity test artifacts (namespaces, deployments, services) without running tests")
 	cmd.Flags().BoolVar(&params.Hubble, "hubble", true, "Automatically use Hubble for flow validation & troubleshooting")
 	cmd.Flags().StringVar(&params.HubbleServer, "hubble-server", "localhost:4245", "Address of the Hubble endpoint for flow validation")
 	cmd.Flags().StringVar(&params.AgentDaemonSetName, "agent-daemonset-name", defaults.AgentDaemonSetName, "Name of cilium agent daemonset")
@@ -152,6 +153,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().BoolVarP(&params.Timestamp, "timestamp", "t", false, "Show timestamp in messages")
 	cmd.Flags().BoolVarP(&params.PauseOnFail, "pause-on-fail", "p", false, "Pause execution on test failure")
 	cmd.Flags().BoolVar(&params.ExternalTargetIPv6Capable, "external-target-ipv6-capable", false, "External target is IPv6 capable")
+	cmd.Flags().BoolVar(&params.ExternalTargetFakeDNS, "external-target-fake-dns", false, "Use DNS override for external targets in wildcard tests")
 	cmd.Flags().StringVar(&params.ExternalTarget, "external-target", "one.one.one.one.", "Domain name to use as external target in connectivity tests")
 	cmd.Flags().StringVar(&params.ExternalOtherTarget, "external-other-target", "k8s.io.", "Domain name to use as a second external target in connectivity tests")
 	cmd.Flags().StringVar(&params.ExternalTargetCANamespace, "external-target-ca-namespace", "", "Namespace of the CA secret for the external target.")
@@ -191,6 +193,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().BoolVar(&params.CurlInsecure, "curl-insecure", false, "Pass --insecure to curl")
 	cmd.Flags().UintVar(&params.CurlParallel, "curl-parallel", defaults.CurlParallel, "Number of parallel requests in curl commands (0 to disable)")
 
+	cmd.Flags().BoolVar(&params.ExitZeroOnFailure, "exit-zero-on-failure", false, "Exit with zero return code even when test failures are detected")
 	cmd.Flags().BoolVar(&params.CollectSysdumpOnFailure, "collect-sysdump-on-failure", false, "Collect sysdump after a test fails")
 
 	sysdump.InitSysdumpFlags(cmd, &params.SysdumpOptions, "sysdump-", hooks)
