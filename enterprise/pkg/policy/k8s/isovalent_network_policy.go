@@ -203,13 +203,13 @@ func (p *policyWatcher) registerResourceWithSyncFn(ctx context.Context, resource
 	p.k8sAPIGroups.AddAPI(resource)
 }
 
-// reportINPChangeMetrics generates metrics for changes (Add, Update, Delete) to
-// Isovalent Network Policies depending on the operation's success.
-func reportINPChangeMetrics(err error) {
+// reportCNPChangeMetrics generates metrics for changes(Update, Delete) to
+// Cilium Network Policies depending on the operation's success.
+func reportINPChangeMetrics(op string, err error) {
 	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(string(source.CustomResource), op, metrics.LabelValueOutcomeFail).Inc()
 	} else {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(string(source.CustomResource), op, metrics.LabelValueOutcomeSuccess).Inc()
 	}
 }
 
