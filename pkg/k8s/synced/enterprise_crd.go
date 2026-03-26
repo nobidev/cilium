@@ -25,6 +25,7 @@ func AllIsovalentCRDResourceNames() []string {
 		CRDResourceName(v1alpha1.ICEPName),
 		CRDResourceName(v1alpha1.IsovalentNetworkPolicyName),
 		CRDResourceName(v1alpha1.IsovalentClusterwideNetworkPolicyName),
+		CRDResourceName(v1alpha1.IsovalentWAFPolicyName),
 	}
 
 	if option.Config.EnableSRv6 {

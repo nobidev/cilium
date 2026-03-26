@@ -524,8 +524,10 @@ func (r *ingestor) toApplicationTCPProxy(lbsvc *isovalentv1alpha1.LBService, ref
 		})
 	}
 
+	tier := r.mapTCPProxyTierMode(lbsvc, app, referencedBackends)
 	return &lbApplicationTCPProxy{
-		tierMode: r.mapTCPProxyTierMode(lbsvc, app, referencedBackends),
+		tierMode: tier,
+		fwdMode:  r.mapTCPProxyFwdMode(app, tier),
 		routes:   routes,
 	}
 }
@@ -550,8 +552,10 @@ func (r *ingestor) toApplicationUDPProxy(lbsvc *isovalentv1alpha1.LBService, ref
 		})
 	}
 
+	tier := r.mapUDPProxyTierMode(lbsvc, app, referencedBackends)
 	return &lbApplicationUDPProxy{
-		tierMode: r.mapUDPProxyTierMode(lbsvc, app, referencedBackends),
+		tierMode: tier,
+		fwdMode:  r.mapUDPProxyFwdMode(app, tier),
 		routes:   routes,
 	}
 }
@@ -1495,6 +1499,55 @@ func (r *ingestor) backendPortsAreTheSame(lbBackends []lbBackend) bool {
 	}
 
 	return true
+}
+
+func (r *ingestor) evaluateProxyAutoForwardingMode(tier tierModeType) fwdModeType {
+	switch tier {
+	case tierModeT1:
+		return fwdModeSNAT
+	case tierModeT2:
+		return fwdModeDSR
+	default:
+		return fwdModeDSR
+	}
+}
+
+func (r *ingestor) mapTCPProxyFwdMode(app *isovalentv1alpha1.LBServiceApplicationTCPProxy, tier tierModeType) fwdModeType {
+	forceForwardingMode := isovalentv1alpha1.LBTCPProxyForceForwardingModeAuto
+
+	if app.ForceForwardingMode != nil {
+		forceForwardingMode = *app.ForceForwardingMode
+	}
+
+	switch forceForwardingMode {
+	case isovalentv1alpha1.LBTCPProxyForceForwardingModeAuto:
+		return r.evaluateProxyAutoForwardingMode(tier)
+	case isovalentv1alpha1.LBTCPProxyForceForwardingModeSNAT:
+		return fwdModeSNAT
+	case isovalentv1alpha1.LBTCPProxyForceForwardingModeDSR:
+		return fwdModeDSR
+	default:
+		return r.evaluateProxyAutoForwardingMode(tier)
+	}
+}
+
+func (r *ingestor) mapUDPProxyFwdMode(app *isovalentv1alpha1.LBServiceApplicationUDPProxy, tier tierModeType) fwdModeType {
+	forceForwardingMode := isovalentv1alpha1.LBUDPProxyForceForwardingModeAuto
+
+	if app.ForceForwardingMode != nil {
+		forceForwardingMode = *app.ForceForwardingMode
+	}
+
+	switch forceForwardingMode {
+	case isovalentv1alpha1.LBUDPProxyForceForwardingModeAuto:
+		return r.evaluateProxyAutoForwardingMode(tier)
+	case isovalentv1alpha1.LBUDPProxyForceForwardingModeSNAT:
+		return fwdModeSNAT
+	case isovalentv1alpha1.LBUDPProxyForceForwardingModeDSR:
+		return fwdModeDSR
+	default:
+		return r.evaluateProxyAutoForwardingMode(tier)
+	}
 }
 
 func (r *ingestor) evaluateTCPProxyAutoTierMode(lbsvc *isovalentv1alpha1.LBService, app *isovalentv1alpha1.LBServiceApplicationTCPProxy, referencedBackends map[string]backend) tierModeType {

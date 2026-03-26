@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"slices"
 
 	"github.com/cilium/hive/cell"
@@ -32,6 +33,8 @@ import (
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/webhook/config"
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/webhook/forklift"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
+	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func newVM(in struct {
@@ -43,16 +46,22 @@ func newVM(in struct {
 	DB       *statedb.DB
 	NADs     statedb.Table[tables.NetworkAttachmentDefinition]
 	Networks statedb.Table[tables.PrivateNetwork]
+
+	DaemonConfig *option.DaemonConfig
+	Inventory    forklift.Inventory
 }) (out HandlersOut) {
 	var scheme = runtime.NewScheme()
 	virt_v1.AddToScheme(scheme)
 
 	var hook = vm{
-		cfg:     in.Config,
-		decoder: admission.NewDecoder(scheme),
-		db:      in.DB,
-		nads:    in.NADs,
-		nets:    in.Networks,
+		cfg:       in.Config,
+		decoder:   admission.NewDecoder(scheme),
+		db:        in.DB,
+		nads:      in.NADs,
+		nets:      in.Networks,
+		ipv4:      in.DaemonConfig.IPv4Enabled(),
+		ipv6:      in.DaemonConfig.IPv6Enabled(),
+		inventory: in.Inventory,
 	}
 
 	out.Handlers = append(out.Handlers,
@@ -72,6 +81,9 @@ type vm struct {
 	db   *statedb.DB
 	nads statedb.Table[tables.NetworkAttachmentDefinition]
 	nets statedb.Table[tables.PrivateNetwork]
+
+	ipv4, ipv6 bool
+	inventory  forklift.Inventory
 }
 
 func (v *vm) Mutate(ctx context.Context, req admission.Request) admission.Response {
@@ -95,7 +107,7 @@ func (v *vm) Mutate(ctx context.Context, req admission.Request) admission.Respon
 		return admission.Allowed("VM does not require to be patched")
 	}
 
-	if err := v.mutate(&vm); err != nil {
+	if err := v.mutate(ctx, &vm); err != nil {
 		return admission.Errored(err.StatusCode(), err.Unwrap())
 	}
 
@@ -107,7 +119,7 @@ func (v *vm) Mutate(ctx context.Context, req admission.Request) admission.Respon
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaled)
 }
 
-func (v *vm) mutate(vm *virt_v1.VirtualMachine) *httpError {
+func (v *vm) mutate(ctx context.Context, vm *virt_v1.VirtualMachine) *httpError {
 	var secondary []types.NetworkAttachment
 
 	// networks only contains the information about the VM networks targeting Cilium
@@ -121,6 +133,11 @@ func (v *vm) mutate(vm *virt_v1.VirtualMachine) *httpError {
 	if len(networks) == 0 {
 		// No network appears to be managed by us, hence let's not mangle with this VM.
 		return nil
+	}
+
+	netInfo, err := v.inventory.NetworkInfoForVM(ctx, vm)
+	if err != nil {
+		return newHTTPError(http.StatusInternalServerError, fmt.Errorf("querying inventory: %w", err))
 	}
 
 	var annotations = vm.Spec.Template.ObjectMeta.Annotations
@@ -168,10 +185,30 @@ func (v *vm) mutate(vm *virt_v1.VirtualMachine) *httpError {
 		ifaces[idx].InterfaceBindingMethod = virt_v1.InterfaceBindingMethod{}
 		ifaces[idx].Binding = &virt_v1.PluginBinding{Name: v.cfg.NetworkBinding}
 
+		// Forklift propagates the original MAC address to the interface, so we
+		// can use it to find the mapping.
+		if iface.MacAddress == "" {
+			return newHTTPError(http.StatusBadRequest, fmt.Errorf("unknown MAC address for VM network %q", iface.Name))
+		}
+
+		mac, err := mac.ParseMAC(iface.MacAddress)
+		if err != nil {
+			return newHTTPError(http.StatusBadRequest, fmt.Errorf("parsing MAC address for VM network %q: %w", iface.Name, err))
+		}
+
+		v4, v6, err := v.lookupIPs(netInfo, mac, net.subnet.DHCP)
+		if err != nil {
+			return newHTTPError(http.StatusInternalServerError, fmt.Errorf("retrieving IP addresses for VM network %q: %w", iface.Name, err))
+		}
+
 		var attachment = types.NetworkAttachment{
 			Network:   string(net.network),
 			Subnet:    string(net.subnet.Name),
 			Interface: iface.Name,
+
+			IPv4: v4,
+			IPv6: v6,
+			MAC:  mac,
 		}
 
 		if net.primary {
@@ -196,6 +233,37 @@ func (v *vm) mutate(vm *virt_v1.VirtualMachine) *httpError {
 	}
 
 	return nil
+}
+
+func (v *vm) lookupIPs(netInfo forklift.NetworkInfo, mac mac.MAC, dhcp bool) (v4, v6 netip.Addr, err error) {
+	// Preserve IPv4 addresses only if the users explicitly requested it,
+	// or the subnet has not DHCP enabled.
+	dhcp = dhcp && !netInfo.PreserveStaticIPs
+
+	info, ok := netInfo.ByMAC(mac)
+	if !ok && ((v.ipv4 && !dhcp) || v.ipv6) {
+		return v4, v6, errors.New("no entry found in inventory")
+	}
+
+	if v.ipv4 {
+		switch {
+		case dhcp:
+			v4 = netip.IPv4Unspecified()
+		case !info.IPv4.IsValid():
+			return v4, v6, errors.New("unknown IPv4 address")
+		default:
+			v4 = info.IPv4
+		}
+	}
+
+	if v.ipv6 {
+		v6 = info.IPv6
+		if !v6.IsValid() {
+			return v4, v6, errors.New("unknown IPv6 address")
+		}
+	}
+
+	return v4, v6, nil
 }
 
 type (

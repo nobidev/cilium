@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/cilium/cilium/enterprise/operator/pkg/wafpolicy"
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
@@ -65,6 +66,7 @@ type lbServiceReconciler struct {
 	ingestor     *ingestor
 	t1Translator *lbServiceT1Translator
 	t2Translator *lbServiceT2Translator
+	wafDefaults  wafpolicy.GlobalDefaults
 }
 
 type reconcilerConfig struct {
@@ -133,7 +135,7 @@ type reconcilerPolicyConfig struct {
 	EnableCiliumPolicyFilters bool
 }
 
-func newLbServiceReconciler(logger *slog.Logger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, t1Translator *lbServiceT1Translator, t2Translator *lbServiceT2Translator) *lbServiceReconciler {
+func newLbServiceReconciler(logger *slog.Logger, client client.Client, scheme *runtime.Scheme, nodeSource *ciliumNodeSource, ingestor *ingestor, t1Translator *lbServiceT1Translator, t2Translator *lbServiceT2Translator, wafDefaults wafpolicy.GlobalDefaults) *lbServiceReconciler {
 	return &lbServiceReconciler{
 		logger:       logger,
 		client:       client,
@@ -142,6 +144,7 @@ func newLbServiceReconciler(logger *slog.Logger, client client.Client, scheme *r
 		ingestor:     ingestor,
 		t1Translator: t1Translator,
 		t2Translator: t2Translator,
+		wafDefaults:  wafDefaults,
 	}
 }
 
@@ -167,7 +170,7 @@ func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	builder := ctrl.NewControllerManagedBy(mgr).
 		// Watch for changed LBService resources (main resource)
 		For(&isovalentv1alpha1.LBService{}).
 		// Watch for changed LBVIP resources and trigger LBServices that reference the changed lbvip
@@ -191,8 +194,14 @@ func (r *lbServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// T2 CiliumEnvoyConfig resource with OwnerReference to the LBService
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		// CiliumNode changes should trigger a reconciliation of all LBServices
-		WatchesRawSource(r.nodeSource.ToSource(r.enqueueAllLBServices(false))).
-		Complete(r)
+		WatchesRawSource(r.nodeSource.ToSource(r.enqueueAllLBServices(false)))
+
+	if r.wafDefaults.Enabled {
+		// Watch for changed IsovalentWAFPolicy resources and trigger all LBServices in the same namespace.
+		builder = builder.Watches(&isovalentv1alpha1.IsovalentWAFPolicy{}, r.enqueueAllLBServices(true))
+	}
+
+	return builder.Complete(r)
 }
 
 // Reconcile implements the main reconciliation loop that gets triggered whenever a LBService resource or a related resource changes.
@@ -269,6 +278,10 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 
 	r.updateDeploymentsInStatus(lbsvc, deployments)
 
+	if err := r.reconcileWAF(ctx, lbsvc); err != nil {
+		return err
+	}
+
 	// Try loading referenced LBVIP
 	// -> vip can be nil
 	vip, err := r.loadVIP(ctx, lbsvc)
@@ -331,7 +344,7 @@ func (r *lbServiceReconciler) reconcileResources(ctx context.Context, lbsvc *iso
 
 	r.updateNodesAssignedInStatus(model, lbsvc)
 	r.updateAssignedIpInStatus(model, lbsvc)
-	r.updateDeploymentModeInStatus(model, lbsvc)
+	r.updateModesInStatus(model, lbsvc)
 
 	// Stop reconciliation if assigned IP is not available or some status
 	// conditions on the LBService aren't met yet. Also, we
@@ -489,6 +502,83 @@ func (r *lbServiceReconciler) loadDeployments(ctx context.Context, lbsvc *isoval
 	}
 
 	return matchingDeployments, nil
+}
+
+func (r *lbServiceReconciler) reconcileWAF(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) error {
+	if !r.wafDefaults.Enabled || !lbsvcSupportsWAF(lbsvc) {
+		return nil
+	}
+
+	wafPolicies, err := r.loadWAFPolicies(ctx, lbsvc)
+	if err != nil {
+		return fmt.Errorf("failed to load IsovalentWAFPolicies: %w", err)
+	}
+
+	resolution, err := wafpolicy.ResolveForLBService(lbsvc, wafPolicies, r.wafDefaults)
+	if err != nil {
+		return fmt.Errorf("failed to resolve effective WAF config: %w", err)
+	}
+
+	switch resolution.State {
+	case wafpolicy.ResolutionStateConflict:
+		r.logger.Warn(
+			"Multiple accepted IsovalentWAFPolicies match LBService; skipping WAF config resolution for this reconcile",
+			logfields.K8sNamespace, lbsvc.Namespace,
+			logfields.Service, lbsvc.Name,
+			logfields.PolicyID, resolution.PolicyRefs,
+		)
+		return nil
+	case wafpolicy.ResolutionStatePending:
+		r.logger.Debug(
+			"Matching IsovalentWAFPolicies are still pending validation; deferring WAF config resolution",
+			logfields.K8sNamespace, lbsvc.Namespace,
+			logfields.Service, lbsvc.Name,
+			logfields.PolicyID, resolution.PolicyRefs,
+		)
+		return nil
+	case wafpolicy.ResolutionStateResolved:
+	default:
+		return fmt.Errorf("unsupported WAF resolution state %q", resolution.State)
+	}
+
+	effectiveWAFConfig := resolution.Config
+
+	logArgs := []any{
+		logfields.K8sNamespace, lbsvc.Namespace,
+		logfields.Service, lbsvc.Name,
+		logfields.PolicyLogString, fmt.Sprintf("%v, %s, %s, %s, %v",
+			effectiveWAFConfig.Enabled,
+			effectiveWAFConfig.Mode,
+			effectiveWAFConfig.PolicyProfile,
+			effectiveWAFConfig.FailureMode,
+			effectiveWAFConfig.UsesGlobalRules),
+	}
+	if effectiveWAFConfig.PolicyRef != nil {
+		logArgs = append(logArgs, logfields.PolicyID, effectiveWAFConfig.PolicyRef.String())
+	}
+	if effectiveWAFConfig.Inline != nil {
+		logArgs = append(logArgs, logfields.PolicyEntry, len(*effectiveWAFConfig.Inline))
+	}
+	r.logger.Debug("Resolved effective WAF config for LBService", logArgs...)
+
+	return nil
+}
+
+func lbsvcSupportsWAF(lbsvc *isovalentv1alpha1.LBService) bool {
+	if lbsvc == nil {
+		return false
+	}
+
+	return lbsvc.Spec.Applications.HTTPProxy != nil || lbsvc.Spec.Applications.HTTPSProxy != nil
+}
+
+func (r *lbServiceReconciler) loadWAFPolicies(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) ([]isovalentv1alpha1.IsovalentWAFPolicy, error) {
+	policyList := &isovalentv1alpha1.IsovalentWAFPolicyList{}
+	if err := r.client.List(ctx, policyList, client.InNamespace(lbsvc.Namespace)); err != nil {
+		return nil, err
+	}
+
+	return policyList.Items, nil
 }
 
 func (r *lbServiceReconciler) loadVIP(ctx context.Context, lbsvc *isovalentv1alpha1.LBService) (*isovalentv1alpha1.LBVIP, error) {
@@ -908,30 +998,40 @@ func (*lbServiceReconciler) updateAssignedIpInStatus(model *lbService, lbsvc *is
 	lbsvc.UpsertStatusCondition(isovalentv1alpha1.ConditionTypeIPAssigned, ipAssignedCondition)
 }
 
-func (*lbServiceReconciler) updateDeploymentModeInStatus(model *lbService, lbsvc *isovalentv1alpha1.LBService) {
+func (*lbServiceReconciler) updateModesInStatus(model *lbService, lbsvc *isovalentv1alpha1.LBService) {
 	appStatus := isovalentv1alpha1.LBServiceApplicationsStatus{}
 
 	if model.isTCPProxy() {
 		tcpProxyDeploymentMode := isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1T2
+		tcpProxyForwardingMode := isovalentv1alpha1.LBTCPProxyForwardingModeDSR
 
 		if model.isTCPProxyT1OnlyMode() {
 			tcpProxyDeploymentMode = isovalentv1alpha1.LBTCPProxyDeploymentModeTypeT1Only
+			if !model.isTCPProxyT1OnlyWithDSR() {
+				tcpProxyForwardingMode = isovalentv1alpha1.LBTCPProxyForwardingModeSNAT
+			}
 		}
 
 		appStatus.TCPProxy = &isovalentv1alpha1.LBServiceApplicationTCPProxyStatus{
 			DeploymentMode: &tcpProxyDeploymentMode,
+			ForwardingMode: &tcpProxyForwardingMode,
 		}
 	}
 
 	if model.isUDPProxy() {
 		udpProxyDeploymentMode := isovalentv1alpha1.LBUDPProxyDeploymentModeTypeT1T2
+		udpProxyForwardingMode := isovalentv1alpha1.LBUDPProxyForwardingModeDSR
 
 		if model.isUDPProxyT1OnlyMode() {
 			udpProxyDeploymentMode = isovalentv1alpha1.LBUDPProxyDeploymentModeTypeT1Only
+			if !model.isUDPProxyT1OnlyWithDSR() {
+				udpProxyForwardingMode = isovalentv1alpha1.LBUDPProxyForwardingModeSNAT
+			}
 		}
 
 		appStatus.UDPProxy = &isovalentv1alpha1.LBServiceApplicationUDPProxyStatus{
 			DeploymentMode: &udpProxyDeploymentMode,
+			ForwardingMode: &udpProxyForwardingMode,
 		}
 	}
 

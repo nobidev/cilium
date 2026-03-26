@@ -345,6 +345,10 @@ func (r *lbServiceT1Translator) getEndpointSliceInfo(model *lbService, ipv6 bool
 }
 
 func (r *lbServiceT1Translator) getServiceForwardingMode(model *lbService) string {
+	if model.isTCPProxyT1OnlyWithDSR() || model.isUDPProxyT1OnlyWithDSR() {
+		return string(loadbalancer.SVCForwardingModeDSR)
+	}
+
 	if model.isTCPProxyT1OnlyMode() || model.isUDPProxyT1OnlyMode() {
 		return string(loadbalancer.SVCForwardingModeSNAT)
 	}
@@ -353,12 +357,15 @@ func (r *lbServiceT1Translator) getServiceForwardingMode(model *lbService) strin
 }
 
 func (r *lbServiceT1Translator) getServiceLoadBalancingAlgorithm(model *lbService) string {
+	if model.isTCPProxyT1OnlyWithDSR() || model.isUDPProxyT1OnlyWithDSR() {
+		return "maglev"
+	}
+
 	if model.isTCPProxyT1OnlyMode() && !model.usesTCPProxyPersistentBackendsWithSourceIP() {
 		return "random"
 	}
 
 	// Note: UDPProxy with deployment mode T1-only uses maglev to provide UDP "session" support.
-
 	return "maglev"
 }
 

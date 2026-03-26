@@ -13,7 +13,6 @@ package ilb
 import (
 	"fmt"
 
-	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -44,13 +43,9 @@ func TestLBK8sBackendClusterConnectivity(t T) {
 	t.Log("Waiting for backend cluster to be ready...")
 	scenario.waitForBackendKindClusterReady(backendCluster)
 
-	t.Log("Creating kubeconfig secret...")
-	secretName := testName + "-kubeconfig"
-	scenario.createLBK8sBackendClusterSecret(backendCluster, secretName)
-
-	t.Log("Creating LBK8sBackendCluster resource...")
+	t.Log("Adding backend cluster via CLI...")
 	lbK8sBackendClusterName := testName + "-cluster"
-	scenario.createLBK8sBackendCluster(lbK8sBackendClusterName, secretName, scenario.k8sNamespace)
+	scenario.addK8sBackendCluster(backendCluster, lbK8sBackendClusterName)
 
 	t.Log("Waiting for LBK8sBackendCluster to connect...")
 	scenario.waitForLBK8sBackendClusterConnected(lbK8sBackendClusterName)
@@ -86,17 +81,11 @@ func TestLBK8sBackendClusterMultiple(t T) {
 	scenario.waitForBackendKindClusterReady(backendCluster1)
 	scenario.waitForBackendKindClusterReady(backendCluster2)
 
-	t.Log("Creating kubeconfig secrets...")
-	secretName1 := testName + "-kubeconfig-1"
-	secretName2 := testName + "-kubeconfig-2"
-	scenario.createLBK8sBackendClusterSecret(backendCluster1, secretName1)
-	scenario.createLBK8sBackendClusterSecret(backendCluster2, secretName2)
-
-	t.Log("Creating LBK8sBackendCluster resources...")
+	t.Log("Adding backend clusters via CLI...")
 	lbK8sBackendClusterName1 := testName + "-cluster-1"
 	lbK8sBackendClusterName2 := testName + "-cluster-2"
-	scenario.createLBK8sBackendCluster(lbK8sBackendClusterName1, secretName1, scenario.k8sNamespace)
-	scenario.createLBK8sBackendCluster(lbK8sBackendClusterName2, secretName2, scenario.k8sNamespace)
+	scenario.addK8sBackendCluster(backendCluster1, lbK8sBackendClusterName1)
+	scenario.addK8sBackendCluster(backendCluster2, lbK8sBackendClusterName2)
 
 	t.Log("Waiting for LBK8sBackendClusters to connect...")
 	scenario.waitForLBK8sBackendClusterConnected(lbK8sBackendClusterName1)
@@ -130,13 +119,9 @@ func TestLBK8sBackendClusterReconnect(t T) {
 	t.Log("Waiting for backend cluster to be ready...")
 	scenario.waitForBackendKindClusterReady(backendCluster)
 
-	t.Log("Creating kubeconfig secret...")
-	secretName := testName + "-kubeconfig"
-	scenario.createLBK8sBackendClusterSecret(backendCluster, secretName)
-
-	t.Log("Creating LBK8sBackendCluster resource...")
+	t.Log("Adding backend cluster via CLI...")
 	lbK8sBackendClusterName := testName + "-cluster"
-	scenario.createLBK8sBackendCluster(lbK8sBackendClusterName, secretName, scenario.k8sNamespace)
+	scenario.addK8sBackendCluster(backendCluster, lbK8sBackendClusterName)
 
 	t.Log("Waiting for LBK8sBackendCluster to connect...")
 	scenario.waitForLBK8sBackendClusterConnected(lbK8sBackendClusterName)
@@ -155,8 +140,8 @@ func TestLBK8sBackendClusterReconnect(t T) {
 	t.Log("Waiting for backend cluster to be ready...")
 	scenario.waitForBackendKindClusterReady(backendCluster)
 
-	t.Log("Updating kubeconfig secret with new cluster credentials...")
-	scenario.updateLBK8sBackendClusterSecret(backendCluster, secretName)
+	t.Log("Re-adding backend cluster via CLI to update credentials...")
+	scenario.addK8sBackendCluster(backendCluster, lbK8sBackendClusterName)
 
 	t.Log("Waiting for LBK8sBackendCluster to reconnect...")
 	scenario.waitForLBK8sBackendClusterConnected(lbK8sBackendClusterName)
@@ -196,19 +181,11 @@ func TestLBK8sBackendClusterServiceDiscovery(t T) {
 	t.Log("Creating LoadBalancer service in backend cluster...")
 	scenario.createServiceInBackendCluster(backendCluster, serviceNamespace, serviceName, servicePort)
 
-	t.Log("Creating kubeconfig secret...")
-	secretName := testName + "-kubeconfig"
-	scenario.createLBK8sBackendClusterSecret(backendCluster, secretName)
-
-	t.Log("Creating LBK8sBackendCluster with service discovery config...")
+	t.Log("Adding backend cluster via CLI with service discovery...")
 	lbK8sBackendClusterName := testName + "-cluster"
-	discoveryConfigs := []isovalentv1alpha1.LBK8sBackendClusterServiceDiscoveryConfig{
-		{
-			Name:       "test-discovery",
-			Namespaces: []string{serviceNamespace},
-		},
-	}
-	scenario.createLBK8sBackendClusterWithServiceDiscovery(lbK8sBackendClusterName, secretName, scenario.k8sNamespace, discoveryConfigs)
+	scenario.addK8sBackendCluster(backendCluster, lbK8sBackendClusterName,
+		"--external-namespaces", serviceNamespace,
+		"--target-namespace", scenario.k8sNamespace)
 
 	t.Log("Waiting for LBK8sBackendCluster to connect...")
 	scenario.waitForLBK8sBackendClusterConnected(lbK8sBackendClusterName)

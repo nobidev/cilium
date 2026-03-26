@@ -84,6 +84,8 @@ func WebhookTestCell(t testing.TB) cell.Cell {
 				return cfg
 			},
 		),
+
+		ForkliftTestCell(t),
 	)
 }
 

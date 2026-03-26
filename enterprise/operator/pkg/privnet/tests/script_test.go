@@ -26,6 +26,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	virt_v1 "kubevirt.io/api/core/v1"
 	ctrlruntime "sigs.k8s.io/controller-runtime"
 
@@ -38,12 +40,26 @@ import (
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func init() {
 	virt_v1.AddToScheme(k8sTestutils.Scheme)
+
+	for _, kind := range []string{"Provider", "Plan"} {
+		k8sTestutils.Scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+			Group:   "forklift.konveyor.io",
+			Version: "v1beta1",
+			Kind:    kind,
+		}, &unstructured.Unstructured{})
+		k8sTestutils.Scheme.AddKnownTypeWithName(schema.GroupVersionKind{
+			Group:   "forklift.konveyor.io",
+			Version: "v1beta1",
+			Kind:    kind + "List",
+		}, &unstructured.UnstructuredList{})
+	}
 }
 
 func TestScript(t *testing.T) {
@@ -68,7 +84,12 @@ func TestScript(t *testing.T) {
 			h := hive.New(
 				k8sClient.FakeClientCell(),
 				cell.DecorateAll(k8sClient.NewFakeNADsClientset),
+				cell.DecorateAll(k8sClient.NewFakeDynamicClient),
 				daemonk8s.NamespaceTableCell,
+
+				cell.Provide(func() *option.DaemonConfig {
+					return &option.DaemonConfig{EnableIPv4: true, EnableIPv6: true}
+				}),
 
 				privnet.Cell,
 				evpn.Cell,

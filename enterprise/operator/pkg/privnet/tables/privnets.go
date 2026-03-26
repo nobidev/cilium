@@ -55,6 +55,9 @@ type PrivateNetwork struct {
 type PrivateNetworkSubnet struct {
 	// Name is the name of the subnet.
 	Name SubnetName
+
+	// DHCP is true if DHCP is enabled for the given subnet.
+	DHCP bool
 }
 
 // PrivateNetworkNADs configures the network attachment definitions integration.

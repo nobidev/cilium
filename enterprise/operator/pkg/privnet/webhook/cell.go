@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/webhook/config"
+	"github.com/cilium/cilium/enterprise/operator/pkg/privnet/webhook/forklift"
 )
 
 var Cell = cell.Module(
@@ -21,6 +22,7 @@ var Cell = cell.Module(
 	"Private Networks Webhook",
 
 	config.Cell,
+	forklift.Cell,
 
 	cell.ProvidePrivate(
 		newVM,

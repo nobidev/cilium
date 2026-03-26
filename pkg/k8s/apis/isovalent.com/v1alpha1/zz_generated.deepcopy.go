@@ -3972,6 +3972,11 @@ func (in *LBServiceApplicationTCPProxy) DeepCopyInto(out *LBServiceApplicationTC
 		*out = new(LBTCPProxyForceDeploymentModeType)
 		**out = **in
 	}
+	if in.ForceForwardingMode != nil {
+		in, out := &in.ForceForwardingMode, &out.ForceForwardingMode
+		*out = new(LBTCPProxyForceForwardingModeType)
+		**out = **in
+	}
 	if in.Routes != nil {
 		in, out := &in.Routes, &out.Routes
 		*out = make([]LBServiceTCPRoute, len(*in))
@@ -3998,6 +4003,11 @@ func (in *LBServiceApplicationTCPProxyStatus) DeepCopyInto(out *LBServiceApplica
 	if in.DeploymentMode != nil {
 		in, out := &in.DeploymentMode, &out.DeploymentMode
 		*out = new(LBTCPProxyDeploymentModeType)
+		**out = **in
+	}
+	if in.ForwardingMode != nil {
+		in, out := &in.ForwardingMode, &out.ForwardingMode
+		*out = new(LBTCPProxyForwardingModeType)
 		**out = **in
 	}
 	return
@@ -4068,6 +4078,11 @@ func (in *LBServiceApplicationUDPProxy) DeepCopyInto(out *LBServiceApplicationUD
 		*out = new(LBUDPProxyForceDeploymentModeType)
 		**out = **in
 	}
+	if in.ForceForwardingMode != nil {
+		in, out := &in.ForceForwardingMode, &out.ForceForwardingMode
+		*out = new(LBUDPProxyForceForwardingModeType)
+		**out = **in
+	}
 	if in.Routes != nil {
 		in, out := &in.Routes, &out.Routes
 		*out = make([]LBServiceUDPRoute, len(*in))
@@ -4094,6 +4109,11 @@ func (in *LBServiceApplicationUDPProxyStatus) DeepCopyInto(out *LBServiceApplica
 	if in.DeploymentMode != nil {
 		in, out := &in.DeploymentMode, &out.DeploymentMode
 		*out = new(LBUDPProxyDeploymentModeType)
+		**out = **in
+	}
+	if in.ForwardingMode != nil {
+		in, out := &in.ForwardingMode, &out.ForwardingMode
+		*out = new(LBUDPProxyForwardingModeType)
 		**out = **in
 	}
 	return

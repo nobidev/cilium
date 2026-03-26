@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha"
 	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
+	evpnSecurityGroupTables "github.com/cilium/cilium/enterprise/pkg/evpn/securitygroups/tables"
 	privnetConfig "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	privnetTables "github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/rib"
@@ -187,6 +188,7 @@ func TestPrivilegedScript(t *testing.T) {
 				bfdtypes.NewBFDPeersTable,
 				privnetTables.NewPrivateNetworksTable,
 				privnetTables.NewLocalWorkloadsTable,
+				evpnSecurityGroupTables.NewEndpointSecurityGroupTable,
 
 				statedb.RWTable[*tables.Route].ToTable,
 				statedb.RWTable[*tables.Device].ToTable,
@@ -195,6 +197,7 @@ func TestPrivilegedScript(t *testing.T) {
 				statedb.RWTable[*bfdtypes.BFDPeerStatus].ToTable,
 				statedb.RWTable[privnetTables.PrivateNetwork].ToTable,
 				statedb.RWTable[*privnetTables.LocalWorkload].ToTable,
+				statedb.RWTable[evpnSecurityGroupTables.EndpointSecurityGroup].ToTable,
 			),
 			cell.Provide(func(sig *signaler.BGPCPSignaler) egressgatewayha.EgressIPsProvider {
 				egwMgrMock = newEGWManagerMock(sig)

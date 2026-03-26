@@ -20,7 +20,10 @@ import (
 	nadclientv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/testing"
+	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 )
@@ -53,6 +56,33 @@ func NewFakeNADsClientset(fcs *FakeClientset) (*nadclientfake.Clientset, nadclie
 		client.WatchReactionChain[0] = watchReactor{client.WatchReactionChain[0]}
 
 		return client, client.K8sCniCncfIoV1()
+	}
+
+	panic("could not find the default tracker")
+}
+
+// NewFakeDynamicClient creates a new fake dynamic client for testing purposes.
+// It extends the provided clientset to leverage the same underlying tracker.
+func NewFakeDynamicClient(fcs *FakeClientset) dynamic.Interface {
+	for _, tracker := range fcs.trackers {
+		if tracker.domain != "*" {
+			continue
+		}
+
+		var client = dynamicfake.NewSimpleDynamicClient(testutils.Scheme)
+
+		// We open code the configuration of the reactors, rather than leveraging the
+		// [prependReactors] helper, because the latter attempts to also override the
+		// internal tracker (i.e., the one then returned by client.Tracker()) via
+		// an unsafe pointer, but fails because the underlying structure is different.
+		// Even circumventing that (e.g., via recover), it would still cause fatal
+		// errors due to concurrent map read and writes, likely caused by the usage
+		// of unsafe pointers. The above implies that [client.Tracker()] would not
+		// return the correct tracker, but that's not a problem, as never used.
+		client.PrependReactor("*", "*", k8sTesting.ObjectReaction(tracker.tracker))
+		client.PrependWatchReactor("*", watchReactorFunc(tracker.tracker))
+
+		return client
 	}
 
 	panic("could not find the default tracker")

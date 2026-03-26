@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/bgpv1/fake"
 	ceeTypes "github.com/cilium/cilium/enterprise/pkg/bgpv1/types"
 	evpnConfig "github.com/cilium/cilium/enterprise/pkg/evpn/config"
+	evpnTables "github.com/cilium/cilium/enterprise/pkg/evpn/securitygroups/tables"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
@@ -42,15 +43,16 @@ import (
 
 func TestPrivateNetworkReconciler(t *testing.T) {
 	var (
-		testASN                    = int64(65001)
-		testRouterID               = "1.2.3.4"
-		testVxlanDeviceMAC1        = "01:02:03:04:05:06"
-		testVxlanDeviceMAC2        = "06:05:04:03:02:01"
-		testDefaultSecurityGroupID = uint16(53)
-		testCommunity1Str          = "65001:101"
-		testCommunity2Str          = "65001:102"
-		testLargeCommunityStr      = "65001:201:301"
-		testLocalPreference        = uint32(200)
+		testASN               = int64(65001)
+		testRouterID          = "1.2.3.4"
+		testVxlanDeviceMAC1   = "01:02:03:04:05:06"
+		testVxlanDeviceMAC2   = "06:05:04:03:02:01"
+		testSecurityGroupID   = uint16(1000)
+		testSecurityGroupID2  = uint16(2000)
+		testCommunity1Str     = "65001:101"
+		testCommunity2Str     = "65001:102"
+		testLargeCommunityStr = "65001:201:301"
+		testLocalPreference   = uint32(200)
 
 		vrf1PrivNetConfig = &v1alpha1.IsovalentBGPVRFConfig{
 			ObjectMeta: metav1.ObjectMeta{
@@ -293,6 +295,8 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 		deletePrivateNetworks  []tables.PrivateNetwork
 		upsertPrivnetWorkloads []*tables.LocalWorkload
 		deletePrivnetWorkloads []*tables.LocalWorkload
+		upsertEPSecurityGroups []evpnTables.EndpointSecurityGroup
+		deleteEPSecurityGroups []evpnTables.EndpointSecurityGroup
 		vxlanDeviceMac         string
 		evpnConfig             evpnConfig.Config
 
@@ -336,14 +340,34 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			expectedPaths: vrfSimplePathsMap{},
 		},
 		{
-			name:            "add vxlan device MAC, advertise 1 path (with default security group tag)",
+			name:            "add vxlan device MAC with SGT enabled but no endpoint security group, advertise 0 paths",
 			bgpNodeInstance: privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config}),
 			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfig},
 			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert},
 			vxlanDeviceMac:  testVxlanDeviceMAC1,
 			evpnConfig: evpnConfig.Config{
 				SecurityGroupTagsEnabled: true,
-				DefaultSecurityGroupID:   testDefaultSecurityGroupID,
+			},
+			expectedAdverts: VRFAdvertisements{
+				privNet1Name: v4OnlyPrivnetAdvertisement,
+			},
+			expectedPaths:            vrfSimplePathsMap{},
+			expectedCommunities:      map[string][]uint32{},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{},
+			expectedLocalPreference:  map[string]*uint32{},
+		},
+		{
+			name:            "add endpoint security group mapping for existing workload, advertise 1 path with SGT",
+			bgpNodeInstance: privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config}),
+			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfig},
+			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert},
+			upsertEPSecurityGroups: []evpnTables.EndpointSecurityGroup{{
+				EndpointID:      privNet1EP1.EndpointID,
+				SecurityGroupID: testSecurityGroupID,
+			}},
+			vxlanDeviceMac: testVxlanDeviceMAC1,
+			evpnConfig: evpnConfig.Config{
+				SecurityGroupTagsEnabled: true,
 			},
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: v4OnlyPrivnetAdvertisement,
@@ -355,7 +379,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 					},
 				},
 			},
-			expectedSecurityGroupID: &testDefaultSecurityGroupID,
+			expectedSecurityGroupID: &testSecurityGroupID,
 			expectedCommunities: map[string][]uint32{
 				privNet1Name: {testCommunity1, testCommunity2},
 			},
@@ -367,7 +391,62 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			},
 		},
 		{
-			name:                   "add VRF 2 and private network 2 with workload, advertise 2 paths (no security group tag)",
+			name:            "update endpoint security group mapping for existing workload, re-advertise path with new SGT",
+			bgpNodeInstance: privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config}),
+			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfig},
+			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert},
+			upsertEPSecurityGroups: []evpnTables.EndpointSecurityGroup{{
+				EndpointID:      privNet1EP1.EndpointID,
+				SecurityGroupID: testSecurityGroupID2,
+			}},
+			vxlanDeviceMac: testVxlanDeviceMAC1,
+			evpnConfig: evpnConfig.Config{
+				SecurityGroupTagsEnabled: true,
+			},
+			expectedAdverts: VRFAdvertisements{
+				privNet1Name: v4OnlyPrivnetAdvertisement,
+			},
+			expectedPaths: vrfSimplePathsMap{
+				privNet1Name: resourceAFSimplePathsMap{
+					resource.Key{Name: privNet1EP1.Endpoint.Name}: afSimplePathsMap{
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: []string{vrf1EP1NLRI.String()},
+					},
+				},
+			},
+			expectedSecurityGroupID: &testSecurityGroupID2,
+			expectedCommunities: map[string][]uint32{
+				privNet1Name: {testCommunity1, testCommunity2},
+			},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{
+				privNet1Name: {testLargeCommunity},
+			},
+			expectedLocalPreference: map[string]*uint32{
+				privNet1Name: &testLocalPreference,
+			},
+		},
+		{
+			name:            "delete endpoint security group mapping for existing workload, withdraw path",
+			bgpNodeInstance: privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config}),
+			vrfConfigs:      []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfig},
+			adverts:         []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert},
+			deleteEPSecurityGroups: []evpnTables.EndpointSecurityGroup{{
+				EndpointID:      privNet1EP1.EndpointID,
+				SecurityGroupID: testSecurityGroupID2,
+			}},
+			vxlanDeviceMac: testVxlanDeviceMAC1,
+			evpnConfig: evpnConfig.Config{
+				SecurityGroupTagsEnabled: true,
+			},
+			expectedAdverts: VRFAdvertisements{
+				privNet1Name: v4OnlyPrivnetAdvertisement,
+			},
+			expectedPaths:            vrfSimplePathsMap{},
+			expectedCommunities:      map[string][]uint32{},
+			expectedLargeCommunities: map[string][]*bgp.LargeCommunity{},
+			expectedLocalPreference:  map[string]*uint32{},
+		},
+		{
+			name:                   "add VRF 2 and private network 2 with workload, advertise 2 paths (SGT disabled)",
 			bgpNodeInstance:        privNetBGPNodeInstance([]v1.IsovalentBGPNodeVRF{privNetVRF1Config, privNetVRF2Config}),
 			vrfConfigs:             []*v1alpha1.IsovalentBGPVRFConfig{vrf1PrivNetConfig, vrf2PrivNetConfig},
 			adverts:                []*v1.IsovalentBGPAdvertisement{vrf1PrivNetAdvert, vrf2PrivNetAdvert},
@@ -376,7 +455,6 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			vxlanDeviceMac:         testVxlanDeviceMAC1,
 			evpnConfig: evpnConfig.Config{
 				SecurityGroupTagsEnabled: false,
-				DefaultSecurityGroupID:   testDefaultSecurityGroupID,
 			},
 			expectedAdverts: VRFAdvertisements{
 				privNet1Name: v4OnlyPrivnetAdvertisement,
@@ -776,12 +854,15 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 	req.NoError(err)
 	privnetWorkloadsTable, err := tables.NewLocalWorkloadsTable(db)
 	req.NoError(err)
+	endpointSGTable, err := evpnTables.NewEndpointSecurityGroupTable(db)
+	req.NoError(err)
 
 	svcVRFReconciler := &PrivateNetworkReconciler{
 		logger:           logger,
 		db:               db,
 		privateNetworks:  privateNetworksTable,
 		privnetWorkloads: privnetWorkloadsTable,
+		epSecurityGroups: endpointSGTable,
 		adverts:          isoAdverts,
 		evpnPaths:        &evpnPaths{},
 		metadata:         make(map[string]privateNetworkReconcilerMetadata),
@@ -812,7 +893,7 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 				advertMockStore.Upsert(advert)
 			}
 
-			tx := db.WriteTxn(privateNetworksTable, privnetWorkloadsTable)
+			tx := db.WriteTxn(privateNetworksTable, privnetWorkloadsTable, endpointSGTable)
 			// upsert/delete privnets & privnet workloads in statedb
 			for _, privNet := range tt.upsertPrivateNetworks {
 				_, _, err = privateNetworksTable.Insert(tx, privNet)
@@ -828,6 +909,14 @@ func TestPrivateNetworkReconciler(t *testing.T) {
 			}
 			for _, w := range tt.deletePrivnetWorkloads {
 				_, _, err = privnetWorkloadsTable.Delete(tx, w)
+				req.NoError(err)
+			}
+			for _, esg := range tt.upsertEPSecurityGroups {
+				_, _, err = endpointSGTable.Insert(tx, esg)
+				req.NoError(err)
+			}
+			for _, esg := range tt.deleteEPSecurityGroups {
+				_, _, err = endpointSGTable.Delete(tx, esg)
 				req.NoError(err)
 			}
 			tx.Commit()

@@ -185,6 +185,9 @@ cilium-operator-generic hive dot-graph [flags]
       --private-networks-nad-integration-enabled                       Enable the private networks integration with Multus network attachment definitions
       --private-networks-webhook-enabled                               Enable the private networks webhook
       --private-networks-webhook-hostport string                       The address and port the private networks webhook listens to (default ":11443")
+      --private-networks-webhook-inventory-bearer-token-file string    The path to the bearer token file to authenticate with the Forklift inventory service
+      --private-networks-webhook-inventory-ca-bundle-file string       The path to the CA bundle for the Forklift inventory service
+      --private-networks-webhook-inventory-url string                  The URL of the Forklift inventory service
       --private-networks-webhook-network-binding string                The name of the KubeVirt network binding plugin enforced on mutated VMs
       --private-networks-webhook-tls-cert-file string                  The path to the webhook TLS certificate for the private networks webhook (default "/var/lib/cilium/privnet/webhook/tls/server.crt")
       --private-networks-webhook-tls-key-file string                   The path to the webhook TLS key for the private networks webhook (default "/var/lib/cilium/privnet/webhook/tls/server.key")
@@ -194,6 +197,10 @@ cilium-operator-generic hive dot-graph [flags]
       --synchronize-k8s-nodes                                          Perform GC of stale node entries from the KVStore (default true)
       --unmanaged-pod-watcher-interval duration                        Interval to check for unmanaged kube-dns pods (0 to disable) (default 15s)
       --validate-network-policy                                        Whether to enable or disable the informational network policy validator (default true)
+      --waf-enabled                                                    Enable WAF by default for operator-managed resources.
+      --waf-failure-mode string                                        Default WAF failure mode for operator-managed resources. Applicable values: Open, Close (default "Open")
+      --waf-mode string                                                Default WAF mode for operator-managed resources. Applicable values: Monitor, Enforce (default "Enforce")
+      --waf-policy-profile string                                      Default WAF policy profile for operator-managed resources. Applicable values: max_security, high_security, balanced, low_friction, min_friction (default "balanced")
 ```
 
 ### SEE ALSO

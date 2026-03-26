@@ -89,17 +89,16 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		}
 		privnet_ifindex = (int)src_pip_val->ifindex;
 
+		/* Fully translated flow*/
 		if (src_pip_val && dst_pip_val) {
-			/* fully xlated flow*/
-
-			union macaddr *smac = device_mac(privnet_ifindex);
-			union macaddr dmac = dst_pip_val->mac;
+			const union macaddr *smac = device_mac(privnet_ifindex);
+			const union macaddr *dmac = &dst_pip_val->mac;
 
 			if (!smac)
 				return DROP_NO_DEVICE;
 			if (eth_store_saddr(ctx, smac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
-			if (eth_store_daddr(ctx, (__u8 *)&dmac, 0) < 0)
+			if (eth_store_daddr(ctx, dmac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
 
 			return ctx_redirect(ctx, privnet_ifindex, 0);
@@ -177,18 +176,17 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		}
 		privnet_ifindex = (int)src_pip_val->ifindex;
 
+		/* Fully translated flow*/
 		if (src_pip_val && dst_pip_val) {
-			/* Fully xlated flow. */
-
-			union macaddr *smac = device_mac(privnet_ifindex);
-			union macaddr dmac = dst_pip_val->mac;
+			const union macaddr *smac = device_mac(privnet_ifindex);
+			const union macaddr *dmac = &dst_pip_val->mac;
 
 			if (!smac)
 				return DROP_NO_DEVICE;
 			if (eth_store_saddr(ctx, smac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
 
-			if (eth_store_daddr(ctx, (__u8 *)&dmac, 0) < 0)
+			if (eth_store_daddr(ctx, dmac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
 
 			return ctx_redirect(ctx, privnet_ifindex, 0);
@@ -214,7 +212,10 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		break;
 	}
 
-	return ret;
+	/*  Shouldn't ever end up here. The packet wasn't redirected. Drop it
+	 *  just to be safe.
+	 */
+	return DROP_UNROUTABLE;
 }
 
 static __always_inline int enterprise_privnet_to_overlay(struct __ctx_buff *ctx __maybe_unused,

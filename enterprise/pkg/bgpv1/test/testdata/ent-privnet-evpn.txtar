@@ -38,9 +38,23 @@ gobgp/routes -s evpn-v4 -o routes.actual l2vpn evpn
 # Add privnet workload in network-a
 db/insert privnet-local-workloads privnet-workload-a.yaml
 
-# Validate that network-a privnet IPs are being advertised as EVPN routes
+# Validate that network-a privnet IPs are not advertised until the endpoint security group is known
 gobgp/routes -s evpn-v4 -o routes.actual l2vpn evpn
-* cmp gobgp-routes-a-ipv4.expected routes.actual
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Add endpoint security group mapping for network-a workload
+db/insert evpn-endpoint-security-groups endpoint-security-group-a.v1.yaml
+
+# Validate that network-a privnet IPs are advertised with the endpoint security group ID
+gobgp/routes -s evpn-v4 -o routes.actual l2vpn evpn
+* cmp gobgp-routes-a-ipv4.v1.expected routes.actual
+
+# Modify endpoint security group mapping for network-a workload
+db/insert evpn-endpoint-security-groups endpoint-security-group-a.v2.yaml
+
+# Validate that network-a privnet IPs are re-advertised with the updated endpoint security group ID
+gobgp/routes -s evpn-v4 -o routes.actual l2vpn evpn
+* cmp gobgp-routes-a-ipv4.v2.expected routes.actual
 
 # Validate that no EVPN routes are advertised to the peer without l2vpn/evpn AFI/SAFI configured in the peer config
 gobgp/routes -s non-evpn -o routes.actual l2vpn evpn
@@ -48,6 +62,9 @@ gobgp/routes -s non-evpn -o routes.actual l2vpn evpn
 
 # Add privnet workload in network-b
 db/insert privnet-local-workloads privnet-workload-b.yaml
+
+# Add endpoint security group mapping for network-b workload
+db/insert evpn-endpoint-security-groups endpoint-security-group-b.yaml
 
 # Validate that all privnet IPs are being advertised as EVPN routes to the IPv4 peer
 gobgp/routes -s evpn-v4 -o routes.actual l2vpn evpn
@@ -351,39 +368,55 @@ interface:
     ipv4: 192.168.201.44
     ipv6: fd10:0:201::44
 
+-- endpoint-security-group-a.v1.yaml --
+endpointid: 1
+securitygroupid: 15
+
+-- endpoint-security-group-a.v2.yaml --
+endpointid: 1
+securitygroupid: 100
+
+-- endpoint-security-group-b.yaml --
+endpointid: 2
+securitygroupid: 200
+
 -- gobgp-routes-empty.expected --
 Prefix   NextHop   Attrs
--- gobgp-routes-a-ipv4.expected --
+-- gobgp-routes-a-ipv4.v1.expected --
 Prefix                                                               NextHop       Attrs
 [type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]    10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:101], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]]}}]
 [type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:101], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]]}}]
+-- gobgp-routes-a-ipv4.v2.expected --
+Prefix                                                               NextHop       Attrs
+[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]    10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:101], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:100]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:101], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:100]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]]}}]
 -- gobgp-routes-all-ipv4.expected --
 Prefix                                                               NextHop       Attrs
-[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]    10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:101], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]]}}]
-[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:101], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]]}}]
-[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
-[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
+[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]    10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:101], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:100]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:101], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:100]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:200]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:200]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
 -- gobgp-routes-all-ipv6.expected --
 Prefix                                                               NextHop             Attrs
-[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]    fc00:10:99:103::1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:101], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]]}}]
-[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]   fc00:10:99:103::1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:101], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]]}}]
-[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    fc00:10:99:103::1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
-[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   fc00:10:99:103::1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
+[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]    fc00:10:99:103::1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:101], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:100]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:192.168.100.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]   fc00:10:99:103::1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:101], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:100]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:1][etag:0][prefix:fd10:0:100::33/128]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    fc00:10:99:103::1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:200]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   fc00:10:99:103::1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:200]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
 -- gobgp-routes-b-ipv4.expected --
 Prefix                                                               NextHop       Attrs
-[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
-[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:200]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:aa:bb:cc:dd:ee:ff], [GroupPolicyID:200]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
 -- gobgp-routes-b-modified-mac.expected --
 Prefix                                                               NextHop       Attrs
-[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:11:22:33:44:55:66], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
-[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:11:22:33:44:55:66], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:11:22:33:44:55:66], [GroupPolicyID:200]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:102], [RouterMAC:11:22:33:44:55:66], [GroupPolicyID:200]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
 -- gobgp-routes-b-modified-vni.expected --
 Prefix                                                               NextHop       Attrs
-[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:202], [RouterMAC:11:22:33:44:55:66], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
-[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:202], [RouterMAC:11:22:33:44:55:66], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]    10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:202], [RouterMAC:11:22:33:44:55:66], [GroupPolicyID:200]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:202], [RouterMAC:11:22:33:44:55:66], [GroupPolicyID:200]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:fd10:0:200::33/128]]}}]
 -- gobgp-routes-b-v4-only-ipv4-peer.expected --
 Prefix                                                              NextHop       Attrs
-[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:202], [RouterMAC:11:22:33:44:55:66], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]   10.99.103.1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:202], [RouterMAC:11:22:33:44:55:66], [GroupPolicyID:200]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: 10.99.103.1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
 -- gobgp-routes-b-v4-only-ipv6-peer.expected --
 Prefix                                                              NextHop             Attrs
-[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]   fc00:10:99:103::1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:202], [RouterMAC:11:22:33:44:55:66], [GroupPolicyID:15]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]
+[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]   fc00:10:99:103::1   [{Origin: ?} {AsPath: } {LocalPref: 200} {Communities: 65001:111} {Extcomms: [Encap:vxlan], [RouteTarget:65001:202], [RouterMAC:11:22:33:44:55:66], [GroupPolicyID:200]} {LargeCommunity: [ 65001:111:222]} {MpReach(l2vpn-evpn): {Nexthop: fc00:10:99:103::1, NLRIs: [[type:Prefix][rd:10.99.103.1:2][etag:0][prefix:192.168.200.33/32]]}}]

@@ -9,18 +9,33 @@ hive/start
 k8s/add ns-1.yaml icpn-1.yaml icpn-2.yaml nad-1.yaml nad-2.yaml nad-3.yaml nad-4.yaml nad-5.yaml
 db/cmp privnet-nads nads.table
 
+# Populate the Forklift resources, and wait for them to be observed.
+k8s/add provider-1.yaml provider-2.yaml
+k8s/add plan-1.yaml plan-2.yaml plan-3.yaml
+
+db/cmp privnet-forklift-providers providers.table
+db/cmp privnet-forklift-plans plans.table
+
 # A vanilla VM should not be mutated.
 webhook/admit /virtualmachines/mutate create vm-1.yaml --expect-no-changes
 
 # A migrated VM should be mutated as expected.
+inventory/register-vm 5e497cae-e26e-40f3-b391-135b4cbbdd82 vm-2-inventory.json
 webhook/admit /virtualmachines/mutate create vm-2.yaml -o vm-actual.yaml
 cmp vm-actual.yaml vm-2-expected.yaml
+
+# IPs should be also preserved for subnets with DHCP enabled, if requested.
+cp vm-2.yaml vm-2-preserve-ips.yaml
+replace 2dabc5ef-f1b5-4e63-9534-a8a17c0c0adf 532e2c42-f81b-4f6f-a797-c893ccefe3c5 vm-2-preserve-ips.yaml
+webhook/admit /virtualmachines/mutate create vm-2-preserve-ips.yaml -o vm-actual.yaml
+cmp vm-actual.yaml vm-2-preserve-ips-expected.yaml
 
 # Update and delete operations should be ignored.
 webhook/admit /virtualmachines/mutate update vm-2.yaml --expect-no-changes
 webhook/admit /virtualmachines/mutate delete vm-2.yaml --expect-no-changes
 
 # The pod network of a mutated VM should not be mangled with.
+inventory/register-vm 5e497cae-e26e-40f3-b391-135b4cbbdd82 vm-3-inventory.json
 webhook/admit /virtualmachines/mutate create vm-3.yaml -o vm-actual.yaml
 cmp vm-actual.yaml vm-3-expected.yaml
 
@@ -41,6 +56,44 @@ cp vm-2.yaml vm-subnet-not-existing.yaml
 replace spaniel/egret-ewe default/bull-calf vm-subnet-not-existing.yaml
 ! webhook/admit /virtualmachines/mutate create vm-subnet-not-existing.yaml
 cmp stderr err-subnet-not-existing.txt
+
+# Expect an error if a migrated VM references an unknown plan.
+cp vm-2.yaml vm-plan-not-existing.yaml
+replace 2dabc5ef-f1b5-4e63-9534-a8a17c0c0adf not-existing vm-plan-not-existing.yaml
+! webhook/admit /virtualmachines/mutate create vm-plan-not-existing.yaml --timeout=50ms
+# We don't check the error, as it materializes as a timeout.
+
+# Expect an error if a migrated VM references a source provider of unknown type.
+cp vm-2.yaml vm-unknown-source-provider.yaml
+replace 2dabc5ef-f1b5-4e63-9534-a8a17c0c0adf 84aed857-994a-4db0-804e-0add8a898204 vm-unknown-source-provider.yaml
+! webhook/admit /virtualmachines/mutate create vm-unknown-source-provider.yaml
+cmp stderr err-unknown-source-provider.txt
+
+# Expect an error if a migrated VM references an unknown VM ID.
+cp vm-2.yaml vm-unknown-vm-id.yaml
+replace trusting-newt-alpha not-existing vm-unknown-vm-id.yaml
+! webhook/admit /virtualmachines/mutate create vm-unknown-vm-id.yaml
+cmp stderr err-unknown-vm-id.txt
+
+# Expect an error if a migrated VM references an unknown interface in the inventory
+cp vm-2.yaml vm-interface-not-found.yaml
+replace 00:11:22:33:44:66 99:11:22:33:44:66 vm-interface-not-found.yaml
+! webhook/admit /virtualmachines/mutate create vm-interface-not-found.yaml
+cmp stderr err-interface-not-found.txt
+
+# Expect an error if a migrated VM references an interface with unknown IPv4, with IP preservation.
+cp vm-2-preserve-ips.yaml vm-interface-missing-ipv4.yaml
+replace 00:11:22:33:44:66 00:11:22:33:66:66 vm-interface-missing-ipv4.yaml
+! webhook/admit /virtualmachines/mutate create vm-interface-missing-ipv4.yaml
+cmp stderr err-interface-missing-ipv4.txt
+
+# Don't expect an error if a migrated VM references an interface with unknown IPv4, without IP preservation.
+cp vm-2.yaml vm-interface-missing-ipv4.yaml
+cp vm-2-expected.yaml vm-2-expected.v2.yaml
+replace 00:11:22:33:44:66 00:11:22:33:66:66 vm-interface-missing-ipv4.yaml
+replace 00:11:22:33:44:66 00:11:22:33:66:66 vm-2-expected.v2.yaml
+webhook/admit /virtualmachines/mutate create vm-interface-missing-ipv4.yaml -o vm-actual.yaml
+cmp vm-actual.yaml vm-2-expected.v2.yaml
 
 # ---
 
@@ -76,6 +129,8 @@ metadata:
 spec:
   subnets:
   - name: parrot
+    dhcp:
+      mode: broadcast
   - name: ewe
   - name: seahorse
   networkAttachmentDefinitions:
@@ -140,6 +195,102 @@ metadata:
 spec:
   config: '{"cniVersion": "0.3.1", "type": "cilium-cni"}'
 
+-- provider-1.yaml --
+apiVersion: forklift.konveyor.io/v1beta1
+kind: Provider
+metadata:
+  name: guinea
+  namespace: muskrat
+  uid: 5e497cae-e26e-40f3-b391-135b4cbbdd82
+spec:
+  secret:
+    name: guinea
+    namespace: muskrat
+  type: vsphere
+
+-- provider-2.yaml --
+apiVersion: forklift.konveyor.io/v1beta1
+kind: Provider
+metadata:
+  name: kit
+  namespace: raptor
+  uid: 8e0d07b8-b7a6-4994-8bb0-027d9ef81ca2
+spec:
+  secret:
+    name: kit
+    namespace: raptor
+  type: other
+
+-- plan-1.yaml --
+apiVersion: forklift.konveyor.io/v1beta1
+kind: Plan
+metadata:
+  name: settling-ape
+  namespace: raptor
+  uid: 2dabc5ef-f1b5-4e63-9534-a8a17c0c0adf
+spec:
+  preserveStaticIPs: false
+  provider:
+    destination:
+      apiVersion: forklift.konveyor.io/v1beta1
+      kind: Provider
+      name: host
+      namespace: muskrat
+      uid: 20042b16-77a1-48c8-a2a0-ebc1241c53c3
+    source:
+      apiVersion: forklift.konveyor.io/v1beta1
+      kind: Provider
+      name: guinea
+      namespace: muskrat
+      uid: 5e497cae-e26e-40f3-b391-135b4cbbdd82
+
+-- plan-2.yaml --
+apiVersion: forklift.konveyor.io/v1beta1
+kind: Plan
+metadata:
+  name: amused-dory
+  namespace: raptor
+  uid: 532e2c42-f81b-4f6f-a797-c893ccefe3c5
+spec:
+  preserveStaticIPs: true
+  provider:
+    destination:
+      apiVersion: forklift.konveyor.io/v1beta1
+      kind: Provider
+      name: host
+      namespace: muskrat
+      uid: 20042b16-77a1-48c8-a2a0-ebc1241c53c3
+    source:
+      apiVersion: forklift.konveyor.io/v1beta1
+      kind: Provider
+      name: guinea
+      namespace: muskrat
+      uid: 5e497cae-e26e-40f3-b391-135b4cbbdd82
+
+-- plan-3.yaml --
+apiVersion: forklift.konveyor.io/v1beta1
+kind: Plan
+metadata:
+  name: popular-racer
+  namespace: raptor
+  uid: 84aed857-994a-4db0-804e-0add8a898204
+spec:
+  preserveStaticIPs: false
+  provider:
+    destination:
+      apiVersion: forklift.konveyor.io/v1beta1
+      kind: Provider
+      name: host
+      namespace: muskrat
+      uid: 20042b16-77a1-48c8-a2a0-ebc1241c53c3
+    source:
+      apiVersion: forklift.konveyor.io/v1beta1
+      kind: Provider
+      name: kit
+      namespace: raptor
+      uid: 8e0d07b8-b7a6-4994-8bb0-027d9ef81ca2
+
+
 -- nads.table --
 Namespace   Name             Type         Network       Subnet        Managed
 default     bull-calf        cilium-cni   bull          calf          false
@@ -150,6 +301,18 @@ default     other-calf       cilium-cni   other         calf          false
 spaniel     egret-ewe        cilium-cni   egret         ewe           true
 spaniel     egret-parrot     cilium-cni   egret         parrot        true
 spaniel     egret-seahorse   cilium-cni   egret         seahorse      true
+
+-- providers.table --
+Namespace   Name     UID                                    Type
+muskrat     guinea   5e497cae-e26e-40f3-b391-135b4cbbdd82   vsphere
+raptor      kit      8e0d07b8-b7a6-4994-8bb0-027d9ef81ca2   other
+
+-- plans.table --
+Namespace   Name            UID                                    SourceProvider   PreserveStaticIPs
+raptor      settling-ape    2dabc5ef-f1b5-4e63-9534-a8a17c0c0adf   muskrat/guinea   false
+raptor      amused-dory     532e2c42-f81b-4f6f-a797-c893ccefe3c5   muskrat/guinea   true
+raptor      popular-racer   84aed857-994a-4db0-804e-0add8a898204   raptor/kit       false
+
 
 -- vm-1.yaml --
 apiVersion: kubevirt.io/v1
@@ -239,6 +402,26 @@ spec:
           networkName: default/bull-donkey
         name: net-5
 
+-- vm-2-inventory.json --
+{
+  "id": "trusting-newt-alpha",
+  "name": "trusting-newt",
+
+  "guestNetworks": [
+    {"device": "nic0", "mac": "00:11:22:33:44:55", "ip": "192.168.1.100"},
+    {"device": "nic0", "mac": "00:11:22:33:44:55", "ip": "2001::1:1002"},
+    {"device": "nic1", "mac": "00:11:22:33:44:66", "ip": "192.168.2.100"},
+    {"device": "nic1", "mac": "00:11:22:33:44:66", "ip": "2001::2:1002"},
+    {"device": "nic2", "mac": "00:11:22:33:44:77", "ip": "192.168.3.100"},
+    {"device": "nic2", "mac": "00:11:22:33:44:77", "ip": "2001::3:1002"},
+    {"device": "nic3", "mac": "00:11:22:33:44:88", "ip": "192.168.4.100"},
+    {"device": "nic3", "mac": "00:11:22:33:44:88", "ip": "2001::4:1002"},
+    {"device": "nic4", "mac": "00:11:22:33:44:99", "ip": "192.168.5.100"},
+    {"device": "nic4", "mac": "00:11:22:33:44:99", "ip": "2001::5:1002"},
+    {"device": "nic1-bis", "mac": "00:11:22:33:66:66", "ip": "2001::2:1002"}
+  ]
+}
+
 -- vm-2-expected.yaml --
 apiVersion: kubevirt.io/v1
 kind: VirtualMachine
@@ -258,24 +441,139 @@ spec:
           {
             "network": "egret",
             "interface": "net-0",
-            "subnet": "ewe"
+            "subnet": "ewe",
+            "ipv4": "192.168.1.100",
+            "ipv6": "2001::1:1002",
+            "mac": "00:11:22:33:44:55"
           }
         privnet.isovalent.com/secondary-network-attachments: |-
           [
             {
               "network": "egret",
               "interface": "net-1",
-              "subnet": "parrot"
+              "subnet": "parrot",
+              "ipv4": "0.0.0.0",
+              "ipv6": "2001::2:1002",
+              "mac": "00:11:22:33:44:66"
             },
             {
               "network": "egret",
               "interface": "net-2",
-              "subnet": "parrot"
+              "subnet": "parrot",
+              "ipv4": "0.0.0.0",
+              "ipv6": "2001::3:1002",
+              "mac": "00:11:22:33:44:77"
             },
             {
               "network": "bull",
               "interface": "net-4",
-              "subnet": "cow"
+              "subnet": "cow",
+              "ipv4": "192.168.5.100",
+              "ipv6": "2001::5:1002",
+              "mac": "00:11:22:33:44:99"
+            }
+          ]
+      labels:
+        app: trusting-newt
+    spec:
+      domain:
+        devices:
+          interfaces:
+          - binding:
+              name: privnet
+            macAddress: "00:11:22:33:44:55"
+            name: net-0
+          - binding:
+              name: privnet
+            macAddress: 00:11:22:33:44:66
+            name: net-1
+          - binding:
+              name: privnet
+            macAddress: 00:11:22:33:44:77
+            name: net-2
+          - bridge: {}
+            macAddress: 00:11:22:33:44:88
+            name: net-3
+          - binding:
+              name: privnet
+            macAddress: 00:11:22:33:44:99
+            name: net-4
+          - bridge: {}
+            macAddress: "00:11:22:33:44:00"
+            name: net-5
+        resources: {}
+      networks:
+      - multus:
+          default: true
+          networkName: spaniel/egret-ewe
+        name: net-0
+      - multus:
+          networkName: spaniel/egret-parrot
+        name: net-1
+      - multus:
+          networkName: egret-parrot
+        name: net-2
+      - multus:
+          networkName: default/external
+        name: net-3
+      - multus:
+          networkName: default/bull-cow
+        name: net-4
+      - multus:
+          networkName: default/bull-donkey
+        name: net-5
+status: {}
+-- EOR --
+
+-- vm-2-preserve-ips-expected.yaml --
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    plan: 532e2c42-f81b-4f6f-a797-c893ccefe3c5
+    vmID: trusting-newt-alpha
+  name: trusting-newt
+  namespace: spaniel
+  uid: cc2a8419-636b-406e-af81-daecb1c34b02
+spec:
+  runStrategy: Always
+  template:
+    metadata:
+      annotations:
+        privnet.isovalent.com/network-attachment: |-
+          {
+            "network": "egret",
+            "interface": "net-0",
+            "subnet": "ewe",
+            "ipv4": "192.168.1.100",
+            "ipv6": "2001::1:1002",
+            "mac": "00:11:22:33:44:55"
+          }
+        privnet.isovalent.com/secondary-network-attachments: |-
+          [
+            {
+              "network": "egret",
+              "interface": "net-1",
+              "subnet": "parrot",
+              "ipv4": "192.168.2.100",
+              "ipv6": "2001::2:1002",
+              "mac": "00:11:22:33:44:66"
+            },
+            {
+              "network": "egret",
+              "interface": "net-2",
+              "subnet": "parrot",
+              "ipv4": "192.168.3.100",
+              "ipv6": "2001::3:1002",
+              "mac": "00:11:22:33:44:77"
+            },
+            {
+              "network": "bull",
+              "interface": "net-4",
+              "subnet": "cow",
+              "ipv4": "192.168.5.100",
+              "ipv6": "2001::5:1002",
+              "mac": "00:11:22:33:44:99"
             }
           ]
       labels:
@@ -363,6 +661,21 @@ spec:
           networkName: spaniel/egret-parrot
         name: net-1
 
+-- vm-3-inventory.json --
+{
+  "id": "trusting-newt-beta",
+  "name": "trusting-newt",
+
+  "guestNetworks": [
+    {"device": "nic1", "mac": "00:11:22:33:44:66", "ip": "192.168.2.100"},
+    {"device": "nic1", "mac": "00:11:22:33:44:66", "ip": "2001::2:1002"}
+  ],
+
+  "guestIpStacks": [
+    {"device": "nic1", "dns": ["8.8.8.8", "8.8.4.4"]}
+  ]
+}
+
 -- vm-3-expected.yaml --
 apiVersion: kubevirt.io/v1
 kind: VirtualMachine
@@ -383,7 +696,10 @@ spec:
             {
               "network": "egret",
               "interface": "net-1",
-              "subnet": "parrot"
+              "subnet": "parrot",
+              "ipv4": "0.0.0.0",
+              "ipv6": "2001::2:1002",
+              "mac": "00:11:22:33:44:66"
             }
           ]
       labels:
@@ -415,4 +731,12 @@ invalid NAD "something/else" for VM network "net-0": not found
 invalid NAD "default/other-calf" for VM network "net-0": private network "other" not found
 -- err-subnet-not-existing.txt --
 invalid NAD "default/bull-calf" for VM network "net-0": subnet "calf" not found in private network "bull"
+-- err-unknown-source-provider.txt --
+querying inventory: unsupported source provider type "other"
+-- err-unknown-vm-id.txt --
+querying inventory: looking up VM: unexpected status code: 404 Not Found
+-- err-interface-not-found.txt --
+retrieving IP addresses for VM network "net-1": no entry found in inventory
+-- err-interface-missing-ipv4.txt --
+retrieving IP addresses for VM network "net-1": unknown IPv4 address
 -- EOR --
