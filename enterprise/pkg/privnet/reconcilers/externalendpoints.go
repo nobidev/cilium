@@ -33,6 +33,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	daemonK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
@@ -72,12 +73,19 @@ var ExternalEndpointsCell = cell.Group(
 		(*ExternalEndpoints).registerK8sStatusReconciler,
 		// Creates and manages local endpoints based on the StateDB table
 		(*ExternalEndpoints).registerEndpointCreationReconciler,
+		// Starts the logic to populate the external endpoint policy maps
+		(*ExternalEndpoints).startEndpointPolicyMapUpdater,
 	),
 
 	cell.Provide(
 		// Hooks into endpoint restoration for external endpoints
 		(*ExternalEndpoints).registerExternalEndpointRestorer,
 	),
+
+	// Observe endpoint events only when running on INB
+	endpoints.EnableEndpointEventObserver(config.Config.EnabledAsBridge),
+	// Enable the external endpoint policy map when running on INB
+	extepspolicy.Enable(config.Config.EnabledAsBridge),
 )
 
 // ExternalEndpoints reconciles various things related to PrivateNetworkExternalEndpoints.
@@ -965,4 +973,135 @@ func (e *ExternalEndpoints) registerExternalEndpointRestorer(
 	epLookup.Subscribe(r)
 	// Register a restoration notifier to receive RestorationNotify callbacks.
 	return endpointstate.RestorationNotifierOut{Restorer: r}
+}
+
+// externalEndpointPolicyMapUpdater populates the external endpoints policy map.
+type externalEndpointPolicyMapUpdater struct {
+	log      *slog.Logger
+	writer   extepspolicy.Writer
+	epLookup endpoints.EndpointGetter
+
+	endpointIPs map[endpoints.EndpointID][]netip.Addr
+}
+
+// upsertPolicyMap inserts the policy map of the given endpoint into the extepspolicy map.
+// The endpoint needs to be a private network external endpoint. We store the IPs of the
+// endpoints that we upserted to be able to remove them later. This is needed because
+// there is no guarantee that we can access the endpoint object after we have observed
+// an endpoint deletion event.
+func (e *externalEndpointPolicyMapUpdater) upsertPolicyMap(epID endpoints.EndpointID) {
+	ep := e.epLookup.LookupID(uint16(epID))
+	if ep == nil {
+		e.log.Info(
+			"Received endpoint regeneration notification for unknown endpoint",
+			logfields.EndpointID, epID,
+		)
+		return
+	}
+
+	if !isPrivateNetworkExternalEndpoint(ep) {
+		return
+	}
+
+	policyMap, err := ep.GetPolicyMap()
+	if err != nil {
+		e.log.Warn(
+			"Failed to retrieve policy map for endpoint",
+			logfields.EndpointID, ep.GetID16(),
+			logfields.Error, err,
+		)
+		return
+	}
+
+	realizedEndpointIPs := make([]netip.Addr, 0, 2)
+	candidateEndpointIPs := make([]netip.Addr, 0, 2)
+	if ipv4 := ep.IPv4Address(); ipv4.IsValid() {
+		candidateEndpointIPs = append(candidateEndpointIPs, ipv4)
+	}
+	if ipv6 := ep.IPv6Address(); ipv6.IsValid() {
+		candidateEndpointIPs = append(candidateEndpointIPs, ipv6)
+	}
+
+	for _, ip := range candidateEndpointIPs {
+		// No need to re-try if Upsert fails, as any errors it returns are persistent.
+		// Writer has an internal reconciler that will re-try any ephemeral errors.
+		err = e.writer.Upsert(ip, policyMap)
+		if err != nil {
+			e.log.Warn(
+				"Failed to upsert endpoint policy map",
+				logfields.EndpointID, epID,
+				logfields.IPAddr, ip,
+				logfields.Error, err,
+			)
+			continue
+		}
+		realizedEndpointIPs = append(realizedEndpointIPs, ip)
+	}
+	e.endpointIPs[epID] = realizedEndpointIPs
+}
+
+// deletePolicyMap removes all known IPs for the given endpoint from the external endpoint policy map
+func (e *externalEndpointPolicyMapUpdater) deletePolicyMap(epID endpoints.EndpointID) {
+	for _, ip := range e.endpointIPs[epID] {
+		err := e.writer.Delete(ip)
+		if err != nil {
+			e.log.Warn(
+				"Failed to delete endpoint policy map",
+				logfields.EndpointID, epID,
+				logfields.IPAddr, ip,
+				logfields.Error, err,
+			)
+		}
+	}
+	delete(e.endpointIPs, epID)
+}
+
+// markInitialized prunes the external endpoint policy map by marking it as initialized
+func (e *externalEndpointPolicyMapUpdater) markInitialized() {
+	e.writer.MarkInitialized()
+}
+
+// startEndpointPolicyMapUpdater starts the observer which updates the external endpoint policy map
+// based on events from the endpoint subsystem.
+func (e *ExternalEndpoints) startEndpointPolicyMapUpdater(in struct {
+	cell.In
+
+	PolicyMapWriter extepspolicy.Writer
+
+	EPLookup endpoints.EndpointGetter
+	EPEvents endpoints.EndpointEventObserver
+}) {
+	if !e.cfg.EnabledAsBridge() {
+		return
+	}
+
+	epPolicyMapUpdater := &externalEndpointPolicyMapUpdater{
+		log:         e.log,
+		writer:      in.PolicyMapWriter,
+		epLookup:    in.EPLookup,
+		endpointIPs: make(map[endpoints.EndpointID][]netip.Addr),
+	}
+	e.jg.Add(job.Observer(
+		"external-eps-policy-map-updater",
+		func(ctx context.Context, events endpoints.EndpointEvents) error {
+			for _, event := range events {
+				switch event.EventKind {
+				case endpoints.EndpointRegenSuccess:
+					// We only upsert the policy map once the endpoint has finished regeneration.
+					// This ensures that the policy map has already been created by the loader and
+					// is fully populated. This is important because otherwise we could race with
+					// the loader, which would also call `OpenOrCreate` on the endpoint policy map.
+					epPolicyMapUpdater.upsertPolicyMap(event.Object)
+				case endpoints.EndpointDelete:
+					// We delete the policy map entry once the endpoint is deleted.
+					epPolicyMapUpdater.deletePolicyMap(event.Object)
+				case endpoints.EndpointInitRegenAllDone:
+					// All endpoints have been restored and regenerated, mark the policy map as
+					// initialized for pruning.
+					epPolicyMapUpdater.markInitialized()
+				}
+			}
+			return nil
+		},
+		in.EPEvents))
 }
