@@ -29,6 +29,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointstate"
@@ -42,6 +43,7 @@ func mockEndpointCell(t testing.TB) cell.Cell {
 
 	return cell.Group(
 		cell.ProvidePrivate(
+			newFakeEventObserver,
 			newFakeRestorer,
 			newFakeEPM,
 		),
@@ -54,6 +56,7 @@ func mockEndpointCell(t testing.TB) cell.Cell {
 		cell.DecorateAll(func(f *fakeEPM) endpoints.EndpointGetter { return f }),
 		cell.DecorateAll(func(f *fakeEPM) endpoints.EndpointCreator { return f }),
 		cell.DecorateAll(func(f *fakeEPM) endpoints.EndpointRemover { return f }),
+		cell.DecorateAll(func(f *fakeEndpointEventObserver) endpoints.EndpointEventObserver { return f }),
 	)
 }
 
@@ -192,6 +195,13 @@ func (f *fakeEP) LXCMac() mac.MAC {
 // SyncEndpointHeaderFile implements endpoints.Endpoint.
 func (f *fakeEP) SyncEndpointHeaderFile() {}
 
+// fakeEndpointEventObserver implements endpoints.EndpointEventObserver
+type fakeEndpointEventObserver = observers.Generic[endpoints.EndpointID, endpoints.EndpointEventKind]
+
+func newFakeEventObserver() *fakeEndpointEventObserver {
+	return observers.NewGeneric[endpoints.EndpointID, endpoints.EndpointEventKind]()
+}
+
 // fakeEPM implements endpoints.Endpoint{Creator,Getter,Remover}
 type fakeEPM struct {
 	mu   lock.Mutex
@@ -199,20 +209,23 @@ type fakeEPM struct {
 	subs []endpoints.EndpointSubscriber
 
 	restorer *fakeRestorer
+	observer *fakeEndpointEventObserver
 }
 
-func newFakeEPM(restorer *fakeRestorer) *fakeEPM {
+func newFakeEPM(restorer *fakeRestorer, observer *fakeEndpointEventObserver) *fakeEPM {
 	return &fakeEPM{
 		subs: []endpoints.EndpointSubscriber{},
 		eps:  []*fakeEP{},
 
 		restorer: restorer,
+		observer: observer,
 	}
 }
 
 // fakeRestorer implements endpointstate.Restorer
 type fakeRestorer struct {
 	fence       regeneration.Fence
+	observer    *fakeEndpointEventObserver
 	restored    chan struct{}
 	regenerated chan struct{}
 }
@@ -224,9 +237,11 @@ func newFakeRestorer(
 	fence regeneration.Fence,
 	promise promise.Resolver[endpointstate.Restorer],
 	lc cell.Lifecycle,
+	observer *fakeEndpointEventObserver,
 ) *fakeRestorer {
 	f := &fakeRestorer{
 		fence:       fence,
+		observer:    observer,
 		restored:    make(chan struct{}),
 		regenerated: make(chan struct{}),
 	}
@@ -252,6 +267,7 @@ func (f *fakeRestorer) finishRegeneration() {
 		panic("endpoints were regenerated without restoration")
 	}
 	close(f.regenerated)
+	f.observer.Queue(endpoints.EndpointInitRegenAllDone, 0)
 }
 
 func (f *fakeRestorer) isRestored() bool {
@@ -344,6 +360,7 @@ func (f *fakeEPM) createEndpoint(epTemplate *models.EndpointChangeRequest, resto
 	}
 
 	f.eps = append(f.eps, &ep)
+	f.observer.Queue(endpoints.EndpointCreate, endpoints.EndpointID(ep.ID))
 	for _, sub := range f.subs {
 		if restored {
 			sub.EndpointRestored(&ep)
@@ -351,6 +368,7 @@ func (f *fakeEPM) createEndpoint(epTemplate *models.EndpointChangeRequest, resto
 			sub.EndpointCreated(&ep)
 		}
 	}
+	f.observer.Queue(endpoints.EndpointRegenSuccess, endpoints.EndpointID(ep.ID))
 	return &ep, nil
 }
 
@@ -372,6 +390,7 @@ func (f *fakeEPM) RemoveByCEPName(nsname string) (endpoints.Endpoint, error) {
 	}
 	ep := f.eps[i]
 	f.eps = slices.Delete(f.eps, i, i+1)
+	f.observer.Queue(endpoints.EndpointDelete, endpoints.EndpointID(ep.GetID16()))
 	for _, sub := range f.subs {
 		sub.EndpointDeleted(ep)
 	}

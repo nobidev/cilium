@@ -16,7 +16,10 @@ import (
 	"iter"
 	"net/netip"
 
+	"github.com/cilium/stream"
+
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -181,3 +184,24 @@ func (p *EndpointProperties) ActivatedAt() (time.Time, error) {
 func FormatActivatedAtProperty(t time.Time) string {
 	return t.UTC().Format(time.RFC3339Nano)
 }
+
+type EndpointEventKind string
+
+const (
+	// EndpointCreate is emitted when a new endpoint was created
+	EndpointCreate EndpointEventKind = "endpoint-create"
+	// EndpointDelete is emitted when an endpoint was deleted
+	EndpointDelete EndpointEventKind = "endpoint-delete"
+	// EndpointRegenSuccess is emitted when an endpoint has successfully regenerated
+	EndpointRegenSuccess EndpointEventKind = "regenerate-success"
+	// EndpointRegenFailure is emitted when an endpoint has failed to regenerate
+	EndpointRegenFailure EndpointEventKind = "regenerate-failure"
+	// EndpointInitRegenAllDone is emitted when the initial endpoint regeneration has
+	// finished for all restored endpoints (emitted EndpointID is 0 for this event)
+	EndpointInitRegenAllDone EndpointEventKind = "initial-regeneration-all-done"
+)
+
+type EndpointID uint16
+
+type EndpointEventObserver stream.Observable[observers.Events[EndpointID, EndpointEventKind]]
+type EndpointEvents = observers.Events[EndpointID, EndpointEventKind]

@@ -21,5 +21,6 @@ var Cell = cell.Group(
 	cell.Provide(
 		newEndpointManagerAdapter,
 		newEndpointAPIManagerAdapter,
+		newEndpointEventObserver,
 	),
 )
