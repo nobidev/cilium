@@ -11,6 +11,8 @@
 #define ENABLE_IPV6
 #define TUNNEL_MODE
 #define ENCAP_IFINDEX 1
+#define EP_IFINDEX 99
+#define EP_LXC_ID 0
 
 #define privnet_tunnel_id 199
 /* Enable debug output */
@@ -42,9 +44,35 @@ mock_ext_eps_policy_can_access(struct __ctx_buff __maybe_unused *ctx,
 
 #undef EFFECTIVE_EP_ID
 
+__section_entry
+int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
+{
+	return TC_ACT_OK;
+}
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(max_entries, 1);
+	__array(values, int());
+} mock_policy_call_map __section(".maps") = {
+	.values = {
+		[EP_LXC_ID] = &mock_handle_policy,
+	},
+};
+
+#define tail_call_dynamic mock_tail_call_dynamic
+static __always_inline __maybe_unused void
+mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
+		       const void *map __maybe_unused, __u32 slot __maybe_unused)
+{
+	tail_call(ctx, &mock_policy_call_map, slot);
+}
+
 /* Include an actual datapath code */
 #include "lib/bpf_overlay.h"
 
+#include "tests/lib/endpoint.h"
 #include "tests/lib/enterprise_privnet.h"
 #include "tests/lib/network_device.h"
 
@@ -91,6 +119,72 @@ int privnet_icmp_from_overlay_nat_src_dst_check(struct __ctx_buff *ctx)
 
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
 	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+
+	test_finish();
+}
+
+PKTGEN("tc", "02_icmp_from_overlay_to_local_endpoint")
+int privnet_icmp_from_overlay_to_local_endpoint_pktgen(struct __ctx_buff *ctx)
+{
+	BUF_DECL(EP_V4_ICMP_REQ, privnet_pod_ip_icmp_req_to_endpoint);
+	build_privnet_packet(ctx, EP_V4_ICMP_REQ);
+	return 0;
+}
+
+SETUP("tc", "02_icmp_from_overlay_to_local_endpoint")
+int privnet_icmp_from_overlay_to_local_endpoint_setup(struct __ctx_buff *ctx)
+{
+	/* Create an endpoint map entry to force local delivery */
+	endpoint_v4_add_entry(V4_EP_IP, EP_IFINDEX, EP_LXC_ID, 0, 0, 0,
+			      (__u8 *)mac_three, (__u8 *)mac_four);
+
+	return overlay_receive_packet(ctx);
+}
+
+CHECK("tc", "02_icmp_from_overlay_to_local_endpoint")
+int privnet_icmp_from_overlay_to_local_endpoint_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	endpoint_v4_del_entry(V4_EP_IP);
+	assert_status_code(ctx, CTX_ACT_OK);
+
+	test_finish();
+}
+
+PKTGEN("tc", "03_icmp_from_overlay_to_local_endpoint_v6")
+int privnet_icmp_from_overlay_to_local_endpoint_v6_pktgen(struct __ctx_buff *ctx)
+{
+	BUF_DECL(EP_V6_ICMP_REQ, privnet_pod_ipv6_icmp_req_to_endpoint);
+	build_privnet_packet(ctx, EP_V6_ICMP_REQ);
+	return 0;
+}
+
+SETUP("tc", "03_icmp_from_overlay_to_local_endpoint_v6")
+int privnet_icmp_from_overlay_to_local_endpoint_v6_setup(struct __ctx_buff *ctx)
+{
+	/* Create an endpoint map entry to force local delivery */
+	endpoint_v6_add_entry((const union v6addr *)v6_ep_ip, EP_IFINDEX, EP_LXC_ID, 0, 0,
+			      (__u8 *)mac_three, (__u8 *)mac_four);
+
+	return overlay_receive_packet(ctx);
+}
+
+CHECK("tc", "03_icmp_from_overlay_to_local_endpoint_v6")
+int privnet_icmp_from_overlay_to_local_endpoint_v6_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	/* endpoint_v6_del_entry is not defined upstream. Let's keep things
+	 * simple and open-code it here.
+	 */
+	struct endpoint_key key = {
+		.ip6 = *((const union v6addr *)v6_ep_ip),
+		.family = ENDPOINT_KEY_IPV6,
+	};
+	map_delete_elem(&cilium_lxc, &key);
+
+	assert_status_code(ctx, CTX_ACT_OK);
 
 	test_finish();
 }

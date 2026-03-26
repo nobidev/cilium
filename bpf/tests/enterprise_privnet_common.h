@@ -42,6 +42,9 @@ const __u8 __other_subnet_v6[16] = {0xfd, 0x20};
 #define V6_EXT_IP v6_ext_node_one
 #define IFINDEX 0x42
 
+#define V4_EP_IP IPV4(172, 255, 0, 1)
+volatile const __u8 v6_ep_ip[] = { 0xfd, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0, 1 };
+
 /* Scapy packet definitions */
 
 #define build_privnet_packet(ctx, buf_name)		\

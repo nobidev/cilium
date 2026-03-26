@@ -64,6 +64,15 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		if (!unknown_flow) {
 			/* Not unknown flow, so we're in PIP space */
 			set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
+			/* Let's check first if the destination is a local
+			 * endpoint, and the source is not a remapped address,
+			 * in which case we let processing continue as usual.
+			 */
+			if (!privnet_pip_lookup6(*((union v6addr *)&ip6->saddr)) &&
+			    lookup_ip6_endpoint(ip6))
+				return CTX_ACT_OK;
+
 			ret = privnet_ext_ep_policy_ingress6(ctx, ip6, src_sec_identity, ext_err);
 			if (IS_ERR(ret))
 				return ret;
@@ -74,19 +83,9 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		if (IS_ERR(ret))
 			return ret;
 
-		if (!src_pip_val || src_pip_val->ifindex == 0) {
-			if (!revalidate_data(ctx, &data, &data_end, &ip6))
-				return DROP_INVALID;
-
-			/* We could not perform SNAT, hence we cannot handle this packet. */
-			if (lookup_ip6_endpoint(ip6)) {
-				/* The destination is a local endpoint, hence let processing continue. */
-				return CTX_ACT_OK;
-			}
-
-			/* Drop all other packets, to prevent incorrectly forwarding them. */
+		if (!src_pip_val || src_pip_val->ifindex == 0)
 			return DROP_UNROUTABLE;
-		}
+
 		privnet_ifindex = (int)src_pip_val->ifindex;
 
 		/* Fully translated flow*/
@@ -144,6 +143,14 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		if (!unknown_flow) {
 			/* Not unknown flow, so we're in PIP space */
 			set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
+			/* Let's check first if the destination is a local
+			 * endpoint, and the source is not a remapped address,
+			 * in which case we let processing continue as usual.
+			 */
+			if (!privnet_pip_lookup4(ip4->saddr) && lookup_ip4_endpoint(ip4))
+				return CTX_ACT_OK;
+
 			ret = privnet_ext_ep_policy_ingress4(ctx, ip4, src_sec_identity, ext_err);
 			if (IS_ERR(ret))
 				return ret;
@@ -159,21 +166,9 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		 * We expect the source to be some endpoint in kubernetes cluster
 		 * which is initiating the flow.
 		 */
-		if (!src_pip_val || src_pip_val->ifindex == 0) {
-			if (!revalidate_data(ctx, &data, &data_end, &ip4))
-				return DROP_INVALID;
-
-			if (lookup_ip4_endpoint(ip4)) {
-				/* The destination is a local endpoint, hence let processing continue. */
-				return CTX_ACT_OK;
-			}
-
-			/* Drop all other packets from unknown source,
-			 * to prevent incorrectly forwarding them.
-			 */
-
+		if (!src_pip_val || src_pip_val->ifindex == 0)
 			return DROP_UNROUTABLE;
-		}
+
 		privnet_ifindex = (int)src_pip_val->ifindex;
 
 		/* Fully translated flow*/
