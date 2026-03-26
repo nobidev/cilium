@@ -13,12 +13,14 @@ package endpoints
 import (
 	"context"
 	"errors"
+	"fmt"
 	"iter"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/ipam"
 )
 
 // newEndpointAPIManagerAdapter creates a new endpointAPIManagerAdapter
@@ -63,14 +65,14 @@ func (e endpointManagerAdapter) LookupID(id uint16) Endpoint {
 	return ep
 }
 
-// RemoveByCEPName implements EndpointRemover.
-func (e endpointManagerAdapter) RemoveByCEPName(nsname string) (Endpoint, error) {
-	ep := e.epm.LookupCEPName(nsname)
-	if ep == nil {
-		return nil, nil
+// RemoveEndpoint implements EndpointRemover.
+func (e endpointManagerAdapter) RemoveEndpoint(ep Endpoint) error {
+	realEP, ok := ep.(*endpoint.Endpoint)
+	if !ok {
+		return fmt.Errorf("invalid endpoint type: %T", ep)
 	}
-	return ep, errors.Join(e.epm.RemoveEndpoint(ep, endpoint.DeleteConfig{
-		NoIPRelease: ep.DatapathConfiguration.ExternalIpam,
+	return errors.Join(e.epm.RemoveEndpoint(realEP, endpoint.DeleteConfig{
+		NoIPRelease: realEP.DatapathConfiguration.ExternalIpam,
 	})...)
 }
 
@@ -89,6 +91,18 @@ func (e endpointManagerAdapter) LookupCEPName(nsname string) Endpoint {
 func (e endpointManagerAdapter) GetEndpointsByPodName(nsname string) iter.Seq[Endpoint] {
 	return func(yield func(Endpoint) bool) {
 		eps := e.epm.GetEndpointsByPodName(nsname)
+		for _, ep := range eps {
+			if !yield(ep) {
+				break
+			}
+		}
+	}
+}
+
+// GetEndpoints implements EndpointGetter.
+func (e endpointManagerAdapter) GetEndpoints() iter.Seq[Endpoint] {
+	return func(yield func(Endpoint) bool) {
+		eps := e.epm.GetEndpoints()
 		for _, ep := range eps {
 			if !yield(ep) {
 				break
@@ -122,4 +136,9 @@ func (e endpointSubscriberAdapter) EndpointDeleted(ep *endpoint.Endpoint, conf e
 // EndpointRestored implements endpointmanager.Subscriber.
 func (e endpointSubscriberAdapter) EndpointRestored(ep *endpoint.Endpoint) {
 	e.s.EndpointRestored(ep)
+}
+
+// newIPAM returns the IPAM interface implementation
+func newIPAM(i *ipam.IPAM) IPAM {
+	return i
 }

@@ -33,8 +33,10 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
@@ -160,6 +162,11 @@ func (f *fakeEP) GetK8sNamespaceAndPodName() string {
 	return fmt.Sprintf("%s/%s", f.Namespace, f.PodName)
 }
 
+// SetK8sMetadata implements endpoints.Endpoint.
+func (f *fakeEP) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) {
+	// no-op
+}
+
 // GetPropertyValue implements endpoints.Endpoint.
 func (f *fakeEP) GetPropertyValue(key string) any {
 	f.mu.Lock()
@@ -194,6 +201,16 @@ func (f *fakeEP) LXCMac() mac.MAC {
 
 // SyncEndpointHeaderFile implements endpoints.Endpoint.
 func (f *fakeEP) SyncEndpointHeaderFile() {}
+
+// UpdateLabelsFrom implements endpoints.Endpoint.
+func (f *fakeEP) UpdateLabelsFrom(oldLbls, newLbls map[string]string, source string) error {
+	return nil
+}
+
+// GetPolicyMap implements endpoints.Endpoint.
+func (f *fakeEP) GetPolicyMap() (*policymap.PolicyMap, error) {
+	return &policymap.PolicyMap{}, nil
+}
 
 // fakeEndpointEventObserver implements endpoints.EndpointEventObserver
 type fakeEndpointEventObserver = observers.Generic[endpoints.EndpointID, endpoints.EndpointEventKind]
@@ -378,35 +395,49 @@ func (f *fakeEPM) CreateEndpoint(ctx context.Context, epTemplate *models.Endpoin
 	return ep, err
 }
 
-// RemoveByCEPName implements endpoints.EndpointRemover.
-func (f *fakeEPM) RemoveByCEPName(nsname string) (endpoints.Endpoint, error) {
+// RemoveEndpoint implements endpoints.EndpointRemover.
+func (f *fakeEPM) RemoveEndpoint(ep endpoints.Endpoint) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	i := slices.IndexFunc(f.eps, func(ep *fakeEP) bool {
-		return ep.GetK8sNamespaceAndCEPName() == nsname
+	numEndpoints := len(f.eps)
+	f.eps = slices.DeleteFunc(f.eps, func(fakeEP *fakeEP) bool {
+		return fakeEP.GetID16() == ep.GetID16()
 	})
-	if i < 0 {
-		return nil, fmt.Errorf("no endpoint found for CEP %q", nsname)
+	if len(f.eps) == numEndpoints {
+		return fmt.Errorf("endpoint %d was already deleted", ep.GetID16())
 	}
-	ep := f.eps[i]
-	f.eps = slices.Delete(f.eps, i, i+1)
 	f.observer.Queue(endpoints.EndpointDelete, endpoints.EndpointID(ep.GetID16()))
 	for _, sub := range f.subs {
 		sub.EndpointDeleted(ep)
 	}
-	return ep, nil
+	return nil
 }
 
 // GetEndpointsByPodName implements endpoints.EndpointGetter.
 func (f *fakeEPM) GetEndpointsByPodName(nsname string) iter.Seq[endpoints.Endpoint] {
+	f.mu.Lock()
+	eps := slices.Clone(f.eps)
+	f.mu.Unlock()
 	return func(yield func(endpoints.Endpoint) bool) {
-		f.mu.Lock()
-		defer f.mu.Unlock()
-		for _, ep := range f.eps {
+		for _, ep := range eps {
 			if ep.GetK8sNamespaceAndPodName() == nsname {
 				if !yield(ep) {
 					return
 				}
+			}
+		}
+	}
+}
+
+// GetEndpoints implements endpoints.EndpointGetter.
+func (f *fakeEPM) GetEndpoints() iter.Seq[endpoints.Endpoint] {
+	f.mu.Lock()
+	eps := slices.Clone(f.eps)
+	f.mu.Unlock()
+	return func(yield func(endpoints.Endpoint) bool) {
+		for _, ep := range eps {
+			if !yield(ep) {
+				return
 			}
 		}
 	}
@@ -570,7 +601,11 @@ func (f *fakeEPM) deleteEPCmd() script.Cmd {
 			if len(args) != 1 {
 				return nil, fmt.Errorf("%w: expected number of arguments", script.ErrUsage)
 			}
-			_, err := f.RemoveByCEPName(args[0])
+			ep := f.LookupCEPName(args[0])
+			if ep == nil {
+				return nil, fmt.Errorf("fake endpoint %q not found", args[0])
+			}
+			err := f.RemoveEndpoint(ep)
 			if err != nil {
 				return nil, fmt.Errorf("fake endpoint deletion failed: %w", err)
 			}

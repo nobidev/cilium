@@ -53,6 +53,7 @@ func NewTestHive(t testing.TB) *hive.Hive {
 		mockK8sCell(t),
 		mockPolicyCell(t),
 		mockDeviceManagerCell(t),
+		mockIPAMCell(t),
 
 		cell.Provide(
 			dptables.NewDeviceTable,

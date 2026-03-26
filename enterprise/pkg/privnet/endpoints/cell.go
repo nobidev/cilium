@@ -22,5 +22,7 @@ var Cell = cell.Group(
 		newEndpointManagerAdapter,
 		newEndpointAPIManagerAdapter,
 		newEndpointEventObserver,
+
+		newIPAM,
 	),
 )

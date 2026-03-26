@@ -14,13 +14,19 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"net"
 	"net/netip"
 
 	"github.com/cilium/stream"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/ipam"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -49,13 +55,15 @@ type EndpointGetter interface {
 
 	LookupID(id uint16) (ep Endpoint)
 	LookupCEPName(nsname string) (ep Endpoint)
+
+	GetEndpoints() iter.Seq[Endpoint]
 	GetEndpointsByPodName(nsname string) iter.Seq[Endpoint]
 }
 
 // EndpointRemover allows the removal of endpoints on the endpoint manager.
 // This is a custom interface to allow for slim mock implementations.
 type EndpointRemover interface {
-	RemoveByCEPName(nsname string) (Endpoint, error)
+	RemoveEndpoint(ep Endpoint) error
 }
 
 // EndpointCreator allows the creation of endpoints on the endpoint manager.
@@ -84,8 +92,12 @@ type Endpoint interface {
 
 	GetK8sNamespaceAndCEPName() string
 	GetK8sNamespaceAndPodName() string
+	SetK8sMetadata(containerPorts []slim_corev1.ContainerPort)
 
 	SyncEndpointHeaderFile()
+
+	GetPolicyMap() (*policymap.PolicyMap, error)
+	UpdateLabelsFrom(oldLbls, newLbls map[string]string, source string) error
 }
 
 // EndpointSubscriber is endpointmanager.Subscriber but using the slim interfaces
@@ -205,3 +217,57 @@ type EndpointID uint16
 
 type EndpointEventObserver stream.Observable[observers.Events[EndpointID, EndpointEventKind]]
 type EndpointEvents = observers.Events[EndpointID, EndpointEventKind]
+
+// IPAM provides a subset of the IPAM allocator
+type IPAM interface {
+	ReleaseIP(ip net.IP, poolDefault ipam.Pool) error
+	AllocateIPWithoutSyncUpstream(ip net.IP, owner string, pool ipam.Pool) (*ipam.AllocationResult, error)
+	AllocateNext(family, owner string, poolDefault ipam.Pool) (ipv4Result, ipv6Result *ipam.AllocationResult, err error)
+}
+
+// CEPOwner implements CEPOwnerInterface for. It is also serialized as JSON to disk, so the format needs to be stable.
+type CEPOwner struct {
+	APIVersion string `json:"apiVersion"`
+	Kind       string `json:"kind"`
+
+	Namespace string       `json:"namespace"`
+	Name      string       `json:"name"`
+	UID       k8sTypes.UID `json:"uid"`
+
+	Labels map[string]string `json:"labels"`
+	HostIP string            `json:"hostIP"`
+}
+
+var _ endpoint.CEPOwnerInterface = CEPOwner{}
+
+func (c CEPOwner) IsNil() bool {
+	return false
+}
+
+func (c CEPOwner) GetAPIVersion() string {
+	return c.APIVersion
+}
+
+func (c CEPOwner) GetKind() string {
+	return c.Kind
+}
+
+func (c CEPOwner) GetNamespace() string {
+	return c.Namespace
+}
+
+func (c CEPOwner) GetName() string {
+	return c.Name
+}
+
+func (c CEPOwner) GetLabels() map[string]string {
+	return c.Labels
+}
+
+func (c CEPOwner) GetUID() k8sTypes.UID {
+	return c.UID
+}
+
+func (c CEPOwner) GetHostIP() string {
+	return c.HostIP
+}
