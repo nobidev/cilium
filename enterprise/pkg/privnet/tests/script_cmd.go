@@ -11,12 +11,16 @@
 package tests
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 	"text/template"
 
 	"github.com/cilium/hive/script"
+	"github.com/spf13/pflag"
+	"k8s.io/client-go/util/jsonpath"
 )
 
 func templateCmd() script.Cmd {
@@ -73,6 +77,71 @@ func templateCmd() script.Cmd {
 				Args: argsMap,
 			})
 			return nil, err
+		},
+	)
+}
+
+func jsonPathCmd() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "prints the output of a jsonpath expression against the input file",
+			Args:    "input-file jsonpath-template",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP("output", "o", "", "output file name")
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) < 2 {
+				return nil, script.ErrUsage
+			}
+
+			outFile, err := s.Flags.GetString("output")
+			if err != nil {
+				return nil, fmt.Errorf("failed get output: %w", err)
+			}
+
+			return func(s *script.State) (stdout string, stderr string, err error) {
+				inputFile := s.Path(args[0])
+				jsonPath := args[1]
+
+				jsonStr, err := os.ReadFile(inputFile)
+				if err != nil {
+					return stdout, stderr, fmt.Errorf("failed to read file %s: %w", inputFile, err)
+				}
+
+				var data any
+				if err := json.Unmarshal(jsonStr, &data); err != nil {
+					return stdout, stderr, fmt.Errorf("failed to unmarshal JSON: %w", err)
+				}
+
+				jp := jsonpath.New("query")
+				if err := jp.Parse(jsonPath); err != nil {
+					return stdout, stderr, fmt.Errorf("failed to parse jsonpath template: %w", err)
+				}
+
+				results, err := jp.FindResults(data)
+				if err != nil {
+					return stdout, stderr, fmt.Errorf("failed to find results: %w", err)
+				}
+
+				var buf bytes.Buffer
+				jp.EnableJSONOutput(true)
+				for _, resultGroup := range results {
+					if err := jp.PrintResults(&buf, resultGroup); err != nil {
+						return stdout, stderr, fmt.Errorf("failed to print results: %w", err)
+					}
+				}
+
+				if len(outFile) == 0 {
+					stdout = buf.String()
+				} else {
+					err = os.WriteFile(s.Path(outFile), buf.Bytes(), 0644)
+					if err != nil {
+						return stdout, stderr, fmt.Errorf("could not write %q: %w", s.Path(outFile), err)
+					}
+				}
+				return stdout, stderr, nil
+			}, nil
 		},
 	)
 }

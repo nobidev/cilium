@@ -1,0 +1,199 @@
+#! --private-networks-enabled --private-networks-mode=bridge --cluster-name=cluster3
+
+hive start
+db/initialized privnet-external-endpoints
+
+# Create sky namespace
+k8s/add ns-forest.v1.yaml
+
+# Create two endpoints (dashing-raven has no namespace metadata yet)
+k8s/add dashing-raven.v1.yaml
+k8s/add noble-wolf.v1.yaml
+
+# Wait for K8s reconciler to be done
+db/show privnet-external-endpoints --columns Name,Network,NetworkIPv4,NetworkIPv6,MAC,ActivatedAt,K8sStatus -o externalendpoints.actual.v1.table
+sed 'Done (.*)' 'Done (<time>)' externalendpoints.actual.v1.table
+* cmp externalendpoints.expected.v1.table externalendpoints.actual.v1.table
+
+# Assert no change in status
+k8s/get isovalent.com.v1alpha1.privatenetworkexternalendpoints sky/dashing-raven -o dashing-raven.v1.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' dashing-raven.v1.actual.yaml
+cmp dashing-raven.v1.expected.yaml dashing-raven.v1.actual.yaml
+
+# Assert status field is cleared
+k8s/get isovalent.com.v1alpha1.privatenetworkexternalendpoints forest/noble-wolf -o noble-wolf.v1.actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' noble-wolf.v1.actual.yaml
+cmp noble-wolf.v1.expected.yaml noble-wolf.v1.actual.yaml
+
+# Assert labels
+db/get privnet-external-endpoints forest/noble-wolf --format json -o noble-wolf.v1.actual.json
+jsonpath noble-wolf.v1.actual.json '{.K8sLabels}{.K8sNamespaceLabels}' -o noble-wolf-labels.v1.actual.json
+* cmp noble-wolf-labels.v1.expected.json noble-wolf-labels.v1.actual.json
+
+# Assert noble-wolf is inactive (we assert against the same output again later)
+db/get --columns Name,ActivatedAt privnet-external-endpoints forest/noble-wolf -o noble-wolf.v1.actual.table
+cmp noble-wolf.v1.expected.table noble-wolf.v1.actual.table
+
+# Update labels and activate endpoint of noble-wolf
+k8s/add noble-wolf.v2.yaml
+k8s/add ns-forest.v2.yaml
+
+# Wait for labels to be updated
+db/get privnet-external-endpoints forest/noble-wolf --format json -o noble-wolf.v2.actual.json
+jsonpath noble-wolf.v2.actual.json '{.K8sLabels}{.K8sNamespaceLabels}' -o noble-wolf-labels.v2.actual.json
+* cmp noble-wolf-labels.v2.expected.json noble-wolf-labels.v2.actual.json
+
+# Assert noble-wolf is active now (by checking that it is no longer inactive)
+db/get --columns Name,ActivatedAt privnet-external-endpoints forest/noble-wolf -o noble-wolf.v2.actual.table
+! cmp noble-wolf.v1.expected.table noble-wolf.v2.actual.table
+
+-- dashing-raven.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkExternalEndpoint
+metadata:
+  labels:
+    name: dashing-raven
+  name: dashing-raven
+  namespace: sky
+  uid: 3868faa8-40c8-4813-ba35-87ecc1db55bf
+spec:
+  interface:
+    network: green
+    addressing:
+      ipv4: "192.168.250.42"
+    mac: "ff:22:f1:22:21:51"
+status:
+  activatedAt: "2026-03-01T13:12:00.000000Z"
+
+-- noble-wolf.v1.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkExternalEndpoint
+metadata:
+  labels:
+    name: noble-wolf
+  name: noble-wolf
+  namespace: forest
+  uid: 68adabc2-7878-4ab5-83d2-be5515d07fb9
+spec:
+  inactive: true
+  interface:
+    network: blue
+    addressing:
+      ipv4: "10.0.100.9"
+      ipv6: "fd00:10:100::9"
+    mac: "00:50:56:ad:11:99"
+status:
+  activatedAt: "2025-01-01T10:20:30.000000Z"
+
+-- noble-wolf.v2.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkExternalEndpoint
+metadata:
+  labels:
+    name: noble-wolf
+    app: test-script
+  name: noble-wolf
+  namespace: forest
+  uid: 68adabc2-7878-4ab5-83d2-be5515d07fb9
+spec:
+  interface:
+    network: blue
+    addressing:
+      ipv4: "10.0.100.9"
+      ipv6: "fd00:10:100::9"
+    mac: "00:50:56:ad:11:99"
+
+-- dashing-raven.v1.expected.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkExternalEndpoint
+metadata:
+  labels:
+    name: dashing-raven
+  name: dashing-raven
+  namespace: sky
+  resourceVersion: "<nr>"
+  uid: 3868faa8-40c8-4813-ba35-87ecc1db55bf
+spec:
+  interface:
+    addressing:
+      ipv4: 192.168.250.42
+    mac: ff:22:f1:22:21:51
+    network: green
+status:
+  activatedAt: "2026-03-01T13:12:00.000000Z"
+-- EOF --
+
+-- noble-wolf.v1.expected.yaml --
+apiVersion: isovalent.com/v1alpha1
+kind: PrivateNetworkExternalEndpoint
+metadata:
+  labels:
+    name: noble-wolf
+  name: noble-wolf
+  namespace: forest
+  resourceVersion: "<nr>"
+  uid: 68adabc2-7878-4ab5-83d2-be5515d07fb9
+spec:
+  inactive: true
+  interface:
+    addressing:
+      ipv4: 10.0.100.9
+      ipv6: fd00:10:100::9
+    mac: 00:50:56:ad:11:99
+    network: blue
+status: {}
+-- EOF --
+
+-- ns-forest.v1.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forest
+  labels:
+    type: boreal
+
+-- ns-forest.v2.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forest
+  labels:
+    type: subalpine
+
+-- externalendpoints.expected.v1.table --
+Name                Network   NetworkIPv4      NetworkIPv6      MAC                 ActivatedAt            K8sStatus
+forest/noble-wolf   blue      10.0.100.9       fd00:10:100::9   00:50:56:ad:11:99   <inactive>             Done (<time>)
+sky/dashing-raven   green     192.168.250.42   N/A              ff:22:f1:22:21:51   2026-03-01T13:12:00Z   Done (<time>)
+-- EOF --
+
+-- noble-wolf.v1.expected.table --
+Name                ActivatedAt
+forest/noble-wolf   <inactive>
+-- EOF --
+
+-- noble-wolf-labels.v1.expected.json --
+[
+    {
+        "name": "noble-wolf"
+    }
+]
+[
+    {
+        "type": "boreal"
+    }
+]
+-- EOF --
+
+-- noble-wolf-labels.v2.expected.json --
+[
+    {
+        "app": "test-script",
+        "name": "noble-wolf"
+    }
+]
+[
+    {
+        "type": "subalpine"
+    }
+]
+-- EOF --
