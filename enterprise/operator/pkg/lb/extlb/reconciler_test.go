@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	ctrlFakeClient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -435,6 +436,38 @@ func TestDiscoverServicesForConfig(t *testing.T) {
 			},
 			config:        &isovalentv1alpha1.LBK8sBackendClusterServiceDiscoveryConfig{},
 			expectedNames: []string{"svc-managed"},
+		},
+		{
+			name: "excludes services with non-ILB loadBalancerClass",
+			services: []corev1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "svc-no-class", Namespace: "default"},
+					Spec:       corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "svc-ilb-class", Namespace: "default"},
+					Spec: corev1.ServiceSpec{
+						Type:              corev1.ServiceTypeLoadBalancer,
+						LoadBalancerClass: ptr.To(LoadBalancerClass),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "svc-aws-nlb", Namespace: "default"},
+					Spec: corev1.ServiceSpec{
+						Type:              corev1.ServiceTypeLoadBalancer,
+						LoadBalancerClass: ptr.To("service.k8s.aws/nlb"),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "svc-other-class", Namespace: "default"},
+					Spec: corev1.ServiceSpec{
+						Type:              corev1.ServiceTypeLoadBalancer,
+						LoadBalancerClass: ptr.To("example.com/my-lb"),
+					},
+				},
+			},
+			config:        &isovalentv1alpha1.LBK8sBackendClusterServiceDiscoveryConfig{},
+			expectedNames: []string{"svc-no-class", "svc-ilb-class"},
 		},
 	}
 

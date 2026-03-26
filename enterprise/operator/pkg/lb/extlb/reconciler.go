@@ -42,6 +42,8 @@ const (
 	k8sBackendClusterFinalizer  = "lbk8sbackendcluster.isovalent.com/finalizer"
 	k8sBackendClusterAnnotation = "lbk8sbackendcluster.isovalent.com/cluster"
 
+	LoadBalancerClass = "isovalent.com/ilb"
+
 	labelCluster         = "lbk8sbackendcluster.isovalent.com/cluster"
 	labelSourceNamespace = "lbk8sbackendcluster.isovalent.com/source-namespace"
 	labelSourceName      = "lbk8sbackendcluster.isovalent.com/source-name"
@@ -480,6 +482,10 @@ func (r *lbK8sBackendClusterReconciler) discoverServicesForConfig(
 		}
 
 		if svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
+			continue
+		}
+
+		if svc.Spec.LoadBalancerClass != nil && *svc.Spec.LoadBalancerClass != LoadBalancerClass {
 			continue
 		}
 
