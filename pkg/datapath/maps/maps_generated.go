@@ -539,7 +539,7 @@ func newCiliumEncryptionPolicyMapSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  1,
 		Value:      anyTypeByName(btf, "encryption_policy_entry"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }

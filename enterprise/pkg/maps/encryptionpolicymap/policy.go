@@ -109,7 +109,7 @@ func createPolicyMap(lc cell.Lifecycle, cfg MapConfig, pinning ebpf.PinType) *Po
 		&EncryptionPolicyKey{},
 		&EncryptionPolicyVal{},
 		cfg.EncryptionPolicyMapMax,
-		unix.BPF_F_NO_PREALLOC,
+		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
 	)
 
 	lc.Append(cell.Hook{
