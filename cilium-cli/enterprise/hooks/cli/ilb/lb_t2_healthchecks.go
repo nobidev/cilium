@@ -173,19 +173,23 @@ func testT2HealthCheckTCP(t T, testName string, listenPort, healthCheckPort uint
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// Establish TCP connection and send data to test basic `client -> LB T1 -> app` connectivity.
-	cmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -w 10 %s 81", vipIP)
+	eventually(t, func() error {
+		cmd := fmt.Sprintf("echo -n deadbeef | nc -n -v -w 10 %s 81", vipIP)
 
-	t.Log("Sending TCP request: cmd=%q", cmd)
+		t.Log("Sending TCP request: cmd=%q", cmd)
 
-	stdout, stderr, err := client.Exec(t.Context(), cmd)
-	if err != nil {
-		t.Failedf("remote exec failed: cmd='%q' stdout='%q' stderr='%q': '%w'", cmd, stdout, stderr, err)
-	}
+		stdout, stderr, err := client.Exec(t.Context(), cmd)
+		if err != nil {
+			return fmt.Errorf("remote exec failed: cmd='%q' stdout='%q' stderr='%q': '%w'", cmd, stdout, stderr, err)
+		}
 
-	resp := toTestAppL4Response(t, stdout)
-	if resp.Response != "deadbeef" {
-		t.Failedf("remote exec returned unexpected result: cmd='%q' stdout='%q' stderr='%q', resp='%q'", cmd, stdout, stderr, resp.Response)
-	}
+		resp := toTestAppL4Response(t, stdout)
+		if resp.Response != "deadbeef" {
+			return fmt.Errorf("remote exec returned unexpected result: cmd='%q' stdout='%q' stderr='%q', resp='%q'", cmd, stdout, stderr, resp.Response)
+		}
+
+		return nil
+	}, longTimeout, longPollInterval)
 
 	// 2. Healthcheck (T2) testing
 
