@@ -18,6 +18,7 @@ import (
 	"iter"
 	"log/slog"
 	"maps"
+	"net"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
@@ -27,17 +28,31 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/api/v1/models"
 	daemonK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -54,6 +69,8 @@ var ExternalEndpointsCell = cell.Group(
 		(*ExternalEndpoints).registerK8sReflector,
 		// Writes the PrivateNetworkExternalEndpoints status
 		(*ExternalEndpoints).registerK8sStatusReconciler,
+		// Creates and manages local endpoints based on the StateDB table
+		(*ExternalEndpoints).registerEndpointCreationReconciler,
 	),
 )
 
@@ -411,4 +428,405 @@ func (e *ExternalEndpoints) registerK8sStatusReconciler(client client.Clientset,
 		reconciler.WithoutPruning(),
 	)
 	return err
+}
+
+// externalEndpointReconcilerOps implements reconciler.Operations to reconcile
+// the creation (or update) of local endpoints
+type externalEndpointReconcilerOps struct {
+	log *slog.Logger
+
+	db  *statedb.DB
+	tbl statedb.Table[*tables.ExternalEndpoint]
+
+	ipam        endpoints.IPAM
+	hostIP      net.IP
+	clusterName string
+
+	epCreate   endpoints.EndpointCreator
+	epRemove   endpoints.EndpointRemover
+	epLookup   endpoints.EndpointGetter
+	epActivate *EndpointActivationManager
+
+	epK8sLabels map[endpoints.EndpointID]slim_labels.Set
+}
+
+func (e *externalEndpointReconcilerOps) cepOwner(obj *tables.ExternalEndpoint) endpoints.CEPOwner {
+	return endpoints.CEPOwner{
+		APIVersion: iso_v1alpha1.SchemeGroupVersion.String(),
+		Kind:       iso_v1alpha1.PrivateNetworkExternalEndpointKindDefinition,
+		Namespace:  obj.Namespace,
+		Name:       obj.Name,
+		UID:        obj.UID,
+		Labels:     obj.K8sLabels,
+		HostIP:     e.hostIP.String(),
+	}
+}
+
+// k8sSanitizedLabels returns the merged and sanitized labels of the K8s PrivateNetworkExternalEndpoint resource and
+// the labels of the namespace it is in.
+func (e *externalEndpointReconcilerOps) k8sSanitizedLabels(obj *tables.ExternalEndpoint) map[string]string {
+	return k8sUtils.SanitizePodLabels(obj.K8sLabels,
+		&slim_metav1.ObjectMeta{
+			Name:   obj.Namespace,
+			Labels: obj.K8sNamespaceLabels,
+		}, "", e.clusterName,
+	)
+}
+
+// createEndpoint creates a local endpoint for a given external endpoint object. It is responsible for allocating
+// the endpoints P-IP using the IPAM allocator and setting the correct properties to make this a private network
+// external endpoint.
+func (e *externalEndpointReconcilerOps) createEndpoint(ctx context.Context, obj *tables.ExternalEndpoint) (err error) {
+	cepName := obj.NamespacedName.String()
+
+	// Allocate endpoint IPs with the CEP name as the owner. If endpoint creation fails, we will try to release the IPs
+	// in the defer statement below
+	ipstr := func(result *ipam.AllocationResult) string {
+		if result == nil || result.IP == nil {
+			return ""
+		}
+		return result.IP.String()
+	}
+	pipv4, pipv6, err := e.ipam.AllocateNext("", cepName, ipam.PoolDefault())
+	if err != nil {
+		return fmt.Errorf("failed to allocate IPs for external endpoint %q: %w", cepName, err)
+	}
+	hasPIPv4 := pipv4 != nil && pipv4.IP != nil
+	hasPIPv6 := pipv6 != nil && pipv6.IP != nil
+	defer func() {
+		if err != nil {
+			if hasPIPv4 {
+				releaseErr := e.ipam.ReleaseIP(pipv4.IP, ipam.PoolDefault())
+				if releaseErr != nil {
+					e.log.Warn("IPv4 cleanup failed. Leaking IPv4 for external endpoint",
+						logfields.Error, releaseErr,
+						logfields.CEPName, cepName,
+						logfields.IPv4, pipv4.IP,
+					)
+				}
+			}
+			if hasPIPv6 {
+				releaseErr := e.ipam.ReleaseIP(pipv6.IP, ipam.PoolDefault())
+				if releaseErr != nil {
+					e.log.Warn("IPv6 cleanup failed. Leaking IPv6 for external endpoint",
+						logfields.Error, releaseErr,
+						logfields.CEPName, cepName,
+						logfields.IPv6, pipv6.IP,
+					)
+				}
+			}
+		}
+	}()
+
+	// Materialize and sanitize labels from K8s object and namespace
+	k8sLabels := e.k8sSanitizedLabels(obj)
+	lbls := labels.Map2Labels(k8sLabels, labels.LabelSourceK8s)
+	lbls[types.CNINetworkNameLabel] = labels.NewLabel(types.CNINetworkNameLabel, string(obj.Network), labels.LabelSourceCNI)
+
+	// Assemble endpoint creation request.
+	cepOwner := e.cepOwner(obj)
+	epReq := &models.EndpointChangeRequest{
+		K8sNamespace: obj.Namespace,
+		Addressing: &models.AddressPair{
+			IPV4: ipstr(pipv4),
+			IPV6: ipstr(pipv6),
+		},
+		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
+		Properties: map[string]any{
+			// PropertyFakeEndpoint really should not be needed. However, upstream does not
+			// respect PropertyWithouteBPFDatapath properly at the moment, so we need to set
+			// on PropertyFakeEndpoint such that the loader does not try to look for an endpoint
+			// interface.
+			endpoint.PropertyFakeEndpoint: true,
+
+			endpoint.PropertySkipBPFPolicy:       false,
+			endpoint.PropertyWithouteBPFDatapath: true,
+			endpoint.PropertyCEPOwner:            cepOwner,
+			endpoint.PropertyCEPName:             cepOwner.Name,
+
+			endpoints.PropertyPrivNetNetwork:     string(obj.Network),
+			endpoints.PropertyPrivNetActivatedAt: endpoints.FormatActivatedAtProperty(obj.ActivatedAt),
+		},
+		Labels: lbls.GetModel(),
+		Mac:    obj.MAC.String(),
+	}
+	if hasPIPv4 {
+		if !obj.IPv4.Is4() {
+			return fmt.Errorf("IPv4 is enabled, but no valid IPv4 address was provided: %s", obj.IPv4)
+		}
+		epReq.Properties[endpoints.PropertyPrivNetIPv4] = obj.IPv4.String()
+	}
+	if hasPIPv6 {
+		if !obj.IPv6.Is6() {
+			return fmt.Errorf("IPv6 is enabled, but no valid IPv6 address was provided: %s", obj.IPv6)
+		}
+		epReq.Properties[endpoints.PropertyPrivNetIPv6] = obj.IPv6.String()
+	}
+
+	// Create the endpoint
+	ep, err := e.epCreate.CreateEndpoint(ctx, epReq)
+	if err != nil {
+		return fmt.Errorf("failed to create external endpoint %q: %w", cepName, err)
+	}
+	// Set K8s metadata, this is needed to ensure HaveK8sMetadata returns true.
+	// Without it, the endpoint subsystem will not create a CiliumEndpoint resource in Kubernetes
+	ep.SetK8sMetadata([]slim_core_v1.ContainerPort{})
+	// Store K8s labels - we need them to compute the diff during updateEndpoint
+	e.epK8sLabels[endpoints.EndpointID(ep.GetID16())] = k8sLabels
+
+	return nil
+}
+
+// updateEndpoint handles changes to the labels or activatedAt timestamp of the external endpoint. All other
+// fields are assumed to be immutable.
+func (e *externalEndpointReconcilerOps) updateEndpoint(ep endpoints.Endpoint, obj *tables.ExternalEndpoint) error {
+	epID := endpoints.EndpointID(ep.GetID16())
+
+	prop, ok := endpoints.ExtractEndpointProperties(ep)
+	if !ok {
+		// This should never happen, no point in letting the reconciler re-try
+		e.log.Error("BUG: Existing endpoint is not an external endpoint",
+			logfields.EndpointID, epID,
+			logfields.CEPName, ep.GetK8sNamespaceAndCEPName(),
+		)
+		return nil
+	}
+
+	// Update activatedAt property if necessary
+	oldActivatedAt, err := prop.ActivatedAt()
+	if err != nil {
+		return fmt.Errorf("failed to get old activatedAt timestamp for external endpoint %d: %w", epID, err)
+	}
+	if !oldActivatedAt.Equal(obj.ActivatedAt) {
+		e.epActivate.SetActivatedAt(ep, obj.ActivatedAt)
+	}
+
+	// Materialize and sanitize labels from K8s object and namespace
+	newK8sLabels := e.k8sSanitizedLabels(obj)
+	oldK8sLabels := e.epK8sLabels[epID]
+
+	err = ep.UpdateLabelsFrom(oldK8sLabels, newK8sLabels, labels.LabelSourceK8s)
+	if err != nil {
+		return fmt.Errorf("failed to update labels for external endpoint %d: %w", epID, err)
+	}
+	e.epK8sLabels[epID] = newK8sLabels
+
+	return nil
+}
+
+// deleteEndpoint ensures that external endpoints are deleted together with their owner
+func (e *externalEndpointReconcilerOps) deleteEndpoint(obj *tables.ExternalEndpoint) error {
+	// We can directly delete the endpoint and do not have to do anything else,
+	// at least in this reconciler.
+	// The IPs allocated in createEndpoint will be released by the endpoint manager once
+	// the endpoint is gone, because we created the endpoint with `ExternalIpam=false`.
+	ep := e.epLookup.LookupCEPName(obj.NamespacedName.String())
+	if ep == nil {
+		return nil
+	}
+	return e.epRemove.RemoveEndpoint(ep)
+}
+
+// endpointUID returns the UID of the local endpoint (if there is one)
+func endpointUID(ep endpoints.Endpoint) (k8sTypes.UID, bool) {
+	cepOwner, ok := ep.GetPropertyValue(endpoint.PropertyCEPOwner).(endpoint.CEPOwnerInterface)
+	if !ok || cepOwner == nil {
+		return "", false
+	}
+
+	return cepOwner.GetUID(), true
+}
+
+// Update implements reconciler.Operations.
+func (e *externalEndpointReconcilerOps) Update(ctx context.Context, txn statedb.ReadTxn, revision statedb.Revision, obj *tables.ExternalEndpoint) error {
+	cepName := obj.NamespacedName.String()
+
+	// The CiliumEndpoint and PrivateNetworkExternalEndpoint have the same name.
+	// Therefore, we can identify the endpoint that belongs to a PrivateNetworkExternalEndpoint
+	// based on its name and UID.
+	ep := e.epLookup.LookupCEPName(cepName)
+	if ep == nil {
+		// No endpoint exists, create a new one
+		return e.createEndpoint(ctx, obj)
+	}
+
+	// Extract UID to determine if the owning PrivateNetworkExternalEndpoint has changed
+	epUID, ok := endpointUID(ep)
+	if !ok {
+		// This should not happen, as any endpoint with a CEP name should also have a UID
+		return fmt.Errorf("unable to determine UID of endpoint with CEP name %s", cepName)
+	}
+
+	// If the PrivateNetworkExternalEndpoint resource is deleted and re-created,
+	// it can happen that the deletion and re-creation is coalesced into a single
+	// update event, which changes fundamental properties of the endpoint like
+	// its network. In such a case, we want to delete the old endpoint and create
+	// a new one for the new PrivateNetworkExternalEndpoint.
+	// We detect that the PrivateNetworkExternalEndpoint resource has been recreated
+	// by comparing the UID.
+	if obj.UID != epUID {
+		e.log.Info("PrivateNetworkExternalEndpoint UID has changed. Re-creating endpoint",
+			logfields.EndpointID, ep.GetID16(),
+			logfields.CEPName, cepName,
+		)
+
+		err := e.deleteEndpoint(obj)
+		if err != nil {
+			return err
+		}
+		return e.createEndpoint(ctx, obj)
+	}
+
+	// Otherwise update the labels and activatedAt timestamp of the existing endpoint
+	return e.updateEndpoint(ep, obj)
+}
+
+// Delete implements reconciler.Operations.
+func (e *externalEndpointReconcilerOps) Delete(ctx context.Context, txn statedb.ReadTxn, revision statedb.Revision, obj *tables.ExternalEndpoint) error {
+	return e.deleteEndpoint(obj)
+}
+
+// Prune implements reconciler.Operations.
+func (e *externalEndpointReconcilerOps) Prune(
+	ctx context.Context,
+	txn statedb.ReadTxn,
+	objects iter.Seq2[*tables.ExternalEndpoint, statedb.Revision],
+) (err error) {
+	pneeAPIVersion := iso_v1alpha1.SchemeGroupVersion.String()
+	pneeKind := iso_v1alpha1.PrivateNetworkExternalEndpointKindDefinition
+	alivePNEEs := sets.New[k8sTypes.NamespacedName]()
+	for obj := range objects {
+		alivePNEEs.Insert(obj.NamespacedName)
+	}
+
+	// The following loop deletes all endpoints which are no longer backed by
+	// a live PrivateNetworkExternalEndpoint.
+	// We only check if the PrivateNetworkExternalEndpoint matches by name.
+	// If a PrivateNetworkExternalEndpoint happened to be re-created during
+	// an agent restart, we rely on Update() to delete the stale endpoint and
+	// re-create it.
+	for ep := range e.epLookup.GetEndpoints() {
+		// Check if the endpoint is owned by a PrivateNetworkExternalEndpoint
+		cepOwner, ok := ep.GetPropertyValue(endpoint.PropertyCEPOwner).(endpoint.CEPOwnerInterface)
+		if !ok || cepOwner == nil ||
+			cepOwner.GetAPIVersion() != pneeAPIVersion ||
+			cepOwner.GetKind() != pneeKind {
+			continue
+		}
+
+		// Check if the owning PrivateNetworkExternalEndpoint still exists
+		pneeNamespacedName := k8sTypes.NamespacedName{
+			Namespace: cepOwner.GetNamespace(),
+			Name:      cepOwner.GetName(),
+		}
+		if alivePNEEs.Has(pneeNamespacedName) {
+			continue
+		}
+
+		// If the PrivateNetworkExternalEndpoint no longer exists, then delete the stale endpoint
+		e.log.Info("Deleting stale external endpoint",
+			logfields.EndpointID, ep.GetID16(),
+			logfields.CEPName, ep.GetK8sNamespaceAndCEPName(),
+		)
+		err = errors.Join(err, e.epRemove.RemoveEndpoint(ep))
+	}
+
+	return err
+}
+
+// registerEndpointCreationReconciler registers the reconciler that creates, updates and deletes
+// endpoints based on the state of the [tables.ExternalEndpoint] StateDB table.
+func (e *ExternalEndpoints) registerEndpointCreationReconciler(in struct {
+	cell.In
+
+	DaemonConfig *option.DaemonConfig
+
+	ReconcilerParams reconciler.Params
+	RestorerPromise  promise.Promise[endpointstate.Restorer]
+
+	IPAM           endpoints.IPAM
+	LocalNodeStore *node.LocalNodeStore
+	ClusterInfo    cmtypes.ClusterInfo
+
+	EPCreate endpoints.EndpointCreator
+	EPRemove endpoints.EndpointRemover
+	EPLookup endpoints.EndpointGetter
+
+	EPActivate *EndpointActivationManager
+}) {
+	if !e.cfg.EnabledAsBridge() {
+		return
+	}
+
+	e.jg.Add(job.OneShot("register-external-eps-reconciler", func(ctx context.Context, health cell.Health) error {
+		// Obtain local node reference
+		health.OK("Waiting for local node information")
+		ln, err := in.LocalNodeStore.Get(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve local node store: %w", err)
+		}
+
+		// Extract hostIP - IPv4 if enabled, otherwise IPv6
+		hostIP := ln.GetNodeIP(!in.DaemonConfig.IPv4Enabled())
+
+		// Block until all endpoints have been restored before starting the reconciler.
+		// This is needed to ensure we don't attempt to re-create a restored endpoint
+		// during bootstrap. Endpoints do not have to be regenerated, they only have
+		// to be part of the endpoint manager, which is guaranteed by
+		// WaitForEndpointRestoreWithoutRegeneration.
+		health.OK("Waiting endpoint restoration to finish")
+		restorer, err := in.RestorerPromise.Await(ctx)
+		if err != nil {
+			return err
+		}
+		err = restorer.WaitForEndpointRestoreWithoutRegeneration(ctx)
+		if err != nil {
+			return err
+		}
+
+		ops := &externalEndpointReconcilerOps{
+			log: e.log,
+			db:  e.db,
+			tbl: e.tbl,
+
+			ipam:        in.IPAM,
+			hostIP:      hostIP,
+			clusterName: in.ClusterInfo.Name,
+
+			epCreate:   in.EPCreate,
+			epRemove:   in.EPRemove,
+			epLookup:   in.EPLookup,
+			epActivate: in.EPActivate,
+
+			epK8sLabels: make(map[endpoints.EndpointID]slim_labels.Set),
+		}
+
+		_, err = reconciler.Register(
+			// params
+			in.ReconcilerParams,
+			// table
+			e.tbl,
+			// clone
+			func(e *tables.ExternalEndpoint) *tables.ExternalEndpoint {
+				// shallow copy is enough for reconciler
+				cpy := *e
+				return &cpy
+			},
+			// setStatus
+			func(e *tables.ExternalEndpoint, s reconciler.Status) *tables.ExternalEndpoint {
+				e.EndpointStatus = s
+				return e
+			},
+			// getStatus
+			func(e *tables.ExternalEndpoint) reconciler.Status {
+				return e.EndpointStatus
+			},
+			// ops
+			ops,
+			// batchOps
+			nil,
+		)
+		health.OK("Registered reconciler")
+		return err
+	}))
 }
