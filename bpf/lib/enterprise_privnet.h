@@ -2101,7 +2101,7 @@ handle_privnet_ns(struct __ctx_buff *ctx, const __u16 net_id,
 		 * by duplicate address detection checks.
 		 */
 		if (ipv6_addr_equals(&tip, ep_addr))
-			return DROP_INVALID;
+			return DROP_UNROUTABLE;
 	}
 
 	return icmp6_send_ndisc_adv(ctx, ETH_HLEN, &mac, false);
@@ -2138,13 +2138,13 @@ handle_privnet_arp(struct __ctx_buff *ctx, const __u16 net_id,
 		 * arping the offered address.
 		 */
 		if (!ep_addr->be32)
-			return DROP_INVALID;
+			return DROP_UNROUTABLE;
 
 		/* Don't reply to ARP requests for the endpoint's own network IP in order
 		 * to allow DHCP renewal (DHCP clients ARPing to check if IP is in use).
 		 */
 		if (tip == ep_addr->be32)
-			return DROP_INVALID;
+			return DROP_UNROUTABLE;
 
 		return CTX_ACT_OK;
 	}
