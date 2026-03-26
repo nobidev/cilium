@@ -1,0 +1,26 @@
+---
+# client2 is allowed to make HTTP requests to echo pods, including CONNECT.
+# This policy enables L7 HTTP introspection on the client2 egress path.
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-l7-http-connect
+spec:
+  description: "Allow HTTP (including CONNECT) from client2 to echo pods"
+  endpointSelector:
+    matchLabels:
+      other: client
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        kind: echo
+      matchExpressions:
+      - { key: 'io.cilium.k8s.policy.cluster', operator: In, values: [ "{{.ClusterNameLocal}}", "{{.ClusterNameRemote}}" ] }
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+        - method: "CONNECT"
