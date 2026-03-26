@@ -118,26 +118,29 @@ func testBasicAuth(t T, proto string) {
 
 	t.Log("Checking valid credentials")
 	for _, cred := range creds {
-		cmd := curlCmd(fmt.Sprintf("--max-time 10 %s --basic -u %s:%s %s://%s/needs-auth", curlOpt, cred.username, cred.password, proto, hostName))
+		cmd := curlCmd(fmt.Sprintf("--max-time 10 %s -o /dev/null -w '%%{response_code}' --basic -u %s:%s %s://%s/needs-auth", curlOpt, cred.username, cred.password, proto, hostName))
 		stdout, stderr, err := client.Exec(t.Context(), cmd)
 		if err != nil {
 			t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 		}
+		if stdout != "200" {
+			t.Failedf("unexpected response code\nstdout: %q\nstderr: %q", stdout, stderr)
+		}
 	}
 
 	t.Log("Checking without credentials")
-	stdout, stderr, err := client.Exec(t.Context(), curlCmd(fmt.Sprintf("--max-time 10 %s -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)))
-	if err == nil {
-		t.Failedf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
+	stdout, stderr, err := client.Exec(t.Context(), curlCmd(fmt.Sprintf("--max-time 10 %s -o /dev/null -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)))
+	if err != nil {
+		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 	}
 	if stdout != "401" {
 		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 	}
 
 	t.Log("Checking invalid credentials")
-	stdout, stderr, err = client.Exec(t.Context(), curlCmd(fmt.Sprintf("--max-time 10 %s -w '%%{response_code}' --basic -u unknown:unknown %s://%s/needs-auth", curlOpt, proto, hostName)))
-	if err == nil {
-		t.Failedf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
+	stdout, stderr, err = client.Exec(t.Context(), curlCmd(fmt.Sprintf("--max-time 10 %s -o /dev/null -w '%%{response_code}' --basic -u unknown:unknown %s://%s/needs-auth", curlOpt, proto, hostName)))
+	if err != nil {
+		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 	}
 	if stdout != "401" {
 		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
@@ -145,8 +148,11 @@ func testBasicAuth(t T, proto string) {
 
 	t.Log("Checking per-route exception")
 	// Ensure the per-route exception is working
-	stdout, stderr, err = client.Exec(t.Context(), curlCmd(fmt.Sprintf("--max-time 10 %s %s://%s/no-auth", curlOpt, proto, hostName)))
+	stdout, stderr, err = client.Exec(t.Context(), curlCmd(fmt.Sprintf("--max-time 10 %s -o /dev/null -w '%%{response_code}' %s://%s/no-auth", curlOpt, proto, hostName)))
 	if err != nil {
 		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+	}
+	if stdout != "200" {
+		t.Failedf("unexpected response code\nstdout: %q\nstderr: %q", stdout, stderr)
 	}
 }

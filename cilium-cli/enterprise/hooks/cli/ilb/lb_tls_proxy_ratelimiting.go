@@ -58,17 +58,19 @@ func TestTLSProxyRatelimiting(t T) {
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 3. Test basic connectivity
-	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s.crt --resolve secure.acme.io:10080:%s https://secure.acme.io:10080/", serviceHostName, vipIP))
+	testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --cacert /tmp/%s.crt --resolve secure.acme.io:10080:%s https://secure.acme.io:10080/", serviceHostName, vipIP))
 
 	t.Log("Testing %q...", testCmd)
 
 	eventually(t, func() error {
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
-			// Enrich error with curl output
-			err = fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+			return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 		}
-		return err
+		if stdout != "200" {
+			return fmt.Errorf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
+		}
+		return nil
 	}, 10*time.Second, 100*time.Millisecond)
 
 	t.Log("Testing %q and expecting connection rate limit eventually ...", testCmd)

@@ -61,20 +61,26 @@ func TestSharedVIP(t T) {
 
 	// 1. Send two HTTP requests on VIP for both services
 	{
-		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' http://%s:80/", vipIP))
 		t.Log("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
+		if stdout != "200" {
+			t.Failedf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
+		}
 	}
 
 	{
-		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:81/", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' http://%s:81/", vipIP))
 		t.Log("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
+		if stdout != "200" {
+			t.Failedf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
 		}
 	}
 }
@@ -115,11 +121,14 @@ func TestRequestedVIP(t T) {
 	_ = scenario.waitForFullVIPConnectivity(testName)
 
 	// 1. Send HTTP request to requested VIP
-	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", requestedVIP))
+	testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' http://%s:80/", requestedVIP))
 	t.Log("Testing %q...", testCmd)
 	stdout, stderr, err := client.Exec(t.Context(), testCmd)
 	if err != nil {
 		t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+	}
+	if stdout != "200" {
+		t.Failedf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
 	}
 }
 
@@ -228,11 +237,14 @@ func TestMultipleIPPools(t T) {
 		}
 
 		// 1. Send HTTP request to requested VIP
-		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' http://%s:80/", vipIP))
 		t.Log("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
+		if stdout != "200" {
+			t.Failedf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
 		}
 	}
 
@@ -262,11 +274,14 @@ func TestMultipleIPPools(t T) {
 		}
 
 		// 1. Send HTTP request to requested VIP
-		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 http://%s:80/", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' http://%s:80/", vipIP))
 		t.Log("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
+		if stdout != "200" {
+			t.Failedf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
 		}
 	}
 }

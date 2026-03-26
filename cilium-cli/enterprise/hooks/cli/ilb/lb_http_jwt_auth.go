@@ -376,20 +376,23 @@ func testJWTAuth(t T, proto string) {
 
 	for _, tt := range testsValidToken {
 		t.Log("Checking valid token %s", tt.name)
-		cmd := curlCmd(fmt.Sprintf("-m 1 %s --oauth2-bearer %s %s://%s%s", curlOpt, string(tt.token), proto, hostName, tt.path))
+		cmd := curlCmd(fmt.Sprintf("-m 1 %s -o /dev/null -w '%%{response_code}' --oauth2-bearer %s %s://%s%s", curlOpt, string(tt.token), proto, hostName, tt.path))
 		t.Log("Testing %q...", cmd)
 		stdout, stderr, err := client.Exec(t.Context(), cmd)
 		if err != nil {
 			t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 		}
+		if stdout != "200" {
+			t.Failedf("unexpected response code\nstdout: %q\nstderr: %q", stdout, stderr)
+		}
 	}
 
 	t.Log("Checking no token")
-	cmd := fmt.Sprintf("-m 1 %s -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)
+	cmd := fmt.Sprintf("-m 1 %s -o /dev/null -w '%%{response_code}' %s://%s/needs-auth", curlOpt, proto, hostName)
 	t.Log("Testing %q...", cmd)
 	stdout, stderr, err := client.Exec(t.Context(), curlCmd(cmd))
-	if err == nil {
-		t.Failedf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
+	if err != nil {
+		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 	}
 	if stdout != "401" {
 		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
@@ -424,11 +427,11 @@ func testJWTAuth(t T, proto string) {
 
 	for _, tt := range testsInvalidToken {
 		t.Log("Checking invalid token %s", tt.name)
-		cmd := fmt.Sprintf("-m 1 %s -w '%%{response_code}' --oauth2-bearer %s %s://%s%s", curlOpt, string(tt.token), proto, hostName, tt.path)
+		cmd := fmt.Sprintf("-m 1 %s -o /dev/null -w '%%{response_code}' --oauth2-bearer %s %s://%s%s", curlOpt, string(tt.token), proto, hostName, tt.path)
 		t.Log("Testing %q...", cmd)
 		stdout, stderr, err := client.Exec(t.Context(), curlCmd(cmd))
-		if err == nil {
-			t.Failedf("unauthenticated access succeeded\nstdout: %q\nstderr: %q", stdout, stderr)
+		if err != nil {
+			t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
 		}
 		if stdout != tt.code {
 			t.Failedf("unexpected error (expect: %s, got: %s): %v\nstderr: %q", tt.code, stdout, err, stderr)
@@ -437,8 +440,11 @@ func testJWTAuth(t T, proto string) {
 
 	t.Log("Checking per-route exception")
 	// Ensure the per-route exception is working
-	stdout, stderr, err = client.Exec(t.Context(), curlCmd(fmt.Sprintf("-m 1 %s %s://%s/no-auth", curlOpt, proto, hostName)))
+	stdout, stderr, err = client.Exec(t.Context(), curlCmd(fmt.Sprintf("-m 1 %s -o /dev/null -w '%%{response_code}' %s://%s/no-auth", curlOpt, proto, hostName)))
 	if err != nil {
 		t.Failedf("unexpected error: %v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+	}
+	if stdout != "200" {
+		t.Failedf("unexpected response code\nstdout: %q\nstderr: %q", stdout, stderr)
 	}
 }

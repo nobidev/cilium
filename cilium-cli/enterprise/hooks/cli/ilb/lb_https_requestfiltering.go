@@ -446,7 +446,7 @@ func TestHTTPSRequestFiltering(t T) {
 			vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 			for _, tt := range tC.testCalls {
-				testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 1 --cacert /tmp/%s.crt --resolve %s:443:%s https://%s:443%s", tt.hostName, tt.hostName, vipIP, tt.hostName, tt.path))
+				testCmd := curlCmd(fmt.Sprintf("--max-time 1 -o /dev/null -w '%%{response_code}' --cacert /tmp/%s.crt --resolve %s:443:%s https://%s:443%s", tt.hostName, tt.hostName, vipIP, tt.hostName, tt.path))
 				for k, v := range tt.headers {
 					testCmd += fmt.Sprintf(" -H '%s:%s'", k, v)
 				}
@@ -455,7 +455,7 @@ func TestHTTPSRequestFiltering(t T) {
 					stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
 					if !tt.blocked && err != nil {
 						return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-					} else if tt.blocked && (err == nil || err.Error() != "cmd failed: 22") {
+					} else if tt.blocked && (err != nil || stdout != "403") {
 						return fmt.Errorf("curl request wasn't filtered (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 					}
 

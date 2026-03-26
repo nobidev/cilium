@@ -59,13 +59,16 @@ func TestTLSPassthroughRatelimiting(t T) {
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 1. Send HTTPs request
-	testCmd1 := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName1+".crt", hostName1, vipIP, hostName1))
-	testCmd2 := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName2+".crt", hostName2, vipIP, hostName2))
+	testCmd1 := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName1+".crt", hostName1, vipIP, hostName1))
+	testCmd2 := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --cacert /tmp/%s --resolve %s:80:%s https://%s:80/", hostName2+".crt", hostName2, vipIP, hostName2))
 	for _, testCmd := range []string{testCmd1, testCmd2} {
 		t.Log("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
+		if stdout != "200" {
+			t.Failedf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
 		}
 	}
 
