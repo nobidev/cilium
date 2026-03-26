@@ -137,7 +137,7 @@ func TestHTTPSProxyMutualTLS(t T) {
 			}
 		}
 		return nil
-	}, 10*time.Second, 100*time.Millisecond)
+	}, shortTimeout, 100*time.Millisecond)
 
 	testCmd = curlCmdVerbose(fmt.Sprintf("--max-time 10 --cert /tmp/%s.crt --key /tmp/%s.key --cacert /tmp/%s.crt --resolve secure.acme.io:10443:%s https://secure.acme.io:10443/",
 		clientHostName, clientHostName, serviceHostName, vipIP))
@@ -151,7 +151,7 @@ func TestHTTPSProxyMutualTLS(t T) {
 			return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 		}
 		return nil
-	}, 10*time.Second, 100*time.Millisecond)
+	}, shortTimeout, 100*time.Millisecond)
 }
 
 func TestHTTPSProxyMutualTLSRequestFiltering(t T) {

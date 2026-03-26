@@ -133,5 +133,5 @@ func testUDPProxyIPv6(t T, forceDeploymentMode isovalentv1alpha1.LBUDPProxyForce
 		}
 
 		return fmt.Errorf("remote exec returned unexpected result: cmd='%q' stdout='%q' stderr='%q', resp='%q'", cmd, stdout, stderr, resp.Response)
-	}, 10*time.Second, 1*time.Second)
+	}, shortTimeout, 1*time.Second)
 }

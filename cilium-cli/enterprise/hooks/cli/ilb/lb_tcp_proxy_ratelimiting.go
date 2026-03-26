@@ -68,7 +68,7 @@ func TestTCPProxyRatelimiting(t T) {
 			return fmt.Errorf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
 		}
 		return nil
-	}, 10*time.Second, 100*time.Millisecond)
+	}, shortTimeout, 100*time.Millisecond)
 
 	t.Log("Testing %q and expecting connection rate limit eventually ...", testCmd)
 	eventually(t, func() error {
