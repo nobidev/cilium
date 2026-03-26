@@ -172,13 +172,13 @@ func (r *ServiceVRFReconciler) Reconcile(ctx context.Context, p reconciler.Recon
 		return fmt.Errorf("failed to get SID info: %w", err)
 	}
 
-	err = r.reconcileServices(ctx, iParams, desiredVRFAdverts, desiredVRFSIDInfo)
+	metadata := r.getMetadata(iParams.BGPInstance)
+	err = r.reconcileServices(ctx, iParams, &metadata, desiredVRFAdverts, desiredVRFSIDInfo)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile services: %w", err)
 	}
 
 	// update metadata with the latest configuration
-	metadata := r.getMetadata(iParams.BGPInstance)
 	metadata.vrfAdverts = desiredVRFAdverts
 	metadata.vrfConfigs = iParams.DesiredConfig.VRFs
 	metadata.vrfSIDs = desiredVRFSIDInfo
@@ -186,11 +186,16 @@ func (r *ServiceVRFReconciler) Reconcile(ctx context.Context, p reconciler.Recon
 	return nil
 }
 
-func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p EnterpriseReconcileParams, desiredVRFAdverts VRFAdvertisements, desiredVRFSIDInfo VRFSIDInfo) error {
+func (r *ServiceVRFReconciler) reconcileServices(
+	ctx context.Context,
+	p EnterpriseReconcileParams,
+	metadata *ServiceVRFReconcilerMetadata,
+	desiredVRFAdverts VRFAdvertisements,
+	desiredVRFSIDInfo VRFSIDInfo,
+) error {
 	desiredVRFPaths := make(VRFPaths)
 
 	// check if vrf is removed, we clean up the service paths.
-	metadata := r.getMetadata(p.BGPInstance)
 	for runningVRF := range metadata.vrfPaths {
 		found := false
 		for _, desiredVRF := range p.DesiredConfig.VRFs {
@@ -206,7 +211,7 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 		}
 	}
 
-	reqFullReconcile := r.configModified(p, desiredVRFAdverts, desiredVRFSIDInfo)
+	reqFullReconcile := r.configModified(p, metadata, desiredVRFAdverts, desiredVRFSIDInfo)
 
 	// if frontend changes iterator has not been initialized yet (first reconcile), perform full reconciliation
 	if !metadata.frontendChangesInitialized {
@@ -217,7 +222,7 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 		r.logger.Debug("performing all services reconciliation")
 
 		// BGP configuration for service advertisement changed, we should reconcile all services.
-		toReconcile, rx, err := r.fullReconciliationServiceList(p) // note: can be called only once per reconcile
+		toReconcile, rx, err := r.fullReconciliationServiceList(metadata) // note: can be called only once per reconcile
 		if err != nil {
 			return err
 		}
@@ -242,7 +247,7 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 		r.logger.Debug("performing modified services reconciliation")
 
 		// BGP configuration is unchanged, only reconcile modified services.
-		toReconcile, rx, err := r.diffReconciliationServiceList(p.BGPInstance) // note: can be called only once per reconcile
+		toReconcile, rx, err := r.diffReconciliationServiceList(metadata) // note: can be called only once per reconcile
 		if err != nil {
 			return err
 		}
@@ -280,14 +285,12 @@ func (r *ServiceVRFReconciler) reconcileServices(ctx context.Context, p Enterpri
 		Logger:       r.logger,
 		Ctx:          ctx,
 		BGPInstance:  p.BGPInstance,
-		CurrentPaths: r.getMetadata(p.BGPInstance).vrfPaths,
+		CurrentPaths: metadata.vrfPaths,
 		DesiredPaths: desiredVRFPaths,
 	})
 }
 
-func (r *ServiceVRFReconciler) fullReconciliationServiceList(p EnterpriseReconcileParams) (toReconcile []*loadbalancer.Service, rx statedb.ReadTxn, err error) {
-	metadata := r.getMetadata(p.BGPInstance)
-
+func (r *ServiceVRFReconciler) fullReconciliationServiceList(metadata *ServiceVRFReconcilerMetadata) (toReconcile []*loadbalancer.Service, rx statedb.ReadTxn, err error) {
 	// re-init changes interator, so that it contains changes since the last full reconciliation
 	tx := r.db.WriteTxn(r.frontends)
 	metadata.frontendChanges, err = r.frontends.Changes(tx)
@@ -297,7 +300,6 @@ func (r *ServiceVRFReconciler) fullReconciliationServiceList(p EnterpriseReconci
 	}
 	rx = tx.Commit()
 	metadata.frontendChangesInitialized = true
-	r.setMetadata(p.BGPInstance, metadata)
 
 	// the initial set of changes emits all existing frontends
 	events, _ := metadata.frontendChanges.Next(rx)
@@ -312,8 +314,7 @@ func (r *ServiceVRFReconciler) fullReconciliationServiceList(p EnterpriseReconci
 	return
 }
 
-func (r *ServiceVRFReconciler) diffReconciliationServiceList(i *EnterpriseBGPInstance) (toReconcile []*loadbalancer.Service, rx statedb.ReadTxn, err error) {
-	metadata := r.getMetadata(i)
+func (r *ServiceVRFReconciler) diffReconciliationServiceList(metadata *ServiceVRFReconcilerMetadata) (toReconcile []*loadbalancer.Service, rx statedb.ReadTxn, err error) {
 	rx = r.db.ReadTxn()
 
 	// list frontends which changed since the last reconciliation (includes frontends with just backend changed)
@@ -387,14 +388,12 @@ func (r *ServiceVRFReconciler) getServiceAFPaths(p EnterpriseReconcileParams, sv
 	return desiredFamilyPaths, nil
 }
 
-// configModified checks if the any of the following configurations have modified
+// configModified checks if any of the following configurations have modified
 // BGP advertisements, BGP VRF configurations, SID info for VRFs
-func (r *ServiceVRFReconciler) configModified(iParams EnterpriseReconcileParams, desiredVRFAdverts VRFAdvertisements, desiredVRFSIDInfo VRFSIDInfo) bool {
-	currentMetadata := r.getMetadata(iParams.BGPInstance)
-
-	return !VRFAdvertisementsEqual(currentMetadata.vrfAdverts, desiredVRFAdverts) ||
-		!r.vrfConfigsEqual(currentMetadata.vrfConfigs, iParams.DesiredConfig.VRFs) ||
-		!r.vrfSIDInfoEqual(currentMetadata.vrfSIDs, desiredVRFSIDInfo)
+func (r *ServiceVRFReconciler) configModified(p EnterpriseReconcileParams, metadata *ServiceVRFReconcilerMetadata, desiredVRFAdverts VRFAdvertisements, desiredVRFSIDInfo VRFSIDInfo) bool {
+	return !VRFAdvertisementsEqual(metadata.vrfAdverts, desiredVRFAdverts) ||
+		!r.vrfConfigsEqual(metadata.vrfConfigs, p.DesiredConfig.VRFs) ||
+		!r.vrfSIDInfoEqual(metadata.vrfSIDs, desiredVRFSIDInfo)
 }
 
 func (r *ServiceVRFReconciler) vrfConfigsEqual(firstVRFs, secondVRFs []v1.IsovalentBGPNodeVRF) bool {
