@@ -7,7 +7,7 @@
 	.lpm_key.prefixlen = EVPN_FIB_PREFIX_LEN(_prefix_len), \
 	.family = AF_INET, \
 	.net_id = _net_id, \
-	.ip4 = _prefix, \
+	.ip4.be32 = _prefix, \
 }
 
 static __always_inline void
@@ -19,7 +19,7 @@ evpn_fib_v4_add_nh4(__u16 net_id, __be32 prefix, __u32 prefix_len, __u32 vni,
 		.vni = vni,
 		.family = AF_INET,
 		.mac = mac,
-		.ip4 = nexthop,
+		.ip4.be32 = nexthop,
 	};
 
 	map_update_elem(&cilium_evpn_fib, &key, &value, BPF_ANY);
@@ -71,7 +71,7 @@ evpn_fib_v6_add_nh4(__u16 net_id, const union v6addr *prefix, __u32 prefix_len,
 		.vni = vni,
 		.family = AF_INET,
 		.mac = mac,
-		.ip4 = nexthop,
+		.ip4.be32 = nexthop,
 	};
 
 	map_update_elem(&cilium_evpn_fib, &key, &value, BPF_ANY);
@@ -84,7 +84,7 @@ evpn_fib_v4_del(__u16 net_id, __be32 prefix, __u32 prefix_len)
 		.lpm_key.prefixlen = EVPN_FIB_PREFIX_LEN(prefix_len),
 		.family = AF_INET,
 		.net_id = net_id,
-		.ip4 = prefix,
+		.ip4.be32 = prefix,
 	};
 
 	map_delete_elem(&cilium_evpn_fib, &key);

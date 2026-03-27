@@ -128,7 +128,7 @@ func TestNewFIBVal(t *testing.T) {
 			expectedVal: &FIBVal{
 				VNI:     100,
 				Family:  unix.AF_INET,
-				MAC:     mac.MustParseMAC("aa:bb:cc:dd:ee:ff").As8(),
+				MAC:     mac.MustParseMAC("aa:bb:cc:dd:ee:ff").As6(),
 				Address: types.IPv6{0xa, 0, 0, 1},
 			},
 		},
@@ -140,7 +140,7 @@ func TestNewFIBVal(t *testing.T) {
 			expectedVal: &FIBVal{
 				VNI:     100,
 				Family:  unix.AF_INET6,
-				MAC:     mac.MustParseMAC("aa:bb:cc:dd:ee:ff").As8(),
+				MAC:     mac.MustParseMAC("aa:bb:cc:dd:ee:ff").As6(),
 				Address: types.IPv6{0xfd, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
 			},
 		},
@@ -178,13 +178,13 @@ func TestFIBValString(t *testing.T) {
 	require.Equal(t, "vni=100 mac=aa:bb:cc:dd:ee:ff addr=10.0.0.1", (&FIBVal{
 		VNI:     100,
 		Family:  unix.AF_INET,
-		MAC:     mac.MustParseMAC("aa:bb:cc:dd:ee:ff").As8(),
+		MAC:     mac.MustParseMAC("aa:bb:cc:dd:ee:ff").As6(),
 		Address: types.IPv6{0xa, 0, 0, 1},
 	}).String())
 	require.Equal(t, "vni=100 mac=aa:bb:cc:dd:ee:ff addr=fd00::1", (&FIBVal{
 		VNI:     100,
 		Family:  unix.AF_INET6,
-		MAC:     mac.MustParseMAC("aa:bb:cc:dd:ee:ff").As8(),
+		MAC:     mac.MustParseMAC("aa:bb:cc:dd:ee:ff").As6(),
 		Address: types.IPv6{0xfd, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
 	}).String())
 }
@@ -193,13 +193,13 @@ func TestFIBValAddr(t *testing.T) {
 	require.Equal(t, netip.MustParseAddr("10.0.0.1"), (&FIBVal{
 		VNI:     100,
 		Family:  unix.AF_INET,
-		MAC:     mac.MustParseMAC("aa:bb:cc:dd:ee:ff").As8(),
+		MAC:     mac.MustParseMAC("aa:bb:cc:dd:ee:ff").As6(),
 		Address: types.IPv6{0xa, 0, 0, 1},
 	}).Addr())
 	require.Equal(t, netip.MustParseAddr("fd00::1"), (&FIBVal{
 		VNI:     100,
 		Family:  unix.AF_INET6,
-		MAC:     mac.MustParseMAC("aa:bb:cc:dd:ee:ff").As8(),
+		MAC:     mac.MustParseMAC("aa:bb:cc:dd:ee:ff").As6(),
 		Address: types.IPv6{0xfd, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
 	}).Addr())
 }

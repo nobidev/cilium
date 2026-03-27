@@ -36,12 +36,7 @@ struct evpn_fib_key {
 	__u8 pad0;
 	__u16 net_id;
 	union {
-		struct {
-			__be32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
+		union v4addr	ip4;
 		union v6addr	ip6;
 	};
 };
@@ -56,12 +51,7 @@ struct evpn_fib_val {
 
 	/* Remote VTEP address (outer destination IP) */
 	union {
-		struct {
-			__be32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
+		union v4addr	ip4;
 		union v6addr	ip6;
 	};
 };
@@ -82,7 +72,7 @@ evpn_fib_lookup4(__u16 net_id, __be32 addr)
 		.lpm_key = { EVPN_FIB_PREFIX_LEN(V4_EVPN_FIB_KEY_LEN), {} },
 		.family = AF_INET,
 		.net_id = net_id,
-		.ip4 = addr,
+		.ip4.be32 = addr,
 	};
 	return map_lookup_elem(&cilium_evpn_fib, &key);
 }
@@ -109,7 +99,7 @@ evpn_set_tunnel_key(struct __ctx_buff *ctx, const struct evpn_fib_val *fib_val)
 	tunnel_key.tunnel_ttl = IPDEFTTL;
 
 	if (fib_val->family == AF_INET) {
-		tunnel_key.remote_ipv4 = bpf_ntohl(fib_val->ip4);
+		tunnel_key.remote_ipv4 = bpf_ntohl(fib_val->ip4.be32);
 		ret = ctx_set_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP,
 					 BPF_F_ZERO_CSUM_TX);
 		if (ret < 0)

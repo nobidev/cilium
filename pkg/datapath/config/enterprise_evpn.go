@@ -26,7 +26,7 @@ func EvpnBase(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
 	cfg := NewBPFEvpnBase(NodeConfig(lnc))
 
 	cfg.InterfaceIfIndex = uint32(link.Attrs().Index)
-	cfg.InterfaceMAC = mac.MAC(link.Attrs().HardwareAddr).As8()
+	cfg.InterfaceMAC.Addr = mac.MAC(link.Attrs().HardwareAddr).As6()
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
@@ -41,7 +41,7 @@ func EvpnBase(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
 func EvpnEnterprise(lnc *datapath.LocalNodeConfiguration, evpnCfg evpnConfig.Config, privnetCfg privnetConfig.Config) any {
 	cfg := NewBPFEvpnEnterprise()
 
-	cfg.EvpnEnable = evpnCfg.Enabled
+	cfg.EVPNEnable = evpnCfg.Enabled
 
 	cfg.PrivnetEnable = privnetCfg.Enabled
 	cfg.PrivnetBridgeEnable = privnetCfg.EnabledAsBridge()

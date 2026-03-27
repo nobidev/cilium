@@ -5,18 +5,21 @@
 
 package config
 
+import "github.com/cilium/cilium/pkg/datapath/types"
+
 // BPFLXCEnterprise is a configuration struct for a Cilium datapath object.
+//
 // Warning: do not instantiate directly! Always use [NewBPFLXCEnterprise] to
 // ensure the default values configured in the ELF are honored.
 type BPFLXCEnterprise struct {
 	// Interface index for cilium_dhcp device.
 	CiliumDhcpIfIndex uint32 `config:"cilium_dhcp_ifindex"`
 	// The interface index of the evpn vxlan device.
-	EvpnDeviceIfIndex uint32 `config:"evpn_device_ifindex"`
+	EVPNDeviceIfIndex uint32 `config:"evpn_device_ifindex"`
 	// The mac address of the evpn vxlan device.
-	EvpnDeviceMAC [8]byte `config:"evpn_device_mac"`
+	EVPNDeviceMAC types.MACAddr `config:"evpn_device_mac"`
 	// True if evpn feature is enabled.
-	EvpnEnable bool `config:"evpn_enable"`
+	EVPNEnable bool `config:"evpn_enable"`
 	// True if running on network bridge.
 	PrivnetBridgeEnable bool `config:"privnet_bridge_enable"`
 	// True if the endpoint is in a non-default network.
@@ -24,9 +27,9 @@ type BPFLXCEnterprise struct {
 	// True if host / remote node traffic is allowed into privnet.
 	PrivnetHostReachability bool `config:"privnet_host_reachability"`
 	// Link-local IPv4 address used to SNAT host traffic to PrivNet.
-	PrivnetHostSnatIPv4 [4]byte `config:"privnet_host_snat_ipv4"`
+	PrivnetHostSNATIPv4 types.V4Addr `config:"privnet_host_snat_ipv4"`
 	// Link-local IPv6 address used to SNAT host traffic to PrivNet.
-	PrivnetHostSnatIPv6 [16]byte `config:"privnet_host_snat_ipv6"`
+	PrivnetHostSNATIPv6 types.V6Addr `config:"privnet_host_snat_ipv6"`
 	// True if running in local access mode.
 	PrivnetLocalAccessEnable bool `config:"privnet_local_access_enable"`
 	// The security identifier for unknown network traffic.
@@ -34,8 +37,9 @@ type BPFLXCEnterprise struct {
 }
 
 func NewBPFLXCEnterprise() *BPFLXCEnterprise {
-	return &BPFLXCEnterprise{0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, false,
-		false, false, false, [4]byte{0x0, 0x0, 0x0, 0x0},
-		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFLXCEnterprise{0x0, 0x0,
+		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
+		false, false, false, false, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		false, 0x0}
 }

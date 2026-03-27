@@ -170,12 +170,7 @@ struct privnet_fib_key {
 	__u8 type;
 	__u8 pad[2];
 	union {
-		struct {
-			__be32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
+		union v4addr	ip4;
 		union v6addr	ip6;
 	};
 };
@@ -198,12 +193,7 @@ enum privnet_fib_type {
 
 struct privnet_fib_val {
 	union {
-		struct {
-			__be32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
+		union v4addr	ip4;
 		union v6addr	ip6;
 	};
 	union macaddr mac;
@@ -223,24 +213,14 @@ struct privnet_pip_key {
 	__u8 family;
 	__u8 pad[3];
 	union {
-		struct {
-			__be32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
+		union v4addr	ip4;
 		union v6addr	ip6;
 	};
 };
 
 struct privnet_pip_val {
 	union {
-		struct {
-			__be32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
+		union v4addr	ip4;
 		union v6addr	ip6;
 	};
 	__u8 pad;
@@ -271,12 +251,7 @@ struct privnet_subnet_key {
 	__u8 family;
 	__u8 pad[1];
 	union {
-		struct {
-			__be32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
+		union v4addr	ip4;
 		union v6addr	ip6;
 	};
 };
@@ -455,7 +430,7 @@ privnet_fib_lookup4(__u16 net_id, __u16 subnet_id, __be32 addr) {
 		.subnet_id = subnet_id,
 		.family = ENDPOINT_KEY_IPV4,
 		.type = PRIVNET_FIB_KEY_TYPE_DEFAULT,
-		.ip4 = addr,
+		.ip4.be32 = addr,
 	};
 	return privnet_fib_lookup(&key);
 }
@@ -518,7 +493,7 @@ static __always_inline __u16 privnet_subnet_id_lookup4(__u16 net_id, __be32 addr
 		.lpm_key = { PRIVNET_SUBNET_PREFIX_LEN(V4_PRIVNET_KEY_LEN), {} },
 		.net_id = net_id,
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = addr,
+		.ip4.be32 = addr,
 	};
 	const struct privnet_subnet_val *val;
 
@@ -610,7 +585,7 @@ privnet_cidr_identity_lookup4(const void *map, __be32 addr) {
 	struct privnet_cidr_identity_key key = {
 		.lpm_key = { PRIVNET_CIDR_IDENTITY_PREFIX_LEN(V4_PRIVNET_KEY_LEN), {} },
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = { .be32 = addr },
+		.ip4.be32 = addr,
 	};
 
 	return map_lookup_elem(map, &key);
@@ -816,7 +791,7 @@ privnet_redirect_neigh_fib_ipv4(const struct privnet_fib_val *dip_val, __be32 da
 		nh_params.ipv4_nh = daddr;
 	else if (dip_val->type == PRIVNET_FIB_VAL_TYPE_STATIC_ROUTE)
 		/* Subnet route: neigh lookup for nexthop IP */
-		nh_params.ipv4_nh = dip_val->ip4;
+		nh_params.ipv4_nh = dip_val->ip4.be32;
 	else
 		/* No route found for destination IP */
 		return DROP_UNROUTABLE;
@@ -1044,7 +1019,8 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			/* Only NAT if entry is for the endpoint, for route
 			 * entries, skip NATing.
 			 */
-			ret = privnet_nat_v4_addr(ctx, ip4->daddr, dip_val->ip4, IPV4_DADDR_OFF);
+			ret = privnet_nat_v4_addr(ctx, ip4->daddr, dip_val->ip4.be32,
+						  IPV4_DADDR_OFF);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
@@ -1071,7 +1047,8 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			/* Only NAT if entry is for the endpoint, for route
 			 * entries, skip NATing.
 			 */
-			ret = privnet_nat_v4_addr(ctx, ip4->saddr, sip_val->ip4, IPV4_SADDR_OFF);
+			ret = privnet_nat_v4_addr(ctx, ip4->saddr, sip_val->ip4.be32,
+						  IPV4_SADDR_OFF);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
@@ -1360,7 +1337,7 @@ privnet_pip_lookup4(__be32 addr) {
 	const struct privnet_pip_key key = {
 		.lpm_key = { PRIVNET_PIP_PREFIX_LEN(V4_PRIVNET_KEY_LEN), {} },
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = addr,
+		.ip4.be32 = addr,
 	};
 
 	return map_lookup_elem(&cilium_privnet_pip, &key);
@@ -1572,7 +1549,7 @@ privnet_lxc_ingress_ipv4(struct __ctx_buff *ctx,
 	 * (c) the network ID matches the expected one.
 	 */
 	if (sip_val && !unknown_flow && net_id == sip_val->net_id) {
-		ret = privnet_nat_v4_addr(ctx, ip4->saddr, sip_val->ip4, IPV4_SADDR_OFF);
+		ret = privnet_nat_v4_addr(ctx, ip4->saddr, sip_val->ip4.be32, IPV4_SADDR_OFF);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 				/* Checksum failure still means we (somewhat)
@@ -1594,7 +1571,7 @@ privnet_lxc_ingress_ipv4(struct __ctx_buff *ctx,
 		/* Perform destination NAT only if:
 		 * (a) the network ID matches the expected one
 		 */
-		ret = privnet_nat_v4_addr(ctx, ip4->daddr, dip_val->ip4, IPV4_DADDR_OFF);
+		ret = privnet_nat_v4_addr(ctx, ip4->daddr, dip_val->ip4.be32, IPV4_DADDR_OFF);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 				/* Checksum failure still means we (somewhat)
@@ -1655,7 +1632,7 @@ privnet_inb_ingress_ipv4(struct __ctx_buff *ctx, bool unknown_flow,
 		if (src_privnet_entry)
 			*src_privnet_entry = sip_val;
 
-		ret = privnet_nat_v4_addr(ctx, ip4->saddr, sip_val->ip4, IPV4_SADDR_OFF);
+		ret = privnet_nat_v4_addr(ctx, ip4->saddr, sip_val->ip4.be32, IPV4_SADDR_OFF);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 				/* Checksum failure still means we (somewhat)
@@ -1692,7 +1669,8 @@ privnet_inb_ingress_ipv4(struct __ctx_buff *ctx, bool unknown_flow,
 		 * (a) it matches the one of the sip entry.
 		 */
 		if (sip_val && sip_val->net_id == dip_val->net_id) {
-			ret = privnet_nat_v4_addr(ctx, ip4->daddr, dip_val->ip4, IPV4_DADDR_OFF);
+			ret = privnet_nat_v4_addr(ctx, ip4->daddr, dip_val->ip4.be32,
+						  IPV4_DADDR_OFF);
 			if (IS_ERR(ret)) {
 				if (ret == DROP_CSUM_L3 || ret == DROP_CSUM_L4)
 					/* Checksum failure still means we (somewhat)
@@ -1966,7 +1944,7 @@ privnet_evpn_ingress_ipv4(struct __ctx_buff *ctx, __u16 net_id)
 		return DROP_UNROUTABLE;
 
 	/* When we don't have an endpoint, don't route further. */
-	ep = __lookup_ip4_endpoint(dip_val->ip4);
+	ep = __lookup_ip4_endpoint(dip_val->ip4.be32);
 	if (!ep)
 		return DROP_UNROUTABLE;
 
@@ -2515,7 +2493,7 @@ privnet_local_access_ingress_ipv4(struct __ctx_buff *ctx, const __u16 net_id,
 		 * destination address. This implies local access N/S traffic.
 		 * Look up local endpoint for destination NetIP address.
 		 */
-		ep = __lookup_ip4_endpoint(dip_val->ip4);
+		ep = __lookup_ip4_endpoint(dip_val->ip4.be32);
 		if (ep) {
 			/* Redirect to the corresponding endpoint's lxc policy program. */
 			return ipv4_local_delivery(ctx, ETH_HLEN, WORLD_IPV4_ID,

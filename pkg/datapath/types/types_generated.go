@@ -123,6 +123,9 @@ type DropNotify struct {
 	Flags      uint8
 	Pad2       [3]uint8
 	IPTraceID  uint64
+	SrcNetID   uint16
+	DstNetID   uint16
+	Pad        uint32
 }
 
 // EDTID is generated from the BPF C type edt_id.
@@ -142,6 +145,33 @@ type EDTInfo struct {
 	Prio         uint32
 	Pad32        uint32
 	Pad          [3]uint64
+}
+
+// EgressGWHACTEntry is generated from the BPF C type egress_gw_ha_ct_entry.
+type EgressGWHACTEntry struct {
+	_         structs.HostLayout
+	GatewayIP uint32
+}
+
+// EgressGWHAPolicyEntryV2 is generated from the BPF C type egress_gw_ha_policy_entry_v2.
+type EgressGWHAPolicyEntryV2 struct {
+	_             structs.HostLayout
+	Size          uint32
+	EgressIP      uint32
+	GatewayIps    [64]uint32
+	EgressIfIndex uint32
+}
+
+// EgressGWHAPolicyKey is generated from the BPF C type egress_gw_ha_policy_key.
+type EgressGWHAPolicyKey struct {
+	_      structs.HostLayout
+	LPMKey struct {
+		_         structs.HostLayout
+		Prefixlen uint32
+		Data      [0]uint8
+	}
+	SAddr uint32
+	DAddr uint32
 }
 
 // EgressGWPolicyEntry is generated from the BPF C type egress_gw_policy_entry.
@@ -194,10 +224,43 @@ type EgressGWPolicyKey6 struct {
 	}
 }
 
+// EgressGWStandaloneEntry is generated from the BPF C type egress_gw_standalone_entry.
+type EgressGWStandaloneEntry struct {
+	_              structs.HostLayout
+	SecIdentity    uint32
+	TunnelEndpoint uint32
+}
+
+// EgressGWStandaloneKey is generated from the BPF C type egress_gw_standalone_key.
+type EgressGWStandaloneKey struct {
+	_          structs.HostLayout
+	EndpointIP uint32
+}
+
 // EncryptConfig is generated from the BPF C type encrypt_config.
 type EncryptConfig struct {
 	_          structs.HostLayout
 	EncryptKey uint8
+}
+
+// EncryptionPolicyEntry is generated from the BPF C type encryption_policy_entry.
+type EncryptionPolicyEntry struct {
+	_ structs.HostLayout
+	_ [1]byte
+}
+
+// EncryptionPolicyKey is generated from the BPF C type encryption_policy_key.
+type EncryptionPolicyKey struct {
+	_      structs.HostLayout
+	LPMKey struct {
+		_         structs.HostLayout
+		Prefixlen uint32
+		Data      [0]uint8
+	}
+	SrcSecIdentity uint32
+	DstSecIdentity uint32
+	Protocol       uint16
+	Port           uint16
 }
 
 // EndpointInfo is generated from the BPF C type endpoint_info.
@@ -226,6 +289,100 @@ type EndpointKey struct {
 	Family    uint8
 	Key       uint8
 	ClusterID uint16
+}
+
+// EVPNFIBKey is generated from the BPF C type evpn_fib_key.
+type EVPNFIBKey struct {
+	_      structs.HostLayout
+	LPMKey struct {
+		_         structs.HostLayout
+		Prefixlen uint32
+		Data      [0]uint8
+	}
+	Family uint8
+	Pad0   uint8
+	NetID  uint16
+	IP4    struct {
+		_    structs.HostLayout
+		Addr [4]uint8
+	}
+	_ [12]byte
+}
+
+// EVPNFIBVal is generated from the BPF C type evpn_fib_val.
+type EVPNFIBVal struct {
+	_      structs.HostLayout
+	VNI    uint32
+	Family uint8
+	Pad0   [3]uint8
+	MAC    struct {
+		_    structs.HostLayout
+		Addr [6]uint8
+		_    [2]byte
+	}
+	IP4 struct {
+		_    structs.HostLayout
+		Addr [4]uint8
+	}
+	_ [12]byte
+}
+
+// FLErrorValue is generated from the BPF C type fl_error_value.
+type FLErrorValue struct {
+	_        structs.HostLayout
+	ErrE2big uint64
+	ErrOther uint64
+}
+
+// FLKeyL2 is generated from the BPF C type fl_key_l2.
+type FLKeyL2 struct {
+	_       structs.HostLayout
+	DstMAC  [6]uint8
+	SrcMAC  [6]uint8
+	IfIndex uint32
+	Type    uint16
+	Pad     uint16
+}
+
+// FLKeyV4 is generated from the BPF C type fl_key_v4.
+type FLKeyV4 struct {
+	_       structs.HostLayout
+	IfIndex uint32
+	SAddr   uint32
+	DAddr   uint32
+	SPort   uint16
+	DPort   uint16
+	Nexthdr uint8
+	Pad1    uint8
+	Pad2    uint8
+	Pad3    uint8
+}
+
+// FLKeyV6 is generated from the BPF C type fl_key_v6.
+type FLKeyV6 struct {
+	_     structs.HostLayout
+	SAddr struct {
+		_    structs.HostLayout
+		Addr [16]uint8
+	}
+	DAddr struct {
+		_    structs.HostLayout
+		Addr [16]uint8
+	}
+	IfIndex uint32
+	SPort   uint16
+	DPort   uint16
+	Nexthdr uint8
+	_       [3]byte
+}
+
+// FLValue is generated from the BPF C type fl_value.
+type FLValue struct {
+	_           structs.HostLayout
+	FlowStartNs uint64
+	FlowEndNs   uint64
+	Bytes       uint64
+	Packets     uint64
 }
 
 // IPCacheKey is generated from the BPF C type ipcache_key.
@@ -783,6 +940,151 @@ type PolicyVerdictNotify struct {
 	Pad1        [3]uint8
 	Cookie      uint32
 	Pad2        uint32
+	SrcNetID    uint16
+	DstNetID    uint16
+	Pad         uint32
+}
+
+// PrivnetCIDRIdentity is generated from the BPF C type privnet_cidr_identity.
+type PrivnetCIDRIdentity struct {
+	_           structs.HostLayout
+	SecIdentity uint32
+}
+
+// PrivnetCIDRIdentityKey is generated from the BPF C type privnet_cidr_identity_key.
+type PrivnetCIDRIdentityKey struct {
+	_      structs.HostLayout
+	LPMKey struct {
+		_         structs.HostLayout
+		Prefixlen uint32
+		Data      [0]uint8
+	}
+	Family uint8
+	Pad    [3]uint8
+	IP4    struct {
+		_    structs.HostLayout
+		Addr [4]uint8
+	}
+	_ [12]byte
+}
+
+// PrivnetDeviceKey is generated from the BPF C type privnet_device_key.
+type PrivnetDeviceKey struct {
+	_       structs.HostLayout
+	IfIndex uint32
+}
+
+// PrivnetDeviceVal is generated from the BPF C type privnet_device_val.
+type PrivnetDeviceVal struct {
+	_     structs.HostLayout
+	NetID uint16
+	Type  uint8
+	Pad1  uint8
+	IPv4  struct {
+		_    structs.HostLayout
+		Addr [4]uint8
+	}
+	IPv6 struct {
+		_    structs.HostLayout
+		Addr [16]uint8
+	}
+}
+
+// PrivnetFIBKey is generated from the BPF C type privnet_fib_key.
+type PrivnetFIBKey struct {
+	_      structs.HostLayout
+	LPMKey struct {
+		_         structs.HostLayout
+		Prefixlen uint32
+		Data      [0]uint8
+	}
+	NetID    uint16
+	SubnetID uint16
+	Family   uint8
+	Type     uint8
+	Pad      [2]uint8
+	IP4      struct {
+		_    structs.HostLayout
+		Addr [4]uint8
+	}
+	_ [12]byte
+}
+
+// PrivnetFIBVal is generated from the BPF C type privnet_fib_val.
+type PrivnetFIBVal struct {
+	_   structs.HostLayout
+	IP4 struct {
+		_    structs.HostLayout
+		Addr [4]uint8
+	}
+	_   [12]byte
+	MAC struct {
+		_    structs.HostLayout
+		Addr [6]uint8
+		_    [2]byte
+	}
+	Pad4         uint8
+	Type         uint8
+	_            [1]byte /* unsupported bitfield */
+	Family       uint8
+	IfIndex      uint32
+	VNI          uint32
+	PeerNetID    uint16
+	PeerSubnetID uint16
+}
+
+// PrivnetPIPKey is generated from the BPF C type privnet_pip_key.
+type PrivnetPIPKey struct {
+	_      structs.HostLayout
+	LPMKey struct {
+		_         structs.HostLayout
+		Prefixlen uint32
+		Data      [0]uint8
+	}
+	Family uint8
+	Pad    [3]uint8
+	IP4    struct {
+		_    structs.HostLayout
+		Addr [4]uint8
+	}
+	_ [12]byte
+}
+
+// PrivnetPIPVal is generated from the BPF C type privnet_pip_val.
+type PrivnetPIPVal struct {
+	_   structs.HostLayout
+	IP4 struct {
+		_    structs.HostLayout
+		Addr [4]uint8
+	}
+	_      [12]byte
+	Pad    uint8
+	Family uint8
+	NetID  uint16
+}
+
+// PrivnetSubnetKey is generated from the BPF C type privnet_subnet_key.
+type PrivnetSubnetKey struct {
+	_      structs.HostLayout
+	LPMKey struct {
+		_         structs.HostLayout
+		Prefixlen uint32
+		Data      [0]uint8
+	}
+	NetID  uint16
+	Family uint8
+	Pad    [1]uint8
+	IP4    struct {
+		_    structs.HostLayout
+		Addr [4]uint8
+	}
+	_ [12]byte
+}
+
+// PrivnetSubnetVal is generated from the BPF C type privnet_subnet_val.
+type PrivnetSubnetVal struct {
+	_        structs.HostLayout
+	SubnetID uint16
 }
 
 // RatelimitKey is generated from the BPF C type ratelimit_key.
@@ -960,6 +1262,9 @@ type TraceNotify struct {
 	}
 	_         [12]byte
 	IPTraceID uint64
+	SrcNetID  uint16
+	DstNetID  uint16
+	Pad       uint32
 }
 
 // TraceSockNotify is generated from the BPF C type trace_sock_notify.
@@ -993,6 +1298,19 @@ type V4Addr struct {
 type V6Addr struct {
 	_    structs.HostLayout
 	Addr [16]uint8
+}
+
+// VNIKey is generated from the BPF C type vni_key.
+type VNIKey struct {
+	_   structs.HostLayout
+	VNI uint32
+}
+
+// VNIVal is generated from the BPF C type vni_val.
+type VNIVal struct {
+	_     structs.HostLayout
+	NetID uint16
+	Pad   uint16
 }
 
 // VTEPKey is generated from the BPF C type vtep_key.

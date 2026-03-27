@@ -10,9 +10,9 @@
 
 package config
 
-//go:generate go run github.com/cilium/cilium/tools/dpgen config --path ../../../bpf/bpf_lxc.o --kind enterprise --name BPFLXCEnterprise --out enterprise_lxc_config.go
-//go:generate go run github.com/cilium/cilium/tools/dpgen config --path ../../../bpf/bpf_host.o --kind enterprise --name BPFHostEnterprise --out enterprise_host_config.go
-//go:generate go run github.com/cilium/cilium/tools/dpgen config --path ../../../bpf/bpf_overlay.o --kind enterprise --name BPFOverlayEnterprise --out enterprise_overlay_config.go
-//go:generate go run github.com/cilium/cilium/tools/dpgen config --path ../../../bpf/enterprise_bpf_evpn.o --embed Node --kind object --name BPFEvpnBase --out enterprise_evpn_base_config.go
-//go:generate go run github.com/cilium/cilium/tools/dpgen config --path ../../../bpf/enterprise_bpf_evpn.o --kind enterprise --name BPFEvpnEnterprise --out enterprise_evpn_config.go
-//go:generate go run github.com/cilium/cilium/tools/dpgen config --path ../../../bpf/bpf_wireguard.o --kind enterprise --name BPFWireguardEnterprise --out enterprise_wireguard_config.go
+//go:generate go tool dpgen config --kind enterprise --name BPFLXCEnterprise --out enterprise_lxc_config.go ../../../bpf/bpf_lxc.o
+//go:generate go tool dpgen config --kind enterprise --name BPFHostEnterprise --out enterprise_host_config.go ../../../bpf/bpf_host.o
+//go:generate go tool dpgen config --kind enterprise --name BPFOverlayEnterprise --out enterprise_overlay_config.go ../../../bpf/bpf_overlay.o
+//go:generate go tool dpgen config --embed Node --kind object --name BPFEvpnBase --out enterprise_evpn_base_config.go ../../../bpf/enterprise_bpf_evpn.o
+//go:generate go tool dpgen config --kind enterprise --name BPFEvpnEnterprise --out enterprise_evpn_config.go ../../../bpf/enterprise_bpf_evpn.o
+//go:generate go tool dpgen config --kind enterprise --name BPFWireguardEnterprise --out enterprise_wireguard_config.go ../../../bpf/bpf_wireguard.o

@@ -58,8 +58,8 @@ const (
 	CiliumCTAny4Global                  = "cilium_ct_any4_global"
 	CiliumCTAny6Global                  = "cilium_ct_any6_global"
 	CiliumDevices                       = "cilium_devices"
-	CiliumEgressGWHaCTV4                = "cilium_egress_gw_ha_ct_v4"
-	CiliumEgressGWHaPolicyV4V2          = "cilium_egress_gw_ha_policy_v4_v2"
+	CiliumEgressGWHACTV4                = "cilium_egress_gw_ha_ct_v4"
+	CiliumEgressGWHAPolicyV4V2          = "cilium_egress_gw_ha_policy_v4_v2"
 	CiliumEgressGWPolicyV4              = "cilium_egress_gw_policy_v4"
 	CiliumEgressGWPolicyV6              = "cilium_egress_gw_policy_v6"
 	CiliumEgressGWStandaloneV4          = "cilium_egress_gw_standalone_v4"
@@ -67,7 +67,7 @@ const (
 	CiliumEncryptState                  = "cilium_encrypt_state"
 	CiliumEncryptionPolicyMap           = "cilium_encryption_policy_map"
 	CiliumEvents                        = "cilium_events"
-	CiliumEvpnFIB                       = "cilium_evpn_fib"
+	CiliumEVPNFIB                       = "cilium_evpn_fib"
 	CiliumExtEpsPolicy                  = "cilium_ext_eps_policy"
 	CiliumExtEpsPolicyInner             = "cilium_ext_eps_policy_inner"
 	CiliumIPCacheV2                     = "cilium_ipcache_v2"
@@ -130,7 +130,7 @@ const (
 	CiliumPrivnetCTAny6GlobalInner      = "cilium_privnet_ct_any6_global_inner"
 	CiliumPrivnetDevices                = "cilium_privnet_devices"
 	CiliumPrivnetFIB                    = "cilium_privnet_fib"
-	CiliumPrivnetPip                    = "cilium_privnet_pip"
+	CiliumPrivnetPIP                    = "cilium_privnet_pip"
 	CiliumPrivnetSubnets                = "cilium_privnet_subnets"
 	CiliumPrivnetWatchdog               = "cilium_privnet_watchdog"
 	CiliumRatelimit                     = "cilium_ratelimit"
@@ -149,7 +149,7 @@ const (
 	CiliumSRv6VRFV6                     = "cilium_srv6_vrf_v6"
 	CiliumSubnetMap                     = "cilium_subnet_map"
 	CiliumThrottle                      = "cilium_throttle"
-	CiliumVni                           = "cilium_vni"
+	CiliumVNI                           = "cilium_vni"
 	CiliumVTEPMap                       = "cilium_vtep_map"
 	CiliumXDPScratch                    = "cilium_xdp_scratch"
 )
@@ -432,9 +432,9 @@ func newCiliumDevicesSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumEgressGWHaCTV4Spec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumEgressGWHACTV4Spec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
-		Name:       CiliumEgressGWHaCTV4,
+		Name:       CiliumEgressGWHACTV4,
 		Type:       ebpf.LRUHash,
 		KeySize:    14,
 		Key:        anyTypeByName(btf, "ipv4_ct_tuple"),
@@ -446,9 +446,9 @@ func newCiliumEgressGWHaCTV4Spec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumEgressGWHaPolicyV4V2Spec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumEgressGWHAPolicyV4V2Spec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
-		Name:       CiliumEgressGWHaPolicyV4V2,
+		Name:       CiliumEgressGWHAPolicyV4V2,
 		Type:       ebpf.LPMTrie,
 		KeySize:    12,
 		Key:        anyTypeByName(btf, "egress_gw_policy_key"),
@@ -556,9 +556,9 @@ func newCiliumEventsSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumEvpnFIBSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumEVPNFIBSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
-		Name:       CiliumEvpnFIB,
+		Name:       CiliumEVPNFIB,
 		Type:       ebpf.LPMTrie,
 		KeySize:    24,
 		Key:        anyTypeByName(btf, "evpn_fib_key"),
@@ -1446,9 +1446,9 @@ func newCiliumPrivnetFIBSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumPrivnetPipSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumPrivnetPIPSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
-		Name:       CiliumPrivnetPip,
+		Name:       CiliumPrivnetPIP,
 		Type:       ebpf.LPMTrie,
 		KeySize:    24,
 		Key:        anyTypeByName(btf, "privnet_pip_key"),
@@ -1710,9 +1710,9 @@ func newCiliumThrottleSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumVniSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumVNISpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
-		Name:       CiliumVni,
+		Name:       CiliumVNI,
 		Type:       ebpf.Hash,
 		KeySize:    4,
 		Key:        anyTypeByName(btf, "vni_key"),
@@ -1771,8 +1771,8 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumCTAny4GlobalSpec,
 	newCiliumCTAny6GlobalSpec,
 	newCiliumDevicesSpec,
-	newCiliumEgressGWHaCTV4Spec,
-	newCiliumEgressGWHaPolicyV4V2Spec,
+	newCiliumEgressGWHACTV4Spec,
+	newCiliumEgressGWHAPolicyV4V2Spec,
 	newCiliumEgressGWPolicyV4Spec,
 	newCiliumEgressGWPolicyV6Spec,
 	newCiliumEgressGWStandaloneV4Spec,
@@ -1780,7 +1780,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumEncryptStateSpec,
 	newCiliumEncryptionPolicyMapSpec,
 	newCiliumEventsSpec,
-	newCiliumEvpnFIBSpec,
+	newCiliumEVPNFIBSpec,
 	newCiliumExtEpsPolicySpec,
 	newCiliumIPCacheV2Spec,
 	newCiliumIPMasqV4Spec,
@@ -1829,7 +1829,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumPrivnetCTAny6GlobalSpec,
 	newCiliumPrivnetDevicesSpec,
 	newCiliumPrivnetFIBSpec,
-	newCiliumPrivnetPipSpec,
+	newCiliumPrivnetPIPSpec,
 	newCiliumPrivnetSubnetsSpec,
 	newCiliumPrivnetWatchdogSpec,
 	newCiliumRatelimitSpec,
@@ -1848,7 +1848,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumSRv6VRFV6Spec,
 	newCiliumSubnetMapSpec,
 	newCiliumThrottleSpec,
-	newCiliumVniSpec,
+	newCiliumVNISpec,
 	newCiliumVTEPMapSpec,
 	newCiliumXDPScratchSpec,
 }
