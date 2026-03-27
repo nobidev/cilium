@@ -22,11 +22,11 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/enterprise/pkg/k8s/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/k8s"
 	isovalent_v1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -153,22 +153,24 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 	})
 }
 
-func isovalentNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*isovalent_v1.IsovalentNetworkPolicy], error) {
-	if !cs.IsEnabled() {
+func isovalentNetworkPolicyResource(params k8s.CiliumResourceParams) (resource.Resource[*isovalent_v1.IsovalentNetworkPolicy], error) {
+	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*isovalent_v1.IsovalentNetworkPolicyList](cs.IsovalentV1().IsovalentNetworkPolicies("")),
+		utils.ListerWatcherFromTyped(params.ClientSet.IsovalentV1().IsovalentNetworkPolicies("")),
 	)
-	return resource.New[*isovalent_v1.IsovalentNetworkPolicy](lc, lw, mp, resource.WithMetric("IsovalentNetworkPolicy")), nil
+	return resource.New[*isovalent_v1.IsovalentNetworkPolicy](params.Lifecycle, lw, params.MetricsProvider,
+		resource.WithMetric("IsovalentNetworkPolicy"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
-func isovalentClusterwideNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider) (resource.Resource[*isovalent_v1.IsovalentClusterwideNetworkPolicy], error) {
-	if !cs.IsEnabled() {
+func isovalentClusterwideNetworkPolicyResource(params k8s.CiliumResourceParams) (resource.Resource[*isovalent_v1.IsovalentClusterwideNetworkPolicy], error) {
+	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*isovalent_v1.IsovalentClusterwideNetworkPolicyList](cs.IsovalentV1().IsovalentClusterwideNetworkPolicies()),
+		utils.ListerWatcherFromTyped(params.ClientSet.IsovalentV1().IsovalentClusterwideNetworkPolicies()),
 	)
-	return resource.New[*isovalent_v1.IsovalentClusterwideNetworkPolicy](lc, lw, mp, resource.WithMetric("IsovalentClusterwideNetworkPolicy")), nil
+	return resource.New[*isovalent_v1.IsovalentClusterwideNetworkPolicy](params.Lifecycle, lw, params.MetricsProvider,
+		resource.WithMetric("IsovalentClusterwideNetworkPolicy"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
