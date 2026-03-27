@@ -55,7 +55,7 @@ type annotatedObject interface {
 }
 
 func HasNetworkAttachmentAnnotation(obj annotatedObject) bool {
-	_, found := annotation.Get(obj, PrivateNetworkAnnotation)
+	_, found := annotation.Get(obj, PrivateNetworkAnnotation, PrivateNetworkSecondaryAttachmentsAnnotation)
 	return found
 }
 
