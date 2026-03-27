@@ -277,13 +277,11 @@ func makeNotifierMetrics(n *notifier, reg *metrics.Registry) *notifierMetrics {
 
 func (n *notifier) Start(ctx cell.HookContext) error {
 	for range n.cfg.DNSNotificationSendWorkers {
-		n.wg.Add(1)
-		go func() {
+		n.wg.Go(func() {
 			for msg := range n.queue {
 				n.sendDNSNotification(context.Background(), msg)
 			}
-			n.wg.Done()
-		}()
+		})
 	}
 	return nil
 }

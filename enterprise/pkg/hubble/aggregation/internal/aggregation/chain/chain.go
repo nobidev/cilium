@@ -40,11 +40,9 @@ func (ac *AggregationChain) Add(a types.Aggregator) {
 func (ac *AggregationChain) Start(ctx context.Context) {
 	var wg sync.WaitGroup
 	for _, af := range ac.filters {
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			af.Start(ctx)
-			wg.Done()
-		}()
+		})
 	}
 	wg.Wait()
 }
