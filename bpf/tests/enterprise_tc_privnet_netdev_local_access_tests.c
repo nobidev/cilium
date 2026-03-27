@@ -187,7 +187,15 @@ int privnet_local_access_icmpv6_ns_ingress_from_netdev_check(struct __ctx_buff *
 	privnet_v6_del_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN);
 	privnet_del_device_entry(LXC_IFINDEX);
 	privnet_del_device_entry(IFINDEX);
-	/* endpoint_v6_del_entry((const union v6addr *)V6_POD_IP_2); */
+
+	/* endpoint_v6_del_entry is not defined upstream. Let's keep things
+	 * simple and open-code it here.
+	 */
+	struct endpoint_key key = {
+		.ip6 = *((const union v6addr *)V6_POD_IP_2),
+		.family = ENDPOINT_KEY_IPV6,
+	};
+	map_delete_elem(&cilium_lxc, &key);
 
 	test_finish();
 }
