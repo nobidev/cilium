@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/srv6/sidmanager"
 	"github.com/cilium/cilium/enterprise/pkg/srv6/srv6manager"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	metricsFeatures "github.com/cilium/cilium/pkg/metrics/features"
 )
 
@@ -54,6 +55,7 @@ var (
 		cmd.Agent,
 
 		// enterprise-only cells here
+		Infrastructure,
 		ControlPlane,
 		Datapath,
 
@@ -62,6 +64,16 @@ var (
 
 		// Feature gating to prevent use of unsupported features
 		features.AgentCell,
+	)
+
+	Infrastructure = cell.Module(
+		"enterprise-infra",
+		"Infrastructure Enterprise",
+
+		// Ensure that we also wait for the enterprise CRDs to appear.
+		cell.Provide(func() synced.CRDSyncResourceNamesOut {
+			return synced.NewCRDSyncResourceNamesOut(synced.AllIsovalentCRDResourceNames()...)
+		}),
 	)
 
 	ControlPlane = cell.Module(
