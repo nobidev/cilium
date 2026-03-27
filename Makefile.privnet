@@ -217,7 +217,7 @@ KIND_PRIVNET_VALUES_FILES ?= ""
 # Forklift CRDs must be deployed before installng Cilium, otherwise it fails
 # when starting the informers, entering a retry loop that can lead to flakes
 # when invoking the webhook for the first times.
-kind-privnet-install: kind-privnet-forklift-crds  ## Install a local Cilium version into the clusters
+kind-privnet-install: kind-privnet-multus-crds kind-privnet-forklift-crds  ## Install a local Cilium version into the clusters
 	$(MAKE) kind-privnet-uninstall
 	$(MAKE) kind-privnet-install-common
 	$(MAKE) kind-privnet-install-multus
@@ -225,7 +225,7 @@ kind-privnet-install: kind-privnet-forklift-crds  ## Install a local Cilium vers
 	$(MAKE) kind-privnet-connect-clustermesh
 
 .PHONY: kind-privnet-install-fast
-kind-privnet-install-fast: kind-privnet-forklift-crds  ## Install a local Cilium version into the clusters (fast mode)
+kind-privnet-install-fast: kind-privnet-multus-crds kind-privnet-forklift-crds  ## Install a local Cilium version into the clusters (fast mode)
 	$(MAKE) kind-privnet-uninstall
 
 	$(MAKE) kind-privnet-install-common KIND_PRIVNET_VALUES_FILES="\
@@ -331,6 +331,12 @@ kind-privnet-install-cert-manager:
 	$(QUIET) kubectl --context kind-privnet-cluster wait certificate -n kube-system --all --for condition=Ready >/dev/null
 	$(QUIET) kubectl --context kind-privnet-inb0 wait certificate -n kube-system --all --for condition=Ready >/dev/null
 	$(QUIET) kubectl --context kind-privnet-inb1 wait certificate -n kube-system --all --for condition=Ready >/dev/null
+
+.PHONY: kind-privnet-multus-crds
+kind-privnet-multus-crds: kind-privnet-generate-multus-kustomization
+	$(QUIET) kubectl kustomize $(ROOT_DIR)/contrib/testing/privnet/multus | \
+		$(SED) '/multusAutoconfigDir/ s|net.d|net.d/delegates|' | \
+		kubectl --context kind-privnet-cluster apply -l  app.kubernetes.io/component=crd -f -
 
 .PHONY: kind-privnet-install-multus
 kind-privnet-install-multus: kind-privnet-generate-multus-kustomization

@@ -6,6 +6,17 @@ resources:
 
 patches:
 - target:
+    kind: CustomResourceDefinition
+    name: network-attachment-definitions.k8s.cni.cncf.io
+  patch: |-
+    apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      name: network-attachment-definitions.k8s.cni.cncf.io
+      labels:
+        app.kubernetes.io/component: crd
+
+- target:
     kind: DaemonSet
     name: kube-multus-ds
     namespace: kube-system
