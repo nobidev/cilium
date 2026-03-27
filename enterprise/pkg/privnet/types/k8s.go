@@ -32,10 +32,6 @@ const (
 	// the network attachments for secondary interfaces.
 	PrivateNetworkSecondaryAttachmentsAnnotation = PrivateNetworkAnnotationPrefix + "/secondary-network-attachments"
 
-	// PrivateNetworkAnnotationLegacy is the name of the legacy annotation to attach pods to a
-	// particular private network.
-	PrivateNetworkAnnotationLegacy = "network.v1alpha1.isovalent.com/network-attachment"
-
 	// PrivateNetworkInactiveAnnotationLegacy is the name of the annotation which marks the pod inactive.
 	PrivateNetworkInactiveAnnotation = PrivateNetworkAnnotationPrefix + "/inactive"
 
@@ -59,12 +55,12 @@ type annotatedObject interface {
 }
 
 func HasNetworkAttachmentAnnotation(obj annotatedObject) bool {
-	_, found := annotation.Get(obj, PrivateNetworkAnnotation, PrivateNetworkAnnotationLegacy)
+	_, found := annotation.Get(obj, PrivateNetworkAnnotation)
 	return found
 }
 
 func ExtractNetworkAttachmentAnnotation(obj annotatedObject) (*NetworkAttachment, error) {
-	raw, found := annotation.Get(obj, PrivateNetworkAnnotation, PrivateNetworkAnnotationLegacy)
+	raw, found := annotation.Get(obj, PrivateNetworkAnnotation)
 	if !found {
 		return nil, nil // not found
 	}
