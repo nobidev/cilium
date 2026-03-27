@@ -126,13 +126,20 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 			podNamespaceName, pod.UID, p.PodUID)
 	}
 
+	var annotationFor = func(nicidx vNICIndex) string {
+		if nicidx.Primary() {
+			return types.PrivateNetworkAnnotation
+		}
+		return types.PrivateNetworkSecondaryAttachmentsAnnotation
+	}
+
 	attachment, nicidx, err := n.getAttachmentFor(pod, p.Ifname)
 	if err != nil {
 		return nil, err
 	} else if attachment == nil {
 		if p.Network != nil {
 			return nil, fmt.Errorf("target network set in CNI configuration, but %q annotation is missing on pod %s",
-				types.PrivateNetworkAnnotation, podNamespaceName,
+				annotationFor(nicidx), podNamespaceName,
 			)
 		}
 
@@ -140,20 +147,15 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 		return nil, nil
 	}
 
-	var annotation = types.PrivateNetworkAnnotation
-	if !nicidx.Primary() {
-		annotation = types.PrivateNetworkSecondaryAttachmentsAnnotation
-	}
-
 	if p.Network != nil && *p.Network != attachment.Network {
 		return nil, fmt.Errorf("mismatching target network in CNI configuration (%q) and %q annotation on pod %s (%q)",
-			*p.Network, annotation, podNamespaceName, attachment.Network,
+			*p.Network, annotationFor(nicidx), podNamespaceName, attachment.Network,
 		)
 	}
 	privnet, _, found := n.privateNetworks.Get(txn, tables.PrivateNetworkByName(tables.NetworkName(attachment.Network)))
 	if !found {
 		return nil, fmt.Errorf("invalid network %q in %q annotation on pod %s",
-			attachment.Network, annotation, podNamespaceName)
+			attachment.Network, annotationFor(nicidx), podNamespaceName)
 	}
 
 	inactive, err := types.ExtractInactiveAnnotation(pod)
@@ -164,7 +166,7 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 
 	if p.Subnet != nil && attachment.Subnet != "" && *p.Subnet != attachment.Subnet {
 		return nil, fmt.Errorf("mismatching target subnet in CNI configuration (%q) and %q annotation on pod %s (%q)",
-			*p.Subnet, annotation, podNamespaceName, attachment.Subnet,
+			*p.Subnet, annotationFor(nicidx), podNamespaceName, attachment.Subnet,
 		)
 	}
 	requestedSubnet := tables.SubnetName(ptr.Deref(p.Subnet, attachment.Subnet))
@@ -182,7 +184,7 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 		} else {
 			if !attachment.IPv4.Is4() {
 				return nil, fmt.Errorf("invalid IPv4 address %q in %q annotation on pod %s",
-					attachment.IPv4, annotation, podNamespaceName)
+					attachment.IPv4, annotationFor(nicidx), podNamespaceName)
 			}
 			ipv4 = attachment.IPv4
 		}
@@ -191,7 +193,7 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 	if n.cfg.enableIPv6 {
 		if !attachment.IPv6.Is6() {
 			return nil, fmt.Errorf("invalid IPv6 address %q in %q annotation on pod %s",
-				attachment.IPv6, annotation, podNamespaceName)
+				attachment.IPv6, annotationFor(nicidx), podNamespaceName)
 		}
 		ipv6 = attachment.IPv6
 	}
@@ -230,18 +232,19 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 // the corresponding vNIC index, computed based on the position of the entry in the Multus network
 // attachment annotation.
 func (n *PrivNetAPI) getAttachmentFor(pod metav1.Object, ifname string) (*types.NetworkAttachment, vNICIndex, error) {
-	attachments, err := types.ExtractNetworkAttachmentAnnotation(pod)
-	if err != nil || len(attachments) == 0 {
-		return nil, 0, err
-	}
-
 	// The attachment for the primary interface is always the first one.
 	const primary = "eth0"
 	if ifname == primary {
-		return &attachments[0], 0, nil
+		attachment, err := types.ExtractNetworkAttachmentAnnotation(pod)
+		return attachment, 0, err
 	}
 
-	attachments = attachments[1:]
+	attachments, err := types.ExtractNetworkSecondaryAttachmentsAnnotation(pod)
+	if err != nil || len(attachments) == 0 {
+		// Return the [vNICIndex] matching a secondary interface, so that it can
+		// be used to propagate a better error message.
+		return nil, 1, err
+	}
 
 	// Lookup the entry matching the given interface name inside the "k8s.v1.cni.cncf.io/networks" annotation.
 	elems, err := multusutils.ParsePodNetworkAnnotation(&corev1.Pod{ObjectMeta: metav1.ObjectMeta{
@@ -269,7 +272,7 @@ func (n *PrivNetAPI) getAttachmentFor(pod metav1.Object, ifname string) (*types.
 
 	// If the attachments specify the interface name, we can rely on it to retrieve the matching one.
 	var naidx = nicidx
-	if len(attachments) > 0 && attachments[0].Interface != "" {
+	if attachments[0].Interface != "" {
 		// Copied from the Kubevirt implementation of [GenerateHashedInterfaceName], to avoid introducing a dependency.
 		// https://github.com/kubevirt/kubevirt/blob/1ac3f5208a1f/pkg/network/namescheme/networknamescheme.go#L80-L85
 		var kubevirtHashedInterfaceName = func(networkName string) string {

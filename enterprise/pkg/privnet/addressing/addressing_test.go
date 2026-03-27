@@ -465,6 +465,12 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 			wantErr:  fmt.Sprintf(`target network set in CNI configuration, but %q annotation is missing on pod default/client`, types.PrivateNetworkAnnotation),
 		},
 		{
+			name:     "CNI configuration specifies network, but attachment is missing (secondary interface)",
+			override: override{network: ptr.To("green-network"), subnet: ptr.To("subnet1"), ifname: "net0"},
+			pod:      newPod("default", "client", "uid", nil),
+			wantErr:  fmt.Sprintf(`target network set in CNI configuration, but %q annotation is missing on pod default/client`, types.PrivateNetworkSecondaryAttachmentsAnnotation),
+		},
+		{
 			name:     "mismatching CNI configuration and attachment network",
 			override: override{network: ptr.To("blue-network"), subnet: ptr.To("subnet1")},
 			pod: newPod("default", "client", "uid",
@@ -881,6 +887,36 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				},
 			),
 			wantErr: `duplicate network attachment found for interface "eth4" in`,
+		},
+		{
+			name:     "secondary network attachment, primary in default network",
+			override: override{ifname: "net2"},
+			pod: newPod("default", "client", "uid",
+				map[string]string{
+					types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
+						{ "network": "green-network", "ipv4": "192.168.52.11", "ipv6": "fd10:0:152::11", "mac": "00:50:56:ad:11:03" },
+						{ "network": "green-network", "ipv4": "192.168.10.11", "ipv6": "fd10:0:140::11", "mac": "00:50:56:ad:11:04" },
+						{ "network": "blue-network", "ipv4": "192.168.22.11", "mac": "00:50:56:ad:11:05" }
+					]`,
+					multusv1.NetworkAttachmentAnnot: "foo,bar,baz",
+				},
+			),
+			wantAddressing: &models.PrivateNetworkAddressing{
+				ActivatedAt: strfmt.DateTime(activatedAtActive),
+				Network:     "green-network",
+				Subnet:      "subnet3",
+				Address: &models.AddressPair{
+					IPV4: "192.168.10.11",
+					IPV6: "fd10:0:140::11",
+				},
+				Mac: "00:50:56:ad:11:04",
+				Routes: []*models.NetworkAttachmentRoute{
+					{Destination: "169.254.0.3/32"},
+					{Destination: "192.168.10.0/24", Gateway: "169.254.0.3"},
+					{Destination: "fe80::3/128"},
+					{Destination: "fd10:0:140::/64", Gateway: "fe80::3"},
+				},
+			},
 		},
 	}
 
