@@ -309,7 +309,7 @@ func (n *notifier) NotifyOnDNSMsg(
 	epIPPort string,
 	serverID identity.NumericIdentity,
 	agentAddr netip.AddrPort,
-	msg *dns.Msg,
+	msgDetails *dnsproxy.MsgDetails,
 	protocol string,
 	allowed bool,
 	stat *dnsproxy.ProxyRequestContext,
@@ -347,6 +347,14 @@ func (n *notifier) NotifyOnDNSMsg(
 		Identity:  uint32(ep.SecurityIdentity.ID),
 		Namespace: ep.K8sNamespace,
 		PodName:   ep.K8sPodName,
+	}
+
+	msg, err := dnsMsgFromDetails(msgDetails)
+	if err != nil {
+		metricError = metricErrorPacking
+		endMetric()
+		n.log.Error("Could not reconstruct dns msg from details", logfields.Error, err)
+		return err
 	}
 
 	dnsMsg, err := msg.Pack()
@@ -424,6 +432,137 @@ func (n *notifier) NotifyOnDNSMsg(
 	}
 	stat.ProcessingTime.End(true)
 	return nil
+}
+
+// TODO: hack to make stuff work during OSS->CEE sync without changing proto API
+func dnsMsgFromDetails(details *dnsproxy.MsgDetails) (*dns.Msg, error) {
+	if details == nil {
+		return nil, errors.New("dns message details are nil")
+	}
+	if details.QName == "" {
+		return nil, errors.New("dns message details missing qname")
+	}
+
+	qtype := uint16(dns.TypeA)
+	if len(details.QTypes) > 0 {
+		qtype = details.QTypes[0]
+	}
+
+	qname := dns.Fqdn(details.QName)
+	msg := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Response: details.Response,
+			Rcode:    details.RCode,
+		},
+		Question: []dns.Question{{
+			Name:   qname,
+			Qtype:  qtype,
+			Qclass: dns.ClassINET,
+		}},
+	}
+
+	if !details.Response {
+		return msg, nil
+	}
+
+	ttl := details.TTL
+	cnameIdx := 0
+	ipIdx := 0
+	appendAnswer := func(rrType uint16) error {
+		hdr := dns.RR_Header{
+			Name:   qname,
+			Rrtype: rrType,
+			Class:  dns.ClassINET,
+			Ttl:    ttl,
+		}
+
+		switch rrType {
+		case dns.TypeCNAME:
+			if cnameIdx >= len(details.CNAMEs) {
+				return errors.New("dns message details missing cname data")
+			}
+			msg.Answer = append(msg.Answer, &dns.CNAME{
+				Hdr:    hdr,
+				Target: dns.Fqdn(details.CNAMEs[cnameIdx]),
+			})
+			cnameIdx++
+		case dns.TypeA:
+			if ipIdx >= len(details.ResponseIPs) {
+				return errors.New("dns message details missing A record data")
+			}
+			ip := details.ResponseIPs[ipIdx]
+			if !ip.Is4() {
+				return errors.New("dns message details has non-IPv4 address for A record")
+			}
+			msg.Answer = append(msg.Answer, &dns.A{
+				Hdr: hdr,
+				A:   ip.AsSlice(),
+			})
+			ipIdx++
+		case dns.TypeAAAA:
+			if ipIdx >= len(details.ResponseIPs) {
+				return errors.New("dns message details missing AAAA record data")
+			}
+			ip := details.ResponseIPs[ipIdx]
+			if !ip.Is6() {
+				return errors.New("dns message details has non-IPv6 address for AAAA record")
+			}
+			msg.Answer = append(msg.Answer, &dns.AAAA{
+				Hdr:  hdr,
+				AAAA: ip.AsSlice(),
+			})
+			ipIdx++
+		}
+		return nil
+	}
+
+	for _, rrType := range details.AnswerTypes {
+		if err := appendAnswer(rrType); err != nil {
+			return nil, err
+		}
+	}
+
+	for ; cnameIdx < len(details.CNAMEs); cnameIdx++ {
+		msg.Answer = append(msg.Answer, &dns.CNAME{
+			Hdr: dns.RR_Header{
+				Name:   qname,
+				Rrtype: dns.TypeCNAME,
+				Class:  dns.ClassINET,
+				Ttl:    ttl,
+			},
+			Target: dns.Fqdn(details.CNAMEs[cnameIdx]),
+		})
+	}
+
+	for ; ipIdx < len(details.ResponseIPs); ipIdx++ {
+		ip := details.ResponseIPs[ipIdx]
+		switch {
+		case ip.Is4():
+			msg.Answer = append(msg.Answer, &dns.A{
+				Hdr: dns.RR_Header{
+					Name:   qname,
+					Rrtype: dns.TypeA,
+					Class:  dns.ClassINET,
+					Ttl:    ttl,
+				},
+				A: ip.AsSlice(),
+			})
+		case ip.Is6():
+			msg.Answer = append(msg.Answer, &dns.AAAA{
+				Hdr: dns.RR_Header{
+					Name:   qname,
+					Rrtype: dns.TypeAAAA,
+					Class:  dns.ClassINET,
+					Ttl:    ttl,
+				},
+				AAAA: ip.AsSlice(),
+			})
+		default:
+			return nil, errors.New("dns message details has invalid IP address")
+		}
+	}
+
+	return msg, nil
 }
 
 func (n *notifier) sendDNSNotification(ctx context.Context, msg *pb.DNSNotification) {

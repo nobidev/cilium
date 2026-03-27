@@ -257,19 +257,19 @@ func (r *remoteNameManager) MaybeUpdateIPCache(msg *dns.Msg) {
 		return
 	}
 
-	qname, responseAddrs, _, _, _, _, _, err := dnsproxy.ExtractMsgDetails(msg)
+	msgDetails, err := dnsproxy.ExtractResponseMsgDetails(msg)
 	if err != nil {
 		r.logger.Debug("error extracting DNS response message details", logfields.Error, err)
 		return
 	}
 
 	// No addresses in DNS response. What even is this?
-	if len(responseAddrs) == 0 {
+	if len(msgDetails.ResponseIPs) == 0 {
 		r.logger.Debug("no addresses in DNS response")
 		return
 	}
 
-	r.maybeUpdateIPCache(qname, responseAddrs)
+	r.maybeUpdateIPCache(msgDetails.QName, msgDetails.ResponseIPs)
 }
 
 func (r *remoteNameManager) maybeUpdateIPCache(qname string, responseAddrs []netip.Addr) {
