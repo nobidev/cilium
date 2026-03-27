@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/clustermesh/phantom"
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	iso_api_v1a1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 )
 
 var (
@@ -53,6 +54,16 @@ var (
 			cell.Provide(
 				func(cfg pncfg.Common) *clustercfg.PrivateNetworksCapability {
 					return ptr.To(clustercfg.PrivateNetworksCapability(cfg.Enabled))
+				},
+
+				func(cfg pncfg.Common) synced.CRDSyncResourceNamesOut {
+					var names []string
+
+					if cfg.Enabled {
+						names = append(names, synced.CRDResourceName(iso_api_v1a1.PrivateNetworkEndpointSliceName))
+					}
+
+					return synced.NewCRDSyncResourceNamesOut(names...)
 				},
 
 				newPrivateNetworkEndpointSliceOptions,
