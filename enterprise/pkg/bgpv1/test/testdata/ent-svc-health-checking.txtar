@@ -279,10 +279,10 @@ ports:
 
 -- gobgp-routes-ipv4.expected --
 Prefix          NextHop              Attrs
-172.16.1.1/32   fd00::aa:aa:aa:102   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:aa:aa:102, NLRIs: [172.16.1.1/32]}}]
+172.16.1.1/32   fd00::aa:aa:aa:102   [{Origin: i} {AsPath: } {LocalPref: 100}]
 -- gobgp-routes-ipv6.expected --
 Prefix              NextHop              Attrs
-fd00:aa:bb::1/128   fd00::aa:aa:aa:102   [{Origin: i} {AsPath: } {LocalPref: 100} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:aa:aa:102, NLRIs: [fd00:aa:bb::1/128]}}]
+fd00:aa:bb::1/128   fd00::aa:aa:aa:102   [{Origin: i} {AsPath: } {LocalPref: 100}]
 -- gobgp-routes-ipv4-empty.expected --
 Prefix   NextHop   Attrs
 -- gobgp-routes-ipv6-empty.expected --

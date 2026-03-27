@@ -205,5 +205,5 @@ PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   Grac
 10.99.0.130   10.99.0.130   65001     ESTABLISHED    5           15         60
 -- gobgp-routes.expected --
 Prefix          NextHop       Attrs
-10.244.0.0/24   10.99.0.130   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.130}]
-172.16.1.1/32   10.99.0.130   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.130}]
+10.244.0.0/24   10.99.0.130   [{Origin: i} {AsPath: 65001}]
+172.16.1.1/32   10.99.0.130   [{Origin: i} {AsPath: 65001}]

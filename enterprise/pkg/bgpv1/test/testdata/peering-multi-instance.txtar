@@ -223,21 +223,21 @@ PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   Grac
 10.99.0.110   10.99.0.110   65001     ESTABLISHED    3           9          30
 -- gobgp-routes-podcidr-65001.expected --
 Prefix          NextHop       Attrs
-10.244.0.0/24   10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
+10.244.0.0/24   10.99.0.110   [{Origin: i} {AsPath: 65001}]
 -- gobgp-routes-all-65001.expected --
 Prefix            NextHop       Attrs
-10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
-10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
+10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65001}]
+10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65001}]
 -- gobgp-peers-65002.expected --
 PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime
 10.99.0.110   10.99.0.110   65002     ESTABLISHED    3           9          30
 -- gobgp-routes-podcidr-65002.expected --
 Prefix          NextHop       Attrs
-10.244.0.0/24   10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
+10.244.0.0/24   10.99.0.110   [{Origin: i} {AsPath: 65002}]
 -- gobgp-routes-all-65002.expected --
 Prefix            NextHop       Attrs
-10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
-10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
+10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65002}]
+10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65002}]
 -- cilium-peers.expected --
 Instance    Peer           Session State   Uptime   Family         Received   Accepted   Advertised
 tor-65001   gobgp-peer-1   established     -        ipv4-unicast   0          0          2

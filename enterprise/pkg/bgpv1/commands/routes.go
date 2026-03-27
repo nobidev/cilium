@@ -41,6 +41,7 @@ func BGPRoutesExtendedCmd(bgpMgr agent.EnterpriseBGPRouterManager, errorPathStor
 			Flags: func(fs *pflag.FlagSet) {
 				AddOutFileFlag(fs)
 				fs.Bool("no-age", false, "Do not show Age column for testing purpose")
+				fs.BoolP("with-attrs", "a", false, "Show path attributes (excluding NEXT_HOP and MP_REACH_NLRI)")
 			},
 			Detail: []string{
 				"List routes in the BGP Control Plane's RIBs",
@@ -81,6 +82,11 @@ func BGPRoutesExtendedCmd(bgpMgr agent.EnterpriseBGPRouterManager, errorPathStor
 					return "", "", err
 				}
 
+				printAttr, err := s.Flags.GetBool("with-attrs")
+				if err != nil {
+					return "", "", err
+				}
+
 				w, buf, f, err := GetCmdWriter(s)
 				if err != nil {
 					return "", "", err
@@ -111,7 +117,7 @@ func BGPRoutesExtendedCmd(bgpMgr agent.EnterpriseBGPRouterManager, errorPathStor
 				}
 
 				isAdjRIB := tableType == ossTypes.TableTypeAdjRIBIn || tableType == ossTypes.TableTypeAdjRIBOut
-				PrintRoutes(tw, routesRes.Instances, peerMaps, errorPathStore, noAge, isAdjRIB)
+				PrintRoutes(tw, routesRes.Instances, peerMaps, errorPathStore, noAge, isAdjRIB, printAttr)
 				tw.Flush()
 
 				return buf.String(), "", nil
@@ -138,7 +144,7 @@ func PrintRoutes(
 	instances []agent.InstanceRoutesExtended,
 	peerMaps map[string]map[netip.Addr]string,
 	errorPathStore *reconcilerv2.ErrorPathStore,
-	noAge, isAdjRIB bool,
+	noAge, isAdjRIB, printAttr bool,
 ) {
 	type row struct {
 		Instance string
@@ -148,6 +154,7 @@ func PrintRoutes(
 		Best     string
 		Age      string
 		Error    string
+		Attrs    string
 	}
 
 	var rows []row
@@ -194,6 +201,7 @@ func PrintRoutes(
 					Best:     strconv.FormatBool(path.Best),
 					Age:      time.Duration(path.AgeNanoseconds).Truncate(time.Second).String(),
 					Error:    errStr,
+					Attrs:    FormatPathAttributes(path.PathAttributes),
 				}
 				if noAge {
 					r.Age = "-"
@@ -223,6 +231,7 @@ func PrintRoutes(
 		Best:     "Best",
 		Age:      "Age",
 		Error:    "Error",
+		Attrs:    "Attrs",
 	})
 
 	prevInstance := ""
@@ -242,9 +251,15 @@ func PrintRoutes(
 		}
 
 		if isAdjRIB {
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", row.Instance, row.Peer, row.Prefix, row.NextHop, row.Age)
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s", row.Instance, row.Peer, row.Prefix, row.NextHop, row.Age)
 		} else {
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Instance, row.Peer, row.Prefix, row.NextHop, row.Best, row.Age, row.Error)
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s", row.Instance, row.Peer, row.Prefix, row.NextHop, row.Best, row.Age, row.Error)
+		}
+
+		if printAttr {
+			fmt.Fprintf(tw, "\t%s\n", row.Attrs)
+		} else {
+			fmt.Fprintf(tw, "\n")
 		}
 
 		if row.Instance != "" {
@@ -265,9 +280,13 @@ func PrintRoutes(
 func FormatPathAttributes(pattrs []bgp.PathAttributeInterface) string {
 	formatted := make([]string, 0, len(pattrs))
 	for _, pa := range pattrs {
-		if extComms, ok := pa.(*bgp.PathAttributeExtendedCommunities); ok {
-			formatted = append(formatted, formatExtendedCommunities(extComms))
-		} else {
+		switch a := pa.(type) {
+		case *bgp.PathAttributeNextHop, *bgp.PathAttributeMpReachNLRI:
+			// Skip NextHop and MpReachNLRI attributes as they are
+			// already shown in a separate column.
+		case *bgp.PathAttributeExtendedCommunities:
+			formatted = append(formatted, formatExtendedCommunities(a))
+		default:
 			formatted = append(formatted, pa.String())
 		}
 

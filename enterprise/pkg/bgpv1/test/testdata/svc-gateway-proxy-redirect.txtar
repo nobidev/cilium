@@ -134,4 +134,4 @@ status:
 
 -- gobgp-routes-gateway.expected --
 Prefix              NextHop       Attrs
-172.18.255.200/32   10.99.5.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.5.102}]
+172.18.255.200/32   10.99.5.102   [{Origin: i} {AsPath: 65001}]

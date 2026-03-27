@@ -164,6 +164,6 @@ ports:
 
 -- gobgp-routes.expected --
 Prefix          NextHop       Attrs
-172.16.1.1/32   10.99.4.112   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.112}]
+172.16.1.1/32   10.99.4.112   [{Origin: i} {AsPath: 65001}]
 -- gobgp-routes-empty.expected --
 Prefix   NextHop   Attrs
