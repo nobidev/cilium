@@ -66,7 +66,7 @@ spec:
           rng: {}
         resources:
           requests:
-            memory: 1024M
+            memory: 256M
       networks:
       - name: default
         {{- if .NAD }}
@@ -92,7 +92,7 @@ spec:
       - cloudInitNoCloud:
           userData: |-
             #cloud-config
-            password: fedora
+            password: alpine
             chpasswd: { expire: False }
             manage_etc_hosts: true
             write_files:
@@ -100,21 +100,26 @@ spec:
                 {{ .Script | indent 16 }}
               path: /run/scripts/echoserver.py
             - content: |
-                [Unit]
-                Description=Serve http server echoing client ip
-                After=cloud-init-local.service
-                Before=cloud-config.service
-                Before=cloud-final.service
+                #!/sbin/openrc-run
 
-                [Install]
-                WantedBy=cloud-init-local.service
+                description="Serve http server echoing client IP"
+                command="/usr/bin/python3"
+                command_args="/run/scripts/echoserver.py"
+                pidfile="/run/echoserver.pid"
+                supervisor="supervise-daemon"
+                command_background="yes"
 
-                [Service]
-                Environment="CILIUM_PRIVNET_NETWORK={{ .NetName }}"
-                Environment="CILIUM_PRIVNET_PORT={{ .ServePort }}"
-                ExecStart=/usr/bin/env python3 /run/scripts/echoserver.py
-                Restart=always
-              path: /etc/systemd/system/echoserver.service
+                depend() {
+                    need localmount
+                    need net
+                }
+
+                start_pre() {
+                    export CILIUM_PRIVNET_NETWORK={{ .NetName }}
+                    export CILIUM_PRIVNET_PORT={{ .ServePort }}
+                }
+              path: /etc/init.d/echoserver
+              permissions: '0755'
             - content: |
                 #! /bin/sh -e
 
@@ -126,7 +131,8 @@ spec:
               path: /run/scripts/ready.sh
               permissions: '0755'
             runcmd:
-            - [systemctl, enable, --now, echoserver.service]
+            - [rc-service, echoserver, start]
+            - [rc-update, add, echoserver]
           networkData: |
             version: 2
             ethernets:
