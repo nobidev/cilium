@@ -446,10 +446,7 @@ func TestHTTPSRequestFiltering(t T) {
 			vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 			for _, tt := range tC.testCalls {
-				testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --cacert /tmp/%s.crt --resolve %s:443:%s https://%s:443%s", tt.hostName, tt.hostName, vipIP, tt.hostName, tt.path))
-				for k, v := range tt.headers {
-					testCmd += fmt.Sprintf(" -H '%s:%s'", k, v)
-				}
+				testCmd := curlCmdWithHeaders(curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --cacert /tmp/%s.crt --resolve %s:443:%s https://%s:443%s", tt.hostName, tt.hostName, vipIP, tt.hostName, tt.path)), tt.headers)
 				t.Log("Testing %q...", testCmd)
 				eventually(t, func() error {
 					stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)

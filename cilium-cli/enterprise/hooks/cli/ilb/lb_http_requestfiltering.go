@@ -430,10 +430,7 @@ func TestHTTPRequestFiltering(t T) {
 			vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 			for _, tt := range tC.testCalls {
-				testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --resolve %s:80:%s http://%s:80%s", tt.hostName, vipIP, tt.hostName, tt.path))
-				for k, v := range tt.headers {
-					testCmd += fmt.Sprintf(" -H '%s:%s'", k, v)
-				}
+				testCmd := curlCmdWithHeaders(curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --resolve %s:80:%s http://%s:80%s", tt.hostName, vipIP, tt.hostName, tt.path)), tt.headers)
 				t.Log("Testing %q...", testCmd)
 				eventually(t, func() error {
 					stdout, stderr, err := clients[tt.clientNr].Exec(t.Context(), testCmd)
