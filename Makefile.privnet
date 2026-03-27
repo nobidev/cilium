@@ -398,6 +398,7 @@ kind-privnet-kubevirt:  ## Deploy kubevirt in the Cilium cluster
 		quay.io/kubevirt/virt-controller:$(PRIVNET_KUBEVIRT_VERSION) $(PRIVNET_VM_IMAGE))
 
 	$(QUIET) kubectl --context kind-privnet-cluster apply -f "https://github.com/kubevirt/kubevirt/releases/download/$(PRIVNET_KUBEVIRT_VERSION)/kubevirt-operator.yaml"
+	$(QUIET) kubectl --context kind-privnet-cluster wait --for=condition=Established --timeout=60s crd/kubevirts.kubevirt.io
 	$(QUIET) kubectl --context kind-privnet-cluster apply -f $(ROOT_DIR)/contrib/testing/privnet/kubevirt.yaml -n kubevirt
 	$(QUIET) kubectl --context kind-privnet-cluster -n kubevirt wait kubevirt/kubevirt --for condition=Available --timeout=300s
 
