@@ -211,8 +211,8 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet1",
 				Address: &models.AddressPair{
-					IPV4: "192.168.11.11",
-					IPV6: "fd10:0:150::11",
+					IPv4: "192.168.11.11",
+					IPv6: "fd10:0:150::11",
 				},
 				Mac: "00:50:56:ad:11:02",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -236,8 +236,8 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet1",
 				Address: &models.AddressPair{
-					IPV4: "192.168.11.13",
-					IPV6: "fd10:0:150::13",
+					IPv4: "192.168.11.13",
+					IPv6: "fd10:0:150::13",
 				},
 				Mac: "00:69:af:ca:8e:34",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -382,7 +382,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet1",
 				Address: &models.AddressPair{
-					IPV6: "fd10:0:150::11",
+					IPv6: "fd10:0:150::11",
 				},
 				Mac: "00:50:56:ad:11:02",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -404,7 +404,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet1",
 				Address: &models.AddressPair{
-					IPV4: "192.168.11.11",
+					IPv4: "192.168.11.11",
 				},
 				Mac: "00:50:56:ad:11:02",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -502,7 +502,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet1",
 				Address: &models.AddressPair{
-					IPV4: "0.0.0.0",
+					IPv4: "0.0.0.0",
 				},
 				Mac: "00:50:56:ad:11:02",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -524,7 +524,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet1",
 				Address: &models.AddressPair{
-					IPV4: "0.0.0.0",
+					IPv4: "0.0.0.0",
 				},
 				Mac: "00:50:56:ad:11:02",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -548,7 +548,7 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet1",
 				Address: &models.AddressPair{
-					IPV4: "0.0.0.0",
+					IPv4: "0.0.0.0",
 				},
 				Mac: "00:50:56:ad:11:02",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -612,8 +612,8 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet1",
 				Address: &models.AddressPair{
-					IPV4: "192.168.11.11",
-					IPV6: "fd10:0:150::11",
+					IPv4: "192.168.11.11",
+					IPv6: "fd10:0:150::11",
 				},
 				Mac: "00:50:56:ad:11:02",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -643,8 +643,8 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet3",
 				Address: &models.AddressPair{
-					IPV4: "192.168.10.11",
-					IPV6: "fd10:0:140::11",
+					IPv4: "192.168.10.11",
+					IPv6: "fd10:0:140::11",
 				},
 				Mac: "00:50:56:ad:11:04",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -674,8 +674,8 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet2",
 				Address: &models.AddressPair{
-					IPV4: "192.168.52.11",
-					IPV6: "fd10:0:152::11",
+					IPv4: "192.168.52.11",
+					IPv6: "fd10:0:152::11",
 				},
 				Mac: "00:50:56:ad:11:03",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -778,8 +778,8 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet3",
 				Address: &models.AddressPair{
-					IPV4: "192.168.10.11",
-					IPV6: "fd10:0:140::11",
+					IPv4: "192.168.10.11",
+					IPv6: "fd10:0:140::11",
 				},
 				Mac: "00:50:56:ad:11:04",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -809,8 +809,8 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet2",
 				Address: &models.AddressPair{
-					IPV4: "192.168.52.11",
-					IPV6: "fd10:0:152::11",
+					IPv4: "192.168.52.11",
+					IPv6: "fd10:0:152::11",
 				},
 				Mac: "00:50:56:ad:11:03",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -839,8 +839,8 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet2",
 				Address: &models.AddressPair{
-					IPV4: "192.168.52.11",
-					IPV6: "fd10:0:152::11",
+					IPv4: "192.168.52.11",
+					IPv6: "fd10:0:152::11",
 				},
 				Mac: "00:50:56:ad:11:03",
 				Routes: []*models.NetworkAttachmentRoute{
@@ -898,8 +898,8 @@ func TestPrivNetAPI_GetPrivateNetworkAddressing(t *testing.T) {
 				Network:     "green-network",
 				Subnet:      "subnet3",
 				Address: &models.AddressPair{
-					IPV4: "192.168.10.11",
-					IPV6: "fd10:0:140::11",
+					IPv4: "192.168.10.11",
+					IPv6: "fd10:0:140::11",
 				},
 				Mac: "00:50:56:ad:11:04",
 				Routes: []*models.NetworkAttachmentRoute{

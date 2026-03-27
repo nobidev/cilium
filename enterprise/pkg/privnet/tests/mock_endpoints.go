@@ -95,8 +95,8 @@ func (f *fakeEP) MarshalJSON() ([]byte, error) {
 			K8sNamespace:   f.Namespace,
 			Properties:     f.Properties,
 			Addressing: &models.AddressPair{
-				IPV4: f.GetIPv4Address(),
-				IPV6: f.GetIPv6Address(),
+				IPv4: f.GetIPv4Address(),
+				IPv6: f.GetIPv6Address(),
 			},
 			Mac: f.MAC.String(),
 		},
@@ -348,14 +348,14 @@ func (f *fakeEPM) createEndpoint(epTemplate *models.EndpointChangeRequest, resto
 		Namespace:  epTemplate.K8sNamespace,
 		Properties: epTemplate.Properties,
 	}
-	if epTemplate.Addressing.IPV4 != "" {
-		ep.IPv4, err = netip.ParseAddr(epTemplate.Addressing.IPV4)
+	if epTemplate.Addressing.IPv4 != "" {
+		ep.IPv4, err = netip.ParseAddr(epTemplate.Addressing.IPv4)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if epTemplate.Addressing.IPV6 != "" {
-		ep.IPv6, err = netip.ParseAddr(epTemplate.Addressing.IPV6)
+	if epTemplate.Addressing.IPv6 != "" {
+		ep.IPv6, err = netip.ParseAddr(epTemplate.Addressing.IPv6)
 		if err != nil {
 			return nil, err
 		}

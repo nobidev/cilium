@@ -141,24 +141,24 @@ func (e *endpointConfiguration) IPAMPool() string {
 }
 
 func ipv6IsEnabled(ipam *models.IPAMResponse) bool {
-	if ipam == nil || ipam.Address.IPV6 == "" {
+	if ipam == nil || ipam.Address.IPv6 == "" {
 		return false
 	}
 
-	if ipam.HostAddressing != nil && ipam.HostAddressing.IPV6 != nil {
-		return ipam.HostAddressing.IPV6.Enabled
+	if ipam.HostAddressing != nil && ipam.HostAddressing.IPv6 != nil {
+		return ipam.HostAddressing.IPv6.Enabled
 	}
 
 	return true
 }
 
 func ipv4IsEnabled(ipam *models.IPAMResponse) bool {
-	if ipam == nil || ipam.Address.IPV4 == "" {
+	if ipam == nil || ipam.Address.IPv4 == "" {
 		return false
 	}
 
-	if ipam.HostAddressing != nil && ipam.HostAddressing.IPV4 != nil {
-		return ipam.HostAddressing.IPV4.Enabled
+	if ipam.HostAddressing != nil && ipam.HostAddressing.IPv4 != nil {
+		return ipam.HostAddressing.IPv4.Enabled
 	}
 
 	return true
@@ -238,7 +238,7 @@ func installMultiNetworkSourceRoutes(state *cmd.CmdState, ifNumber int, ipam *mo
 		})
 
 		state.IP4rules = append(state.IP4rules, route.Rule{
-			From:     iputil.IPToPrefix(net.ParseIP(ipam.Address.IPV4)),
+			From:     iputil.IPToPrefix(net.ParseIP(ipam.Address.IPv4)),
 			Table:    tableID,
 			Protocol: linux_defaults.RTProto,
 		})
@@ -252,7 +252,7 @@ func installMultiNetworkSourceRoutes(state *cmd.CmdState, ifNumber int, ipam *mo
 		})
 
 		state.IP6rules = append(state.IP6rules, route.Rule{
-			From:     iputil.IPToPrefix(net.ParseIP(ipam.Address.IPV6)),
+			From:     iputil.IPToPrefix(net.ParseIP(ipam.Address.IPv6)),
 			Table:    tableID,
 			Protocol: linux_defaults.RTProto,
 		})
@@ -294,7 +294,7 @@ func (e *endpointConfiguration) PrepareEndpoint(ipam *models.IPAMResponse) (stat
 	}
 
 	if e.params.Conf.IpamMode == ipamOption.IPAMENI {
-		ifindex, err := cmd.IfindexFromMac(ipam.IPV4.MasterMac)
+		ifindex, err := cmd.IfindexFromMac(ipam.IPv4.MasterMac)
 		if err == nil {
 			ep.ParentInterfaceIndex = ifindex
 		} else {
