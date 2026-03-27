@@ -145,6 +145,11 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	/* Let kernel choose the outer source ip */
 	if (ctx_is_skb())
 		src_ip = 0;
+#ifdef ENABLE_IPV4
+	else
+		/* no-op if failure, no need for capturing results */
+		fib_lookup_src_v4(ctx, &src_ip, info->tunnel_endpoint.ip4.be32);
+#endif /* ENABLE_IPV4 */
 
 	/* Append L2 hdr before redirecting to tunnel netdev.
 	 * Otherwise, the kernel will drop such request in
@@ -162,7 +167,7 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		return __encap_with_nodeid6(ctx, &info->tunnel_endpoint.ip6,
 					    src_sec_identity, info->sec_identity,
 					    ct_reason, monitor, ifindex, proto);
-	return __encap_with_nodeid4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4,
+	return __encap_with_nodeid4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4.be32,
 				    src_sec_identity, info->sec_identity, NOT_VTEP_DST,
 				    ct_reason, monitor, ifindex, proto);
 }
@@ -196,7 +201,7 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 						src_sec_identity, info->sec_identity,
 						opt, opt_len, ct_reason, monitor,
 						ifindex, proto);
-	return __encap_with_nodeid_opt4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4,
+	return __encap_with_nodeid_opt4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4.be32,
 					src_sec_identity, info->sec_identity, NOT_VTEP_DST,
 					opt, opt_len, ct_reason, monitor, ifindex, proto);
 }
@@ -1059,7 +1064,7 @@ encap_redirect:
 		return ctx_redirect(ctx, ifindex, 0);
 
 	fib_params.l.ipv4_src = IPV4_DIRECT_ROUTING;
-	fib_params.l.ipv4_dst = info->tunnel_endpoint.ip4;
+	fib_params.l.ipv4_dst = info->tunnel_endpoint.ip4.be32;
 	fib_params.l.family = AF_INET;
 
 	/* neigh map doesn't contain DMACs for other nodes */
@@ -1274,8 +1279,29 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 #ifdef TUNNEL_MODE
 	dst = (union v6addr *)&ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
-	if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel)
+	if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel) {
 		target.addr = CONFIG(router_ipv6);
+		/* skip over the source SNAT lookup if we know we'll be using
+		 * the GATEWAY as source
+		 */
+		goto skip_source_lookup;
+	}
+#endif
+
+	/* If the kernel supports source IP resolution, use this to
+	 * dynamically set the SNAT target address.
+	 *
+	 * Additionally, if we entered here as nat_46x64 ip6->daddr is a
+	 * IPv4 mapped IPv6 address and fib lookup for this likely will not
+	 * succeed.
+	 */
+	if (CONFIG(enable_nodeport_source_lookup) && !nat_46x64)
+		/* no-op if failure, no need for capturing results */
+		fib_lookup_src_v6(ctx, (struct in6_addr *)&target.addr,
+				  &ip6->daddr);
+
+#ifdef TUNNEL_MODE
+skip_source_lookup:
 #endif
 
 	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &tuple);
@@ -1831,7 +1857,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 	if (!info || !info->flag_has_tunnel_ep)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-	tunnel_endpoint = info->tunnel_endpoint.ip4;
+	tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
 
 	if (ip4->protocol == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = { .value = 0 };
@@ -2386,7 +2412,7 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 #if defined(TUNNEL_MODE)
 		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 		if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel) {
-			tunnel_endpoint = info->tunnel_endpoint.ip4;
+			tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
 			src_sec_identity = REMOTE_NODE_ID;
 			dst_sec_identity = info->sec_identity;
 		}
@@ -2441,7 +2467,7 @@ redirect:
 		struct remote_endpoint_info fake_info = {0};
 
 		/* Needed because info might be null while tunnel_endpoint isn't. */
-		fake_info.tunnel_endpoint.ip4 = tunnel_endpoint;
+		fake_info.tunnel_endpoint.ip4.be32 = tunnel_endpoint;
 		fake_info.flag_has_tunnel_ep = true;
 		fake_info.sec_identity = dst_sec_identity;
 		ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
@@ -2607,11 +2633,6 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
-		/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
-		 * So we need to assume that the direct routing device is going to be
-		 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
-		 * This will change once we have resolved GH#17158.
-		 */
 		.addr = IPV4_DIRECT_ROUTING,
 	};
 	struct ipv4_ct_tuple tuple = {};
@@ -2644,7 +2665,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 #ifdef TUNNEL_MODE
 	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
 	if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel) {
-		tunnel_endpoint = info->tunnel_endpoint.ip4;
+		tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
 		dst_sec_identity = info->sec_identity;
 
 		target.addr = IPV4_GATEWAY;
@@ -2652,7 +2673,22 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		if (cluster_id && cluster_id != CONFIG(cluster_id))
 			target.addr = IPV4_INTER_CLUSTER_SNAT;
 #endif
+		/* skip over the source SNAT lookup if we know we'll be using
+		 * the GATEWAY as source
+		 */
+		goto skip_source_lookup;
 	}
+#endif
+
+	/* If the kernel supports source IP resolution, use this to
+	 * dynamically set the SNAT target address.
+	 */
+	if (CONFIG(enable_nodeport_source_lookup))
+		/* no-op if failure, no need for capturing results */
+		fib_lookup_src_v4(ctx, &target.addr, ip4->daddr);
+
+#ifdef TUNNEL_MODE
+skip_source_lookup:
 #endif
 
 	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);

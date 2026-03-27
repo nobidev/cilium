@@ -39,8 +39,8 @@ export CILIUM_NODEINIT_DIGEST:=sha256:bf1944bbdfd073bbb2b8d9c5baa315267a552aec69
 
 # renovate: datasource=docker
 export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy
-export CILIUM_ENVOY_VERSION:=v1.36.5-1773220197-f7a54727954edc6855e6f8bc674aff8ca57a80da
-export CILIUM_ENVOY_DIGEST:=sha256:f3b4865104d4bc687e49ba401e9c6add7d36d316a90999afde74a6eaf7732960
+export CILIUM_ENVOY_VERSION:=v1.36.5-1773729229-f15b6334115ed4d8027b2460a8eb1f6c611660f0
+export CILIUM_ENVOY_DIGEST:=sha256:70cf6a84a5518bdc501b4fa96eafaf8a8d88517fa2cf42e65977680c3f6f1462
 
 # renovate: datasource=docker
 export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
@@ -59,10 +59,10 @@ export SPIRE_INIT_DIGEST:=sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf3
 
 # renovate: datasource=docker
 export SPIRE_SERVER_REPO:=ghcr.io/spiffe/spire-server
-export SPIRE_SERVER_VERSION:=1.14.2
-export SPIRE_SERVER_DIGEST:=sha256:12f30ce1b6e298cf0dc7bedd5a67b174f03a4c5130ab825fba0ec3dcf407d0b2
+export SPIRE_SERVER_VERSION:=1.14.4
+export SPIRE_SERVER_DIGEST:=sha256:27c7d356768b8641c569745e1121328affeb4aaabe0c974d33ff92dddecf30ef
 
 # renovate: datasource=docker
 export SPIRE_AGENT_REPO:=ghcr.io/spiffe/spire-agent
-export SPIRE_AGENT_VERSION:=1.14.2
-export SPIRE_AGENT_DIGEST:=sha256:f8c40f435d42bd8b5420768b95f6b41acc695fb13cd9f9728d27c8e21e07d803
+export SPIRE_AGENT_VERSION:=1.14.4
+export SPIRE_AGENT_DIGEST:=sha256:f93996a9396ec4042a48042085c2abf1a0f8f0f3b339571e06ebfebbf94bb830

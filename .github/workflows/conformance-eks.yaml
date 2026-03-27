@@ -116,7 +116,7 @@ env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.224.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.35.2
+  kubectl_version: v1.35.3
 
 jobs:
   echo-inputs:
@@ -302,7 +302,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          BASE_BRANCH=$(gh pr view ${{ inputs.PR-number }} --json baseRefName -q .baseRefName)
+          if [[ "${{ inputs.PR-number }}" == "${{ inputs.context-ref }}" ]]; then
+            BASE_BRANCH="${{ inputs.context-ref }}"
+          else
+            BASE_BRANCH=$(gh pr view ${{ inputs.PR-number }} --json baseRefName -q .baseRefName)
+          fi
           echo "base-branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
           echo "Base branch for PR #${{ inputs.PR-number }}: $BASE_BRANCH"
 

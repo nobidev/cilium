@@ -50,8 +50,6 @@ struct nat_entry {
 
 #define SNAT_SIGNAL_THRES		(SNAT_COLLISION_RETRIES / 2)
 
-#define snat_v4_needs_masquerade_hook(ctx, target) 0
-
 static __always_inline __u16
 nat_min_egress()
 {
@@ -631,13 +629,6 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 {
 	const struct endpoint_info *local_ep __maybe_unused;
 	const struct remote_endpoint_info *remote_ep __maybe_unused;
-	int ret;
-
-	ret = snat_v4_needs_masquerade_hook(ctx, target);
-	if (IS_ERR(ret))
-		return ret;
-	if (ret)
-		return NAT_NEEDED;
 
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 # if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
@@ -1604,7 +1595,8 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 static __always_inline int
 snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 			bool has_l4_header, int l4_off,
-			union v6addr *old_addr, union v6addr *new_addr, __u16 addr_off,
+			const union v6addr *old_addr,
+			const union v6addr *new_addr, __u16 addr_off,
 			__be16 old_port, __be16 new_port, __u16 port_off)
 {
 	struct csum_offset csum = {};

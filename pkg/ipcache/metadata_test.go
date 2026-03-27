@@ -821,12 +821,10 @@ func TestMetadataWaitForRevision(t *testing.T) {
 	_, wantRev := m.dequeuePrefixUpdates()
 
 	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		err := m.waitForRevision(t.Context(), wantRev)
 		require.NoError(t, err)
-		wg.Done()
-	}()
+	})
 
 	m.setInjectedRevision(wantRev)
 	wg.Wait()
@@ -1635,6 +1633,32 @@ func generateUniqueCIDRs(n int) []cmtypes.PrefixCluster {
 		unique = unique.Insert(cmtypes.NewLocalPrefixCluster(prefix))
 	}
 	return slices.Collect(maps.Keys(unique))
+}
+
+func BenchmarkGetMetadataSourceByPrefix(b *testing.B) {
+	logger := hivetest.Logger(b)
+	m := newMetadata(logger)
+
+	prefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("1.1.1.1/32"))
+	lbls := labels.GetCIDRLabels(prefix.AsPrefix())
+
+	for _, v := range []int{5, 10, 20} {
+		b.Run(fmt.Sprintf("metadata_elements_%d", v), func(b *testing.B) {
+			sources := source.NewSources()
+			for i := range v {
+				resource := types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy")
+				m.upsertLocked(prefix, sources[rand.IntN(len(sources))], resource, lbls)
+			}
+
+			ipcache := &IPCache{metadata: m}
+
+			b.ResetTimer()
+			b.ReportAllocs()
+			for b.Loop() {
+				ipcache.GetMetadataSourceByPrefix(prefix)
+			}
+		})
+	}
 }
 
 // TestResolveFQDNLabels ensures that FQDN labels are resolved consistently across the codebase.

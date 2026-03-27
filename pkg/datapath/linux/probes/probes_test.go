@@ -106,6 +106,12 @@ func TestPrivilegedHaveNetkit(t *testing.T) {
 	assert.NoError(t, HaveNetkit())
 }
 
+func TestPrivilegedHaveNetkitScrub(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	testutils.SkipOnOldKernel(t, "6.13", "netkit scrub")
+	assert.NoError(t, HaveNetkitScrub())
+}
+
 func TestPrivilegedHaveNetkitTunableBufferMargins(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SkipOnOldKernel(t, "6.18", "netkit tbm")
@@ -138,4 +144,10 @@ func TestPrivilegedHaveFibLookupTBID(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SkipOnOldKernel(t, "6.5", "BPF_FIB_LOOKUP_TBID")
 	assert.NoError(t, HaveFibLookupTbid())
+}
+
+func TestPrivilegedHaveFibLookupSrc(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	testutils.SkipOnOldKernel(t, "6.7", "BPF_FIB_LOOKUP_SRC")
+	assert.NoError(t, HaveFibLookupSrc())
 }

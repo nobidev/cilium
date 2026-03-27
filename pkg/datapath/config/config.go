@@ -15,20 +15,20 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.ClusterIDBits = identity.GetClusterIDBits()
 
 	node.CiliumHostIfIndex = lnc.CiliumHostIfIndex
-	node.CiliumHostMAC = lnc.CiliumHostMAC.As8()
+	node.CiliumHostMAC.Addr = lnc.CiliumHostMAC.As6()
 	node.CiliumNetIfIndex = lnc.CiliumNetIfIndex
-	node.CiliumNetMAC = lnc.CiliumNetMAC.As8()
+	node.CiliumNetMAC.Addr = lnc.CiliumNetMAC.As6()
 
 	if lnc.ServiceLoopbackIPv4.IsValid() {
-		node.ServiceLoopbackIPv4 = lnc.ServiceLoopbackIPv4.As4()
+		node.ServiceLoopbackIPv4.Addr = lnc.ServiceLoopbackIPv4.As4()
 	}
 
 	if lnc.ServiceLoopbackIPv6.IsValid() {
-		node.ServiceLoopbackIPv6 = lnc.ServiceLoopbackIPv6.As16()
+		node.ServiceLoopbackIPv6.Addr = lnc.ServiceLoopbackIPv6.As16()
 	}
 
 	if lnc.CiliumInternalIPv6.IsValid() {
-		node.RouterIPv6 = lnc.CiliumInternalIPv6.As16()
+		node.RouterIPv6.Addr = lnc.CiliumInternalIPv6.As16()
 	}
 
 	node.ClusterID = option.Config.ClusterID
@@ -40,6 +40,9 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	}
 
 	node.SupportsFIBLookupSkipNeigh = probes.HaveFibLookupSkipNeigh() == nil
+	node.SupportsFIBLookupSrc = probes.HaveFibLookupSrc() == nil
+
+	node.EnableNodeportSourceLookup = lnc.LBConfig.NodePortEnableDynamicSourceLookup
 
 	node.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
 
@@ -53,7 +56,7 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.NodeportPortMax = lnc.LBConfig.NodePortMax
 
 	if option.Config.EnableNat46X64Gateway {
-		node.NAT46X64Prefix = option.Config.IPv6NAT46x64CIDRBase.As4()
+		node.NAT46X64Prefix.Addr = option.Config.IPv6NAT46x64CIDRBase.As4()
 	}
 
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
@@ -72,6 +75,8 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.EventsMapBurstLimit = option.Config.BPFEventsDefaultBurstLimit
 
 	node.EnableEndpointRoutes = option.Config.EnableEndpointRoutes
+
+	node.EnableIdentityMark = option.Config.EnableIdentityMark
 
 	return node
 }
