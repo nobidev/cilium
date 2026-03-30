@@ -30,7 +30,7 @@ jobs:
           echo "oss_tag=$oss_tag" >> $GITHUB_OUTPUT
 
       - name: Set up Go
-        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: 'go.mod'
 
@@ -43,7 +43,7 @@ jobs:
 
       - name: Create a Release
         if: github.event_name == 'push'
-        uses: softprops/action-gh-release@b25b93d384199fc0fc8c2e126b2d937a0cbeb2ae # v2
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
         with:
           repository: isovalent/cilium-cli-releases
           name: ${{ steps.tag.outputs.tag }}

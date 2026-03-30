@@ -44,7 +44,7 @@ jobs:
           password: ${{ secrets.QUAY_PASSWORD_CI }}
 
       - name: Login to registry.redhat.io for pulling images
-        uses: docker/login-action@9fe7774c8f8ebfade96f0a62aa10f3882309d517
+        uses: docker/login-action@5c42dd293b89d96bae168b5b3694e4e72a5b1117
         with:
           registry: registry.redhat.io
           username: ${{ secrets.REDHAT_USERNAME_CI }}
@@ -105,9 +105,9 @@ jobs:
         working-directory: ./enterprise/olm
         env:
           # renovate: datasource=github-releases depName=mikefarah/yq
-          yq_version: 4.52.4
+          yq_version: 4.52.5
           # renovate: datasource=github-releases depName=operator-framework/operator-registry
-          opm_version: 1.64.0
+          opm_version: 1.65.0
           # opm tooling cannot cope with anything that is not semver... and not with semver either... forced to use - when + would be correct
           VERSION: "0.0.1-${{ github.sha }}"
           IMAGE_TAG_BASE: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clife-ci"
