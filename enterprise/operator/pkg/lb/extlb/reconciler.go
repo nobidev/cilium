@@ -623,16 +623,23 @@ func (r *lbK8sBackendClusterReconciler) syncService(
 		if family == isovalentv1alpha1.AddressFamilyIPv4 &&
 			vip.Status.Addresses.IPv4 != nil && *vip.Status.Addresses.IPv4 != "" {
 			externalIPv4 = vip.Status.Addresses.IPv4
-			if err := r.updateRemoteServiceIngress(ctx, remoteClient, cluster, remoteSvc, *externalIPv4, logger); err != nil {
-				logger.Warn("failed to update remote service ingress with IPv4", logfields.Error, err)
-			}
 		}
 		if family == isovalentv1alpha1.AddressFamilyIPv6 &&
 			vip.Status.Addresses.IPv6 != nil && *vip.Status.Addresses.IPv6 != "" {
 			externalIPv6 = vip.Status.Addresses.IPv6
-			if err := r.updateRemoteServiceIngress(ctx, remoteClient, cluster, remoteSvc, *externalIPv6, logger); err != nil {
-				logger.Warn("failed to update remote service ingress with IPv6", logfields.Error, err)
-			}
+		}
+	}
+
+	var externalIPs []string
+	if externalIPv4 != nil {
+		externalIPs = append(externalIPs, *externalIPv4)
+	}
+	if externalIPv6 != nil {
+		externalIPs = append(externalIPs, *externalIPv6)
+	}
+	if len(externalIPs) > 0 {
+		if err := r.updateRemoteServiceIngress(ctx, remoteClient, cluster, remoteSvc, externalIPs, logger); err != nil {
+			logger.Warn("failed to update remote service ingress", logfields.Error, err)
 		}
 	}
 
@@ -919,15 +926,9 @@ func (r *lbK8sBackendClusterReconciler) updateRemoteServiceIngress(
 	remoteClient client.Client,
 	cluster *isovalentv1alpha1.LBK8sBackendCluster,
 	remoteSvc *corev1.Service,
-	ip string,
+	ips []string,
 	logger *slog.Logger,
 ) error {
-	logger.Debug("updateRemoteServiceIngress called",
-		logfields.K8sNamespace, remoteSvc.Namespace,
-		logfields.ServiceName, remoteSvc.Name,
-		logfields.IPAddr, ip,
-	)
-
 	var current corev1.Service
 	if err := remoteClient.Get(ctx, types.NamespacedName{
 		Name:      remoteSvc.Name,
@@ -946,24 +947,21 @@ func (r *lbK8sBackendClusterReconciler) updateRemoteServiceIngress(
 		}
 	}
 
-	for _, ingress := range current.Status.LoadBalancer.Ingress {
-		if ingress.IP == ip {
-			return nil
-		}
+	ingress := make([]corev1.LoadBalancerIngress, 0, len(ips))
+	for _, ip := range ips {
+		ingress = append(ingress, corev1.LoadBalancerIngress{IP: ip})
+	}
+
+	if slices.EqualFunc(current.Status.LoadBalancer.Ingress, ingress, func(a, b corev1.LoadBalancerIngress) bool {
+		return a.IP == b.IP
+	}) {
+		return nil
 	}
 
 	logger.Info("updating remote service ingress",
 		logfields.K8sNamespace, remoteSvc.Namespace,
 		logfields.ServiceName, remoteSvc.Name,
-		logfields.IPAddr, ip,
 	)
-
-	// Build a new ingress list that preserves any existing entries and ensures
-	// our IP is present. A merge patch on an array replaces the entire list, so
-	// we must include all existing entries.
-	ingress := make([]corev1.LoadBalancerIngress, 0, len(current.Status.LoadBalancer.Ingress)+1)
-	ingress = append(ingress, current.Status.LoadBalancer.Ingress...)
-	ingress = append(ingress, corev1.LoadBalancerIngress{IP: ip})
 
 	current.Status.LoadBalancer.Ingress = ingress
 	return remoteClient.Status().Update(ctx, &current)
