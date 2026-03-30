@@ -1954,7 +1954,6 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	    int off, struct ipv6_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct icmp6hdr icmp6hdr __align_stack_8;
 	struct ipv6_nat_entry *state = NULL;
 	__u16 port_off = 0;
 	int ret;
@@ -1987,9 +1986,12 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 			return NAT_PUNT_TO_STACK;
 
 		break;
-	case IPPROTO_ICMPV6:
+	case IPPROTO_ICMPV6: {
+		struct icmp6hdr icmp6hdr __align_stack_8;
+
 		if (ipfrag_is_fragment(fraginfo))
 			return DROP_INVALID;
+
 		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
 			return DROP_INVALID;
 
@@ -2035,6 +2037,7 @@ nat_icmp_v6:
 			return DROP_NAT_UNSUPP_PROTO;
 		}
 		break;
+	}
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
