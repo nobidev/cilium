@@ -27,6 +27,9 @@ spec:
     - jsonPath: .status.status
       name: Status
       type: string
+    - jsonPath: .status.servicesDiscovered
+      name: Services Discovered
+      type: integer
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -193,6 +196,7 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               targetNamespace:
                 description: |-
                   TargetNamespace is the namespace where ILB resources (LBService, LBVIP,
@@ -296,15 +300,11 @@ spec:
                             description: Address is the IP address.
                             type: string
                           family:
-                            allOf:
-                            - enum:
-                              - ipv4
-                              - ipv6
-                              - dual
-                            - enum:
-                              - ipv4
-                              - ipv6
                             description: Family is the address family of the IP.
+                            enum:
+                            - ipv4
+                            - ipv6
+                            - dual
                             type: string
                         required:
                         - address
@@ -331,6 +331,7 @@ spec:
                         - namespace
                         type: object
                       type: array
+                      x-kubernetes-list-type: atomic
                     lbServiceRefs:
                       description: |-
                         LBServiceRefs are the references to the created LBService resources,
@@ -346,6 +347,7 @@ spec:
                         - namespace
                         type: object
                       type: array
+                      x-kubernetes-list-type: atomic
                     lbVIPRefs:
                       description: |-
                         LBVIPRefs are the references to the created LBVIP resources,

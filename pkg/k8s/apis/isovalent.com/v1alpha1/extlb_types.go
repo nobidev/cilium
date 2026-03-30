@@ -13,6 +13,7 @@ import (
 // +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbk8sbackendcluster",path="lbk8sbackendclusters",scope="Cluster",shortName={lbkbc}
 // +kubebuilder:printcolumn:JSONPath=".metadata.name",name="Cluster Name",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.status",name="Status",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.servicesDiscovered",name="Services Discovered",type=integer
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
@@ -57,6 +58,7 @@ type LBK8sBackendClusterSpec struct {
 	//
 	// +optional
 	// +deepequal-gen=false
+	// +listType=atomic
 	ServiceDiscovery []LBK8sBackendClusterServiceDiscoveryConfig `json:"serviceDiscovery,omitempty"`
 }
 
@@ -300,6 +302,7 @@ type LBK8sBackendClusterDiscoveredService struct {
 	// one per port on the remote service.
 	//
 	// +optional
+	// +listType=atomic
 	LBServiceRefs []LBExternalLBResourceRef `json:"lbServiceRefs,omitempty"`
 
 	// LBVIPRefs are the references to the created LBVIP resources,
@@ -313,6 +316,7 @@ type LBK8sBackendClusterDiscoveredService struct {
 	// resources, one per port on the remote service.
 	//
 	// +optional
+	// +listType=atomic
 	LBBackendPoolRefs []LBExternalLBResourceRef `json:"lbBackendPoolRefs,omitempty"`
 
 	// ExternalIPs are the allocated external IP addresses that were written
@@ -364,7 +368,6 @@ type LBExternalIP struct {
 	// Family is the address family of the IP.
 	//
 	// +required
-	// +kubebuilder:validation:Enum=ipv4;ipv6
 	Family AddressFamily `json:"family"`
 
 	// Address is the IP address.
