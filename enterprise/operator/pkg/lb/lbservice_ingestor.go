@@ -83,6 +83,7 @@ func (r *ingestor) ingest(ctx context.Context, vip *isovalentv1alpha1.LBVIP, lbs
 		t2NodeIPv6Zones:      t2NodeIPv6Zones,
 		t1LabelSelector:      *t1LabelSelector,
 		t2LabelSelector:      *t2LabelSelector,
+		enableCNPIntegration: r.hasSelectorBasedK8sServiceBackends(backends, referencedK8sServices),
 	}, nil
 }
 
@@ -320,6 +321,32 @@ func (r *ingestor) toReferencedBackends(backends []*isovalentv1alpha1.LBBackendP
 	}
 
 	return referencedBackends
+}
+
+func (*ingestor) hasSelectorBasedK8sServiceBackends(backends []*isovalentv1alpha1.LBBackendPool, referencedK8sServices []corev1.Service) bool {
+	servicesByName := make(map[string]corev1.Service, len(referencedK8sServices))
+	for _, svc := range referencedK8sServices {
+		servicesByName[svc.Name] = svc
+	}
+
+	for _, backendPool := range backends {
+		for _, backend := range backendPool.Spec.Backends {
+			if backend.K8sServiceRef == nil {
+				continue
+			}
+
+			svc, ok := servicesByName[backend.K8sServiceRef.Name]
+			if !ok {
+				continue
+			}
+
+			if len(svc.Spec.Selector) > 0 {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (r *ingestor) toApplications(lbsvc *isovalentv1alpha1.LBService, referencedBackends map[string]backend, referencedSecrets map[string]*corev1.Secret) lbApplications {

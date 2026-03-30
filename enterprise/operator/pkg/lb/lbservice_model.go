@@ -37,6 +37,7 @@ type lbService struct {
 	t2NodeIPv6Zones      map[string]string
 	t1LabelSelector      labels.Selector
 	t2LabelSelector      labels.Selector
+	enableCNPIntegration bool
 }
 
 type lbServiceZoneAwareModeType string

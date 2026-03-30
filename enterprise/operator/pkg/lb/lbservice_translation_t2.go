@@ -167,8 +167,8 @@ func (r *lbServiceT2Translator) DesiredCiliumEnvoyConfig(model *lbService) (*cil
 			// "Ingress" can be defined and enforced.
 			Annotations: map[string]string{
 				annotation.CECUseOriginalSourceAddress: "false",
-				annotation.CECIsL7LB:                   strconv.FormatBool(r.config.Policy.EnableCiliumPolicyFilters),
-				annotation.CECInjectCiliumFilters:      strconv.FormatBool(r.config.Policy.EnableCiliumPolicyFilters),
+				annotation.CECIsL7LB:                   strconv.FormatBool(r.config.Policy.EnableCiliumPolicyFilters && model.enableCNPIntegration),
+				annotation.CECInjectCiliumFilters:      strconv.FormatBool(r.config.Policy.EnableCiliumPolicyFilters && model.enableCNPIntegration),
 			},
 		},
 		Spec: ciliumv2.CiliumEnvoyConfigSpec{
@@ -355,11 +355,19 @@ func (r *lbServiceT2Translator) desiredEnvoyTCPListenerFilters(model *lbService)
 		})
 	}
 
+	if !(r.config.Policy.EnableCiliumPolicyFilters && model.enableCNPIntegration) {
+		listenerFilters = append(listenerFilters, r.disabledBPFMetadataListenerFilter())
+	}
+
 	return listenerFilters
 }
 
 func (r *lbServiceT2Translator) desiredEnvoyUDPListenerFilters(model *lbService) []*envoy_config_listener_v3.ListenerFilter {
 	listenerFilters := []*envoy_config_listener_v3.ListenerFilter{}
+
+	if !(r.config.Policy.EnableCiliumPolicyFilters && model.enableCNPIntegration) {
+		listenerFilters = append(listenerFilters, r.disabledBPFMetadataListenerFilter())
+	}
 
 	var accessLoggers []*envoy_config_accesslog_v3.AccessLog
 
@@ -395,6 +403,19 @@ func (r *lbServiceT2Translator) desiredEnvoyUDPListenerFilters(model *lbService)
 	})
 
 	return listenerFilters
+}
+
+func (*lbServiceT2Translator) disabledBPFMetadataListenerFilter() *envoy_config_listener_v3.ListenerFilter {
+	return &envoy_config_listener_v3.ListenerFilter{
+		Name: "cilium.bpf_metadata",
+		ConfigType: &envoy_config_listener_v3.ListenerFilter_TypedConfig{
+			TypedConfig: toAny(&cilium_proxy_api.BpfMetadata{
+				// Disable BPF map lookups so external or selectorless backends do not
+				// get the default CNP integration path auto-injected by the parser.
+				BpfRoot: "",
+			}),
+		},
+	}
 }
 
 func (r *lbServiceT2Translator) toUDPProxyHashpolicy(model *lbService) []*envoy_extensions_filters_listener_udp_udpproxy_v3.UdpProxyConfig_HashPolicy {

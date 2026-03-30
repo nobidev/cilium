@@ -109,6 +109,8 @@ func (r *gwIngestor) ingestGatewayAPItoLB(input Input, ctx context.Context) (*lb
 		t2NodeIPv6Addresses: t2NodeIPv6Addresses,
 		t1LabelSelector:     *t1LabelSelector,
 		t2LabelSelector:     *t2LabelSelector,
+		// Gateway API backends are assumed to be in-cluster pods.
+		enableCNPIntegration: true,
 	}
 	return retLBService, nil
 
