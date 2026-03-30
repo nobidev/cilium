@@ -93,8 +93,8 @@ int egressgw_standalone_snat_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_standalone_snat")
 int egressgw_standalone_snat_setup(struct __ctx_buff *ctx)
 {
-	add_egressgw_ha_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, 1,
-				     { GATEWAY_NODE_IP }, EGRESS_IP, 0);
+	add_egressgw_ha_default_policy_entry(1, { GATEWAY_NODE_IP },
+					     EGRESS_IP, 0);
 
 	return netdev_send_packet(ctx);
 }
