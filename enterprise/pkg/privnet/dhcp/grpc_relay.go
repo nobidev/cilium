@@ -61,7 +61,7 @@ func (f *GRPCRelayFactory) RelayFor(lw *tables.LocalWorkload) (Relayer, error) {
 	factory := f.Factory
 	if factory == nil {
 		factory = func(target tables.INBNode) (*grpc.ClientConn, error) {
-			return grpcclient.Dial(target.HealthAddress())
+			return grpcclient.Dial(target.APIAddress())
 		}
 	}
 	return &grpcRelay{

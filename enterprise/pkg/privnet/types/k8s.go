@@ -35,9 +35,9 @@ const (
 	// PrivateNetworkInactiveAnnotationLegacy is the name of the annotation which marks the pod inactive.
 	PrivateNetworkInactiveAnnotation = PrivateNetworkAnnotationPrefix + "/inactive"
 
-	// PrivateNetworkINBHealthServerPortAnnotation is the name of the node annotation propagating
-	// the TCP port the privnet health server is listening to.
-	PrivateNetworkINBHealthServerPortAnnotation = PrivateNetworkAnnotationPrefix + "/inb-health-server-port"
+	// PrivateNetworkINBAPIServerPortAnnotation is the name of the node annotation propagating
+	// the TCP port the privnet API server is listening to.
+	PrivateNetworkINBAPIServerPortAnnotation = PrivateNetworkAnnotationPrefix + "/inb-api-server-port"
 )
 
 // NetworkAttachment is the value of PrivateNetworkAnnotation (encoded as JSON)

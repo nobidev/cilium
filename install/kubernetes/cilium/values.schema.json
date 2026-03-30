@@ -2544,6 +2544,14 @@
         },
         "privateNetworks": {
           "properties": {
+            "api": {
+              "properties": {
+                "port": {
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
             "enabled": {
               "type": "boolean"
             },
@@ -2551,9 +2559,6 @@
               "properties": {
                 "interval": {
                   "type": "string"
-                },
-                "port": {
-                  "type": "integer"
                 },
                 "timeout": {
                   "type": "string"

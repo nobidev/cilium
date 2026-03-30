@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
-	healthConfig "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc/config"
+	grpcConfig "github.com/cilium/cilium/enterprise/pkg/privnet/grpc"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/pkg/node"
 )
@@ -33,11 +33,11 @@ var Cell = cell.Group(
 	// Provides the connection factory via hive, so that it can be
 	// overridden for testing purposes.
 	cell.Provide(
-		func(cfg config.Config, healthCfg healthConfig.Config, lns *node.LocalNodeStore) ListenerFactory {
+		func(cfg config.Config, grpcCfg grpcConfig.Config, lns *node.LocalNodeStore) ListenerFactory {
 			return NewListenerFactory(ListenerConfig{
-				Port:          healthCfg.Port,
+				Port:          grpcCfg.Port,
 				Enabled:       cfg.EnabledAsBridge(),
-				AnnotationKey: types.PrivateNetworkINBHealthServerPortAnnotation,
+				AnnotationKey: types.PrivateNetworkINBAPIServerPortAnnotation,
 			}, lns)
 		},
 	),

@@ -44,6 +44,8 @@ enterprise:
 
   privateNetworks:
     enabled: true
+    api:
+      port: 4239
 
     healthcheck:
       interval: 500ms

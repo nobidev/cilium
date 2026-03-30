@@ -60,7 +60,7 @@ func (i INB) TableRow() []string {
 	return []string{
 		string(i.Node.Cluster), string(i.Node.Name),
 		i.Node.IP.String(),
-		strconv.FormatUint(uint64(i.Node.HealthPort), 10),
+		strconv.FormatUint(uint64(i.Node.APIPort), 10),
 		string(i.Network),
 		i.Health.String(),
 		i.Role.String(),
@@ -112,17 +112,17 @@ type INBNode struct {
 	// IP is the IP address this node is reachable at.
 	IP netip.Addr
 
-	// HealthPort is the TCP port the privnet health server is listening to.
-	HealthPort uint16
+	// APIPort is the TCP port the privnet API server is listening to.
+	APIPort uint16
 }
 
 func (node INBNode) String() string {
 	return string(node.Cluster) + "/" + string(node.Name)
 }
 
-// HealthAddress returns the address to connect to the INB health server.
-func (node INBNode) HealthAddress() string {
-	return netip.AddrPortFrom(node.IP, node.HealthPort).String()
+// APIAddress returns the address to connect to the INB API server.
+func (node INBNode) APIAddress() string {
+	return netip.AddrPortFrom(node.IP, node.APIPort).String()
 }
 
 // INBState represents the health state of an INB for a given private network.

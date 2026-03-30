@@ -364,10 +364,10 @@ func (i *INBs) upsertINBsForNetwork(wtx statedb.WriteTxn, privnet tables.Private
 				inb := tables.INB{
 					Network: privnet.Name,
 					Node: tables.INBNode{
-						Cluster:    node.Cluster,
-						Name:       node.Name,
-						IP:         node.IP,
-						HealthPort: node.HealthPort,
+						Cluster: node.Cluster,
+						Name:    node.Name,
+						IP:      node.IP,
+						APIPort: node.APIPort,
 					},
 				}
 
@@ -471,10 +471,10 @@ func (i *INBs) upsertINBsForNode(wtx statedb.WriteTxn, node *types.Node) {
 			inb := tables.INB{
 				Network: network,
 				Node: tables.INBNode{
-					Cluster:    node.Cluster,
-					Name:       node.Name,
-					IP:         node.IP,
-					HealthPort: node.HealthPort,
+					Cluster: node.Cluster,
+					Name:    node.Name,
+					IP:      node.IP,
+					APIPort: node.APIPort,
 				},
 			}
 

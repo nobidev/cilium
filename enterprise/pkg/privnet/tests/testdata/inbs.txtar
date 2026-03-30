@@ -245,7 +245,7 @@ spec:
         {"Type": "InternalIP", "IP": "192.168.0.4"}
     ],
     "Annotations": {
-        "privnet.isovalent.com/inb-health-server-port": "8091"
+        "privnet.isovalent.com/inb-api-server-port": "8091"
     },
     "Labels": {
         "kubernetes.io/hostname": "alpaca",
@@ -261,7 +261,7 @@ spec:
         {"Type": "InternalIP", "IP": "192.168.0.5"}
     ],
     "Annotations": {
-        "privnet.isovalent.com/inb-health-server-port": "8091"
+        "privnet.isovalent.com/inb-api-server-port": "8091"
     },
     "Labels": {
         "kubernetes.io/hostname": "llama",
@@ -277,7 +277,7 @@ spec:
       {"Type": "InternalIP", "IP": "192.168.0.6"}
     ],
     "Annotations": {
-        "privnet.isovalent.com/inb-health-server-port": "9939"
+        "privnet.isovalent.com/inb-api-server-port": "9939"
     },
     "Labels": {
         "kubernetes.io/hostname": "elephant",
@@ -291,7 +291,7 @@ spec:
     "Name": "mammoth",
     "IPAddresses": [],
     "Annotations": {
-        "privnet.isovalent.com/inb-health-server-port": "9939"
+        "privnet.isovalent.com/inb-api-server-port": "9939"
     },
     "Labels": {
         "kubernetes.io/hostname": "mammoth",

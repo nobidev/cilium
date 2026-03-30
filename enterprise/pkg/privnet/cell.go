@@ -17,6 +17,7 @@ import (
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/dhcp"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
+	privnetgrpc "github.com/cilium/cilium/enterprise/pkg/privnet/grpc"
 	grpcserver "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/server"
 	health "github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/policy"
@@ -33,6 +34,7 @@ var Cell = cell.Module(
 	tables.DHCPLeasesCell,
 	reconcilers.Cell,
 	endpoints.Cell,
+	privnetgrpc.Cell,
 	grpcserver.Cell,
 	health.Cell,
 	addressing.Cell,

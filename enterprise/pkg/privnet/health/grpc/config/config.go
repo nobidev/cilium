@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -29,16 +28,12 @@ var (
 	)
 
 	defaultConfig = Config{
-		Port:     defaults.ClusterHealthPort - 1,
 		Interval: 2 * time.Second,
 		Timeout:  5 * time.Second,
 	}
 )
 
 type Config struct {
-	// Port is the port used for the health checking API.
-	Port uint16 `mapstructure:"private-networks-health-check-port"`
-
 	// Interval is the interval for sending health probes.
 	Interval time.Duration `mapstructure:"private-networks-health-check-interval"`
 
@@ -47,8 +42,6 @@ type Config struct {
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.Uint16("private-networks-health-check-port", def.Port,
-		fmt.Sprintf("The TCP port the health checks server listens to, in %s mode", config.ModeBridge))
 	flags.Duration("private-networks-health-check-interval", def.Interval,
 		fmt.Sprintf("The interval for performing health checks against candidate INBs. Ignored in %s mode.", config.ModeBridge))
 	flags.Duration("private-networks-health-check-timeout", def.Timeout,
