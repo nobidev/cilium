@@ -13,6 +13,7 @@ package reconcilers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"iter"
@@ -71,6 +72,11 @@ var ExternalEndpointsCell = cell.Group(
 		(*ExternalEndpoints).registerK8sStatusReconciler,
 		// Creates and manages local endpoints based on the StateDB table
 		(*ExternalEndpoints).registerEndpointCreationReconciler,
+	),
+
+	cell.Provide(
+		// Hooks into endpoint restoration for external endpoints
+		(*ExternalEndpoints).registerExternalEndpointRestorer,
 	),
 )
 
@@ -829,4 +835,134 @@ func (e *ExternalEndpoints) registerEndpointCreationReconciler(in struct {
 		health.OK("Registered reconciler")
 		return err
 	}))
+}
+
+// isPrivateNetworkExternalEndpoint returns true if the given endpoint is a private network external endpoint
+func isPrivateNetworkExternalEndpoint(ep endpoints.Endpoint) bool {
+	return ep.GetPropertyValue(endpoints.PropertyPrivNetNetwork) != nil &&
+		ep.IsProperty(endpoint.PropertyWithouteBPFDatapath)
+}
+
+// externalEndpointRestorer implements two workarounds for the fact that endpoint
+// restoration is basically broken upstream for our use-case. There are two
+// issues that are worked around here:
+//   - The [endpoint.PropertyCEPOwner] value needs to be an object that implements
+//     [endpoint.CEPOwnerInterface], but after restoration it is just a map[string]any.
+//     To work around this, this function takes the restored CEP owner and turns it into
+//     the [endpoints.CEPOwner] that it used to be at creation time.
+//   - If an endpoint has [endpoint.PropertyFakeEndpoint] set, upstream doesn't restore
+//     the IP via IPAM. So we do this here, to ensure all allocated IPs remain allocated
+//     after an agent restart.
+type externalEndpointRestorer struct {
+	log  *slog.Logger
+	ipam endpoints.IPAM
+}
+
+// fixupRestoredEndpointProperties fixes up the endpoint properties for endpoints parsed from disk
+func (e *externalEndpointRestorer) fixupRestoredEndpointProperties(ep endpoints.Endpoint) {
+	// Ignore endpoints which were not created by us
+	owner := ep.GetPropertyValue(endpoint.PropertyCEPOwner)
+	if owner == nil || !isPrivateNetworkExternalEndpoint(ep) {
+		return
+	}
+
+	// Marshal the map[string]any as JSON again
+	jsonBytes, err := json.Marshal(owner)
+	if err != nil {
+		e.log.Warn("Failed to re-encode CEP owner for restored external endpoint. "+
+			"K8s CiliumEndpoint resource will be orphaned",
+			logfields.EndpointID, ep.GetID16(),
+			logfields.CEPName, ep.GetK8sNamespaceAndCEPName(),
+			logfields.Error, err,
+		)
+	}
+
+	// And unmarshal into a proper [endpoints.CEPOwner] struct
+	typedOwner := endpoints.CEPOwner{}
+	err = json.Unmarshal(jsonBytes, &typedOwner)
+	if err != nil {
+		e.log.Warn("Failed to decode CEP owner for restored external endpoint. "+
+			"K8s CiliumEndpoint resource will be orphaned",
+			logfields.EndpointID, ep.GetID16(),
+			logfields.CEPName, ep.GetK8sNamespaceAndCEPName(),
+			logfields.Error, err,
+		)
+	}
+
+	// Set the correctly typed CEPOwner.
+	ep.SetPropertyValue(endpoint.PropertyCEPOwner, typedOwner)
+
+	// Also set K8s metadata again. For pods, RunRestoredMetadataResolver would do this, but we do not
+	// have a pod, so RunRestoredMetadataResolver is skipped upstream.
+	ep.SetK8sMetadata([]slim_core_v1.ContainerPort{})
+}
+
+// RestorationNotify implements endpointstate.RestorationNotifier
+// This is called when restored endpoint candidates have been deserialized from disk,
+// very early in the agent lifecycle. We use it to fix up the endpoint properties, but
+// we delay IP restoration to the EndpointRestored callback below, as IPAM is not
+// available here.
+func (e *externalEndpointRestorer) RestorationNotify(possible map[uint16]*endpoint.Endpoint) {
+	for _, ep := range possible {
+		e.fixupRestoredEndpointProperties(ep)
+	}
+}
+
+// EndpointRestored implements endpoints.EndpointSubscriber
+// This is called when the restored endpoint has been added to the endpoint manager
+// and might already be regenerating.
+// At that point, the IPAM subsystem is available, but new endpoints are not being created yet,
+// so this allows us to re-allocate the IPs of restored external endpoints.
+func (e *externalEndpointRestorer) EndpointRestored(ep endpoints.Endpoint) {
+	if !(isPrivateNetworkExternalEndpoint(ep) && ep.IsProperty(endpoint.PropertyFakeEndpoint)) {
+		return // not a private endpoint with PropertyFakeEndpoint
+	}
+
+	// Upstream does not attempt to re-allocate P-IPs for fake endpoints. Let's rectify this here.
+	for _, ip := range []netip.Addr{ep.IPv4Address(), ep.IPv6Address()} {
+		if !ip.IsValid() {
+			continue
+		}
+
+		_, err := e.ipam.AllocateIPWithoutSyncUpstream(ip.AsSlice(), ep.GetK8sNamespaceAndCEPName()+" [restored]", ipam.PoolDefault())
+		if err != nil {
+			e.log.Error("Failed to re-allocate external endpoint IP address",
+				logfields.EndpointID, ep.GetID16(),
+				logfields.CEPName, ep.GetK8sNamespaceAndCEPName(),
+				logfields.IPAddr, ip,
+				logfields.Error, err,
+			)
+		}
+	}
+}
+
+// EndpointCreated implements endpoints.EndpointSubscriber
+func (e *externalEndpointRestorer) EndpointCreated(ep endpoints.Endpoint) {
+	// ignored
+}
+
+// EndpointDeleted implements endpoints.EndpointSubscriber
+func (e *externalEndpointRestorer) EndpointDeleted(ep endpoints.Endpoint) {
+	// ignored
+}
+
+// registerExternalEndpointRestorer hooks into endpoint restoration to implement restoration-related
+// workarounds. See the description of the externalEndpointRestorer struct for more details.
+func (e *ExternalEndpoints) registerExternalEndpointRestorer(
+	epLookup endpoints.EndpointGetter,
+	ipam endpoints.IPAM,
+) endpointstate.RestorationNotifierOut {
+	if !e.cfg.EnabledAsBridge() {
+		return endpointstate.RestorationNotifierOut{}
+	}
+
+	r := &externalEndpointRestorer{
+		log:  e.log,
+		ipam: ipam,
+	}
+
+	// Register an endpoint subscriber to receive EndpointRestored callbacks.
+	epLookup.Subscribe(r)
+	// Register a restoration notifier to receive RestorationNotify callbacks.
+	return endpointstate.RestorationNotifierOut{Restorer: r}
 }
