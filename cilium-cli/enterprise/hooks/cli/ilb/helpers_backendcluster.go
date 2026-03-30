@@ -12,7 +12,9 @@ package ilb
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
@@ -35,10 +37,15 @@ const (
 var ensureCLIInContainerOnce sync.Once
 
 type backendKindCluster struct {
-	Name string
+	Name     string
+	IPFamily string
 }
 
 func (r *lbTestScenario) createBackendKindCluster(clusterName string) *backendKindCluster {
+	return r.createBackendKindClusterWithIPFamily(clusterName, r.backendClusterIPFamily())
+}
+
+func (r *lbTestScenario) createBackendKindClusterWithIPFamily(clusterName, ipFamily string) *backendKindCluster {
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("KIND_EXPERIMENTAL_DOCKER_NETWORK=%s", FlagNetworkName))
 
@@ -50,7 +57,30 @@ func (r *lbTestScenario) createBackendKindCluster(clusterName string) *backendKi
 	tmpKubeconfig.Close()
 	defer os.Remove(tmpKubeconfig.Name())
 
-	cmd := exec.CommandContext(r.t.Context(), "kind", "create", "cluster", "--name", clusterName, "--kubeconfig", tmpKubeconfig.Name())
+	args := []string{"create", "cluster", "--name", clusterName, "--kubeconfig", tmpKubeconfig.Name()}
+
+	if ipFamily != "ipv4" {
+		kindConfig := fmt.Sprintf(`kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: %s
+`, ipFamily)
+
+		tmpConfig, err := os.CreateTemp("", "kind-config-*")
+		if err != nil {
+			r.t.Failedf("failed to create temp kind config file: %s", err)
+		}
+		if _, err := tmpConfig.WriteString(kindConfig); err != nil {
+			tmpConfig.Close()
+			r.t.Failedf("failed to write kind config: %s", err)
+		}
+		tmpConfig.Close()
+		defer os.Remove(tmpConfig.Name())
+
+		args = append(args, "--config", tmpConfig.Name())
+	}
+
+	cmd := exec.CommandContext(r.t.Context(), "kind", args...)
 	cmd.Env = env
 
 	output, err := cmd.CombinedOutput()
@@ -59,7 +89,8 @@ func (r *lbTestScenario) createBackendKindCluster(clusterName string) *backendKi
 	}
 
 	cluster := &backendKindCluster{
-		Name: clusterName,
+		Name:     clusterName,
+		IPFamily: ipFamily,
 	}
 
 	r.t.RegisterCleanup(func(ctx context.Context) error {
@@ -67,6 +98,17 @@ func (r *lbTestScenario) createBackendKindCluster(clusterName string) *backendKi
 	})
 
 	return cluster
+}
+
+func (r *lbTestScenario) backendClusterIPFamily() string {
+	switch {
+	case r.t.IPv4Enabled() && r.t.IPv6Enabled():
+		return "dual"
+	case r.t.IPv6Enabled():
+		return "ipv6"
+	default:
+		return "ipv4"
+	}
 }
 
 func (r *lbTestScenario) deleteBackendKindCluster(clusterName string) error {
@@ -91,22 +133,34 @@ func (r *lbTestScenario) getBackendKindClusterKubeconfig(clusterName string) str
 	return string(output)
 }
 
-func (r *lbTestScenario) getBackendKindClusterInternalKubeconfig(clusterName string) string {
-	kubeconfig := r.getBackendKindClusterKubeconfig(clusterName)
+func (r *lbTestScenario) getBackendKindClusterInternalKubeconfig(cluster *backendKindCluster) string {
+	kubeconfig := r.getBackendKindClusterKubeconfig(cluster.Name)
 
 	// Look up the IP on the specific network rather than using
 	// GetContainerIPs, which returns a random network's IP from the map.
-	containerName := fmt.Sprintf("%s-control-plane", clusterName)
-	ipv4, _, err := r.dockerCli.GetContainerIPsOnNetwork(r.t.Context(), containerName, FlagNetworkName)
+	containerName := fmt.Sprintf("%s-control-plane", cluster.Name)
+	ipv4, ipv6, err := r.dockerCli.GetContainerIPsOnNetwork(r.t.Context(), containerName, FlagNetworkName)
 	if err != nil {
 		r.t.Failedf("failed to get container IP for %q on network %q: %s", containerName, FlagNetworkName, err)
+	}
+
+	// Use IPv6 when the backend cluster is IPv6-only, because the API
+	// server TLS certificate will only contain IPv6 SANs in that case.
+	var serverAddr string
+	switch {
+	case cluster.IPFamily == "ipv6" && ipv6 != "":
+		serverAddr = fmt.Sprintf("[%s]", ipv6)
+	case ipv4 != "":
+		serverAddr = ipv4
+	default:
+		serverAddr = fmt.Sprintf("[%s]", ipv6)
 	}
 
 	lines := strings.Split(kubeconfig, "\n")
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "server:") {
-			lines[i] = fmt.Sprintf("    server: https://%s:6443", ipv4)
+			lines[i] = fmt.Sprintf("    server: https://%s:6443", serverAddr)
 		}
 	}
 
@@ -154,7 +208,7 @@ func (r *lbTestScenario) ensureCLIInContainer() {
 func (r *lbTestScenario) addK8sBackendCluster(cluster *backendKindCluster, clusterName string, extraArgs ...string) {
 	r.ensureCLIInContainer()
 
-	internalKubeconfig := r.getBackendKindClusterInternalKubeconfig(cluster.Name)
+	internalKubeconfig := r.getBackendKindClusterInternalKubeconfig(cluster)
 
 	containerKubeconfigPath := fmt.Sprintf("/tmp/%s.kubeconfig", clusterName)
 
@@ -378,6 +432,78 @@ func (r *lbTestScenario) waitForServiceExternalIP(cluster *backendKindCluster, n
 	}, longTimeout, pollInterval)
 
 	return externalIP
+}
+
+func (r *lbTestScenario) waitForServiceIngressIPv6(cluster *backendKindCluster, namespace string, serviceName string) string {
+	var ipv6Addr string
+
+	containerName := fmt.Sprintf("%s-control-plane", cluster.Name)
+	eventually(r.t, func() error {
+		cmd := exec.CommandContext(r.t.Context(), "docker", "exec", containerName,
+			"kubectl", "--kubeconfig=/etc/kubernetes/admin.conf",
+			"get", "service", serviceName, "-n", namespace,
+			"-o", "jsonpath={.status.loadBalancer.ingress[*].ip}")
+
+		output, err := cmd.Output()
+		if err != nil {
+			return fmt.Errorf("failed to get service ingress IPs: %w", err)
+		}
+
+		for ip := range strings.FieldsSeq(strings.TrimSpace(string(output))) {
+			parsed := net.ParseIP(ip)
+			if parsed != nil && parsed.To4() == nil {
+				ipv6Addr = ip
+				return nil
+			}
+		}
+
+		return fmt.Errorf("service does not have an IPv6 ingress address yet")
+	}, longTimeout, pollInterval)
+
+	return ipv6Addr
+}
+
+func (r *lbTestScenario) getBackendNodeInternalIPs(cluster *backendKindCluster) (ipv4s []string, ipv6s []string) {
+	containerName := fmt.Sprintf("%s-control-plane", cluster.Name)
+	cmd := exec.CommandContext(r.t.Context(), "docker", "exec", containerName,
+		"kubectl", "--kubeconfig=/etc/kubernetes/admin.conf",
+		"get", "nodes",
+		"-o", "jsonpath={.items[*].status.addresses}")
+
+	output, err := cmd.Output()
+	if err != nil {
+		r.t.Failedf("failed to get backend node addresses: %s", err)
+	}
+
+	type nodeAddress struct {
+		Type    string `json:"type"`
+		Address string `json:"address"`
+	}
+
+	var addresses []nodeAddress
+	raw := strings.TrimSpace(string(output))
+	if raw != "" {
+		if err := json.Unmarshal([]byte(raw), &addresses); err != nil {
+			r.t.Failedf("failed to parse node addresses: %s", err)
+		}
+	}
+
+	for _, addr := range addresses {
+		if addr.Type != "InternalIP" {
+			continue
+		}
+		parsed := net.ParseIP(addr.Address)
+		if parsed == nil {
+			continue
+		}
+		if parsed.To4() != nil {
+			ipv4s = append(ipv4s, addr.Address)
+		} else {
+			ipv6s = append(ipv6s, addr.Address)
+		}
+	}
+
+	return ipv4s, ipv6s
 }
 
 func (r *lbTestScenario) waitForServiceAnnotation(cluster *backendKindCluster, namespace string, serviceName string, annotationKey string) string {
