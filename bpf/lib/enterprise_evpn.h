@@ -157,7 +157,7 @@ evpn_encap_and_redirect4(struct __ctx_buff *ctx, __u16 net_id, __u32 sec_label,
 	if (ret < 0)
 		return ret;
 
-	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, WORLD_IPV4_ID, TRACE_EP_ID_UNKNOWN,
+	send_trace_notify(ctx, TRACE_TO_NETWORK, sec_label, WORLD_IPV4_ID, TRACE_EP_ID_UNKNOWN,
 			  CONFIG(evpn_device_ifindex), trace->reason, trace->monitor,
 			  bpf_htons(ETH_P_IP));
 
@@ -190,7 +190,7 @@ evpn_encap_and_redirect6(struct __ctx_buff *ctx, __u16 net_id, __u32 sec_label,
 	if (ret < 0)
 		return ret;
 
-	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, WORLD_IPV6_ID, TRACE_EP_ID_UNKNOWN,
+	send_trace_notify(ctx, TRACE_TO_NETWORK, sec_label, WORLD_IPV6_ID, TRACE_EP_ID_UNKNOWN,
 			  CONFIG(evpn_device_ifindex), trace->reason, trace->monitor,
 			  bpf_htons(ETH_P_IPV6));
 
