@@ -283,16 +283,35 @@ spec:
                         matched this service. Empty when the service was discovered by the
                         implicit catch-all configuration.
                       type: string
-                    externalIPv4:
+                    externalIPs:
                       description: |-
-                        ExternalIPv4 is the allocated external IPv4 address that was written back to
-                        the source service.
-                      type: string
-                    externalIPv6:
-                      description: |-
-                        ExternalIPv6 is the allocated external IPv6 address that was written back to
-                        the source service.
-                      type: string
+                        ExternalIPs are the allocated external IP addresses that were written
+                        back to the source service, one per address family.
+                      items:
+                        description: |-
+                          LBExternalIP represents an allocated external IP address with its address
+                          family.
+                        properties:
+                          address:
+                            description: Address is the IP address.
+                            type: string
+                          family:
+                            allOf:
+                            - enum:
+                              - ipv4
+                              - ipv6
+                              - dual
+                            - enum:
+                              - ipv4
+                              - ipv6
+                            description: Family is the address family of the IP.
+                            type: string
+                        required:
+                        - address
+                        - family
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
                     lastError:
                       description: LastError contains the last error message if the
                         service failed to sync.

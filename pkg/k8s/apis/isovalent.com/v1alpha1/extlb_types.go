@@ -315,17 +315,12 @@ type LBK8sBackendClusterDiscoveredService struct {
 	// +optional
 	LBBackendPoolRefs []LBExternalLBResourceRef `json:"lbBackendPoolRefs,omitempty"`
 
-	// ExternalIPv4 is the allocated external IPv4 address that was written back to
-	// the source service.
+	// ExternalIPs are the allocated external IP addresses that were written
+	// back to the source service, one per address family.
 	//
 	// +optional
-	ExternalIPv4 *string `json:"externalIPv4,omitempty"`
-
-	// ExternalIPv6 is the allocated external IPv6 address that was written back to
-	// the source service.
-	//
-	// +optional
-	ExternalIPv6 *string `json:"externalIPv6,omitempty"`
+	// +listType=atomic
+	ExternalIPs []LBExternalIP `json:"externalIPs,omitempty"`
 
 	// LastError contains the last error message if the service failed to sync.
 	//
@@ -361,4 +356,19 @@ type LBExternalLBResourceRef struct {
 
 	// +required
 	Name string `json:"name"`
+}
+
+// LBExternalIP represents an allocated external IP address with its address
+// family.
+type LBExternalIP struct {
+	// Family is the address family of the IP.
+	//
+	// +required
+	// +kubebuilder:validation:Enum=ipv4;ipv6
+	Family AddressFamily `json:"family"`
+
+	// Address is the IP address.
+	//
+	// +required
+	Address string `json:"address"`
 }

@@ -18,7 +18,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
+
+	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
+
+func findExternalIP(ips []isovalentv1alpha1.LBExternalIP, family isovalentv1alpha1.AddressFamily) string {
+	for _, ip := range ips {
+		if ip.Family == family {
+			return ip.Address
+		}
+	}
+	return ""
+}
 
 func TestLBK8sBackendClusterConnectivity(t T) {
 	if skipIfOnSingleNode("backend kind clusters require a shared Docker network") {
@@ -212,28 +223,22 @@ func TestLBK8sBackendClusterServiceDiscovery(t T) {
 	externalIP := scenario.waitForServiceExternalIP(backendCluster, serviceNamespace, serviceName)
 
 	t.Log("Verifying external IP matches discovered service...")
-	if discoveredSvc.ExternalIPv4 == nil || *discoveredSvc.ExternalIPv4 != externalIP {
-		var discoveredIP string
-		if discoveredSvc.ExternalIPv4 != nil {
-			discoveredIP = *discoveredSvc.ExternalIPv4
-		}
-		t.Failedf("external IPv4 mismatch: discovered=%q, backend=%q", discoveredIP, externalIP)
+	discoveredIPv4 := findExternalIP(discoveredSvc.ExternalIPs, isovalentv1alpha1.AddressFamilyIPv4)
+	if discoveredIPv4 != externalIP {
+		t.Failedf("external IPv4 mismatch: discovered=%q, backend=%q", discoveredIPv4, externalIP)
 	}
 
 	if t.IPv6Enabled() {
 		t.Log("Waiting for IPv6 ingress to be written back to backend cluster service...")
 		externalIPv6 := scenario.waitForServiceIngressIPv6(backendCluster, serviceNamespace, serviceName)
 
-		if discoveredSvc.ExternalIPv6 == nil || *discoveredSvc.ExternalIPv6 != externalIPv6 {
-			var discoveredIPv6 string
-			if discoveredSvc.ExternalIPv6 != nil {
-				discoveredIPv6 = *discoveredSvc.ExternalIPv6
-			}
+		discoveredIPv6 := findExternalIP(discoveredSvc.ExternalIPs, isovalentv1alpha1.AddressFamilyIPv6)
+		if discoveredIPv6 != externalIPv6 {
 			t.Failedf("external IPv6 mismatch: discovered=%q, backend=%q", discoveredIPv6, externalIPv6)
 		}
 	}
 
-	t.Log("Verifying backend pool contains node IPs...")
+	t.Log("Verifying backend pools are separated by address family...")
 	ipv4NodeIPs, ipv6NodeIPs := scenario.getBackendNodeInternalIPs(backendCluster)
 	for _, poolRef := range discoveredSvc.LBBackendPoolRefs {
 		pool, err := scenario.ciliumCli.IsovalentV1alpha1().LBBackendPools(poolRef.Namespace).Get(t.Context(), poolRef.Name, metav1.GetOptions{})
@@ -248,17 +253,35 @@ func TestLBK8sBackendClusterServiceDiscovery(t T) {
 			}
 		}
 
-		for _, nodeIP := range ipv4NodeIPs {
-			if !slices.Contains(backendIPs, nodeIP) {
-				t.Failedf("backend pool %s/%s missing IPv4 node IP %s (backends: %v)",
-					poolRef.Namespace, poolRef.Name, nodeIP, backendIPs)
+		hasV4, hasV6 := false, false
+		for _, ip := range backendIPs {
+			parsed := net.ParseIP(ip)
+			if parsed == nil {
+				continue
+			}
+			if parsed.To4() != nil {
+				hasV4 = true
+			} else {
+				hasV6 = true
 			}
 		}
+		if hasV4 && hasV6 {
+			t.Failedf("backend pool %s/%s has mixed address families (backends: %v)",
+				poolRef.Namespace, poolRef.Name, backendIPs)
+		}
 
-		if t.IPv6Enabled() {
+		if hasV4 {
+			for _, nodeIP := range ipv4NodeIPs {
+				if !slices.Contains(backendIPs, nodeIP) {
+					t.Failedf("IPv4 backend pool %s/%s missing node IP %s (backends: %v)",
+						poolRef.Namespace, poolRef.Name, nodeIP, backendIPs)
+				}
+			}
+		}
+		if hasV6 {
 			for _, nodeIP := range ipv6NodeIPs {
 				if !slices.Contains(backendIPs, nodeIP) {
-					t.Failedf("backend pool %s/%s missing IPv6 node IP %s (backends: %v)",
+					t.Failedf("IPv6 backend pool %s/%s missing node IP %s (backends: %v)",
 						poolRef.Namespace, poolRef.Name, nodeIP, backendIPs)
 				}
 			}
@@ -331,18 +354,16 @@ func TestLBK8sBackendClusterIPv6OnlyBackend(t T) {
 		t.Failedf("discovered service should have LBBackendPoolRefs")
 	}
 
-	if discoveredSvc.ExternalIPv4 != nil {
-		t.Failedf("expected no ExternalIPv4 for IPv6-only backend, got %q", *discoveredSvc.ExternalIPv4)
+	if findExternalIP(discoveredSvc.ExternalIPs, isovalentv1alpha1.AddressFamilyIPv4) != "" {
+		t.Failedf("expected no IPv4 ExternalIP for IPv6-only backend, got %q",
+			findExternalIP(discoveredSvc.ExternalIPs, isovalentv1alpha1.AddressFamilyIPv4))
 	}
 
 	externalIPv6 := scenario.waitForServiceIngressIPv6(backendCluster, serviceNamespace, serviceName)
 
 	t.Log("Verifying ingress IPv6 matches discovered service...")
-	if discoveredSvc.ExternalIPv6 == nil || *discoveredSvc.ExternalIPv6 != externalIPv6 {
-		var discoveredIPv6 string
-		if discoveredSvc.ExternalIPv6 != nil {
-			discoveredIPv6 = *discoveredSvc.ExternalIPv6
-		}
+	discoveredIPv6 := findExternalIP(discoveredSvc.ExternalIPs, isovalentv1alpha1.AddressFamilyIPv6)
+	if discoveredIPv6 != externalIPv6 {
 		t.Failedf("external IPv6 mismatch: discovered=%q, backend=%q", discoveredIPv6, externalIPv6)
 	}
 
@@ -432,12 +453,9 @@ func TestLBK8sBackendClusterDualStackBackend(t T) {
 	externalIP := scenario.waitForServiceExternalIP(backendCluster, serviceNamespace, serviceName)
 
 	t.Log("Verifying IPv4 external IP matches discovered service...")
-	if discoveredSvc.ExternalIPv4 == nil || *discoveredSvc.ExternalIPv4 != externalIP {
-		var discoveredIP string
-		if discoveredSvc.ExternalIPv4 != nil {
-			discoveredIP = *discoveredSvc.ExternalIPv4
-		}
-		t.Failedf("external IPv4 mismatch: discovered=%q, backend=%q", discoveredIP, externalIP)
+	discoveredIPv4 := findExternalIP(discoveredSvc.ExternalIPs, isovalentv1alpha1.AddressFamilyIPv4)
+	if discoveredIPv4 != externalIP {
+		t.Failedf("external IPv4 mismatch: discovered=%q, backend=%q", discoveredIPv4, externalIP)
 	}
 
 	if t.IPv6Enabled() {
@@ -445,17 +463,15 @@ func TestLBK8sBackendClusterDualStackBackend(t T) {
 		externalIPv6 := scenario.waitForServiceIngressIPv6(backendCluster, serviceNamespace, serviceName)
 
 		t.Log("Verifying IPv6 matches discovered service...")
-		if discoveredSvc.ExternalIPv6 == nil || *discoveredSvc.ExternalIPv6 != externalIPv6 {
-			var discoveredIPv6 string
-			if discoveredSvc.ExternalIPv6 != nil {
-				discoveredIPv6 = *discoveredSvc.ExternalIPv6
-			}
+		discoveredIPv6 := findExternalIP(discoveredSvc.ExternalIPs, isovalentv1alpha1.AddressFamilyIPv6)
+		if discoveredIPv6 != externalIPv6 {
 			t.Failedf("external IPv6 mismatch: discovered=%q, backend=%q", discoveredIPv6, externalIPv6)
 		}
 	} else {
 		t.Log("ILB cluster is IPv4-only, verifying no IPv6 was allocated...")
-		if discoveredSvc.ExternalIPv6 != nil {
-			t.Failedf("expected no ExternalIPv6 on IPv4-only ILB cluster, got %q", *discoveredSvc.ExternalIPv6)
+		if findExternalIP(discoveredSvc.ExternalIPs, isovalentv1alpha1.AddressFamilyIPv6) != "" {
+			t.Failedf("expected no IPv6 ExternalIP on IPv4-only ILB cluster, got %q",
+				findExternalIP(discoveredSvc.ExternalIPs, isovalentv1alpha1.AddressFamilyIPv6))
 		}
 	}
 

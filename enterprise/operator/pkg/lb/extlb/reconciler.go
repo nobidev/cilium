@@ -567,8 +567,7 @@ func (r *lbK8sBackendClusterReconciler) syncService(
 	var vipRefs []isovalentv1alpha1.LBExternalLBResourceRef
 	var poolRefs []isovalentv1alpha1.LBExternalLBResourceRef
 	var svcRefs []isovalentv1alpha1.LBExternalLBResourceRef
-	var externalIPv4 *string
-	var externalIPv6 *string
+	var externalIPs []isovalentv1alpha1.LBExternalIP
 
 	for _, family := range families {
 		familyStr := string(family)
@@ -622,23 +621,26 @@ func (r *lbK8sBackendClusterReconciler) syncService(
 
 		if family == isovalentv1alpha1.AddressFamilyIPv4 &&
 			vip.Status.Addresses.IPv4 != nil && *vip.Status.Addresses.IPv4 != "" {
-			externalIPv4 = vip.Status.Addresses.IPv4
+			externalIPs = append(externalIPs, isovalentv1alpha1.LBExternalIP{
+				Family:  isovalentv1alpha1.AddressFamilyIPv4,
+				Address: *vip.Status.Addresses.IPv4,
+			})
 		}
 		if family == isovalentv1alpha1.AddressFamilyIPv6 &&
 			vip.Status.Addresses.IPv6 != nil && *vip.Status.Addresses.IPv6 != "" {
-			externalIPv6 = vip.Status.Addresses.IPv6
+			externalIPs = append(externalIPs, isovalentv1alpha1.LBExternalIP{
+				Family:  isovalentv1alpha1.AddressFamilyIPv6,
+				Address: *vip.Status.Addresses.IPv6,
+			})
 		}
 	}
 
-	var externalIPs []string
-	if externalIPv4 != nil {
-		externalIPs = append(externalIPs, *externalIPv4)
-	}
-	if externalIPv6 != nil {
-		externalIPs = append(externalIPs, *externalIPv6)
-	}
 	if len(externalIPs) > 0 {
-		if err := r.updateRemoteServiceIngress(ctx, remoteClient, cluster, remoteSvc, externalIPs, logger); err != nil {
+		ingressIPs := make([]string, 0, len(externalIPs))
+		for _, eip := range externalIPs {
+			ingressIPs = append(ingressIPs, eip.Address)
+		}
+		if err := r.updateRemoteServiceIngress(ctx, remoteClient, cluster, remoteSvc, ingressIPs, logger); err != nil {
 			logger.Warn("failed to update remote service ingress", logfields.Error, err)
 		}
 	}
@@ -648,8 +650,7 @@ func (r *lbK8sBackendClusterReconciler) syncService(
 		RemoteName:          remoteSvc.Name,
 		DiscoveryConfigName: discoveryConfig.Name,
 		Status:              string(isovalentv1alpha1.LBK8sBackendClusterDiscoveredServiceStatusSynced),
-		ExternalIPv4:        externalIPv4,
-		ExternalIPv6:        externalIPv6,
+		ExternalIPs:         externalIPs,
 		LBServiceRefs:       svcRefs,
 		LBVIPRefs:           vipRefs,
 		LBBackendPoolRefs:   poolRefs,
