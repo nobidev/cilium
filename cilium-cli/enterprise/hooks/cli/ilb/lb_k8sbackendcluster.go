@@ -208,12 +208,12 @@ func TestLBK8sBackendClusterServiceDiscovery(t T) {
 	externalIP := scenario.waitForServiceExternalIP(backendCluster, serviceNamespace, serviceName)
 
 	t.Log("Verifying external IP matches discovered service...")
-	if discoveredSvc.ExternalIP == nil || *discoveredSvc.ExternalIP != externalIP {
+	if discoveredSvc.ExternalIPv4 == nil || *discoveredSvc.ExternalIPv4 != externalIP {
 		var discoveredIP string
-		if discoveredSvc.ExternalIP != nil {
-			discoveredIP = *discoveredSvc.ExternalIP
+		if discoveredSvc.ExternalIPv4 != nil {
+			discoveredIP = *discoveredSvc.ExternalIPv4
 		}
-		t.Failedf("external IP mismatch: discovered=%q, backend=%q", discoveredIP, externalIP)
+		t.Failedf("external IPv4 mismatch: discovered=%q, backend=%q", discoveredIP, externalIP)
 	}
 
 	t.Log("Verifying annotation was written to backend cluster service...")

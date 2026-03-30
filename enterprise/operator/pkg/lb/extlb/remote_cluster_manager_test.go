@@ -178,6 +178,84 @@ func TestNodeIPChanged(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "no change - same IPv4 and IPv6",
+			oldNode: &corev1.Node{
+				Status: corev1.NodeStatus{
+					Addresses: []corev1.NodeAddress{
+						{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+						{Type: corev1.NodeInternalIP, Address: "fd00::1"},
+					},
+				},
+			},
+			newNode: &corev1.Node{
+				Status: corev1.NodeStatus{
+					Addresses: []corev1.NodeAddress{
+						{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+						{Type: corev1.NodeInternalIP, Address: "fd00::1"},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "IPv6 address changed",
+			oldNode: &corev1.Node{
+				Status: corev1.NodeStatus{
+					Addresses: []corev1.NodeAddress{
+						{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+						{Type: corev1.NodeInternalIP, Address: "fd00::1"},
+					},
+				},
+			},
+			newNode: &corev1.Node{
+				Status: corev1.NodeStatus{
+					Addresses: []corev1.NodeAddress{
+						{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+						{Type: corev1.NodeInternalIP, Address: "fd00::2"},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "IPv6 address added",
+			oldNode: &corev1.Node{
+				Status: corev1.NodeStatus{
+					Addresses: []corev1.NodeAddress{
+						{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+					},
+				},
+			},
+			newNode: &corev1.Node{
+				Status: corev1.NodeStatus{
+					Addresses: []corev1.NodeAddress{
+						{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+						{Type: corev1.NodeInternalIP, Address: "fd00::1"},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "IPv6 address removed",
+			oldNode: &corev1.Node{
+				Status: corev1.NodeStatus{
+					Addresses: []corev1.NodeAddress{
+						{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+						{Type: corev1.NodeInternalIP, Address: "fd00::1"},
+					},
+				},
+			},
+			newNode: &corev1.Node{
+				Status: corev1.NodeStatus{
+					Addresses: []corev1.NodeAddress{
+						{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+					},
+				},
+			},
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {

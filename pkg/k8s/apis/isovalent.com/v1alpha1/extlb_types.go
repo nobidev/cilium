@@ -302,10 +302,12 @@ type LBK8sBackendClusterDiscoveredService struct {
 	// +optional
 	LBServiceRefs []LBExternalLBResourceRef `json:"lbServiceRefs,omitempty"`
 
-	// LBVIPRef is the reference to the created LBVIP resource.
+	// LBVIPRefs are the references to the created LBVIP resources,
+	// one per address family.
 	//
 	// +optional
-	LBVIPRef *LBExternalLBResourceRef `json:"lbVIPRef,omitempty"`
+	// +listType=atomic
+	LBVIPRefs []LBExternalLBResourceRef `json:"lbVIPRefs,omitempty"`
 
 	// LBBackendPoolRefs are the references to the created LBBackendPool
 	// resources, one per port on the remote service.
@@ -313,11 +315,17 @@ type LBK8sBackendClusterDiscoveredService struct {
 	// +optional
 	LBBackendPoolRefs []LBExternalLBResourceRef `json:"lbBackendPoolRefs,omitempty"`
 
-	// ExternalIP is the allocated external IP that was written back to
+	// ExternalIPv4 is the allocated external IPv4 address that was written back to
 	// the source service.
 	//
 	// +optional
-	ExternalIP *string `json:"externalIP,omitempty"`
+	ExternalIPv4 *string `json:"externalIPv4,omitempty"`
+
+	// ExternalIPv6 is the allocated external IPv6 address that was written back to
+	// the source service.
+	//
+	// +optional
+	ExternalIPv6 *string `json:"externalIPv6,omitempty"`
 
 	// LastError contains the last error message if the service failed to sync.
 	//

@@ -3626,18 +3626,23 @@ func (in *LBK8sBackendClusterDiscoveredService) DeepCopyInto(out *LBK8sBackendCl
 		*out = make([]LBExternalLBResourceRef, len(*in))
 		copy(*out, *in)
 	}
-	if in.LBVIPRef != nil {
-		in, out := &in.LBVIPRef, &out.LBVIPRef
-		*out = new(LBExternalLBResourceRef)
-		**out = **in
+	if in.LBVIPRefs != nil {
+		in, out := &in.LBVIPRefs, &out.LBVIPRefs
+		*out = make([]LBExternalLBResourceRef, len(*in))
+		copy(*out, *in)
 	}
 	if in.LBBackendPoolRefs != nil {
 		in, out := &in.LBBackendPoolRefs, &out.LBBackendPoolRefs
 		*out = make([]LBExternalLBResourceRef, len(*in))
 		copy(*out, *in)
 	}
-	if in.ExternalIP != nil {
-		in, out := &in.ExternalIP, &out.ExternalIP
+	if in.ExternalIPv4 != nil {
+		in, out := &in.ExternalIPv4, &out.ExternalIPv4
+		*out = new(string)
+		**out = **in
+	}
+	if in.ExternalIPv6 != nil {
+		in, out := &in.ExternalIPv6, &out.ExternalIPv6
 		*out = new(string)
 		**out = **in
 	}

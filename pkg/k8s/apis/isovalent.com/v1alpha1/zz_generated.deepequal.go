@@ -3077,11 +3077,20 @@ func (in *LBK8sBackendClusterDiscoveredService) DeepEqual(other *LBK8sBackendClu
 		}
 	}
 
-	if (in.LBVIPRef == nil) != (other.LBVIPRef == nil) {
-		return false
-	} else if in.LBVIPRef != nil {
-		if !in.LBVIPRef.DeepEqual(other.LBVIPRef) {
+	if ((in.LBVIPRefs != nil) && (other.LBVIPRefs != nil)) || ((in.LBVIPRefs == nil) != (other.LBVIPRefs == nil)) {
+		in, other := &in.LBVIPRefs, &other.LBVIPRefs
+		if other == nil {
 			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
 		}
 	}
 
@@ -3102,10 +3111,18 @@ func (in *LBK8sBackendClusterDiscoveredService) DeepEqual(other *LBK8sBackendClu
 		}
 	}
 
-	if (in.ExternalIP == nil) != (other.ExternalIP == nil) {
+	if (in.ExternalIPv4 == nil) != (other.ExternalIPv4 == nil) {
 		return false
-	} else if in.ExternalIP != nil {
-		if *in.ExternalIP != *other.ExternalIP {
+	} else if in.ExternalIPv4 != nil {
+		if *in.ExternalIPv4 != *other.ExternalIPv4 {
+			return false
+		}
+	}
+
+	if (in.ExternalIPv6 == nil) != (other.ExternalIPv6 == nil) {
+		return false
+	} else if in.ExternalIPv6 != nil {
+		if *in.ExternalIPv6 != *other.ExternalIPv6 {
 			return false
 		}
 	}
