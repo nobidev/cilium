@@ -59,26 +59,27 @@ func (r *lbTestScenario) createBackendKindClusterWithIPFamily(clusterName, ipFam
 
 	args := []string{"create", "cluster", "--name", clusterName, "--kubeconfig", tmpKubeconfig.Name()}
 
-	if ipFamily != "ipv4" {
-		kindConfig := fmt.Sprintf(`kind: Cluster
+	kindConfig := fmt.Sprintf(`kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+- role: worker
 networking:
   ipFamily: %s
 `, ipFamily)
 
-		tmpConfig, err := os.CreateTemp("", "kind-config-*")
-		if err != nil {
-			r.t.Failedf("failed to create temp kind config file: %s", err)
-		}
-		if _, err := tmpConfig.WriteString(kindConfig); err != nil {
-			tmpConfig.Close()
-			r.t.Failedf("failed to write kind config: %s", err)
-		}
-		tmpConfig.Close()
-		defer os.Remove(tmpConfig.Name())
-
-		args = append(args, "--config", tmpConfig.Name())
+	tmpConfig, err := os.CreateTemp("", "kind-config-*")
+	if err != nil {
+		r.t.Failedf("failed to create temp kind config file: %s", err)
 	}
+	if _, err := tmpConfig.WriteString(kindConfig); err != nil {
+		tmpConfig.Close()
+		r.t.Failedf("failed to write kind config: %s", err)
+	}
+	tmpConfig.Close()
+	defer os.Remove(tmpConfig.Name())
+
+	args = append(args, "--config", tmpConfig.Name())
 
 	cmd := exec.CommandContext(r.t.Context(), "kind", args...)
 	cmd.Env = env
@@ -468,7 +469,7 @@ func (r *lbTestScenario) getBackendNodeInternalIPs(cluster *backendKindCluster) 
 	cmd := exec.CommandContext(r.t.Context(), "docker", "exec", containerName,
 		"kubectl", "--kubeconfig=/etc/kubernetes/admin.conf",
 		"get", "nodes",
-		"-o", "jsonpath={.items[*].status.addresses}")
+		"-o", "json")
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -479,27 +480,35 @@ func (r *lbTestScenario) getBackendNodeInternalIPs(cluster *backendKindCluster) 
 		Type    string `json:"type"`
 		Address string `json:"address"`
 	}
-
-	var addresses []nodeAddress
-	raw := strings.TrimSpace(string(output))
-	if raw != "" {
-		if err := json.Unmarshal([]byte(raw), &addresses); err != nil {
-			r.t.Failedf("failed to parse node addresses: %s", err)
-		}
+	type nodeStatus struct {
+		Addresses []nodeAddress `json:"addresses"`
+	}
+	type nodeItem struct {
+		Status nodeStatus `json:"status"`
+	}
+	type nodeList struct {
+		Items []nodeItem `json:"items"`
 	}
 
-	for _, addr := range addresses {
-		if addr.Type != "InternalIP" {
-			continue
-		}
-		parsed := net.ParseIP(addr.Address)
-		if parsed == nil {
-			continue
-		}
-		if parsed.To4() != nil {
-			ipv4s = append(ipv4s, addr.Address)
-		} else {
-			ipv6s = append(ipv6s, addr.Address)
+	var nodes nodeList
+	if err := json.Unmarshal(output, &nodes); err != nil {
+		r.t.Failedf("failed to parse node list: %s", err)
+	}
+
+	for _, node := range nodes.Items {
+		for _, addr := range node.Status.Addresses {
+			if addr.Type != "InternalIP" {
+				continue
+			}
+			parsed := net.ParseIP(addr.Address)
+			if parsed == nil {
+				continue
+			}
+			if parsed.To4() != nil {
+				ipv4s = append(ipv4s, addr.Address)
+			} else {
+				ipv6s = append(ipv6s, addr.Address)
+			}
 		}
 	}
 
