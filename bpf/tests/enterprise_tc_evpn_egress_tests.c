@@ -2,6 +2,7 @@
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/skb.h>
+#include <bpf/config/node.h>
 
 #include "common.h"
 #include "pktgen.h"
@@ -70,6 +71,10 @@ int evpn_encap_and_redirect4_check(struct __ctx_buff *ctx)
 	void *data = ctx_data(ctx);
 	struct ethhdr *eth;
 	int ret;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 
 	test_init();
 
@@ -83,7 +88,7 @@ int evpn_encap_and_redirect4_check(struct __ctx_buff *ctx)
 	evpn_setup_fib();
 
 	TEST("evpn_encap_and_redirect4 match", {
-		ret = evpn_encap_and_redirect4(ctx, 1, EVPN_V4_ADDR0);
+		ret = evpn_encap_and_redirect4(ctx, 1, 1, EVPN_V4_ADDR0, &trace);
 		if (ret != TC_ACT_REDIRECT)
 			test_error("Expect TC_ACT_REDIRECT, but got %d", ret);
 
@@ -107,7 +112,7 @@ int evpn_encap_and_redirect4_check(struct __ctx_buff *ctx)
 	});
 
 	TEST("evpn_encap_and_redirect4 no match", {
-		ret = evpn_encap_and_redirect4(ctx, 2, EVPN_V4_ADDR1);
+		ret = evpn_encap_and_redirect4(ctx, 2, 2, EVPN_V4_ADDR1, &trace);
 		if (ret != DROP_UNROUTABLE)
 			test_error("Expect DROP_UNROUTABLE, but got %d", ret);
 
@@ -131,6 +136,10 @@ int evpn_encap_and_redirect4_ipv6_nexthop_check(struct __ctx_buff *ctx)
 	void *data = ctx_data(ctx);
 	struct ethhdr *eth;
 	int ret;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 
 	test_init();
 
@@ -144,7 +153,7 @@ int evpn_encap_and_redirect4_ipv6_nexthop_check(struct __ctx_buff *ctx)
 	evpn_setup_fib();
 
 	TEST("evpn_encap_and_redirect4 IPv6 nexthop", {
-		ret = evpn_encap_and_redirect4(ctx, 1, EVPN_V4_ADDR2);
+		ret = evpn_encap_and_redirect4(ctx, 1, 1, EVPN_V4_ADDR2, &trace);
 		if (ret != TC_ACT_REDIRECT)
 			test_error("Expect TC_ACT_REDIRECT, but got %d", ret);
 
@@ -182,6 +191,10 @@ int evpn_encap_and_redirect6_check(struct __ctx_buff *ctx)
 	void *data = ctx_data(ctx);
 	struct ethhdr *eth;
 	int ret;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 
 	test_init();
 
@@ -197,7 +210,7 @@ int evpn_encap_and_redirect6_check(struct __ctx_buff *ctx)
 	TEST("evpn_encap_and_redirect6 match", {
 		union v6addr expected_remote_ipv6 = { .addr = v6_node_one_addr };
 
-		ret = evpn_encap_and_redirect6(ctx, 1, EVPN_V6_ADDR0);
+		ret = evpn_encap_and_redirect6(ctx, 1, 1, EVPN_V6_ADDR0, &trace);
 		if (ret != TC_ACT_REDIRECT)
 			test_error("Expect TC_ACT_REDIRECT, but got %d", ret);
 
@@ -222,7 +235,7 @@ int evpn_encap_and_redirect6_check(struct __ctx_buff *ctx)
 	});
 
 	TEST("evpn_encap_and_redirect6 no match", {
-		ret = evpn_encap_and_redirect6(ctx, 2, EVPN_V6_ADDR1);
+		ret = evpn_encap_and_redirect6(ctx, 2, 2, EVPN_V6_ADDR1, &trace);
 		if (ret != DROP_UNROUTABLE)
 			test_error("Expect DROP_UNROUTABLE, but got %d", ret);
 
@@ -246,6 +259,10 @@ int evpn_encap_and_redirect6_ipv4_nexthop_check(struct __ctx_buff *ctx)
 	void *data = ctx_data(ctx);
 	struct ethhdr *eth;
 	int ret;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 
 	test_init();
 
@@ -259,7 +276,7 @@ int evpn_encap_and_redirect6_ipv4_nexthop_check(struct __ctx_buff *ctx)
 	evpn_setup_fib();
 
 	TEST("evpn_encap_and_redirect6 IPv4 nexthop", {
-		ret = evpn_encap_and_redirect6(ctx, 1, EVPN_V6_ADDR2);
+		ret = evpn_encap_and_redirect6(ctx, 1, 1, EVPN_V6_ADDR2, &trace);
 		if (ret != TC_ACT_REDIRECT)
 			test_error("Expect TC_ACT_REDIRECT, but got %d", ret);
 

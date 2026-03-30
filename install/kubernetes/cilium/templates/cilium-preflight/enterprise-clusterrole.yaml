@@ -105,6 +105,7 @@ rules:
     - isovalent.com
   resources:
     - clusterwideprivatenetworks
+    - clusterwideprivatenetworks/status
     - privatenetworknodeattachments
   verbs:
     - list
@@ -120,6 +121,7 @@ rules:
     - get
     - create
     - update
+    - patch
     - delete
 {{- end }}
 {{- end }}

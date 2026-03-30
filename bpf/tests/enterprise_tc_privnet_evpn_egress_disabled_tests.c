@@ -30,11 +30,15 @@ int privnet_evpn_egress_disabled_v4_check(struct __ctx_buff *ctx)
 {
 	struct privnet_fib_val dip_val = {};
 	int status_code;
-
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 	test_init();
 
 	dip_val.type = PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE;
-	status_code = privnet_evpn_egress_ipv4(ctx, NET_ID, &dip_val, V4_NET_IP_1);
+	status_code = privnet_evpn_egress_ipv4(ctx, NET_ID, 1, &dip_val,
+					       V4_NET_IP_1, &trace);
 	if (status_code != CTX_ACT_OK)
 		test_fatal("unexpected status code (expected %d, got %d)",
 			   CTX_ACT_OK, status_code);
@@ -48,12 +52,17 @@ int privnet_evpn_egress_disabled_v6_check(struct __ctx_buff *ctx)
 	struct privnet_fib_val dip_val = {};
 	union v6addr dst_ip = {};
 	__u32 status_code;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 
 	test_init();
 	memcpy(&dst_ip, (const union v6addr *)V6_NET_IP_1, sizeof(dst_ip));
 
 	dip_val.type = PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE;
-	status_code = privnet_evpn_egress_ipv6(ctx, NET_ID, &dip_val, dst_ip);
+	status_code = privnet_evpn_egress_ipv6(ctx, NET_ID, 1, &dip_val,
+					       dst_ip, &trace);
 	if (status_code != CTX_ACT_OK)
 		test_fatal("unexpected status code (expected %d, got %d)",
 			   CTX_ACT_OK, status_code);

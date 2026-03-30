@@ -80,20 +80,26 @@ func testLabelBasedBackendCNP(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploym
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	t.Log("Checking connectivity without CNP applied ...")
 	{
-		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' -H 'Content-Type: application/json' http://%s:80/", vipIP))
 		t.Log("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
+		if stdout != "200" {
+			t.Failedf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
+		}
 	}
 
 	{
-		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/special", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' -H 'Content-Type: application/json' http://%s:80/special", vipIP))
 		t.Log("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
+		if stdout != "200" {
+			t.Failedf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
 		}
 	}
 
@@ -110,20 +116,26 @@ func testLabelBasedBackendCNP(t T, mode isovalentv1alpha1.LBTCPProxyForceDeploym
 
 	t.Log("Checking that CNP matches Ingress identity and blocks path != / ...")
 	{
-		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' -H 'Content-Type: application/json' http://%s:80/", vipIP))
 		t.Log("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
+		if stdout != "200" {
+			t.Failedf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
+		}
 	}
 
 	eventually(t, func() error {
-		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -H 'Content-Type: application/json' http://%s:80/special", vipIP))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' -H 'Content-Type: application/json' http://%s:80/special", vipIP))
 		t.Log("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
-		if err == nil {
-			return fmt.Errorf("curl succeeded (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+		if err != nil {
+			return fmt.Errorf("curl failed unexpectedly (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+		}
+		if stdout != "403" {
+			return fmt.Errorf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
 		}
 		return nil
 	}, shortTimeout, pollInterval)

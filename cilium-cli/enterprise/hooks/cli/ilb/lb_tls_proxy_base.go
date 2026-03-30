@@ -67,18 +67,20 @@ func TestTLSProxyTCPBackend(t T) {
 
 	// 3. Test basic connectivity
 	t.Log("Checking Basic Connectivity")
-	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/%s.crt --resolve secure.acme.io:10080:%s https://secure.acme.io:10080/", serviceHostName, vipIP))
+	testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --cacert /tmp/%s.crt --resolve secure.acme.io:10080:%s https://secure.acme.io:10080/", serviceHostName, vipIP))
 
 	t.Log("Testing %q...", testCmd)
 
 	eventually(t, func() error {
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
-			// Enrich error with curl output
-			err = fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+			return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 		}
-		return err
-	}, 10*time.Second, 100*time.Millisecond)
+		if stdout != "200" {
+			return fmt.Errorf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
+		}
+		return nil
+	}, shortTimeout, 100*time.Millisecond)
 
 	// 4. Test mTLS connectivity
 	t.Log("Checking mTLS Connectivity")
@@ -98,7 +100,7 @@ func TestTLSProxyTCPBackend(t T) {
 		t.Failedf("failed to update LB service (%s): %s", testName, err)
 	}
 
-	testCmd = curlCmdVerbose(fmt.Sprintf("--max-time 10 --cert /tmp/%s.crt --key /tmp/%s.key --cacert /tmp/%s.crt --resolve secure.acme.io:10080:%s https://secure.acme.io:10080/",
+	testCmd = curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --cert /tmp/%s.crt --key /tmp/%s.key --cacert /tmp/%s.crt --resolve secure.acme.io:10080:%s https://secure.acme.io:10080/",
 		clientHostName, clientHostName, serviceHostName, vipIP))
 
 	t.Log("Testing %q...", testCmd)
@@ -106,11 +108,13 @@ func TestTLSProxyTCPBackend(t T) {
 	eventually(t, func() error {
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
-			// Enrich error with curl output
-			err = fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+			return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 		}
-		return err
-	}, 10*time.Second, 100*time.Millisecond)
+		if stdout != "200" {
+			return fmt.Errorf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
+		}
+		return nil
+	}, shortTimeout, 100*time.Millisecond)
 }
 
 func TestTLSProxyTLSBackend(t T) {
@@ -176,7 +180,7 @@ func TestTLSProxyTLSBackend(t T) {
 			return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 		}
 		return nil
-	}, 10*time.Second, 100*time.Millisecond)
+	}, shortTimeout, 100*time.Millisecond)
 
 	// 4. Test mTLS connectivity
 	t.Log("Checking mTLS Connectivity")
@@ -221,7 +225,7 @@ func TestTLSProxyTLSBackend(t T) {
 			}
 		}
 		return nil
-	}, 10*time.Second, 100*time.Millisecond)
+	}, shortTimeout, 100*time.Millisecond)
 
 	testCmd = curlCmdVerbose(fmt.Sprintf("--max-time 10 --cert /tmp/%s.crt --key /tmp/%s.key --cacert /tmp/%s.crt --resolve secure.acme.io:10443:%s https://secure.acme.io:10443/",
 		clientHostName, clientHostName, serviceHostName, vipIP))
@@ -235,5 +239,5 @@ func TestTLSProxyTLSBackend(t T) {
 			return fmt.Errorf("curl failed (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 		}
 		return nil
-	}, 10*time.Second, 100*time.Millisecond)
+	}, shortTimeout, 100*time.Millisecond)
 }

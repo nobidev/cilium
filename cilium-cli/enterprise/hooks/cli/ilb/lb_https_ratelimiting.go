@@ -69,7 +69,7 @@ func TestHTTPSRouteRatelimiting(t T) {
 	t.Log("Waiting for full VIP connectivity...")
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
-	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/%s", vipIP, "/"))
+	testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/%s", vipIP, "/"))
 
 	{
 		t.Log("Testing %q that first request succeeds ...", testCmd)
@@ -83,15 +83,13 @@ func TestHTTPSRouteRatelimiting(t T) {
 	eventually(t, func() error {
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
-			if err.Error() != "cmd failed: 22" {
-				return fmt.Errorf("curl failed unexpectedly (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
-			}
-
-			// due to local rate limit and T1->T2 loadbalancing, requests must start hitting the connection ratelimit eventually
-			return nil // rate limited with HTTP 429
+			return fmt.Errorf("curl failed unexpectedly (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
 		}
-
-		return fmt.Errorf("curl not rate limited (cmd: %q, stdout: %q, stderr: %q): %w", testCmd, stdout, stderr, err)
+		if stdout == "429" {
+			// due to local rate limit and T1->T2 loadbalancing, requests must start hitting the connection ratelimit eventually
+			return nil
+		}
+		return fmt.Errorf("curl not rate limited (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
 	}, longTimeout, pollInterval)
 
 	{

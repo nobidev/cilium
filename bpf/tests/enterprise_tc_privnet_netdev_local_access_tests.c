@@ -23,11 +23,9 @@
 #include <bpf/config/node.h>
 #include <lib/enterprise_ext_eps_maps.h>
 
-/* Mock lxc policy call - will be called from privnet_local_access_ingress
- *
- */
+/* Mock lxc policy call - will be called from privnet_local_access_ingress. */
 __section_entry
-	int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
+int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
 {
 	return TC_ACT_REDIRECT;
 }
@@ -39,15 +37,38 @@ struct {
 	__array(values, int());
 } mock_policy_call_map __section(".maps") = {
 	.values = {
-		   [LXC_ID] = &mock_handle_policy,
-		   },
+		[LXC_ID] = &mock_handle_policy,
+	},
 };
 
-# define tail_call_dynamic mock_tail_call_dynamic
-static __always_inline __maybe_unused void
-mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
-		       const void *map __maybe_unused, __u32 slot __maybe_unused)
+static struct {
+	bool called;
+	__u32 lxc_id;
+} policy_tail_call_recorder;
+
+static __always_inline void reset_policy_tail_call_recorder(void)
 {
+	policy_tail_call_recorder.called = false;
+	policy_tail_call_recorder.lxc_id = 0;
+}
+
+#define ASSERT_POLICY_TAIL_CALL(__expected_lxc_id)						\
+	do {											\
+		if (!policy_tail_call_recorder.called)						\
+			test_fatal("tail_call_dynamic was not called");				\
+		if (policy_tail_call_recorder.lxc_id != (__expected_lxc_id))			\
+			test_fatal("unexpected tail_call_dynamic endpoint ID (got %d, want %d",	\
+				   (__expected_lxc_id), policy_tail_call_recorder.lxc_id);	\
+	} while (0)
+
+#define tail_call_dynamic mock_tail_call_dynamic
+static __always_inline __maybe_unused void
+mock_tail_call_dynamic(struct __ctx_buff *ctx, const void *map __maybe_unused,
+		       __u32 slot)
+{
+	policy_tail_call_recorder.called = true;
+	policy_tail_call_recorder.lxc_id = slot;
+
 	tail_call(ctx, &mock_policy_call_map, slot);
 }
 
@@ -114,6 +135,7 @@ int privnet_local_access_ingress_from_netdev_check(struct __ctx_buff *ctx)
 
 	/* packets are redirected to lxc device */
 	assert_status_code(ctx, TC_ACT_REDIRECT);
+	ASSERT_POLICY_TAIL_CALL(LXC_ID);
 
 	/* check inner packet headers, src & dst should remain untranslated */
 	BUF_DECL(NETIP_TCP_SYN_TTL, privnet_net_ip_tcp_syn_ttl_dec);
@@ -130,6 +152,8 @@ int privnet_local_access_ingress_from_netdev_check(struct __ctx_buff *ctx)
 	privnet_del_device_entry(IFINDEX);
 
 	endpoint_v4_del_entry(V4_POD_IP_2);
+
+	reset_policy_tail_call_recorder();
 
 	test_finish();
 }
@@ -168,8 +192,12 @@ int privnet_local_access_icmpv6_ns_ingress_from_netdev_check(struct __ctx_buff *
 {
 	test_init();
 
-	/* packets are not redirected to lxc device but handled in */
+	/* packets are not redirected to lxc device but handled in
+	 * privnet_handle_ns
+	 */
 	assert_status_code(ctx, TC_ACT_OK);
+	if (policy_tail_call_recorder.called)
+		test_fatal("ICMPv6 NS packet unexpectedly redirected to endpoint");
 
 	BUF_DECL(NETDEV_ICMP6_NS, privnet_netdev_ns);
 	ASSERT_CTX_BUF_OFF("privnet_local_access_icmpv6_ns_ingress_from_netdev_no_nat",
@@ -187,7 +215,17 @@ int privnet_local_access_icmpv6_ns_ingress_from_netdev_check(struct __ctx_buff *
 	privnet_v6_del_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN);
 	privnet_del_device_entry(LXC_IFINDEX);
 	privnet_del_device_entry(IFINDEX);
-	/* endpoint_v6_del_entry((const union v6addr *)V6_POD_IP_2); */
+
+	/* endpoint_v6_del_entry is not defined upstream. Let's keep things
+	 * simple and open-code it here.
+	 */
+	struct endpoint_key key = {
+		.ip6 = *((const union v6addr *)V6_POD_IP_2),
+		.family = ENDPOINT_KEY_IPV6,
+	};
+	map_delete_elem(&cilium_lxc, &key);
+
+	reset_policy_tail_call_recorder();
 
 	test_finish();
 }

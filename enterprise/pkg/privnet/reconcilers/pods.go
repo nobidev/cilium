@@ -107,10 +107,10 @@ func (p *Pods) registerReconciler() {
 				for ep := range eps {
 					properties, ok := endpoints.ExtractEndpointProperties(ep)
 					if !ok {
-						// Endpoint was not created on a private network, but now has the annotation
-						p.log.Warn("Ignoring annotation on pod without prior private network attachment",
-							logfields.Pod, podFullName,
-							logfields.Annotation, types.PrivateNetworkInactiveAnnotation)
+						// Expected, if only a subset of the pod interfaces is attached
+						// to a private network. It may also happen if users added
+						// the private networks annotations after the initial pod
+						// creation, in which case it would be ignored as well.
 						continue
 					}
 

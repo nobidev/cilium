@@ -32,10 +32,6 @@ const (
 	// the network attachments for secondary interfaces.
 	PrivateNetworkSecondaryAttachmentsAnnotation = PrivateNetworkAnnotationPrefix + "/secondary-network-attachments"
 
-	// PrivateNetworkAnnotationLegacy is the name of the legacy annotation to attach pods to a
-	// particular private network.
-	PrivateNetworkAnnotationLegacy = "network.v1alpha1.isovalent.com/network-attachment"
-
 	// PrivateNetworkInactiveAnnotationLegacy is the name of the annotation which marks the pod inactive.
 	PrivateNetworkInactiveAnnotation = PrivateNetworkAnnotationPrefix + "/inactive"
 
@@ -59,21 +55,13 @@ type annotatedObject interface {
 }
 
 func HasNetworkAttachmentAnnotation(obj annotatedObject) bool {
-	_, found := annotation.Get(obj, PrivateNetworkAnnotation, PrivateNetworkAnnotationLegacy)
+	_, found := annotation.Get(obj, PrivateNetworkAnnotation, PrivateNetworkSecondaryAttachmentsAnnotation)
 	return found
 }
 
-func ExtractNetworkAttachmentAnnotation(obj annotatedObject) ([]NetworkAttachment, error) {
-	raw, found := annotation.Get(obj, PrivateNetworkAnnotation, PrivateNetworkAnnotationLegacy)
-	rawSec, foundSec := annotation.Get(obj, PrivateNetworkSecondaryAttachmentsAnnotation)
-
+func ExtractNetworkAttachmentAnnotation(obj annotatedObject) (*NetworkAttachment, error) {
+	raw, found := annotation.Get(obj, PrivateNetworkAnnotation)
 	if !found {
-		if foundSec {
-			return nil, fmt.Errorf("found %q annotation, but %q is missing",
-				PrivateNetworkSecondaryAttachmentsAnnotation, PrivateNetworkAnnotation,
-			)
-		}
-
 		return nil, nil // not found
 	}
 
@@ -84,12 +72,17 @@ func ExtractNetworkAttachmentAnnotation(obj annotatedObject) ([]NetworkAttachmen
 	}
 	primary.Interface = ""
 
-	if !foundSec {
-		return []NetworkAttachment{primary}, nil
+	return &primary, nil
+}
+
+func ExtractNetworkSecondaryAttachmentsAnnotation(obj annotatedObject) ([]NetworkAttachment, error) {
+	raw, found := annotation.Get(obj, PrivateNetworkSecondaryAttachmentsAnnotation)
+	if !found {
+		return nil, nil // not found
 	}
 
 	var secondary []NetworkAttachment
-	err = json.Unmarshal([]byte(rawSec), &secondary)
+	err := json.Unmarshal([]byte(raw), &secondary)
 	if err != nil {
 		return nil, fmt.Errorf("invalid value in %q annotation: %w", PrivateNetworkSecondaryAttachmentsAnnotation, err)
 	}
@@ -103,7 +96,7 @@ func ExtractNetworkAttachmentAnnotation(obj annotatedObject) ([]NetworkAttachmen
 		}
 	}
 
-	return append([]NetworkAttachment{primary}, secondary...), nil
+	return secondary, nil
 }
 
 func ExtractInactiveAnnotation(obj annotatedObject) (inactive bool, err error) {

@@ -1872,6 +1872,22 @@
      - Enables custom SRv6 SID locator pool operator support.
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.waf.enabled`
+     - Enable WAF policy validation and default WAF settings in the enterprise operator.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`enterprise.waf.failureMode`
+     - Default WAF failure mode for operator-managed resources.  Valid values are: Open, Close
+     - string
+     - ``"Open"``
+   * - :spelling:ignore:`enterprise.waf.mode`
+     - Default WAF mode for operator-managed resources.  Valid values are: Monitor, Enforce
+     - string
+     - ``"Enforce"``
+   * - :spelling:ignore:`enterprise.waf.policyProfile`
+     - Default WAF managed policy profile for operator-managed resources.  Valid values are: max_security, high_security, balanced, low_friction, min_friction
+     - string
+     - ``"balanced"``
    * - :spelling:ignore:`envoy.affinity`
      - Affinity for cilium-envoy.
      - object

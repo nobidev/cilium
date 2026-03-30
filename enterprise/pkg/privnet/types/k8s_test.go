@@ -11,6 +11,7 @@
 package types_test
 
 import (
+	"errors"
 	"net/netip"
 	"testing"
 
@@ -23,10 +24,11 @@ import (
 
 func TestExtractNetworkAttachmentAnnotation(t *testing.T) {
 	tests := []struct {
-		name        string
-		annotations map[string]string
-		want        []types.NetworkAttachment
-		wantErr     string
+		name          string
+		annotations   map[string]string
+		wantPrimary   *types.NetworkAttachment
+		wantSecondary []types.NetworkAttachment
+		wantErr       string
 	}{
 		{
 			name: "missing",
@@ -46,22 +48,22 @@ func TestExtractNetworkAttachmentAnnotation(t *testing.T) {
 			annotations: map[string]string{
 				types.PrivateNetworkAnnotation: `{ "network": "blue", "ipv4": "192.168.1.10", "ipv6": "fd10::10", "mac": "f2:54:1c:1f:84:94" }`,
 			},
-			want: []types.NetworkAttachment{{
+			wantPrimary: &types.NetworkAttachment{
 				Network: "blue",
 				IPv4:    netip.MustParseAddr("192.168.1.10"),
 				IPv6:    netip.MustParseAddr("fd10::10"),
 				MAC:     mac.MustParseMAC("f2:54:1c:1f:84:94"),
-			}},
+			},
 		},
 		{
 			name: "primary-with-interface",
 			annotations: map[string]string{
 				types.PrivateNetworkAnnotation: `{ "network": "blue", "ipv4": "192.168.1.10", "interface": "foo" }`,
 			},
-			want: []types.NetworkAttachment{{
+			wantPrimary: &types.NetworkAttachment{
 				Network: "blue",
 				IPv4:    netip.MustParseAddr("192.168.1.10"),
-			}},
+			},
 		},
 		{
 			name: "primary+secondary",
@@ -72,12 +74,13 @@ func TestExtractNetworkAttachmentAnnotation(t *testing.T) {
 					{ "network": "yellow", "ipv4": "192.168.1.12", "ipv6": "fd10::12", "mac": "f2:54:1c:1f:84:96" }
 				]`,
 			},
-			want: []types.NetworkAttachment{{
+			wantPrimary: &types.NetworkAttachment{
 				Network: "blue",
 				IPv4:    netip.MustParseAddr("192.168.1.10"),
 				IPv6:    netip.MustParseAddr("fd10::10"),
 				MAC:     mac.MustParseMAC("f2:54:1c:1f:84:94"),
-			}, {
+			},
+			wantSecondary: []types.NetworkAttachment{{
 				Network: "green",
 				IPv4:    netip.MustParseAddr("192.168.1.11"),
 				IPv6:    netip.MustParseAddr("fd10::11"),
@@ -98,8 +101,10 @@ func TestExtractNetworkAttachmentAnnotation(t *testing.T) {
 					{ "network": "yellow", "ipv4": "192.168.1.12", "interface": "bar" }
 				]`,
 			},
-			want: []types.NetworkAttachment{
-				{Network: "blue", IPv4: netip.MustParseAddr("192.168.1.10")},
+			wantPrimary: &types.NetworkAttachment{
+				Network: "blue", IPv4: netip.MustParseAddr("192.168.1.10"),
+			},
+			wantSecondary: []types.NetworkAttachment{
 				{Network: "green", IPv4: netip.MustParseAddr("192.168.1.11"), Interface: "foo"},
 				{Network: "yellow", IPv4: netip.MustParseAddr("192.168.1.12"), Interface: "bar"},
 			},
@@ -120,7 +125,12 @@ func TestExtractNetworkAttachmentAnnotation(t *testing.T) {
 			annotations: map[string]string{types.PrivateNetworkSecondaryAttachmentsAnnotation: `[
 				{ "network": "green", "ipv4": "192.168.1.11", "ipv6": "fd10::11", "mac": "f2:54:1c:1f:84:95" }
 			]`},
-			wantErr: `found "privnet.isovalent.com/secondary-network-attachments" annotation, but`,
+			wantSecondary: []types.NetworkAttachment{{
+				Network: "green",
+				IPv4:    netip.MustParseAddr("192.168.1.11"),
+				IPv6:    netip.MustParseAddr("fd10::11"),
+				MAC:     mac.MustParseMAC("f2:54:1c:1f:84:95"),
+			}},
 		},
 		{
 			name: "secondary-invalid",
@@ -135,15 +145,21 @@ func TestExtractNetworkAttachmentAnnotation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			na, err := types.ExtractNetworkAttachmentAnnotation(&metav1.ObjectMeta{Annotations: tt.annotations})
+			var (
+				obj             = metav1.ObjectMeta{Annotations: tt.annotations}
+				primary, errp   = types.ExtractNetworkAttachmentAnnotation(&obj)
+				secondary, errs = types.ExtractNetworkSecondaryAttachmentsAnnotation(&obj)
+				err             = errors.Join(errp, errs)
+			)
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr, "ExtractNetworkAttachmentAnnotation")
-			} else {
-				require.NoError(t, err, "ExtractNetworkAttachmentAnnotation")
+				return
 			}
 
-			require.Equal(t, tt.want, na)
+			require.NoError(t, err, "ExtractNetworkAttachmentAnnotation")
+			require.Equal(t, tt.wantPrimary, primary)
+			require.Equal(t, tt.wantSecondary, secondary)
 		})
 	}
 }

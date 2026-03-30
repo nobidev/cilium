@@ -53,11 +53,14 @@ func TestHTTPS(t T) {
 	vipIP := scenario.waitForFullVIPConnectivity(testName)
 
 	// 1. Send HTTPs request
-	testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", vipIP))
+	testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --cacert /tmp/"+hostName+".crt --resolve secure.acme.io:443:%s https://secure.acme.io:443/", vipIP))
 	t.Log("Testing %q...", testCmd)
 	stdout, stderr, err := client.Exec(t.Context(), testCmd)
 	if err != nil {
 		t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+	}
+	if stdout != "200" {
+		t.Failedf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
 	}
 }
 

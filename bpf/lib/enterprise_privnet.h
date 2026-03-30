@@ -706,18 +706,21 @@ privnet_local_access_egress_ipv4(const struct privnet_fib_val *dip_val, __be32 d
 {
 	__u32 ifindex = dip_val->ifindex;
 
-	if (CONFIG(privnet_local_access_enable) && is_privnet_route_entry(dip_val) && ifindex != 0)
+	if (CONFIG(privnet_local_access_enable) && ifindex != 0 &&
+	    (dip_val->type == PRIVNET_FIB_VAL_TYPE_STATIC_ROUTE ||
+	     dip_val->type == PRIVNET_FIB_VAL_TYPE_SUBNET_ROUTE))
 		return privnet_redirect_neigh_fib_ipv4(dip_val, daddr, ifindex);
 
 	return CTX_ACT_OK;
 }
 
 static __always_inline int
-privnet_evpn_egress_ipv4(struct __ctx_buff *ctx, __u16 net_id,
-			 const struct privnet_fib_val *dip_val, __be32 daddr)
+privnet_evpn_egress_ipv4(struct __ctx_buff *ctx, __u16 net_id, __u32 sec_label,
+			 const struct privnet_fib_val *dip_val, __be32 daddr,
+			 struct trace_ctx *trace)
 {
 	if (CONFIG(evpn_enable) && dip_val->type == PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE)
-		return evpn_encap_and_redirect4(ctx, net_id, daddr);
+		return evpn_encap_and_redirect4(ctx, net_id, sec_label, daddr, trace);
 
 	return CTX_ACT_OK;
 }
@@ -890,16 +893,17 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 			ret = privnet_unknown_policy_egress4(ctx, ip4, net_id, sec_label, trace);
 			if (ret != CTX_ACT_OK)
 				return ret;
+
+			ret = privnet_local_access_egress_ipv4(dip_val, ip4->daddr);
+			if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+				return ret;
+
+			/* We can return on redirect here as Privnet <=> EVPN communication doesn't require NAT */
+			ret = privnet_evpn_egress_ipv4(ctx, net_id, sec_label,
+						       dip_val, ip4->daddr, trace);
+			if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+				return ret;
 		}
-
-		ret = privnet_local_access_egress_ipv4(dip_val, ip4->daddr);
-		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
-			return ret;
-
-		/* We can return on redirect here as Privnet <=> EVPN communication doesn't require NAT */
-		ret = privnet_evpn_egress_ipv4(ctx, net_id, dip_val, ip4->daddr);
-		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
-			return ret;
 
 		if (!is_privnet_route_entry(dip_val)) {
 			/* Only NAT if entry is for the endpoint, for route
@@ -1065,19 +1069,21 @@ privnet_local_access_egress_ipv6(const struct privnet_fib_val *dip_val, const un
 {
 	__u32 ifindex = dip_val->ifindex;
 
-	if (CONFIG(privnet_local_access_enable) && is_privnet_route_entry(dip_val) && ifindex != 0)
+	if (CONFIG(privnet_local_access_enable) && ifindex != 0 &&
+	    (dip_val->type == PRIVNET_FIB_VAL_TYPE_STATIC_ROUTE ||
+	     dip_val->type == PRIVNET_FIB_VAL_TYPE_SUBNET_ROUTE))
 		return privnet_redirect_neigh_fib_ipv6(dip_val, daddr, ifindex);
 
 	return CTX_ACT_OK;
 }
 
 static __always_inline int
-privnet_evpn_egress_ipv6(struct __ctx_buff *ctx, __u16 net_id,
+privnet_evpn_egress_ipv6(struct __ctx_buff *ctx, __u16 net_id, __u32 sec_label,
 			 const struct privnet_fib_val *dip_val,
-			 union v6addr daddr)
+			 union v6addr daddr, struct trace_ctx *trace)
 {
 	if (CONFIG(evpn_enable) && dip_val->type == PRIVNET_FIB_VAL_TYPE_VXLAN_ROUTE)
-		return evpn_encap_and_redirect6(ctx, net_id, daddr);
+		return evpn_encap_and_redirect6(ctx, net_id, sec_label, daddr, trace);
 
 	return CTX_ACT_OK;
 }
@@ -1113,16 +1119,17 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 							     sec_label, trace);
 			if (ret != CTX_ACT_OK)
 				return ret;
+
+			ret = privnet_local_access_egress_ipv6(dip_val, &orig_dip);
+			if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+				return ret;
+
+			/* We can return on redirect here as Privnet <=> EVPN communication doesn't require NAT */
+			ret = privnet_evpn_egress_ipv6(ctx, net_id, sec_label, dip_val,
+						       orig_dip, trace);
+			if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+				return ret;
 		}
-
-		ret = privnet_local_access_egress_ipv6(dip_val, &orig_dip);
-		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
-			return ret;
-
-		/* We can return on redirect here as Privnet <=> EVPN communication doesn't require NAT */
-		ret = privnet_evpn_egress_ipv6(ctx, net_id, dip_val, orig_dip);
-		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
-			return ret;
 
 		if (!is_privnet_route_entry(dip_val)) {
 			ret = privnet_nat_v6_addr(ctx, &orig_dip, &dip_val->ip6,
@@ -1226,7 +1233,8 @@ static __always_inline int
 privnet_unknown_policy_ingress4(struct __ctx_buff *ctx,
 				struct iphdr *ip4,
 				__u16 net_id,
-				__u32 sec_label)
+				__u32 sec_label,
+				struct trace_ctx *trace)
 {
 	const struct privnet_cidr_identity *info = NULL;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1268,7 +1276,10 @@ privnet_unknown_policy_ingress4(struct __ctx_buff *ctx,
 
 	ct_ret = ct_lookup4(ct_map, &tuple, ctx, ip4, l4_off,
 			    CT_INGRESS, SCOPE_BIDIR, &ct_state, &monitor);
-
+	if (trace) {
+		trace->monitor = monitor;
+		trace->reason = (enum trace_reason)ct_ret;
+	}
 	/* Skip policy enforcement for return traffic. */
 	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
 		return CTX_ACT_OK;
@@ -1316,7 +1327,8 @@ privnet_unknown_policy_ingress4(struct __ctx_buff *ctx,
 static __always_inline int
 privnet_lxc_ingress_ipv4(struct __ctx_buff *ctx,
 			 __u32 sec_label, __u16 net_id,
-			 bool unknown_flow, bool unxlated_flow)
+			 bool unknown_flow, bool unxlated_flow,
+			 struct trace_ctx *trace)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1334,7 +1346,7 @@ privnet_lxc_ingress_ipv4(struct __ctx_buff *ctx,
 	 */
 	if (unxlated_flow) {
 		set_privnet_net_ids(net_id, net_id);
-		return privnet_unknown_policy_ingress4(ctx, ip4, net_id, sec_label);
+		return privnet_unknown_policy_ingress4(ctx, ip4, net_id, sec_label, trace);
 	}
 
 	sip_val = privnet_pip_lookup4(ip4->saddr);
@@ -1391,7 +1403,7 @@ privnet_lxc_ingress_ipv4(struct __ctx_buff *ctx,
 
 	/* enforce ingress policy for unknown flow */
 	if (unknown_flow) {
-		ret = privnet_unknown_policy_ingress4(ctx, ip4, net_id, sec_label);
+		ret = privnet_unknown_policy_ingress4(ctx, ip4, net_id, sec_label, trace);
 		if (ret != CTX_ACT_OK)
 			return ret;
 	}
@@ -1491,7 +1503,8 @@ static __always_inline int
 privnet_unknown_policy_ingress6(struct __ctx_buff *ctx,
 				struct ipv6hdr *ip6,
 				__u16 net_id,
-				__u32 sec_label)
+				__u32 sec_label,
+				struct trace_ctx *trace)
 {
 	const struct privnet_cidr_identity *info = NULL;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1528,6 +1541,10 @@ privnet_unknown_policy_ingress6(struct __ctx_buff *ctx,
 
 	ct_ret = ct_lookup6(ct_map, &tuple, ctx, ip6, fraginfo, l4_off,
 			    CT_INGRESS, SCOPE_BIDIR, &ct_state, &monitor);
+	if (trace) {
+		trace->monitor = monitor;
+		trace->reason = (enum trace_reason)ct_ret;
+	}
 	/* Skip policy enforcement for return traffic. */
 	if (ct_ret == CT_REPLY || ct_ret == CT_RELATED)
 		return CTX_ACT_OK;
@@ -1566,7 +1583,7 @@ privnet_unknown_policy_ingress6(struct __ctx_buff *ctx,
 
 static __always_inline int
 privnet_lxc_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id,
-			 bool unknown_flow, bool unxlated_flow)
+			 bool unknown_flow, bool unxlated_flow, struct trace_ctx *trace)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1581,7 +1598,7 @@ privnet_lxc_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id,
 	/* check comment in privnet_lxc_ingress_ipv4 */
 	if (unxlated_flow) {
 		set_privnet_net_ids(net_id, net_id);
-		return privnet_unknown_policy_ingress6(ctx, ip6, net_id, sec_label);
+		return privnet_unknown_policy_ingress6(ctx, ip6, net_id, sec_label, trace);
 	}
 
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
@@ -1620,7 +1637,8 @@ privnet_lxc_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id,
 
 	/* enforce ingress policy for unknown flow */
 	if (unknown_flow) {
-		ret = privnet_unknown_policy_ingress6(ctx, ip6, net_id, sec_label);
+		ret = privnet_unknown_policy_ingress6(ctx, ip6, net_id,
+						      sec_label, trace);
 		if (ret != CTX_ACT_OK)
 			return ret;
 	}

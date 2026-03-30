@@ -106,20 +106,26 @@ func TestHTTPPath(t T) {
 
 	// 1. Send HTTP request to test basic client -> LB T1 -> LB T2 -> app connectivity
 	{
-		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, path))
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, path))
 		t.Log("Testing %q...", testCmd)
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
 		if err != nil {
 			t.Failedf("curl failed (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
 		}
+		if stdout != "200" {
+			t.Failedf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
+		}
 	}
 
 	{
-		testCmd := curlCmdVerbose(fmt.Sprintf("--max-time 10 --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/other"))
-		t.Log("Testing failure on other path %q...", testCmd)
+		testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --resolve %s:80:%s http://%s:80%s", hostName, vipIP, hostName, "/other"))
+		t.Log("Testing 404 on other path %q...", testCmd)
 		stdout, stderr, err := client.Exec(t.Context(), testCmd)
-		if err == nil {
-			t.Failedf("curl didn't fail (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		if err != nil {
+			t.Failedf("curl failed unexpectedly (cmd: %q, stdout: %q, stderr: %q): %s", testCmd, stdout, stderr, err)
+		}
+		if stdout != "404" {
+			t.Failedf("unexpected response code (cmd: %q, stdout: %q, stderr: %q)", testCmd, stdout, stderr)
 		}
 	}
 }

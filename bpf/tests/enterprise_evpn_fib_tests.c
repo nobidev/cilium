@@ -2,6 +2,7 @@
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/skb.h>
+#include <bpf/config/node.h>
 
 #include "common.h"
 #include "pktgen.h"

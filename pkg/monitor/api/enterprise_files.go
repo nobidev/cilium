@@ -19,6 +19,10 @@ func init() {
 		// enterprise source files from bpf/
 		201: "enterprise_bpf_host.h",
 		202: "enterprise_bpf_evpn.c",
+		203: "enterprise_bpf_lxc.h",
+
+		// header files from bpf/lib/
+		220: "enterprise_evpn.h",
 
 		// @@ source files list end
 	}

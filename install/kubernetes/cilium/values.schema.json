@@ -2710,6 +2710,23 @@
             }
           },
           "type": "object"
+        },
+        "waf": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "failureMode": {
+              "type": "string"
+            },
+            "mode": {
+              "type": "string"
+            },
+            "policyProfile": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"

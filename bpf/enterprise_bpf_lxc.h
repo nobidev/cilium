@@ -169,7 +169,7 @@ enterprise_privnet_to_lxc_ipv4_after_policy(struct __ctx_buff *ctx)
 		if (unlikely(!net_id || !(*net_id)))
 			return DROP_UNROUTABLE;
 
-		ret = privnet_lxc_ingress_ipv4(ctx, SECLABEL_IPV4, *net_id, false, false);
+		ret = privnet_lxc_ingress_ipv4(ctx, SECLABEL_IPV4, *net_id, false, false, NULL);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -189,7 +189,7 @@ enterprise_privnet_to_lxc_ipv6_after_policy(struct __ctx_buff *ctx)
 		if (unlikely(!net_id || !(*net_id)))
 			return DROP_UNROUTABLE;
 
-		ret = privnet_lxc_ingress_ipv6(ctx, SECLABEL_IPV6, *net_id, false, false);
+		ret = privnet_lxc_ingress_ipv6(ctx, SECLABEL_IPV6, *net_id, false, false, NULL);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -274,6 +274,10 @@ static __always_inline int tail_handle_ipv4_privnet_unknown_ingress(struct __ctx
 	bool from_tunnel = false;
 	int ret = CTX_ACT_OK;
 	const __u16 *net_id;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 
 	if (!CONFIG(privnet_enable))
 		return ret;
@@ -290,9 +294,14 @@ static __always_inline int tail_handle_ipv4_privnet_unknown_ingress(struct __ctx
 	ret = privnet_lxc_ingress_ipv4(ctx, SECLABEL_IPV4, *net_id,
 				       is_privnet_unknown_inb_flow(ctx),
 				       is_privnet_evpn_flow(ctx) ||
-					       is_privnet_local_access_flow(ctx));
+					       is_privnet_local_access_flow(ctx),
+				       &trace);
 	if (IS_ERR(ret))
 		return ret;
+
+	send_trace_notify(ctx, TRACE_TO_LXC, WORLD_IPV4_ID, SECLABEL_IPV4, LXC_ID,
+			  CONFIG(interface_ifindex), trace.reason, trace.monitor,
+			  bpf_htons(ETH_P_IP));
 
 	return redirect_ep(ctx, CONFIG(interface_ifindex),
 			   should_redirect_peer(from_host), from_tunnel);
@@ -305,6 +314,10 @@ static __always_inline int tail_handle_ipv6_privnet_unknown_ingress(struct __ctx
 	bool from_tunnel = false;
 	int ret = CTX_ACT_OK;
 	const __u16 *net_id;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 
 	if (!CONFIG(privnet_enable))
 		return ret;
@@ -321,9 +334,14 @@ static __always_inline int tail_handle_ipv6_privnet_unknown_ingress(struct __ctx
 	ret = privnet_lxc_ingress_ipv6(ctx, SECLABEL_IPV6, *net_id,
 				       is_privnet_unknown_inb_flow(ctx),
 				       is_privnet_evpn_flow(ctx) ||
-					       is_privnet_local_access_flow(ctx));
+					       is_privnet_local_access_flow(ctx),
+				       &trace);
 	if (IS_ERR(ret))
 		return ret;
+
+	send_trace_notify(ctx, TRACE_TO_LXC, WORLD_IPV6_ID, SECLABEL_IPV6, LXC_ID,
+			  CONFIG(interface_ifindex), trace.reason, trace.monitor,
+			  bpf_htons(ETH_P_IPV6));
 
 	return redirect_ep(ctx, CONFIG(interface_ifindex),
 			   should_redirect_peer(from_host), from_tunnel);
