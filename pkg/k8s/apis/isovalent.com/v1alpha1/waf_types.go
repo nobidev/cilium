@@ -105,12 +105,43 @@ type IsovalentWAFManagedRules struct {
 	Profile IsovalentWAFPolicyProfileType `json:"profile"`
 }
 
+// +kubebuilder:validation:XValidation:message="exactly one of inline or profile must be specified",rule="has(self.inline) != has(self.profile)"
 type IsovalentWAFCustomRules struct {
 	// Inline provides a fully custom WAF ruleset directly in the resource.
 	// Multi-line values should be provided as a YAML block scalar.
 	//
-	// +kubebuilder:validation:Required
-	Inline string `json:"inline"`
+	// +kubebuilder:validation:Optional
+	Inline string `json:"inline,omitempty"`
+
+	// Profile provides explicit CRS tuning for this policy as an alternative
+	// to inline custom rules.
+	//
+	// +kubebuilder:validation:Optional
+	Profile *IsovalentWAFCustomProfile `json:"profile,omitempty"`
+}
+
+type IsovalentWAFCustomProfile struct {
+	// BlockingParanoiaLevel controls which CRS blocking rules are enabled.
+	//
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4
+	BlockingParanoiaLevel int32 `json:"blockingParanoiaLevel"`
+
+	// DetectionParanoiaLevel controls which CRS detection rules run.
+	//
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4
+	DetectionParanoiaLevel int32 `json:"detectionParanoiaLevel"`
+
+	// InboundAnomalyScoreThreshold controls the inbound blocking threshold.
+	//
+	// +kubebuilder:validation:Minimum=0
+	InboundAnomalyScoreThreshold int32 `json:"inboundAnomalyScoreThreshold"`
+
+	// OutboundAnomalyScoreThreshold controls the outbound blocking threshold.
+	//
+	// +kubebuilder:validation:Minimum=0
+	OutboundAnomalyScoreThreshold int32 `json:"outboundAnomalyScoreThreshold"`
 }
 
 // +kubebuilder:validation:Enum=Monitor;Enforce
@@ -360,6 +391,11 @@ func (in *IsovalentWAFManagedRules) DeepCopy() *IsovalentWAFManagedRules {
 
 func (in *IsovalentWAFCustomRules) DeepCopyInto(out *IsovalentWAFCustomRules) {
 	*out = *in
+	if in.Profile != nil {
+		in, out := &in.Profile, &out.Profile
+		*out = new(IsovalentWAFCustomProfile)
+		**out = **in
+	}
 }
 
 func (in *IsovalentWAFCustomRules) DeepCopy() *IsovalentWAFCustomRules {
@@ -367,6 +403,19 @@ func (in *IsovalentWAFCustomRules) DeepCopy() *IsovalentWAFCustomRules {
 		return nil
 	}
 	out := new(IsovalentWAFCustomRules)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *IsovalentWAFCustomProfile) DeepCopyInto(out *IsovalentWAFCustomProfile) {
+	*out = *in
+}
+
+func (in *IsovalentWAFCustomProfile) DeepCopy() *IsovalentWAFCustomProfile {
+	if in == nil {
+		return nil
+	}
+	out := new(IsovalentWAFCustomProfile)
 	in.DeepCopyInto(out)
 	return out
 }

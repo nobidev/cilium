@@ -87,9 +87,47 @@ spec:
                           Inline provides a fully custom WAF ruleset directly in the resource.
                           Multi-line values should be provided as a YAML block scalar.
                         type: string
-                    required:
-                    - inline
+                      profile:
+                        description: |-
+                          Profile provides explicit CRS tuning for this policy as an alternative
+                          to inline custom rules.
+                        properties:
+                          blockingParanoiaLevel:
+                            description: BlockingParanoiaLevel controls which CRS
+                              blocking rules are enabled.
+                            format: int32
+                            maximum: 4
+                            minimum: 1
+                            type: integer
+                          detectionParanoiaLevel:
+                            description: DetectionParanoiaLevel controls which CRS
+                              detection rules run.
+                            format: int32
+                            maximum: 4
+                            minimum: 1
+                            type: integer
+                          inboundAnomalyScoreThreshold:
+                            description: InboundAnomalyScoreThreshold controls the
+                              inbound blocking threshold.
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          outboundAnomalyScoreThreshold:
+                            description: OutboundAnomalyScoreThreshold controls the
+                              outbound blocking threshold.
+                            format: int32
+                            minimum: 0
+                            type: integer
+                        required:
+                        - blockingParanoiaLevel
+                        - detectionParanoiaLevel
+                        - inboundAnomalyScoreThreshold
+                        - outboundAnomalyScoreThreshold
+                        type: object
                     type: object
+                    x-kubernetes-validations:
+                    - message: exactly one of inline or profile must be specified
+                      rule: has(self.inline) != has(self.profile)
                   managed:
                     description: Managed selects the built-in WAF rules shipped by
                       the platform.
