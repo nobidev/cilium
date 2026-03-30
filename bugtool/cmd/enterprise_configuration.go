@@ -66,11 +66,15 @@ func bgpRIBDumpCommands() []string {
 
 		afi := family.Afi.String()
 		safi := family.Safi.String()
-		cmds = append(cmds, fmt.Sprintf("cilium-dbg shell -- bgp/routes-extended in %s %s", afi, safi))
-		cmds = append(cmds, fmt.Sprintf("cilium-dbg shell -- bgp/routes-extended loc %s %s", afi, safi))
-		cmds = append(cmds, fmt.Sprintf("cilium-dbg shell -- bgp/routes-extended out %s %s", afi, safi))
+		cmds = append(cmds, bgpRIBDumpCommand("in", afi, safi))
+		cmds = append(cmds, bgpRIBDumpCommand("loc", afi, safi))
+		cmds = append(cmds, bgpRIBDumpCommand("out", afi, safi))
 	}
 	return cmds
+}
+
+func bgpRIBDumpCommand(ribType, afi, safi string) string {
+	return fmt.Sprintf("cilium-dbg shell -- bgp/routes-extended -a %s %s %s", ribType, afi, safi)
 }
 
 func ribDumpCommand() string {
