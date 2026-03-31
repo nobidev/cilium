@@ -49,7 +49,7 @@ func mockBPFMapCell(t testing.TB) cell.Cell {
 				pnmaps.PIPMapName, 512000, true,
 				&pnmaps.PIPKeyVal{
 					Key: pnmaps.NewPIPKey(netip.MustParsePrefix("172.16.1.1/32")),
-					Val: pnmaps.NewPIPVal(0xff, netip.MustParseAddr("172.16.2.1"), types.MACAddr{}, 0x1f),
+					Val: pnmaps.NewPIPVal(0xff, netip.MustParseAddr("172.16.2.1")),
 				},
 			),
 			registerFakeBPFMap(

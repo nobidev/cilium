@@ -1446,7 +1446,7 @@ func newCiliumPrivnetPipSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Type:       ebpf.LPMTrie,
 		KeySize:    24,
 		Key:        anyTypeByName(btf, "privnet_pip_key"),
-		ValueSize:  32,
+		ValueSize:  20,
 		Value:      anyTypeByName(btf, "privnet_pip_val"),
 		MaxEntries: 65536,
 		Flags:      unix.BPF_F_NO_PREALLOC,

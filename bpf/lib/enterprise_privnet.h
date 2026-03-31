@@ -234,7 +234,6 @@ struct privnet_pip_key {
 };
 
 struct privnet_pip_val {
-	union macaddr mac;
 	union {
 		struct {
 			__be32		ip4;
@@ -244,10 +243,9 @@ struct privnet_pip_val {
 		};
 		union v6addr	ip6;
 	};
-	__u8 flags;
+	__u8 pad;
 	__u8 family;
 	__u16 net_id;
-	__u32 ifindex;
 };
 
 enum privnet_device_type {

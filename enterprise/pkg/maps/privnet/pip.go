@@ -42,18 +42,12 @@ const pipKeyStaticPrefixBits = uint32(unsafe.Sizeof(PIPKey{})-
 	unsafe.Sizeof(PIPKey{}.PrefixLen)-
 	unsafe.Sizeof(PIPKey{}.Address)) * 8
 
-// PIPFlags are the flags in the PIP map value.
-type PIPFlags uint8
-
 // PIPVal is the PIP map value.
 type PIPVal struct {
-	MAC     types.MACAddr `align:"mac"`
-	_       uint16
 	Address types.IPv6       `align:"$union0"`
-	Flags   PIPFlags         `align:"flags"`
+	_       uint8            `align:"pad"`
 	Family  uint8            `align:"family"`
 	NetID   tables.NetworkID `align:"net_id"`
-	IfIndex uint32           `align:"ifindex"`
 }
 
 // PIP allows to interact with the private network PIP map.
@@ -140,27 +134,20 @@ func (*PIPKey) New() bpf.MapKey {
 func NewPIPVal(
 	netID tables.NetworkID,
 	addr netip.Addr,
-	mac types.MACAddr,
-	ifindex uint32,
 ) PIPVal {
 	family, address := fromAddr(addr)
 
 	return PIPVal{
 		Family:  family,
 		Address: address,
-		MAC:     mac,
 		NetID:   netID,
-		IfIndex: ifindex,
 	}
 }
 
 func (v PIPVal) String() string {
-	return fmt.Sprintf("%s %s %d %s %#x",
+	return fmt.Sprintf("%s %s",
 		v.NetID,
 		v.ToAddr(),
-		v.IfIndex,
-		v.MAC,
-		v.Flags,
 	)
 }
 

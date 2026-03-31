@@ -43,19 +43,15 @@ func TestPIPFIBString(t *testing.T) {
 		).String())
 
 	// PIP value
-	assert.Equal(t, "0x42 192.168.2.11 99 00:aa:bb:cc:dd:ee 0x0",
+	assert.Equal(t, "0x42 192.168.2.11",
 		NewPIPVal(
 			0x42,
 			netip.MustParseAddr("192.168.2.11"),
-			types.MACAddr(mac.MustParseMAC("00:AA:BB:CC:DD:EE")),
-			99,
 		).String())
-	assert.Equal(t, "0xff f0:d:f0:: 3 00:ee:11:22:33:44 0x0",
+	assert.Equal(t, "0xff f0:d:f0::",
 		NewPIPVal(
 			255,
 			netip.MustParseAddr("f0:0d:f0::"),
-			types.MACAddr(mac.MustParseMAC("00:ee:11:22:33:44")),
-			3,
 		).String())
 
 	// FIB key

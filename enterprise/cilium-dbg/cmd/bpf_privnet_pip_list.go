@@ -28,12 +28,9 @@ func init() {
 }
 
 type pipEntry struct {
-	Prefix  string
-	NetID   uint16
-	NetIP   string
-	IfIndex uint32
-	MAC     string
-	Flags   privnet.PIPFlags
+	Prefix string
+	NetID  uint16
+	NetIP  string
 }
 
 var bpfPrivNetPIPListCmd = &cobra.Command{
@@ -53,12 +50,9 @@ var bpfPrivNetPIPListCmd = &cobra.Command{
 			key := k.(*privnet.PIPKey)
 			val := v.(*privnet.PIPVal)
 			pipList = append(pipList, pipEntry{
-				Prefix:  key.ToPrefix().String(),
-				NetID:   uint16(val.NetID),
-				NetIP:   val.ToAddr().String(),
-				IfIndex: val.IfIndex,
-				MAC:     val.MAC.String(),
-				Flags:   val.Flags,
+				Prefix: key.ToPrefix().String(),
+				NetID:  uint16(val.NetID),
+				NetIP:  val.ToAddr().String(),
 			})
 		}
 		if err := pipMap.Map.DumpWithCallback(parsePIP); err != nil {
@@ -72,11 +66,11 @@ var bpfPrivNetPIPListCmd = &cobra.Command{
 			return
 		}
 		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "Prefix\tNetID\tNetIP\tIfIndex\tMAC\tFlags")
+		fmt.Fprintln(w, "Prefix\tNetID\tNetIP")
 
 		for _, pip := range pipList {
-			fmt.Fprintf(w, "%s\t%#x\t%s\t%d\t%s\t%#x\n",
-				pip.Prefix, pip.NetID, pip.NetIP, pip.IfIndex, pip.MAC, pip.Flags)
+			fmt.Fprintf(w, "%s\t%#x\t%s\n",
+				pip.Prefix, pip.NetID, pip.NetIP)
 		}
 
 		w.Flush()
