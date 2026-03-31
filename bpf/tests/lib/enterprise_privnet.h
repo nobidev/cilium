@@ -5,7 +5,8 @@
 
 static __always_inline void
 __privnet_fib_v4_add_entry(__u16 net_id, __u16 subnet_id, __be32 prefix, __be32 nexthop,
-			   enum privnet_fib_type type, bool l2_announce, __u32 ifindex)
+			   enum privnet_fib_type type, bool l2_announce, __u32 ifindex,
+			   const union macaddr *mac)
 {
 	struct privnet_fib_key key = {
 		.lpm_key.prefixlen = PRIVNET_FIB_PREFIX_LEN(V4_PRIVNET_KEY_LEN),
@@ -21,6 +22,9 @@ __privnet_fib_v4_add_entry(__u16 net_id, __u16 subnet_id, __be32 prefix, __be32 
 		.flag_l2_announce = l2_announce,
 		.ifindex = ifindex,
 	};
+
+	if (mac)
+		value.mac = *mac;
 
 	map_update_elem(&cilium_privnet_fib, &key, &value, BPF_ANY);
 }
@@ -42,7 +46,7 @@ __privnet_fib_v4_del_entry(__u16 net_id, __u16 subnet_id, __be32 prefix)
 static __always_inline void
 __privnet_fib_v6_add_entry(__u16 net_id, __u16 subnet_id, const union v6addr *prefix,
 			   const union v6addr *nexthop, enum privnet_fib_type type,
-			   bool l2_announce, __u32 ifindex)
+			   bool l2_announce, __u32 ifindex, const union macaddr *mac)
 {
 	struct privnet_fib_key key = {
 		.lpm_key.prefixlen = PRIVNET_FIB_PREFIX_LEN(V6_PRIVNET_KEY_LEN),
@@ -59,6 +63,9 @@ __privnet_fib_v6_add_entry(__u16 net_id, __u16 subnet_id, const union v6addr *pr
 
 	__bpf_memcpy_builtin(&key.ip6, prefix, sizeof(*prefix));
 	__bpf_memcpy_builtin(&value.ip6, nexthop, sizeof(*nexthop));
+
+	if (mac)
+		value.mac = *mac;
 
 	map_update_elem(&cilium_privnet_fib, &key, &value, BPF_ANY);
 }
@@ -147,17 +154,17 @@ __privnet_pip_v6_del_entry(const union v6addr *pod_ip)
 
 static __always_inline void
 __privnet_v4_add_endpoint_entry(__u16 net_id, __u16 subnet_id, __be32 net_ip, __be32 pod_ip,
-				__u32 ifindex)
+				__u32 ifindex, const union macaddr *mac)
 {
 	__privnet_fib_v4_add_entry(net_id, subnet_id, net_ip, pod_ip,
-				   PRIVNET_FIB_VAL_TYPE_ENDPOINT, true, ifindex);
+				   PRIVNET_FIB_VAL_TYPE_ENDPOINT, true, ifindex, mac);
 	__privnet_pip_v4_add_entry(pod_ip, net_id, net_ip, ifindex);
 }
 
 static __always_inline void
 privnet_v4_add_endpoint_entry(__u16 net_id, __u16 subnet_id, __be32 net_ip, __be32 pod_ip)
 {
-	__privnet_v4_add_endpoint_entry(net_id, subnet_id, net_ip, pod_ip, 0);
+	__privnet_v4_add_endpoint_entry(net_id, subnet_id, net_ip, pod_ip, 0, NULL);
 }
 
 static __always_inline void
@@ -172,7 +179,7 @@ privnet_v4_add_subnet_route(__u16 net_id, __u16 subnet_id, __be32 prefix, __be32
 			    __u32 ifindex)
 {
 	__privnet_fib_v4_add_entry(net_id, subnet_id, prefix, nexthop,
-				   PRIVNET_FIB_VAL_TYPE_SUBNET_ROUTE, false, ifindex);
+				   PRIVNET_FIB_VAL_TYPE_SUBNET_ROUTE, false, ifindex, NULL);
 }
 
 static __always_inline void
@@ -180,7 +187,7 @@ privnet_v4_add_static_route(__u16 net_id, __u16 subnet_id, __be32 prefix, __be32
 			    __u32 ifindex)
 {
 	__privnet_fib_v4_add_entry(net_id, subnet_id, prefix, nexthop,
-				   PRIVNET_FIB_VAL_TYPE_STATIC_ROUTE, false, ifindex);
+				   PRIVNET_FIB_VAL_TYPE_STATIC_ROUTE, false, ifindex, NULL);
 }
 
 static __always_inline void
@@ -227,10 +234,11 @@ privnet_v4_del_peering_route(__u16 net_id, __u16 subnet_id, __be32 prefix, __u8 
 
 static __always_inline void
 __privnet_v6_add_endpoint_entry(__u16 net_id, __u16 subnet_id, const union v6addr *net_ip,
-				const union v6addr *pod_ip, __u32 ifindex)
+				const union v6addr *pod_ip, __u32 ifindex,
+				const union macaddr *mac)
 {
 	__privnet_fib_v6_add_entry(net_id, subnet_id, net_ip, pod_ip,
-				   PRIVNET_FIB_VAL_TYPE_ENDPOINT, true, ifindex);
+				   PRIVNET_FIB_VAL_TYPE_ENDPOINT, true, ifindex, mac);
 	__privnet_pip_v6_add_entry(pod_ip, net_ip, net_id, ifindex);
 }
 
@@ -238,7 +246,7 @@ static __always_inline void
 privnet_v6_add_endpoint_entry(__u16 net_id, __u16 subnet_id, const union v6addr *net_ip,
 			      const union v6addr *pod_ip)
 {
-	__privnet_v6_add_endpoint_entry(net_id, subnet_id, net_ip, pod_ip, 0);
+	__privnet_v6_add_endpoint_entry(net_id, subnet_id, net_ip, pod_ip, 0, NULL);
 }
 
 static __always_inline void
@@ -254,7 +262,7 @@ privnet_v6_add_subnet_route(__u16 net_id, __u16 subnet_id, const union v6addr *p
 			    const union v6addr *nexthop, __u32 ifindex)
 {
 	__privnet_fib_v6_add_entry(net_id, subnet_id, prefix, nexthop,
-				   PRIVNET_FIB_VAL_TYPE_SUBNET_ROUTE, false, ifindex);
+				   PRIVNET_FIB_VAL_TYPE_SUBNET_ROUTE, false, ifindex, NULL);
 }
 
 static __always_inline void
@@ -262,7 +270,7 @@ privnet_v6_add_static_route(__u16 net_id, __u16 subnet_id, const union v6addr *p
 			    const union v6addr *nexthop, __u32 ifindex)
 {
 	__privnet_fib_v6_add_entry(net_id, subnet_id, prefix, nexthop,
-				   PRIVNET_FIB_VAL_TYPE_STATIC_ROUTE, false, ifindex);
+				   PRIVNET_FIB_VAL_TYPE_STATIC_ROUTE, false, ifindex, NULL);
 }
 
 static __always_inline void

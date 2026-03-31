@@ -218,9 +218,9 @@ int privnet_icmp_from_overlay_nat_src_dst_v4_setup(struct __ctx_buff *ctx)
 
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	__privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1,
-					NETDEV_IFINDEX);
+					NETDEV_IFINDEX, (const union macaddr *)mac_one);
 	__privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2,
-					NETDEV_IFINDEX);
+					NETDEV_IFINDEX, (const union macaddr *)mac_two);
 
 	return overlay_receive_packet(ctx);
 }
@@ -343,7 +343,7 @@ int privnet_icmp_from_overlay_nat_src_unknown_dst_v4_setup(struct __ctx_buff *ct
 
 	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
 	__privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1,
-					NETDEV_IFINDEX);
+					NETDEV_IFINDEX, (const union macaddr *)mac_one);
 	privnet_v4_add_subnet_route(NET_ID, SUBNET_ID, V4_NET_IP_2, GATEWAY_IP,
 				    NETDEV_IFINDEX);
 
@@ -401,7 +401,7 @@ int privnet_icmpv6_from_overlay_nat_src_unknown_dst_v6_setup(struct __ctx_buff *
 	__privnet_v6_add_endpoint_entry(NET_ID, SUBNET_ID,
 					(const union v6addr *)V6_NET_IP_1,
 					(const union v6addr *)V6_POD_IP_1,
-					NETDEV_IFINDEX);
+					NETDEV_IFINDEX, (const union macaddr *)mac_one);
 	privnet_v6_add_subnet_route(NET_ID, SUBNET_ID,
 				    (const union v6addr *)V6_NET_IP_2,
 				    (const union v6addr *)V6_EXT_IP,
