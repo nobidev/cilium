@@ -144,7 +144,7 @@ expireat: 2025-01-01T00:00:01Z
   "k8s-pod-name": "pod-100",
   "k8s-namespace": "default",
   "properties": {
-    "property-fake-endpoint": true,
+    "property-without-bpf-endpoint": true,
     "isovalent-privnet-activated-at": "2025-06-20T15:58:07.00000Z",
     "isovalent-privnet-network": "blue-network",
     "isovalent-privnet-subnet": "subnet1",

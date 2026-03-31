@@ -319,7 +319,7 @@ nodeName: foobar-worker-1
   "k8s-namespace": "bar",
   "mac": "00:50:56:ad:11:81",
   "properties": {
-    "property-fake-endpoint": true,
+    "property-without-bpf-endpoint": true,
     "isovalent-privnet-network": "red-network",
     "isovalent-privnet-activated-at": "2025-06-20T15:58:07.00000Z",
     "isovalent-privnet-ipv4-addr": "10.0.100.12",
