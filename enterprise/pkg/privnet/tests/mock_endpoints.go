@@ -24,7 +24,6 @@ import (
 
 	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 	"github.com/cilium/hive/script"
 	"github.com/spf13/pflag"
 
@@ -48,9 +47,9 @@ func mockEndpointCell(t testing.TB) cell.Cell {
 		),
 		cell.Provide(
 			regeneration.NewFence,
+			promise.New[endpointstate.Restorer],
 
 			func(f *fakeEPM) uhive.ScriptCmdsOut { return uhive.NewScriptCmds(f.cmds()) },
-			func(f *fakeRestorer) promise.Promise[endpointstate.Restorer] { return f },
 		),
 		cell.DecorateAll(func(f *fakeEPM) endpoints.EndpointGetter { return f }),
 		cell.DecorateAll(func(f *fakeEPM) endpoints.EndpointCreator { return f }),
@@ -202,7 +201,7 @@ type fakeEPM struct {
 	restorer *fakeRestorer
 }
 
-func newFakeEPM(restorer *fakeRestorer, jg job.Group) *fakeEPM {
+func newFakeEPM(restorer *fakeRestorer) *fakeEPM {
 	return &fakeEPM{
 		subs: []endpoints.EndpointSubscriber{},
 		eps:  []*fakeEP{},
@@ -211,34 +210,53 @@ func newFakeEPM(restorer *fakeRestorer, jg job.Group) *fakeEPM {
 	}
 }
 
-// fakeRestorer implements endpointstate.Restorer, and
-// promise.Promise[endpointstate.Restorer] (resolving to itself)
+// fakeRestorer implements endpointstate.Restorer
 type fakeRestorer struct {
-	ch chan struct{}
+	fence       regeneration.Fence
+	restored    chan struct{}
+	regenerated chan struct{}
 }
 
-func newFakeRestorer() *fakeRestorer {
-	return &fakeRestorer{
-		ch: make(chan struct{}),
+// newFakeRestorer provies the fakeRestorer and resolves
+// the restorer promise on Hive start (allowing fences
+// to be registered before Hive starts)
+func newFakeRestorer(
+	fence regeneration.Fence,
+	promise promise.Resolver[endpointstate.Restorer],
+	lc cell.Lifecycle,
+) *fakeRestorer {
+	f := &fakeRestorer{
+		fence:       fence,
+		restored:    make(chan struct{}),
+		regenerated: make(chan struct{}),
 	}
+
+	lc.Append(cell.Hook{
+		OnStart: func(hookContext cell.HookContext) error {
+			promise.Resolve(f)
+			return nil
+		},
+	})
+
+	return f
 }
 
-func (f *fakeRestorer) waitForRestore(ctx context.Context) error {
-	select {
-	case <-f.ch:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
+// finishRestoration marks all endpoints as restored (but not yet regenerated)
 func (f *fakeRestorer) finishRestoration() {
-	close(f.ch)
+	close(f.restored)
+}
+
+// finishRegeneration marks all endpoints as regenerated. finishRestoration must be called before this.
+func (f *fakeRestorer) finishRegeneration() {
+	if !f.isRestored() {
+		panic("endpoints were regenerated without restoration")
+	}
+	close(f.regenerated)
 }
 
 func (f *fakeRestorer) isRestored() bool {
 	select {
-	case <-f.ch:
+	case <-f.restored:
 		return true
 	default:
 		return false
@@ -247,17 +265,36 @@ func (f *fakeRestorer) isRestored() bool {
 
 // WaitForEndpointRestoreWithoutRegeneration implements endpointstate.Restorer.
 func (f *fakeRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
-	return nil
+	select {
+	case <-f.restored:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // WaitForEndpointRestore implements endpointstate.Restorer.
 func (f *fakeRestorer) WaitForEndpointRestore(ctx context.Context) error {
-	return f.waitForRestore(ctx)
+	if err := f.WaitForEndpointRestoreWithoutRegeneration(ctx); err != nil {
+		return err
+	}
+	if err := f.fence.Wait(ctx); err != nil {
+		return err
+	}
+	select {
+	case <-f.regenerated:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // WaitForInitialPolicy implements endpointstate.Restorer.
 func (f *fakeRestorer) WaitForInitialPolicy(ctx context.Context) error {
-	return f.waitForRestore(ctx)
+	// Technically, WaitForInitialPolicy returns earlier than WaitForEndpointRestore,
+	// but to keep things simpler, we currently simulate that both events occur in the
+	// same instant.
+	return f.WaitForEndpointRestore(ctx)
 }
 
 // Await implements promise.Promise.
@@ -294,6 +331,15 @@ func (f *fakeEPM) createEndpoint(epTemplate *models.EndpointChangeRequest, resto
 		ep.MAC, err = mac.ParseMAC(epTemplate.Mac)
 		if err != nil {
 			return nil, err
+		}
+	}
+	if ep.ID == 0 {
+		// Allocate endpoint IDs sequentially
+		ep.ID = 1
+		for _, other := range f.eps {
+			if other.ID == ep.ID {
+				ep.ID++
+			}
 		}
 	}
 
@@ -380,12 +426,13 @@ func (f *fakeEPM) Subscribe(s endpoints.EndpointSubscriber) {
 
 func (f *fakeEPM) cmds() map[string]script.Cmd {
 	return map[string]script.Cmd{
-		"privnet/epm-create":  f.createEPCmd(),
 		"privnet/epm-get":     f.getEPCmd(),
-		"privnet/epm-delete":  f.deleteEPCmd(),
+		"privnet/epm-create":  f.createEPCmd(),
 		"privnet/epm-restore": f.restoreEPCmd(),
+		"privnet/epm-delete":  f.deleteEPCmd(),
 
-		"privnet/epm-finish-restoration": f.finishRestorationCmd(),
+		"privnet/epm-finish-restoration":  f.finishRestorationCmd(),
+		"privnet/epm-finish-regeneration": f.finishRegenerationCmd(),
 	}
 }
 
@@ -494,22 +541,6 @@ func (f *fakeEPM) restoreEPCmd() script.Cmd {
 	)
 }
 
-func (f *fakeEPM) finishRestorationCmd() script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "mark endpoint restoration as finished",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if f.restorer.isRestored() {
-				return nil, errors.New("restoration already marked as finished")
-			}
-
-			f.restorer.finishRestoration()
-			return nil, nil
-		},
-	)
-}
-
 func (f *fakeEPM) deleteEPCmd() script.Cmd {
 	return script.Command(
 		script.CmdUsage{
@@ -525,6 +556,36 @@ func (f *fakeEPM) deleteEPCmd() script.Cmd {
 				return nil, fmt.Errorf("fake endpoint deletion failed: %w", err)
 			}
 
+			return nil, nil
+		},
+	)
+}
+
+func (f *fakeEPM) finishRestorationCmd() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "mark endpoint restoration as finished",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if f.restorer.isRestored() {
+				return nil, errors.New("restoration already marked as finished")
+			}
+			f.restorer.finishRestoration()
+			return nil, nil
+		},
+	)
+}
+
+func (f *fakeEPM) finishRegenerationCmd() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "mark endpoint restoration and regeneration as finished",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if !f.restorer.isRestored() {
+				f.restorer.finishRestoration()
+			}
+			f.restorer.finishRegeneration()
 			return nil, nil
 		},
 	)

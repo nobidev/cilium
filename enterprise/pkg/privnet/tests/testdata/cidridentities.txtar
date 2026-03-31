@@ -33,6 +33,9 @@ privnet/maps-dump privnet_cidr_identity
 privnet/list-identities
 cmp stdout list-identities.v1.txt
 
+# Finish endpoint regeneration, this removes the restored identities
+privnet/epm-finish-regeneration
+
 ## Step 2: Test overlapping ownership
 
 # Pre-allocate identities for the next step (to ensure determinism)
