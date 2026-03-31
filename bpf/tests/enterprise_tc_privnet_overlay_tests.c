@@ -14,9 +14,13 @@
 #define EP_IFINDEX 99
 #define EP_LXC_ID 0
 
-#define privnet_tunnel_id 199
+/* default setting: known flow, set to 99 for unknown flow */
+static __u32 privnet_tunnel_id = 199;
+
 /* Enable debug output */
 #define DEBUG
+
+#define NETDEV_IFINDEX 1312
 
 #include "enterprise_privnet_common.h"
 #include <bpf/config/node.h>
@@ -69,6 +73,121 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 	tail_call(ctx, &mock_policy_call_map, slot);
 }
 
+static struct {
+	bool called;
+	int ifindex;
+	struct bpf_redir_neigh params;
+	bool has_params;
+	int plen;
+	__u32 flags;
+} redirect_neigh_recorder;
+
+static struct {
+	bool called;
+	int ifindex;
+	__u32 flags;
+} ctx_redirect_recorder;
+
+static __always_inline void reset_redirect_recorders(void)
+{
+	redirect_neigh_recorder.called = false;
+	redirect_neigh_recorder.ifindex = 0;
+	redirect_neigh_recorder.params = (struct bpf_redir_neigh){};
+	redirect_neigh_recorder.has_params = false;
+	redirect_neigh_recorder.plen = 0;
+	redirect_neigh_recorder.flags = 0;
+
+	ctx_redirect_recorder.called = false;
+	ctx_redirect_recorder.ifindex = 0;
+	ctx_redirect_recorder.flags = 0;
+}
+
+#define redirect_neigh mock_redirect_neigh
+static __always_inline __maybe_unused int
+mock_redirect_neigh(int ifindex, const struct bpf_redir_neigh *params,
+		    int plen,
+		    __u32 flags)
+{
+	redirect_neigh_recorder.called = true;
+	redirect_neigh_recorder.ifindex = ifindex;
+	redirect_neigh_recorder.plen = plen;
+	redirect_neigh_recorder.flags = flags;
+	if (params) {
+		redirect_neigh_recorder.has_params = true;
+		redirect_neigh_recorder.params = *params;
+	}
+	return CTX_ACT_REDIRECT;
+}
+
+#define ctx_redirect mock_ctx_redirect
+static __always_inline int
+mock_ctx_redirect(const struct __sk_buff __maybe_unused *ctx, int ifindex,
+		  __u32 flags)
+{
+	ctx_redirect_recorder.called = true;
+	ctx_redirect_recorder.ifindex = ifindex;
+	ctx_redirect_recorder.flags = flags;
+
+	return CTX_ACT_REDIRECT;
+}
+
+#define ASSERT_REDIRECT_NEIGH_V4(__expected_nh, __expected_ifindex)		\
+	do {									\
+		if (!redirect_neigh_recorder.called)				\
+			test_fatal("redirect_neigh was not called");		\
+		if (ctx_redirect_recorder.called)				\
+			test_fatal("ctx_redirect should not have been called");	\
+		if (redirect_neigh_recorder.ifindex != (__expected_ifindex))	\
+			test_fatal("unexpected redirect_neigh ifindex (got %d, want %d)", \
+				   redirect_neigh_recorder.ifindex, (__expected_ifindex)); \
+		if (!redirect_neigh_recorder.has_params)			\
+			test_fatal("redirect_neigh should have params");	\
+		if (redirect_neigh_recorder.plen != sizeof(struct bpf_redir_neigh)) \
+			test_fatal("unexpected redirect_neigh params len (got %d, want %d)", \
+				   redirect_neigh_recorder.plen,		\
+				   (int)sizeof(struct bpf_redir_neigh));	\
+		if (redirect_neigh_recorder.params.nh_family != AF_INET)	\
+			test_fatal("unexpected redirect_neigh family (got %d, want %d)", \
+				   redirect_neigh_recorder.params.nh_family, AF_INET); \
+		if (redirect_neigh_recorder.params.ipv4_nh != (__expected_nh)) \
+			test_fatal("unexpected redirect_neigh nexthop");	\
+	} while (0)
+
+#define ASSERT_REDIRECT_NEIGH_V6(__expected_nh, __expected_ifindex)		\
+	do {									\
+		if (!redirect_neigh_recorder.called)				\
+			test_fatal("redirect_neigh was not called");		\
+		if (ctx_redirect_recorder.called)				\
+			test_fatal("ctx_redirect should not have been called");	\
+		if (redirect_neigh_recorder.ifindex != (__expected_ifindex))	\
+			test_fatal("unexpected redirect_neigh ifindex (got %d, want %d)", \
+				   redirect_neigh_recorder.ifindex, (__expected_ifindex)); \
+		if (!redirect_neigh_recorder.has_params)			\
+			test_fatal("redirect_neigh should have params");	\
+		if (redirect_neigh_recorder.plen != sizeof(struct bpf_redir_neigh)) \
+			test_fatal("unexpected redirect_neigh params len (got %d, want %d)", \
+				   redirect_neigh_recorder.plen,		\
+				   (int)sizeof(struct bpf_redir_neigh));	\
+		if (redirect_neigh_recorder.params.nh_family != AF_INET6)	\
+			test_fatal("unexpected redirect_neigh family (got %d, want %d)", \
+				   redirect_neigh_recorder.params.nh_family, AF_INET6); \
+		if (memcmp(&redirect_neigh_recorder.params.ipv6_nh, (__expected_nh), \
+			   sizeof(redirect_neigh_recorder.params.ipv6_nh)) != 0) \
+			test_fatal("unexpected redirect_neigh nexthop");	\
+	} while (0)
+
+#define ASSERT_CTX_REDIRECT(__expected_ifindex)		\
+	do {									\
+		if (!ctx_redirect_recorder.called)				\
+			test_fatal("ctx_redirect was not called");		\
+		if (ctx_redirect_recorder.ifindex != (__expected_ifindex))	\
+			test_fatal("unexpected ctx_redirect ifindex (got %d, want %d)", \
+				   ctx_redirect_recorder.ifindex, (__expected_ifindex)); \
+		if (ctx_redirect_recorder.flags != 0) \
+			test_fatal("unexpected ctx_redirect flags (got %x, want 0)", \
+				   ctx_redirect_recorder.flags);		\
+	} while (0)
+
 /* Include an actual datapath code */
 #include "lib/bpf_overlay.h"
 
@@ -82,43 +201,56 @@ ASSIGN_CONFIG(bool, privnet_local_access_enable, false)
 ASSIGN_CONFIG(bool, privnet_bridge_enable, true)
 ASSIGN_CONFIG(__u32, privnet_unknown_sec_id, 99) /* tunnel id 99 is reserved for unknown privnet flow */
 
-PKTGEN("tc", "01_icmp_from_overlay_nat_src_dst")
-int privnet_icmp_from_overlay_nat_src_dst_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "01_icmp_from_overlay_nat_src_dst_v4")
+int privnet_icmp_from_overlay_nat_src_dst_v4_pktgen(struct __ctx_buff *ctx)
 {
 	BUF_DECL(PODIP_ICMP_REQ, privnet_pod_ip_icmp_req);
 	build_privnet_packet(ctx, PODIP_ICMP_REQ);
 	return 0;
 }
 
-SETUP("tc", "01_icmp_from_overlay_nat_src_dst")
-int privnet_icmp_from_overlay_nat_src_dst_setup(struct __ctx_buff *ctx)
+SETUP("tc", "01_icmp_from_overlay_nat_src_dst_v4")
+int privnet_icmp_from_overlay_nat_src_dst_v4_setup(struct __ctx_buff *ctx)
 {
-	const __u8 mac[] = mac_one_addr;
-	cilium_device_add_entry(ENCAP_IFINDEX, mac, 0);
+	reset_redirect_recorders();
 
-	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
-	privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	cilium_device_add_entry(NETDEV_IFINDEX, (__u8 *)mac_one, 0);
+
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	__privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1,
+					NETDEV_IFINDEX);
+	__privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2,
+					NETDEV_IFINDEX);
 
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "01_icmp_from_overlay_nat_src_dst")
-int privnet_icmp_from_overlay_nat_src_dst_check(struct __ctx_buff *ctx)
+CHECK("tc", "01_icmp_from_overlay_nat_src_dst_v4")
+int privnet_icmp_from_overlay_nat_src_dst_v4_check(struct __ctx_buff *ctx)
 {
 	test_init();
 
-	/* packets are redirected to tunnel device */
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
+
+	/* cilium_device_del_entry(NETDEV_IFINDEX); */
+	__u32 key = NETDEV_IFINDEX;
+
+	map_delete_elem(&cilium_devices, &key);
+
+	/* packets are redirected to netdev device */
 	assert_status_code(ctx, TC_ACT_REDIRECT);
+	ASSERT_CTX_REDIRECT(NETDEV_IFINDEX);
 
 	BUF_DECL(NETIP_ICMP_REQ, privnet_net_ip_icmp_req);
-	ASSERT_CTX_BUF_OFF("privnet_icmp_from_overlay_nat_src_dst", "IP", ctx,
+	ASSERT_CTX_BUF_OFF("privnet_icmp_from_overlay_nat_src_dst_v4", "Ether", ctx,
 			   sizeof(__u32), NETIP_ICMP_REQ,
 			   sizeof(BUF(NETIP_ICMP_REQ)));
 
 	assert_privnet_net_ids(NET_ID, NET_ID);
 
-	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
-	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_2, V4_POD_IP_2);
+	reset_redirect_recorders();
 
 	test_finish();
 }
@@ -147,6 +279,7 @@ int privnet_icmp_from_overlay_to_local_endpoint_check(struct __ctx_buff *ctx)
 	test_init();
 
 	endpoint_v4_del_entry(V4_EP_IP);
+
 	assert_status_code(ctx, CTX_ACT_OK);
 
 	test_finish();
@@ -182,9 +315,128 @@ int privnet_icmp_from_overlay_to_local_endpoint_v6_check(struct __ctx_buff *ctx)
 		.ip6 = *((const union v6addr *)v6_ep_ip),
 		.family = ENDPOINT_KEY_IPV6,
 	};
+
 	map_delete_elem(&cilium_lxc, &key);
 
 	assert_status_code(ctx, CTX_ACT_OK);
+
+	test_finish();
+}
+
+PKTGEN("tc", "04_icmp_from_overlay_nat_src_unknown_dst_v4")
+int privnet_icmp_from_overlay_nat_src_unknown_dst_v4_pktgen(struct __ctx_buff *ctx)
+{
+	BUF_DECL(UNKNOWN_ICMP_REQ, privnet_unknown_flow_icmp_req_out);
+	build_privnet_packet(ctx, UNKNOWN_ICMP_REQ);
+	return 0;
+}
+
+SETUP("tc", "04_icmp_from_overlay_nat_src_unknown_dst_v4")
+int privnet_icmp_from_overlay_nat_src_unknown_dst_v4_setup(struct __ctx_buff *ctx)
+{
+	/* tunnel ID for unknown flow */
+	privnet_tunnel_id = 99;
+
+	reset_redirect_recorders();
+
+	cilium_device_add_entry(NETDEV_IFINDEX, (__u8 *)mac_two, 0);
+
+	privnet_v4_add_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN, SUBNET_ID);
+	__privnet_v4_add_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1,
+					NETDEV_IFINDEX);
+	privnet_v4_add_subnet_route(NET_ID, SUBNET_ID, V4_NET_IP_2, GATEWAY_IP,
+				    NETDEV_IFINDEX);
+
+	return overlay_receive_packet(ctx);
+}
+
+CHECK("tc", "04_icmp_from_overlay_nat_src_unknown_dst_v4")
+int privnet_icmp_from_overlay_nat_src_unknown_dst_v4_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	privnet_v4_del_endpoint_entry(NET_ID, SUBNET_ID, V4_NET_IP_1, V4_POD_IP_1);
+	privnet_v4_del_subnet_entry(NET_ID, SUBNET_V4, SUBNET_V4_LEN);
+
+	/* cilium_device_del_entry(NETDEV_IFINDEX); */
+	__u32 key = NETDEV_IFINDEX;
+
+	map_delete_elem(&cilium_devices, &key);
+
+	/* packets are redirected to netdev device */
+	assert_status_code(ctx, TC_ACT_REDIRECT);
+	ASSERT_REDIRECT_NEIGH_V4(V4_NET_IP_2, NETDEV_IFINDEX);
+
+	BUF_DECL(UNKNOWN_ICMP_REQ_NETIP, privnet_unknown_flow_icmp_req_out_netip);
+	ASSERT_CTX_BUF_OFF("privnet_icmp_from_overlay_nat_src_unknown_dst_v4", "Ether", ctx,
+			   sizeof(__u32), UNKNOWN_ICMP_REQ_NETIP,
+			   sizeof(BUF(UNKNOWN_ICMP_REQ_NETIP)));
+
+	assert_privnet_net_ids(NET_ID, NET_ID);
+
+	reset_redirect_recorders();
+
+	test_finish();
+}
+
+PKTGEN("tc", "05_icmpv6_from_overlay_nat_src_unknown_dst_v6")
+int privnet_icmpv6_from_overlay_nat_src_unknown_dst_v6_pktgen(struct __ctx_buff *ctx)
+{
+	BUF_DECL(UNKNOWN_ICMPV6_REQ, privnet_unknown_flow_icmpv6_req_out);
+	build_privnet_packet(ctx, UNKNOWN_ICMPV6_REQ);
+	return 0;
+}
+
+SETUP("tc", "05_icmpv6_from_overlay_nat_src_unknown_dst_v6")
+int privnet_icmpv6_from_overlay_nat_src_unknown_dst_v6_setup(struct __ctx_buff *ctx)
+{
+	/* tunnel ID for unknown flow */
+	privnet_tunnel_id = 99;
+
+	reset_redirect_recorders();
+
+	cilium_device_add_entry(NETDEV_IFINDEX, (__u8 *)mac_two, 0);
+
+	privnet_v6_add_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN, SUBNET_ID);
+	__privnet_v6_add_endpoint_entry(NET_ID, SUBNET_ID,
+					(const union v6addr *)V6_NET_IP_1,
+					(const union v6addr *)V6_POD_IP_1,
+					NETDEV_IFINDEX);
+	privnet_v6_add_subnet_route(NET_ID, SUBNET_ID,
+				    (const union v6addr *)V6_NET_IP_2,
+				    (const union v6addr *)V6_EXT_IP,
+				    NETDEV_IFINDEX);
+
+	return overlay_receive_packet(ctx);
+}
+
+CHECK("tc", "05_icmpv6_from_overlay_nat_src_unknown_dst_v6")
+int privnet_icmpv6_from_overlay_nat_src_unknown_dst_v6_check(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	privnet_v6_del_endpoint_entry(NET_ID, SUBNET_ID,
+				      (const union v6addr *)V6_NET_IP_1,
+				      (const union v6addr *)V6_POD_IP_1);
+	privnet_v6_del_subnet_entry(NET_ID, SUBNET_V6, SUBNET_V6_LEN);
+
+	/* cilium_device_del_entry(NETDEV_IFINDEX); */
+	__u32 key = NETDEV_IFINDEX;
+
+	map_delete_elem(&cilium_devices, &key);
+
+	/* packets are redirected to netdev device */
+	assert_status_code(ctx, TC_ACT_REDIRECT);
+	ASSERT_REDIRECT_NEIGH_V6((const union v6addr *)V6_NET_IP_2, NETDEV_IFINDEX);
+
+	BUF_DECL(UNKNOWN_ICMPV6_REQ_NETIP, privnet_unknown_flow_icmpv6_req_out_netip);
+	ASSERT_CTX_BUF_OFF("privnet_icmpv6_from_overlay_nat_src_unknown_dst_v6", "Ether", ctx,
+			   sizeof(__u32), UNKNOWN_ICMPV6_REQ_NETIP,
+			   sizeof(BUF(UNKNOWN_ICMPV6_REQ_NETIP)));
+
+	assert_privnet_net_ids(NET_ID, NET_ID);
+
+	reset_redirect_recorders();
 
 	test_finish();
 }

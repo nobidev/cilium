@@ -114,13 +114,33 @@ privnet_pod_ipv6_tcp_syn = (
     Raw(load=b"syn")
 )
 
-## Unknown flow packet, source is translated whereas destination is not.
+## Unknown flow packets, source is translated whereas destination is not.
 privnet_unknown_flow_icmp_req_out = (
     Ether(src=pd.mac_one, dst=pd.mac_two) /
     IP(src=pd.v4_pod_one, dst=v4_pod_two_netip) /
     ICMP(type="echo-request", id=1, seq=1) /
     Raw(load=b"ping")
 )
+privnet_unknown_flow_icmp_req_out_netip = (
+    Ether(src=pd.mac_one, dst=pd.mac_two) /
+    IP(src=v4_pod_one_netip, dst=v4_pod_two_netip) /
+    ICMP(type="echo-request", id=1, seq=1) /
+    Raw(load=b"ping")
+)
+
+privnet_unknown_flow_icmpv6_req_out = (
+    Ether(src=pd.mac_one, dst=pd.mac_two) /
+    IPv6(src=pd.v6_pod_one, dst=v6_pod_two_netip) /
+    ICMPv6EchoRequest(id=1, seq=1) /
+    Raw(load=b"ping")
+)
+privnet_unknown_flow_icmpv6_req_out_netip = (
+    Ether(src=pd.mac_one, dst=pd.mac_two) /
+    IPv6(src=v6_pod_one_netip, dst=v6_pod_two_netip) /
+    ICMPv6EchoRequest(id=1, seq=1) /
+    Raw(load=b"ping")
+)
+
 ## Unknown flow packet, destination is translated whereas source is not.
 privnet_unknown_flow_icmp_req_in = (
     Ether(src=pd.mac_one, dst=pd.mac_two) /

@@ -78,7 +78,7 @@ __privnet_fib_v6_del_entry(__u16 net_id, __u16 subnet_id, const union v6addr *pr
 }
 
 static __always_inline void
-__privnet_pip_v4_add_entry(__be32 pod_ip, __u16 net_id, __be32 net_ip)
+__privnet_pip_v4_add_entry(__be32 pod_ip, __u16 net_id, __be32 net_ip, __u32 ifindex)
 {
 	struct privnet_pip_key key = {
 		.lpm_key.prefixlen = PRIVNET_PIP_PREFIX_LEN(V4_PRIVNET_KEY_LEN),
@@ -90,7 +90,7 @@ __privnet_pip_v4_add_entry(__be32 pod_ip, __u16 net_id, __be32 net_ip)
 		.family = ENDPOINT_KEY_IPV4,
 		.net_id = net_id,
 		.ip4 = net_ip,
-		.ifindex = 1, /* hardcoded ifindex for pips */
+		.ifindex = ifindex,
 	};
 	/* hardcoded mac for pips */
 	value.mac = (union macaddr){ .addr = mac_two_addr};
@@ -111,7 +111,8 @@ __privnet_pip_v4_del_entry(__be32 pod_ip)
 }
 
 static __always_inline void
-__privnet_pip_v6_add_entry(const union v6addr *pod_ip, const union v6addr *net_ip, __be16 net_id)
+__privnet_pip_v6_add_entry(const union v6addr *pod_ip, const union v6addr *net_ip, __be16 net_id,
+			   __u32 ifindex)
 {
 	struct privnet_pip_key key = {
 		.lpm_key.prefixlen = PRIVNET_PIP_PREFIX_LEN(V6_PRIVNET_KEY_LEN),
@@ -120,10 +121,14 @@ __privnet_pip_v6_add_entry(const union v6addr *pod_ip, const union v6addr *net_i
 	struct privnet_pip_val value = {
 		.family = ENDPOINT_KEY_IPV6,
 		.net_id = net_id,
+		.ifindex = ifindex,
 	};
 
 	memcpy(&key.ip6, pod_ip, sizeof(*pod_ip));
 	memcpy(&value.ip6, net_ip, sizeof(*net_ip));
+
+	/* hardcoded mac for pips */
+	value.mac = (union macaddr){ .addr = mac_two_addr};
 
 	map_update_elem(&cilium_privnet_pip, &key, &value, BPF_ANY);
 }
@@ -146,7 +151,7 @@ __privnet_v4_add_endpoint_entry(__u16 net_id, __u16 subnet_id, __be32 net_ip, __
 {
 	__privnet_fib_v4_add_entry(net_id, subnet_id, net_ip, pod_ip,
 				   PRIVNET_FIB_VAL_TYPE_ENDPOINT, true, ifindex);
-	__privnet_pip_v4_add_entry(pod_ip, net_id, net_ip);
+	__privnet_pip_v4_add_entry(pod_ip, net_id, net_ip, ifindex);
 }
 
 static __always_inline void
@@ -226,7 +231,7 @@ __privnet_v6_add_endpoint_entry(__u16 net_id, __u16 subnet_id, const union v6add
 {
 	__privnet_fib_v6_add_entry(net_id, subnet_id, net_ip, pod_ip,
 				   PRIVNET_FIB_VAL_TYPE_ENDPOINT, true, ifindex);
-	__privnet_pip_v6_add_entry(pod_ip, net_ip, net_id);
+	__privnet_pip_v6_add_entry(pod_ip, net_ip, net_id, ifindex);
 }
 
 static __always_inline void
