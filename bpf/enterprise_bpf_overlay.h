@@ -10,17 +10,20 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 							   __u16 proto,
 							   __s8 *ext_err __maybe_unused)
 {
-	void __maybe_unused *data_end, *data;
-	__u32 src_sec_identity __maybe_unused = 0;
-	struct iphdr *ip4 __maybe_unused;
-	struct ipv6hdr *ip6 __maybe_unused;
 	const struct privnet_pip_val *dst_pip_val __maybe_unused = NULL;
 	const struct privnet_pip_val *src_pip_val __maybe_unused = NULL;
 	const struct privnet_fib_val *dip_fib_val __maybe_unused = NULL;
-	struct bpf_tunnel_key tunnel_key __maybe_unused = {};
-	bool unknown_flow __maybe_unused = false;
-	int privnet_ifindex __maybe_unused;
+	__u32 src_sec_identity __maybe_unused = 0;
+	struct bpf_tunnel_key tunnel_key = {};
+	void __maybe_unused *data_end, *data;
 	int ret __maybe_unused = CTX_ACT_OK;
+	int privnet_ifindex __maybe_unused;
+	struct ipv6hdr *ip6 __maybe_unused;
+	struct iphdr *ip4 __maybe_unused;
+	__u16 subnet_id __maybe_unused;
+	__u32 ifindex __maybe_unused;
+	__u16 net_id __maybe_unused;
+	bool unknown_flow = false;
 
 	if (!CONFIG(privnet_enable)) {
 		/* privnet isn't enabled, so we're always in PIP space */
@@ -47,24 +50,25 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 	 */
 	set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_UNKNOWN_NET_ID);
 
+	if (ctx_get_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP, 0) < 0)
+		return DROP_NO_TUNNEL_KEY;
+
+	if (tunnel_key.tunnel_id == CONFIG(privnet_unknown_sec_id))
+		unknown_flow = true;
+	else
+		src_sec_identity = get_id_from_tunnel_id(tunnel_key.tunnel_id, proto);
+
+	/* Not unknown flow, so we're in PIP space */
+	if (!unknown_flow)
+		set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		if (ctx_get_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP, 0) < 0)
-			return DROP_NO_TUNNEL_KEY;
-
-		if (tunnel_key.tunnel_id == CONFIG(privnet_unknown_sec_id))
-			unknown_flow = true;
-
-		src_sec_identity = get_id_from_tunnel_id(tunnel_key.tunnel_id, proto);
-
 		if (!unknown_flow) {
-			/* Not unknown flow, so we're in PIP space */
-			set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
-
 			/* Let's check first if the destination is a local
 			 * endpoint, and the source is not a remapped address,
 			 * in which case we let processing continue as usual.
@@ -126,23 +130,12 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		if (ctx_get_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP, 0) < 0)
-			return DROP_NO_TUNNEL_KEY;
-
-		if (tunnel_key.tunnel_id == CONFIG(privnet_unknown_sec_id))
-			unknown_flow = true;
-
-		src_sec_identity = get_id_from_tunnel_id(tunnel_key.tunnel_id, proto);
-
 		/* Evaluate ingress policy before reverse NAT, as policies are based on
 		 * PIPs.
 		 * For traffic with unknown sec_id, unknown_flow is true, we should skip
 		 * ingress policy evaluation as we do not have ep info for the destination.
 		 */
 		if (!unknown_flow) {
-			/* Not unknown flow, so we're in PIP space */
-			set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
-
 			/* Let's check first if the destination is a local
 			 * endpoint, and the source is not a remapped address,
 			 * in which case we let processing continue as usual.
