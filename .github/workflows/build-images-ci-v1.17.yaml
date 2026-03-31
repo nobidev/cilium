@@ -43,6 +43,7 @@ jobs:
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-latest' }}
     needs: wait-for-base-images
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: cilium
