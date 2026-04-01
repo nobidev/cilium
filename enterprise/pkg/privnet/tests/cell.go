@@ -12,6 +12,7 @@ package tests
 
 import (
 	"log/slog"
+	"net"
 	"path"
 	"testing"
 
@@ -74,6 +75,9 @@ func NewTestHive(t testing.TB) *hive.Hive {
 				return &option.DaemonConfig{
 					// Set StateDir to match the script test directory.
 					StateDir: path.Join(path.Dir(t.TempDir()), "001"),
+
+					EnableIPv4: true,
+					EnableIPv6: true,
 				}
 			},
 
@@ -85,6 +89,8 @@ func NewTestHive(t testing.TB) *hive.Hive {
 			// requires modifying the local node labels.
 			localNodeStore.Update(func(n *node.LocalNode) {
 				n.Labels["node"] = "node1"
+				n.SetNodeInternalIP(net.ParseIP("172.18.0.3"))
+				n.SetNodeInternalIP(net.ParseIP("fc00:18::3"))
 			})
 		}),
 
