@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"math"
 	"net/netip"
 	"os"
 	"slices"
@@ -384,12 +385,31 @@ func (f *fakeEPM) createEndpoint(epTemplate *models.EndpointChangeRequest, resto
 		}
 	}
 	if ep.ID == 0 {
-		// Allocate endpoint IDs sequentially
-		ep.ID = 1
-		for _, other := range f.eps {
-			if other.ID == ep.ID {
-				ep.ID++
+		// Allocate a new endpoint ID
+		epID := uint16(0)
+	allocateNextID:
+		for {
+			epID++
+			if epID == math.MaxUint16 {
+				return nil, fmt.Errorf("no available endpoint IDs")
 			}
+			for _, other := range f.eps {
+				if other.ID == epID {
+					continue allocateNextID
+				}
+			}
+			break
+		}
+		ep.ID = epID
+	}
+
+	// Check no duplicates with endpoint ID or CEP name exist
+	for _, other := range f.eps {
+		if other.ID == ep.ID {
+			return nil, fmt.Errorf("endpoint id %d already exists", ep.ID)
+		}
+		if other.GetK8sNamespaceAndCEPName() == ep.GetK8sNamespaceAndCEPName() {
+			return nil, fmt.Errorf("endpoint with CEP %s already exists", ep.GetK8sNamespaceAndCEPName())
 		}
 	}
 
@@ -521,16 +541,17 @@ func (f *fakeEndpointCmds) getEPCmd() script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "get a fake endpoint as JSON",
-			Args:    "endpoint-id",
+			Args:    "endpoint-identifier",
 			Flags: func(fs *pflag.FlagSet) {
 				fs.StringP("output", "o", "", "output file name")
+				fs.String("by", "id", "identifier used to fetch the endpoint (possible values: id, cep-name)")
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
 			if len(args) != 1 {
-				return nil, fmt.Errorf("%w: expected endpoint-id", script.ErrUsage)
+				return nil, fmt.Errorf("%w: expected endpoint identifier", script.ErrUsage)
 			}
-			id, err := strconv.ParseUint(args[0], 10, 16)
+			idType, err := s.Flags.GetString("by")
 			if err != nil {
 				return nil, err
 			}
@@ -540,9 +561,22 @@ func (f *fakeEndpointCmds) getEPCmd() script.Cmd {
 			}
 
 			return func(s *script.State) (stdout string, stderr string, err error) {
-				ep := f.epm.LookupID(uint16(id))
+				var ep endpoints.Endpoint
+				switch idType {
+				case "id":
+					id, err := strconv.ParseUint(args[0], 10, 16)
+					if err != nil {
+						return "", "", err
+					}
+					ep = f.epm.LookupID(uint16(id))
+				case "cep-name":
+					ep = f.epm.LookupCEPName(args[0])
+				default:
+					return "", "", fmt.Errorf("invalid endpoint identifier %q", idType)
+				}
+
 				if ep == nil {
-					return "", "", fmt.Errorf("endpoint %d not found", id)
+					return "", "", fmt.Errorf("endpoint %q not found", args[0])
 				}
 				b, err := json.MarshalIndent(ep, "", "  ")
 				if err != nil {
