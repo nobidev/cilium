@@ -156,6 +156,7 @@ func registerFakeBPFMap[Obj pnmaps.KeyValue](
 		name:       name,
 		maxEntries: maxEntries,
 		entries:    lock.Map[string, Obj]{},
+		enabled:    enabled,
 	}
 	for _, obj := range existing {
 		m.entries.Store(obj.MapKey().String(), obj)
