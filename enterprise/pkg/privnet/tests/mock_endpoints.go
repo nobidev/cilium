@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -202,9 +203,9 @@ func (f *fakeEP) LXCMac() mac.MAC {
 // SyncEndpointHeaderFile implements endpoints.Endpoint.
 func (f *fakeEP) SyncEndpointHeaderFile() {}
 
-// UpdateLabelsFrom implements endpoints.Endpoint.
-func (f *fakeEP) UpdateLabelsFrom(oldLbls, newLbls map[string]string, source string) error {
-	return nil
+// UpdateLabels implements endpoints.Endpoint.
+func (f *fakeEP) UpdateLabels(ctx context.Context, sourceFilter string, identityLabels, infoLabels labels.Labels, blocking bool) (regenTriggered bool) {
+	return false
 }
 
 // GetPolicyMap implements endpoints.Endpoint.

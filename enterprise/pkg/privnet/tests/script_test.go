@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -47,6 +48,7 @@ func TestPrivilegedScript(t *testing.T) {
 func runScriptTests(t *testing.T, pattern string) {
 	version.Force(k8sTestutils.DefaultVersion)
 	nodeTypes.SetName(nodeName)
+	labelsfilter.ParseLabelPrefixCfg(slog.New(slog.DiscardHandler), nil, nil, "")
 
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	t.Cleanup(cancel)

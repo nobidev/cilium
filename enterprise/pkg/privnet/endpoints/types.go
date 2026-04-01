@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/time"
@@ -98,7 +99,7 @@ type Endpoint interface {
 	SyncEndpointHeaderFile()
 
 	GetPolicyMap() (*policymap.PolicyMap, error)
-	UpdateLabelsFrom(oldLbls, newLbls map[string]string, source string) error
+	UpdateLabels(ctx context.Context, sourceFilter string, identityLabels, infoLabels labels.Labels, blocking bool) (regenTriggered bool)
 }
 
 // EndpointSubscriber is endpointmanager.Subscriber but using the slim interfaces

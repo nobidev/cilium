@@ -46,11 +46,11 @@ import (
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
@@ -460,8 +460,6 @@ type externalEndpointReconcilerOps struct {
 	epRemove   endpoints.EndpointRemover
 	epLookup   endpoints.EndpointGetter
 	epActivate *EndpointActivationManager
-
-	epK8sLabels map[endpoints.EndpointID]slim_labels.Set
 }
 
 func (e *externalEndpointReconcilerOps) cepOwner(obj *tables.ExternalEndpoint) endpoints.CEPOwner {
@@ -478,12 +476,15 @@ func (e *externalEndpointReconcilerOps) cepOwner(obj *tables.ExternalEndpoint) e
 
 // k8sSanitizedLabels returns the merged and sanitized labels of the K8s PrivateNetworkExternalEndpoint resource and
 // the labels of the namespace it is in.
-func (e *externalEndpointReconcilerOps) k8sSanitizedLabels(obj *tables.ExternalEndpoint) map[string]string {
-	return k8sUtils.SanitizePodLabels(obj.K8sLabels,
-		&slim_metav1.ObjectMeta{
-			Name:   obj.Namespace,
-			Labels: obj.K8sNamespaceLabels,
-		}, "", e.clusterName,
+func (e *externalEndpointReconcilerOps) k8sSanitizedLabels(obj *tables.ExternalEndpoint) labels.Labels {
+	return labels.Map2Labels(
+		k8sUtils.SanitizePodLabels(obj.K8sLabels,
+			&slim_metav1.ObjectMeta{
+				Name:   obj.Namespace,
+				Labels: obj.K8sNamespaceLabels,
+			}, "", e.clusterName,
+		),
+		labels.LabelSourceK8s,
 	)
 }
 
@@ -533,8 +534,7 @@ func (e *externalEndpointReconcilerOps) createEndpoint(ctx context.Context, obj 
 	}()
 
 	// Materialize and sanitize labels from K8s object and namespace
-	k8sLabels := e.k8sSanitizedLabels(obj)
-	lbls := labels.Map2Labels(k8sLabels, labels.LabelSourceK8s)
+	lbls := e.k8sSanitizedLabels(obj)
 	lbls[types.CNINetworkNameLabel] = labels.NewLabel(types.CNINetworkNameLabel, string(obj.Network), labels.LabelSourceCNI)
 
 	// Assemble endpoint creation request.
@@ -585,15 +585,12 @@ func (e *externalEndpointReconcilerOps) createEndpoint(ctx context.Context, obj 
 	// Set K8s metadata, this is needed to ensure HaveK8sMetadata returns true.
 	// Without it, the endpoint subsystem will not create a CiliumEndpoint resource in Kubernetes
 	ep.SetK8sMetadata([]slim_core_v1.ContainerPort{})
-	// Store K8s labels - we need them to compute the diff during updateEndpoint
-	e.epK8sLabels[endpoints.EndpointID(ep.GetID16())] = k8sLabels
-
 	return nil
 }
 
 // updateEndpoint handles changes to the labels or activatedAt timestamp of the external endpoint. All other
 // fields are assumed to be immutable.
-func (e *externalEndpointReconcilerOps) updateEndpoint(ep endpoints.Endpoint, obj *tables.ExternalEndpoint) error {
+func (e *externalEndpointReconcilerOps) updateEndpoint(ctx context.Context, ep endpoints.Endpoint, obj *tables.ExternalEndpoint) error {
 	epID := endpoints.EndpointID(ep.GetID16())
 
 	prop, ok := endpoints.ExtractEndpointProperties(ep)
@@ -617,13 +614,12 @@ func (e *externalEndpointReconcilerOps) updateEndpoint(ep endpoints.Endpoint, ob
 
 	// Materialize and sanitize labels from K8s object and namespace
 	newK8sLabels := e.k8sSanitizedLabels(obj)
-	oldK8sLabels := e.epK8sLabels[epID]
-
-	err = ep.UpdateLabelsFrom(oldK8sLabels, newK8sLabels, labels.LabelSourceK8s)
-	if err != nil {
-		return fmt.Errorf("failed to update labels for external endpoint %d: %w", epID, err)
-	}
-	e.epK8sLabels[epID] = newK8sLabels
+	// The labels filter removes any labels that are not considered identity relevant based on user
+	// configuration.
+	identityLabels, infoLabels := labelsfilter.Filter(newK8sLabels)
+	// Update labels with the K8s label source. This will remove any `k8s:` labels from the endpoint if
+	// they are not present in newK8sLabels, and leave any other labels (e.g. `cni:` labels) untouched.
+	ep.UpdateLabels(ctx, labels.LabelSourceK8s, identityLabels, infoLabels, false)
 
 	// Update the labels in CEP owner
 	ep.SetPropertyValue(endpoint.PropertyCEPOwner, e.cepOwner(obj))
@@ -695,7 +691,7 @@ func (e *externalEndpointReconcilerOps) Update(ctx context.Context, txn statedb.
 	}
 
 	// Otherwise update the labels and activatedAt timestamp of the existing endpoint
-	return e.updateEndpoint(ep, obj)
+	return e.updateEndpoint(ctx, ep, obj)
 }
 
 // Delete implements reconciler.Operations.
@@ -814,8 +810,6 @@ func (e *ExternalEndpoints) registerEndpointCreationReconciler(in struct {
 			epRemove:   in.EPRemove,
 			epLookup:   in.EPLookup,
 			epActivate: in.EPActivate,
-
-			epK8sLabels: make(map[endpoints.EndpointID]slim_labels.Set),
 		}
 
 		_, err = reconciler.Register(
