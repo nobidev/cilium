@@ -15,12 +15,17 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"maps"
+
+	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipam"
+	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
 // newEndpointAPIManagerAdapter creates a new endpointAPIManagerAdapter
@@ -136,6 +141,37 @@ func (e endpointSubscriberAdapter) EndpointDeleted(ep *endpoint.Endpoint, conf e
 // EndpointRestored implements endpointmanager.Subscriber.
 func (e endpointSubscriberAdapter) EndpointRestored(ep *endpoint.Endpoint) {
 	e.s.EndpointRestored(ep)
+}
+
+// newRestorationNotifier registers all slim RestorationNotifier with downstream
+func newRestorationNotifier(in struct {
+	cell.In
+
+	Notifiers []RestorationNotifier `group:"privnet-endpoint-restoration-notifiers"`
+}) endpointstate.RestorationNotifierOut {
+	if len(in.Notifiers) == 0 {
+		return endpointstate.RestorationNotifierOut{}
+	}
+
+	return endpointstate.RestorationNotifierOut{
+		Restorer: &restorationNotifierAdapter{notifiers: in.Notifiers},
+	}
+}
+
+// restorationNotifierAdapter implements endpointstate.RestorationNotifier
+// on top of the slim RestorationNotifier
+type restorationNotifierAdapter struct {
+	notifiers []RestorationNotifier
+}
+
+// RestorationNotify implements endpointstate.RestorationNotifier
+func (r *restorationNotifierAdapter) RestorationNotify(possible map[uint16]*endpoint.Endpoint) {
+	p := cslices.MapIter(maps.Values(possible), func(e *endpoint.Endpoint) Endpoint { return e })
+	for _, n := range r.notifiers {
+		if n != nil {
+			n.RestorationNotify(p)
+		}
+	}
 }
 
 // newIPAM returns the IPAM interface implementation

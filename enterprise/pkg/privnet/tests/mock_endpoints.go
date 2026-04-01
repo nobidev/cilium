@@ -53,7 +53,7 @@ func mockEndpointCell(t testing.TB) cell.Cell {
 			regeneration.NewFence,
 			promise.New[endpointstate.Restorer],
 
-			func(f *fakeEPM) uhive.ScriptCmdsOut { return uhive.NewScriptCmds(f.cmds()) },
+			newFakeEndpointCmds,
 		),
 		cell.DecorateAll(func(f *fakeEPM) endpoints.EndpointGetter { return f }),
 		cell.DecorateAll(func(f *fakeEPM) endpoints.EndpointCreator { return f }),
@@ -219,53 +219,46 @@ func newFakeEventObserver() *fakeEndpointEventObserver {
 	return observers.NewGeneric[endpoints.EndpointID, endpoints.EndpointEventKind]()
 }
 
-// fakeEPM implements endpoints.Endpoint{Creator,Getter,Remover}
-type fakeEPM struct {
-	mu   lock.Mutex
-	eps  []*fakeEP
-	subs []endpoints.EndpointSubscriber
-
-	restorer *fakeRestorer
-	observer *fakeEndpointEventObserver
-}
-
-func newFakeEPM(restorer *fakeRestorer, observer *fakeEndpointEventObserver) *fakeEPM {
-	return &fakeEPM{
-		subs: []endpoints.EndpointSubscriber{},
-		eps:  []*fakeEP{},
-
-		restorer: restorer,
-		observer: observer,
-	}
-}
-
 // fakeRestorer implements endpointstate.Restorer
 type fakeRestorer struct {
-	fence       regeneration.Fence
-	observer    *fakeEndpointEventObserver
+	fence regeneration.Fence
+
+	observer  *fakeEndpointEventObserver
+	notifiers []endpoints.RestorationNotifier
+
+	epm *fakeEPM
+
 	restored    chan struct{}
 	regenerated chan struct{}
 }
 
-// newFakeRestorer provies the fakeRestorer and resolves
+// newFakeRestorer provides the fakeRestorer and resolves
 // the restorer promise on Hive start (allowing fences
 // to be registered before Hive starts)
-func newFakeRestorer(
-	fence regeneration.Fence,
-	promise promise.Resolver[endpointstate.Restorer],
-	lc cell.Lifecycle,
-	observer *fakeEndpointEventObserver,
-) *fakeRestorer {
+func newFakeRestorer(in struct {
+	cell.In
+
+	Fence     regeneration.Fence
+	Promise   promise.Resolver[endpointstate.Restorer]
+	Lifecycle cell.Lifecycle
+
+	EndpointManager *fakeEPM
+
+	Observer  *fakeEndpointEventObserver
+	Notifiers []endpoints.RestorationNotifier `group:"privnet-endpoint-restoration-notifiers"`
+}) *fakeRestorer {
 	f := &fakeRestorer{
-		fence:       fence,
-		observer:    observer,
+		fence:       in.Fence,
+		observer:    in.Observer,
+		notifiers:   in.Notifiers,
+		epm:         in.EndpointManager,
 		restored:    make(chan struct{}),
 		regenerated: make(chan struct{}),
 	}
 
-	lc.Append(cell.Hook{
+	in.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
-			promise.Resolve(f)
+			in.Promise.Resolve(f)
 			return nil
 		},
 	})
@@ -275,6 +268,11 @@ func newFakeRestorer(
 
 // finishRestoration marks all endpoints as restored (but not yet regenerated)
 func (f *fakeRestorer) finishRestoration() {
+	for _, n := range f.notifiers {
+		if n != nil {
+			n.RestorationNotify(f.epm.GetEndpoints())
+		}
+	}
 	close(f.restored)
 }
 
@@ -333,6 +331,24 @@ func (f *fakeRestorer) WaitForInitialPolicy(ctx context.Context) error {
 // Await implements promise.Promise.
 func (f *fakeRestorer) Await(context.Context) (endpointstate.Restorer, error) {
 	return f, nil
+}
+
+// fakeEPM implements endpoints.Endpoint{Creator,Getter,Remover}
+type fakeEPM struct {
+	mu   lock.Mutex
+	eps  []*fakeEP
+	subs []endpoints.EndpointSubscriber
+
+	observer *fakeEndpointEventObserver
+}
+
+func newFakeEPM(observer *fakeEndpointEventObserver) *fakeEPM {
+	return &fakeEPM{
+		subs: []endpoints.EndpointSubscriber{},
+		eps:  []*fakeEP{},
+
+		observer: observer,
+	}
 }
 
 // CreateEndpoint implements endpoints.EndpointCreator.
@@ -474,7 +490,21 @@ func (f *fakeEPM) Subscribe(s endpoints.EndpointSubscriber) {
 	f.subs = append(f.subs, s)
 }
 
-func (f *fakeEPM) cmds() map[string]script.Cmd {
+type fakeEndpointCmds struct {
+	epm      *fakeEPM
+	restorer *fakeRestorer
+}
+
+func newFakeEndpointCmds(epm *fakeEPM, restore *fakeRestorer) uhive.ScriptCmdsOut {
+	f := &fakeEndpointCmds{
+		epm:      epm,
+		restorer: restore,
+	}
+
+	return uhive.NewScriptCmds(f.cmds())
+}
+
+func (f *fakeEndpointCmds) cmds() map[string]script.Cmd {
 	return map[string]script.Cmd{
 		"privnet/epm-get":     f.getEPCmd(),
 		"privnet/epm-create":  f.createEPCmd(),
@@ -486,7 +516,7 @@ func (f *fakeEPM) cmds() map[string]script.Cmd {
 	}
 }
 
-func (f *fakeEPM) getEPCmd() script.Cmd {
+func (f *fakeEndpointCmds) getEPCmd() script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "get a fake endpoint as JSON",
@@ -509,7 +539,7 @@ func (f *fakeEPM) getEPCmd() script.Cmd {
 			}
 
 			return func(s *script.State) (stdout string, stderr string, err error) {
-				ep := f.LookupID(uint16(id))
+				ep := f.epm.LookupID(uint16(id))
 				if ep == nil {
 					return "", "", fmt.Errorf("endpoint %d not found", id)
 				}
@@ -546,7 +576,7 @@ func parseEndpointJSON(s *script.State, args []string) (*models.EndpointChangeRe
 	return epr, nil
 }
 
-func (f *fakeEPM) createEPCmd() script.Cmd {
+func (f *fakeEndpointCmds) createEPCmd() script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "create a fake endpoint",
@@ -557,7 +587,7 @@ func (f *fakeEPM) createEPCmd() script.Cmd {
 			if err != nil {
 				return nil, err
 			}
-			_, err = f.createEndpoint(epr, false)
+			_, err = f.epm.createEndpoint(epr, false)
 			if err != nil {
 				return nil, fmt.Errorf("fake endpoint creation failed: %w", err)
 			}
@@ -567,7 +597,7 @@ func (f *fakeEPM) createEPCmd() script.Cmd {
 	)
 }
 
-func (f *fakeEPM) restoreEPCmd() script.Cmd {
+func (f *fakeEndpointCmds) restoreEPCmd() script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "restore a fake endpoint",
@@ -581,7 +611,7 @@ func (f *fakeEPM) restoreEPCmd() script.Cmd {
 			if err != nil {
 				return nil, err
 			}
-			_, err = f.createEndpoint(epr, true)
+			_, err = f.epm.createEndpoint(epr, true)
 			if err != nil {
 				return nil, fmt.Errorf("fake endpoint creation failed: %w", err)
 			}
@@ -591,7 +621,7 @@ func (f *fakeEPM) restoreEPCmd() script.Cmd {
 	)
 }
 
-func (f *fakeEPM) deleteEPCmd() script.Cmd {
+func (f *fakeEndpointCmds) deleteEPCmd() script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "delete a fake endpoint",
@@ -601,11 +631,11 @@ func (f *fakeEPM) deleteEPCmd() script.Cmd {
 			if len(args) != 1 {
 				return nil, fmt.Errorf("%w: expected number of arguments", script.ErrUsage)
 			}
-			ep := f.LookupCEPName(args[0])
+			ep := f.epm.LookupCEPName(args[0])
 			if ep == nil {
 				return nil, fmt.Errorf("fake endpoint %q not found", args[0])
 			}
-			err := f.RemoveEndpoint(ep)
+			err := f.epm.RemoveEndpoint(ep)
 			if err != nil {
 				return nil, fmt.Errorf("fake endpoint deletion failed: %w", err)
 			}
@@ -615,7 +645,7 @@ func (f *fakeEPM) deleteEPCmd() script.Cmd {
 	)
 }
 
-func (f *fakeEPM) finishRestorationCmd() script.Cmd {
+func (f *fakeEndpointCmds) finishRestorationCmd() script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "mark endpoint restoration as finished",
@@ -630,7 +660,7 @@ func (f *fakeEPM) finishRestorationCmd() script.Cmd {
 	)
 }
 
-func (f *fakeEPM) finishRegenerationCmd() script.Cmd {
+func (f *fakeEndpointCmds) finishRegenerationCmd() script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "mark endpoint restoration and regeneration as finished",

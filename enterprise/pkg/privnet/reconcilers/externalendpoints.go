@@ -905,13 +905,13 @@ func (e *externalEndpointRestorer) fixupRestoredEndpointProperties(ep endpoints.
 	ep.SetK8sMetadata([]slim_core_v1.ContainerPort{})
 }
 
-// RestorationNotify implements endpointstate.RestorationNotifier
+// RestorationNotify implements endpoints.RestorationNotifier
 // This is called when restored endpoint candidates have been deserialized from disk,
 // very early in the agent lifecycle. We use it to fix up the endpoint properties, but
 // we delay IP restoration to the EndpointRestored callback below, as IPAM is not
 // available here.
-func (e *externalEndpointRestorer) RestorationNotify(possible map[uint16]*endpoint.Endpoint) {
-	for _, ep := range possible {
+func (e *externalEndpointRestorer) RestorationNotify(possible iter.Seq[endpoints.Endpoint]) {
+	for ep := range possible {
 		e.fixupRestoredEndpointProperties(ep)
 	}
 }
@@ -959,9 +959,9 @@ func (e *externalEndpointRestorer) EndpointDeleted(ep endpoints.Endpoint) {
 func (e *ExternalEndpoints) registerExternalEndpointRestorer(
 	epLookup endpoints.EndpointGetter,
 	ipam endpoints.IPAM,
-) endpointstate.RestorationNotifierOut {
+) endpoints.RestorationNotifierOut {
 	if !e.cfg.EnabledAsBridge() {
-		return endpointstate.RestorationNotifierOut{}
+		return endpoints.RestorationNotifierOut{}
 	}
 
 	r := &externalEndpointRestorer{
@@ -972,7 +972,7 @@ func (e *ExternalEndpoints) registerExternalEndpointRestorer(
 	// Register an endpoint subscriber to receive EndpointRestored callbacks.
 	epLookup.Subscribe(r)
 	// Register a restoration notifier to receive RestorationNotify callbacks.
-	return endpointstate.RestorationNotifierOut{Restorer: r}
+	return endpoints.RestorationNotifierOut{Restorer: r}
 }
 
 // externalEndpointPolicyMapUpdater populates the external endpoints policy map.

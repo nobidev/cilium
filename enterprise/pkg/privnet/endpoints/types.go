@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/netip"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/stream"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
@@ -106,6 +107,19 @@ type EndpointSubscriber interface {
 	EndpointCreated(ep Endpoint)
 	EndpointDeleted(ep Endpoint)
 	EndpointRestored(ep Endpoint)
+}
+
+// RestorationNotifier is endpointstate.RestorationNotifier but using the slim interfaces
+// defined in this package
+type RestorationNotifier interface {
+	RestorationNotify(possible iter.Seq[Endpoint])
+}
+
+// RestorationNotifierOut is used to provide a slim RestorationNotifier
+type RestorationNotifierOut struct {
+	cell.Out
+
+	Restorer RestorationNotifier `group:"privnet-endpoint-restoration-notifiers"`
 }
 
 // EndpointPropertyProvider allows access to the endpoint properties.
