@@ -29,6 +29,12 @@ privnet/epm-get --by cep-name forest/stale-snail
 hive start
 clustermesh/endpoints/sync
 clustermesh/nodes/sync
+
+# Check external endpoint policy map
+privnet/maps-dump ext_eps_policy ext-eps-policy.v1.actual.map
+* cmp ext-eps-policy.v1.expected.map ext-eps-policy.v1.actual.map
+
+# Finish regeneration, this should prune stale-snail
 privnet/epm-finish-regeneration
 db/initialized
 
@@ -89,6 +95,10 @@ k8s/add ns-sky.v3.yaml
 * privnet/epm-get --by cep-name sky/dashing-raven -o ep-dashing-raven.v3.actual.json
 cmp ep-dashing-raven.v3.expected.json ep-dashing-raven.v3.actual.json
 
+# Check external endpoint policy map
+privnet/maps-dump ext_eps_policy ext-eps-policy.v2.actual.map
+* cmp ext-eps-policy.v2.expected.map ext-eps-policy.v2.actual.map
+
 # Re-create noble-wolf endpoint with a different UID and IP, and a static activatedAt time
 k8s/add noble-wolf.v3.yaml
 
@@ -100,6 +110,10 @@ privnet/epm-get --by cep-name forest/noble-wolf -o ep-noble-wolf.v3.actual.json
 db/cmp privnet-local-workloads local-workloads.expected.v3.table
 db/cmp privnet-endpoints endpoints.expected.v3.table
 db/cmp privnet-mapentries mapentries.expected.v3.table
+
+# Check external endpoint policy map
+privnet/maps-dump ext_eps_policy ext-eps-policy.v3.actual.map
+* cmp ext-eps-policy.v3.expected.map ext-eps-policy.v3.actual.map
 
 # Remove K8s resource
 k8s/delete dashing-raven.v1.yaml
@@ -544,4 +558,28 @@ X      green     subnet-green-1   fd00:10:100::13/128   fd00:10:244:5::114   N/A
         "type": "subalpine"
     }
 ]
+-- EOF --
+
+#
+# BPF maps
+#
+-- ext-eps-policy.v1.expected.map --
+10.244.5.111:0 -> fd=0
+10.244.5.112:0 -> fd=0
+fd00:10:244:5::111:0 -> fd=0
+fd00:10:244:5::112:0 -> fd=0
+-- EOF --
+
+-- ext-eps-policy.v2.expected.map --
+10.244.5.111:0 -> fd=0
+10.244.5.113:0 -> fd=0
+fd00:10:244:5::111:0 -> fd=0
+fd00:10:244:5::113:0 -> fd=0
+-- EOF --
+
+-- ext-eps-policy.v3.expected.map --
+10.244.5.113:0 -> fd=0
+10.244.5.114:0 -> fd=0
+fd00:10:244:5::113:0 -> fd=0
+fd00:10:244:5::114:0 -> fd=0
 -- EOF --
