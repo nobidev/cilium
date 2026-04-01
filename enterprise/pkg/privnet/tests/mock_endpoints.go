@@ -79,6 +79,7 @@ type fakeEP struct {
 	Namespace string
 
 	Properties map[string]any
+	Labels     labels.Labels
 }
 
 var _ endpoints.Endpoint = &fakeEP{}
@@ -100,7 +101,8 @@ func (f *fakeEP) MarshalJSON() ([]byte, error) {
 				IPV4: f.GetIPv4Address(),
 				IPV6: f.GetIPv6Address(),
 			},
-			Mac: f.MAC.String(),
+			Mac:    f.MAC.String(),
+			Labels: f.Labels.GetPrintableModel(),
 		},
 	)
 }
@@ -206,6 +208,12 @@ func (f *fakeEP) SyncEndpointHeaderFile() {}
 
 // UpdateLabels implements endpoints.Endpoint.
 func (f *fakeEP) UpdateLabels(ctx context.Context, sourceFilter string, identityLabels, infoLabels labels.Labels, blocking bool) (regenTriggered bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.Labels.RemoveFromSource(sourceFilter)
+	f.Labels.MergeLabels(identityLabels)
+
 	return false
 }
 
@@ -365,6 +373,7 @@ func (f *fakeEPM) createEndpoint(epTemplate *models.EndpointChangeRequest, resto
 		PodName:    epTemplate.K8sPodName,
 		Namespace:  epTemplate.K8sNamespace,
 		Properties: epTemplate.Properties,
+		Labels:     labels.NewLabelsFromModel(epTemplate.Labels),
 	}
 	if epTemplate.Addressing.IPV4 != "" {
 		ep.IPv4, err = netip.ParseAddr(epTemplate.Addressing.IPV4)
