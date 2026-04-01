@@ -625,6 +625,9 @@ func (e *externalEndpointReconcilerOps) updateEndpoint(ep endpoints.Endpoint, ob
 	}
 	e.epK8sLabels[epID] = newK8sLabels
 
+	// Update the labels in CEP owner
+	ep.SetPropertyValue(endpoint.PropertyCEPOwner, e.cepOwner(obj))
+
 	return nil
 }
 
