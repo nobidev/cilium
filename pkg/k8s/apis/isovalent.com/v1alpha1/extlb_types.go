@@ -13,6 +13,7 @@ import (
 // +kubebuilder:resource:categories={cilium,isovalent,loadbalancer},singular="lbk8sbackendcluster",path="lbk8sbackendclusters",scope="Cluster",shortName={lbkbc}
 // +kubebuilder:printcolumn:JSONPath=".metadata.name",name="Cluster Name",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.status",name="Status",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.servicesDiscovered",name="Services Discovered",type=integer
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
@@ -57,6 +58,7 @@ type LBK8sBackendClusterSpec struct {
 	//
 	// +optional
 	// +deepequal-gen=false
+	// +listType=atomic
 	ServiceDiscovery []LBK8sBackendClusterServiceDiscoveryConfig `json:"serviceDiscovery,omitempty"`
 }
 
@@ -300,24 +302,29 @@ type LBK8sBackendClusterDiscoveredService struct {
 	// one per port on the remote service.
 	//
 	// +optional
+	// +listType=atomic
 	LBServiceRefs []LBExternalLBResourceRef `json:"lbServiceRefs,omitempty"`
 
-	// LBVIPRef is the reference to the created LBVIP resource.
+	// LBVIPRefs are the references to the created LBVIP resources,
+	// one per address family.
 	//
 	// +optional
-	LBVIPRef *LBExternalLBResourceRef `json:"lbVIPRef,omitempty"`
+	// +listType=atomic
+	LBVIPRefs []LBExternalLBResourceRef `json:"lbVIPRefs,omitempty"`
 
 	// LBBackendPoolRefs are the references to the created LBBackendPool
 	// resources, one per port on the remote service.
 	//
 	// +optional
+	// +listType=atomic
 	LBBackendPoolRefs []LBExternalLBResourceRef `json:"lbBackendPoolRefs,omitempty"`
 
-	// ExternalIP is the allocated external IP that was written back to
-	// the source service.
+	// ExternalIPs are the allocated external IP addresses that were written
+	// back to the source service, one per address family.
 	//
 	// +optional
-	ExternalIP *string `json:"externalIP,omitempty"`
+	// +listType=atomic
+	ExternalIPs []LBExternalIP `json:"externalIPs,omitempty"`
 
 	// LastError contains the last error message if the service failed to sync.
 	//
@@ -353,4 +360,18 @@ type LBExternalLBResourceRef struct {
 
 	// +required
 	Name string `json:"name"`
+}
+
+// LBExternalIP represents an allocated external IP address with its address
+// family.
+type LBExternalIP struct {
+	// Family is the address family of the IP.
+	//
+	// +required
+	Family AddressFamily `json:"family"`
+
+	// Address is the IP address.
+	//
+	// +required
+	Address string `json:"address"`
 }

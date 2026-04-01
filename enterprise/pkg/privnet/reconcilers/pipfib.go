@@ -128,7 +128,7 @@ type pipFIBMapOps struct {
 
 func (pmo *pipFIBMapOps) FIBKeyVal(me *tables.MapEntry) *pnmaps.FIBKeyVal {
 	mac := types.MACAddr{}
-	if me.Type == tables.MapEntryTypeEndpoint {
+	if me.Type == tables.MapEntryTypeEndpoint || me.Type == tables.MapEntryTypeExternalEndpoint {
 		mac = types.MACAddr(me.Target.MAC)
 	}
 	entryVNI, _ := vni.FromUint32(0)
@@ -179,10 +179,7 @@ func (pmo *pipFIBMapOps) PIPKeyVal(me *tables.MapEntry) *pnmaps.PIPKeyVal {
 
 	return &pnmaps.PIPKeyVal{
 		Key: pnmaps.NewPIPKey(netip.PrefixFrom(me.Routing.NextHop, me.Routing.NextHop.BitLen())),
-		Val: pnmaps.NewPIPVal(
-			me.Target.ID.Network, me.Target.CIDR.Addr(),
-			types.MACAddr(me.Target.MAC), uint32(me.Routing.EgressIfIndex),
-		),
+		Val: pnmaps.NewPIPVal(me.Target.ID.Network, me.Target.CIDR.Addr()),
 	}
 }
 

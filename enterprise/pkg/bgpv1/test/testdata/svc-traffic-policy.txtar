@@ -223,9 +223,9 @@ ports:
 
 -- gobgp-routes-tp-cluster.expected --
 Prefix            NextHop       Attrs
-10.96.50.105/32   10.99.4.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.102}]
+10.96.50.105/32   10.99.4.102   [{Origin: i} {AsPath: 65001}]
 -- gobgp-routes-all.expected --
 Prefix            NextHop       Attrs
-10.96.50.104/32   10.99.4.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.102}]
-10.96.50.105/32   10.99.4.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.102}]
-172.16.1.1/32     10.99.4.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.102}]
+10.96.50.104/32   10.99.4.102   [{Origin: i} {AsPath: 65001}]
+10.96.50.105/32   10.99.4.102   [{Origin: i} {AsPath: 65001}]
+172.16.1.1/32     10.99.4.102   [{Origin: i} {AsPath: 65001}]

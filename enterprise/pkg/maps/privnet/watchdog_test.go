@@ -67,7 +67,7 @@ func TestPrivilegedWatchdog(t *testing.T) {
 
 			func() config.Config {
 				return config.Config{
-					Common: config.Common{Enabled: true},
+					Enabled: true,
 				}
 			},
 		),

@@ -177,7 +177,7 @@ func (l *LocalWorkloads) upsertEndpoint(ep endpoints.Endpoint) {
 			Name: k8sName,
 		},
 		Flags: iso_v1alpha1.PrivateNetworkEndpointSliceFlags{
-			External: ep.IsProperty(endpoint.PropertyFakeEndpoint),
+			External: ep.IsProperty(endpoint.PropertyWithouteBPFDatapath),
 		},
 		Interface: iso_v1alpha1.PrivateNetworkEndpointSliceInterface{
 			Addressing: iso_v1alpha1.PrivateNetworkEndpointAddressing{

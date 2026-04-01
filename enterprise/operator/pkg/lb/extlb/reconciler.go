@@ -17,6 +17,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/netip"
 	"slices"
 	"strings"
 
@@ -34,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -508,8 +511,10 @@ func (r *lbK8sBackendClusterReconciler) discoverServicesForConfig(
 }
 
 // syncService syncs a single service from the remote cluster, creating
-// the necessary ILB resources. It creates one LBVIP shared across all ports,
-// and also one LBBackendPool + LBService per port.
+// the necessary ILB resources. For each address family supported by both the
+// backend cluster (node IPs) and the ILB cluster (IP pools), it creates one
+// LBVIP, and one LBBackendPool + LBService per port. Backend pools only
+// contain node IPs matching their VIP's address family.
 func (r *lbK8sBackendClusterReconciler) syncService(
 	ctx context.Context,
 	cluster *isovalentv1alpha1.LBK8sBackendCluster,
@@ -552,59 +557,91 @@ func (r *lbK8sBackendClusterReconciler) syncService(
 		return errResult, err
 	}
 
-	vipName := resourceName(remoteSvc.Namespace, remoteSvc.Name)
-
-	vip, err := r.ensureLBVIP(ctx, cluster, remoteSvc, targetNamespace, vipName, logger)
-	if err != nil {
-		errResult.LastError = ptr.To(fmt.Sprintf("failed to create LBVIP: %v", err))
+	families := r.getAvailableAddressFamilies(ctx, nodeIPs)
+	if len(families) == 0 {
+		err := fmt.Errorf("no address families available: no IP pool matches the backend cluster's node IP families")
+		errResult.LastError = ptr.To(err.Error())
 		return errResult, err
 	}
 
-	vipRef := &isovalentv1alpha1.LBExternalLBResourceRef{
-		Namespace: vip.Namespace,
-		Name:      vip.Name,
-	}
-
+	var vipRefs []isovalentv1alpha1.LBExternalLBResourceRef
 	var poolRefs []isovalentv1alpha1.LBExternalLBResourceRef
 	var svcRefs []isovalentv1alpha1.LBExternalLBResourceRef
+	var externalIPs []isovalentv1alpha1.LBExternalIP
 
-	for _, port := range tcpPorts {
-		portResourceName := resourceName(remoteSvc.Namespace, remoteSvc.Name, fmt.Sprintf("%d", port.Port))
+	for _, family := range families {
+		familyStr := string(family)
+		familyNodeIPs := filterIPsByFamily(nodeIPs, family)
+		vipName := resourceName(remoteSvc.Namespace, remoteSvc.Name, familyStr)
 
-		pool, err := r.ensureLBBackendPool(ctx, cluster, remoteSvc, discoveryConfig,
-			targetNamespace, portResourceName, nodeIPs, port.NodePort, logger)
+		vip, err := r.ensureLBVIP(ctx, cluster, remoteSvc, targetNamespace, vipName, family, logger)
 		if err != nil {
-			errResult.LastError = ptr.To(fmt.Sprintf("failed to create LBBackendPool for port %d: %v", port.Port, err))
-			errResult.LBVIPRef = vipRef
+			errResult.LastError = ptr.To(fmt.Sprintf("failed to create LBVIP (%s): %v", familyStr, err))
+			errResult.LBVIPRefs = vipRefs
 			errResult.LBBackendPoolRefs = poolRefs
 			errResult.LBServiceRefs = svcRefs
 			return errResult, err
 		}
-		poolRefs = append(poolRefs, isovalentv1alpha1.LBExternalLBResourceRef{
-			Namespace: pool.Namespace,
-			Name:      pool.Name,
+		vipRefs = append(vipRefs, isovalentv1alpha1.LBExternalLBResourceRef{
+			Namespace: vip.Namespace,
+			Name:      vip.Name,
 		})
 
-		lbsvc, err := r.ensureLBService(ctx, cluster, remoteSvc, targetNamespace,
-			portResourceName, port.Port, vip.Name, pool.Name, logger)
-		if err != nil {
-			errResult.LastError = ptr.To(fmt.Sprintf("failed to create LBService for port %d: %v", port.Port, err))
-			errResult.LBVIPRef = vipRef
-			errResult.LBBackendPoolRefs = poolRefs
-			errResult.LBServiceRefs = svcRefs
-			return errResult, err
+		for _, port := range tcpPorts {
+			portResourceName := resourceName(remoteSvc.Namespace, remoteSvc.Name, fmt.Sprintf("%d", port.Port), familyStr)
+
+			pool, err := r.ensureLBBackendPool(ctx, cluster, remoteSvc, discoveryConfig,
+				targetNamespace, portResourceName, familyNodeIPs, port.NodePort, logger)
+			if err != nil {
+				errResult.LastError = ptr.To(fmt.Sprintf("failed to create LBBackendPool for port %d (%s): %v", port.Port, familyStr, err))
+				errResult.LBVIPRefs = vipRefs
+				errResult.LBBackendPoolRefs = poolRefs
+				errResult.LBServiceRefs = svcRefs
+				return errResult, err
+			}
+			poolRefs = append(poolRefs, isovalentv1alpha1.LBExternalLBResourceRef{
+				Namespace: pool.Namespace,
+				Name:      pool.Name,
+			})
+
+			lbsvc, err := r.ensureLBService(ctx, cluster, remoteSvc, targetNamespace,
+				portResourceName, port.Port, vip.Name, pool.Name, logger)
+			if err != nil {
+				errResult.LastError = ptr.To(fmt.Sprintf("failed to create LBService for port %d (%s): %v", port.Port, familyStr, err))
+				errResult.LBVIPRefs = vipRefs
+				errResult.LBBackendPoolRefs = poolRefs
+				errResult.LBServiceRefs = svcRefs
+				return errResult, err
+			}
+			svcRefs = append(svcRefs, isovalentv1alpha1.LBExternalLBResourceRef{
+				Namespace: lbsvc.Namespace,
+				Name:      lbsvc.Name,
+			})
 		}
-		svcRefs = append(svcRefs, isovalentv1alpha1.LBExternalLBResourceRef{
-			Namespace: lbsvc.Namespace,
-			Name:      lbsvc.Name,
-		})
+
+		if family == isovalentv1alpha1.AddressFamilyIPv4 &&
+			vip.Status.Addresses.IPv4 != nil && *vip.Status.Addresses.IPv4 != "" {
+			externalIPs = append(externalIPs, isovalentv1alpha1.LBExternalIP{
+				Family:  isovalentv1alpha1.AddressFamilyIPv4,
+				Address: *vip.Status.Addresses.IPv4,
+			})
+		}
+		if family == isovalentv1alpha1.AddressFamilyIPv6 &&
+			vip.Status.Addresses.IPv6 != nil && *vip.Status.Addresses.IPv6 != "" {
+			externalIPs = append(externalIPs, isovalentv1alpha1.LBExternalIP{
+				Family:  isovalentv1alpha1.AddressFamilyIPv6,
+				Address: *vip.Status.Addresses.IPv6,
+			})
+		}
 	}
 
-	var externalIP *string
-	if vip.Status.Addresses.IPv4 != nil && *vip.Status.Addresses.IPv4 != "" {
-		externalIP = vip.Status.Addresses.IPv4
-		if err := r.updateRemoteServiceExternalIP(ctx, remoteClient, cluster, remoteSvc, *externalIP, logger); err != nil {
-			logger.Warn("failed to update remote service external IP", logfields.Error, err)
+	if len(externalIPs) > 0 {
+		ingressIPs := make([]string, 0, len(externalIPs))
+		for _, eip := range externalIPs {
+			ingressIPs = append(ingressIPs, eip.Address)
+		}
+		if err := r.updateRemoteServiceIngress(ctx, remoteClient, cluster, remoteSvc, ingressIPs, logger); err != nil {
+			logger.Warn("failed to update remote service ingress", logfields.Error, err)
 		}
 	}
 
@@ -613,9 +650,9 @@ func (r *lbK8sBackendClusterReconciler) syncService(
 		RemoteName:          remoteSvc.Name,
 		DiscoveryConfigName: discoveryConfig.Name,
 		Status:              string(isovalentv1alpha1.LBK8sBackendClusterDiscoveredServiceStatusSynced),
-		ExternalIP:          externalIP,
+		ExternalIPs:         externalIPs,
 		LBServiceRefs:       svcRefs,
-		LBVIPRef:            vipRef,
+		LBVIPRefs:           vipRefs,
 		LBBackendPoolRefs:   poolRefs,
 	}, nil
 }
@@ -638,7 +675,6 @@ func (r *lbK8sBackendClusterReconciler) getNodeIPs(
 		for _, addr := range node.Status.Addresses {
 			if addr.Type == corev1.NodeInternalIP {
 				nodeIPs = append(nodeIPs, addr.Address)
-				break
 			}
 		}
 	}
@@ -650,12 +686,88 @@ func (r *lbK8sBackendClusterReconciler) getNodeIPs(
 	return nodeIPs, nil
 }
 
+// getAvailableAddressFamilies returns the address families supported by both
+// the backend cluster (based on node IPs) and the ILB cluster (based on
+// CiliumLoadBalancerIPPool resources). Only families present in both sets are
+// returned.
+func (r *lbK8sBackendClusterReconciler) getAvailableAddressFamilies(
+	ctx context.Context,
+	nodeIPs []string,
+) []isovalentv1alpha1.AddressFamily {
+	var hasIPv4Nodes, hasIPv6Nodes bool
+	for _, ip := range nodeIPs {
+		parsed := net.ParseIP(ip)
+		if parsed == nil {
+			continue
+		}
+		if parsed.To4() != nil {
+			hasIPv4Nodes = true
+		} else {
+			hasIPv6Nodes = true
+		}
+	}
+
+	hasIPv4Pool, hasIPv6Pool := r.getIPPoolFamilies(ctx)
+
+	var families []isovalentv1alpha1.AddressFamily
+	if hasIPv4Nodes && hasIPv4Pool {
+		families = append(families, isovalentv1alpha1.AddressFamilyIPv4)
+	}
+	if hasIPv6Nodes && hasIPv6Pool {
+		families = append(families, isovalentv1alpha1.AddressFamilyIPv6)
+	}
+	return families
+}
+
+func (r *lbK8sBackendClusterReconciler) getIPPoolFamilies(ctx context.Context) (hasIPv4, hasIPv6 bool) {
+	var pools ciliumv2.CiliumLoadBalancerIPPoolList
+	if err := r.client.List(ctx, &pools); err != nil {
+		r.logger.Warn("failed to list CiliumLoadBalancerIPPools", logfields.Error, err)
+		return true, true
+	}
+
+	for _, pool := range pools.Items {
+		if pool.Spec.Disabled {
+			continue
+		}
+		for _, block := range pool.Spec.Blocks {
+			prefix, err := netip.ParsePrefix(string(block.Cidr))
+			if err != nil {
+				continue
+			}
+			if prefix.Addr().Is4() {
+				hasIPv4 = true
+			} else {
+				hasIPv6 = true
+			}
+		}
+	}
+	return hasIPv4, hasIPv6
+}
+
+func filterIPsByFamily(ips []string, family isovalentv1alpha1.AddressFamily) []string {
+	var filtered []string
+	for _, ip := range ips {
+		parsed := net.ParseIP(ip)
+		if parsed == nil {
+			continue
+		}
+		isV4 := parsed.To4() != nil
+		if (family == isovalentv1alpha1.AddressFamilyIPv4 && isV4) ||
+			(family == isovalentv1alpha1.AddressFamilyIPv6 && !isV4) {
+			filtered = append(filtered, ip)
+		}
+	}
+	return filtered
+}
+
 func (r *lbK8sBackendClusterReconciler) ensureLBVIP(
 	ctx context.Context,
 	cluster *isovalentv1alpha1.LBK8sBackendCluster,
 	remoteSvc *corev1.Service,
 	namespace string,
 	name string,
+	addressFamily isovalentv1alpha1.AddressFamily,
 	logger *slog.Logger,
 ) (*isovalentv1alpha1.LBVIP, error) {
 	vip := &isovalentv1alpha1.LBVIP{
@@ -671,6 +783,7 @@ func (r *lbK8sBackendClusterReconciler) ensureLBVIP(
 			labelSourceNamespace: remoteSvc.Namespace,
 			labelSourceName:      remoteSvc.Name,
 		}
+		vip.Spec.AddressFamily = &addressFamily
 		return controllerutil.SetControllerReference(cluster, vip, r.scheme)
 	})
 	if err != nil {
@@ -809,20 +922,14 @@ func (r *lbK8sBackendClusterReconciler) ensureLBService(
 	return lbsvc, nil
 }
 
-func (r *lbK8sBackendClusterReconciler) updateRemoteServiceExternalIP(
+func (r *lbK8sBackendClusterReconciler) updateRemoteServiceIngress(
 	ctx context.Context,
 	remoteClient client.Client,
 	cluster *isovalentv1alpha1.LBK8sBackendCluster,
 	remoteSvc *corev1.Service,
-	externalIP string,
+	ips []string,
 	logger *slog.Logger,
 ) error {
-	logger.Debug("updateRemoteServiceExternalIP called",
-		logfields.K8sNamespace, remoteSvc.Namespace,
-		logfields.ServiceName, remoteSvc.Name,
-		logfields.IPAddr, externalIP,
-	)
-
 	var current corev1.Service
 	if err := remoteClient.Get(ctx, types.NamespacedName{
 		Name:      remoteSvc.Name,
@@ -841,24 +948,21 @@ func (r *lbK8sBackendClusterReconciler) updateRemoteServiceExternalIP(
 		}
 	}
 
-	for _, ingress := range current.Status.LoadBalancer.Ingress {
-		if ingress.IP == externalIP {
-			return nil
-		}
+	ingress := make([]corev1.LoadBalancerIngress, 0, len(ips))
+	for _, ip := range ips {
+		ingress = append(ingress, corev1.LoadBalancerIngress{IP: ip})
 	}
 
-	logger.Info("updating remote service external IP",
+	if slices.EqualFunc(current.Status.LoadBalancer.Ingress, ingress, func(a, b corev1.LoadBalancerIngress) bool {
+		return a.IP == b.IP
+	}) {
+		return nil
+	}
+
+	logger.Info("updating remote service ingress",
 		logfields.K8sNamespace, remoteSvc.Namespace,
 		logfields.ServiceName, remoteSvc.Name,
-		logfields.IPAddr, externalIP,
 	)
-
-	// Build a new ingress list that preserves any existing entries and ensures
-	// our IP is present. A merge patch on an array replaces the entire list, so
-	// we must include all existing entries.
-	ingress := make([]corev1.LoadBalancerIngress, 0, len(current.Status.LoadBalancer.Ingress)+1)
-	ingress = append(ingress, current.Status.LoadBalancer.Ingress...)
-	ingress = append(ingress, corev1.LoadBalancerIngress{IP: externalIP})
 
 	current.Status.LoadBalancer.Ingress = ingress
 	return remoteClient.Status().Update(ctx, &current)
@@ -1020,8 +1124,8 @@ func (r *lbK8sBackendClusterReconciler) cleanupOrphanedResources(
 		for _, ref := range svc.LBBackendPoolRefs {
 			expectedLBPools[ref.Namespace+"/"+ref.Name] = struct{}{}
 		}
-		if svc.LBVIPRef != nil {
-			expectedLBVIPs[svc.LBVIPRef.Namespace+"/"+svc.LBVIPRef.Name] = struct{}{}
+		for _, ref := range svc.LBVIPRefs {
+			expectedLBVIPs[ref.Namespace+"/"+ref.Name] = struct{}{}
 		}
 	}
 

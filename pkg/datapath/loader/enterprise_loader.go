@@ -85,6 +85,9 @@ func (l *EnterpriseLoader) registerEndpointConfig(pd *privnetDHCPDevice) {
 				cfg.PrivnetEnable = true
 				cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()
 				cfg.PrivnetLocalAccessEnable = l.privnetConfig.EnabledAsLocalAccess()
+				cfg.PrivnetHostReachability = l.privnetConfig.HostReachability
+				cfg.PrivnetHostSnatIPv4 = l.privnetConfig.HostSNATIPv4.As4()
+				cfg.PrivnetHostSnatIPv6 = l.privnetConfig.HostSNATIPv6.As16()
 
 				cfg.CiliumDhcpIfIndex = uint32(pd.getIfindex())
 			}

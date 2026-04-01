@@ -24,17 +24,19 @@ import (
 
 	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 	"github.com/cilium/hive/script"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/endpoints"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
@@ -43,18 +45,20 @@ func mockEndpointCell(t testing.TB) cell.Cell {
 
 	return cell.Group(
 		cell.ProvidePrivate(
+			newFakeEventObserver,
 			newFakeRestorer,
 			newFakeEPM,
 		),
 		cell.Provide(
 			regeneration.NewFence,
+			promise.New[endpointstate.Restorer],
 
 			func(f *fakeEPM) uhive.ScriptCmdsOut { return uhive.NewScriptCmds(f.cmds()) },
-			func(f *fakeRestorer) promise.Promise[endpointstate.Restorer] { return f },
 		),
 		cell.DecorateAll(func(f *fakeEPM) endpoints.EndpointGetter { return f }),
 		cell.DecorateAll(func(f *fakeEPM) endpoints.EndpointCreator { return f }),
 		cell.DecorateAll(func(f *fakeEPM) endpoints.EndpointRemover { return f }),
+		cell.DecorateAll(func(f *fakeEndpointEventObserver) endpoints.EndpointEventObserver { return f }),
 	)
 }
 
@@ -158,6 +162,11 @@ func (f *fakeEP) GetK8sNamespaceAndPodName() string {
 	return fmt.Sprintf("%s/%s", f.Namespace, f.PodName)
 }
 
+// SetK8sMetadata implements endpoints.Endpoint.
+func (f *fakeEP) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) {
+	// no-op
+}
+
 // GetPropertyValue implements endpoints.Endpoint.
 func (f *fakeEP) GetPropertyValue(key string) any {
 	f.mu.Lock()
@@ -193,6 +202,23 @@ func (f *fakeEP) LXCMac() mac.MAC {
 // SyncEndpointHeaderFile implements endpoints.Endpoint.
 func (f *fakeEP) SyncEndpointHeaderFile() {}
 
+// UpdateLabelsFrom implements endpoints.Endpoint.
+func (f *fakeEP) UpdateLabelsFrom(oldLbls, newLbls map[string]string, source string) error {
+	return nil
+}
+
+// GetPolicyMap implements endpoints.Endpoint.
+func (f *fakeEP) GetPolicyMap() (*policymap.PolicyMap, error) {
+	return &policymap.PolicyMap{}, nil
+}
+
+// fakeEndpointEventObserver implements endpoints.EndpointEventObserver
+type fakeEndpointEventObserver = observers.Generic[endpoints.EndpointID, endpoints.EndpointEventKind]
+
+func newFakeEventObserver() *fakeEndpointEventObserver {
+	return observers.NewGeneric[endpoints.EndpointID, endpoints.EndpointEventKind]()
+}
+
 // fakeEPM implements endpoints.Endpoint{Creator,Getter,Remover}
 type fakeEPM struct {
 	mu   lock.Mutex
@@ -200,45 +226,70 @@ type fakeEPM struct {
 	subs []endpoints.EndpointSubscriber
 
 	restorer *fakeRestorer
+	observer *fakeEndpointEventObserver
 }
 
-func newFakeEPM(restorer *fakeRestorer, jg job.Group) *fakeEPM {
+func newFakeEPM(restorer *fakeRestorer, observer *fakeEndpointEventObserver) *fakeEPM {
 	return &fakeEPM{
 		subs: []endpoints.EndpointSubscriber{},
 		eps:  []*fakeEP{},
 
 		restorer: restorer,
+		observer: observer,
 	}
 }
 
-// fakeRestorer implements endpointstate.Restorer, and
-// promise.Promise[endpointstate.Restorer] (resolving to itself)
+// fakeRestorer implements endpointstate.Restorer
 type fakeRestorer struct {
-	ch chan struct{}
+	fence       regeneration.Fence
+	observer    *fakeEndpointEventObserver
+	restored    chan struct{}
+	regenerated chan struct{}
 }
 
-func newFakeRestorer() *fakeRestorer {
-	return &fakeRestorer{
-		ch: make(chan struct{}),
+// newFakeRestorer provies the fakeRestorer and resolves
+// the restorer promise on Hive start (allowing fences
+// to be registered before Hive starts)
+func newFakeRestorer(
+	fence regeneration.Fence,
+	promise promise.Resolver[endpointstate.Restorer],
+	lc cell.Lifecycle,
+	observer *fakeEndpointEventObserver,
+) *fakeRestorer {
+	f := &fakeRestorer{
+		fence:       fence,
+		observer:    observer,
+		restored:    make(chan struct{}),
+		regenerated: make(chan struct{}),
 	}
+
+	lc.Append(cell.Hook{
+		OnStart: func(hookContext cell.HookContext) error {
+			promise.Resolve(f)
+			return nil
+		},
+	})
+
+	return f
 }
 
-func (f *fakeRestorer) waitForRestore(ctx context.Context) error {
-	select {
-	case <-f.ch:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
+// finishRestoration marks all endpoints as restored (but not yet regenerated)
 func (f *fakeRestorer) finishRestoration() {
-	close(f.ch)
+	close(f.restored)
+}
+
+// finishRegeneration marks all endpoints as regenerated. finishRestoration must be called before this.
+func (f *fakeRestorer) finishRegeneration() {
+	if !f.isRestored() {
+		panic("endpoints were regenerated without restoration")
+	}
+	close(f.regenerated)
+	f.observer.Queue(endpoints.EndpointInitRegenAllDone, 0)
 }
 
 func (f *fakeRestorer) isRestored() bool {
 	select {
-	case <-f.ch:
+	case <-f.restored:
 		return true
 	default:
 		return false
@@ -247,17 +298,36 @@ func (f *fakeRestorer) isRestored() bool {
 
 // WaitForEndpointRestoreWithoutRegeneration implements endpointstate.Restorer.
 func (f *fakeRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
-	return nil
+	select {
+	case <-f.restored:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // WaitForEndpointRestore implements endpointstate.Restorer.
 func (f *fakeRestorer) WaitForEndpointRestore(ctx context.Context) error {
-	return f.waitForRestore(ctx)
+	if err := f.WaitForEndpointRestoreWithoutRegeneration(ctx); err != nil {
+		return err
+	}
+	if err := f.fence.Wait(ctx); err != nil {
+		return err
+	}
+	select {
+	case <-f.regenerated:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // WaitForInitialPolicy implements endpointstate.Restorer.
 func (f *fakeRestorer) WaitForInitialPolicy(ctx context.Context) error {
-	return f.waitForRestore(ctx)
+	// Technically, WaitForInitialPolicy returns earlier than WaitForEndpointRestore,
+	// but to keep things simpler, we currently simulate that both events occur in the
+	// same instant.
+	return f.WaitForEndpointRestore(ctx)
 }
 
 // Await implements promise.Promise.
@@ -296,8 +366,18 @@ func (f *fakeEPM) createEndpoint(epTemplate *models.EndpointChangeRequest, resto
 			return nil, err
 		}
 	}
+	if ep.ID == 0 {
+		// Allocate endpoint IDs sequentially
+		ep.ID = 1
+		for _, other := range f.eps {
+			if other.ID == ep.ID {
+				ep.ID++
+			}
+		}
+	}
 
 	f.eps = append(f.eps, &ep)
+	f.observer.Queue(endpoints.EndpointCreate, endpoints.EndpointID(ep.ID))
 	for _, sub := range f.subs {
 		if restored {
 			sub.EndpointRestored(&ep)
@@ -305,6 +385,7 @@ func (f *fakeEPM) createEndpoint(epTemplate *models.EndpointChangeRequest, resto
 			sub.EndpointCreated(&ep)
 		}
 	}
+	f.observer.Queue(endpoints.EndpointRegenSuccess, endpoints.EndpointID(ep.ID))
 	return &ep, nil
 }
 
@@ -314,34 +395,49 @@ func (f *fakeEPM) CreateEndpoint(ctx context.Context, epTemplate *models.Endpoin
 	return ep, err
 }
 
-// RemoveByCEPName implements endpoints.EndpointRemover.
-func (f *fakeEPM) RemoveByCEPName(nsname string) (endpoints.Endpoint, error) {
+// RemoveEndpoint implements endpoints.EndpointRemover.
+func (f *fakeEPM) RemoveEndpoint(ep endpoints.Endpoint) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	i := slices.IndexFunc(f.eps, func(ep *fakeEP) bool {
-		return ep.GetK8sNamespaceAndCEPName() == nsname
+	numEndpoints := len(f.eps)
+	f.eps = slices.DeleteFunc(f.eps, func(fakeEP *fakeEP) bool {
+		return fakeEP.GetID16() == ep.GetID16()
 	})
-	if i < 0 {
-		return nil, fmt.Errorf("no endpoint found for CEP %q", nsname)
+	if len(f.eps) == numEndpoints {
+		return fmt.Errorf("endpoint %d was already deleted", ep.GetID16())
 	}
-	ep := f.eps[i]
-	f.eps = slices.Delete(f.eps, i, i+1)
+	f.observer.Queue(endpoints.EndpointDelete, endpoints.EndpointID(ep.GetID16()))
 	for _, sub := range f.subs {
 		sub.EndpointDeleted(ep)
 	}
-	return ep, nil
+	return nil
 }
 
 // GetEndpointsByPodName implements endpoints.EndpointGetter.
 func (f *fakeEPM) GetEndpointsByPodName(nsname string) iter.Seq[endpoints.Endpoint] {
+	f.mu.Lock()
+	eps := slices.Clone(f.eps)
+	f.mu.Unlock()
 	return func(yield func(endpoints.Endpoint) bool) {
-		f.mu.Lock()
-		defer f.mu.Unlock()
-		for _, ep := range f.eps {
+		for _, ep := range eps {
 			if ep.GetK8sNamespaceAndPodName() == nsname {
 				if !yield(ep) {
 					return
 				}
+			}
+		}
+	}
+}
+
+// GetEndpoints implements endpoints.EndpointGetter.
+func (f *fakeEPM) GetEndpoints() iter.Seq[endpoints.Endpoint] {
+	f.mu.Lock()
+	eps := slices.Clone(f.eps)
+	f.mu.Unlock()
+	return func(yield func(endpoints.Endpoint) bool) {
+		for _, ep := range eps {
+			if !yield(ep) {
+				return
 			}
 		}
 	}
@@ -380,12 +476,13 @@ func (f *fakeEPM) Subscribe(s endpoints.EndpointSubscriber) {
 
 func (f *fakeEPM) cmds() map[string]script.Cmd {
 	return map[string]script.Cmd{
-		"privnet/epm-create":  f.createEPCmd(),
 		"privnet/epm-get":     f.getEPCmd(),
-		"privnet/epm-delete":  f.deleteEPCmd(),
+		"privnet/epm-create":  f.createEPCmd(),
 		"privnet/epm-restore": f.restoreEPCmd(),
+		"privnet/epm-delete":  f.deleteEPCmd(),
 
-		"privnet/epm-finish-restoration": f.finishRestorationCmd(),
+		"privnet/epm-finish-restoration":  f.finishRestorationCmd(),
+		"privnet/epm-finish-regeneration": f.finishRegenerationCmd(),
 	}
 }
 
@@ -494,22 +591,6 @@ func (f *fakeEPM) restoreEPCmd() script.Cmd {
 	)
 }
 
-func (f *fakeEPM) finishRestorationCmd() script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "mark endpoint restoration as finished",
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if f.restorer.isRestored() {
-				return nil, errors.New("restoration already marked as finished")
-			}
-
-			f.restorer.finishRestoration()
-			return nil, nil
-		},
-	)
-}
-
 func (f *fakeEPM) deleteEPCmd() script.Cmd {
 	return script.Command(
 		script.CmdUsage{
@@ -520,11 +601,45 @@ func (f *fakeEPM) deleteEPCmd() script.Cmd {
 			if len(args) != 1 {
 				return nil, fmt.Errorf("%w: expected number of arguments", script.ErrUsage)
 			}
-			_, err := f.RemoveByCEPName(args[0])
+			ep := f.LookupCEPName(args[0])
+			if ep == nil {
+				return nil, fmt.Errorf("fake endpoint %q not found", args[0])
+			}
+			err := f.RemoveEndpoint(ep)
 			if err != nil {
 				return nil, fmt.Errorf("fake endpoint deletion failed: %w", err)
 			}
 
+			return nil, nil
+		},
+	)
+}
+
+func (f *fakeEPM) finishRestorationCmd() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "mark endpoint restoration as finished",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if f.restorer.isRestored() {
+				return nil, errors.New("restoration already marked as finished")
+			}
+			f.restorer.finishRestoration()
+			return nil, nil
+		},
+	)
+}
+
+func (f *fakeEPM) finishRegenerationCmd() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "mark endpoint restoration and regeneration as finished",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if !f.restorer.isRestored() {
+				f.restorer.finishRestoration()
+			}
+			f.restorer.finishRegeneration()
 			return nil, nil
 		},
 	)

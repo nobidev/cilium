@@ -52,7 +52,7 @@ spec:
           rng: {}
         resources:
           requests:
-            memory: 1024M
+            memory: 256M
       networks:
       - name: default
         {{- if .NAD }}
@@ -78,7 +78,7 @@ spec:
       - cloudInitNoCloud:
           userData: |-
             #cloud-config
-            password: fedora
+            password: alpine
             chpasswd: { expire: False }
             manage_etc_hosts: true
             write_files:

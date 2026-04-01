@@ -266,13 +266,21 @@ diagnostics-constants: {{ .Values.enterprise.diagnostics.constants | join "," | 
 # Private networks
 private-networks-enabled: {{ .Values.enterprise.privateNetworks.enabled | quote }}
 private-networks-mode: {{ .Values.enterprise.privateNetworks.mode | quote }}
-private-networks-health-check-port: {{ .Values.enterprise.privateNetworks.healthcheck.port | quote }}
+private-networks-api-port: {{ .Values.enterprise.privateNetworks.api.port | quote }}
 private-networks-health-check-interval: {{ .Values.enterprise.privateNetworks.healthcheck.interval | quote }}
 private-networks-health-check-timeout: {{ .Values.enterprise.privateNetworks.healthcheck.timeout | quote }}
 private-networks-nad-integration-enabled: {{ .Values.enterprise.privateNetworks.networkAttachmentDefinitions.enabled | quote }}
 private-networks-nad-cni-log-file: {{ .Values.enterprise.privateNetworks.networkAttachmentDefinitions.cniLogFile | quote }}
 private-networks-nad-cni-log-format: {{ .Values.enterprise.privateNetworks.networkAttachmentDefinitions.cniLogFormat | quote }}
-
+{{- if not (kindIs "invalid" .Values.enterprise.privateNetworks.hostReachability) }}
+private-networks-host-reachability: {{ .Values.enterprise.privateNetworks.hostReachability | quote }}
+{{- end }}
+{{- if .Values.enterprise.privateNetworks.hostSNATIPv4 }}
+private-networks-host-snat-ipv4: {{ .Values.enterprise.privateNetworks.hostSNATIPv4 | quote }}
+{{- end }}
+{{- if .Values.enterprise.privateNetworks.hostSNATIPv6 }}
+private-networks-host-snat-ipv6: {{ .Values.enterprise.privateNetworks.hostSNATIPv6 | quote }}
+{{- end }}
 {{- if .Values.enterprise.privateNetworks.enabled }}
 private-networks-webhook-enabled: {{ .Values.enterprise.privateNetworks.webhook.enabled | quote }}
 private-networks-webhook-hostport: {{ print ":" .Values.enterprise.privateNetworks.webhook.port | quote }}

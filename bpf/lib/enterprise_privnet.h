@@ -234,7 +234,6 @@ struct privnet_pip_key {
 };
 
 struct privnet_pip_val {
-	union macaddr mac;
 	union {
 		struct {
 			__be32		ip4;
@@ -244,10 +243,9 @@ struct privnet_pip_val {
 		};
 		union v6addr	ip6;
 	};
-	__u8 flags;
+	__u8 pad;
 	__u8 family;
 	__u16 net_id;
-	__u32 ifindex;
 };
 
 enum privnet_device_type {
@@ -629,9 +627,139 @@ privnet_cidr_identity_lookup6(const void *map, union v6addr addr) {
 	return map_lookup_elem(map, &key);
 }
 
+static __always_inline bool
+privnet_is_identity_any_host(__u32 identity)
+{
+	return identity_is_host(identity) ||
+		identity_is_remote_node(identity) ||
+		identity_is_ingress(identity);
+}
+
+/* The function does SNAT for a (remote) host packets destined to a PrivNet workload.
+ *
+ * The dst IP of the packet is in the P-IP space. Thus, we can use the global CT and NAT
+ * BPF maps (no risk for the IP overlaps).
+ */
+static __always_inline int
+privnet_host_snat_ingress4(struct __ctx_buff *ctx __maybe_unused)
+{
+	int ret = 0;
+#if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
+	struct ipv4_nat_target target = {
+		.addr = CONFIG(privnet_host_snat_ipv4).be32,
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+		/* No need to set .needs_ct, as the relevant CT entry should exist before this function is
+		 * invoked (created by bpf_lxc). For posterity, missing CT entry can result in
+		 * the PurgeOrphanNATEntries (GC) removing the NAT entries of non-closed connections.
+		 */
+	};
+	struct trace_ctx trace = {};
+	struct ipv4_ct_tuple tuple = {};
+	void *data, *data_end;
+	fraginfo_t fraginfo;
+	struct iphdr *ip4;
+	__s8 ext_err = 0;
+	int l4_off;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	fraginfo = ipfrag_encode_ipv4(ip4);
+
+	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
+
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+	ret = snat_v4_nat(ctx, &tuple, ip4, fraginfo, l4_off,
+			  &target, &trace, &ext_err);
+#endif /* ENABLE_IPV4 && ENABLE_NODEPORT */
+
+	return ret;
+}
+
+/* The function does rev-SNAT to packets destined to a (remote) host (from
+ * the link-local IP addr).
+ */
+static __always_inline int
+privnet_host_rev_snat_egress4(struct __ctx_buff *ctx __maybe_unused)
+{
+	int ret = 0;
+#if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
+	struct ipv4_nat_target target = {
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+	};
+	struct trace_ctx trace = {};
+	__s8 ext_err = 0;
+
+	ret = snat_v4_rev_nat(ctx, &target, &trace, &ext_err);
+#endif /* ENABLE_IPV4 && ENABLE_NODEPORT */
+
+	return ret;
+}
+
+/* See comment for privnet_host_snat_ingress4(). */
+static __always_inline int
+privnet_host_snat_ingress6(struct __ctx_buff *ctx __maybe_unused)
+{
+	int ret = 0;
+#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
+	struct ipv6_nat_target target = {
+		.addr = CONFIG(privnet_host_snat_ipv6),
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+	};
+	struct ipv6_ct_tuple tuple = {};
+	struct trace_ctx trace = {};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	fraginfo_t fraginfo;
+	int hdrlen, l4_off;
+	__s8 ext_err = 0;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	tuple.nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	snat_v6_init_tuple(ip6, NAT_DIR_EGRESS, &tuple);
+
+	l4_off = (__u32)(((void *)ip6 - data) + hdrlen);
+
+	ret = snat_v6_nat(ctx, &tuple, ip6, fraginfo, l4_off,
+			  &target, &trace, &ext_err);
+#endif /* ENABLE_IPV6 && ENABLE_NODEPORT */
+
+	return ret;
+}
+
+/* See comment for privnet_host_rev_snat_egress4(). */
+static __always_inline int
+privnet_host_rev_snat_egress6(struct __ctx_buff *ctx __maybe_unused)
+{
+	int ret = 0;
+#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
+	struct ipv6_nat_target target = {
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+	};
+	struct trace_ctx trace = {};
+	__s8 ext_err = 0;
+
+	ret = snat_v6_rev_nat(ctx, &target, &trace, &ext_err);
+#endif /* ENABLE_IPV6 && ENABLE_NODEPORT */
+
+	return ret;
+}
+
 static __always_inline int
 enforce_privnet_egress_segmentation(const struct privnet_fib_val *sip_val,
-				    const struct privnet_fib_val *dip_val)
+				    const struct privnet_fib_val *dip_val,
+				    bool host_traffic)
 {
 	if (sip_val && !dip_val) {
 		/* The destination mapping not present, where as source has an entry.
@@ -645,7 +773,13 @@ enforce_privnet_egress_segmentation(const struct privnet_fib_val *sip_val,
 		 * absence of dip_val suggests there is no ep present with that dst ip (within
 		 * private network). It is better to drop the packet as we have no way to route
 		 * to the destination and do not want this packet to leave via INB underlay.
+		 *
+		 * In lxc, we still need to allow packet to (remote) host, if the host reachability
+		 * is enabled.
 		 */
+		if (is_defined(IS_BPF_LXC) && CONFIG(privnet_host_reachability) && host_traffic)
+			return CTX_ACT_OK;
+
 		return DROP_UNROUTABLE;
 	}
 
@@ -872,6 +1006,7 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 	const struct privnet_fib_val *sip_val = NULL;
 	const struct privnet_fib_val *dip_val = NULL;
 	int ret = CTX_ACT_OK;
+	bool host_traffic = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -950,7 +1085,31 @@ static __always_inline int privnet_egress_ipv4(struct __ctx_buff *ctx,
 		}
 	}
 
-	return enforce_privnet_egress_segmentation(sip_val, dip_val);
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	if (is_defined(IS_BPF_LXC) && CONFIG(privnet_host_reachability) &&
+	    ip4->daddr == CONFIG(privnet_host_snat_ipv4).be32 && sip_val && !dip_val) {
+		const struct remote_endpoint_info *info;
+		__u32 dst_sec_identity;
+
+		ret = privnet_host_rev_snat_egress4(ctx);
+		if (IS_ERR(ret))
+			return ret;
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+		dst_sec_identity = info ? info->sec_identity : UNKNOWN_ID;
+		if (!privnet_is_identity_any_host(dst_sec_identity))
+			return DROP_UNROUTABLE;
+		host_traffic = true;
+
+		/* Set net id to default network.*/
+		set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
+	}
+
+	return enforce_privnet_egress_segmentation(sip_val, dip_val, host_traffic);
 }
 
 static __always_inline int
@@ -1101,6 +1260,7 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 	const struct privnet_fib_val *dip_val = NULL;
 	union v6addr orig_sip, orig_dip;
 	int ret = CTX_ACT_OK;
+	bool host_traffic = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -1156,7 +1316,38 @@ static __always_inline int privnet_egress_ipv6(struct __ctx_buff *ctx,
 		}
 	}
 
-	return enforce_privnet_egress_segmentation(sip_val, dip_val);
+	/* Host reachability is disabled for v6 due to BPF complexity limits */
+	if (is_defined(WIP) &&
+	    is_defined(IS_BPF_LXC) && CONFIG(privnet_host_reachability)) {
+		const struct remote_endpoint_info *info;
+		__u32 dst_sec_identity;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		union v6addr snat_ipv6 = CONFIG(privnet_host_snat_ipv6);
+
+		if (ipv6_addr_equals((union v6addr *)&ip6->daddr, &snat_ipv6) &&
+		    !dip_val && sip_val) {
+			ret = privnet_host_rev_snat_egress6(ctx);
+			if (IS_ERR(ret))
+				return ret;
+			if (!revalidate_data(ctx, &data, &data_end, &ip6))
+				return DROP_INVALID;
+			ipv6_addr_copy(&orig_dip, (union v6addr *)&ip6->daddr);
+
+			info = lookup_ip6_remote_endpoint(&orig_dip, 0);
+			dst_sec_identity = info ? info->sec_identity : UNKNOWN_ID;
+			if (!privnet_is_identity_any_host(dst_sec_identity))
+				return DROP_UNROUTABLE;
+			host_traffic = true;
+
+			/* Set net id to default network.*/
+			set_privnet_net_dst_id(PRIVNET_PIP_NET_ID);
+		}
+	}
+
+	return enforce_privnet_egress_segmentation(sip_val, dip_val, host_traffic);
 }
 
 #define PRIVNET_PIP_STATIC_PREFIX						\
@@ -1208,23 +1399,28 @@ enforce_privnet_ingress_segmentation_at_inb(bool unknown_flow,
 }
 
 static __always_inline int
-enforce_privnet_ingress_segmentation_at_lxc(bool unknown_flow, __u16 net_id,
+enforce_privnet_ingress_segmentation_at_lxc(bool unknown_flow, bool host_traffic,
+					    __u16 net_id,
 					    const struct privnet_pip_val *sip_val,
 					    const struct privnet_pip_val *dip_val)
 {
-	if (unknown_flow) {
-		/* For unknown flow, valid dip entry must exist, since traffic in going to pod.
-		 * Similarly, dip net_id must match lxc net_id.
-		 */
-		if (dip_val && net_id == dip_val->net_id)
-			return CTX_ACT_OK;
-	} else {
-		/* For known flows, both sip and dip must exist. And both sip/dip net_ids must
-		 * match lxc net_id.
-		 */
-		if (sip_val && dip_val && net_id == sip_val->net_id && net_id == dip_val->net_id)
-			return CTX_ACT_OK;
-	}
+	/* For ingress traffic, valid dip entry must exist, since traffic in going to pod.
+	 * Similarly, dip net_id must match lxc net_id.
+	 */
+	if (!dip_val || net_id != dip_val->net_id)
+		return DROP_UNROUTABLE;
+
+	/* Allow traffic from unknown flows. */
+	if (unknown_flow)
+		return CTX_ACT_OK;
+
+	/* For known flows, sip net_id must match lxc net_id. */
+	if (sip_val && net_id == sip_val->net_id)
+		return CTX_ACT_OK;
+
+	/* Allow packet if it is from (remote) host (e.g. ILB request from T2 node) */
+	if (CONFIG(privnet_host_reachability) && host_traffic)
+		return CTX_ACT_OK;
 
 	return DROP_UNROUTABLE;
 }
@@ -1322,6 +1518,7 @@ privnet_unknown_policy_ingress4(struct __ctx_buff *ctx,
  * Following changes are done in this call
  * - Lookup of private IP from PIPs.
  * - Translating PIP to private IPs, for both source and destination.
+ * - SNAT request if source is host.
  * - Enforce segmentation to prevent invalid traffic from going to the destination.
  */
 static __always_inline int
@@ -1335,6 +1532,7 @@ privnet_lxc_ingress_ipv4(struct __ctx_buff *ctx,
 	const struct privnet_pip_val *sip_val = NULL;
 	const struct privnet_pip_val *dip_val = NULL;
 	int ret = CTX_ACT_OK;
+	bool host_traffic = false; /* pkt originating from a (remote) host identity */
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1350,6 +1548,23 @@ privnet_lxc_ingress_ipv4(struct __ctx_buff *ctx,
 	}
 
 	sip_val = privnet_pip_lookup4(ip4->saddr);
+
+	/* SNAT (remote) host request. This must happen be before the stateless P-IP SNAT, as
+	 * the host SNAT uses global CT/NAT maps (P-IP and PrivNet netIP can collide).
+	 */
+	if (CONFIG(privnet_host_reachability) &&
+	    !sip_val && !unknown_flow) {
+		const struct remote_endpoint_info *info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+		__u32 src_sec_identity = info ? info->sec_identity : UNKNOWN_ID;
+
+		if (privnet_is_identity_any_host(src_sec_identity)) {
+			host_traffic = true;
+			ret = privnet_host_snat_ingress4(ctx);
+			if (IS_ERR(ret))
+				return ret;
+			set_privnet_net_src_id(net_id);
+		}
+	}
 
 	/* Perform source NAT only if :
 	 * (a) corresponding netIP exist, and
@@ -1408,8 +1623,8 @@ privnet_lxc_ingress_ipv4(struct __ctx_buff *ctx,
 			return ret;
 	}
 
-	return enforce_privnet_ingress_segmentation_at_lxc(unknown_flow, net_id,
-							   sip_val, dip_val);
+	return enforce_privnet_ingress_segmentation_at_lxc(unknown_flow, host_traffic,
+							   net_id, sip_val, dip_val);
 }
 
 /* privnet_inb_ingress_ipv4 should be called from overlay device in INB for traffic
@@ -1591,6 +1806,7 @@ privnet_lxc_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id,
 	const struct privnet_pip_val *dip_val = NULL;
 	union v6addr orig_sip, orig_dip;
 	int ret = CTX_ACT_OK;
+	bool host_traffic = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -1605,6 +1821,22 @@ privnet_lxc_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id,
 	ipv6_addr_copy(&orig_dip, (union v6addr *)&ip6->daddr);
 
 	sip_val = privnet_pip_lookup6(orig_sip);
+
+	/* Host reachability is disabled for v6 due to BPF complexity limits */
+	if (is_defined(WIP) &&
+	    CONFIG(privnet_host_reachability) &&
+	    !sip_val && !unknown_flow) {
+		const struct remote_endpoint_info *info = lookup_ip6_remote_endpoint(&orig_sip, 0);
+		__u32 src_sec_identity = info ? info->sec_identity : UNKNOWN_ID;
+
+		if (privnet_is_identity_any_host(src_sec_identity)) {
+			host_traffic = true;
+			ret = privnet_host_snat_ingress6(ctx);
+			if (IS_ERR(ret))
+				return ret;
+			set_privnet_net_src_id(net_id);
+		}
+	}
 
 	/* check comment in privnet_lxc_ingress_ipv4 */
 	if (sip_val && !unknown_flow && net_id == sip_val->net_id) {
@@ -1643,8 +1875,8 @@ privnet_lxc_ingress_ipv6(struct __ctx_buff *ctx, __u32 sec_label, __u16 net_id,
 			return ret;
 	}
 
-	return enforce_privnet_ingress_segmentation_at_lxc(unknown_flow, net_id,
-							   sip_val, dip_val);
+	return enforce_privnet_ingress_segmentation_at_lxc(unknown_flow, host_traffic,
+							   net_id, sip_val, dip_val);
 }
 
 /* See comments in privnet_inb_ingress_ipv4 */
@@ -1667,6 +1899,7 @@ privnet_inb_ingress_ipv6(struct __ctx_buff *ctx, bool unknown_flow,
 	ipv6_addr_copy(&orig_dip, (union v6addr *)&ip6->daddr);
 
 	sip_val = privnet_pip_lookup6(orig_sip);
+
 	if (sip_val) {
 		if (src_privnet_entry)
 			*src_privnet_entry = sip_val;

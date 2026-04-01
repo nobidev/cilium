@@ -60,8 +60,8 @@ func TestCellRegistersHealthService(t *testing.T) {
 		cell.Provide(
 			func() pncfg.Config {
 				return pncfg.Config{
-					Common: pncfg.Common{Enabled: true},
-					Mode:   pncfg.ModeBridge,
+					Enabled: true,
+					Mode:    pncfg.ModeBridge,
 				}
 			},
 			func() *health.Server {

@@ -1768,6 +1768,10 @@
      - Enables multicast in cilium, multicast replication works only in tunnel mode.
      - bool
      - ``false``
+   * - :spelling:ignore:`enterprise.privateNetworks.api.port`
+     - The TCP port the privnet API server listens to, in "bridge" mode. Otherwise, it represents the fallback port to connect to a candidate INB, if not explicitly advertised by the candidate INB itself.
+     - int
+     - ``4239``
    * - :spelling:ignore:`enterprise.privateNetworks.enabled`
      - Enable private networks.  Private networks enable network-level isolation between Cilium-managed endpoints. Endpoints within the same private network can communicate with each other, but are isolated from endpoints in other private networks.
      - bool
@@ -1776,10 +1780,6 @@
      - The interval for performing health checks against candidate INBs. Ignored in "bridge" mode.
      - string
      - ``"2s"``
-   * - :spelling:ignore:`enterprise.privateNetworks.healthcheck.port`
-     - The TCP port the health checks server listens to, in "bridge" mode. Otherwise, it represents the fallback port to connect to a candidate INB, if not explicitly advertised by the candidate INB itself.
-     - int
-     - ``4239``
    * - :spelling:ignore:`enterprise.privateNetworks.healthcheck.timeout`
      - The timeout after which a candidate INB is considered unhealthy if no health check response is received. Must be at least 50% higher than the configured interval. Ignored in "bridge" mode.
      - string

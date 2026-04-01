@@ -71,7 +71,7 @@ func TestScript(t *testing.T) {
 			hive.AddConfigOverride(h, func(c *evpnConfig.Config) {
 				c.CommonConfig.Enabled = true
 			})
-			hive.AddConfigOverride(h, func(c *privnetConfig.Config) {
+			hive.AddConfigOverride(h, func(c *privnetConfig.Flags) {
 				c.Enabled = true
 			})
 			t.Cleanup(func() {

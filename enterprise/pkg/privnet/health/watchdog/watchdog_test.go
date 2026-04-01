@@ -80,7 +80,7 @@ func fixture(t *testing.T, override time.Duration) (*watchdog, *wdmap) {
 		cell.Provide(
 			func() config.Config {
 				return config.Config{
-					Common: config.Common{Enabled: true},
+					Enabled: true,
 				}
 			},
 			func() privnet.Watchdog { return &wdm },

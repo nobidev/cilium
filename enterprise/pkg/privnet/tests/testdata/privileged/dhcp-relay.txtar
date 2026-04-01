@@ -1,4 +1,4 @@
-#! --private-networks-enabled --private-networks-mode=bridge --private-networks-health-check-port=4242 --privnet-test-dhcp-static-relay=false
+#! --private-networks-enabled --private-networks-mode=bridge --private-networks-api-port=4242 --privnet-test-dhcp-static-relay=false
 #
 # Test relaying a DHCP request from a pod via gRPC and unicast and back.
 # A single test application runs both the DHCP server in the pod namespace and the gRPC server
@@ -144,7 +144,7 @@ blue-network   0x1         invalid IP    pnna-blue-network-na
   "k8s-pod-name": "pod-100",
   "k8s-namespace": "default",
   "properties": {
-    "property-fake-endpoint": true,
+    "property-without-bpf-endpoint": true,
     "isovalent-privnet-activated-at": "2025-06-20T15:58:07.00000Z",
     "isovalent-privnet-network": "blue-network",
     "isovalent-privnet-subnet": "subnet1",
@@ -184,7 +184,7 @@ node:
   cluster: default
   name: foobar-worker-1
   ip: 127.0.0.1
-  healthport: 4242
+  apiport: 4242
 role: Active
 
 -- device.yaml --

@@ -501,24 +501,19 @@ type PrivateNetworkExternalEndpointSpec struct {
 	// The endpoint identifiers from the private network point of view.
 	//
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="External endpoint interface is immutable"
 	Interface PrivateNetworkEndpointSliceInterface `json:"interface"`
 }
 
 // +deepequal-gen=false
 type PrivateNetworkExternalEndpointStatus struct {
 	// The instant in time in which this entry was marked as active. If
-	// multiple entries are advertized by different nodes and/or clusters for
+	// multiple entries are advertised by different nodes and/or clusters for
 	// the same private network endpoint, the latest that has been activated
 	// takes precedence.
 	//
 	// +kubebuilder:validation:Optional
 	ActivatedAt metav1.MicroTime `json:"activatedAt,omitzero"`
-
-	// The endpoint addresses (IPv4 and/or IPv6) from the pod network point
-	// of view.
-	//
-	// +kubebuilder:validation:Required
-	Addressing PrivateNetworkEndpointAddressing `json:"addressing"`
 }
 
 // DeepEqual is implemented manually for PrivateNetworkExternalEndpointStatus, because metav1.MicroTime has no DeepEqual
@@ -528,10 +523,6 @@ func (in *PrivateNetworkExternalEndpointStatus) DeepEqual(other *PrivateNetworkE
 	}
 
 	if !in.ActivatedAt.Equal(&other.ActivatedAt) {
-		return false
-	}
-
-	if in.Addressing != other.Addressing {
 		return false
 	}
 

@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -294,15 +295,17 @@ func (m *remoteClusterManager) triggerDisconnect(clusterName string) {
 }
 
 func nodeIPChanged(oldNode, newNode *corev1.Node) bool {
-	getInternalIP := func(node *corev1.Node) string {
+	getInternalIPs := func(node *corev1.Node) []string {
+		var ips []string
 		for _, addr := range node.Status.Addresses {
 			if addr.Type == corev1.NodeInternalIP {
-				return addr.Address
+				ips = append(ips, addr.Address)
 			}
 		}
-		return ""
+		slices.Sort(ips)
+		return ips
 	}
-	return getInternalIP(oldNode) != getInternalIP(newNode)
+	return !slices.Equal(getInternalIPs(oldNode), getInternalIPs(newNode))
 }
 
 func (m *remoteClusterManager) GetClient(clusterName string) (client.Client, error) {

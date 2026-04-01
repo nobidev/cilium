@@ -94,7 +94,7 @@ func TestDefaultListenerFactory(t *testing.T) {
 			factory := NewListenerFactory(ListenerConfig{
 				Port:          1234,
 				Enabled:       true,
-				AnnotationKey: types.PrivateNetworkINBHealthServerPortAnnotation,
+				AnnotationKey: types.PrivateNetworkINBAPIServerPortAnnotation,
 			}, lns)
 
 			restore := setNetListenForTest(func(network, address string) (net.Listener, error) {
@@ -113,7 +113,7 @@ func TestDefaultListenerFactory(t *testing.T) {
 			// Assert that the local node annotation is correctly set.
 			ln, err := lns.Get(t.Context())
 			require.NoError(t, err, "[lns.Get]")
-			assert.Equal(t, "1234", ln.Annotations[types.PrivateNetworkINBHealthServerPortAnnotation])
+			assert.Equal(t, "1234", ln.Annotations[types.PrivateNetworkINBAPIServerPortAnnotation])
 
 			listeners, err := factory(t.Context())
 			tt.assertErr(t, err)

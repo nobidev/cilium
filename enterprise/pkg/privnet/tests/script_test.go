@@ -63,6 +63,7 @@ func runScriptTests(t *testing.T, pattern string) {
 
 			cmds := script.DefaultCmds()
 			cmds["text/template"] = templateCmd()
+			cmds["jsonpath"] = jsonPathCmd()
 			var h *hive.Hive
 			setupHive := func() {
 				h = NewTestHive(t)

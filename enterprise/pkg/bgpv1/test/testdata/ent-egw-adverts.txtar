@@ -125,21 +125,21 @@ spec:
 
 -- gobgp-routes-100.expected --
 Prefix            NextHop       Attrs
-10.99.99.100/32   10.99.100.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.100.2}]
+10.99.99.100/32   10.99.100.2   [{Origin: i} {AsPath: 65001}]
 -- gobgp-routes-101.expected --
 Prefix            NextHop       Attrs
-10.99.99.101/32   10.99.100.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.100.2}]
+10.99.99.101/32   10.99.100.2   [{Origin: i} {AsPath: 65001}]
 -- gobgp-routes-102.expected --
 Prefix            NextHop       Attrs
-10.99.99.102/32   10.99.100.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.100.2}]
+10.99.99.102/32   10.99.100.2   [{Origin: i} {AsPath: 65001}]
 -- gobgp-routes-100-101.expected --
 Prefix            NextHop       Attrs
-10.99.99.100/32   10.99.100.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.100.2}]
-10.99.99.101/32   10.99.100.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.100.2}]
+10.99.99.100/32   10.99.100.2   [{Origin: i} {AsPath: 65001}]
+10.99.99.101/32   10.99.100.2   [{Origin: i} {AsPath: 65001}]
 -- gobgp-routes-all.expected --
 Prefix            NextHop       Attrs
-10.99.99.100/32   10.99.100.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.100.2}]
-10.99.99.101/32   10.99.100.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.100.2}]
-10.99.99.102/32   10.99.100.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.100.2}]
+10.99.99.100/32   10.99.100.2   [{Origin: i} {AsPath: 65001}]
+10.99.99.101/32   10.99.100.2   [{Origin: i} {AsPath: 65001}]
+10.99.99.102/32   10.99.100.2   [{Origin: i} {AsPath: 65001}]
 -- gobgp-routes-empty.expected --
 Prefix   NextHop   Attrs

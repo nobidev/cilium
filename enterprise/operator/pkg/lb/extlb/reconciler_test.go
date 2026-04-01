@@ -26,12 +26,14 @@ import (
 	ctrlFakeClient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	isovalentv1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 )
 
 func newTestScheme(t *testing.T) *runtime.Scheme {
 	scheme := clientgoscheme.Scheme
 	require.NoError(t, isovalentv1alpha1.AddToScheme(scheme))
+	require.NoError(t, ciliumv2.AddToScheme(scheme))
 	return scheme
 }
 
@@ -512,6 +514,364 @@ func TestDiscoverServicesForConfig(t *testing.T) {
 			}
 
 			require.ElementsMatch(t, tt.expectedNames, names)
+		})
+	}
+}
+
+func TestGetNodeIPs(t *testing.T) {
+	scheme := newTestScheme(t)
+
+	tests := []struct {
+		name        string
+		nodes       []corev1.Node
+		expectedIPs []string
+		expectErr   string
+	}{
+		{
+			name:      "no nodes",
+			nodes:     []corev1.Node{},
+			expectErr: "no nodes found in remote cluster",
+		},
+		{
+			name: "node with no internal IPs",
+			nodes: []corev1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{Type: corev1.NodeExternalIP, Address: "1.2.3.4"},
+						},
+					},
+				},
+			},
+			expectErr: "no internal IPs found for any node",
+		},
+		{
+			name: "single IPv4 node",
+			nodes: []corev1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+						},
+					},
+				},
+			},
+			expectedIPs: []string{"10.0.0.1"},
+		},
+		{
+			name: "single IPv6 node",
+			nodes: []corev1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{Type: corev1.NodeInternalIP, Address: "fd00::1"},
+						},
+					},
+				},
+			},
+			expectedIPs: []string{"fd00::1"},
+		},
+		{
+			name: "dual-stack node",
+			nodes: []corev1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+							{Type: corev1.NodeInternalIP, Address: "fd00::1"},
+						},
+					},
+				},
+			},
+			expectedIPs: []string{"10.0.0.1", "fd00::1"},
+		},
+		{
+			name: "multiple dual-stack nodes",
+			nodes: []corev1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+							{Type: corev1.NodeInternalIP, Address: "fd00::1"},
+							{Type: corev1.NodeExternalIP, Address: "1.2.3.4"},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "node2"},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{Type: corev1.NodeInternalIP, Address: "10.0.0.2"},
+							{Type: corev1.NodeInternalIP, Address: "fd00::2"},
+						},
+					},
+				},
+			},
+			expectedIPs: []string{"10.0.0.1", "fd00::1", "10.0.0.2", "fd00::2"},
+		},
+		{
+			name: "mixed cluster - some nodes dual-stack some IPv4-only",
+			nodes: []corev1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+							{Type: corev1.NodeInternalIP, Address: "fd00::1"},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "node2"},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{Type: corev1.NodeInternalIP, Address: "10.0.0.2"},
+						},
+					},
+				},
+			},
+			expectedIPs: []string{"10.0.0.1", "fd00::1", "10.0.0.2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder := ctrlFakeClient.NewClientBuilder().WithScheme(scheme)
+			for i := range tt.nodes {
+				builder = builder.WithObjects(&tt.nodes[i])
+			}
+			fakeClient := builder.Build()
+
+			remoteMgr := newTestRemoteClusterManager(slog.New(slog.DiscardHandler))
+			r := newLBK8sBackendClusterReconciler(
+				slog.New(slog.DiscardHandler),
+				fakeClient,
+				scheme,
+				remoteMgr,
+				Config{},
+			)
+
+			ips, err := r.getNodeIPs(context.Background(), fakeClient)
+
+			if tt.expectErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.expectErr)
+				return
+			}
+
+			require.NoError(t, err)
+			require.ElementsMatch(t, tt.expectedIPs, ips)
+		})
+	}
+}
+
+func TestEnsureLBBackendPool_DualStack(t *testing.T) {
+	scheme := newTestScheme(t)
+
+	cluster := &isovalentv1alpha1.LBK8sBackendCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-cluster",
+		},
+	}
+	remoteSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-svc",
+			Namespace: "remote-ns",
+		},
+	}
+	discoveryConfig := &isovalentv1alpha1.LBK8sBackendClusterServiceDiscoveryConfig{}
+
+	c := ctrlFakeClient.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&isovalentv1alpha1.LBBackendPool{}).
+		Build()
+
+	remoteMgr := newTestRemoteClusterManager(slog.New(slog.DiscardHandler))
+	r := newLBK8sBackendClusterReconciler(
+		slog.New(slog.DiscardHandler),
+		c,
+		scheme,
+		remoteMgr,
+		Config{},
+	)
+
+	nodeIPs := []string{"10.0.0.1", "fd00::1", "10.0.0.2", "fd00::2"}
+	var nodePort int32 = 30080
+
+	pool, err := r.ensureLBBackendPool(
+		context.Background(),
+		cluster,
+		remoteSvc,
+		discoveryConfig,
+		"test-ns",
+		"test-pool",
+		nodeIPs,
+		nodePort,
+		slog.New(slog.DiscardHandler),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, pool)
+
+	require.Len(t, pool.Spec.Backends, 4)
+	require.Equal(t, isovalentv1alpha1.BackendTypeIP, pool.Spec.BackendType)
+
+	var backendIPs []string
+	for _, b := range pool.Spec.Backends {
+		require.NotNil(t, b.IP)
+		require.Equal(t, nodePort, b.Port)
+		backendIPs = append(backendIPs, *b.IP)
+	}
+	require.ElementsMatch(t, nodeIPs, backendIPs)
+}
+
+func TestGetAvailableAddressFamilies(t *testing.T) {
+	scheme := newTestScheme(t)
+
+	tests := []struct {
+		name     string
+		pools    []ciliumv2.CiliumLoadBalancerIPPool
+		nodeIPs  []string
+		expected []isovalentv1alpha1.AddressFamily
+	}{
+		{
+			name: "dual-stack nodes with dual-stack pools",
+			pools: []ciliumv2.CiliumLoadBalancerIPPool{
+				{ObjectMeta: metav1.ObjectMeta{Name: "v4"}, Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
+					Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{{Cidr: "10.0.0.0/24"}},
+				}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "v6"}, Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
+					Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{{Cidr: "fd00::/64"}},
+				}},
+			},
+			nodeIPs:  []string{"10.0.0.1", "fd00::1"},
+			expected: []isovalentv1alpha1.AddressFamily{isovalentv1alpha1.AddressFamilyIPv4, isovalentv1alpha1.AddressFamilyIPv6},
+		},
+		{
+			name: "dual-stack nodes with only ipv4 pools",
+			pools: []ciliumv2.CiliumLoadBalancerIPPool{
+				{ObjectMeta: metav1.ObjectMeta{Name: "v4"}, Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
+					Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{{Cidr: "10.0.0.0/24"}},
+				}},
+			},
+			nodeIPs:  []string{"10.0.0.1", "fd00::1"},
+			expected: []isovalentv1alpha1.AddressFamily{isovalentv1alpha1.AddressFamilyIPv4},
+		},
+		{
+			name: "ipv4-only nodes with dual-stack pools",
+			pools: []ciliumv2.CiliumLoadBalancerIPPool{
+				{ObjectMeta: metav1.ObjectMeta{Name: "v4"}, Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
+					Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{{Cidr: "10.0.0.0/24"}},
+				}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "v6"}, Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
+					Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{{Cidr: "fd00::/64"}},
+				}},
+			},
+			nodeIPs:  []string{"10.0.0.1"},
+			expected: []isovalentv1alpha1.AddressFamily{isovalentv1alpha1.AddressFamilyIPv4},
+		},
+		{
+			name: "ipv6-only nodes with ipv6 pool",
+			pools: []ciliumv2.CiliumLoadBalancerIPPool{
+				{ObjectMeta: metav1.ObjectMeta{Name: "v6"}, Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
+					Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{{Cidr: "fd00::/64"}},
+				}},
+			},
+			nodeIPs:  []string{"fd00::1"},
+			expected: []isovalentv1alpha1.AddressFamily{isovalentv1alpha1.AddressFamilyIPv6},
+		},
+		{
+			name:     "no pools returns empty",
+			pools:    []ciliumv2.CiliumLoadBalancerIPPool{},
+			nodeIPs:  []string{"10.0.0.1", "fd00::1"},
+			expected: nil,
+		},
+		{
+			name: "disabled pool ignored",
+			pools: []ciliumv2.CiliumLoadBalancerIPPool{
+				{ObjectMeta: metav1.ObjectMeta{Name: "v4"}, Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
+					Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{{Cidr: "10.0.0.0/24"}},
+				}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "v6"}, Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
+					Disabled: true,
+					Blocks:   []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{{Cidr: "fd00::/64"}},
+				}},
+			},
+			nodeIPs:  []string{"10.0.0.1", "fd00::1"},
+			expected: []isovalentv1alpha1.AddressFamily{isovalentv1alpha1.AddressFamilyIPv4},
+		},
+		{
+			name: "no family overlap returns empty",
+			pools: []ciliumv2.CiliumLoadBalancerIPPool{
+				{ObjectMeta: metav1.ObjectMeta{Name: "v6"}, Spec: ciliumv2.CiliumLoadBalancerIPPoolSpec{
+					Blocks: []ciliumv2.CiliumLoadBalancerIPPoolIPBlock{{Cidr: "fd00::/64"}},
+				}},
+			},
+			nodeIPs:  []string{"10.0.0.1"},
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder := ctrlFakeClient.NewClientBuilder().WithScheme(scheme)
+			for i := range tt.pools {
+				builder = builder.WithObjects(&tt.pools[i])
+			}
+			c := builder.Build()
+
+			r := &lbK8sBackendClusterReconciler{
+				logger: slog.New(slog.DiscardHandler),
+				client: c,
+			}
+
+			result := r.getAvailableAddressFamilies(context.Background(), tt.nodeIPs)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestFilterIPsByFamily(t *testing.T) {
+	tests := []struct {
+		name     string
+		ips      []string
+		family   isovalentv1alpha1.AddressFamily
+		expected []string
+	}{
+		{
+			name:     "filter ipv4 from mixed",
+			ips:      []string{"10.0.0.1", "fd00::1", "10.0.0.2", "fd00::2"},
+			family:   isovalentv1alpha1.AddressFamilyIPv4,
+			expected: []string{"10.0.0.1", "10.0.0.2"},
+		},
+		{
+			name:     "filter ipv6 from mixed",
+			ips:      []string{"10.0.0.1", "fd00::1", "10.0.0.2", "fd00::2"},
+			family:   isovalentv1alpha1.AddressFamilyIPv6,
+			expected: []string{"fd00::1", "fd00::2"},
+		},
+		{
+			name:     "filter ipv4 from ipv4-only",
+			ips:      []string{"10.0.0.1", "10.0.0.2"},
+			family:   isovalentv1alpha1.AddressFamilyIPv4,
+			expected: []string{"10.0.0.1", "10.0.0.2"},
+		},
+		{
+			name:     "filter ipv6 from ipv4-only returns nil",
+			ips:      []string{"10.0.0.1"},
+			family:   isovalentv1alpha1.AddressFamilyIPv6,
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := filterIPsByFamily(tt.ips, tt.family)
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }

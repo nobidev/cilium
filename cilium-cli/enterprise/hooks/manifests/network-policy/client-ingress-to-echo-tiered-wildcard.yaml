@@ -1,0 +1,42 @@
+# Two policies with separate tiers:
+# Normal: allow client to echo
+# Baseline: deny all 8080
+#
+# Tests that datapath policy resolution is correct,
+# as there will only be a wildcard entry for the first rule.
+
+apiVersion: isovalent.com/v1
+kind: IsovalentNetworkPolicy
+metadata:
+  name: ingress-to-echo-tiered-wildcard
+  namespace: "{{.TestNamespace}}"
+  annotations:
+    cli.cilium.io/bump-policy: ""
+specs:
+# Always allow readiness probes
+- endpointSelector: {}
+  ingress:
+    - fromEntities: ["host"]
+  order: 0
+
+- endpointSelector: {}
+  ingress:
+    - fromEndpoints:
+      - matchLabels:
+          name: client
+        matchExpressions:
+          - { key: io.cilium.k8s.policy.cluster, operator: Exists }
+      toPorts:
+        - ports:
+          - port: "8080"
+            protocol: "TCP"
+  tier: Normal
+
+- endpointSelector: {}
+  ingressDeny:
+    - fromEntities: ["all"]
+      toPorts:
+        - ports:
+          - port: "8080"
+            protocol: "TCP"
+  tier: Baseline

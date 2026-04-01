@@ -93,7 +93,7 @@ func TestPrivnetStateNotifier(t *testing.T) {
 	hive.AddConfigOverride(h, func(c *config.Config) {
 		c.Enabled = true
 	})
-	hive.AddConfigOverride(h, func(c *privnetConfig.Config) {
+	hive.AddConfigOverride(h, func(c *privnetConfig.Flags) {
 		c.Enabled = true
 	})
 

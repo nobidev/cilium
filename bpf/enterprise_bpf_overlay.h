@@ -10,17 +10,20 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 							   __u16 proto,
 							   __s8 *ext_err __maybe_unused)
 {
-	void __maybe_unused *data_end, *data;
-	__u32 src_sec_identity __maybe_unused = 0;
-	struct iphdr *ip4 __maybe_unused;
-	struct ipv6hdr *ip6 __maybe_unused;
 	const struct privnet_pip_val *dst_pip_val __maybe_unused = NULL;
 	const struct privnet_pip_val *src_pip_val __maybe_unused = NULL;
-	const struct privnet_fib_val *dip_fib_val __maybe_unused = NULL;
-	struct bpf_tunnel_key tunnel_key __maybe_unused = {};
-	bool unknown_flow __maybe_unused = false;
-	int privnet_ifindex __maybe_unused;
+	const struct privnet_fib_val *dst_fib_val __maybe_unused = NULL;
+	const struct privnet_fib_val *src_fib_val __maybe_unused = NULL;
+	__u32 src_sec_identity __maybe_unused = 0;
+	struct bpf_tunnel_key tunnel_key = {};
+	void __maybe_unused *data_end, *data;
 	int ret __maybe_unused = CTX_ACT_OK;
+	struct ipv6hdr *ip6 __maybe_unused;
+	struct iphdr *ip4 __maybe_unused;
+	__u16 subnet_id __maybe_unused;
+	__u32 ifindex __maybe_unused;
+	__u16 net_id __maybe_unused;
+	bool unknown_flow = false;
 
 	if (!CONFIG(privnet_enable)) {
 		/* privnet isn't enabled, so we're always in PIP space */
@@ -47,24 +50,25 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 	 */
 	set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_UNKNOWN_NET_ID);
 
+	if (ctx_get_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP, 0) < 0)
+		return DROP_NO_TUNNEL_KEY;
+
+	if (tunnel_key.tunnel_id == CONFIG(privnet_unknown_sec_id))
+		unknown_flow = true;
+	else
+		src_sec_identity = get_id_from_tunnel_id(tunnel_key.tunnel_id, proto);
+
+	/* Not unknown flow, so we're in PIP space */
+	if (!unknown_flow)
+		set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
+
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		if (ctx_get_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP, 0) < 0)
-			return DROP_NO_TUNNEL_KEY;
-
-		if (tunnel_key.tunnel_id == CONFIG(privnet_unknown_sec_id))
-			unknown_flow = true;
-
-		src_sec_identity = get_id_from_tunnel_id(tunnel_key.tunnel_id, proto);
-
 		if (!unknown_flow) {
-			/* Not unknown flow, so we're in PIP space */
-			set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
-
 			/* Let's check first if the destination is a local
 			 * endpoint, and the source is not a remapped address,
 			 * in which case we let processing continue as usual.
@@ -82,41 +86,61 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		if (IS_ERR(ret))
 			return ret;
 
-		if (!src_pip_val || src_pip_val->ifindex == 0)
+		/* network and subnet IDs are based on original source IP (PIP). */
+		net_id = src_pip_val->net_id;
+		subnet_id = privnet_subnet_id_lookup6(net_id, src_pip_val->ip6);
+		src_fib_val = privnet_fib_lookup6(net_id, subnet_id, src_pip_val->ip6);
+		if (!src_fib_val)
 			return DROP_UNROUTABLE;
 
-		privnet_ifindex = (int)src_pip_val->ifindex;
+		/* For external endpoints, the destination FIB entry doesn't
+		 * have ifindex set. Thus, always use the ifindex from the
+		 * source FIB entry for consistency across known and unknown
+		 * flow paths.
+		 */
+		ifindex = src_fib_val->ifindex;
+		if (ifindex == 0)
+			return DROP_UNROUTABLE;
 
-		/* Fully translated flow*/
+		/* Fully translated flow, found PIP map entries for source
+		 * and destination addresses.
+		 */
 		if (src_pip_val && dst_pip_val) {
-			const union macaddr *smac = device_mac(privnet_ifindex);
-			const union macaddr *dmac = &dst_pip_val->mac;
+			const union macaddr *smac, *dmac;
 
+			dst_fib_val = privnet_fib_lookup6(net_id, subnet_id, dst_pip_val->ip6);
+			if (!dst_fib_val)
+				return DROP_UNROUTABLE;
+
+			smac = device_mac(ifindex);
 			if (!smac)
 				return DROP_NO_DEVICE;
+
+			dmac = &dst_fib_val->mac;
+
 			if (eth_store_saddr(ctx, smac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
 			if (eth_store_daddr(ctx, dmac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
 
-			return ctx_redirect(ctx, privnet_ifindex, 0);
+			return ctx_redirect(ctx, ifindex, 0);
 		}
 
-		if (unknown_flow && src_pip_val) {
+		/* Unknown flow */
+		if (unknown_flow) {
+			union v6addr daddr = {};
+
 			if (!revalidate_data(ctx, &data, &data_end, &ip6))
 				return DROP_INVALID;
 
-			union v6addr daddr = {};
-			__u16 sn_id;
-
 			ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
 
-			/* network and subnet IDs are based on original source ip (pip). */
-			sn_id = privnet_subnet_id_lookup6(src_pip_val->net_id, src_pip_val->ip6);
-			dip_fib_val = privnet_fib_lookup6(src_pip_val->net_id, sn_id, daddr);
+			dst_fib_val = privnet_fib_lookup6(net_id, subnet_id, daddr);
+			if (!dst_fib_val)
+				return DROP_UNROUTABLE;
 
-			return privnet_redirect_neigh_fib_ipv6(dip_fib_val, &daddr,
-							       privnet_ifindex);
+			return privnet_redirect_neigh_fib_ipv6(dst_fib_val, &daddr,
+							       ifindex);
 		}
 
 		break;
@@ -126,23 +150,12 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		if (ctx_get_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP, 0) < 0)
-			return DROP_NO_TUNNEL_KEY;
-
-		if (tunnel_key.tunnel_id == CONFIG(privnet_unknown_sec_id))
-			unknown_flow = true;
-
-		src_sec_identity = get_id_from_tunnel_id(tunnel_key.tunnel_id, proto);
-
 		/* Evaluate ingress policy before reverse NAT, as policies are based on
 		 * PIPs.
 		 * For traffic with unknown sec_id, unknown_flow is true, we should skip
 		 * ingress policy evaluation as we do not have ep info for the destination.
 		 */
 		if (!unknown_flow) {
-			/* Not unknown flow, so we're in PIP space */
-			set_privnet_net_ids(PRIVNET_PIP_NET_ID, PRIVNET_PIP_NET_ID);
-
 			/* Let's check first if the destination is a local
 			 * endpoint, and the source is not a remapped address,
 			 * in which case we let processing continue as usual.
@@ -159,44 +172,57 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		if (IS_ERR(ret))
 			return ret;
 
-		/* Evaluate privnet_ifindex for sending packet. It is common for all destinations belonging
-		 * to the same private network. Currently, privnet_ifindex is saved in revnat_val.
-		 * We expect the source to be some endpoint in kubernetes cluster
-		 * which is initiating the flow.
-		 */
-		if (!src_pip_val || src_pip_val->ifindex == 0)
+		/* network and subnet IDs are based on original source IP (PIP). */
+		net_id = src_pip_val->net_id;
+		subnet_id = privnet_subnet_id_lookup4(net_id, src_pip_val->ip4);
+		src_fib_val = privnet_fib_lookup4(net_id, subnet_id, src_pip_val->ip4);
+		if (!src_fib_val)
 			return DROP_UNROUTABLE;
 
-		privnet_ifindex = (int)src_pip_val->ifindex;
+		/* For external endpoints, the destination FIB entry doesn't
+		 * have ifindex set. Thus, always use the ifindex from the
+		 * source FIB entry for consistency across known and unknown
+		 * flow paths.
+		 */
+		ifindex = src_fib_val->ifindex;
+		if (ifindex == 0)
+			return DROP_UNROUTABLE;
 
-		/* Fully translated flow*/
+		/* Fully translated flow, found PIP map entries for source
+		 * and destination addresses.
+		 */
 		if (src_pip_val && dst_pip_val) {
-			const union macaddr *smac = device_mac(privnet_ifindex);
-			const union macaddr *dmac = &dst_pip_val->mac;
+			const union macaddr *smac, *dmac;
 
+			dst_fib_val = privnet_fib_lookup4(net_id, subnet_id, dst_pip_val->ip4);
+			if (!dst_fib_val)
+				return DROP_UNROUTABLE;
+
+			smac = device_mac(ifindex);
 			if (!smac)
 				return DROP_NO_DEVICE;
+
+			dmac = &dst_fib_val->mac;
+
 			if (eth_store_saddr(ctx, smac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
-
 			if (eth_store_daddr(ctx, dmac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
 
-			return ctx_redirect(ctx, privnet_ifindex, 0);
+			return ctx_redirect(ctx, ifindex, 0);
 		}
 
-		if (unknown_flow && src_pip_val) {
+		/* Unknown flow */
+		if (unknown_flow) {
 			if (!revalidate_data(ctx, &data, &data_end, &ip4))
 				return DROP_INVALID;
 
-			__u16 sn_id;
+			dst_fib_val = privnet_fib_lookup4(net_id, subnet_id, ip4->daddr);
+			if (!dst_fib_val)
+				return DROP_UNROUTABLE;
 
-			/* network and subnet IDs are based on original source ip (pip). */
-			sn_id = privnet_subnet_id_lookup4(src_pip_val->net_id, src_pip_val->ip4);
-			dip_fib_val = privnet_fib_lookup4(src_pip_val->net_id, sn_id, ip4->daddr);
-
-			return privnet_redirect_neigh_fib_ipv4(dip_fib_val, ip4->daddr,
-							       privnet_ifindex);
+			return privnet_redirect_neigh_fib_ipv4(dst_fib_val, ip4->daddr,
+							       ifindex);
 		}
 
 		break;

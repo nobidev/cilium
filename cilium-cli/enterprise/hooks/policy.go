@@ -17,13 +17,22 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 )
 
-//go:embed manifests/client-ingress-to-echo-ordered-ns.yaml
+//go:embed manifests/network-policy/client-ingress-to-echo-ordered-ns.yaml
 var clientIngressToEchoOrderedNS string
 
-//go:embed manifests/client-ingress-to-echo-ordered-wildcard.yaml
+//go:embed manifests/network-policy/client-ingress-to-echo-ordered-wildcard.yaml
 var clientIngressToEchoOrderedWildcard string
 
-//go:embed manifests/client-ingress-to-echo-ordered-portrange.yaml
+//go:embed manifests/network-policy/client-ingress-to-echo-tiered-ns.yaml
+var clientIngressToEchoTieredNS string
+
+//go:embed manifests/network-policy/client-ingress-to-echo-tiered-wildcard.yaml
+var clientIngressToEchoTieredWildcard string
+
+//go:embed manifests/network-policy/client-ingress-to-echo-tiered-wildcard-pass.yaml
+var clientIngressToEchoTieredWildcardPass string
+
+//go:embed manifests/network-policy/client-ingress-to-echo-ordered-portrange.yaml
 var clientIngressToEchoOrderedPortrange string
 
 var (
@@ -32,10 +41,10 @@ var (
 )
 
 func (ec *EnterpriseConnectivity) addOrderedPolicyTests(ct *check.ConnectivityTest, templates map[string]string) error {
-	test := check.NewTest("ordered-policy-ns", ct.Params().Verbose, ct.Params().Debug)
-	ct.AddTest(test).
+	test1 := check.NewTest("ordered-policy-ns", ct.Params().Verbose, ct.Params().Debug)
+	ct.AddTest(test1).
 		WithResources(templates["clientIngressToEchoOrderedNS"]).
-		WithCiliumVersion(">=1.17.0 < 1.18.0"). // TODO: update this when main-ce gets ordered policy
+		WithCiliumVersion(">=1.17.0 !1.19.0"). // v1.19.0 didn't have ordered policy
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
 			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
@@ -50,7 +59,7 @@ func (ec *EnterpriseConnectivity) addOrderedPolicyTests(ct *check.ConnectivityTe
 	test2 := check.NewTest("ordered-policy-wildcard", ct.Params().Verbose, ct.Params().Debug)
 	ct.AddTest(test2).
 		WithResources(templates["clientIngressToEchoOrderedWildcard"]).
-		WithCiliumVersion(">=1.17.0 < 1.18.0"). // TODO: update this when main-ce gets ordered policy
+		WithCiliumVersion(">=1.17.0 !1.19.0").
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
 			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
@@ -62,24 +71,67 @@ func (ec *EnterpriseConnectivity) addOrderedPolicyTests(ct *check.ConnectivityTe
 			return check.ResultOK, check.ResultOK
 		})
 
-		// Disabled until https://github.com/cilium/cilium/issues/38840 is resolved.
-		// This test triggers a latent proxylib bug -- not an ordered policy bug.
-		/*
-			test3 := check.NewTest("ordered-policy-portrange", ct.Params().Verbose, ct.Params().Debug)
-			ct.AddTest(test3).
-				WithResources(templates["clientIngressToEchoOrderedPortrange"]).
-				WithCiliumVersion(">=1.17.0 < 1.18.0"). // TODO: update this when versions change
-				WithScenarios(
-					tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
-					tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
-				).
-				WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-					if a.Destination().HasLabel("kind", "echo") && a.Source().HasLabel("name", "client2") {
-						return check.ResultDropCurlTimeout, check.ResultPolicyDenyIngressDrop
-					}
-					return check.ResultOK, check.ResultOK
-				})
-		*/
+	// This test triggered a latent proxylib bug -- not an ordered policy bug.
+	// Proxylib was removed in v1.20
+	test3 := check.NewTest("ordered-policy-portrange", ct.Params().Verbose, ct.Params().Debug)
+	ct.AddTest(test3).
+		WithResources(templates["clientIngressToEchoOrderedPortrange"]).
+		WithCiliumVersion(">=1.20.0").
+		WithScenarios(
+			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
+			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().HasLabel("kind", "echo") && a.Source().HasLabel("name", "client2") {
+				return check.ResultDropCurlTimeout, check.ResultPolicyDenyIngressDrop
+			}
+			return check.ResultOK, check.ResultOK
+		})
+
+	test4 := check.NewTest("tiered-policy-ns", ct.Params().Verbose, ct.Params().Debug)
+	ct.AddTest(test4).
+		WithResources(templates["clientIngressToEchoTieredNS"]).
+		WithCiliumVersion(">=1.20.0").
+		WithScenarios(
+			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
+			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().HasLabel("kind", "echo") && a.Source().HasLabel("name", "client2") {
+				return check.ResultDropCurlTimeout, check.ResultPolicyDenyIngressDrop
+			}
+			return check.ResultOK, check.ResultOK
+		})
+
+	test5 := check.NewTest("tiered-policy-wildcard", ct.Params().Verbose, ct.Params().Debug)
+	ct.AddTest(test5).
+		WithResources(templates["clientIngressToEchoTieredWildcard"]).
+		WithCiliumVersion(">=1.20.0").
+		WithScenarios(
+			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
+			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().HasLabel("kind", "echo") && a.Source().HasLabel("name", "client2") {
+				return check.ResultDropCurlTimeout, check.ResultPolicyDenyIngressDrop
+			}
+			return check.ResultOK, check.ResultOK
+		})
+
+	test6 := check.NewTest("tiered-policy-wildcard-pass", ct.Params().Verbose, ct.Params().Debug)
+	ct.AddTest(test6).
+		WithResources(templates["clientIngressToEchoTieredWildcardPass"]).
+		WithCiliumVersion(">=1.20.0").
+		WithScenarios(
+			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
+			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().HasLabel("kind", "echo") && a.Source().HasLabel("name", "client2") {
+				return check.ResultDropCurlTimeout, check.ResultPolicyDenyIngressDrop
+			}
+			return check.ResultOK, check.ResultOK
+		})
 
 	return nil
 }

@@ -105,4 +105,6 @@ var Tests = []func(t T){
 	TestLBK8sBackendClusterMultiple,
 	TestLBK8sBackendClusterReconnect,
 	TestLBK8sBackendClusterServiceDiscovery,
+	TestLBK8sBackendClusterIPv6OnlyBackend,
+	TestLBK8sBackendClusterDualStackBackend,
 }

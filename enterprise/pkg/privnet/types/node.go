@@ -39,8 +39,8 @@ type Node struct {
 	// IP is the tunnel endpoint address of the given node.
 	IP netip.Addr
 
-	// HealthPort is the TCP port the privnet health server is listening to.
-	HealthPort uint16
+	// APIPort is the TCP port the privnet API server is listening to.
+	APIPort uint16
 
 	// labels are the labels associated with the node. This field is unexported
 	// to enforce the usage of the [ValidAndSelectedBy] helper.
@@ -49,17 +49,17 @@ type Node struct {
 
 // NewNode creates a new Node from a [types.Node] instance, appropriately selecting
 // the tunnel endpoint address based on whether IPv6 underlay is preferred.
-func NewNode(node types.Node, ipv6Underlay bool, defHealthPort uint16) *Node {
+func NewNode(node types.Node, ipv6Underlay bool, defAPIPort uint16) *Node {
 	ip, _ := netip.AddrFromSlice(node.GetNodeIP(ipv6Underlay))
-	port, _ := strconv.ParseUint(node.Annotations[PrivateNetworkINBHealthServerPortAnnotation], 10, 16)
+	port, _ := strconv.ParseUint(node.Annotations[PrivateNetworkINBAPIServerPortAnnotation], 10, 16)
 
 	return &Node{
 		Cluster: ClusterName(node.Cluster),
 		Name:    NodeName(node.Name),
 		labels:  node.Labels,
 
-		IP:         ip.Unmap(),
-		HealthPort: cmp.Or(uint16(port), defHealthPort),
+		IP:      ip.Unmap(),
+		APIPort: cmp.Or(uint16(port), defAPIPort),
 	}
 }
 

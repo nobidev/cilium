@@ -1,0 +1,44 @@
+# Two policies with separate tiers:
+# Normal: allow client to echo
+# Baseline: deny all within namespace
+#
+# This tests the overlapping non-wildcard selector case,
+# where the order is resolved in MapState
+
+apiVersion: isovalent.com/v1
+kind: IsovalentNetworkPolicy
+metadata:
+  name: tier-deny-namespace
+  namespace: "{{.TestNamespace}}"
+  annotations:
+    cli.cilium.io/bump-policy: ""
+specs:
+# Always allow readiness probes
+- endpointSelector: {}
+  ingress:
+    - fromEntities: ["host"]
+  order: 0
+
+- endpointSelector: {}
+  ingress:
+    - fromEndpoints:
+      - matchLabels:
+          name: client
+        matchExpressions:
+          - { key: io.cilium.k8s.policy.cluster, operator: Exists }
+      toPorts:
+        - ports:
+          - port: "8080"
+            protocol: "TCP"
+  tier: Normal 
+
+- endpointSelector: {}
+  ingressDeny:
+    - fromEndpoints:
+      - matchExpressions:
+          - { key: io.cilium.k8s.policy.cluster, operator: Exists }
+      toPorts:
+        - ports:
+          - port: "8080"
+            protocol: "TCP"
+  tier: Baseline

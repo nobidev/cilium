@@ -39,10 +39,10 @@ func TestGRPCRelay(t *testing.T) {
 	inbs.Insert(wtx, tables.INB{
 		Network: "blue",
 		Node: tables.INBNode{
-			Cluster:    "local",
-			Name:       "inb-0",
-			IP:         netip.MustParseAddr("10.0.0.1"),
-			HealthPort: 4242,
+			Cluster: "local",
+			Name:    "inb-0",
+			IP:      netip.MustParseAddr("10.0.0.1"),
+			APIPort: 4242,
 		},
 		Role: tables.INBRoleActive,
 	})
@@ -81,7 +81,7 @@ func TestGRPCRelay(t *testing.T) {
 		},
 		factory: func(target tables.INBNode) (*grpc.ClientConn, error) {
 			require.Equal(t, "local/inb-0", target.String())
-			require.Equal(t, uint16(4242), target.HealthPort)
+			require.Equal(t, uint16(4242), target.APIPort)
 			return grpc.NewClient(
 				"passthrough:///bufnet",
 				grpc.WithTransportCredentials(insecure.NewCredentials()),

@@ -32,10 +32,11 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/enterprise/pkg/vni"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -49,7 +50,7 @@ func mockBPFMapCell(t testing.TB) cell.Cell {
 				pnmaps.PIPMapName, 512000, true,
 				&pnmaps.PIPKeyVal{
 					Key: pnmaps.NewPIPKey(netip.MustParsePrefix("172.16.1.1/32")),
-					Val: pnmaps.NewPIPVal(0xff, netip.MustParseAddr("172.16.2.1"), types.MACAddr{}, 0x1f),
+					Val: pnmaps.NewPIPVal(0xff, netip.MustParseAddr("172.16.2.1")),
 				},
 			),
 			registerFakeBPFMap(
@@ -258,8 +259,13 @@ func (f *fakeBPFMapRegistry) dumpMaps() script.Cmd {
 }
 
 // restoreCIDRIdentities mocks map restoration of the CIDR identity BPF map
-func restoreCIDRIdentities(lifecycle cell.Lifecycle, jg job.Group, db *statedb.DB,
-	fence regeneration.Fence, m pnmaps.Map[*pnmaps.CIDRIdentityKeyVal], queue policy.CIDRQueuer,
+func restoreCIDRIdentities(
+	lifecycle cell.Lifecycle,
+	jg job.Group,
+	db *statedb.DB,
+	restorerPromise promise.Promise[endpointstate.Restorer],
+	m pnmaps.Map[*pnmaps.CIDRIdentityKeyVal],
+	queue policy.CIDRQueuer,
 ) {
 	lifecycle.Append(cell.Hook{
 		OnStart: func(hookCtx cell.HookContext) error {
@@ -293,7 +299,11 @@ func restoreCIDRIdentities(lifecycle cell.Lifecycle, jg job.Group, db *statedb.D
 
 			// Remove restored identities after regeneration
 			jg.Add(job.OneShot("release-restored-cidrs", func(ctx context.Context, _ cell.Health) error {
-				err := fence.Wait(ctx)
+				restorer, err := restorerPromise.Await(ctx)
+				if err != nil {
+					return err
+				}
+				err = restorer.WaitForEndpointRestore(ctx)
 				if err != nil {
 					return err
 				}

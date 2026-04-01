@@ -25,7 +25,7 @@ PRIVNET_CONTAINER_IMAGE ?= docker.io/nicolaka/netshoot:v0.15@sha256:47b907d662d1
 PRIVNET_DNSMASQ_IMAGE ?= docker.io/4km3/dnsmasq:2.90-r3@sha256:52e25fb2601156ab66f6a0872c180b285df7cafaa41267d8d65689f066490641
 
 # renovate: datasource=github-releases depName=cert-manager/cert-manager
-PRIVNET_CERT_MANAGER_VERSION ?= v1.19.4
+PRIVNET_CERT_MANAGER_VERSION ?= v1.20.0
 
 # renovate: datasource=github-releases depName=kubevirt/kubevirt
 PRIVNET_KUBEVIRT_VERSION ?= v1.7.1
@@ -87,6 +87,9 @@ kind-privnet-up: kind-privnet-govmomi-image  ## Setup the privnet environment
 		kubectl --context=kind-privnet-inb0 patch deployment -n kube-system coredns --patch-file=/dev/stdin
 	NAMESERVER=${PRIVNET_DNS_SERVER} envsubst < contrib/testing/privnet/coredns-patch.yaml.tmpl | \
 		kubectl --context=kind-privnet-inb1 patch deployment -n kube-system coredns --patch-file=/dev/stdin
+
+	# Label nodes so that in-cluster ILB can run on them
+	kind get nodes --name privnet-cluster | xargs -IX kubectl --context=kind-privnet-cluster label node X service.cilium.io/node=t1-t2
 
 	$(MAKE) kind-privnet-populate-vcsim
 
@@ -272,6 +275,15 @@ kind-privnet-install-common: kind-privnet-jetstack-repo
 		--set enterprise.privateNetworks.webhook.enabled=true \
 		--set=enterprise.evpn.enabled=true \
 		--set cni.exclusive=false --set cni.confPath=/etc/cni/net.d/delegates \
+		--set=enterprise.loadbalancer.enabled=true \
+		--set=enterprise.bgpControlPlane.enabled=true \
+		--set=enterprise.bgpControlPlane.enableServiceHealthChecking=true \
+		--set=enterprise.bgpControlPlane.nodeMaintenance.withdrawTime=1ms \
+		--set=enterprise.bfd.enabled=true \
+		--set=envoyConfig.enabled=true \
+		--set=bpf.lbAlgorithmAnnotation=true \
+		--set=bpf.lbModeAnnotation=true \
+		--set=loadBalancer.dsrDispatch=ipip \
 		$(KIND_PRIVNET_VALUES_FILES) \
 		--version=
 
@@ -398,6 +410,7 @@ kind-privnet-kubevirt:  ## Deploy kubevirt in the Cilium cluster
 		quay.io/kubevirt/virt-controller:$(PRIVNET_KUBEVIRT_VERSION) $(PRIVNET_VM_IMAGE))
 
 	$(QUIET) kubectl --context kind-privnet-cluster apply -f "https://github.com/kubevirt/kubevirt/releases/download/$(PRIVNET_KUBEVIRT_VERSION)/kubevirt-operator.yaml"
+	$(QUIET) kubectl --context kind-privnet-cluster wait --for=condition=Established --timeout=60s crd/kubevirts.kubevirt.io
 	$(QUIET) kubectl --context kind-privnet-cluster apply -f $(ROOT_DIR)/contrib/testing/privnet/kubevirt.yaml -n kubevirt
 	$(QUIET) kubectl --context kind-privnet-cluster -n kubevirt wait kubevirt/kubevirt --for condition=Available --timeout=300s
 

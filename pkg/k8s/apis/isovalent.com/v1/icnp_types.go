@@ -4,14 +4,13 @@
 package v1
 
 import (
-	"fmt"
+	"errors"
+	"iter"
 	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
-	"github.com/cilium/cilium/pkg/policy/utils"
 )
 
 // +genclient
@@ -77,51 +76,53 @@ type IsovalentClusterwideNetworkPolicyList struct {
 	Items []IsovalentClusterwideNetworkPolicy `json:"items"`
 }
 
+func (r *IsovalentClusterwideNetworkPolicy) rules() iter.Seq[*IsovalentNetworkPolicyRule] {
+	return func(yield func(*IsovalentNetworkPolicyRule) bool) {
+		if r.Spec != nil {
+			if !yield(r.Spec) {
+				return
+			}
+		}
+
+		for _, rule := range r.Specs {
+			if rule != nil {
+				if !yield(rule) {
+					return
+				}
+			}
+		}
+	}
+}
+
+func (r *IsovalentClusterwideNetworkPolicy) Sanitize() error {
+	var errs error
+	if r.ObjectMeta.Name == "" {
+		errs = errors.Join(errs, NewErrParse("IsovalentClusterwideNetworkPolicy must have name"))
+	}
+	if r.ObjectMeta.Namespace != "" {
+		errs = errors.Join(errs, NewErrParse("IsovalentClusterwideNetworkPolicy must not have namespace"))
+	}
+	if r.Spec == nil && r.Specs == nil {
+		errs = errors.Join(errs, ErrEmptyICNP)
+	}
+	for rule := range r.rules() {
+		errs = errors.Join(errs, rule.Sanitize(true))
+	}
+	return errs
+}
+
 // Parse parses an IsovalentClusterwideNetworkPolicy and returns a list of cilium
 // policy rules.
 func (r *IsovalentClusterwideNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (policytypes.PolicyEntries, error) {
-	if r.ObjectMeta.Name == "" {
-		return nil, NewErrParse("IsovalentClusterwideNetworkPolicy must have name")
+	if err := r.Sanitize(); err != nil {
+		return nil, err
+	}
+	out := make(policytypes.PolicyEntries, 0, len(r.Specs)+1)
+
+	for rule := range r.rules() {
+		entries := rule.parseToPolicyEntries(logger, clusterName, r.ObjectMeta)
+		out = append(out, entries...)
 	}
 
-	name := r.ObjectMeta.Name
-	uid := r.ObjectMeta.UID
-
-	retRules := make(policytypes.PolicyEntries, 0, len(r.Specs)+1)
-
-	if r.Spec == nil && r.Specs == nil {
-		return nil, ErrEmptyICNP
-	}
-
-	if r.Spec != nil {
-		if err := r.Spec.Sanitize(); err != nil {
-			return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentClusterwideNetworkPolicy spec: %s", err))
-		}
-		cr := r.Spec.parseToIsovalentNetworkPolicyRule(logger, clusterName, "", name, uid)
-		cre := utils.RulesToPolicyEntries(api.Rules{cr})
-		for _, re := range cre {
-			if r.Spec.Order != nil {
-				re.Priority = float64(*r.Spec.Order)
-			}
-			retRules = append(retRules, re)
-		}
-	}
-	if r.Specs != nil {
-		for _, rule := range r.Specs {
-			if err := rule.Sanitize(); err != nil {
-				return nil, NewErrParse(fmt.Sprintf("Invalid IsovalentClusterwideNetworkPolicy specs: %s", err))
-
-			}
-			cr := rule.parseToIsovalentNetworkPolicyRule(logger, clusterName, "", name, uid)
-			cre := utils.RulesToPolicyEntries(api.Rules{cr})
-			for _, re := range cre {
-				if rule.Order != nil {
-					re.Priority = float64(*rule.Order)
-				}
-				retRules = append(retRules, re)
-			}
-		}
-	}
-
-	return retRules, nil
+	return out, nil
 }

@@ -12,6 +12,7 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -34,6 +35,17 @@ const (
 	// endpoints are announced via gratuitous ARP/ND in bridge mode.
 	FlagBridgeGneighInterval = "private-networks-bridge-gneigh-interval"
 
+	// FlagHostReachability is the flag to allow (remote) host traffic into privnet.
+	FlagHostReachability = "private-networks-host-reachability"
+
+	// FlagHostSNATIPv4 is the flag to configure the link-local IPv4 address used
+	// to SNAT host traffic destined to PrivNet workloads.
+	FlagHostSNATIPv4 = "private-networks-host-snat-ipv4"
+
+	// FlagHostSNATIPv6 is the flag to configure the link-local IPv6 address used
+	// to SNAT host traffic destined to PrivNet workloads.
+	FlagHostSNATIPv6 = "private-networks-host-snat-ipv6"
+
 	// ModeDefault configures private networks to operate in default mode.
 	ModeDefault = "default"
 
@@ -49,18 +61,21 @@ const (
 var (
 	// Cell registers the private networking configuration, and performs validation.
 	Cell = cell.Group(
-		cell.Config(defaultConfig),
-		cell.Invoke(Config.validate),
+		cell.Config(defaultFlags),
+		cell.Provide(NewConfig),
 	)
 
 	DefaultCommon = Common{
 		Enabled: false,
 	}
 
-	defaultConfig = Config{
+	defaultFlags = Flags{
 		Common:               DefaultCommon,
 		Mode:                 ModeDefault,
 		BridgeGneighInterval: 1 * time.Minute,
+		HostReachability:     true,
+		HostSNATIPv4:         "169.254.7.1",
+		HostSNATIPv6:         "fe80::a9fe:701",
 	}
 )
 
@@ -75,21 +90,83 @@ func (def Common) Flags(flags *pflag.FlagSet) {
 	flags.Bool(FlagEnable, def.Enabled, "Enable support for private networks")
 }
 
-// Config groups the private networking configuration.
-type Config struct {
+// Flags groups the private networking agent flags.
+type Flags struct {
 	Common `mapstructure:",squash"`
 
 	Mode                 string        `mapstructure:"private-networks-mode"`
 	BridgeGneighInterval time.Duration `mapstructure:"private-networks-bridge-gneigh-interval"`
+	HostReachability     bool          `mapstructure:"private-networks-host-reachability"`
+	HostSNATIPv4         string        `mapstructure:"private-networks-host-snat-ipv4"`
+	HostSNATIPv6         string        `mapstructure:"private-networks-host-snat-ipv6"`
 }
 
-func (def Config) Flags(flags *pflag.FlagSet) {
+func (def Flags) Flags(flags *pflag.FlagSet) {
 	def.Common.Flags(flags)
 
 	flags.String(FlagMode, def.Mode, fmt.Sprintf("The private networks mode (%q, %q or %q)", ModeDefault, ModeLocalAccess, ModeBridge))
 
 	flags.Duration(FlagBridgeGneighInterval, def.BridgeGneighInterval,
 		fmt.Sprintf("Interval at which workload cluster endpoints are announced using gratuitous ARP/ND in %s or %s mode. Ignored in %s mode.", ModeBridge, ModeLocalAccess, ModeDefault))
+
+	flags.Bool(FlagHostReachability, def.HostReachability, "Allow (remote) host traffic into private networks")
+	flags.MarkHidden(FlagHostReachability)
+
+	flags.String(FlagHostSNATIPv4, def.HostSNATIPv4, "Link-local IPv4 address used to SNAT host traffic to private networks")
+	flags.MarkHidden(FlagHostSNATIPv4)
+	flags.String(FlagHostSNATIPv6, def.HostSNATIPv6, "Link-local IPv6 address used to SNAT host traffic to private networks")
+	flags.MarkHidden(FlagHostSNATIPv6)
+}
+
+// Config is the parsed private networking configuration.
+type Config struct {
+	Enabled              bool
+	Mode                 string
+	BridgeGneighInterval time.Duration
+	HostReachability     bool
+	HostSNATIPv4         netip.Addr
+	HostSNATIPv6         netip.Addr
+}
+
+// NewConfig creates a Config from the parsed Flags.
+func NewConfig(f Flags) (Config, error) {
+	switch f.Mode {
+	case ModeDefault, ModeBridge, ModeLocalAccess:
+	default:
+		return Config{}, fmt.Errorf("invalid private networks mode %q, should be one of: %q, %q, %q",
+			f.Mode, ModeDefault, ModeBridge, ModeLocalAccess)
+	}
+
+	snatIPv4, err := netip.ParseAddr(f.HostSNATIPv4)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid %s: %w", FlagHostSNATIPv4, err)
+	}
+	if !snatIPv4.Is4() {
+		return Config{}, fmt.Errorf("invalid %s: expected an IPv4 address", FlagHostSNATIPv4)
+	}
+	if !snatIPv4.IsLinkLocalUnicast() {
+		return Config{}, fmt.Errorf("invalid %s: expected to be a link-local address", FlagHostSNATIPv4)
+	}
+
+	snatIPv6, err := netip.ParseAddr(f.HostSNATIPv6)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid %s: %w", FlagHostSNATIPv6, err)
+	}
+	if !snatIPv6.Is6() {
+		return Config{}, fmt.Errorf("invalid %s: expected an IPv6 address", FlagHostSNATIPv6)
+	}
+	if !snatIPv6.IsLinkLocalUnicast() {
+		return Config{}, fmt.Errorf("invalid %s: expected to be a link-local address", FlagHostSNATIPv6)
+	}
+
+	return Config{
+		Enabled:              f.Enabled,
+		Mode:                 f.Mode,
+		BridgeGneighInterval: f.BridgeGneighInterval,
+		HostReachability:     f.HostReachability,
+		HostSNATIPv4:         snatIPv4,
+		HostSNATIPv6:         snatIPv6,
+	}, nil
 }
 
 // EnabledAsBridge returns whether private networking is enabled, and configured in bridge mode.
@@ -107,15 +184,4 @@ func (cfg Config) EnabledAsLocalAccess() bool {
 // the node. Currently, INB or a K8s cluster in local access mode can egress via local device.
 func (cfg Config) IsLocallyConnected() bool {
 	return cfg.Enabled && (cfg.Mode == ModeBridge || cfg.Mode == ModeLocalAccess)
-}
-
-func (cfg Config) validate() error {
-	switch cfg.Mode {
-	case ModeDefault, ModeBridge, ModeLocalAccess:
-	default:
-		return fmt.Errorf("invalid private networks mode %q, should be one of: %q, %q, %q",
-			cfg.Mode, ModeDefault, ModeBridge, ModeLocalAccess)
-	}
-
-	return nil
 }

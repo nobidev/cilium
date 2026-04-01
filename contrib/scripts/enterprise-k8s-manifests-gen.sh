@@ -57,6 +57,18 @@ TMPDIR=$(mktemp -d -t cilium.tmpXXXXXXXX)
 go run sigs.k8s.io/controller-tools/cmd/controller-gen ${CRD_OPTIONS} paths="${CRD_PATHS}" output:crd:artifacts:config="${TMPDIR}"
 go run ${SCRIPT_ROOT}/../../tools/crdcheck "${TMPDIR}"
 
+# Hack: IsovalentNetworkPolicy / IsovalentClusterwideNetworkPolicy embeds
+# api.Rule, but adds additional fields. That's fine, but api.Rule has an
+# AnyOf constraint that doesn't match INP / ICNP. So, add the relevant additional
+# fields of egressPass and ingressPass to the AnyOf constraint.
+for name in isovalentclusterwidenetworkpolicies isovalentnetworkpolicies; do
+    file="${TMPDIR}/isovalent.com_${name}.yaml"
+    yq -i '(.spec.versions[] | select (.name=="v1").schema.openAPIV3Schema.properties.spec.anyOf) += {"properties": {"ingressPass": {}}, "required": ["ingressPass"]}' "${file}"
+    yq -i '(.spec.versions[] | select (.name=="v1").schema.openAPIV3Schema.properties.spec.anyOf) += {"properties": {"egressPass": {}}, "required": ["egressPass"]}' "${file}"
+    yq -i '(.spec.versions[] | select (.name=="v1").schema.openAPIV3Schema.properties.specs.items.anyOf) += {"properties": {"ingressPass": {}}, "required": ["ingressPass"]}' "${file}"
+    yq -i '(.spec.versions[] | select (.name=="v1").schema.openAPIV3Schema.properties.specs.items.anyOf) += {"properties": {"egressPass": {}}, "required": ["egressPass"]}' "${file}"
+done
+
 # Clean up old CRD state and start with a blank state.
 for path in ${CRDS_ISOVALENT_PATHS}; do
 	rm -rf "${path}" && mkdir "${path}"

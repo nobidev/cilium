@@ -87,7 +87,7 @@ blue-network   default-v4   0x1  192.168.1.0/24
     "isovalent-privnet-ipv4-addr": "{{.Args.NETWORK_IPV4}}",
     "isovalent-privnet-network": "blue-network",
     "isovalent-privnet-subnet": "default-v4",
-    "property-fake-endpoint": true
+    "property-without-bpf-endpoint": true
   },
   "state": null
 }

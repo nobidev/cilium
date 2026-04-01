@@ -300,7 +300,7 @@ func newCiliumCallsSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Type:       ebpf.ProgramArray,
 		KeySize:    4,
 		ValueSize:  4,
-		MaxEntries: 102,
+		MaxEntries: 104,
 		Flags:      0,
 		Pinning:    ebpf.PinType(16),
 	}
@@ -1452,7 +1452,7 @@ func newCiliumPrivnetPipSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Type:       ebpf.LPMTrie,
 		KeySize:    24,
 		Key:        anyTypeByName(btf, "privnet_pip_key"),
-		ValueSize:  32,
+		ValueSize:  20,
 		Value:      anyTypeByName(btf, "privnet_pip_val"),
 		MaxEntries: 65536,
 		Flags:      unix.BPF_F_NO_PREALLOC,

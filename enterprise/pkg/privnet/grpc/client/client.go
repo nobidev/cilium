@@ -25,7 +25,7 @@ type (
 
 func NewDefaultConnFactory() ConnFactoryFn {
 	return func(target tables.INBNode) (*grpc.ClientConn, error) {
-		return Dial(target.HealthAddress())
+		return Dial(target.APIAddress())
 	}
 }
 
