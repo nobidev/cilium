@@ -257,6 +257,9 @@ type LocalNodeConfiguration struct {
 	KPRConfig kpr.KPRConfig
 
 	SvcRouteConfig svcrouteconfig.RoutesConfig
+
+	// Cilium BPFFS paths
+	BPFFSPaths BPFFSPaths
 }
 
 // DeepEqual compares two LocalNodeConfiguration structs for equality.

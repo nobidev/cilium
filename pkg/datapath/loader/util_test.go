@@ -32,8 +32,8 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 )
 
-var (
-	localNodeConfig = datapath.LocalNodeConfiguration{
+func localNodeConfig(paths *datapath.BPFFSPaths) *datapath.LocalNodeConfiguration {
+	lnc := &datapath.LocalNodeConfiguration{
 		NodeIPv4:            netip.AddrFrom4([4]byte(templateIPv4)),
 		CiliumInternalIPv4:  netip.AddrFrom4([4]byte(templateIPv4)),
 		AllocCIDRIPv4:       cidr.MustParseCIDR("10.147.0.0/16"),
@@ -42,7 +42,13 @@ var (
 		HostEndpointID:      1,
 		EnableIPv4:          true,
 	}
-)
+
+	if paths != nil {
+		lnc.BPFFSPaths = *paths
+	}
+
+	return lnc
+}
 
 func setupCompilationDirectories(tb testing.TB) {
 	option.Config.DryMode = true

@@ -266,5 +266,9 @@ func (in *LocalNodeConfiguration) deepEqual(other *LocalNodeConfiguration) bool 
 		return false
 	}
 
+	if in.BPFFSPaths != other.BPFFSPaths {
+		return false
+	}
+
 	return true
 }

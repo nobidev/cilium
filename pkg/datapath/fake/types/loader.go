@@ -27,7 +27,7 @@ func (f *FakeLoader) EndpointHash(cfg datapath.EndpointConfiguration, _ *datapat
 	panic("implement me")
 }
 
-func (f *FakeLoader) Unload(ep datapath.Endpoint) {
+func (f *FakeLoader) Unload(ep datapath.Endpoint, _ *datapath.LocalNodeConfiguration) {
 }
 
 func (f *FakeLoader) CallsMapPath(id uint16) string {

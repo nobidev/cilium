@@ -21,11 +21,12 @@ func TestWrap(t *testing.T) {
 	realEP := testutils.NewTestEndpoint(t)
 	template := wrap(&realEP)
 	cfg := configWriterForTest(t)
+	lnc := localNodeConfig(nil)
 
 	// Write the configuration that should be the same, and verify it is.
-	err := cfg.WriteTemplateConfig(&realEPBuffer, &localNodeConfig, &realEP)
+	err := cfg.WriteTemplateConfig(&realEPBuffer, lnc, &realEP)
 	require.NoError(t, err)
-	err = cfg.WriteTemplateConfig(&templateBuffer, &localNodeConfig, template)
+	err = cfg.WriteTemplateConfig(&templateBuffer, lnc, template)
 	require.NoError(t, err)
 	require.Equal(t, realEPBuffer.String(), templateBuffer.String())
 }

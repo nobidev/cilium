@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -550,7 +551,7 @@ func removeTCFilters(linkAndFilters map[string][]*netlink.BpfFilter) error {
 
 func removeXDPAttachments(links []netlink.Link) error {
 	for _, link := range links {
-		if err := loader.DetachXDP(link.Attrs().Name, bpf.CiliumPath(), "cil_xdp_entry"); err != nil {
+		if err := loader.DetachXDP(link.Attrs().Name, &datapath.BPFFSPaths{CiliumPath: bpf.CiliumPath()}, "cil_xdp_entry"); err != nil {
 			return err
 		}
 		fmt.Printf("removed cilium xdp of %s\n", link.Attrs().Name)

@@ -379,7 +379,7 @@ func (o *orchestrator) EndpointHash(cfg datapath.EndpointConfiguration) (string,
 
 func (o *orchestrator) Unload(ep datapath.Endpoint) {
 	<-o.dpInitialized
-	o.params.Loader.Unload(ep)
+	o.params.Loader.Unload(ep, o.latestLocalNodeConfig.Load())
 }
 
 func (o *orchestrator) WriteEndpointConfig(w io.Writer, cfg datapath.EndpointConfiguration) error {

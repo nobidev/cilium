@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -192,6 +193,11 @@ func newLocalNodeConfig(
 		MaglevConfig:                 maglevConfig,
 		DatapathIsLayer2:             connectorConfig.GetOperationalMode().IsLayer2(),
 		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
+		BPFFSPaths: datapath.BPFFSPaths{
+			CiliumPath:    bpf.CiliumPath(),
+			TCGlobalsPath: bpf.TCGlobalsPath(),
+			StateDir:      option.Config.StateDir,
+		},
 	}, common.MergeChannels(watchChans...), nil
 }
 

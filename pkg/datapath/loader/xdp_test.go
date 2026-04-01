@@ -19,6 +19,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -28,7 +29,7 @@ func TestPrivilegedMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
-	basePath := testutils.TempBPFFS(t)
+	paths := datapath.BPFFSPaths{CiliumPath: testutils.TempBPFFS(t)}
 	prog := mustXDPProgram(t, symbolFromHostNetdevXDP)
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{Name: "veth"},
@@ -39,9 +40,9 @@ func TestPrivilegedMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 	ns.Do(func() error {
 		require.NoError(t, netlink.LinkAdd(veth))
 
-		loLinkPath := bpffsDeviceLinksDir(basePath, lo)
+		loLinkPath := paths.DeviceLinksDir(lo)
 		require.NoError(t, bpf.MkdirBPF(loLinkPath))
-		vethLinkPath := bpffsDeviceLinksDir(basePath, veth)
+		vethLinkPath := paths.DeviceLinksDir(veth)
 		require.NoError(t, bpf.MkdirBPF(vethLinkPath))
 
 		// need to use symbolFromHostNetdevXDP as progName here as maybeUnloadObsoleteXDPPrograms explicitly uses that name.
@@ -49,7 +50,7 @@ func TestPrivilegedMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 		require.NoError(t, attachXDPProgram(logger, veth, prog, symbolFromHostNetdevXDP, vethLinkPath, link.XDPGenericMode))
 
 		// Clean up all interfaces except lo.
-		maybeUnloadObsoleteXDPPrograms(logger, []string{lo.Attrs().Name}, option.XDPModeLinkGeneric, basePath)
+		maybeUnloadObsoleteXDPPrograms(logger, []string{lo.Attrs().Name}, option.XDPModeLinkGeneric, &paths)
 
 		// Wait for veth to be detached.
 		require.NoError(t, testutils.WaitUntil(func() bool {
@@ -125,8 +126,8 @@ func TestPrivilegedAttachXDPWithExistingLink(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, l.Close())
 
-		basePath := testutils.TempBPFFS(t)
-		pinDir := bpffsDeviceLinksDir(basePath, lo)
+		paths := datapath.BPFFSPaths{CiliumPath: testutils.TempBPFFS(t)}
+		pinDir := paths.DeviceLinksDir(lo)
 		require.NoError(t, bpf.MkdirBPF(pinDir))
 
 		// At this point, we know bpf_link is supported, so attachXDPProgram should
@@ -137,7 +138,7 @@ func TestPrivilegedAttachXDPWithExistingLink(t *testing.T) {
 		require.NoError(t, attachXDPProgram(logger, lo, prog, "test", pinDir, link.XDPGenericMode))
 
 		// Detach the program.
-		require.NoError(t, DetachXDP(lo.Attrs().Name, basePath, "test"))
+		require.NoError(t, DetachXDP(lo.Attrs().Name, &paths, "test"))
 
 		return nil
 	})
@@ -150,16 +151,16 @@ func TestPrivilegedDetachXDPWithPreviousAttach(t *testing.T) {
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
 		prog := mustXDPProgram(t, "test")
-		basePath := testutils.TempBPFFS(t)
+		paths := datapath.BPFFSPaths{CiliumPath: testutils.TempBPFFS(t)}
 
 		require.NoError(t, netlink.LinkSetXdpFdWithFlags(lo, prog.FD(), int(link.XDPGenericMode)))
 		require.True(t, getLink(t, lo).Attrs().Xdp.Attached)
 
 		// Detach with the wrong name, leaving the program attached.
-		require.NoError(t, DetachXDP(lo.Attrs().Name, basePath, "foo"))
+		require.NoError(t, DetachXDP(lo.Attrs().Name, &paths, "foo"))
 		require.True(t, getLink(t, lo).Attrs().Xdp.Attached)
 
-		require.NoError(t, DetachXDP(lo.Attrs().Name, basePath, "test"))
+		require.NoError(t, DetachXDP(lo.Attrs().Name, &paths, "test"))
 		require.False(t, getLink(t, lo).Attrs().Xdp.Attached)
 
 		return nil

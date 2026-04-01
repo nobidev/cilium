@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -57,18 +58,16 @@ func initEndpoint(tb testing.TB, ep *testutils.TestEndpoint) {
 	}
 }
 
-func initBpffs(tb testing.TB) {
+func initBpffs(tb testing.TB) *datapath.BPFFSPaths {
 	testutils.PrivilegedTest(tb)
 
 	tb.Helper()
 
-	require.NoError(tb, bpf.MkdirBPF(bpf.TCGlobalsPath()))
-	require.NoError(tb, bpf.MkdirBPF(bpf.CiliumPath()))
-
-	tb.Cleanup(func() {
-		require.NoError(tb, os.RemoveAll(bpf.TCGlobalsPath()))
-		require.NoError(tb, os.RemoveAll(bpf.CiliumPath()))
-	})
+	return &datapath.BPFFSPaths{
+		CiliumPath:    testutils.TempBPFFS(tb),
+		TCGlobalsPath: testutils.TempBPFFS(tb),
+		StateDir:      tb.TempDir(),
+	}
 }
 
 func getDirs(tb testing.TB) *directoryInfo {
@@ -90,14 +89,12 @@ func getEpDirs(ep *testutils.TestEndpoint) *directoryInfo {
 }
 
 func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
-	initBpffs(t)
-
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 	stats := &metrics.SpanStat{}
 
 	l := newTestLoader(t)
-	_, err := l.ReloadDatapath(ctx, ep, &localNodeConfig, stats)
+	_, err := l.ReloadDatapath(ctx, ep, localNodeConfig(initBpffs(t)), stats)
 	require.NoError(t, err)
 }
 
@@ -173,11 +170,12 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	}()
 
 	l := newTestLoader(t)
+	lnc := localNodeConfig(initBpffs(t))
 	timeout := time.Now().Add(contextTimeout)
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		_, err = l.ReloadDatapath(ctx, ep, &localNodeConfig, stats)
+		_, err = l.ReloadDatapath(ctx, ep, lnc, stats)
 	}
 	require.Error(t, err)
 }

@@ -16,7 +16,7 @@ import (
 // Loader is an interface to abstract out loading of datapath programs.
 type Loader interface {
 	CallsMapPath(id uint16) string
-	Unload(ep Endpoint)
+	Unload(ep Endpoint, cfg *LocalNodeConfiguration)
 	HostDatapathInitialized() <-chan struct{}
 
 	ReloadDatapath(ctx context.Context, ep Endpoint, cfg *LocalNodeConfiguration, stats *metrics.SpanStat) (string, error)

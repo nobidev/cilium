@@ -44,19 +44,20 @@ func TestHashEndpoint(t *testing.T) {
 	var base datapathHash
 	ep := testutils.NewTestEndpoint(t)
 	cfg := configWriterForTest(t)
+	lnc := localNodeConfig(nil)
 
 	// Error from ConfigWriter is forwarded.
 	_, err := base.hashEndpoint(fakeConfigWriter{}, nil, nil)
 	require.Error(t, err)
 
 	// Hashing the endpoint gives a hash distinct from the base.
-	a, err := base.hashEndpoint(cfg, &localNodeConfig, &ep)
+	a, err := base.hashEndpoint(cfg, lnc, &ep)
 	require.NoError(t, err)
 	require.NotEqual(t, base.String(), a)
 
 	// When we configure the endpoint differently, it's different
 	ep.Opts.SetBool("foo", true)
-	b, err := base.hashEndpoint(cfg, &localNodeConfig, &ep)
+	b, err := base.hashEndpoint(cfg, lnc, &ep)
 	require.NoError(t, err)
 	require.NotEqual(t, a, b)
 }
@@ -65,13 +66,14 @@ func TestHashTemplate(t *testing.T) {
 	var base datapathHash
 	ep := testutils.NewTestEndpoint(t)
 	cfg := configWriterForTest(t)
+	lnc := localNodeConfig(nil)
 
 	// Error from ConfigWriter is forwarded.
 	_, err := base.hashTemplate(fakeConfigWriter{}, nil, nil)
 	require.Error(t, err)
 
 	// Hashing the endpoint gives a hash distinct from the base.
-	a, err := base.hashTemplate(cfg, &localNodeConfig, &ep)
+	a, err := base.hashTemplate(cfg, lnc, &ep)
 	require.NoError(t, err)
 	require.NotEqual(t, base.String(), a)
 
@@ -80,7 +82,7 @@ func TestHashTemplate(t *testing.T) {
 	// This is the key to avoiding recompilation per endpoint; static
 	// data substitution is performed via pkg/elf instead.
 	ep.Id++
-	b, err := base.hashTemplate(cfg, &localNodeConfig, &ep)
+	b, err := base.hashTemplate(cfg, lnc, &ep)
 	require.NoError(t, err)
 	require.Equal(t, a, b)
 }
