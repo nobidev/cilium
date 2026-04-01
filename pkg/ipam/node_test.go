@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/cilium/cilium/pkg/defaults"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/time"
@@ -109,4 +111,50 @@ func TestSyncToAPIServerForNonExistingNode(t *testing.T) {
 	node.updateLogger()
 
 	require.NoError(t, node.syncToAPIServer())
+}
+
+func TestPoolRequestedIPv4(t *testing.T) {
+	t.Run("returns demand from default pool", func(t *testing.T) {
+		cn := &v2.CiliumNode{}
+		cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
+			{
+				Pool:   defaults.IPAMDefaultIPPool,
+				Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 24},
+			},
+		}
+		requested, ok := poolRequestedIPv4(cn)
+		require.True(t, ok)
+		require.Equal(t, 24, requested)
+	})
+
+	t.Run("returns false when no Requested entries", func(t *testing.T) {
+		cn := &v2.CiliumNode{}
+		_, ok := poolRequestedIPv4(cn)
+		require.False(t, ok)
+	})
+
+	t.Run("returns false when default pool not in Requested", func(t *testing.T) {
+		cn := &v2.CiliumNode{}
+		cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
+			{
+				Pool:   "other-pool",
+				Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 10},
+			},
+		}
+		_, ok := poolRequestedIPv4(cn)
+		require.False(t, ok)
+	})
+
+	t.Run("returns zero demand when agent requests zero", func(t *testing.T) {
+		cn := &v2.CiliumNode{}
+		cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
+			{
+				Pool:   defaults.IPAMDefaultIPPool,
+				Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 0},
+			},
+		}
+		requested, ok := poolRequestedIPv4(cn)
+		require.True(t, ok)
+		require.Equal(t, 0, requested)
+	})
 }
