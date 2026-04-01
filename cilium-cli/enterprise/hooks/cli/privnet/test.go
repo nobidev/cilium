@@ -41,6 +41,7 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/cli/docker"
 	enterpriseK8s "github.com/cilium/cilium/cilium-cli/enterprise/hooks/k8s"
 	"github.com/cilium/cilium/cilium-cli/enterprise/hooks/utils"
 	"github.com/cilium/cilium/cilium-cli/k8s"
@@ -80,6 +81,7 @@ type TestRun struct {
 	params     Params
 	client     *enterpriseK8s.EnterpriseClient
 	inbClients []*enterpriseK8s.EnterpriseClient
+	docker     *docker.Client
 	log        *slog.Logger
 
 	families       []features.IPFamily
@@ -551,7 +553,12 @@ func (t *TestRun) VirtLauncherPodForVM(vm VM) *corev1.Pod {
 	return t.pod[vm.Name]
 }
 
-func (t *TestRun) SetupAndValidate(ctx context.Context) error {
+func (t *TestRun) SetupAndValidate(ctx context.Context) (err error) {
+	t.docker, err = docker.NewClient()
+	if err != nil {
+		return err
+	}
+
 	if err := t.retrieveCiliumConfig(ctx); err != nil {
 		return fmt.Errorf("failed retrieving Cilium configuration: %w", err)
 	}

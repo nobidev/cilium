@@ -11,11 +11,7 @@
 package privnet
 
 import (
-	"context"
 	"errors"
-	"io"
-
-	"github.com/cilium/cilium/pkg/command/exec"
 )
 
 func extractExitCode(err error) (exitCode int, ok bool) {
@@ -44,14 +40,4 @@ func curlCmd(destination string) []string {
 	return []string{
 		"curl", "--silent", "--fail", "--show-error", "--connect-timeout", "2", "--max-time", "10", destination,
 	}
-}
-
-func dockerExec(ctx context.Context, container string, command []string, stdout, stderr io.Writer) error {
-	args := append([]string{"exec", container}, command...)
-
-	cmd := exec.CommandContext(ctx, "docker", args...)
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-
-	return cmd.Run()
 }
