@@ -25,6 +25,14 @@ type Client struct {
 	*docker_client.Client
 }
 
+type ExitError struct {
+	Err  error
+	Code int
+}
+
+func (e ExitError) Error() string { return e.Err.Error() }
+func (e ExitError) ExitCode() int { return e.Code }
+
 func NewClient() (*Client, error) {
 	cli, err := docker_client.NewClientWithOpts(docker_client.FromEnv)
 	if err != nil {
@@ -45,7 +53,7 @@ func (c *Client) ContainerExec(ctx context.Context, name string, cmds []string) 
 
 	execID, err := c.ContainerExecCreate(ctx, name, execConfig)
 	if err != nil {
-		return "", "", nil
+		return "", "", err
 	}
 
 	resp, err := c.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
@@ -65,7 +73,10 @@ func (c *Client) ContainerExec(ctx context.Context, name string, cmds []string) 
 	}
 
 	if inspect.ExitCode != 0 {
-		return stdout.String(), stderr.String(), fmt.Errorf("cmd failed: %d", inspect.ExitCode)
+		return stdout.String(), stderr.String(), ExitError{
+			Err:  fmt.Errorf("cmd failed: %d", inspect.ExitCode),
+			Code: inspect.ExitCode,
+		}
 	}
 
 	return stdout.String(), stderr.String(), err
