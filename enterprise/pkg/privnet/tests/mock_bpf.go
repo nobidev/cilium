@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 
+	"github.com/cilium/cilium/enterprise/pkg/maps/extepspolicy"
 	pnmaps "github.com/cilium/cilium/enterprise/pkg/maps/privnet"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/policy"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
@@ -113,6 +114,9 @@ func mockBPFMapCell(t testing.TB) cell.Cell {
 					false,
 				)(f)
 			},
+			registerFakeBPFMap[*extepspolicy.KeyVal](
+				extepspolicy.MapName, 128, true,
+			),
 		),
 
 		cell.Invoke(restoreCIDRIdentities),

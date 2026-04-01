@@ -11,6 +11,7 @@
 package extepspolicy
 
 import (
+	"encoding"
 	"fmt"
 	"strconv"
 	"unsafe"
@@ -44,6 +45,27 @@ type Value struct {
 
 func (v *Value) New() bpf.MapValue { return &Value{} }
 func (v *Value) String() string    { return fmt.Sprintf("fd=%d", v.Fd) }
+
+type KeyVal struct {
+	Key Key
+	Val Value
+}
+
+func (k *KeyVal) BinaryKey() encoding.BinaryMarshaler {
+	return bpf.StructBinaryMarshaler{Target: &k.Key}
+}
+
+func (k *KeyVal) BinaryValue() encoding.BinaryMarshaler {
+	return bpf.StructBinaryMarshaler{Target: &k.Val}
+}
+
+func (k *KeyVal) MapKey() bpf.MapKey {
+	return &k.Key
+}
+
+func (k *KeyVal) MapValue() bpf.MapValue {
+	return &k.Val
+}
 
 type extEpsPolMap struct {
 	m       *bpf.Map
