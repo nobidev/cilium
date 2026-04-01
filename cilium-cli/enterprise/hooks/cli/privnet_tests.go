@@ -45,7 +45,10 @@ func newClient(params cli.RootParameters) (*enterpriseK8s.EnterpriseClient, erro
 }
 
 func newCmdPrivNetTest() *cobra.Command {
-	var params privnet.Params
+	var (
+		params              privnet.Params
+		printImageArtifacts bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "test",
@@ -53,6 +56,12 @@ func newCmdPrivNetTest() *cobra.Command {
 		Long:  "",
 		RunE: func(c *cobra.Command, _ []string) error {
 			params.CiliumNamespace = cli.RootParams.Namespace
+
+			// Output the image artifacts and exit.
+			if printImageArtifacts {
+				fmt.Println(params.VMImage)
+				return nil
+			}
 
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer cancel()
@@ -301,6 +310,7 @@ func newCmdPrivNetTest() *cobra.Command {
 	cmd.Flags().StringSliceVar(&params.INBContexts, "inb-contexts", nil, "List of Kubernetes contexts of the Isovalent Network Bridges")
 	cmd.Flags().StringVar(&params.VMImage, "vm-image", enterpriseDefaults.PrivnetTestImages["VMImage"], "Name of the VM image")
 	cmd.Flags().StringVar(&params.ForkliftPlanName, "forklift-plan-name", "mock", "Name of the forklift/MTV plan")
+	cmd.Flags().BoolVar(&printImageArtifacts, "print-image-artifacts", false, "Prints the used image artifacts and exits")
 
 	return cmd
 }

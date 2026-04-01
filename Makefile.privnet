@@ -23,7 +23,7 @@ PRIVNET_CILIUM_CLI_IMAGE ?= quay.io/isovalent/cilium-cli:$(PRIVNET_CILIUM_CLI_VE
 PRIVNET_KIND_IMAGE ?=
 PRIVNET_GOVMOMI_IMAGE ?= $(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/govmomi:$(LOCAL_IMAGE_TAG)
 PRIVNET_ENVOY_IMAGE = $(shell yq '.envoy.image | .repository + ":" + .tag' install/kubernetes/cilium/values.yaml)
-PRIVNET_VM_IMAGE ?= $(shell grep -oP '"VMImage": "\K.*(?=@)' cilium-cli/enterprise/defaults/defaults.go)
+PRIVNET_VM_IMAGE ?=
 
 # renovate: datasource=docker
 PRIVNET_CONTAINER_IMAGE ?= docker.io/nicolaka/netshoot:v0.15@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61
@@ -409,12 +409,11 @@ kind-privnet-kubevirt:  ## Deploy kubevirt in the Cilium cluster
 	$(call privnet_pull_image,"quay.io/kubevirt/virt-handler:$(PRIVNET_KUBEVIRT_VERSION)")
 	$(call privnet_pull_image,"quay.io/kubevirt/virt-launcher:$(PRIVNET_KUBEVIRT_VERSION)")
 	$(call privnet_pull_image,"quay.io/kubevirt/virt-operator:$(PRIVNET_KUBEVIRT_VERSION)")
-	$(call privnet_pull_image,"$(PRIVNET_VM_IMAGE)")
 
 	$(call privnet_load_images,privnet-cluster, \
 		quay.io/kubevirt/virt-launcher:$(PRIVNET_KUBEVIRT_VERSION) quay.io/kubevirt/virt-api:$(PRIVNET_KUBEVIRT_VERSION) \
 		quay.io/kubevirt/virt-operator:$(PRIVNET_KUBEVIRT_VERSION) quay.io/kubevirt/virt-handler:$(PRIVNET_KUBEVIRT_VERSION) \
-		quay.io/kubevirt/virt-controller:$(PRIVNET_KUBEVIRT_VERSION) $(PRIVNET_VM_IMAGE))
+		quay.io/kubevirt/virt-controller:$(PRIVNET_KUBEVIRT_VERSION))
 
 	$(QUIET) kubectl --context kind-privnet-cluster apply -f "https://github.com/kubevirt/kubevirt/releases/download/$(PRIVNET_KUBEVIRT_VERSION)/kubevirt-operator.yaml"
 	$(QUIET) kubectl --context kind-privnet-cluster wait --for=condition=Established --timeout=60s crd/kubevirts.kubevirt.io
@@ -467,18 +466,36 @@ kind-privnet-deploy-external-endpoints: kind-privnet-test-namespace  ## Create t
 	$(call privnet_inb_extep,"privnet-vm-net-c1","network-c","kind-privnet-inb1")
 	$(call privnet_inb_extep,"privnet-vm-net-d1","network-d","kind-privnet-inb1")
 
+define kind_privnet_test_run_load_image
+	$(call privnet_pull_image,$(1))
+	$(call privnet_load_images,privnet-cluster,$(1))
+endef
+
+define kind_privnet_test_run_load_images
+	$(foreach image,$(shell $(1) privnet test --print-image-artifacts $(if $(strip $(PRIVNET_VM_IMAGE)),--vm-image=$(PRIVNET_VM_IMAGE),)), \
+		$(call kind_privnet_test_run_load_image,$(shell echo $(image) | cut --field 1 --delimiter @))
+	)
+endef
+
 .PHONY: kind-privnet-test-run-local
 kind-privnet-test-run-local:
 	[ -n "$(PRIVNET_CILIUM_CLI_PATH)" ] || $(MAKE) -C cilium-cli
+
+	$(call kind_privnet_test_run_load_images,$(or $(PRIVNET_CILIUM_CLI_PATH),./cilium-cli/cilium))
 
 	$(or $(PRIVNET_CILIUM_CLI_PATH),./cilium-cli/cilium) \
 		--context=kind-privnet-cluster \
 		--inb-contexts=kind-privnet-inb0,kind-privnet-inb1 \
 		--test-namespace=$(PRIVNET_TEST_NAMESPACE) \
+		$(if $(strip $(PRIVNET_VM_IMAGE)),--vm-image=$(PRIVNET_VM_IMAGE),) \
 		privnet test
 
 .PHONY: kind-privnet-test-run-docker
 kind-privnet-test-run-docker:
+	$(call kind_privnet_test_run_load_images, \
+		docker run --rm --entrypoint=/usr/local/bin/cilium $(PRIVNET_CILIUM_CLI_IMAGE) \
+	)
+
 	docker run --rm \
 		--network host \
 		--volume "$(or $(KUBECONFIG),${HOME}/.kube/config):/root/.kube/config:ro" \
@@ -487,6 +504,7 @@ kind-privnet-test-run-docker:
 		$(PRIVNET_CILIUM_CLI_IMAGE) \
 		--inb-contexts=kind-privnet-inb0,kind-privnet-inb1 \
 		--test-namespace=$(PRIVNET_TEST_NAMESPACE) \
+		$(if $(strip $(PRIVNET_VM_IMAGE)),--vm-image=$(PRIVNET_VM_IMAGE),) \
 		privnet test
 
 .PHONY: kind-privnet-test-run
