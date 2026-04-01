@@ -33,6 +33,6 @@ var (
 
 	PrivnetTestImages = map[string]string{
 		// renovate: datasource=docker
-		"VMImage": "quay.io/kubevirt/alpine-with-test-tooling-container-disk:v1.7.2@sha256:3189d81129c59432a13c612a69e87702620d554a859bfce7fd8026f05f00ba61",
+		"VMImage": "quay.io/kubevirt/alpine-with-test-tooling-container-disk:v1.8.1@sha256:814999dc874b6bc34ac2d809779cb92301cdb1f8a6fc100ce9eb386482b5d1df",
 	}
 )
