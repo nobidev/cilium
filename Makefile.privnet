@@ -13,6 +13,13 @@
 CONTAINERLAB ?= containerlab
 GOVC ?= $(CONTAINER_ENGINE) exec privnet-vcsim govc
 
+PRIVNET_CILIUM_CLI_PATH ?=
+PRIVNET_CILIUM_CLI_VERSION ?= $(or \
+	$(shell grep -oP 'CILIUM_CLI_VERSION="\K.*(?=")' .github/actions/set-env-variables/enterprise-overrides.sh 2>/dev/null), \
+	$(shell curl --silent https://api.github.com/repos/isovalent/cilium-cli-releases/releases/latest 2>/dev/null | jq --raw-output .tag_name) \
+)
+PRIVNET_CILIUM_CLI_IMAGE ?= quay.io/isovalent/cilium-cli:$(PRIVNET_CILIUM_CLI_VERSION)
+
 PRIVNET_KIND_IMAGE ?=
 PRIVNET_GOVMOMI_IMAGE ?= $(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/govmomi:$(LOCAL_IMAGE_TAG)
 PRIVNET_ENVOY_IMAGE = $(shell yq '.envoy.image | .repository + ":" + .tag' install/kubernetes/cilium/values.yaml)
@@ -460,14 +467,35 @@ kind-privnet-deploy-external-endpoints: kind-privnet-test-namespace  ## Create t
 	$(call privnet_inb_extep,"privnet-vm-net-c1","network-c","kind-privnet-inb1")
 	$(call privnet_inb_extep,"privnet-vm-net-d1","network-d","kind-privnet-inb1")
 
-.PHONY: kind-privnet-test-run
-kind-privnet-test-run:  ## Run the connectivity tests
-	$(MAKE) -C cilium-cli
+.PHONY: kind-privnet-test-run-local
+kind-privnet-test-run-local:
+	[ -n "$(PRIVNET_CILIUM_CLI_PATH)" ] || $(MAKE) -C cilium-cli
 
-	./cilium-cli/cilium --context=kind-privnet-cluster \
+	$(or $(PRIVNET_CILIUM_CLI_PATH),./cilium-cli/cilium) \
+		--context=kind-privnet-cluster \
 		--inb-contexts=kind-privnet-inb0,kind-privnet-inb1 \
 		--test-namespace=$(PRIVNET_TEST_NAMESPACE) \
 		privnet test
+
+.PHONY: kind-privnet-test-run-docker
+kind-privnet-test-run-docker:
+	docker run --rm \
+		--network host \
+		--volume "$(or $(KUBECONFIG),${HOME}/.kube/config):/root/.kube/config:ro" \
+		--volume "/var/run/docker.sock:/var/run/docker.sock:ro" \
+		--entrypoint=/usr/local/bin/cilium \
+		$(PRIVNET_CILIUM_CLI_IMAGE) \
+		--inb-contexts=kind-privnet-inb0,kind-privnet-inb1 \
+		--test-namespace=$(PRIVNET_TEST_NAMESPACE) \
+		privnet test
+
+.PHONY: kind-privnet-test-run
+kind-privnet-test-run:  ## Run the connectivity tests
+	@if [[ -n "$(PRIVNET_CILIUM_CLI_PATH)" || -f cilium-cli/Makefile ]]; then \
+		$(MAKE) kind-privnet-test-run-local; \
+	else \
+		$(MAKE) kind-privnet-test-run-docker; \
+	fi
 
 .PHONY: kind-privnet-test
 kind-privnet-test: kind-privnet-deploy-external-endpoints kind-privnet-deploy-forklift-resources kind-privnet-test-run  ## Setup the dependencies and run the connectivity tests
