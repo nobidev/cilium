@@ -1,5 +1,7 @@
-# NOTE: Keep in sync with the copy used during testbed creation and stored
-# in contrib/testing/privnet/mock-inventory.py.
+# NOTE: Keep in sync with the copy used by the Cilium CLI tests and stored
+# in cilium-cli/enterprise/hooks/cli/privnet/manifests/vm-echo-script.py
+# We have two separate copies to account for the deletion of the cilium-cli
+# directory in stable branches.
 
 import os
 import json

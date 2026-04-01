@@ -73,7 +73,7 @@ kind-privnet-up: kind-privnet-govmomi-image  ## Setup the privnet environment
 		PRIVNET_DNSMASQ_IMAGE=$(PRIVNET_DNSMASQ_IMAGE) \
 		PRIVNET_GOVMOMI_IMAGE=$(PRIVNET_GOVMOMI_IMAGE) \
 		PRIVNET_DNS_SERVER=$(PRIVNET_DNS_SERVER) \
-		PRIVNET_FAKE_VM_SCRIPT=$(ROOT_DIR)/cilium-cli/enterprise/hooks/cli/privnet/manifests/vm-echo-script.py \
+		PRIVNET_FAKE_VM_SCRIPT=$(ROOT_DIR)/contrib/testing/privnet/vm-echo-script.py \
 		PRIVNET_INVENTORY_SCRIPT=$(ROOT_DIR)/contrib/testing/privnet/mock-inventory.py \
 			$(CONTAINERLAB) deploy \
 				--network=privnet --ipv4-subnet=172.128.0.0/16 --ipv6-subnet=fc00:128::/64 \
