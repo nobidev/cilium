@@ -87,7 +87,7 @@ func Enable(logger *slog.Logger, reg *registry.MapRegistry,
 		MapRegistry: reg,
 		Constants:   cfg,
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath(bpffs.BPFFSRoot())},
+			Maps: ebpf.MapOptions{PinPath: lnc.BPFFS.TCGlobalsPath()},
 		},
 		ConfigDumpPath: configDumpPath,
 	})

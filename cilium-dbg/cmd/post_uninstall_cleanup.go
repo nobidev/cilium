@@ -16,6 +16,7 @@ import (
 
 	bpffs "github.com/cilium/cilium/pkg/bpf/fs"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -550,7 +551,7 @@ func removeTCFilters(linkAndFilters map[string][]*netlink.BpfFilter) error {
 
 func removeXDPAttachments(links []netlink.Link) error {
 	for _, link := range links {
-		if err := loader.DetachXDP(link.Attrs().Name, bpffs.CiliumPath(bpffs.BPFFSRoot()), "cil_xdp_entry"); err != nil {
+		if err := loader.DetachXDP(link.Attrs().Name, &config.BPFFS{Root: bpffs.BPFFSRoot()}, "cil_xdp_entry"); err != nil {
 			return err
 		}
 		fmt.Printf("removed cilium xdp of %s\n", link.Attrs().Name)

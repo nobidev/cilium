@@ -116,7 +116,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *
 }
 
 // Unload removes the datapath specific program aspects
-func (l *loader) Unload(ep endpoint.Endpoint) {
+func (l *loader) Unload(ep endpoint.Endpoint, lnc *config.Config) {
 	if ep.RequireEndpointRoute() {
 		if ip := ep.IPv4Address(); ip.IsValid() {
 			removeEndpointRoute(ep, l.routeManager)
@@ -155,17 +155,17 @@ func (l *loader) Unload(ep endpoint.Endpoint) {
 
 	// Remove the links directory first to avoid removing program arrays before
 	// the entrypoints are detached.
-	if err := bpffs.Remove(bpffsEndpointLinksDir(bpffs.CiliumPath(bpffs.BPFFSRoot()), ep)); err != nil {
+	if err := bpffs.Remove(lnc.BPFFS.EndpointLinksDir(ep)); err != nil {
 		log.Error("Failed to remove bpffs entry",
 			logfields.Error, err,
-			logfields.BPFFSEndpointLinksDir, bpffsEndpointLinksDir(bpffs.CiliumPath(bpffs.BPFFSRoot()), ep),
+			logfields.BPFFSEndpointLinksDir, lnc.BPFFS.EndpointLinksDir(ep),
 		)
 	}
 	// Finally, remove the endpoint's top-level directory.
-	if err := bpffs.Remove(bpffsEndpointDir(bpffs.CiliumPath(bpffs.BPFFSRoot()), ep)); err != nil {
+	if err := bpffs.Remove(lnc.BPFFS.EndpointDir(ep)); err != nil {
 		log.Error("Failed to remove bpffs entry",
 			logfields.Error, err,
-			logfields.BPFFSEndpointDir, bpffsEndpointDir(bpffs.CiliumPath(bpffs.BPFFSRoot()), ep),
+			logfields.BPFFSEndpointDir, lnc.BPFFS.EndpointDir(ep),
 		)
 	}
 }
@@ -201,7 +201,7 @@ func reloadEndpoint(logger *slog.Logger, reg *registry.MapRegistry, db *statedb.
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		MapRegistry: reg,
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath(bpffs.BPFFSRoot())},
+			Maps: ebpf.MapOptions{PinPath: lnc.BPFFS.TCGlobalsPath()},
 		},
 		Constants:      endpointConfiguration(ep, lnc),
 		MapRenames:     endpointMapRenames(ep, lnc),
@@ -232,7 +232,7 @@ func reloadEndpoint(logger *slog.Logger, reg *registry.MapRegistry, db *statedb.
 		return fmt.Errorf("retrieving device %s: %w", device, err)
 	}
 
-	linkDir := bpffsEndpointLinksDir(bpffs.CiliumPath(bpffs.BPFFSRoot()), ep)
+	linkDir := lnc.BPFFS.EndpointLinksDir(ep)
 	if err := attachSKBProgram(logger, iface, obj.FromContainer, symbolFromEndpoint,
 		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", device, err)

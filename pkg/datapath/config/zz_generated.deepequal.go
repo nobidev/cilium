@@ -273,5 +273,9 @@ func (in *Config) deepEqual(other *Config) bool {
 		}
 	}
 
+	if in.BPFFS != other.BPFFS {
+		return false
+	}
+
 	return true
 }
