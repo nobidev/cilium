@@ -64,7 +64,7 @@ func TestPrivilegedBroadcastRelay(t *testing.T) {
 		return veth1.Attrs().Index, []*dhcpv4.DHCPv4{resp, resp2}, nil
 	}
 
-	srv, err := NewServer(hivetest.Logger(t), ns, veth1.Attrs().Name, handler)
+	srv, err := NewServer(hivetest.Logger(t), DefaultConfig, ns, veth1.Attrs().Name, handler)
 	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(func() {

@@ -56,7 +56,7 @@ func TestPrivilegedDHCPServerInNetNS(t *testing.T) {
 	}
 
 	// Start the DHCP server on veth0
-	srv, err := NewServer(hivetest.Logger(t), ns, veth0.Attrs().Name, handler)
+	srv, err := NewServer(hivetest.Logger(t), DefaultConfig, ns, veth0.Attrs().Name, handler)
 	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(func() {

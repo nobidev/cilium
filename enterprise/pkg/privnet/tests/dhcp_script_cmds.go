@@ -515,7 +515,7 @@ func (s *dhcpScriptState) cmdDHCPServerStart() script.Cmd {
 				resps, err := relay.Relay(context.Background(), 250*time.Millisecond, req)
 				return ifindex, resps, err
 			}
-			srv, err := dhcp.NewServer(s.log, targetNS, ifaceName, handler)
+			srv, err := dhcp.NewServer(s.log, dhcp.DefaultConfig, targetNS, ifaceName, handler)
 			if err != nil {
 				return nil, err
 			}

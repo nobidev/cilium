@@ -56,7 +56,7 @@ var Cell = cell.Module(
 	"private-network-dhcp",
 	"DHCP support for Private Networks",
 
-	cell.Config(defaultConfig),
+	cell.Config(DefaultConfig),
 	cell.Provide(
 		newRelayFactory,
 	),
@@ -146,7 +146,7 @@ func registerServer(p registerServerParams) error {
 	}
 
 	handler := newServerHandler(p.Log, p.DB, p.Workloads, p.LeaseWriter, p.Subnets, p.RelayFactory, p.Config.WaitTime)
-	srv, err := NewServer(p.Log, relayNetNS, pncfg.DHCPInterfaceName, handler.serverHandler())
+	srv, err := NewServer(p.Log, DefaultConfig, relayNetNS, pncfg.DHCPInterfaceName, handler.serverHandler())
 	if err != nil {
 		p.Log.Error("Failed to create DHCP server",
 			logfields.Interface, pncfg.DHCPInterfaceName,

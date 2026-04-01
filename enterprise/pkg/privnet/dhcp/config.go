@@ -22,7 +22,7 @@ const (
 	FlagWaitTime = "private-networks-dhcp-wait-time"
 )
 
-var defaultConfig = Config{
+var DefaultConfig = Config{
 	WaitTime: defaultRelayWaitTime,
 }
 

@@ -17,14 +17,17 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/workerpool"
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/mdlayher/socket"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -37,18 +40,19 @@ import (
 // the lxc interfaces.
 type Server struct {
 	netns   *netns.NetNS
-	ifindex int
-	ifname  string
-	ifmac   net.HardwareAddr
 	conn    *socket.Conn
 	handler Handler
 	log     *slog.Logger
+	cfg     Config
+	ifindex int
+	ifname  string
+	ifmac   net.HardwareAddr
 }
 
 // Handler processes a DHCP request and returns the egress ifindex plus zero or more DHCP responses.
 type Handler func(ctx context.Context, health cell.Health, endpointID uint16, req *dhcpv4.DHCPv4) (int, []*dhcpv4.DHCPv4, error)
 
-func NewServer(log *slog.Logger, netns *netns.NetNS, ifname string, handler Handler) (*Server, error) {
+func NewServer(log *slog.Logger, cfg Config, netns *netns.NetNS, ifname string, handler Handler) (*Server, error) {
 	if handler == nil {
 		return nil, errors.New("handler not specified")
 	}
@@ -63,11 +67,55 @@ func NewServer(log *slog.Logger, netns *netns.NetNS, ifname string, handler Hand
 		ifname:  ifname,
 		handler: handler,
 		log:     logger,
+		cfg:     cfg,
 	}, nil
 }
 
 func (s *Server) Close() error {
 	return s.conn.Close()
+}
+
+const (
+	// maxParallelWorkers sets the maximum number of background goroutines to use
+	// for relaying DHCP requests.
+	maxParallelWorkers = 32
+
+	// minDefaultRequestInterval sets the minimum amount of time that must elapse
+	// before an endpoint can make a request again. [Config.WaitTime] is used
+	// instead if it is smaller than this.
+	minDefaultRequestInterval = 100 * time.Millisecond
+
+	// numEndpointTimestamps is the maximum number of endpoints we keep the
+	// last request timestamp for. This is essentially the number of endpoints
+	// we can effectively rate limit for at the same time.
+	numEndpointTimestamps = 16
+)
+
+// requestRateLimiter keeps a fixed number of request timestamps per endpoint.
+// This is designed to prevent abuse from a small number of endpoints while
+// keeping memory usage static.
+type requestRateLimiter struct {
+	minInterval time.Duration
+	entries     [numEndpointTimestamps]struct {
+		endpointID uint16
+		limiter    *rate.Limiter
+	}
+	pos int
+}
+
+func (r *requestRateLimiter) allow(id uint16) bool {
+	for _, x := range r.entries {
+		if x.endpointID == id {
+			return x.limiter.Allow()
+		}
+	}
+	r.entries[r.pos].limiter = rate.NewLimiter(rate.Every(r.minInterval), 3)
+	r.entries[r.pos].endpointID = id
+	r.pos++
+	if r.pos >= len(r.entries) {
+		r.pos = 0
+	}
+	return true
 }
 
 func (s *Server) Serve(ctx context.Context, health cell.Health) error {
@@ -79,6 +127,19 @@ func (s *Server) Serve(ctx context.Context, health cell.Health) error {
 	if health != nil {
 		health.OK("Listening")
 	}
+
+	// Use a worker pool to process the requests in parallel.
+	wp := workerpool.New(maxParallelWorkers)
+	defer wp.Close()
+
+	// Keep track of the last time a request was received from each endpoint
+	// and drop requests that arrive too soon after the previous one. This makes
+	// sure a single endpoint cannot spam DHCP requests and prevent others from
+	// making progress.
+	rateLimiter := requestRateLimiter{
+		minInterval: min(minDefaultRequestInterval, s.cfg.WaitTime),
+	}
+	logLimiter := rate.NewLimiter(rate.Every(1*time.Second), 1)
 
 	for {
 		buf := make([]byte, 4096)
@@ -127,6 +188,15 @@ func (s *Server) Serve(ctx context.Context, health cell.Health) error {
 			endpointID = binary.BigEndian.Uint16(eth.SrcMAC[4:6])
 		}
 
+		if !rateLimiter.allow(endpointID) {
+			if logLimiter.Allow() {
+				s.log.Info("Dropping DHCP request due to rate limiting",
+					logfields.EndpointID, endpointID,
+				)
+			}
+			continue
+		}
+
 		s.log.Debug("Received DHCP packet",
 			logfields.DstIP, ip4.DstIP,
 			logfields.SrcIP, ip4.SrcIP,
@@ -138,21 +208,27 @@ func (s *Server) Serve(ctx context.Context, health cell.Health) error {
 			logfields.Giaddr, msg.GatewayIPAddr,
 		)
 
-		ifindex, resps, err := s.handler(ctx, health, endpointID, msg)
-		if err != nil || len(resps) == 0 {
-			continue
-		}
-		clientMAC := msg.ClientHWAddr
-		if len(clientMAC) == 0 {
-			clientMAC = eth.SrcMAC
-		}
-		srvAddr := &net.UDPAddr{IP: ip4.DstIP, Port: int(udp.SrcPort)}
-		for _, resp := range resps {
-			if resp != nil {
-				if err := s.sendResponse(ctx, ifindex, clientMAC, ip4.DstIP, srvAddr, resp); err != nil {
-					s.log.Error("Could not send response", logfields.Error, err)
+		err = wp.Submit(strconv.FormatUint(uint64(endpointID), 10), func(ctx context.Context) error {
+			ifindex, resps, err := s.handler(ctx, health, endpointID, msg)
+			if err != nil || len(resps) == 0 {
+				return nil
+			}
+			clientMAC := msg.ClientHWAddr
+			if len(clientMAC) == 0 {
+				clientMAC = eth.SrcMAC
+			}
+			srvAddr := &net.UDPAddr{IP: ip4.DstIP, Port: int(udp.SrcPort)}
+			for _, resp := range resps {
+				if resp != nil {
+					if err := s.sendResponse(ctx, ifindex, clientMAC, ip4.DstIP, srvAddr, resp); err != nil {
+						s.log.Error("Could not send response", logfields.Error, err)
+					}
 				}
 			}
+			return nil
+		})
+		if err != nil {
+			s.log.Error("Failed to submit DHCP handler job", logfields.Error, err)
 		}
 	}
 }
