@@ -322,6 +322,62 @@ var HaveNetkit = sync.OnceValue(func() error {
 	})
 })
 
+// HaveNetkitScrub returns nil if the running kernel supports netkit scrub
+// attribute.
+var HaveNetkitScrub = sync.OnceValue(func() error {
+	ns, err := netns.New()
+	if err != nil {
+		return fmt.Errorf("create netns: %w", err)
+	}
+	defer ns.Close()
+
+	return ns.Do(func() error {
+		hostIfName := "tmpnkscr0"
+		peerIfName := "tmpnkscr1"
+
+		var hostMac, peerMac mac.MAC
+		netkit := &netlink.Netkit{
+			LinkAttrs: netlink.LinkAttrs{
+				Name:         hostIfName,
+				TxQLen:       1000,
+				HardwareAddr: net.HardwareAddr(hostMac),
+			},
+			Mode:       netlink.NETKIT_MODE_L3,
+			Policy:     netlink.NETKIT_POLICY_FORWARD,
+			PeerPolicy: netlink.NETKIT_POLICY_BLACKHOLE,
+			Scrub:      netlink.NETKIT_SCRUB_NONE,
+			PeerScrub:  netlink.NETKIT_SCRUB_DEFAULT,
+		}
+		netkit.SetPeerAttrs(&netlink.LinkAttrs{
+			Name:         peerIfName,
+			HardwareAddr: net.HardwareAddr(peerMac),
+		})
+
+		err = netlink.LinkAdd(netkit)
+		if err != nil {
+			return fmt.Errorf("create link: %w", err)
+		}
+		hostLink, err := safenetlink.LinkByName(hostIfName)
+		if err != nil {
+			return fmt.Errorf("query link: %w", err)
+		}
+		defer func() {
+			netlink.LinkDel(hostLink)
+		}()
+
+		hostNetkit, ok := hostLink.(*netlink.Netkit)
+		if !ok || hostNetkit == nil {
+			return fmt.Errorf("expected link of type *netlink.Netkit")
+		}
+
+		if !hostNetkit.SupportsScrub() {
+			return fmt.Errorf("netkit scrub attribute not supported")
+		}
+
+		return nil
+	})
+})
+
 // HaveNetkitTunableBufferMargins returns nil if the running kernel supports
 // configuring tuned buffer margins on netkit devices.
 var HaveNetkitTunableBufferMargins = sync.OnceValue(func() error {
@@ -502,23 +558,31 @@ func HaveIPv6Support() error {
 	return nil
 }
 
+func loadProbesObjects() (*bpfgen.ProbesObjects, error) {
+	objs := &bpfgen.ProbesObjects{}
+
+	err := bpfgen.LoadProbesObjects(objs, &ebpf.CollectionOptions{})
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
+			return nil, fmt.Errorf("writing verifier log to stderr: %w", err)
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("loading collection: %w", err)
+	}
+
+	return objs, nil
+}
+
 // HaveFibLookupSkipNeigh tests whether or not the kernel supports the
 // BPF_FIB_LOOKUP_SKIP_NEIGH flag for bpf_fib_lookup.
 // https://lore.kernel.org/bpf/20230217205515.3583372-1-martin.lau@linux.dev/
 var HaveFibLookupSkipNeigh = sync.OnceValue(func() error {
-	var objs bpfgen.ProbesObjects
-
-	err := bpfgen.LoadProbesObjects(&objs, &ebpf.CollectionOptions{})
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
-		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
-			return fmt.Errorf("writing verifier log to stderr: %w", err)
-		}
-	}
+	objs, err := loadProbesObjects()
 	if err != nil {
-		return fmt.Errorf("loading collection: %w", err)
+		return err
 	}
-
 	defer objs.Close()
 
 	ret, err := objs.ProbeFibLookupSkipNeigh.Run(&ebpf.RunOptions{
@@ -542,22 +606,39 @@ var HaveFibLookupSkipNeigh = sync.OnceValue(func() error {
 // BPF_FIB_LOOKUP_TBID flag for bpf_fib_lookup.
 // https://lore.kernel.org/bpf/20230505-bpf-add-tbid-fib-lookup-v1-0-fd99f7162e76@gmail.com/T/#u
 var HaveFibLookupTbid = sync.OnceValue(func() error {
-	var objs bpfgen.ProbesObjects
-
-	err := bpfgen.LoadProbesObjects(&objs, &ebpf.CollectionOptions{})
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
-		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
-			return fmt.Errorf("writing verifier log to stderr: %w", err)
-		}
-	}
+	objs, err := loadProbesObjects()
 	if err != nil {
-		return fmt.Errorf("loading collection: %w", err)
+		return err
 	}
-
 	defer objs.Close()
 
 	ret, err := objs.ProbeFibLookupTbid.Run(&ebpf.RunOptions{
+		// Newer kernels require that data is at least 14 bytes:
+		// https://github.com/torvalds/linux/commit/6b3d638ca897e099fa99bd6d02189d3176f80a47
+		Data:   make([]byte, 14),
+		Repeat: 1,
+	})
+	if err != nil {
+		return fmt.Errorf("running probe: %w", err)
+	}
+
+	if ret != 0 {
+		return ErrNotSupported
+	}
+
+	return nil
+})
+
+// HaveFibLookupSrc tests whether or not the kernel supports the
+// BPF_FIB_LOOKUP_SRC flag for bpf_fib_lookup.
+var HaveFibLookupSrc = sync.OnceValue(func() error {
+	objs, err := loadProbesObjects()
+	if err != nil {
+		return err
+	}
+	defer objs.Close()
+
+	ret, err := objs.ProbeFibLookupSrc.Run(&ebpf.RunOptions{
 		// Newer kernels require that data is at least 14 bytes:
 		// https://github.com/torvalds/linux/commit/6b3d638ca897e099fa99bd6d02189d3176f80a47
 		Data:   make([]byte, 14),

@@ -187,22 +187,22 @@ func (h *addHooks) OnInterfaceConfigReady(state *cmd.CmdState, ep *models.Endpoi
 	lbl := labels.NewLabel(privnetTypes.CNINetworkNameLabel, h.privNetAddressing.Network, labels.LabelSourceCNI)
 	ep.Labels = append(ep.Labels, lbl.String())
 
-	if ipv4Enabled && h.daemonConf.Addressing.IPV4 != nil {
-		netIPv4, err := netip.ParseAddr(h.privNetAddressing.Address.IPV4)
+	if ipv4Enabled && h.daemonConf.Addressing.IPv4 != nil {
+		netIPv4, err := netip.ParseAddr(h.privNetAddressing.Address.IPv4)
 		if err != nil {
 			return fmt.Errorf("unable to parse private network IPv4 address: %w", err)
 		}
 		state.IP4 = netIPv4
-		ep.Properties[endpoints.PropertyPrivNetIPv4] = h.privNetAddressing.Address.IPV4
+		ep.Properties[endpoints.PropertyPrivNetIPv4] = h.privNetAddressing.Address.IPv4
 	}
 
-	if ipv6Enabled && h.daemonConf.Addressing.IPV6 != nil {
-		netIPv6, err := netip.ParseAddr(h.privNetAddressing.Address.IPV6)
+	if ipv6Enabled && h.daemonConf.Addressing.IPv6 != nil {
+		netIPv6, err := netip.ParseAddr(h.privNetAddressing.Address.IPv6)
 		if err != nil {
 			return fmt.Errorf("unable to parse private network IPv6 address: %w", err)
 		}
 		state.IP6 = netIPv6
-		ep.Properties[endpoints.PropertyPrivNetIPv6] = h.privNetAddressing.Address.IPV6
+		ep.Properties[endpoints.PropertyPrivNetIPv6] = h.privNetAddressing.Address.IPv6
 	}
 
 	if h.privNetAddressing.Mac != "" {

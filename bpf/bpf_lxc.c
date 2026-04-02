@@ -202,6 +202,8 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 		 */
 		if (!ct_has_egress_entry4(get_ct_map4(&tmp), &tmp)) {
 			svc = lb4_lookup_wildcard_nodeport_service(&key);
+			if (svc && !lb4_svc_is_nodeport(svc))
+				svc = NULL;
 			if (svc) {
 				struct nodeport_nat_info nat_info = {};
 				__u32 zero = 0;
@@ -380,6 +382,8 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		 */
 		if (!ct_has_egress_entry6(get_ct_map6(&tmp), &tmp)) {
 			svc = lb6_lookup_wildcard_nodeport_service(&key);
+			if (svc && !lb6_svc_is_nodeport(svc))
+				svc = NULL;
 			if (svc) {
 				struct nodeport_nat_info nat_info = {};
 				__u32 zero = 0;
@@ -718,13 +722,12 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		return lxc_deliver_to_host(ctx, SECLABEL_IPV6);
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
-#ifdef ENABLE_IDENTITY_MARK
 	/* Always encode the source identity when forwarding the packet.
 	 * This prevents loss of identity if the packet is later SNATed,
 	 * or the endpoint is torn down.
 	 */
-	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
-#endif
+	if (CONFIG(enable_identity_mark))
+		set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow || is_defined(ENABLE_HOST_ROUTING)) {
 		const struct endpoint_info *ep;
@@ -953,7 +956,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 			auth_type = (__u8)*ext_err;
 			if (info)
-				tunnel_endpoint = info->tunnel_endpoint.ip4;
+				tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
 			verdict = auth_lookup(ctx, SECLABEL_IPV6, *dst_sec_identity,
 					      tunnel_endpoint, auth_type);
 		}
@@ -1200,13 +1203,12 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		return lxc_deliver_to_host(ctx, SECLABEL_IPV4);
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
-#ifdef ENABLE_IDENTITY_MARK
 	/* Always encode the source identity when forwarding the packet.
 	 * This prevents loss of identity if the packet is later SNATed,
 	 * or the endpoint is torn down.
 	 */
-	set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
-#endif
+	if (CONFIG(enable_identity_mark))
+		set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
 
 	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
 	 * disabled (for example, with per-endpoint routes). Otherwise, the
@@ -1281,7 +1283,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		if (vtep && vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			fake_info.tunnel_endpoint.ip4 = vtep->tunnel_endpoint;
+			fake_info.tunnel_endpoint.ip4.be32 = vtep->tunnel_endpoint;
 			fake_info.flag_has_tunnel_ep = true;
 			return __encap_and_redirect_with_nodeid(ctx, &fake_info,
 								SECLABEL_IPV4, WORLD_IPV4_ID,
@@ -1323,7 +1325,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		if (ct_status == CT_REPLY) {
 			if (identity_is_remote_node(dst_sec_identity) && ct_state->from_tunnel) {
 				/* Do not modify [info], as this will update IPcache */
-				fake_info.tunnel_endpoint.ip4 = ip4->daddr;
+				fake_info.tunnel_endpoint.ip4.be32 = ip4->daddr;
 				fake_info.flag_has_tunnel_ep = true;
 				info = &fake_info;
 			}
@@ -1516,7 +1518,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 			auth_type = (__u8)*ext_err;
 			if (info)
-				tunnel_endpoint = info->tunnel_endpoint.ip4;
+				tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
 			verdict = auth_lookup(ctx, SECLABEL_IPV4, *dst_sec_identity,
 					      tunnel_endpoint, auth_type);
 		}
@@ -1951,7 +1953,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 			if (sep) {
 				auth_type = (__u8)*ext_err;
 				verdict = auth_lookup(ctx, SECLABEL_IPV6, src_label,
-						      sep->tunnel_endpoint.ip4, auth_type);
+						      sep->tunnel_endpoint.ip4.be32, auth_type);
 			}
 		}
 
@@ -2265,7 +2267,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 			if (sep) {
 				auth_type = (__u8)*ext_err;
 				verdict = auth_lookup(ctx, SECLABEL_IPV4, src_label,
-						      sep->tunnel_endpoint.ip4, auth_type);
+						      sep->tunnel_endpoint.ip4.be32, auth_type);
 			}
 		}
 		/* Emit verdict if drop or if allow for CT_NEW. */

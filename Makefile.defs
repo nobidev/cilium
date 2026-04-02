@@ -60,16 +60,16 @@ ifeq ($(DOCKER_IMAGE_TAG),)
 endif
 
 # renovate: datasource=docker depName=gcr.io/etcd-development/etcd
-ETCD_IMAGE_VERSION = v3.6.8
-ETCD_IMAGE_SHA = sha256:397189418d1a00e500c0605ad18d1baf3b541a1004d768448c367e48071622e5
+ETCD_IMAGE_VERSION = v3.6.9
+ETCD_IMAGE_SHA = sha256:38e46ab26aa2a82251d3f24cbbdaefe2e68a66346404ee4b7afe7e90db26805d
 ETCD_IMAGE=gcr.io/etcd-development/etcd:$(ETCD_IMAGE_VERSION)@$(ETCD_IMAGE_SHA)
 
 export CILIUM_CLI ?= cilium
 export KUBECTL ?= kubectl
 
 # renovate: datasource=docker depName=quay.io/goswagger/swagger
-SWAGGER_VERSION = 0.33.1
-SWAGGER_IMAGE_SHA = sha256:03e351c87e7bf5de41b120aec97f0a2255f90a1cd802162ad1947f9e2de9e778
+SWAGGER_VERSION = 0.33.2
+SWAGGER_IMAGE_SHA = sha256:08b55fbcea59fa0d73f7f28258799ff199c3ae5dd0023b9d63cf88161a4b7a90
 SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(ROOT_DIR):$(ROOT_DIR) -w $(ROOT_DIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)@$(SWAGGER_IMAGE_SHA)
 
 # go build/test/clean flags
@@ -129,8 +129,8 @@ ifneq ($(GOTEST_FORMATTER),cat)
 endif
 
 # renovate: datasource=docker depName=golangci/golangci-lint
-GOLANGCILINT_WANT_VERSION = v2.11.3
-GOLANGCILINT_IMAGE_SHA = sha256:e838e8ab68aaefe83e2408691510867ade9329c0e0b895a3fb35eb93d1c2a4ba
+GOLANGCILINT_WANT_VERSION = v2.11.4
+GOLANGCILINT_IMAGE_SHA = sha256:67dfc9eeeb0eb13fc1a36329c2c378197dc561f1edf1a7792e3f771606bb0e15
 GOLANGCILINT_VERSION = $(shell golangci-lint version --short 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)

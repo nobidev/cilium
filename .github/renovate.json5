@@ -113,9 +113,9 @@
     "^make -C Documentation update-helm-values$",
     "^make -C Documentation update-cmdref$",
     "^make -C Documentation update-requirements$",
-    "^make generate-k8s-api$",
     "^make manifests$",
     "^make GO='contrib/scripts/builder.sh go' generate-apis$",
+    "^make GO='contrib/scripts/builder.sh go' generate-k8s-api$",
     "^go mod tidy$",
     "^go mod vendor$"
   ],
@@ -318,7 +318,7 @@
         "commands": [
           "go mod tidy",
           "go mod vendor",
-          "make generate-k8s-api",
+          "make GO='contrib/scripts/builder.sh go' generate-k8s-api",
           "make manifests"
         ],
         "executionMode": "update"
@@ -719,7 +719,7 @@
       ],
       "postUpgradeTasks": {
         "commands": [
-          "make generate-k8s-api",
+          "make GO='contrib/scripts/builder.sh go' generate-k8s-api",
           "make manifests"
         ],
         "executionMode": "update"
@@ -744,11 +744,22 @@
       "matchPackageNames": [
         "protocolbuffers/protobuf",
         "protocolbuffers/protobuf-go",
-        "quay.io/goswagger/swagger"
       ],
       "postUpgradeTasks": {
         "commands": [
           "make GO='contrib/scripts/builder.sh go' generate-apis"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/goswagger/swagger"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make GO='contrib/scripts/builder.sh go' generate-apis",
+          "make GO='contrib/scripts/builder.sh go' generate-k8s-api"
         ],
         "executionMode": "update"
       }

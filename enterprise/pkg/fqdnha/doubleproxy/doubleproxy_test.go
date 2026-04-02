@@ -15,7 +15,6 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/cilium/dns"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
@@ -44,7 +43,7 @@ func TestWriteRules(t *testing.T) {
 		IPv6:    false,
 	},
 		nil,
-		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dnsproxy.MsgDetails, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
 			return nil
 		},
 	)

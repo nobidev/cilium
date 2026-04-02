@@ -50,8 +50,6 @@ struct nat_entry {
 
 #define SNAT_SIGNAL_THRES		(SNAT_COLLISION_RETRIES / 2)
 
-#define snat_v4_needs_masquerade_hook(ctx, target) 0
-
 static __always_inline __u16
 nat_min_egress()
 {
@@ -631,13 +629,6 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 {
 	const struct endpoint_info *local_ep __maybe_unused;
 	const struct remote_endpoint_info *remote_ep __maybe_unused;
-	int ret;
-
-	ret = snat_v4_needs_masquerade_hook(ctx, target);
-	if (IS_ERR(ret))
-		return ret;
-	if (ret)
-		return NAT_NEEDED;
 
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 # if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
@@ -925,7 +916,6 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	    int off, struct ipv4_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_nat_entry *state = NULL;
 	__u16 port_off = 0;
 	int ret;
@@ -958,7 +948,9 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			return NAT_PUNT_TO_STACK;
 
 		break;
-	case IPPROTO_ICMP:
+	case IPPROTO_ICMP: {
+		struct icmphdr icmphdr __align_stack_8;
+
 		/* Fragmented ECHO packets are not supported currently. Drop all
 		 * fragments, because letting the first fragment pass would be
 		 * useless anyway.
@@ -1006,6 +998,7 @@ nat_icmp_v4:
 			return DROP_NAT_UNSUPP_PROTO;
 		}
 		break;
+	}
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
@@ -1129,7 +1122,6 @@ static __always_inline __maybe_unused int
 snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
-	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_nat_entry *state = NULL;
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -1169,7 +1161,9 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 			return NAT_PUNT_TO_STACK;
 
 		break;
-	case IPPROTO_ICMP:
+	case IPPROTO_ICMP: {
+		struct icmphdr icmphdr __align_stack_8;
+
 		/* Fragmented ECHOREPLY packets are not supported currently.
 		 * Drop all fragments, because letting the first fragment pass
 		 * would be useless anyway.
@@ -1213,6 +1207,7 @@ rev_nat_icmp_v4:
 			return NAT_PUNT_TO_STACK;
 		}
 		break;
+	}
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
@@ -1604,7 +1599,8 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 static __always_inline int
 snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 			bool has_l4_header, int l4_off,
-			union v6addr *old_addr, union v6addr *new_addr, __u16 addr_off,
+			const union v6addr *old_addr,
+			const union v6addr *new_addr, __u16 addr_off,
 			__be16 old_port, __be16 new_port, __u16 port_off)
 {
 	struct csum_offset csum = {};
@@ -1962,7 +1958,6 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	    int off, struct ipv6_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct icmp6hdr icmp6hdr __align_stack_8;
 	struct ipv6_nat_entry *state = NULL;
 	__u16 port_off = 0;
 	int ret;
@@ -1995,9 +1990,12 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 			return NAT_PUNT_TO_STACK;
 
 		break;
-	case IPPROTO_ICMPV6:
+	case IPPROTO_ICMPV6: {
+		struct icmp6hdr icmp6hdr __align_stack_8;
+
 		if (ipfrag_is_fragment(fraginfo))
 			return DROP_INVALID;
+
 		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
 			return DROP_INVALID;
 
@@ -2043,6 +2041,7 @@ nat_icmp_v6:
 			return DROP_NAT_UNSUPP_PROTO;
 		}
 		break;
+	}
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
@@ -2142,7 +2141,6 @@ static __always_inline __maybe_unused int
 snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
-	struct icmp6hdr icmp6hdr __align_stack_8;
 	struct ipv6_nat_entry *state = NULL;
 	struct ipv6_ct_tuple tuple = {};
 	__u32 off, inner_l3_off;
@@ -2184,7 +2182,9 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 			return NAT_PUNT_TO_STACK;
 
 		break;
-	case IPPROTO_ICMPV6:
+	case IPPROTO_ICMPV6: {
+		struct icmp6hdr icmp6hdr __align_stack_8;
+
 		if (ipfrag_is_fragment(fraginfo))
 			return DROP_INVALID;
 		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
@@ -2216,6 +2216,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 			return NAT_PUNT_TO_STACK;
 		}
 		break;
+	}
 	default:
 		return NAT_PUNT_TO_STACK;
 	};

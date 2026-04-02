@@ -217,11 +217,11 @@ func (n *PrivNetAPI) GetPrivateNetworkAddressing(p network.GetNetworkPrivateAddr
 	}
 
 	if n.cfg.enableIPv4 {
-		addressing.Address.IPV4 = ipv4.String()
+		addressing.Address.IPv4 = ipv4.String()
 	}
 
 	if n.cfg.enableIPv6 {
-		addressing.Address.IPV6 = ipv6.String()
+		addressing.Address.IPv6 = ipv6.String()
 	}
 
 	addressing.Routes = n.routes(nicidx, subnet)

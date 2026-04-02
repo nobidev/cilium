@@ -165,17 +165,12 @@ struct trace_notify {
 				*/
 	__u32		ifindex;
 	union {
-		struct {
-			__be32		orig_ip4;
-			__u32		orig_pad1;
-			__u32		orig_pad2;
-			__u32		orig_pad3;
-		};
+		union v4addr	orig_ip4;
 		union v6addr	orig_ip6;
 	};
 	__u64		ip_trace_id;
 	TRACE_EXTENSION
-};
+} __align_stack_8;
 
 #ifdef TRACE_NOTIFY
 
@@ -228,7 +223,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 	struct ratelimit_settings settings = {
 		.topup_interval_ns = NSEC_PER_SEC,
 	};
-	struct trace_notify msg __align_stack_8;
+	struct trace_notify msg = {};
 	cls_flags_t flags = CLS_FLAG_NONE;
 
 	_update_trace_metrics(ctx, obs_point, reason, line, file);
@@ -280,7 +275,7 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 	struct ratelimit_settings settings = {
 		.topup_interval_ns = NSEC_PER_SEC,
 	};
-	struct trace_notify msg __align_stack_8;
+	struct trace_notify msg = {};
 	cls_flags_t flags = CLS_FLAG_NONE;
 
 	_update_trace_metrics(ctx, obs_point, reason, line, file);
@@ -307,7 +302,7 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.reason		= reason,
 		.ifindex	= ifindex,
 		.flags		= flags,
-		.orig_ip4	= orig_addr,
+		.orig_ip4.be32	= orig_addr,
 		.ip_trace_id	= ip_trace_id,
 	};
 
@@ -332,7 +327,7 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 	struct ratelimit_settings settings = {
 		.topup_interval_ns = NSEC_PER_SEC,
 	};
-	struct trace_notify msg __align_stack_8;
+	struct trace_notify msg = {};
 	cls_flags_t flags = CLS_FLAG_NONE;
 
 	_update_trace_metrics(ctx, obs_point, reason, line, file);

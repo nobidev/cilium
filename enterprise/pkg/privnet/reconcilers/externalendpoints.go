@@ -542,8 +542,8 @@ func (e *externalEndpointReconcilerOps) createEndpoint(ctx context.Context, obj 
 	epReq := &models.EndpointChangeRequest{
 		K8sNamespace: obj.Namespace,
 		Addressing: &models.AddressPair{
-			IPV4: ipstr(pipv4),
-			IPV6: ipstr(pipv6),
+			IPv4: ipstr(pipv4),
+			IPv6: ipstr(pipv6),
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
 		Properties: map[string]any{

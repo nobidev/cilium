@@ -190,13 +190,24 @@ func (s *FQDNProxyAgentServer) NotifyOnDNSMessage(ctx context.Context, notificat
 		return &pb.Empty{}, err
 	}
 
+	var msgDetails *dnsproxy.MsgDetails
+	if dnsMsg.Response {
+		msgDetails, err = dnsproxy.ExtractResponseMsgDetails(dnsMsg)
+	} else {
+		msgDetails, err = dnsproxy.ExtractRequestMsgDetails(dnsMsg)
+	}
+	if err != nil {
+		s.log.Error("Failed to extract DNS message details", logfields.Error, err)
+		return &pb.Empty{}, err
+	}
+
 	return &pb.Empty{}, s.requestHandler.NotifyOnDNSMsg(
 		notification.Time.AsTime(),
 		endpoint,
 		notification.EpIPPort,
 		identity.NumericIdentity(notification.ServerID),
 		serverAddrPort,
-		dnsMsg,
+		msgDetails,
 		notification.Protocol,
 		notification.Allowed,
 		&dnsproxy.ProxyRequestContext{DataSource: "external-proxy"})
@@ -506,7 +517,7 @@ func (s *FQDNProxyAgentServer) Stop(ctx cell.HookContext) error {
 }
 
 type DNSProxyDataSource interface {
-	NotifyOnDNSMsg(time.Time, *endpoint.Endpoint, string, identity.NumericIdentity, string, *dns.Msg, string, bool, *dnsproxy.ProxyRequestContext) error
+	NotifyOnDNSMsg(time.Time, *endpoint.Endpoint, string, identity.NumericIdentity, netip.AddrPort, *dnsproxy.MsgDetails, string, bool, *dnsproxy.ProxyRequestContext) error
 }
 
 type IPCacheGetter interface {

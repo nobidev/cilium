@@ -92,14 +92,15 @@ func (k *FIBKey) Prefix() netip.Prefix {
 }
 
 type FIBVal struct {
-	VNI     uint32     `align:"vni"`
-	Family  uint8      `align:"family"`
-	_       [3]uint8   `align:"pad0"`
-	MAC     [8]uint8   `align:"mac"`
+	VNI     uint32   `align:"vni"`
+	Family  uint8    `align:"family"`
+	_       [3]uint8 `align:"pad0"`
+	MAC     [6]uint8 `align:"mac"`
+	_       [2]uint8
 	Address types.IPv6 `align:"$union0"`
 }
 
-var zeroMAC8 = [8]uint8{}
+var zeroMAC48 = [6]uint8{}
 
 func NewFIBVal(vni vni.VNI, m mac.MAC, addr netip.Addr) (*FIBVal, error) {
 	var family uint8
@@ -116,15 +117,15 @@ func NewFIBVal(vni vni.VNI, m mac.MAC, addr netip.Addr) (*FIBVal, error) {
 	// a zero MAC is often used for representing ingress replication entries.
 	// While there's no much risk to hit this in Cilium as we don't support
 	// ingress replication at this point, it's safer to not use that.
-	mac8 := m.As8()
-	if mac8 == zeroMAC8 {
+	mac48 := m.As6()
+	if mac48 == zeroMAC48 {
 		return nil, fmt.Errorf("invalid MAC address: cannot be all zeros")
 	}
 
 	v := &FIBVal{
 		VNI:    vni.AsUint32(),
 		Family: family,
-		MAC:    mac8,
+		MAC:    mac48,
 	}
 	copy(v.Address[:], addr.AsSlice())
 	return v, nil

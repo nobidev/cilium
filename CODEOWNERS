@@ -1094,4 +1094,5 @@ Makefile* @cilium/build
 /plugins/cilium-cni/cmd/enterprise_* @isovalent/cilium-agent
 /RELEASE-NOTES* @isovalent/qa @isovalent/release-managers
 /TESTOWNERS.enterprise
+/tools/dpgen/acronyms_enterprise.txt @isovalent/networking-framework
 /vendor/

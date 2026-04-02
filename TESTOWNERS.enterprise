@@ -636,3 +636,4 @@
 /pkg/policy/types/enterprise_selector.go @isovalent/private-networking
 /plugins/cilium-cni/cmd/enterprise_* @isovalent/cilium-agent
 /RELEASE-NOTES* @isovalent/qa
+/tools/dpgen/acronyms_enterprise.txt @isovalent/networking-framework

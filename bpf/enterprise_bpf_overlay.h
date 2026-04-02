@@ -174,8 +174,8 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 
 		/* network and subnet IDs are based on original source IP (PIP). */
 		net_id = src_pip_val->net_id;
-		subnet_id = privnet_subnet_id_lookup4(net_id, src_pip_val->ip4);
-		src_fib_val = privnet_fib_lookup4(net_id, subnet_id, src_pip_val->ip4);
+		subnet_id = privnet_subnet_id_lookup4(net_id, src_pip_val->ip4.be32);
+		src_fib_val = privnet_fib_lookup4(net_id, subnet_id, src_pip_val->ip4.be32);
 		if (!src_fib_val)
 			return DROP_UNROUTABLE;
 
@@ -194,7 +194,7 @@ static __always_inline int enterprise_privnet_from_overlay(struct __ctx_buff *ct
 		if (src_pip_val && dst_pip_val) {
 			const union macaddr *smac, *dmac;
 
-			dst_fib_val = privnet_fib_lookup4(net_id, subnet_id, dst_pip_val->ip4);
+			dst_fib_val = privnet_fib_lookup4(net_id, subnet_id, dst_pip_val->ip4.be32);
 			if (!dst_fib_val)
 				return DROP_UNROUTABLE;
 

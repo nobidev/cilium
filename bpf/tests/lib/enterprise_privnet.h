@@ -13,11 +13,11 @@ __privnet_fib_v4_add_entry(__u16 net_id, __u16 subnet_id, __be32 prefix, __be32 
 		.net_id = net_id,
 		.subnet_id = subnet_id,
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = prefix,
+		.ip4.be32 = prefix,
 	};
 	struct privnet_fib_val value = {
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = nexthop,
+		.ip4.be32 = nexthop,
 		.type = (__u8)type,
 		.flag_l2_announce = l2_announce,
 		.ifindex = ifindex,
@@ -37,7 +37,7 @@ __privnet_fib_v4_del_entry(__u16 net_id, __u16 subnet_id, __be32 prefix)
 		.net_id = net_id,
 		.subnet_id = subnet_id,
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = prefix,
+		.ip4.be32 = prefix,
 	};
 
 	map_delete_elem(&cilium_privnet_fib, &key);
@@ -91,13 +91,13 @@ __privnet_pip_v4_add_entry(__be32 pod_ip, __u16 net_id, __be32 net_ip)
 	struct privnet_pip_key key = {
 		.lpm_key.prefixlen = PRIVNET_PIP_PREFIX_LEN(V4_PRIVNET_KEY_LEN),
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = pod_ip,
+		.ip4.be32 = pod_ip,
 	};
 
 	struct privnet_pip_val value = {
 		.family = ENDPOINT_KEY_IPV4,
 		.net_id = net_id,
-		.ip4 = net_ip,
+		.ip4.be32 = net_ip,
 	};
 
 	map_update_elem(&cilium_privnet_pip, &key, &value, BPF_ANY);
@@ -109,7 +109,7 @@ __privnet_pip_v4_del_entry(__be32 pod_ip)
 	struct privnet_pip_key key = {
 		.lpm_key.prefixlen = PRIVNET_PIP_PREFIX_LEN(V4_PRIVNET_KEY_LEN),
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = pod_ip,
+		.ip4.be32 = pod_ip,
 	};
 
 	map_delete_elem(&cilium_privnet_pip, &key);
@@ -199,7 +199,7 @@ privnet_v4_add_peering_route(__u16 net_id, __u16 subnet_id, __be32 prefix, __u8 
 		.subnet_id = subnet_id,
 		.type = PRIVNET_FIB_KEY_TYPE_PEERING,
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = prefix,
+		.ip4.be32 = prefix,
 	};
 	struct privnet_fib_val value = {
 		.family = ENDPOINT_KEY_IPV4,
@@ -219,7 +219,7 @@ privnet_v4_del_peering_route(__u16 net_id, __u16 subnet_id, __be32 prefix, __u8 
 		.subnet_id = subnet_id,
 		.type = PRIVNET_FIB_KEY_TYPE_PEERING,
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = prefix,
+		.ip4.be32 = prefix,
 	};
 
 	map_delete_elem(&cilium_privnet_fib, &key);
@@ -305,7 +305,7 @@ privnet_v4_add_subnet_entry(__u16 net_id, __be32 prefix, __u8 prefix_len, __u16 
 		.lpm_key.prefixlen = PRIVNET_SUBNET_PREFIX_LEN(prefix_len),
 		.net_id = net_id,
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = prefix,
+		.ip4.be32 = prefix,
 	};
 	struct privnet_subnet_val val = { .subnet_id = subnet_id };
 
@@ -334,7 +334,7 @@ privnet_v4_del_subnet_entry(__u16 net_id, __be32 prefix, __u8 prefix_len)
 		.lpm_key.prefixlen = PRIVNET_SUBNET_PREFIX_LEN(prefix_len),
 		.net_id = net_id,
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = prefix,
+		.ip4.be32 = prefix,
 	};
 
 	map_delete_elem(&cilium_privnet_subnets, &key);
@@ -386,7 +386,7 @@ privnet_v4_add_cidr_identity_entry(__be32 prefix, __u8 prefix_len, __u32 sec_ide
 	struct privnet_cidr_identity_key key = {
 		.lpm_key.prefixlen = PRIVNET_SUBNET_PREFIX_LEN(prefix_len),
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = { .be32 = prefix },
+		.ip4.be32 = prefix,
 	};
 	struct privnet_cidr_identity val = { .sec_identity = sec_identity };
 
@@ -399,7 +399,7 @@ privnet_v4_del_cidr_identity_entry(__be32 prefix, __u8 prefix_len)
 	struct privnet_cidr_identity_key key = {
 		.lpm_key.prefixlen = PRIVNET_SUBNET_PREFIX_LEN(prefix_len),
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = { .be32 = prefix },
+		.ip4.be32 = prefix,
 	};
 	map_delete_elem(&cilium_privnet_cidr_identity, &key);
 }

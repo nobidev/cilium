@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/blang/semver/v4"
 	corev1 "k8s.io/api/core/v1"
@@ -47,13 +48,13 @@ func (r regexMatcher) IsMatch(log string) bool {
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
 // logs. The error messages are defined in badLogMsgsWithExceptions, which key
 // is an error message, while values is a list of ignored messages.
-func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, externalTarget string, externalOtherTarget string) check.Scenario {
+func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, externalTarget string, externalOtherTarget string, startTime time.Time) check.Scenario {
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
-		failedToListCRDs, knownIssueWireguardCollision, nilDetailsForService}
+		failedToListCRDs, knownIssueWireguardCollision, nilDetailsForService, gobgpFailedCloseTCP}
 
 	envoyExternalTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
@@ -104,6 +105,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		errorMsgsWithExceptions: errorMsgsWithExceptions,
 		ScenarioBase:            check.NewScenarioBase(),
 		ciliumVersion:           ciliumVersion,
+		startTime:               startTime,
 	}
 }
 
@@ -114,6 +116,7 @@ type noErrorsInLogs struct {
 	ciliumVersion           semver.Version
 	mostCommonFailureLog    string
 	mostCommonFailureCount  int
+	startTime               time.Time
 }
 
 func (n *noErrorsInLogs) FilePath() string {
@@ -150,6 +153,9 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 	}
 
 	opts := corev1.PodLogOptions{LimitBytes: ptr.To[int64](sysdump.DefaultLogsLimitBytes)}
+	st := metav1.NewTime(n.startTime)
+	t.Infof("Start time for the check: %s", st.UTC().String())
+	opts.SinceTime = &st
 	prevOpts := opts
 	prevOpts.Previous = true
 	for pod, info := range pods {
@@ -424,6 +430,7 @@ const (
 	failedToReleaseLock  stringMatcher = "Failed to release lock:"
 	nilDetailsForService stringMatcher = "retrieved nil details for Service"                    // from: https://github.com/cilium/cilium/issues/35595
 	removeInexistentID   stringMatcher = "removing identity not added to the identity manager!" // from https://github.com/cilium/cilium/issues/16419
+	gobgpFailedCloseTCP  stringMatcher = "failed to close existing tcp connection"              // Benign error during BGP peer teardown in ACTIVE state
 
 	// warnings
 	cantEnableJIT                    stringMatcher = "bpf_jit_enable: no such file or directory"                              // Because we run tests in Kind.

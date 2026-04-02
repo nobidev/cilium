@@ -8,16 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
-	"strings"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	envoy_mysql_proxy "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/network/mysql_proxy/v3"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -27,10 +24,8 @@ import (
 	envoy_upstream_codec "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/upstream_codec/v3"
 	envoy_extensions_listener_tls_inspector_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	envoy_mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/mongo_proxy/v3"
 	envoy_config_tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -49,7 +44,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/time"
@@ -166,11 +160,12 @@ type xdsServer struct {
 	// Value holds the number of redirects using the listener named by the key.
 	listenerCount map[string]uint
 
-	// proxyListeners is the count of redirection proxy listeners in 'listeners'.
-	// When this is zero, cilium should not wait for NACKs/ACKs from envoy.
-	// This value is different from len(listeners) due to non-proxy listeners
-	// (e.g., prometheus listener)
-	proxyListeners int
+	// npdsListeners tracks the set of listener names configured to start an NPDS client
+	// for network policy enforcement.
+	// When this set is empty, cilium should not wait for NACKs/ACKs from envoy for
+	// network policy mutations.
+	// mutex must be held during access.
+	npdsListeners npdsListenersTracker
 
 	// networkPolicyCache publishes network policy configuration updates to
 	// Envoy proxies.
@@ -195,6 +190,37 @@ type xdsServer struct {
 
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
 	secretManager     certificatemanager.SecretManager
+}
+
+// npdsListenersTracker tracks the set of listener names that require NPDS.
+type npdsListenersTracker map[string]struct{}
+
+// Add inserts name into the tracker and returns a function that reverts the change.
+func (t npdsListenersTracker) Add(name string) func() {
+	if _, ok := t[name]; ok {
+		return func() {}
+	}
+
+	t[name] = struct{}{}
+	return func() { delete(t, name) }
+}
+
+// Delete removes name from the tracker and returns a function that reverts the removal.
+// If name was not present the returned revert is a no-op.
+func (t npdsListenersTracker) Delete(name string) func() {
+	if _, ok := t[name]; !ok {
+		return func() {}
+	}
+
+	delete(t, name)
+	return func() {
+		t[name] = struct{}{}
+	}
+}
+
+// Empty returns true when no listeners are tracked.
+func (t npdsListenersTracker) Empty() bool {
+	return len(t) == 0
 }
 
 func toAny(pb proto.Message) *anypb.Any {
@@ -230,6 +256,7 @@ func newXDSServer(logger *slog.Logger, restorerPromise promise.Promise[endpoints
 		logger:             logger,
 		restorerPromise:    restorerPromise,
 		listenerCount:      make(map[string]uint),
+		npdsListeners:      make(npdsListenersTracker),
 		ipCache:            ipCache,
 		localEndpointStore: localEndpointStore,
 
@@ -501,21 +528,10 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngr
 // When optional 'filterName' is given, it is configured as the first filter in the chain.
 // In this case the returned filter chain is only used if the applicable network policy
 // specifies 'filterName' as the L7 parser.
-func (s *xdsServer) getTcpFilterChainProto(clusterName string, filterName string, config *anypb.Any, tls bool) *envoy_config_listener.FilterChain {
+func (s *xdsServer) getTcpFilterChainProto(clusterName string, tls bool) *envoy_config_listener.FilterChain {
 	var filters []*envoy_config_listener.Filter
 
-	// 1. Add the filter 'filterName' to the beginning of the TCP chain with optional 'config', if needed.
-	if filterName != "" {
-		filter := &envoy_config_listener.Filter{Name: filterName}
-		if config != nil {
-			filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
-				TypedConfig: config,
-			}
-		}
-		filters = append(filters, filter)
-	}
-
-	// 2. Add Cilium Network filter.
+	// 1. Add Cilium Network filter.
 	var ciliumConfig = &cilium.NetworkFilter{
 		AccessLogPath: s.accessLogPath,
 	}
@@ -527,7 +543,7 @@ func (s *xdsServer) getTcpFilterChainProto(clusterName string, filterName string
 		},
 	})
 
-	// 3. Add the TCP proxy filter.
+	// 2. Add the TCP proxy filter.
 	filters = append(filters, &envoy_config_listener.Filter{
 		Name: "envoy.filters.network.tcp_proxy",
 		ConfigType: &envoy_config_listener.Filter_TypedConfig{
@@ -560,12 +576,6 @@ func (s *xdsServer) getTcpFilterChainProto(clusterName string, filterName string
 			// otherwise TLS inspector will be automatically inserted
 			TransportProtocol: "raw_buffer",
 		}
-	}
-
-	if filterName != "" {
-		// Add filter chain match for 'filterName' so that connections for which policy says to use this L7
-		// are handled by this filter chain.
-		chain.FilterChainMatch.ApplicationProtocols = []string{filterName}
 	}
 
 	return chain
@@ -827,7 +837,7 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 	count := s.listenerCount[name]
 	if count == 0 {
 		if isProxyListener {
-			s.proxyListeners++
+			_ = s.npdsListeners.Add(name)
 		}
 		s.logger.Info("Envoy: Upserting new listener",
 			logfields.Listener, name,
@@ -835,8 +845,7 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 	}
 	count++
 	s.listenerCount[name] = count
-
-	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg,
+	_ = s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg,
 		func(err error) {
 			if cb != nil {
 				cb(err)
@@ -849,16 +858,47 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 func (s *xdsServer) upsertListener(name string, listenerConf *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	var revertNPDSTracking func()
+
+	requireNPDS := listenerRequiresNPDS(listenerConf)
+	if requireNPDS {
+		revertNPDSTracking = s.npdsListeners.Add(name)
+	} else {
+		revertNPDSTracking = s.npdsListeners.Delete(name)
+		if s.npdsListeners.Empty() {
+			s.networkPolicyMutator.CancelCompletions(NetworkPolicyTypeURL)
+		}
+	}
+
 	// 'callback' is not called if there is no change and this configuration has already been acked.
-	return s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg, callback)
+	revertFunc := s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg, callback)
+	return func(c *completion.Completion) {
+		s.mutex.Lock()
+		revertFunc(c)
+		revertNPDSTracking()
+		s.mutex.Unlock()
+	}
 }
 
 // deleteListener deletes an LDS Envoy Listener.
 func (s *xdsServer) deleteListener(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	revertNPDSTracking := s.npdsListeners.Delete(name)
+	if s.npdsListeners.Empty() {
+		s.networkPolicyMutator.CancelCompletions(NetworkPolicyTypeURL)
+	}
+
 	// 'callback' is not called if there is no change and this configuration has already been acked.
-	return s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+	revertFunc := s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+	return func(c *completion.Completion) {
+		s.mutex.Lock()
+		revertNPDSTracking()
+		revertFunc(c)
+		s.mutex.Unlock()
+	}
 }
 
 // upsertRoute either updates an existing RDS route with 'name', or creates a new one.
@@ -978,22 +1018,9 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		// Add a TLS variant
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(tlsClusterName, true, isIngress))
 	} else {
-		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, "", nil, false))
+		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, false))
 		// Add a TLS variant
-		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(tlsClusterName, "", nil, true))
-
-		// Experimental TCP chain for MySQL 5.x
-		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName,
-			"envoy.filters.network.mysql_proxy", toAny(&envoy_mysql_proxy.MySQLProxy{
-				StatPrefix: "mysql",
-			}), false))
-
-		// Experimental TCP chain for MongoDB
-		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName,
-			"envoy.filters.network.mongo_proxy", toAny(&envoy_mongo_proxy.MongoProxy{
-				StatPrefix:          "mongo",
-				EmitDynamicMetadata: true,
-			}), false))
+		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(tlsClusterName, true))
 	}
 	return listenerConf
 }
@@ -1021,6 +1048,7 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 	)
 
 	var listenerRevertFunc xds.AckingResourceMutatorRevertFunc
+	var revertNPDSTracking func()
 
 	s.mutex.Lock()
 	count := s.listenerCount[name]
@@ -1028,13 +1056,7 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 		count--
 		if count == 0 {
 			if isProxyListener {
-				s.proxyListeners--
-				if s.proxyListeners < 0 {
-					s.logger.Error("Envoy: RemoveListener: negative proxyListener count",
-						logfields.Listener, name,
-						logfields.Count, s.proxyListeners,
-					)
-				}
+				revertNPDSTracking = s.npdsListeners.Delete(name)
 			}
 			delete(s.listenerCount, name)
 			s.logger.Info("Envoy: Deleting listener",
@@ -1044,7 +1066,7 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 
 			// cancel all pending network policy completions if this was the last
 			// listener with bpf metadata listener filter with bpf path configured.
-			if s.proxyListeners <= 0 {
+			if s.npdsListeners.Empty() {
 				s.networkPolicyMutator.CancelCompletions(NetworkPolicyTypeURL)
 			}
 		} else {
@@ -1062,97 +1084,13 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 		s.mutex.Lock()
 		if listenerRevertFunc != nil {
 			listenerRevertFunc(completion)
-			if isProxyListener {
-				s.proxyListeners++
-			}
+		}
+		if revertNPDSTracking != nil {
+			revertNPDSTracking()
 		}
 		s.listenerCount[name] = s.listenerCount[name] + 1
 		s.mutex.Unlock()
 	}
-}
-
-func getL7Rules(l7Rules []api.PortRuleL7, l7Proto string) *cilium.L7NetworkPolicyRules {
-	allowRules := make([]*cilium.L7NetworkPolicyRule, 0, len(l7Rules))
-	denyRules := make([]*cilium.L7NetworkPolicyRule, 0, len(l7Rules))
-	useEnvoyMetadataMatcher := strings.HasPrefix(l7Proto, "envoy.")
-
-	for _, l7 := range l7Rules {
-		if useEnvoyMetadataMatcher {
-			envoyFilterName := l7Proto
-			rule := &cilium.L7NetworkPolicyRule{MetadataRule: make([]*envoy_type_matcher.MetadataMatcher, 0, len(l7))}
-			denyRule := false
-			for k, v := range l7 {
-				switch k {
-				case "action":
-					switch v {
-					case "deny":
-						denyRule = true
-					}
-				default:
-					// map key to path segments and value to value matcher
-					// For now only one path segment is allowed
-					segments := strings.Split(k, "/")
-					var path []*envoy_type_matcher.MetadataMatcher_PathSegment
-					for _, key := range segments {
-						path = append(path, &envoy_type_matcher.MetadataMatcher_PathSegment{
-							Segment: &envoy_type_matcher.MetadataMatcher_PathSegment_Key{Key: key},
-						})
-					}
-					var value *envoy_type_matcher.ValueMatcher
-					if len(v) == 0 {
-						value = &envoy_type_matcher.ValueMatcher{
-							MatchPattern: &envoy_type_matcher.ValueMatcher_PresentMatch{
-								PresentMatch: true,
-							},
-						}
-					} else {
-						value = &envoy_type_matcher.ValueMatcher{
-							MatchPattern: &envoy_type_matcher.ValueMatcher_ListMatch{
-								ListMatch: &envoy_type_matcher.ListMatcher{
-									MatchPattern: &envoy_type_matcher.ListMatcher_OneOf{
-										OneOf: &envoy_type_matcher.ValueMatcher{
-											MatchPattern: &envoy_type_matcher.ValueMatcher_StringMatch{
-												StringMatch: &envoy_type_matcher.StringMatcher{
-													MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
-														Exact: v,
-													},
-													IgnoreCase: false,
-												},
-											},
-										},
-									},
-								},
-							},
-						}
-					}
-					rule.MetadataRule = append(rule.MetadataRule, &envoy_type_matcher.MetadataMatcher{
-						Filter: envoyFilterName,
-						Path:   path,
-						Value:  value,
-					})
-				}
-			}
-			if denyRule {
-				denyRules = append(denyRules, rule)
-			} else {
-				allowRules = append(allowRules, rule)
-			}
-		} else {
-			// generic key/value L7 policy
-			rule := &cilium.L7NetworkPolicyRule{Rule: make(map[string]string, len(l7))}
-			maps.Copy(rule.Rule, l7)
-			allowRules = append(allowRules, rule)
-		}
-	}
-
-	rules := &cilium.L7NetworkPolicyRules{}
-	if len(allowRules) > 0 {
-		rules.L7AllowRules = allowRules
-	}
-	if len(denyRules) > 0 {
-		rules.L7DenyRules = denyRules
-	}
-	return rules
 }
 
 var CiliumXDSConfigSource = &envoy_config_core.ConfigSource{
@@ -1344,16 +1282,6 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 
 	case policy.ParserTypeDNS:
 		// TODO: Support DNS. For now, just ignore any DNS L7 rule.
-
-	default:
-		// Assume unknown parser types use a Key-Value Pair policy
-		if len(l7Rules.L7) > 0 {
-			// L7 rules are not sorted
-			r.L7Proto = l7Rules.L7Parser.String()
-			r.L7 = &cilium.PortNetworkPolicyRule_L7Rules{
-				L7Rules: getL7Rules(l7Rules.L7, r.L7Proto),
-			}
-		}
 	}
 
 	return r, canShortCircuit
@@ -1677,7 +1605,7 @@ func (s *xdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy 
 	// If there are no listeners configured, the local node's Envoy proxy won't
 	// query for network policies and therefore will never ACK them, and we'd
 	// wait forever.
-	if s.proxyListeners == 0 {
+	if s.npdsListeners.Empty() {
 		wg = nil
 	}
 
@@ -1736,7 +1664,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 	// If there are no listeners configured, the local node's Envoy proxy won't
 	// query for network policies and therefore will never ACK them, and we'd
 	// wait forever.
-	if s.proxyListeners == 0 {
+	if s.npdsListeners.Empty() {
 		wg = nil
 	}
 

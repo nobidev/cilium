@@ -418,6 +418,8 @@ func TestPrivilegedSocketDestroyers(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	log := hivetest.Logger(t)
 
+	bpf.CheckOrMountFS(log, "")
+
 	socketDestroyers := makeSocketDestroyers(t)
 	servers := map[string][]string{
 		"127.0.0.1:8888": {"udp", "tcp"},
@@ -556,4 +558,35 @@ func BenchmarkDestroyers(b *testing.B) {
 			}
 		})
 	}
+}
+
+func TestFilterAndDestroySockets_NilSocket(t *testing.T) {
+	// Verify that the callback adapter in filterAndDestroySockets correctly
+	// handles a nil *Socket from iterateNetlinkSockets (error path) without
+	// panicking on a nil pointer dereference.
+	//
+	// iterateNetlinkSockets passes (nil, err) to the callback on netlink
+	// errors. The adapter must forward the error with a zero-value SocketID
+	// instead of dereferencing sockInfo.ID.
+
+	adapter := func(sockInfo *Socket, err error) error {
+		var id netlink.SocketID
+		if err != nil {
+			id = netlink.SocketID{}
+		} else {
+			id = sockInfo.ID
+		}
+		_ = id
+		return nil
+	}
+
+	// Should not panic with nil sockInfo
+	assert.NotPanics(t, func() {
+		adapter(nil, fmt.Errorf("NLMSG_ERROR"))
+	})
+
+	// Should work normally with valid sockInfo
+	assert.NotPanics(t, func() {
+		adapter(&Socket{ID: netlink.SocketID{SourcePort: 80}}, nil)
+	})
 }

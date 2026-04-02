@@ -718,17 +718,9 @@ spec:
                                   required:
                                     - http
                                 - properties:
-                                    kafka: {}
-                                  required:
-                                    - kafka
-                                - properties:
                                     dns: {}
                                   required:
                                     - dns
-                                - properties:
-                                    l7proto: {}
-                                  required:
-                                    - l7proto
                               properties:
                                 dns:
                                   description: DNS-specific rules.
@@ -881,101 +873,6 @@ spec:
                                         type: string
                                     type: object
                                   type: array
-                                kafka:
-                                  description: |-
-                                    Kafka-specific rules.
-                                    Deprecated: This beta feature is deprecated and will be removed in a future release.
-                                  items:
-                                    description: |-
-                                      PortRule is a list of Kafka protocol constraints. All fields are
-                                      optional, if all fields are empty or missing, the rule will match all
-                                      Kafka messages.
-                                    properties:
-                                      apiKey:
-                                        description: |-
-                                          APIKey is a case-insensitive string matched against the key of a
-                                          request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
-                                          Reference: https://kafka.apache.org/protocol#protocol_api_keys
-
-                                          If omitted or empty, and if Role is not specified, then all keys are allowed.
-                                        type: string
-                                      apiVersion:
-                                        description: |-
-                                          APIVersion is the version matched against the api version of the
-                                          Kafka message. If set, it has to be a string representing a positive
-                                          integer.
-
-                                          If omitted or empty, all versions are allowed.
-                                        type: string
-                                      clientID:
-                                        description: |-
-                                          ClientID is the client identifier as provided in the request.
-
-                                          From Kafka protocol documentation:
-                                          This is a user supplied identifier for the client application. The
-                                          user can use any identifier they like and it will be used when
-                                          logging errors, monitoring aggregates, etc. For example, one might
-                                          want to monitor not just the requests per second overall, but the
-                                          number coming from each client application (each of which could
-                                          reside on multiple servers). This id acts as a logical grouping
-                                          across all requests from a particular client.
-
-                                          If omitted or empty, all client identifiers are allowed.
-                                        type: string
-                                      role:
-                                        description: |-
-                                          Role is a case-insensitive string and describes a group of API keys
-                                          necessary to perform certain higher-level Kafka operations such as "produce"
-                                          or "consume". A Role automatically expands into all APIKeys required
-                                          to perform the specified higher-level operation.
-
-                                          The following values are supported:
-                                           - "produce": Allow producing to the topics specified in the rule
-                                           - "consume": Allow consuming from the topics specified in the rule
-
-                                          This field is incompatible with the APIKey field, i.e APIKey and Role
-                                          cannot both be specified in the same rule.
-
-                                          If omitted or empty, and if APIKey is not specified, then all keys are
-                                          allowed.
-                                        enum:
-                                          - produce
-                                          - consume
-                                        type: string
-                                      topic:
-                                        description: |-
-                                          Topic is the topic name contained in the message. If a Kafka request
-                                          contains multiple topics, then all topics must be allowed or the
-                                          message will be rejected.
-
-                                          This constraint is ignored if the matched request message type
-                                          doesn't contain any topic. Maximum size of Topic can be 249
-                                          characters as per recent Kafka spec and allowed characters are
-                                          a-z, A-Z, 0-9, -, . and _.
-
-                                          Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
-                                          version the length was changed from 255 to 249. For compatibility
-                                          reasons we are using 255.
-
-                                          If omitted or empty, all topics are allowed.
-                                        maxLength: 255
-                                        type: string
-                                    type: object
-                                  type: array
-                                l7:
-                                  description: Key-value pair rules.
-                                  items:
-                                    additionalProperties:
-                                      type: string
-                                    description: |-
-                                      PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
-                                      protocol constraints. All fields are optional, if all fields are empty or
-                                      missing, the rule does not have any effect.
-                                    type: object
-                                  type: array
-                                l7proto:
-                                  description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                  type: string
                               type: object
                             serverNames:
                               description: |-
@@ -2316,17 +2213,9 @@ spec:
                                   required:
                                     - http
                                 - properties:
-                                    kafka: {}
-                                  required:
-                                    - kafka
-                                - properties:
                                     dns: {}
                                   required:
                                     - dns
-                                - properties:
-                                    l7proto: {}
-                                  required:
-                                    - l7proto
                               properties:
                                 dns:
                                   description: DNS-specific rules.
@@ -2479,101 +2368,6 @@ spec:
                                         type: string
                                     type: object
                                   type: array
-                                kafka:
-                                  description: |-
-                                    Kafka-specific rules.
-                                    Deprecated: This beta feature is deprecated and will be removed in a future release.
-                                  items:
-                                    description: |-
-                                      PortRule is a list of Kafka protocol constraints. All fields are
-                                      optional, if all fields are empty or missing, the rule will match all
-                                      Kafka messages.
-                                    properties:
-                                      apiKey:
-                                        description: |-
-                                          APIKey is a case-insensitive string matched against the key of a
-                                          request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
-                                          Reference: https://kafka.apache.org/protocol#protocol_api_keys
-
-                                          If omitted or empty, and if Role is not specified, then all keys are allowed.
-                                        type: string
-                                      apiVersion:
-                                        description: |-
-                                          APIVersion is the version matched against the api version of the
-                                          Kafka message. If set, it has to be a string representing a positive
-                                          integer.
-
-                                          If omitted or empty, all versions are allowed.
-                                        type: string
-                                      clientID:
-                                        description: |-
-                                          ClientID is the client identifier as provided in the request.
-
-                                          From Kafka protocol documentation:
-                                          This is a user supplied identifier for the client application. The
-                                          user can use any identifier they like and it will be used when
-                                          logging errors, monitoring aggregates, etc. For example, one might
-                                          want to monitor not just the requests per second overall, but the
-                                          number coming from each client application (each of which could
-                                          reside on multiple servers). This id acts as a logical grouping
-                                          across all requests from a particular client.
-
-                                          If omitted or empty, all client identifiers are allowed.
-                                        type: string
-                                      role:
-                                        description: |-
-                                          Role is a case-insensitive string and describes a group of API keys
-                                          necessary to perform certain higher-level Kafka operations such as "produce"
-                                          or "consume". A Role automatically expands into all APIKeys required
-                                          to perform the specified higher-level operation.
-
-                                          The following values are supported:
-                                           - "produce": Allow producing to the topics specified in the rule
-                                           - "consume": Allow consuming from the topics specified in the rule
-
-                                          This field is incompatible with the APIKey field, i.e APIKey and Role
-                                          cannot both be specified in the same rule.
-
-                                          If omitted or empty, and if APIKey is not specified, then all keys are
-                                          allowed.
-                                        enum:
-                                          - produce
-                                          - consume
-                                        type: string
-                                      topic:
-                                        description: |-
-                                          Topic is the topic name contained in the message. If a Kafka request
-                                          contains multiple topics, then all topics must be allowed or the
-                                          message will be rejected.
-
-                                          This constraint is ignored if the matched request message type
-                                          doesn't contain any topic. Maximum size of Topic can be 249
-                                          characters as per recent Kafka spec and allowed characters are
-                                          a-z, A-Z, 0-9, -, . and _.
-
-                                          Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
-                                          version the length was changed from 255 to 249. For compatibility
-                                          reasons we are using 255.
-
-                                          If omitted or empty, all topics are allowed.
-                                        maxLength: 255
-                                        type: string
-                                    type: object
-                                  type: array
-                                l7:
-                                  description: Key-value pair rules.
-                                  items:
-                                    additionalProperties:
-                                      type: string
-                                    description: |-
-                                      PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
-                                      protocol constraints. All fields are optional, if all fields are empty or
-                                      missing, the rule does not have any effect.
-                                    type: object
-                                  type: array
-                                l7proto:
-                                  description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                  type: string
                               type: object
                             serverNames:
                               description: |-
@@ -3407,17 +3201,9 @@ spec:
                                   required:
                                     - http
                                 - properties:
-                                    kafka: {}
-                                  required:
-                                    - kafka
-                                - properties:
                                     dns: {}
                                   required:
                                     - dns
-                                - properties:
-                                    l7proto: {}
-                                  required:
-                                    - l7proto
                               properties:
                                 dns:
                                   description: DNS-specific rules.
@@ -3570,101 +3356,6 @@ spec:
                                         type: string
                                     type: object
                                   type: array
-                                kafka:
-                                  description: |-
-                                    Kafka-specific rules.
-                                    Deprecated: This beta feature is deprecated and will be removed in a future release.
-                                  items:
-                                    description: |-
-                                      PortRule is a list of Kafka protocol constraints. All fields are
-                                      optional, if all fields are empty or missing, the rule will match all
-                                      Kafka messages.
-                                    properties:
-                                      apiKey:
-                                        description: |-
-                                          APIKey is a case-insensitive string matched against the key of a
-                                          request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
-                                          Reference: https://kafka.apache.org/protocol#protocol_api_keys
-
-                                          If omitted or empty, and if Role is not specified, then all keys are allowed.
-                                        type: string
-                                      apiVersion:
-                                        description: |-
-                                          APIVersion is the version matched against the api version of the
-                                          Kafka message. If set, it has to be a string representing a positive
-                                          integer.
-
-                                          If omitted or empty, all versions are allowed.
-                                        type: string
-                                      clientID:
-                                        description: |-
-                                          ClientID is the client identifier as provided in the request.
-
-                                          From Kafka protocol documentation:
-                                          This is a user supplied identifier for the client application. The
-                                          user can use any identifier they like and it will be used when
-                                          logging errors, monitoring aggregates, etc. For example, one might
-                                          want to monitor not just the requests per second overall, but the
-                                          number coming from each client application (each of which could
-                                          reside on multiple servers). This id acts as a logical grouping
-                                          across all requests from a particular client.
-
-                                          If omitted or empty, all client identifiers are allowed.
-                                        type: string
-                                      role:
-                                        description: |-
-                                          Role is a case-insensitive string and describes a group of API keys
-                                          necessary to perform certain higher-level Kafka operations such as "produce"
-                                          or "consume". A Role automatically expands into all APIKeys required
-                                          to perform the specified higher-level operation.
-
-                                          The following values are supported:
-                                           - "produce": Allow producing to the topics specified in the rule
-                                           - "consume": Allow consuming from the topics specified in the rule
-
-                                          This field is incompatible with the APIKey field, i.e APIKey and Role
-                                          cannot both be specified in the same rule.
-
-                                          If omitted or empty, and if APIKey is not specified, then all keys are
-                                          allowed.
-                                        enum:
-                                          - produce
-                                          - consume
-                                        type: string
-                                      topic:
-                                        description: |-
-                                          Topic is the topic name contained in the message. If a Kafka request
-                                          contains multiple topics, then all topics must be allowed or the
-                                          message will be rejected.
-
-                                          This constraint is ignored if the matched request message type
-                                          doesn't contain any topic. Maximum size of Topic can be 249
-                                          characters as per recent Kafka spec and allowed characters are
-                                          a-z, A-Z, 0-9, -, . and _.
-
-                                          Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
-                                          version the length was changed from 255 to 249. For compatibility
-                                          reasons we are using 255.
-
-                                          If omitted or empty, all topics are allowed.
-                                        maxLength: 255
-                                        type: string
-                                    type: object
-                                  type: array
-                                l7:
-                                  description: Key-value pair rules.
-                                  items:
-                                    additionalProperties:
-                                      type: string
-                                    description: |-
-                                      PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
-                                      protocol constraints. All fields are optional, if all fields are empty or
-                                      missing, the rule does not have any effect.
-                                    type: object
-                                  type: array
-                                l7proto:
-                                  description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                  type: string
                               type: object
                             serverNames:
                               description: |-
@@ -4788,17 +4479,9 @@ spec:
                                   required:
                                     - http
                                 - properties:
-                                    kafka: {}
-                                  required:
-                                    - kafka
-                                - properties:
                                     dns: {}
                                   required:
                                     - dns
-                                - properties:
-                                    l7proto: {}
-                                  required:
-                                    - l7proto
                               properties:
                                 dns:
                                   description: DNS-specific rules.
@@ -4951,101 +4634,6 @@ spec:
                                         type: string
                                     type: object
                                   type: array
-                                kafka:
-                                  description: |-
-                                    Kafka-specific rules.
-                                    Deprecated: This beta feature is deprecated and will be removed in a future release.
-                                  items:
-                                    description: |-
-                                      PortRule is a list of Kafka protocol constraints. All fields are
-                                      optional, if all fields are empty or missing, the rule will match all
-                                      Kafka messages.
-                                    properties:
-                                      apiKey:
-                                        description: |-
-                                          APIKey is a case-insensitive string matched against the key of a
-                                          request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
-                                          Reference: https://kafka.apache.org/protocol#protocol_api_keys
-
-                                          If omitted or empty, and if Role is not specified, then all keys are allowed.
-                                        type: string
-                                      apiVersion:
-                                        description: |-
-                                          APIVersion is the version matched against the api version of the
-                                          Kafka message. If set, it has to be a string representing a positive
-                                          integer.
-
-                                          If omitted or empty, all versions are allowed.
-                                        type: string
-                                      clientID:
-                                        description: |-
-                                          ClientID is the client identifier as provided in the request.
-
-                                          From Kafka protocol documentation:
-                                          This is a user supplied identifier for the client application. The
-                                          user can use any identifier they like and it will be used when
-                                          logging errors, monitoring aggregates, etc. For example, one might
-                                          want to monitor not just the requests per second overall, but the
-                                          number coming from each client application (each of which could
-                                          reside on multiple servers). This id acts as a logical grouping
-                                          across all requests from a particular client.
-
-                                          If omitted or empty, all client identifiers are allowed.
-                                        type: string
-                                      role:
-                                        description: |-
-                                          Role is a case-insensitive string and describes a group of API keys
-                                          necessary to perform certain higher-level Kafka operations such as "produce"
-                                          or "consume". A Role automatically expands into all APIKeys required
-                                          to perform the specified higher-level operation.
-
-                                          The following values are supported:
-                                           - "produce": Allow producing to the topics specified in the rule
-                                           - "consume": Allow consuming from the topics specified in the rule
-
-                                          This field is incompatible with the APIKey field, i.e APIKey and Role
-                                          cannot both be specified in the same rule.
-
-                                          If omitted or empty, and if APIKey is not specified, then all keys are
-                                          allowed.
-                                        enum:
-                                          - produce
-                                          - consume
-                                        type: string
-                                      topic:
-                                        description: |-
-                                          Topic is the topic name contained in the message. If a Kafka request
-                                          contains multiple topics, then all topics must be allowed or the
-                                          message will be rejected.
-
-                                          This constraint is ignored if the matched request message type
-                                          doesn't contain any topic. Maximum size of Topic can be 249
-                                          characters as per recent Kafka spec and allowed characters are
-                                          a-z, A-Z, 0-9, -, . and _.
-
-                                          Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
-                                          version the length was changed from 255 to 249. For compatibility
-                                          reasons we are using 255.
-
-                                          If omitted or empty, all topics are allowed.
-                                        maxLength: 255
-                                        type: string
-                                    type: object
-                                  type: array
-                                l7:
-                                  description: Key-value pair rules.
-                                  items:
-                                    additionalProperties:
-                                      type: string
-                                    description: |-
-                                      PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
-                                      protocol constraints. All fields are optional, if all fields are empty or
-                                      missing, the rule does not have any effect.
-                                    type: object
-                                  type: array
-                                l7proto:
-                                  description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                  type: string
                               type: object
                             serverNames:
                               description: |-
@@ -5926,17 +5514,9 @@ spec:
                                     required:
                                       - http
                                   - properties:
-                                      kafka: {}
-                                    required:
-                                      - kafka
-                                  - properties:
                                       dns: {}
                                     required:
                                       - dns
-                                  - properties:
-                                      l7proto: {}
-                                    required:
-                                      - l7proto
                                 properties:
                                   dns:
                                     description: DNS-specific rules.
@@ -6089,101 +5669,6 @@ spec:
                                           type: string
                                       type: object
                                     type: array
-                                  kafka:
-                                    description: |-
-                                      Kafka-specific rules.
-                                      Deprecated: This beta feature is deprecated and will be removed in a future release.
-                                    items:
-                                      description: |-
-                                        PortRule is a list of Kafka protocol constraints. All fields are
-                                        optional, if all fields are empty or missing, the rule will match all
-                                        Kafka messages.
-                                      properties:
-                                        apiKey:
-                                          description: |-
-                                            APIKey is a case-insensitive string matched against the key of a
-                                            request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
-                                            Reference: https://kafka.apache.org/protocol#protocol_api_keys
-
-                                            If omitted or empty, and if Role is not specified, then all keys are allowed.
-                                          type: string
-                                        apiVersion:
-                                          description: |-
-                                            APIVersion is the version matched against the api version of the
-                                            Kafka message. If set, it has to be a string representing a positive
-                                            integer.
-
-                                            If omitted or empty, all versions are allowed.
-                                          type: string
-                                        clientID:
-                                          description: |-
-                                            ClientID is the client identifier as provided in the request.
-
-                                            From Kafka protocol documentation:
-                                            This is a user supplied identifier for the client application. The
-                                            user can use any identifier they like and it will be used when
-                                            logging errors, monitoring aggregates, etc. For example, one might
-                                            want to monitor not just the requests per second overall, but the
-                                            number coming from each client application (each of which could
-                                            reside on multiple servers). This id acts as a logical grouping
-                                            across all requests from a particular client.
-
-                                            If omitted or empty, all client identifiers are allowed.
-                                          type: string
-                                        role:
-                                          description: |-
-                                            Role is a case-insensitive string and describes a group of API keys
-                                            necessary to perform certain higher-level Kafka operations such as "produce"
-                                            or "consume". A Role automatically expands into all APIKeys required
-                                            to perform the specified higher-level operation.
-
-                                            The following values are supported:
-                                             - "produce": Allow producing to the topics specified in the rule
-                                             - "consume": Allow consuming from the topics specified in the rule
-
-                                            This field is incompatible with the APIKey field, i.e APIKey and Role
-                                            cannot both be specified in the same rule.
-
-                                            If omitted or empty, and if APIKey is not specified, then all keys are
-                                            allowed.
-                                          enum:
-                                            - produce
-                                            - consume
-                                          type: string
-                                        topic:
-                                          description: |-
-                                            Topic is the topic name contained in the message. If a Kafka request
-                                            contains multiple topics, then all topics must be allowed or the
-                                            message will be rejected.
-
-                                            This constraint is ignored if the matched request message type
-                                            doesn't contain any topic. Maximum size of Topic can be 249
-                                            characters as per recent Kafka spec and allowed characters are
-                                            a-z, A-Z, 0-9, -, . and _.
-
-                                            Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
-                                            version the length was changed from 255 to 249. For compatibility
-                                            reasons we are using 255.
-
-                                            If omitted or empty, all topics are allowed.
-                                          maxLength: 255
-                                          type: string
-                                      type: object
-                                    type: array
-                                  l7:
-                                    description: Key-value pair rules.
-                                    items:
-                                      additionalProperties:
-                                        type: string
-                                      description: |-
-                                        PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
-                                        protocol constraints. All fields are optional, if all fields are empty or
-                                        missing, the rule does not have any effect.
-                                      type: object
-                                    type: array
-                                  l7proto:
-                                    description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                    type: string
                                 type: object
                               serverNames:
                                 description: |-
@@ -7524,17 +7009,9 @@ spec:
                                     required:
                                       - http
                                   - properties:
-                                      kafka: {}
-                                    required:
-                                      - kafka
-                                  - properties:
                                       dns: {}
                                     required:
                                       - dns
-                                  - properties:
-                                      l7proto: {}
-                                    required:
-                                      - l7proto
                                 properties:
                                   dns:
                                     description: DNS-specific rules.
@@ -7687,101 +7164,6 @@ spec:
                                           type: string
                                       type: object
                                     type: array
-                                  kafka:
-                                    description: |-
-                                      Kafka-specific rules.
-                                      Deprecated: This beta feature is deprecated and will be removed in a future release.
-                                    items:
-                                      description: |-
-                                        PortRule is a list of Kafka protocol constraints. All fields are
-                                        optional, if all fields are empty or missing, the rule will match all
-                                        Kafka messages.
-                                      properties:
-                                        apiKey:
-                                          description: |-
-                                            APIKey is a case-insensitive string matched against the key of a
-                                            request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
-                                            Reference: https://kafka.apache.org/protocol#protocol_api_keys
-
-                                            If omitted or empty, and if Role is not specified, then all keys are allowed.
-                                          type: string
-                                        apiVersion:
-                                          description: |-
-                                            APIVersion is the version matched against the api version of the
-                                            Kafka message. If set, it has to be a string representing a positive
-                                            integer.
-
-                                            If omitted or empty, all versions are allowed.
-                                          type: string
-                                        clientID:
-                                          description: |-
-                                            ClientID is the client identifier as provided in the request.
-
-                                            From Kafka protocol documentation:
-                                            This is a user supplied identifier for the client application. The
-                                            user can use any identifier they like and it will be used when
-                                            logging errors, monitoring aggregates, etc. For example, one might
-                                            want to monitor not just the requests per second overall, but the
-                                            number coming from each client application (each of which could
-                                            reside on multiple servers). This id acts as a logical grouping
-                                            across all requests from a particular client.
-
-                                            If omitted or empty, all client identifiers are allowed.
-                                          type: string
-                                        role:
-                                          description: |-
-                                            Role is a case-insensitive string and describes a group of API keys
-                                            necessary to perform certain higher-level Kafka operations such as "produce"
-                                            or "consume". A Role automatically expands into all APIKeys required
-                                            to perform the specified higher-level operation.
-
-                                            The following values are supported:
-                                             - "produce": Allow producing to the topics specified in the rule
-                                             - "consume": Allow consuming from the topics specified in the rule
-
-                                            This field is incompatible with the APIKey field, i.e APIKey and Role
-                                            cannot both be specified in the same rule.
-
-                                            If omitted or empty, and if APIKey is not specified, then all keys are
-                                            allowed.
-                                          enum:
-                                            - produce
-                                            - consume
-                                          type: string
-                                        topic:
-                                          description: |-
-                                            Topic is the topic name contained in the message. If a Kafka request
-                                            contains multiple topics, then all topics must be allowed or the
-                                            message will be rejected.
-
-                                            This constraint is ignored if the matched request message type
-                                            doesn't contain any topic. Maximum size of Topic can be 249
-                                            characters as per recent Kafka spec and allowed characters are
-                                            a-z, A-Z, 0-9, -, . and _.
-
-                                            Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
-                                            version the length was changed from 255 to 249. For compatibility
-                                            reasons we are using 255.
-
-                                            If omitted or empty, all topics are allowed.
-                                          maxLength: 255
-                                          type: string
-                                      type: object
-                                    type: array
-                                  l7:
-                                    description: Key-value pair rules.
-                                    items:
-                                      additionalProperties:
-                                        type: string
-                                      description: |-
-                                        PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
-                                        protocol constraints. All fields are optional, if all fields are empty or
-                                        missing, the rule does not have any effect.
-                                      type: object
-                                    type: array
-                                  l7proto:
-                                    description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                    type: string
                                 type: object
                               serverNames:
                                 description: |-
@@ -8615,17 +7997,9 @@ spec:
                                     required:
                                       - http
                                   - properties:
-                                      kafka: {}
-                                    required:
-                                      - kafka
-                                  - properties:
                                       dns: {}
                                     required:
                                       - dns
-                                  - properties:
-                                      l7proto: {}
-                                    required:
-                                      - l7proto
                                 properties:
                                   dns:
                                     description: DNS-specific rules.
@@ -8778,101 +8152,6 @@ spec:
                                           type: string
                                       type: object
                                     type: array
-                                  kafka:
-                                    description: |-
-                                      Kafka-specific rules.
-                                      Deprecated: This beta feature is deprecated and will be removed in a future release.
-                                    items:
-                                      description: |-
-                                        PortRule is a list of Kafka protocol constraints. All fields are
-                                        optional, if all fields are empty or missing, the rule will match all
-                                        Kafka messages.
-                                      properties:
-                                        apiKey:
-                                          description: |-
-                                            APIKey is a case-insensitive string matched against the key of a
-                                            request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
-                                            Reference: https://kafka.apache.org/protocol#protocol_api_keys
-
-                                            If omitted or empty, and if Role is not specified, then all keys are allowed.
-                                          type: string
-                                        apiVersion:
-                                          description: |-
-                                            APIVersion is the version matched against the api version of the
-                                            Kafka message. If set, it has to be a string representing a positive
-                                            integer.
-
-                                            If omitted or empty, all versions are allowed.
-                                          type: string
-                                        clientID:
-                                          description: |-
-                                            ClientID is the client identifier as provided in the request.
-
-                                            From Kafka protocol documentation:
-                                            This is a user supplied identifier for the client application. The
-                                            user can use any identifier they like and it will be used when
-                                            logging errors, monitoring aggregates, etc. For example, one might
-                                            want to monitor not just the requests per second overall, but the
-                                            number coming from each client application (each of which could
-                                            reside on multiple servers). This id acts as a logical grouping
-                                            across all requests from a particular client.
-
-                                            If omitted or empty, all client identifiers are allowed.
-                                          type: string
-                                        role:
-                                          description: |-
-                                            Role is a case-insensitive string and describes a group of API keys
-                                            necessary to perform certain higher-level Kafka operations such as "produce"
-                                            or "consume". A Role automatically expands into all APIKeys required
-                                            to perform the specified higher-level operation.
-
-                                            The following values are supported:
-                                             - "produce": Allow producing to the topics specified in the rule
-                                             - "consume": Allow consuming from the topics specified in the rule
-
-                                            This field is incompatible with the APIKey field, i.e APIKey and Role
-                                            cannot both be specified in the same rule.
-
-                                            If omitted or empty, and if APIKey is not specified, then all keys are
-                                            allowed.
-                                          enum:
-                                            - produce
-                                            - consume
-                                          type: string
-                                        topic:
-                                          description: |-
-                                            Topic is the topic name contained in the message. If a Kafka request
-                                            contains multiple topics, then all topics must be allowed or the
-                                            message will be rejected.
-
-                                            This constraint is ignored if the matched request message type
-                                            doesn't contain any topic. Maximum size of Topic can be 249
-                                            characters as per recent Kafka spec and allowed characters are
-                                            a-z, A-Z, 0-9, -, . and _.
-
-                                            Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
-                                            version the length was changed from 255 to 249. For compatibility
-                                            reasons we are using 255.
-
-                                            If omitted or empty, all topics are allowed.
-                                          maxLength: 255
-                                          type: string
-                                      type: object
-                                    type: array
-                                  l7:
-                                    description: Key-value pair rules.
-                                    items:
-                                      additionalProperties:
-                                        type: string
-                                      description: |-
-                                        PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
-                                        protocol constraints. All fields are optional, if all fields are empty or
-                                        missing, the rule does not have any effect.
-                                      type: object
-                                    type: array
-                                  l7proto:
-                                    description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                    type: string
                                 type: object
                               serverNames:
                                 description: |-
@@ -9996,17 +9275,9 @@ spec:
                                     required:
                                       - http
                                   - properties:
-                                      kafka: {}
-                                    required:
-                                      - kafka
-                                  - properties:
                                       dns: {}
                                     required:
                                       - dns
-                                  - properties:
-                                      l7proto: {}
-                                    required:
-                                      - l7proto
                                 properties:
                                   dns:
                                     description: DNS-specific rules.
@@ -10159,101 +9430,6 @@ spec:
                                           type: string
                                       type: object
                                     type: array
-                                  kafka:
-                                    description: |-
-                                      Kafka-specific rules.
-                                      Deprecated: This beta feature is deprecated and will be removed in a future release.
-                                    items:
-                                      description: |-
-                                        PortRule is a list of Kafka protocol constraints. All fields are
-                                        optional, if all fields are empty or missing, the rule will match all
-                                        Kafka messages.
-                                      properties:
-                                        apiKey:
-                                          description: |-
-                                            APIKey is a case-insensitive string matched against the key of a
-                                            request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
-                                            Reference: https://kafka.apache.org/protocol#protocol_api_keys
-
-                                            If omitted or empty, and if Role is not specified, then all keys are allowed.
-                                          type: string
-                                        apiVersion:
-                                          description: |-
-                                            APIVersion is the version matched against the api version of the
-                                            Kafka message. If set, it has to be a string representing a positive
-                                            integer.
-
-                                            If omitted or empty, all versions are allowed.
-                                          type: string
-                                        clientID:
-                                          description: |-
-                                            ClientID is the client identifier as provided in the request.
-
-                                            From Kafka protocol documentation:
-                                            This is a user supplied identifier for the client application. The
-                                            user can use any identifier they like and it will be used when
-                                            logging errors, monitoring aggregates, etc. For example, one might
-                                            want to monitor not just the requests per second overall, but the
-                                            number coming from each client application (each of which could
-                                            reside on multiple servers). This id acts as a logical grouping
-                                            across all requests from a particular client.
-
-                                            If omitted or empty, all client identifiers are allowed.
-                                          type: string
-                                        role:
-                                          description: |-
-                                            Role is a case-insensitive string and describes a group of API keys
-                                            necessary to perform certain higher-level Kafka operations such as "produce"
-                                            or "consume". A Role automatically expands into all APIKeys required
-                                            to perform the specified higher-level operation.
-
-                                            The following values are supported:
-                                             - "produce": Allow producing to the topics specified in the rule
-                                             - "consume": Allow consuming from the topics specified in the rule
-
-                                            This field is incompatible with the APIKey field, i.e APIKey and Role
-                                            cannot both be specified in the same rule.
-
-                                            If omitted or empty, and if APIKey is not specified, then all keys are
-                                            allowed.
-                                          enum:
-                                            - produce
-                                            - consume
-                                          type: string
-                                        topic:
-                                          description: |-
-                                            Topic is the topic name contained in the message. If a Kafka request
-                                            contains multiple topics, then all topics must be allowed or the
-                                            message will be rejected.
-
-                                            This constraint is ignored if the matched request message type
-                                            doesn't contain any topic. Maximum size of Topic can be 249
-                                            characters as per recent Kafka spec and allowed characters are
-                                            a-z, A-Z, 0-9, -, . and _.
-
-                                            Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
-                                            version the length was changed from 255 to 249. For compatibility
-                                            reasons we are using 255.
-
-                                            If omitted or empty, all topics are allowed.
-                                          maxLength: 255
-                                          type: string
-                                      type: object
-                                    type: array
-                                  l7:
-                                    description: Key-value pair rules.
-                                    items:
-                                      additionalProperties:
-                                        type: string
-                                      description: |-
-                                        PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
-                                        protocol constraints. All fields are optional, if all fields are empty or
-                                        missing, the rule does not have any effect.
-                                      type: object
-                                    type: array
-                                  l7proto:
-                                    description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                    type: string
                                 type: object
                               serverNames:
                                 description: |-
@@ -11229,17 +10405,9 @@ spec:
                                   required:
                                     - http
                                 - properties:
-                                    kafka: {}
-                                  required:
-                                    - kafka
-                                - properties:
                                     dns: {}
                                   required:
                                     - dns
-                                - properties:
-                                    l7proto: {}
-                                  required:
-                                    - l7proto
                               properties:
                                 dns:
                                   description: DNS-specific rules.
@@ -11392,101 +10560,6 @@ spec:
                                         type: string
                                     type: object
                                   type: array
-                                kafka:
-                                  description: |-
-                                    Kafka-specific rules.
-                                    Deprecated: This beta feature is deprecated and will be removed in a future release.
-                                  items:
-                                    description: |-
-                                      PortRule is a list of Kafka protocol constraints. All fields are
-                                      optional, if all fields are empty or missing, the rule will match all
-                                      Kafka messages.
-                                    properties:
-                                      apiKey:
-                                        description: |-
-                                          APIKey is a case-insensitive string matched against the key of a
-                                          request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
-                                          Reference: https://kafka.apache.org/protocol#protocol_api_keys
-
-                                          If omitted or empty, and if Role is not specified, then all keys are allowed.
-                                        type: string
-                                      apiVersion:
-                                        description: |-
-                                          APIVersion is the version matched against the api version of the
-                                          Kafka message. If set, it has to be a string representing a positive
-                                          integer.
-
-                                          If omitted or empty, all versions are allowed.
-                                        type: string
-                                      clientID:
-                                        description: |-
-                                          ClientID is the client identifier as provided in the request.
-
-                                          From Kafka protocol documentation:
-                                          This is a user supplied identifier for the client application. The
-                                          user can use any identifier they like and it will be used when
-                                          logging errors, monitoring aggregates, etc. For example, one might
-                                          want to monitor not just the requests per second overall, but the
-                                          number coming from each client application (each of which could
-                                          reside on multiple servers). This id acts as a logical grouping
-                                          across all requests from a particular client.
-
-                                          If omitted or empty, all client identifiers are allowed.
-                                        type: string
-                                      role:
-                                        description: |-
-                                          Role is a case-insensitive string and describes a group of API keys
-                                          necessary to perform certain higher-level Kafka operations such as "produce"
-                                          or "consume". A Role automatically expands into all APIKeys required
-                                          to perform the specified higher-level operation.
-
-                                          The following values are supported:
-                                           - "produce": Allow producing to the topics specified in the rule
-                                           - "consume": Allow consuming from the topics specified in the rule
-
-                                          This field is incompatible with the APIKey field, i.e APIKey and Role
-                                          cannot both be specified in the same rule.
-
-                                          If omitted or empty, and if APIKey is not specified, then all keys are
-                                          allowed.
-                                        enum:
-                                          - produce
-                                          - consume
-                                        type: string
-                                      topic:
-                                        description: |-
-                                          Topic is the topic name contained in the message. If a Kafka request
-                                          contains multiple topics, then all topics must be allowed or the
-                                          message will be rejected.
-
-                                          This constraint is ignored if the matched request message type
-                                          doesn't contain any topic. Maximum size of Topic can be 249
-                                          characters as per recent Kafka spec and allowed characters are
-                                          a-z, A-Z, 0-9, -, . and _.
-
-                                          Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
-                                          version the length was changed from 255 to 249. For compatibility
-                                          reasons we are using 255.
-
-                                          If omitted or empty, all topics are allowed.
-                                        maxLength: 255
-                                        type: string
-                                    type: object
-                                  type: array
-                                l7:
-                                  description: Key-value pair rules.
-                                  items:
-                                    additionalProperties:
-                                      type: string
-                                    description: |-
-                                      PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
-                                      protocol constraints. All fields are optional, if all fields are empty or
-                                      missing, the rule does not have any effect.
-                                    type: object
-                                  type: array
-                                l7proto:
-                                  description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                  type: string
                               type: object
                             serverNames:
                               description: |-
@@ -12858,17 +11931,9 @@ spec:
                                   required:
                                     - http
                                 - properties:
-                                    kafka: {}
-                                  required:
-                                    - kafka
-                                - properties:
                                     dns: {}
                                   required:
                                     - dns
-                                - properties:
-                                    l7proto: {}
-                                  required:
-                                    - l7proto
                               properties:
                                 dns:
                                   description: DNS-specific rules.
@@ -13021,101 +12086,6 @@ spec:
                                         type: string
                                     type: object
                                   type: array
-                                kafka:
-                                  description: |-
-                                    Kafka-specific rules.
-                                    Deprecated: This beta feature is deprecated and will be removed in a future release.
-                                  items:
-                                    description: |-
-                                      PortRule is a list of Kafka protocol constraints. All fields are
-                                      optional, if all fields are empty or missing, the rule will match all
-                                      Kafka messages.
-                                    properties:
-                                      apiKey:
-                                        description: |-
-                                          APIKey is a case-insensitive string matched against the key of a
-                                          request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
-                                          Reference: https://kafka.apache.org/protocol#protocol_api_keys
-
-                                          If omitted or empty, and if Role is not specified, then all keys are allowed.
-                                        type: string
-                                      apiVersion:
-                                        description: |-
-                                          APIVersion is the version matched against the api version of the
-                                          Kafka message. If set, it has to be a string representing a positive
-                                          integer.
-
-                                          If omitted or empty, all versions are allowed.
-                                        type: string
-                                      clientID:
-                                        description: |-
-                                          ClientID is the client identifier as provided in the request.
-
-                                          From Kafka protocol documentation:
-                                          This is a user supplied identifier for the client application. The
-                                          user can use any identifier they like and it will be used when
-                                          logging errors, monitoring aggregates, etc. For example, one might
-                                          want to monitor not just the requests per second overall, but the
-                                          number coming from each client application (each of which could
-                                          reside on multiple servers). This id acts as a logical grouping
-                                          across all requests from a particular client.
-
-                                          If omitted or empty, all client identifiers are allowed.
-                                        type: string
-                                      role:
-                                        description: |-
-                                          Role is a case-insensitive string and describes a group of API keys
-                                          necessary to perform certain higher-level Kafka operations such as "produce"
-                                          or "consume". A Role automatically expands into all APIKeys required
-                                          to perform the specified higher-level operation.
-
-                                          The following values are supported:
-                                           - "produce": Allow producing to the topics specified in the rule
-                                           - "consume": Allow consuming from the topics specified in the rule
-
-                                          This field is incompatible with the APIKey field, i.e APIKey and Role
-                                          cannot both be specified in the same rule.
-
-                                          If omitted or empty, and if APIKey is not specified, then all keys are
-                                          allowed.
-                                        enum:
-                                          - produce
-                                          - consume
-                                        type: string
-                                      topic:
-                                        description: |-
-                                          Topic is the topic name contained in the message. If a Kafka request
-                                          contains multiple topics, then all topics must be allowed or the
-                                          message will be rejected.
-
-                                          This constraint is ignored if the matched request message type
-                                          doesn't contain any topic. Maximum size of Topic can be 249
-                                          characters as per recent Kafka spec and allowed characters are
-                                          a-z, A-Z, 0-9, -, . and _.
-
-                                          Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
-                                          version the length was changed from 255 to 249. For compatibility
-                                          reasons we are using 255.
-
-                                          If omitted or empty, all topics are allowed.
-                                        maxLength: 255
-                                        type: string
-                                    type: object
-                                  type: array
-                                l7:
-                                  description: Key-value pair rules.
-                                  items:
-                                    additionalProperties:
-                                      type: string
-                                    description: |-
-                                      PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
-                                      protocol constraints. All fields are optional, if all fields are empty or
-                                      missing, the rule does not have any effect.
-                                    type: object
-                                  type: array
-                                l7proto:
-                                  description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                  type: string
                               type: object
                             serverNames:
                               description: |-
@@ -14427,17 +13397,9 @@ spec:
                                     required:
                                       - http
                                   - properties:
-                                      kafka: {}
-                                    required:
-                                      - kafka
-                                  - properties:
                                       dns: {}
                                     required:
                                       - dns
-                                  - properties:
-                                      l7proto: {}
-                                    required:
-                                      - l7proto
                                 properties:
                                   dns:
                                     description: DNS-specific rules.
@@ -14590,101 +13552,6 @@ spec:
                                           type: string
                                       type: object
                                     type: array
-                                  kafka:
-                                    description: |-
-                                      Kafka-specific rules.
-                                      Deprecated: This beta feature is deprecated and will be removed in a future release.
-                                    items:
-                                      description: |-
-                                        PortRule is a list of Kafka protocol constraints. All fields are
-                                        optional, if all fields are empty or missing, the rule will match all
-                                        Kafka messages.
-                                      properties:
-                                        apiKey:
-                                          description: |-
-                                            APIKey is a case-insensitive string matched against the key of a
-                                            request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
-                                            Reference: https://kafka.apache.org/protocol#protocol_api_keys
-
-                                            If omitted or empty, and if Role is not specified, then all keys are allowed.
-                                          type: string
-                                        apiVersion:
-                                          description: |-
-                                            APIVersion is the version matched against the api version of the
-                                            Kafka message. If set, it has to be a string representing a positive
-                                            integer.
-
-                                            If omitted or empty, all versions are allowed.
-                                          type: string
-                                        clientID:
-                                          description: |-
-                                            ClientID is the client identifier as provided in the request.
-
-                                            From Kafka protocol documentation:
-                                            This is a user supplied identifier for the client application. The
-                                            user can use any identifier they like and it will be used when
-                                            logging errors, monitoring aggregates, etc. For example, one might
-                                            want to monitor not just the requests per second overall, but the
-                                            number coming from each client application (each of which could
-                                            reside on multiple servers). This id acts as a logical grouping
-                                            across all requests from a particular client.
-
-                                            If omitted or empty, all client identifiers are allowed.
-                                          type: string
-                                        role:
-                                          description: |-
-                                            Role is a case-insensitive string and describes a group of API keys
-                                            necessary to perform certain higher-level Kafka operations such as "produce"
-                                            or "consume". A Role automatically expands into all APIKeys required
-                                            to perform the specified higher-level operation.
-
-                                            The following values are supported:
-                                             - "produce": Allow producing to the topics specified in the rule
-                                             - "consume": Allow consuming from the topics specified in the rule
-
-                                            This field is incompatible with the APIKey field, i.e APIKey and Role
-                                            cannot both be specified in the same rule.
-
-                                            If omitted or empty, and if APIKey is not specified, then all keys are
-                                            allowed.
-                                          enum:
-                                            - produce
-                                            - consume
-                                          type: string
-                                        topic:
-                                          description: |-
-                                            Topic is the topic name contained in the message. If a Kafka request
-                                            contains multiple topics, then all topics must be allowed or the
-                                            message will be rejected.
-
-                                            This constraint is ignored if the matched request message type
-                                            doesn't contain any topic. Maximum size of Topic can be 249
-                                            characters as per recent Kafka spec and allowed characters are
-                                            a-z, A-Z, 0-9, -, . and _.
-
-                                            Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
-                                            version the length was changed from 255 to 249. For compatibility
-                                            reasons we are using 255.
-
-                                            If omitted or empty, all topics are allowed.
-                                          maxLength: 255
-                                          type: string
-                                      type: object
-                                    type: array
-                                  l7:
-                                    description: Key-value pair rules.
-                                    items:
-                                      additionalProperties:
-                                        type: string
-                                      description: |-
-                                        PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
-                                        protocol constraints. All fields are optional, if all fields are empty or
-                                        missing, the rule does not have any effect.
-                                      type: object
-                                    type: array
-                                  l7proto:
-                                    description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                    type: string
                                 type: object
                               serverNames:
                                 description: |-
@@ -16056,17 +14923,9 @@ spec:
                                     required:
                                       - http
                                   - properties:
-                                      kafka: {}
-                                    required:
-                                      - kafka
-                                  - properties:
                                       dns: {}
                                     required:
                                       - dns
-                                  - properties:
-                                      l7proto: {}
-                                    required:
-                                      - l7proto
                                 properties:
                                   dns:
                                     description: DNS-specific rules.
@@ -16219,101 +15078,6 @@ spec:
                                           type: string
                                       type: object
                                     type: array
-                                  kafka:
-                                    description: |-
-                                      Kafka-specific rules.
-                                      Deprecated: This beta feature is deprecated and will be removed in a future release.
-                                    items:
-                                      description: |-
-                                        PortRule is a list of Kafka protocol constraints. All fields are
-                                        optional, if all fields are empty or missing, the rule will match all
-                                        Kafka messages.
-                                      properties:
-                                        apiKey:
-                                          description: |-
-                                            APIKey is a case-insensitive string matched against the key of a
-                                            request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
-                                            Reference: https://kafka.apache.org/protocol#protocol_api_keys
-
-                                            If omitted or empty, and if Role is not specified, then all keys are allowed.
-                                          type: string
-                                        apiVersion:
-                                          description: |-
-                                            APIVersion is the version matched against the api version of the
-                                            Kafka message. If set, it has to be a string representing a positive
-                                            integer.
-
-                                            If omitted or empty, all versions are allowed.
-                                          type: string
-                                        clientID:
-                                          description: |-
-                                            ClientID is the client identifier as provided in the request.
-
-                                            From Kafka protocol documentation:
-                                            This is a user supplied identifier for the client application. The
-                                            user can use any identifier they like and it will be used when
-                                            logging errors, monitoring aggregates, etc. For example, one might
-                                            want to monitor not just the requests per second overall, but the
-                                            number coming from each client application (each of which could
-                                            reside on multiple servers). This id acts as a logical grouping
-                                            across all requests from a particular client.
-
-                                            If omitted or empty, all client identifiers are allowed.
-                                          type: string
-                                        role:
-                                          description: |-
-                                            Role is a case-insensitive string and describes a group of API keys
-                                            necessary to perform certain higher-level Kafka operations such as "produce"
-                                            or "consume". A Role automatically expands into all APIKeys required
-                                            to perform the specified higher-level operation.
-
-                                            The following values are supported:
-                                             - "produce": Allow producing to the topics specified in the rule
-                                             - "consume": Allow consuming from the topics specified in the rule
-
-                                            This field is incompatible with the APIKey field, i.e APIKey and Role
-                                            cannot both be specified in the same rule.
-
-                                            If omitted or empty, and if APIKey is not specified, then all keys are
-                                            allowed.
-                                          enum:
-                                            - produce
-                                            - consume
-                                          type: string
-                                        topic:
-                                          description: |-
-                                            Topic is the topic name contained in the message. If a Kafka request
-                                            contains multiple topics, then all topics must be allowed or the
-                                            message will be rejected.
-
-                                            This constraint is ignored if the matched request message type
-                                            doesn't contain any topic. Maximum size of Topic can be 249
-                                            characters as per recent Kafka spec and allowed characters are
-                                            a-z, A-Z, 0-9, -, . and _.
-
-                                            Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
-                                            version the length was changed from 255 to 249. For compatibility
-                                            reasons we are using 255.
-
-                                            If omitted or empty, all topics are allowed.
-                                          maxLength: 255
-                                          type: string
-                                      type: object
-                                    type: array
-                                  l7:
-                                    description: Key-value pair rules.
-                                    items:
-                                      additionalProperties:
-                                        type: string
-                                      description: |-
-                                        PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
-                                        protocol constraints. All fields are optional, if all fields are empty or
-                                        missing, the rule does not have any effect.
-                                      type: object
-                                    type: array
-                                  l7proto:
-                                    description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                    type: string
                                 type: object
                               serverNames:
                                 description: |-

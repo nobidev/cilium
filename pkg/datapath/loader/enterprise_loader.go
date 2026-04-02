@@ -86,19 +86,19 @@ func (l *EnterpriseLoader) registerEndpointConfig(pd *privnetDHCPDevice) {
 				cfg.PrivnetBridgeEnable = l.privnetConfig.EnabledAsBridge()
 				cfg.PrivnetLocalAccessEnable = l.privnetConfig.EnabledAsLocalAccess()
 				cfg.PrivnetHostReachability = l.privnetConfig.HostReachability
-				cfg.PrivnetHostSnatIPv4 = l.privnetConfig.HostSNATIPv4.As4()
-				cfg.PrivnetHostSnatIPv6 = l.privnetConfig.HostSNATIPv6.As16()
+				cfg.PrivnetHostSNATIPv4.Addr = l.privnetConfig.HostSNATIPv4.As4()
+				cfg.PrivnetHostSNATIPv6.Addr = l.privnetConfig.HostSNATIPv6.As16()
 
 				cfg.CiliumDhcpIfIndex = uint32(pd.getIfindex())
 			}
 		}
 
 		if l.evpnConfig.Enabled {
-			cfg.EvpnEnable = true
+			cfg.EVPNEnable = true
 			dev, _, found := l.deviceTable.Get(l.db.ReadTxn(), tables.DeviceNameIndex.Query(l.evpnConfig.VxlanDevice))
 			if found {
-				cfg.EvpnDeviceIfIndex = uint32(dev.Index)
-				cfg.EvpnDeviceMAC = mac.MAC(dev.HardwareAddr).As8()
+				cfg.EVPNDeviceIfIndex = uint32(dev.Index)
+				cfg.EVPNDeviceMAC.Addr = mac.MAC(dev.HardwareAddr).As6()
 			}
 		}
 

@@ -12,14 +12,14 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.41.4
 	github.com/aws/aws-sdk-go-v2/config v1.32.12
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.20
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.294.1
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.296.0
 	github.com/aws/smithy-go v1.24.2
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/charts v0.0.0-20260302230044-43d28b4ff7f9
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
-	github.com/cilium/ebpf v0.20.1-0.20260218191617-ee67e7f43dd9
+	github.com/cilium/ebpf v0.21.0
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
 	github.com/cilium/hive v1.0.1
@@ -35,18 +35,17 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/docker v28.5.1+incompatible
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20210525090646-64b7a4574d14
-	github.com/envoyproxy/go-control-plane/contrib v1.36.0
 	github.com/envoyproxy/go-control-plane/envoy v1.37.0
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/evanphx/json-patch/v5 v5.9.11
-	github.com/fatih/color v1.18.0
+	github.com/fatih/color v1.19.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-openapi/errors v0.22.7
 	github.com/go-openapi/loads v0.23.3
 	github.com/go-openapi/runtime v0.29.3
 	github.com/go-openapi/spec v0.22.4
-	github.com/go-openapi/strfmt v0.26.0
+	github.com/go-openapi/strfmt v0.26.1
 	github.com/go-openapi/swag v0.25.5
 	github.com/go-openapi/validate v0.25.2
 	github.com/golang/protobuf v1.5.4
@@ -88,7 +87,7 @@ require (
 	github.com/prometheus/common v0.67.5
 	github.com/prometheus/procfs v0.20.1
 	github.com/russross/blackfriday/v2 v2.1.0
-	github.com/sasha-s/go-deadlock v0.3.7
+	github.com/sasha-s/go-deadlock v0.3.9
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cast v1.10.0
@@ -96,15 +95,15 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	github.com/spiffe/go-spiffe/v2 v2.6.0
-	github.com/spiffe/spire-api-sdk v1.14.1
+	github.com/spiffe/spire-api-sdk v1.14.4
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
-	github.com/vishvananda/netlink v1.3.2-0.20260311185454-b2290cd70382
+	github.com/vishvananda/netlink v1.3.2-0.20260320193013-72a8cd7e0a73
 	github.com/vishvananda/netns v0.0.5
-	go.etcd.io/etcd/api/v3 v3.6.8
-	go.etcd.io/etcd/client/pkg/v3 v3.6.8
-	go.etcd.io/etcd/client/v3 v3.6.8
+	go.etcd.io/etcd/api/v3 v3.6.9
+	go.etcd.io/etcd/client/pkg/v3 v3.6.9
+	go.etcd.io/etcd/client/v3 v3.6.9
 	go.opentelemetry.io/otel v1.42.0
 	go.opentelemetry.io/otel/trace v1.42.0
 	go.uber.org/goleak v1.3.0
@@ -123,22 +122,22 @@ require (
 	golang.org/x/time v0.15.0
 	golang.org/x/tools v0.43.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260311181403-84a4fc48630c
-	google.golang.org/grpc v1.79.2
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260319201613-d00831a3d3e7
+	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 	helm.sh/helm/v4 v4.1.3
-	k8s.io/api v0.35.2
-	k8s.io/apiextensions-apiserver v0.35.2
-	k8s.io/apimachinery v0.35.2
-	k8s.io/cli-runtime v0.35.2
-	k8s.io/client-go v0.35.2
-	k8s.io/component-base v0.35.2
-	k8s.io/endpointslice v0.35.2
+	k8s.io/api v0.35.3
+	k8s.io/apiextensions-apiserver v0.35.3
+	k8s.io/apimachinery v0.35.3
+	k8s.io/cli-runtime v0.35.3
+	k8s.io/client-go v0.35.3
+	k8s.io/component-base v0.35.3
+	k8s.io/endpointslice v0.35.3
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kubectl v0.35.2
-	k8s.io/metrics v0.35.2
-	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
-	sigs.k8s.io/controller-runtime v0.23.1
+	k8s.io/kubectl v0.35.3
+	k8s.io/metrics v0.35.3
+	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
+	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/gateway-api v1.4.1
 	sigs.k8s.io/mcs-api v0.3.1-0.20260224125735-0f775a3eff97
 	sigs.k8s.io/mcs-api/conformance v0.0.0-20260311160536-15301c2b6a81
@@ -285,7 +284,7 @@ require (
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mdlayher/genetlink v1.3.2 // indirect
@@ -360,8 +359,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
-	k8s.io/apiserver v0.35.2 // indirect
-	k8s.io/code-generator v0.35.2 // indirect
+	k8s.io/apiserver v0.35.3 // indirect
+	k8s.io/code-generator v0.35.3 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	kubevirt.io/containerized-data-importer-api v1.63.1 // indirect
@@ -397,6 +396,7 @@ replace github.com/osrg/gobgp/v3 => github.com/isovalent/gobgp/v3 v3.0.0-2026011
 
 tool (
 	github.com/AdamKorcz/go-118-fuzz-build/testing
+	github.com/cilium/cilium/tools/dpgen
 	github.com/cilium/deepequal-gen
 	github.com/cilium/ebpf/cmd/bpf2go
 	github.com/cilium/linters

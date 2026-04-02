@@ -810,7 +810,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		if (vtep && vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			fake_info.tunnel_endpoint.ip4 = vtep->tunnel_endpoint;
+			fake_info.tunnel_endpoint.ip4.be32 = vtep->tunnel_endpoint;
 			fake_info.flag_has_tunnel_ep = true;
 			return __encap_and_redirect_with_nodeid(ctx, &fake_info,
 								secctx, WORLD_IPV4_ID,
@@ -1348,10 +1348,8 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		src_sec_identity = HOST_ID;
 	else if (magic == MARK_MAGIC_PROXY_EGRESS)
 		src_sec_identity = get_identity(ctx);
-#ifdef ENABLE_IDENTITY_MARK
-	else if (magic == MARK_MAGIC_IDENTITY)
+	else if (CONFIG(enable_identity_mark) && magic == MARK_MAGIC_IDENTITY)
 		src_sec_identity = get_identity(ctx);
-#endif
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 	else if (magic == MARK_MAGIC_EGW_DONE)
 		src_sec_identity = get_identity(ctx);
@@ -1689,14 +1687,12 @@ int cil_to_host(struct __ctx_buff *ctx)
 	enterprise_privnet_to_host();
 
 	/* Retrieve values carried only via ctx->mark. */
-#ifdef ENABLE_IDENTITY_MARK
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_IDENTITY)
-		src_id = get_identity(ctx);
-# ifdef ENABLE_WIREGUARD
-	else if (ctx_is_decrypt(ctx))
-		src_id = get_identity(ctx);
-# endif
-#endif
+	if (CONFIG(enable_identity_mark)) {
+		if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_IDENTITY)
+			src_id = get_identity(ctx);
+		else if (is_defined(ENABLE_WIREGUARD) && ctx_is_decrypt(ctx))
+			src_id = get_identity(ctx);
+	}
 
 	/* Retrieve values carried either via ctx->mark or ctx->cb.
 	 * Prefer ctx->mark when it is set to one of the expected values.

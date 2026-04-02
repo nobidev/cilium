@@ -380,10 +380,7 @@ func TestHTTPSProxyMutualTLSRequestFiltering(t T) {
 
 			// 3. Test basic connectivity
 			for _, tt := range tc.testCalls {
-				testCmd := curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --cert /tmp/%s.crt --key /tmp/%s.key --cacert /tmp/%s.crt --resolve secure.acme.io:10443:%s https://secure.acme.io:10443/", clientHostName, clientHostName, serviceHostName, vipIP))
-				for k, v := range tt.headers {
-					testCmd += fmt.Sprintf(" -H '%s:%s'", k, v)
-				}
+				testCmd := curlCmdWithHeaders(curlCmd(fmt.Sprintf("--max-time 10 -o /dev/null -w '%%{response_code}' --cert /tmp/%s.crt --key /tmp/%s.key --cacert /tmp/%s.crt --resolve secure.acme.io:10443:%s https://secure.acme.io:10443/", clientHostName, clientHostName, serviceHostName, vipIP)), tt.headers)
 				t.Log("Testing %q...", testCmd)
 				eventually(t, func() error {
 					stdout, stderr, err := client.Exec(t.Context(), testCmd)

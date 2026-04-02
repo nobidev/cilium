@@ -326,12 +326,10 @@ func runHealthcheckProbe(probers []healthProber) nodeHealth {
 	var wg sync.WaitGroup
 
 	for _, p := range probers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			ok := p.runHealthcheckProbe()
 			resCh <- probeResult{mode: p.mode(), ok: ok}
-		}()
+		})
 	}
 
 	go func() {

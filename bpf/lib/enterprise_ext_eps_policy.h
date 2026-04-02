@@ -15,7 +15,7 @@ ext_eps_policy_can_egress4(struct __ctx_buff *ctx, __be32 ip, __u32 dst_id,
 			   __u8 *audited, __s8 *ext_err, __u16 *proxy_port, __u32 *cookie)
 {
 	struct endpoint_key key = {
-		.ip4 = ip,
+		.ip4.be32 = ip,
 		.family = ENDPOINT_KEY_IPV4,
 	};
 
@@ -31,7 +31,7 @@ ext_eps_policy_can_ingress4(struct __ctx_buff *ctx, __be32 ip, __u32 dst_id,
 			    __u32 *cookie)
 {
 	struct endpoint_key key = {
-		.ip4 = ip,
+		.ip4.be32 = ip,
 		.family = ENDPOINT_KEY_IPV4,
 	};
 

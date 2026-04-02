@@ -57,25 +57,25 @@ func Test_DefaultNetwork(t *testing.T) {
 
 	ipamResponse := &models.IPAMResponse{
 		Address: &models.AddressPair{
-			IPV4:         "10.0.0.10",
-			IPV4PoolName: "default-ipam-pool",
-			IPV6:         "f00d::10",
-			IPV6PoolName: "default-ipam-pool",
+			IPv4:         "10.0.0.10",
+			IPv4PoolName: "default-ipam-pool",
+			IPv6:         "f00d::10",
+			IPv6PoolName: "default-ipam-pool",
 		},
 		HostAddressing: &models.NodeAddressing{
-			IPV4: &models.NodeAddressingElement{
+			IPv4: &models.NodeAddressingElement{
 				Enabled: true,
 				IP:      "10.0.0.1",
 			},
-			IPV6: &models.NodeAddressingElement{
+			IPv6: &models.NodeAddressingElement{
 				Enabled: true,
 				IP:      "f00d::1",
 			},
 		},
-		IPV4: &models.IPAMAddressResponse{
+		IPv4: &models.IPAMAddressResponse{
 			IP: "10.0.0.10",
 		},
-		IPV6: &models.IPAMAddressResponse{
+		IPv6: &models.IPAMAddressResponse{
 			IP: "f00d::10",
 		},
 	}
@@ -168,11 +168,11 @@ func Test_ThreeAttachments(t *testing.T) {
 	}
 
 	ipamHostAddressing := &models.NodeAddressing{
-		IPV4: &models.NodeAddressingElement{
+		IPv4: &models.NodeAddressingElement{
 			Enabled: true,
 			IP:      "10.0.0.1",
 		},
-		IPV6: &models.NodeAddressingElement{
+		IPv6: &models.NodeAddressingElement{
 			Enabled: true,
 			IP:      "f00d::1",
 		},
@@ -183,11 +183,11 @@ func Test_ThreeAttachments(t *testing.T) {
 
 	ipamResponsePrimary := &models.IPAMResponse{
 		Address: &models.AddressPair{
-			IPV4:         "192.168.10.10",
-			IPV4PoolName: "primary-ipam-pool",
+			IPv4:         "192.168.10.10",
+			IPv4PoolName: "primary-ipam-pool",
 		},
 		HostAddressing: ipamHostAddressing,
-		IPV4: &models.IPAMAddressResponse{
+		IPv4: &models.IPAMAddressResponse{
 			IP: "192.168.10.10",
 		},
 	}
@@ -236,11 +236,11 @@ func Test_ThreeAttachments(t *testing.T) {
 
 	ipamResponseSecondary := &models.IPAMResponse{
 		Address: &models.AddressPair{
-			IPV4:         "172.18.0.10",
-			IPV4PoolName: "primay-ipam-pool",
+			IPv4:         "172.18.0.10",
+			IPv4PoolName: "primay-ipam-pool",
 		},
 		HostAddressing: ipamHostAddressing,
-		IPV4: &models.IPAMAddressResponse{
+		IPv4: &models.IPAMAddressResponse{
 			IP: "172.18.0.10",
 		},
 	}
@@ -288,11 +288,11 @@ func Test_ThreeAttachments(t *testing.T) {
 
 	ipamResponseDefault := &models.IPAMResponse{
 		Address: &models.AddressPair{
-			IPV4:         "10.10.0.10",
-			IPV4PoolName: "default-ipam-pool",
+			IPv4:         "10.10.0.10",
+			IPv4PoolName: "default-ipam-pool",
 		},
 		HostAddressing: ipamHostAddressing,
-		IPV4: &models.IPAMAddressResponse{
+		IPv4: &models.IPAMAddressResponse{
 			IP: "10.10.0.10",
 		},
 	}

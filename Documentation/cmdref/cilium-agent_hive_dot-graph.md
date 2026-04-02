@@ -98,6 +98,7 @@ cilium-agent hive dot-graph [flags]
       --enable-drift-checker                                             Enables support for config drift checker (default true)
       --enable-dynamic-config                                            Enables support for dynamic agent config (default true)
       --enable-dynamic-lifecycle-manager                                 Enables support for dynamic lifecycle management
+      --enable-dynamic-source-lookup-nodeport                            Enable dynamic source IP resolution for SNAT via linux's routing table. The kernel must support this feature.
       --enable-egress-gateway-ha-socket-termination                      Enables egress-gateway ha closing sockets for unavailable gateways (default true)
       --enable-encryption-policy                                         Enable support for encryption policies. When enabled, only selected traffic will be encrypted.
       --enable-endpoint-health-checking                                  Enable connectivity health checking between virtual endpoints (default true)
