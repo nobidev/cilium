@@ -21,8 +21,6 @@ import (
 	"net"
 	"net/netip"
 	"os"
-	"slices"
-	"syscall"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -81,94 +79,6 @@ func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revisio
 			logfields.Error, err)
 	}
 
-	ops.logger.Debug("Upserting rule",
-		logfields.Address, entry.Addr)
-
-	if err := route.ReplaceRule(ruleForEgressIP(entry.Addr)); err != nil {
-		return fmt.Errorf("failed to upsert rule for address %s: %w", entry.Addr, err)
-	}
-
-	routes, err := safenetlink.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{
-			Src:       entry.Addr.AsSlice(),
-			LinkIndex: iface.Attrs().Index,
-			Table:     RouteTableEgressGatewayIPAM,
-			Protocol:  linux_defaults.RTProto,
-		},
-		netlink.RT_FILTER_SRC|netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to lookup existing routes for egress IP %s and interface %s: %w", entry.Addr, iface.Attrs().Name, err)
-	}
-
-	// delete stale routes
-	for _, r := range routes {
-		dst, ok := netipx.FromStdIPNet(r.Dst)
-		if !ok {
-			return fmt.Errorf("failed to convert netlink route dst: %s", r.Dst.String())
-		}
-
-		found := false
-		for _, dest := range entry.Destinations {
-			if dest.String() == dst.String() {
-				found = true
-				break
-			}
-		}
-		if !found {
-			ops.logger.Debug("Deleting stale route",
-				logfields.Address, entry.Addr,
-				logfields.DestinationIP, r.Dst,
-				logfields.Interface, iface.Attrs().Name)
-
-			if err := route.DeleteV4(routeForEgressIP(entry.Addr, dst, iface)); err != nil && !errors.Is(err, syscall.ESRCH) {
-				return fmt.Errorf("failed to delete route for egress IP %s and interface %s: %w", entry.Addr, iface.Attrs().Name, err)
-			}
-		}
-	}
-
-	// add new routes
-	for _, dest := range entry.Destinations {
-		found := false
-		for _, r := range routes {
-			dst, ok := netipx.FromStdIPNet(r.Dst)
-			if !ok {
-				return fmt.Errorf("failed to convert netlink route dst: %s", r.Dst.String())
-			}
-
-			if dst.String() == dest.String() {
-				gw, ok := netipx.FromStdIP(r.Gw)
-				if !ok && !entry.NextHop.IsValid() {
-					// no next hop in the installed route and no next hop in the
-					// stateDB entry, so nothing to update
-					found = true
-					break
-				}
-				if ok && entry.NextHop.IsValid() && gw == entry.NextHop {
-					// next hop in the installed route and next hop in the stateDB
-					// entry match, so nothing to update
-					found = true
-					break
-				}
-				// there is a mismatch between the next hop in the installed route and
-				// the one in the stateDB entry, we have to upsert the updated route
-			}
-		}
-		if !found {
-			ops.logger.Debug("Upserting route",
-				logfields.Address, entry.Addr,
-				logfields.DestinationIP, dest,
-				logfields.Interface, iface.Attrs().Name,
-				logfields.NextHop, entry.NextHop)
-
-			r := routeForEgressIP(entry.Addr, dest, iface)
-			if err := route.UpsertWithoutDirectRoute(routeWithNextHop(r, entry.NextHop)); err != nil {
-				return fmt.Errorf("failed to append route for egress IP %s, interface %s and next hop %s: %w", entry.Addr, iface.Attrs().Name, entry.NextHop, err)
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -187,39 +97,13 @@ func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Revisio
 		return fmt.Errorf("failed to delete egress IP %s to interface %s: %w", entry.Addr, iface.Attrs().Name, err)
 	}
 
-	ops.logger.Debug("Deleting rule",
-		logfields.Address, entry.Addr)
-
-	if err := route.DeleteRule(netlink.FAMILY_V4, ruleForEgressIP(entry.Addr)); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to delete rule for address %s: %w", entry.Addr, err)
-	}
-
-	for _, dest := range entry.Destinations {
-		ops.logger.Debug("Deleting route",
-			logfields.Address, entry.Addr,
-			logfields.DestinationIP, dest,
-			logfields.Interface, iface.Attrs().Name)
-
-		if err := route.DeleteV4(routeForEgressIP(entry.Addr, dest, iface)); err != nil && !errors.Is(err, syscall.ESRCH) {
-			return fmt.Errorf("failed to delete route for egress IP %s and interface %s: %w", entry.Addr, iface.Attrs().Name, err)
-		}
-	}
-
 	return nil
 }
 
 func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, iter iter.Seq2[*tables.EgressIPEntry, statedb.Revision]) error {
-	rulesFilter, rulesMask := rulesFilter()
-	rules, err := safenetlink.RuleListFiltered(netlink.FAMILY_V4, rulesFilter, rulesMask)
-	if err != nil {
-		return fmt.Errorf("failed to list egress-gateway IPAM rules: %w", err)
-	}
-
-	routesFilter, routesMask := routesFilter()
-	routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, routesFilter, routesMask)
-	if err != nil {
-		return fmt.Errorf("failed to list egress-gateway IPAM routes: %w", err)
-	}
+	// prune addrs that are not part of the desired state (that is,
+	// the stateDB current snapshot).
+	// Also prune all routing setup left behind by an older installation.
 
 	// There's currently no way to filter for specific labels, so we list all addresses:
 	addrs, err := safenetlink.AddrList(nil, netlink.FAMILY_V4)
@@ -229,70 +113,8 @@ func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, iter iter.Seq2[*
 
 	// build a map of in-use egressIP -> destinations:
 	egressIPs := make(map[netip.Addr]struct{})
-	egressRoutes := make(map[netip.Addr][]netip.Prefix)
 	for entry := range iter {
 		egressIPs[entry.Addr] = struct{}{}
-		egressRoutes[entry.Addr] = append(egressRoutes[entry.Addr], entry.Destinations...)
-	}
-
-	// prune rules / routes / addrs that are not part of the desired state (that is,
-	// the stateDB current snapshot).
-	for _, rule := range rules {
-		if rule.Src == nil {
-			continue
-		}
-
-		prefix, ok := netipx.FromStdIPNet(rule.Src)
-		if !ok {
-			return fmt.Errorf("failed to convert netlink rule src: %s", rule.Src.String())
-		}
-		addr := prefix.Masked().Addr()
-		if _, ok := egressRoutes[addr]; ok {
-			continue
-		}
-
-		ops.logger.Debug("Pruning rule",
-			logfields.Address, addr)
-
-		if err := route.DeleteRule(netlink.FAMILY_V4, ruleForEgressIP(addr)); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("failed to delete rule for address %s while pruning: %w", addr, err)
-		}
-	}
-
-	for _, r := range routes {
-		if r.Dst == nil {
-			continue
-		}
-
-		addr, ok := netipx.FromStdIP(r.Src)
-		if !ok {
-			return fmt.Errorf("failed to convert netlink route src: %s", r.Src.String())
-		}
-
-		inUse := false
-		if _, ok := egressRoutes[addr]; ok {
-			dst, ok := netipx.FromStdIPNet(r.Dst)
-			if !ok {
-				return fmt.Errorf("failed to convert netlink route dst: %s", r.Dst.String())
-			}
-			inUse = slices.Contains(egressRoutes[addr], dst)
-		}
-		if inUse {
-			continue
-		}
-
-		ops.logger.Debug("Pruning route",
-			logfields.Address, addr,
-			logfields.DestinationIP, r.Dst)
-
-		if err := netlink.RouteDel(&netlink.Route{
-			Dst:      r.Dst,
-			Src:      addr.AsSlice(),
-			Table:    RouteTableEgressGatewayIPAM,
-			Protocol: linux_defaults.RTProto,
-		}); err != nil {
-			return fmt.Errorf("failed to delete route for egress IP %s while pruning: %w", addr, err)
-		}
 	}
 
 	for _, a := range addrs {
@@ -317,6 +139,22 @@ func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, iter iter.Seq2[*
 		if err := netlink.AddrDel(nil, &a); err != nil {
 			return fmt.Errorf("failed to delete egress IP %s: %w", addr, err)
 		}
+	}
+
+	rulesFilter, rulesMask := rulesFilter()
+	rules, err := safenetlink.RuleListFiltered(netlink.FAMILY_V4, rulesFilter, rulesMask)
+	if err != nil {
+		return fmt.Errorf("failed to list egress-gateway IPAM routing rules: %w", err)
+	}
+
+	for _, rule := range rules {
+		if err := netlink.RuleDel(&rule); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("failed to delete egress-gateway IPAM routing rule while pruning: %w", err)
+		}
+	}
+
+	if err := route.DeleteRouteTable(RouteTableEgressGatewayIPAM, netlink.FAMILY_V4); err != nil {
+		return fmt.Errorf("failed to delete egress-gateway IPAM route table: %w", err)
 	}
 
 	return nil
@@ -379,11 +217,4 @@ func rulesFilter() (*netlink.Rule, uint64) {
 		Table:    RouteTableEgressGatewayIPAM,
 		Protocol: linux_defaults.RTProto,
 	}, netlink.RT_FILTER_PRIORITY | netlink.RT_FILTER_TABLE | netlink.RT_FILTER_PROTOCOL
-}
-
-func routesFilter() (*netlink.Route, uint64) {
-	return &netlink.Route{
-		Table:    RouteTableEgressGatewayIPAM,
-		Protocol: unix.RTPROT_KERNEL,
-	}, netlink.RT_FILTER_TABLE | netlink.RT_FILTER_PROTOCOL
 }

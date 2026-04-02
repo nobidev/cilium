@@ -21,25 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// DeleteV4 deletes an IPv4 Linux route. Differently from Delete, it does
-// not discard Priority, Local, Type, MTU and Scope fields.
-// An error is returned if the route does not exist or if the route could not be deleted.
-func DeleteV4(route Route) error {
-	link, err := safenetlink.LinkByName(route.Device)
-	if err != nil {
-		return fmt.Errorf("unable to lookup interface %s: %w", route.Device, err)
-	}
-
-	routeSpec := route.getNetlinkRoute()
-	routeSpec.LinkIndex = link.Attrs().Index
-
-	if err := netlink.RouteDel(&routeSpec); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // UpsertWithoutDirectRoute adds or updates a Linux kernel route.
 //
 // Differently from Update it does not insert a direct route if next hop is specified.
@@ -79,7 +60,7 @@ func UpsertWithoutDirectRoute(route Route) error {
 	}
 
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to install route: %w", err)
 	}
 
 	return nil

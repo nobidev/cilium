@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -253,46 +254,50 @@ func waitforGwNetworkConfig(ctx context.Context, t *check.Test, nodeEgressIPCall
 				return fmt.Errorf("egress IP %s is not assigned to any interface in gateway node %s", egressIP, getGatewayNodeInternalIP(ct, ciliumPod.NodeName()))
 			}
 
-			cmd = strings.Split(fmt.Sprintf("ip --json rule show table %d", EgressGatewayIPAMRoutingTable), " ")
-			stdout, err = ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
-			if err != nil {
-				t.Fatalf("failed to run ip rule show command: %s", err)
-			}
+			if versioncheck.MustCompile("<1.19.0")(ct.CiliumVersion) {
 
-			var rules []ipRuleEntry
-			if err := json.Unmarshal(stdout.Bytes(), &rules); err != nil {
-				t.Fatalf("failed to unmarshal ip rule show command output: %s", err)
-			}
-			found = false
-			for _, rule := range rules {
-				if net.ParseIP(rule.Src).Equal(*egressIP) {
-					found = true
-					break
+				cmd = strings.Split(fmt.Sprintf("ip --json rule show table %d", EgressGatewayIPAMRoutingTable), " ")
+				stdout, err = ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
+				if err != nil {
+					t.Fatalf("failed to run ip rule show command: %s", err)
 				}
-			}
-			if !found {
-				return fmt.Errorf("no rule found for egress IP %s in gateway node %s", egressIP, getGatewayNodeInternalIP(ct, ciliumPod.NodeName()))
-			}
 
-			cmd = strings.Split(fmt.Sprintf("ip --json route show table %d", EgressGatewayIPAMRoutingTable), " ")
-			stdout, err = ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
-			if err != nil {
-				t.Fatalf("failed to run ip route show command: %s", err)
-			}
-
-			var routes []ipRouteEntry
-			if err := json.Unmarshal(stdout.Bytes(), &routes); err != nil {
-				t.Fatalf("failed to unmarshal ip route show command output: %s", err)
-			}
-			found = false
-			for _, route := range routes {
-				if net.ParseIP(route.PrefSrc).Equal(*egressIP) {
-					found = true
-					break
+				var rules []ipRuleEntry
+				if err := json.Unmarshal(stdout.Bytes(), &rules); err != nil {
+					t.Fatalf("failed to unmarshal ip rule show command output: %s", err)
 				}
-			}
-			if !found {
-				return fmt.Errorf("no route found for egress IP %s in gateway node %s", egressIP, getGatewayNodeInternalIP(ct, ciliumPod.NodeName()))
+				found = false
+				for _, rule := range rules {
+					if net.ParseIP(rule.Src).Equal(*egressIP) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return fmt.Errorf("no rule found for egress IP %s in gateway node %s", egressIP, getGatewayNodeInternalIP(ct, ciliumPod.NodeName()))
+				}
+
+				cmd = strings.Split(fmt.Sprintf("ip --json route show table %d", EgressGatewayIPAMRoutingTable), " ")
+				stdout, err = ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
+				if err != nil {
+					t.Fatalf("failed to run ip route show command: %s", err)
+				}
+
+				var routes []ipRouteEntry
+				if err := json.Unmarshal(stdout.Bytes(), &routes); err != nil {
+					t.Fatalf("failed to unmarshal ip route show command output: %s", err)
+				}
+				found = false
+				for _, route := range routes {
+					if net.ParseIP(route.PrefSrc).Equal(*egressIP) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return fmt.Errorf("no route found for egress IP %s in gateway node %s", egressIP, getGatewayNodeInternalIP(ct, ciliumPod.NodeName()))
+				}
+
 			}
 		}
 

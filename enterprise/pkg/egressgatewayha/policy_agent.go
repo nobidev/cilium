@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/enterprise/datapath/tables"
-	"github.com/cilium/cilium/enterprise/pkg/egressgatewayha/egressipconf"
 	"github.com/cilium/cilium/pkg/datapath/linux/netdevice"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -285,7 +284,7 @@ func (config *AgentPolicyConfig) regenerateGatewayConfig(manager *Manager, tx st
 	nextEgressIPs := sets.New(egressIPs...)
 	curEgressIPs := manager.egressConfigsByPolicy[config.id]
 	toDel := curEgressIPs.Difference(nextEgressIPs)
-	updateEgressIPsConfig(manager.logger, manager.db, manager.egressIPTable, nextEgressIPs, toDel, config.dstCIDRs)
+	updateEgressIPsConfig(manager.logger, manager.db, manager.egressIPTable, nextEgressIPs, toDel)
 	if _, err := manager.upsertPolicy(tx, *config); err != nil {
 		manager.logger.Error("BUG: could not upsert policy with new gw config",
 			logfields.Error, err)
@@ -298,7 +297,6 @@ func updateEgressIPsConfig(
 	db *statedb.DB,
 	table statedb.RWTable[*tables.EgressIPEntry],
 	toUpsert, toDel sets.Set[gwEgressIPConfig],
-	destinations []netip.Prefix,
 ) {
 	txn := db.WriteTxn(table)
 	defer txn.Abort()
@@ -310,32 +308,11 @@ func updateEgressIPsConfig(
 		})
 	}
 
-	// cache next hops to reduce netlink overhead
-	nextHops := make(map[string]netip.Addr)
-	for _, config := range toUpsert.UnsortedList() {
-		if _, ok := nextHops[config.iface]; ok {
-			continue
-		}
-		nextHop, err := egressipconf.NextHopFromDefaultRoute(config.iface)
-		if err != nil {
-			logger.Warn("Failed to find next hop to use for egress gateway IPAM route, connectivity to external endpoints might be broken for all SNATed traffic through the interface.",
-				logfields.Error, err,
-				logfields.Interface, config.iface,
-			)
-			continue
-		}
-		nextHops[config.iface] = nextHop
-	}
-
 	for _, config := range toUpsert.UnsortedList() {
 		entry := tables.EgressIPEntry{
-			Addr:         config.addr,
-			Interface:    config.iface,
-			Destinations: destinations,
-			Status:       reconciler.StatusPending(),
-		}
-		if nextHop, ok := nextHops[config.iface]; ok {
-			entry.NextHop = nextHop
+			Addr:      config.addr,
+			Interface: config.iface,
+			Status:    reconciler.StatusPending(),
 		}
 		table.Insert(txn, &entry)
 	}
