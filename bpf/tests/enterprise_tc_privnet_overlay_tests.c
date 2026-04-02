@@ -26,10 +26,6 @@ static __u32 privnet_tunnel_id = 199;
 #include <bpf/config/node.h>
 #include <lib/enterprise_ext_eps_maps.h>
 
-/* source mac will be set to mac_one_addr in these tests */
-#undef NATIVE_DEV_MAC_BY_IFINDEX
-#define NATIVE_DEV_MAC_BY_IFINDEX(_) { .addr = mac_one_addr }
-
 static __always_inline int
 mock_ext_eps_policy_can_access(struct __ctx_buff __maybe_unused *ctx,
 			       struct endpoint_key __maybe_unused *key,
