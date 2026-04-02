@@ -440,7 +440,7 @@ kind-privnet-test-namespace:  ## Create the test namespace in all clusters
 kind-privnet-deploy-forklift-resources: kind-privnet-test-namespace  ## Deploy the Forklift Provider and Plan
 	$(QUIET) kubectl --context kind-privnet-cluster apply -f $(ROOT_DIR)/contrib/testing/privnet/forklift-provider.yaml -n $(PRIVNET_TEST_NAMESPACE)
 	$(QUIET) NAMESPACE=$(PRIVNET_TEST_NAMESPACE) \
-		PROVIDER_UID=$$(kubectl get provider mock -n $(PRIVNET_TEST_NAMESPACE) -o jsonpath='{.metadata.uid}') \
+		PROVIDER_UID=$$(kubectl --context kind-privnet-cluster get provider mock -n $(PRIVNET_TEST_NAMESPACE) -o jsonpath='{.metadata.uid}') \
 		envsubst < $(ROOT_DIR)/contrib/testing/privnet/forklift-plan.yaml | \
 			kubectl --context kind-privnet-cluster apply -f - -n $(PRIVNET_TEST_NAMESPACE)
 
