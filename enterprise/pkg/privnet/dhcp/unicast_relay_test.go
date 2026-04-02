@@ -88,6 +88,7 @@ func TestPrivilegedUnicastRelaySendUnicastSetsGIAddrAndHop(t *testing.T) {
 
 	relayFactory := &unicastRelayFactory{
 		serverAddr: &net.UDPAddr{IP: serverIP, Port: dhcpv4.ServerPort},
+		log:        hivetest.Logger(t),
 		netns:      relayNS,
 	}
 	relay, err := relayFactory.RelayFor(nil)
@@ -142,6 +143,7 @@ func TestPrivilegedUnicastRelaySendUnicastMaxHop(t *testing.T) {
 
 	relayFactory := &unicastRelayFactory{
 		serverAddr: &net.UDPAddr{IP: serverIP, Port: dhcpv4.ServerPort},
+		log:        hivetest.Logger(t),
 		netns:      relayNS,
 	}
 	relay, err := relayFactory.RelayFor(nil)
