@@ -119,7 +119,7 @@ func (r *requestRateLimiter) allow(id uint16) bool {
 }
 
 func (s *Server) Serve(ctx context.Context, health cell.Health) error {
-	if err := s.setup(); err != nil {
+	if err := s.setup(ctx); err != nil {
 		return err
 	}
 	defer s.conn.Close()
@@ -233,7 +233,10 @@ func (s *Server) Serve(ctx context.Context, health cell.Health) error {
 	}
 }
 
-func (s *Server) setup() error {
+func (s *Server) setup(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
 	target := s.netns
 	if target == nil {
 		var err error
@@ -247,12 +250,17 @@ func (s *Server) setup() error {
 	return target.Do(func() error {
 		var err error
 		var link netlink.Link
-		for range 10 {
+		// Wait until the device exists and is UP
+		for ctx.Err() == nil {
 			link, err = safenetlink.LinkByName(s.ifname)
-			if err == nil {
+			if err == nil && link.Attrs().OperState == netlink.OperUp {
 				break
 			}
-			time.Sleep(100 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				err = ctx.Err()
+			case <-time.After(100 * time.Millisecond):
+			}
 		}
 		if err != nil {
 			return fmt.Errorf("lookup interface %q: %w", s.ifname, err)
