@@ -60,6 +60,10 @@ var (
 	}
 
 	tracing = false
+
+	// configureEmbeddedBootstrapHook allows downstream packages to mutate the
+	// embedded Envoy bootstrap before it is serialized and written to disk.
+	configureEmbeddedBootstrapHook func(*envoy_config_bootstrap.Bootstrap) error
 )
 
 const (
@@ -134,7 +138,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 
 	bootstrapFilePath := filepath.Join(bootstrapDir, "bootstrap.pb")
 
-	o.writeBootstrapConfigFile(bootstrapConfig{
+	if err := o.writeBootstrapConfigFile(bootstrapConfig{
 		filePath:                       bootstrapFilePath,
 		nodeId:                         "host~127.0.0.1~no-id~localdomain", // node id format inherited from Istio
 		cluster:                        ingressClusterName,
@@ -150,7 +154,9 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 		maxConcurrentRetries:           config.maxConcurrentRetries,
 		maxConnections:                 config.maxConnections,
 		maxRequests:                    config.maxRequests,
-	})
+	}); err != nil {
+		return nil, err
+	}
 
 	o.logger.Debug("Envoy: Starting standalone Envoy")
 
@@ -375,7 +381,7 @@ type bootstrapConfig struct {
 	maxRequests                    uint32
 }
 
-func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) {
+func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) error {
 	useDownstreamProtocol := map[string]*anypb.Any{
 		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
 			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
@@ -553,6 +559,15 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) {
 		},
 	}
 
+	if configureEmbeddedBootstrapHook != nil {
+		if err := configureEmbeddedBootstrapHook(bs); err != nil {
+			o.logger.Error("Envoy: Error configuring embedded bootstrap",
+				logfields.Error, err,
+			)
+			return err
+		}
+	}
+
 	o.logger.Debug("Envoy: Writing Bootstrap config",
 		logfields.Resource, bs,
 	)
@@ -561,13 +576,16 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) {
 		o.logger.Error("Envoy: Error marshaling Envoy bootstrap",
 			logfields.Error, err,
 		)
-		return
+		return err
 	}
 	if err := os.WriteFile(config.filePath, data, 0644); err != nil {
 		o.logger.Error("Envoy: Error writing Envoy bootstrap file",
 			logfields.Error, err,
 		)
+		return err
 	}
+
+	return nil
 }
 
 // getStandaloneEnvoyVersion returns the envoy binary version string

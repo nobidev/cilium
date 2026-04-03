@@ -1,6 +1,7 @@
 node:
   id: "host~127.0.0.1~no-id~localdomain"
   cluster: "ingress-cluster"
+{{- include "envoy.bootstrap.extra" . }}
 staticResources:
   listeners:
   {{- if .Values.envoy.prometheus.enabled }}
@@ -270,6 +271,7 @@ staticResources:
             address:
               pipe:
                 path: "/var/run/cilium/envoy/sockets/admin.sock"
+  {{- include "envoy.bootstrap.clusters.extra" . | nindent 2 }}
 dynamicResources:
   ldsConfig:
     initialFetchTimeout: "{{ .Values.envoy.initialFetchTimeoutSeconds }}s"

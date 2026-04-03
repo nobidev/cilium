@@ -116,6 +116,18 @@ Allow packagers to add extra args to the cilium-envoy container.
 {{- end }}
 
 {{/*
+Allow packagers to add extra top-level fields to the Envoy bootstrap.
+*/}}
+{{- define "envoy.bootstrap.extra" -}}
+{{- end }}
+
+{{/*
+Allow packagers to add extra clusters to the Envoy bootstrap.
+*/}}
+{{- define "envoy.bootstrap.clusters.extra" -}}
+{{- end }}
+
+{{/*
 Allow packagers to add extra env vars to the cilium-envoy container.
 */}}
 {{- define "envoy.env.extra" -}}
@@ -173,4 +185,3 @@ affinity:
   {{- toYaml . | nindent 2 }}     
 {{- end }}
 {{- end }}
-
