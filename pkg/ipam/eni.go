@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"slices"
 	"strconv"
+	"sync"
 
 	"github.com/cilium/hive/job"
 	"github.com/vishvananda/netlink"
@@ -20,14 +21,19 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -65,6 +71,101 @@ func startENIDeviceConfigurator(
 			nodeResource,
 		),
 	)
+}
+
+// startENINativeRoutingCIDRSync starts a CiliumNode observer that auto-detects
+// the IPv4 native routing CIDR from the VPC CIDR reported in the ENI status.
+//
+// When BPF masquerading is enabled, Cilium needs the native routing CIDR to
+// know which destination CIDRs should NOT be masqueraded. Without it,
+// cross-node pod-to-pod traffic gets SNAT'd to the node IP, breaking
+// connectivity.
+//
+// If the native routing CIDR is already configured (via Helm or CLI), this
+// validates that the configured value contains the VPC CIDR.
+func startENINativeRoutingCIDRSync(
+	logger *slog.Logger,
+	jg job.Group,
+	nodeResource agentK8s.LocalCiliumNodeResource,
+	localNodeStore *node.LocalNodeStore,
+	conf *option.DaemonConfig,
+) {
+	var once sync.Once
+	jg.Add(
+		job.Observer(
+			"eni-native-routing-cidr-sync",
+			func(ctx context.Context, ev resource.Event[*ciliumv2.CiliumNode]) error {
+				defer ev.Done(nil)
+
+				if ev.Kind != resource.Upsert {
+					return nil
+				}
+
+				// Gate once.Do on deriveENIVpcCIDR returning a valid CIDR so
+				// each Upsert retries until the operator has populated
+				// Status.ENI.ENIs[].VPC.PrimaryCIDR.
+				primaryCIDR := deriveENIVpcCIDR(ev.Object)
+				if primaryCIDR == nil {
+					return nil
+				}
+
+				once.Do(func() {
+					autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf)
+				})
+				return nil
+			},
+			nodeResource,
+		),
+	)
+}
+
+// autoDetectENINativeRoutingCIDR either validates an existing native routing
+// CIDR configuration against the given VPC primary CIDR, or uses the VPC CIDR
+// as the autodetected native routing CIDR.
+func autoDetectENINativeRoutingCIDR(
+	logger *slog.Logger,
+	primaryCIDR *cidr.CIDR,
+	localNodeStore *node.LocalNodeStore,
+	conf *option.DaemonConfig,
+) {
+	if nativeCIDR := conf.IPv4NativeRoutingCIDR; nativeCIDR != nil {
+		// Validate that the configured native routing CIDR contains the VPC CIDR.
+		ranges4, _ := ip.CoalesceCIDRs([]*net.IPNet{nativeCIDR.IPNet, primaryCIDR.IPNet})
+		if len(ranges4) == 1 {
+			logger.Info(
+				"Native routing CIDR contains VPC CIDR, ignoring autodetected VPC CIDR.",
+				logfields.VPCCIDR, primaryCIDR,
+				option.IPv4NativeRoutingCIDR, nativeCIDR,
+			)
+		} else {
+			logging.Fatal(logger, "Configured native routing CIDR does not contain VPC CIDR",
+				logfields.VPCCIDR, primaryCIDR,
+				option.IPv4NativeRoutingCIDR, nativeCIDR,
+			)
+		}
+		return
+	}
+
+	logger.Info(
+		"Using autodetected VPC primary CIDR as native routing CIDR.",
+		logfields.VPCCIDR, primaryCIDR,
+	)
+	localNodeStore.Update(func(n *node.LocalNode) {
+		n.Local.IPv4NativeRoutingCIDR = primaryCIDR
+	})
+}
+
+// deriveENIVpcCIDR extracts the VPC primary CIDR from the first ENI in the
+// CiliumNode status. All ENIs on a node belong to the same VPC, so any ENI
+// can be used.
+func deriveENIVpcCIDR(node *ciliumv2.CiliumNode) *cidr.CIDR {
+	for _, eni := range node.Status.ENI.ENIs {
+		c, err := cidr.ParseCIDR(eni.VPC.PrimaryCIDR)
+		if err == nil {
+			return c
+		}
+	}
+	return nil
 }
 
 // validateENIConfig validates the ENI configuration in the CiliumNode resource
@@ -339,17 +440,19 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sy
 func buildENIAllocationResult(
 	logger *slog.Logger,
 	allocatedIP net.IP,
-	node *ciliumv2.CiliumNode,
+	pool Pool,
+	enis map[string]eniTypes.ENI,
 	conf *option.DaemonConfig,
 	ipMasqAgent *ipmasq.IPMasqAgent,
 ) (*AllocationResult, error) {
-	for _, eni := range node.Status.ENI.ENIs {
+	for _, eni := range enis {
 		if !eniContainsIP(eni, allocatedIP) {
 			continue
 		}
 
 		result := &AllocationResult{
 			IP:         allocatedIP,
+			IPPoolName: pool,
 			PrimaryMAC: eni.MAC,
 			CIDRs:      []string{eni.VPC.PrimaryCIDR},
 		}
@@ -483,4 +586,107 @@ func addressCoveredByPrefix(addr string, prefixes []netip.Prefix) bool {
 		}
 	}
 	return false
+}
+
+// eniMultiPoolAllocator wraps multiPoolAllocator to enrich AllocationResult
+// with ENI-specific metadata.
+type eniMultiPoolAllocator struct {
+	multiPoolAllocator
+	logger      *slog.Logger
+	conf        *option.DaemonConfig
+	ipMasqAgent *ipmasq.IPMasqAgent
+}
+
+func (a *eniMultiPoolAllocator) enrichResult(result *AllocationResult, err error) (*AllocationResult, error) {
+	if err != nil || result == nil {
+		return result, err
+	}
+
+	// Take a DeepCopy of the ENIs map under the lock so buildENIAllocationResult
+	// can safely iterate it without holding the mutex. Scoped to Status.ENI
+	// since that's all buildENIAllocationResult reads.
+	a.manager.nodeMutex.Lock()
+	var enis map[string]eniTypes.ENI
+	if a.manager.node != nil {
+		enis = a.manager.node.Status.ENI.DeepCopy().ENIs
+	}
+	a.manager.nodeMutex.Unlock()
+
+	if enis == nil {
+		return result, nil
+	}
+
+	return buildENIAllocationResult(a.logger, result.IP, result.IPPoolName, enis, a.conf, a.ipMasqAgent)
+}
+
+func (a *eniMultiPoolAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
+	return a.enrichResult(a.multiPoolAllocator.Allocate(ip, owner, pool))
+}
+
+func (a *eniMultiPoolAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
+	return a.enrichResult(a.multiPoolAllocator.AllocateWithoutSyncUpstream(ip, owner, pool))
+}
+
+func (a *eniMultiPoolAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {
+	return a.enrichResult(a.multiPoolAllocator.AllocateNext(owner, pool))
+}
+
+func (a *eniMultiPoolAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error) {
+	return a.enrichResult(a.multiPoolAllocator.AllocateNextWithoutSyncUpstream(owner, pool))
+}
+
+// ENIMultiPoolAllocatorParams contains the parameters for creating ENI
+// multi-pool allocators.
+type ENIMultiPoolAllocatorParams struct {
+	Logger *slog.Logger
+
+	IPv4Enabled          bool
+	IPv6Enabled          bool
+	CiliumNodeUpdateRate time.Duration
+
+	Node           agentK8s.LocalCiliumNodeResource
+	LocalNodeStore *node.LocalNodeStore
+	CNClient       cilium_v2.CiliumNodeInterface
+	JobGroup       job.Group
+
+	Conf        *option.DaemonConfig
+	IPMasqAgent *ipmasq.IPMasqAgent
+}
+
+func newENIMultiPoolAllocators(p ENIMultiPoolAllocatorParams) (Allocator, Allocator) {
+	preallocMap := preAllocatePerPool{
+		Pool(defaults.IPAMDefaultIPPool): defaults.IPAMPreAllocation,
+	}
+
+	mgr := newMultiPoolManager(MultiPoolManagerParams{
+		Logger:               p.Logger,
+		IPv4Enabled:          p.IPv4Enabled,
+		IPv6Enabled:          p.IPv6Enabled,
+		CiliumNodeUpdateRate: p.CiliumNodeUpdateRate,
+		PreallocMap:          preallocMap,
+		Node:                 p.Node,
+		CNClient:             p.CNClient,
+		JobGroup:             p.JobGroup,
+		PoolsFromResource:    eniPoolsFromResource,
+		AllowFirstLastIPs:    true,
+		LinearPreAlloc:       true,
+	})
+
+	startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.JobGroup, p.Node, p.LocalNodeStore)
+	startENINativeRoutingCIDRSync(p.Logger, p.JobGroup, p.Node, p.LocalNodeStore, p.Conf)
+
+	// Wait for local node to be updated to avoid propagating spurious updates.
+	waitForLocalNodeUpdate(p.Logger, mgr)
+
+	return &eniMultiPoolAllocator{
+			multiPoolAllocator: multiPoolAllocator{manager: mgr, family: IPv4},
+			logger:             p.Logger,
+			conf:               p.Conf,
+			ipMasqAgent:        p.IPMasqAgent,
+		}, &eniMultiPoolAllocator{
+			multiPoolAllocator: multiPoolAllocator{manager: mgr, family: IPv6},
+			logger:             p.Logger,
+			conf:               p.Conf,
+			ipMasqAgent:        p.IPMasqAgent,
+		}
 }
