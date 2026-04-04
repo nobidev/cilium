@@ -6,6 +6,7 @@ package check
 import (
 	"cmp"
 	"errors"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -21,6 +22,11 @@ const MetadataDelimiter = ";metadata;"
 func NewJUnitCollector(junitProperties map[string]string, junitFile string, codeowners *codeowners.Ruleset) *JUnitCollector {
 	properties := []junit.Property{
 		{Name: "Args", Value: strings.Join(os.Args[3:], "|")},
+	}
+	keys := slices.Collect(maps.Keys(junitProperties))
+	slices.Sort(keys)
+	for _, key := range keys {
+		properties = append(properties, junit.Property{Name: key, Value: junitProperties[key]})
 	}
 	if codeowners != nil {
 		if workflowOwners, err := codeowners.WorkflowOwners(false); err == nil {
