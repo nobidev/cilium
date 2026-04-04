@@ -58,6 +58,7 @@ func TestSysdumpCollector(t *testing.T) {
 	collector, err := NewCollector(&client, options, &nopHooks{}, startTime)
 	assert.NoError(t, err)
 	assert.Equal(t, "my-sysdump-"+timestamp, path.Base(collector.sysdumpDir))
+	assert.Equal(t, "my-sysdump-"+timestamp+".zip", collector.ArchiveName())
 	tempFile := collector.AbsoluteTempPath("my-file-<ts>")
 	assert.Equal(t, path.Join(collector.sysdumpDir, "my-file-"+timestamp), tempFile)
 	_, err = os.Stat(path.Join(collector.sysdumpDir, sysdumpLogFile))

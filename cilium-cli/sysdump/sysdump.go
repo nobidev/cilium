@@ -416,6 +416,11 @@ func (c *Collector) AbsoluteTempPath(f string) string {
 	return path.Join(c.sysdumpDir, c.replaceTimestamp(f))
 }
 
+// ArchiveName returns the final sysdump archive filename.
+func (c *Collector) ArchiveName() string {
+	return c.replaceTimestamp(c.Options.OutputFileName) + ".zip"
+}
+
 func (c *Collector) WithFileSink(filename string, fn func(io.Writer) error) error {
 	path := c.AbsoluteTempPath(filename)
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fileMode)
@@ -1932,7 +1937,7 @@ func (c *Collector) Run() error {
 
 	// Create the zip file in the current directory.
 	c.log("🗳 Compiling sysdump")
-	f := c.replaceTimestamp(c.Options.OutputFileName) + ".zip"
+	f := c.ArchiveName()
 	if err := zipDirectory(c.sysdumpDir, f); err != nil {
 		return fmt.Errorf("failed to create zip file: %w", err)
 	}
