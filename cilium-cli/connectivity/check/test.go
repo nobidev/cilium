@@ -127,7 +127,8 @@ type Test struct {
 	certificateKeys map[string][]byte
 
 	// A custom sysdump policy for the given test.
-	sysdumpPolicy SysdumpPolicy
+	sysdumpPolicy       SysdumpPolicy
+	sysdumpArchivePaths []string
 
 	// List of callbacks to be executed before the test run as additional setup.
 	before []SetupFunc
@@ -868,6 +869,14 @@ func (t *Test) failedActions() []*Action {
 	return out
 }
 
+func (t *Test) recordSysdumpArchive(path string) {
+	t.sysdumpArchivePaths = append(t.sysdumpArchivePaths, path)
+}
+
+func (t *Test) sysdumpArchives() []string {
+	return slices.Clone(t.sysdumpArchivePaths)
+}
+
 func (t *Test) NodesWithoutCilium() []string {
 	return t.ctx.NodesWithoutCilium()
 }
@@ -908,7 +917,9 @@ func (t *Test) collectSysdump() {
 		}
 		if err = collector.Run(); err != nil {
 			t.Failf("Failed to collect sysdump: %v", err)
+			continue
 		}
+		t.recordSysdumpArchive(collector.ArchiveName())
 	}
 }
 

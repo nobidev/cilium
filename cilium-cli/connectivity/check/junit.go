@@ -18,6 +18,8 @@ import (
 
 const MetadataDelimiter = ";metadata;"
 
+const sysdumpPropertyName = "sysdump"
+
 // NewJUnitCollector factory function that returns JUnitCollector.
 func NewJUnitCollector(junitProperties map[string]string, junitFile string, codeowners *codeowners.Ruleset) *JUnitCollector {
 	properties := []junit.Property{
@@ -74,6 +76,8 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 		j.testSuite.Tests++
 		j.testSuite.Time += test.Time
 
+		properties := make([]junit.Property, 0)
+
 		if ct.params.LogCodeOwners {
 			scenarios := t.Scenarios()
 			owners := make(map[string]struct{})
@@ -86,17 +90,28 @@ func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
 					owners[o] = struct{}{}
 				}
 			}
-			properties := make([]junit.Property, 0, len(owners))
+			ownerProperties := make([]junit.Property, 0, len(owners))
 			for o := range owners {
-				properties = append(properties, junit.Property{
+				ownerProperties = append(ownerProperties, junit.Property{
 					Name:  "owner",
 					Value: o,
 				})
 			}
-			slices.SortFunc(properties,
+			slices.SortFunc(ownerProperties,
 				func(a, b junit.Property) int {
 					return cmp.Compare(a.Value, b.Value)
 				})
+			properties = append(properties, ownerProperties...)
+		}
+
+		for _, sysdumpPath := range t.sysdumpArchives() {
+			properties = append(properties, junit.Property{
+				Name:  sysdumpPropertyName,
+				Value: sysdumpPath,
+			})
+		}
+
+		if len(properties) > 0 {
 			test.Properties = &junit.Properties{Properties: properties}
 		}
 
