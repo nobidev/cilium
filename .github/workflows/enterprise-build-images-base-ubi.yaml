@@ -77,7 +77,7 @@ jobs:
           fi
 
       - name: Login to registry.redhat.io for pulling images
-        uses: docker/login-action@5c42dd293b89d96bae168b5b3694e4e72a5b1117
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121
         with:
           registry: registry.redhat.io
           username: ${{ secrets.REDHAT_USERNAME_CI }}
@@ -85,7 +85,7 @@ jobs:
 
       - name: Login to quay.io
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_CI }}
