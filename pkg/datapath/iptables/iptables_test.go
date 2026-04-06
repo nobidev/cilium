@@ -5,11 +5,13 @@ package iptables
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
 )
 
 type expectation struct {
@@ -1170,4 +1172,104 @@ func TestEncryptionRules(t *testing.T) {
 		assert.NoError(t, mockIp4tables.checkExpectations())
 		assert.NoError(t, mockIp6tables.checkExpectations())
 	})
+}
+
+// TestAddNoTrackPodTrafficRules verifies that when InstallNoConntrackIptRules
+// is enabled, addNoTrackPodTrafficRules generates the correct iptables rules
+// to skip conntrack for pod traffic in both CILIUM_PRE_raw and
+// CILIUM_OUTPUT_raw chains. This covers the "Skip conntrack for pod traffic"
+// scenario previously tested by K8sDatapathConfig.
+func TestAddNoTrackPodTrafficRules(t *testing.T) {
+	podsCIDR := "10.0.0.0/16"
+
+	mockIp4 := &mockIptables{
+		t:    t,
+		prog: "iptables",
+		expectations: []expectation{
+			// CILIUM_PRE_raw -s podsCIDR
+			{args: "-t raw -I CILIUM_PRE_raw -s 10.0.0.0/16 -m comment --comment cilium: NOTRACK for pod traffic -j CT --notrack"},
+			// CILIUM_PRE_raw -d podsCIDR
+			{args: "-t raw -I CILIUM_PRE_raw -d 10.0.0.0/16 -m comment --comment cilium: NOTRACK for pod traffic -j CT --notrack"},
+			// CILIUM_OUTPUT_raw -s podsCIDR
+			{args: "-t raw -I CILIUM_OUTPUT_raw -s 10.0.0.0/16 -m comment --comment cilium: NOTRACK for pod traffic -j CT --notrack"},
+			// CILIUM_OUTPUT_raw -d podsCIDR
+			{args: "-t raw -I CILIUM_OUTPUT_raw -d 10.0.0.0/16 -m comment --comment cilium: NOTRACK for pod traffic -j CT --notrack"},
+		},
+	}
+
+	testMgr := &Manager{
+		sharedCfg: SharedConfig{
+			InstallNoConntrackIptRules: true,
+			EnableIPv4:                 true,
+		},
+		ip4tables: mockIp4,
+	}
+
+	err := testMgr.addNoTrackPodTrafficRules(mockIp4, podsCIDR)
+	assert.NoError(t, err)
+	assert.NoError(t, mockIp4.checkExpectations())
+}
+
+// TestAllEgressMasqueradeCmdsRandomFully specifically tests the --random-fully
+// flag in masquerade rules, covering the iptables masquerading scenario
+// previously tested by K8sDatapathConfig Encapsulation context.
+func TestAllEgressMasqueradeCmdsRandomFully(t *testing.T) {
+	allocRange := "10.0.0.0/16"
+	snatDstExclusionCIDR := "192.168.0.0/16"
+
+	// Without --random-fully
+	cmdsWithout := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, nil, false)
+	for _, cmd := range cmdsWithout {
+		assert.NotContains(t, cmd, "--random-fully",
+			"Expected no --random-fully when disabled")
+	}
+
+	// With --random-fully
+	cmdsWith := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, nil, true)
+	for _, cmd := range cmdsWith {
+		assert.Contains(t, cmd, "--random-fully",
+			"Expected --random-fully when enabled")
+	}
+
+	// With --random-fully and specific masquerade interfaces
+	cmdsMultiIface := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR,
+		[]string{"eth0", "ens5"}, true)
+	assert.Len(t, cmdsMultiIface, 2, "Expected one rule per masquerade interface")
+	for _, cmd := range cmdsMultiIface {
+		assert.Contains(t, cmd, "--random-fully",
+			"Expected --random-fully when enabled with multiple interfaces")
+	}
+}
+
+func TestInstallMasqueradeRouteSourceRules(t *testing.T) {
+	routes := []netlink.Route{
+		{Dst: mustParseCIDR("0.0.0.0/0"), Src: net.ParseIP("198.18.4.4"), LinkIndex: 0, Family: 2},
+		{Dst: mustParseCIDR("10.0.0.0/16"), Src: net.ParseIP("10.0.0.1"), LinkIndex: 5, Family: 2},
+		{Dst: mustParseCIDR("10.0.1.0/24"), Src: net.ParseIP("10.0.1.1"), LinkIndex: 5, Family: 2},
+	}
+
+	mockProg := &mockIptables{t: t, prog: "iptables", expectations: []expectation{
+		{args: "-t nat -A CILIUM_POST_nat -s 11.0.0.0/24 -d 10.0.1.0/24 -o eth0 -m comment --comment cilium snat non-cluster via source route -j SNAT --to-source 10.0.1.1"},
+		{args: "-t nat -A CILIUM_POST_nat -s 11.0.0.0/24 -d 10.0.0.0/16 -o eth0 -m comment --comment cilium snat non-cluster via source route -j SNAT --to-source 10.0.0.1"},
+		{args: "-t nat -A CILIUM_POST_nat -s 11.0.0.0/24 ! -d 11.0.0.0/24 ! -o cilium_+ -m comment --comment cilium snat non-cluster via source route -j SNAT --to-source 198.18.4.4"},
+	}}
+
+	linkByIndex := func(index int) (netlink.Link, error) {
+		return &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "eth0", Index: 5}}, nil
+	}
+
+	mgr := &Manager{}
+	err := mgr.installMasqueradeRouteSourceRules(
+		mockProg, routes, linkByIndex,
+		[]string{"eth0"}, "11.0.0.0/24", "11.0.0.0/24",
+	)
+	require.NoError(t, err)
+	require.NoError(t, mockProg.checkExpectations())
+}
+func mustParseCIDR(s string) *net.IPNet {
+	_, n, err := net.ParseCIDR(s)
+	if err != nil {
+		panic(err)
+	}
+	return n
 }
