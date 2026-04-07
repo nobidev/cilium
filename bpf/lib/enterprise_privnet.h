@@ -1130,7 +1130,7 @@ privnet_unknown_policy_egress6(struct __ctx_buff *ctx,
 		return DROP_EP_NOT_READY;
 
 	ct_ret = ct_lookup6(ct_map, &tuple, ctx, ip6, fraginfo, l4_off,
-			    CT_INGRESS, SCOPE_BIDIR, &ct_state, &monitor);
+			    CT_EGRESS, SCOPE_BIDIR, &ct_state, &monitor);
 	if (trace) {
 		trace->monitor = monitor;
 		trace->reason = (enum trace_reason)ct_ret;
@@ -1156,7 +1156,7 @@ privnet_unknown_policy_egress6(struct __ctx_buff *ctx,
 		struct ct_state ct_state_new = {};
 
 		ret = ct_create6(ct_map, ct_map_any, &tuple,
-				 ctx, CT_INGRESS, &ct_state_new, ext_err);
+				 ctx, CT_EGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	}
