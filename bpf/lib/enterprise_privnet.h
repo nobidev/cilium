@@ -1145,7 +1145,7 @@ privnet_unknown_policy_egress6(struct __ctx_buff *ctx,
 	if (info)
 		dst_sec_identity = info->sec_identity;
 
-	verdict = privnet_unknown_policy_can_access(ctx, sec_label, dst_sec_identity, ETH_P_IP,
+	verdict = privnet_unknown_policy_can_access(ctx, sec_label, dst_sec_identity, ETH_P_IPV6,
 						    tuple.dport, tuple.nexthdr, l4_off, CT_EGRESS,
 						    is_untracked_fragment, &policy_match_type,
 						    ext_err, &proxy_port, &cookie, &audited);
@@ -1747,7 +1747,7 @@ privnet_unknown_policy_ingress6(struct __ctx_buff *ctx,
 	if (info)
 		src_sec_identity = info->sec_identity;
 
-	verdict = privnet_unknown_policy_can_access(ctx, sec_label, src_sec_identity, ETH_P_IP,
+	verdict = privnet_unknown_policy_can_access(ctx, sec_label, src_sec_identity, ETH_P_IPV6,
 						    tuple.dport, tuple.nexthdr, l4_off, CT_INGRESS,
 						    is_untracked_fragment, &policy_match_type,
 						    ext_err, &proxy_port, &cookie, &audited);
