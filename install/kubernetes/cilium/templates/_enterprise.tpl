@@ -284,6 +284,15 @@ private-networks-host-snat-ipv4: {{ .Values.enterprise.privateNetworks.hostSNATI
 {{- if .Values.enterprise.privateNetworks.hostSNATIPv6 }}
 private-networks-host-snat-ipv6: {{ .Values.enterprise.privateNetworks.hostSNATIPv6 | quote }}
 {{- end }}
+private-networks-api-tls-enabled: {{ .Values.enterprise.privateNetworks.api.tls.enabled | quote }}
+{{- if .Values.enterprise.privateNetworks.api.tls.enabled }}
+private-networks-api-tls-server-cert-file: "/var/lib/cilium/privnet/api/tls/server.crt"
+private-networks-api-tls-server-key-file: "/var/lib/cilium/privnet/api/tls/server.key"
+private-networks-api-tls-client-cert-file: "/var/lib/cilium/privnet/api/tls/client.crt"
+private-networks-api-tls-client-key-file: "/var/lib/cilium/privnet/api/tls/client.key"
+private-networks-api-tls-ca-files: "/var/lib/cilium/privnet/api/tls/ca.crt"
+{{- end }}
+
 {{- if .Values.enterprise.privateNetworks.enabled }}
 private-networks-webhook-enabled: {{ .Values.enterprise.privateNetworks.webhook.enabled | quote }}
 private-networks-webhook-hostport: {{ print ":" .Values.enterprise.privateNetworks.webhook.port | quote }}

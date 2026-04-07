@@ -489,6 +489,14 @@ contributors across the globe, there is almost always someone available to help.
 | enterprise.multiNetwork.enabled | bool | `false` | Enables the multi-network feature in Cilium CNI |
 | enterprise.multicast.enabled | bool | `false` | Enables multicast in cilium, multicast replication works only in tunnel mode. |
 | enterprise.privateNetworks.api.port | int | `4239` | The TCP port the privnet API server listens to, in "bridge" mode. Otherwise, it represents the fallback port to connect to a candidate INB, if not explicitly advertised by the candidate INB itself. |
+| enterprise.privateNetworks.api.tls | object | `{"certmanager":{"certValidityDuration":365,"issuerRef":{}},"cronJob":{"certValidityDuration":365,"schedule":"0 0 1 */4 *"},"enabled":false,"manual":{"client":{"existingSecret":""},"server":{"existingSecret":""}},"method":"manual"}` | Configuration for TLS certificates for the privnet API. |
+| enterprise.privateNetworks.api.tls.certmanager | object | `{"certValidityDuration":365,"issuerRef":{}}` | Configure the cert-manager specific parameters. Only applicable when method is "certmanager". |
+| enterprise.privateNetworks.api.tls.cronJob.schedule | string | `"0 0 1 */4 *"` | Schedule for API certificate regeneration. |
+| enterprise.privateNetworks.api.tls.enabled | bool | `false` | Enable use of TLS |
+| enterprise.privateNetworks.api.tls.manual | object | `{"client":{"existingSecret":""},"server":{"existingSecret":""}}` | Configure the manually provided certificate. Only applicable when method is "manual". |
+| enterprise.privateNetworks.api.tls.manual.client.existingSecret | string | `""` | Name of the Secret containing the certificate and key for the privnet API client. |
+| enterprise.privateNetworks.api.tls.manual.server.existingSecret | string | `""` | Name of the Secret containing the certificate and key for the privnet API server. |
+| enterprise.privateNetworks.api.tls.method | string | `"manual"` | The method used to provide or generate API certificates. - manual:       Use manually provided Secrets for the server and client certificates. - cronJob:      Use the certgen CronJob / Job to generate certificates. - certmanager:  Use cert-manager to generate and rotate certificates. |
 | enterprise.privateNetworks.enabled | bool | `false` | Enable private networks.  Private networks enable network-level isolation between Cilium-managed endpoints. Endpoints within the same private network can communicate with each other, but are isolated from endpoints in other private networks. |
 | enterprise.privateNetworks.healthcheck.interval | string | `"2s"` | The interval for performing health checks against candidate INBs. Ignored in "bridge" mode. |
 | enterprise.privateNetworks.healthcheck.timeout | string | `"5s"` | The timeout after which a candidate INB is considered unhealthy if no health check response is received. Must be at least 50% higher than the configured interval. Ignored in "bridge" mode. |

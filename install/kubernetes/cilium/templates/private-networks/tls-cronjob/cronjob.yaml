@@ -1,0 +1,19 @@
+{{- if and .Values.enterprise.privateNetworks.enabled .Values.enterprise.privateNetworks.api.tls.enabled (eq .Values.enterprise.privateNetworks.api.tls.method "cronJob") .Values.enterprise.privateNetworks.api.tls.cronJob.schedule }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cilium-private-networks-generate-certs
+  namespace: {{ include "cilium.namespace" . }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+  {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  schedule: {{ .Values.enterprise.privateNetworks.api.tls.cronJob.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.certgen.cronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.certgen.cronJob.failedJobsHistoryLimit }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    {{- include "private-networks-generate-certs.job.spec" . | nindent 4 }}
+{{- end }}

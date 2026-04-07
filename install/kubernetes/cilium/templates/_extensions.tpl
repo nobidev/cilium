@@ -8,10 +8,48 @@ Allow packagers to add extra volumes to cilium-agent.
 */}}
 {{- define "cilium-agent.volumes.extra" }}
 {{- include "hubble.timescape.export.extraVolumes" . }}
+{{- if and .Values.enterprise.privateNetworks.enabled .Values.enterprise.privateNetworks.api.tls.enabled }}
+- name: private-networks-api-tls
+  projected:
+    defaultMode: 0400
+    sources:
+    - secret:
+        name: {{ if eq .Values.enterprise.privateNetworks.api.tls.method "manual" }}{{ .Values.enterprise.privateNetworks.api.tls.manual.server.existingSecret }}{{ else }}cilium-private-networks-api-server{{ end }}
+        optional: true
+        items:
+        - key: tls.crt
+          path: server.crt
+        - key: tls.key
+          path: server.key
+        {{- if not .Values.tls.caBundle.enabled }}
+        - key: ca.crt
+          path: ca.crt
+        {{- else }}
+    - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
+        name: {{ .Values.tls.caBundle.name }}
+        optional: true
+        items:
+        - key: {{ .Values.tls.caBundle.key }}
+          path: ca.crt
+        {{- end }}
+    - secret:
+        name: {{ if eq .Values.enterprise.privateNetworks.api.tls.method "manual" }}{{ .Values.enterprise.privateNetworks.api.tls.manual.client.existingSecret }}{{ else }}cilium-private-networks-api-client{{ end }}
+        optional: true
+        items:
+        - key: tls.crt
+          path: client.crt
+        - key: tls.key
+          path: client.key
+{{- end }}
 {{- end }}
 
 {{- define "cilium-agent.volumeMounts.extra" }}
 {{- include "hubble.timescape.export.extraVolumeMounts" . }}
+{{- if and .Values.enterprise.privateNetworks.enabled .Values.enterprise.privateNetworks.api.tls.enabled }}
+- name: private-networks-api-tls
+  mountPath: /var/lib/cilium/privnet/api/tls
+  readOnly: true
+{{- end }}
 {{- end }}
 
 {{/*

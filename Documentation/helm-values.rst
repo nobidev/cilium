@@ -1772,6 +1772,38 @@
      - The TCP port the privnet API server listens to, in "bridge" mode. Otherwise, it represents the fallback port to connect to a candidate INB, if not explicitly advertised by the candidate INB itself.
      - int
      - ``4239``
+   * - :spelling:ignore:`enterprise.privateNetworks.api.tls`
+     - Configuration for TLS certificates for the privnet API.
+     - object
+     - ``{"certmanager":{"certValidityDuration":365,"issuerRef":{}},"cronJob":{"certValidityDuration":365,"schedule":"0 0 1 */4 *"},"enabled":false,"manual":{"client":{"existingSecret":""},"server":{"existingSecret":""}},"method":"manual"}``
+   * - :spelling:ignore:`enterprise.privateNetworks.api.tls.certmanager`
+     - Configure the cert-manager specific parameters. Only applicable when method is "certmanager".
+     - object
+     - ``{"certValidityDuration":365,"issuerRef":{}}``
+   * - :spelling:ignore:`enterprise.privateNetworks.api.tls.cronJob.schedule`
+     - Schedule for API certificate regeneration.
+     - string
+     - ``"0 0 1 */4 *"``
+   * - :spelling:ignore:`enterprise.privateNetworks.api.tls.enabled`
+     - Enable use of TLS
+     - bool
+     - ``false``
+   * - :spelling:ignore:`enterprise.privateNetworks.api.tls.manual`
+     - Configure the manually provided certificate. Only applicable when method is "manual".
+     - object
+     - ``{"client":{"existingSecret":""},"server":{"existingSecret":""}}``
+   * - :spelling:ignore:`enterprise.privateNetworks.api.tls.manual.client.existingSecret`
+     - Name of the Secret containing the certificate and key for the privnet API client.
+     - string
+     - ``""``
+   * - :spelling:ignore:`enterprise.privateNetworks.api.tls.manual.server.existingSecret`
+     - Name of the Secret containing the certificate and key for the privnet API server.
+     - string
+     - ``""``
+   * - :spelling:ignore:`enterprise.privateNetworks.api.tls.method`
+     - The method used to provide or generate API certificates. - manual:       Use manually provided Secrets for the server and client certificates. - cronJob:      Use the certgen CronJob / Job to generate certificates. - certmanager:  Use cert-manager to generate and rotate certificates.
+     - string
+     - ``"manual"``
    * - :spelling:ignore:`enterprise.privateNetworks.enabled`
      - Enable private networks.  Private networks enable network-level isolation between Cilium-managed endpoints. Endpoints within the same private network can communicate with each other, but are isolated from endpoints in other private networks.
      - bool

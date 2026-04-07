@@ -2563,6 +2563,60 @@
               "properties": {
                 "port": {
                   "type": "integer"
+                },
+                "tls": {
+                  "properties": {
+                    "certmanager": {
+                      "properties": {
+                        "certValidityDuration": {
+                          "type": "integer"
+                        },
+                        "issuerRef": {
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "cronJob": {
+                      "properties": {
+                        "certValidityDuration": {
+                          "type": "integer"
+                        },
+                        "schedule": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "manual": {
+                      "properties": {
+                        "client": {
+                          "properties": {
+                            "existingSecret": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "server": {
+                          "properties": {
+                            "existingSecret": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "method": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
                 }
               },
               "type": "object"

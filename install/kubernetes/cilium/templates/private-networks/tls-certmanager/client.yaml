@@ -1,0 +1,24 @@
+{{- if and .Values.enterprise.privateNetworks.enabled .Values.enterprise.privateNetworks.api.tls.enabled (eq .Values.enterprise.privateNetworks.api.tls.method "certmanager") }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cilium-private-networks-api-client
+  namespace: {{ include "cilium.namespace" . }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+  {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  issuerRef:
+    {{- toYaml .Values.enterprise.privateNetworks.api.tls.certmanager.issuerRef | nindent 4 }}
+  secretName: cilium-private-networks-api-client
+  commonName: {{ printf "%s-client" .Values.cluster.name | quote }}
+  duration: {{ printf "%dh" (mul .Values.enterprise.privateNetworks.api.tls.certmanager.certValidityDuration 24) }}
+  privateKey:
+    rotationPolicy: Always
+  usages:
+    - signing
+    - key encipherment
+    - client auth
+{{- end }}

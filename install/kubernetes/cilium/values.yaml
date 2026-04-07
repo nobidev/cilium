@@ -5335,6 +5335,36 @@ enterprise:
       # Otherwise, it represents the fallback port to connect to a candidate
       # INB, if not explicitly advertised by the candidate INB itself.
       port: 4239
+      # -- Configuration for TLS certificates for the privnet API.
+      tls:
+        # -- Enable use of TLS
+        enabled: false
+        # -- The method used to provide or generate API certificates.
+        # - manual:       Use manually provided Secrets for the server and client certificates.
+        # - cronJob:      Use the certgen CronJob / Job to generate certificates.
+        # - certmanager:  Use cert-manager to generate and rotate certificates.
+        method: manual
+        # -- Configure the manually provided certificate. Only applicable when method is "manual".
+        manual:
+          server:
+            # -- Name of the Secret containing the certificate and key for the privnet API server.
+            existingSecret: ""
+          client:
+            # -- Name of the Secret containing the certificate and key for the privnet API client.
+            existingSecret: ""
+        # -- Configure the cert-manager specific parameters. Only applicable when method is "certmanager".
+        certmanager:
+          # [Example]
+          # issuerRef:
+          #   group: cert-manager.io
+          #   kind: ClusterIssuer
+          #   name: ca-issuer
+          issuerRef: {}
+          certValidityDuration: 365
+        cronJob:
+          # -- Schedule for API certificate regeneration.
+          schedule: "0 0 1 */4 *"
+          certValidityDuration: 365
     # Configure health checks between workload nodes and INBs.
     healthcheck:
       # -- The interval for performing health checks against candidate INBs.
