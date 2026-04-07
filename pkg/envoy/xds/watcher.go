@@ -106,8 +106,9 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 	for ctx.Err() == nil && res == nil {
 		w.versionLocker.Lock()
 		// lastVersion == 0 indicates that this is a new stream and
-		// previouslyAckedVersion comes from previous instance of xDS server.
-		// In this case, we artificially increase the version of the resource set.
+		// previouslyAckedVersion comes from previous instance of xDS client.
+		// In this case, we artificially increase the version of the resource set
+		// to trigger sending a new version to the client.
 		if w.version <= previouslyAckedVersion && lastVersion == 0 {
 			w.versionLocker.Unlock()
 			// Calling EnsureVersion will increase the version of the resource
@@ -142,15 +143,7 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 		scopedLog.Debug("getting resources from set",
 			logfields.Resources, len(resourceNames),
 		)
-		var err error
-		res, err = w.resourceSet.GetResources(typeURL, lastVersion, nodeIP, resourceNames)
-		if err != nil {
-			scopedLog.Error("failed to query resources; terminating resource watch",
-				logfields.Error, err,
-				logfields.Resources, resourceNames,
-			)
-			return
-		}
+		res = w.resourceSet.GetResources(typeURL, lastVersion, resourceNames)
 	}
 
 	if res != nil {
