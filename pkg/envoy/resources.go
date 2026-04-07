@@ -46,6 +46,9 @@ const (
 	// NetworkPolicyTypeURL is the type URL of NetworkPolicy resources.
 	NetworkPolicyTypeURL = "type.googleapis.com/cilium.NetworkPolicy"
 
+	// NetworkPolicyResouceTypeURL is the type URL of NetworkPolicy resources.
+	NetworkPolicyResourceTypeURL = "type.googleapis.com/cilium.NetworkPolicyResource"
+
 	// NetworkPolicyHostsTypeURL is the type URL of NetworkPolicyHosts resources.
 	NetworkPolicyHostsTypeURL = "type.googleapis.com/cilium.NetworkPolicyHosts"
 

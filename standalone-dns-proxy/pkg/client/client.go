@@ -581,6 +581,10 @@ func (d *DNSServerIdentity) String() string {
 	return strings.Join(identityStrings, ",")
 }
 
+func (d *DNSServerIdentity) Id() types.SelectorId {
+	return 0
+}
+
 // Not being used in the standalone dns proxy path
 func (d *DNSServerIdentity) IsWildcard() bool {
 	return false

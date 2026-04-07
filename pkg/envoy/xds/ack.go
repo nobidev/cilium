@@ -350,8 +350,11 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	m.version, updated, revert = m.mutator.Upsert(typeURL, resourceName, resource)
 
 	if !updated {
-		// Add a completion object for the current version so that the caller may wait for
-		// the N/ACK
+		// Add a completion object for the current version so that the caller may
+		// wait for the N/ACK even when this particular resource is unchanged.
+		// NPRDS selector-only updates rely on this path: the policy resource can be
+		// byte-identical while the shared cache version has still advanced due to
+		// selector resources published in the same stream.
 		m.maybeAddCurrentVersionCompletion(wait, typeURL, nodeIDs, wg, callback)
 		return func() {}
 	}

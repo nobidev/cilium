@@ -27,6 +27,10 @@ func (f *fakeObservableResources) GetResources(typeUrl string, latestVersion uin
 	return f.OnGetResources(typeUrl, latestVersion, resourceNames)
 }
 
+func (f *fakeObservableResources) GetDeltaResources(typeUrl string, latestAckedVersion uint64, subscriptions []string, ackedResourceNames map[string]struct{}, forceResponseNames []string) *xds.VersionedResources {
+	return f.OnGetResources(typeUrl, latestAckedVersion, subscriptions)
+}
+
 func (f *fakeObservableResources) EnsureVersion(typeUrl string, version uint64) {}
 
 var _ xds.ObservableResourceSource = (*fakeObservableResources)(nil)

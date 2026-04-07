@@ -51,6 +51,7 @@ func (s *xdsServer) startXDSGRPCServer(ctx context.Context, config map[string]*x
 	envoy_service_listener.RegisterListenerDiscoveryServiceServer(grpcServer, dsServer)
 	cilium.RegisterNetworkPolicyDiscoveryServiceServer(grpcServer, dsServer)
 	cilium.RegisterNetworkPolicyHostsDiscoveryServiceServer(grpcServer, dsServer)
+	cilium.RegisterNetworkPolicyResourceDiscoveryServiceServer(grpcServer, dsServer)
 
 	reflection.Register(grpcServer)
 
@@ -96,6 +97,7 @@ type xdsGRPCServer struct {
 	*xds.Server
 	cilium.UnimplementedNetworkPolicyDiscoveryServiceServer
 	cilium.UnimplementedNetworkPolicyHostsDiscoveryServiceServer
+	cilium.UnimplementedNetworkPolicyResourceDiscoveryServiceServer
 }
 
 // TODO: https://github.com/cilium/cilium/issues/5051
@@ -183,3 +185,6 @@ func (s *xdsGRPCServer) StreamNetworkPolicyHosts(stream cilium.NetworkPolicyHost
 	return s.Server.HandleRequestStream(stream.Context(), stream, NetworkPolicyHostsTypeURL, "")
 }
 
+func (s *xdsGRPCServer) DeltaNetworkPolicyResources(stream grpc.BidiStreamingServer[envoy_service_discovery.DeltaDiscoveryRequest, envoy_service_discovery.DeltaDiscoveryResponse]) error {
+	return s.Server.HandleDeltaRequestStream(stream.Context(), stream, NetworkPolicyResourceTypeURL, "")
+}

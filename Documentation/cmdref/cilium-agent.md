@@ -445,6 +445,7 @@ cilium-agent [flags]
       --tunnel-source-port-range string                           Tunnel source port range hint (default 0-0) (default "0-0")
       --underlay-protocol string                                  IP family for the underlay ("ipv4", "ipv6", or "auto") (default "auto")
       --use-full-tls-context                                      If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.
+      --use-nprds                                                 Use Delta xDS for network policy updates (default true)
       --version                                                   Print version information
       --vlan-bpf-bypass strings                                   List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs
       --vtep-cidr strings                                         List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress

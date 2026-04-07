@@ -234,3 +234,7 @@ func (m MockCachedSelector) IsNone() bool {
 func (m MockCachedSelector) String() string {
 	return m.key
 }
+
+func (m MockCachedSelector) Id() types.SelectorId {
+	return 0
+}

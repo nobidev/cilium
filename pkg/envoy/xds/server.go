@@ -438,7 +438,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				"starting watch resources",
 				logfields.Resources, len(req.GetResourceNames()),
 			)
-			go watcher.WatchResources(ctx, typeURL, lastReceivedVersion, lastAckedVersion, nodeIP, req.GetResourceNames(), respCh)
+			go watcher.WatchResourcesSotW(ctx, typeURL, lastReceivedVersion, lastAckedVersion, req.GetResourceNames(), respCh)
 			firstRequest = false
 
 		default: // Pending watch response.
@@ -517,6 +517,421 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 			}
 			slices.Sort(names)
 			state.resourceNames = names
+		}
+	}
+}
+
+// HandleRequestStream receives and processes the requests from an xDS stream.
+func (s *Server) HandleDeltaRequestStream(ctx context.Context, stream DeltaStream, defaultTypeURL, afterTypeURL string) error {
+	// increment stream count
+	streamID := s.lastStreamID.Add(1)
+
+	reqStreamLog := s.logger.With(logfields.XDSStreamID, streamID)
+
+	reqCh := make(chan *envoy_service_discovery.DeltaDiscoveryRequest)
+
+	stopRecv := make(chan struct{})
+	defer close(stopRecv)
+
+	nodeId := ""
+
+	go func(streamLog *slog.Logger) {
+		defer close(reqCh)
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					streamLog.Debug("Delta xDS stream closed")
+				} else if strings.HasPrefix(err.Error(), grpcCanceled) {
+					streamLog.Debug("Delta xDS stream canceled", logfields.Error, err)
+				} else {
+					streamLog.Error("error while receiving request from Delta xDS stream", logfields.Error, err)
+				}
+				return
+			}
+			if req == nil {
+				streamLog.Error("received nil request from Delta xDS stream; stopping xDS stream handling")
+				return
+			}
+			if req.GetTypeUrl() == "" {
+				req.TypeUrl = defaultTypeURL
+			}
+			if nodeId == "" {
+				nodeId = req.GetNode().GetId()
+				streamLog = streamLog.With(logfields.XDSClientNode, nodeId)
+			}
+			streamLog.Debug("received request from Delta xDS stream", getDeltaRequestFields(req)...)
+
+			select {
+			case <-stopRecv:
+				streamLog.Debug("stopping Delta xDS stream handling")
+				return
+			case reqCh <- req:
+			}
+		}
+	}(reqStreamLog)
+
+	return s.processDeltaRequestStream(ctx, reqStreamLog, stream, reqCh, defaultTypeURL, afterTypeURL)
+}
+
+func getDeltaRequestFields(req *envoy_service_discovery.DeltaDiscoveryRequest) []any {
+	return []any{
+		logfields.Version, req.GetInitialResourceVersions(),
+		logfields.XDSTypeURL, req.GetTypeUrl(),
+		logfields.XDSNonce, req.GetResponseNonce(),
+	}
+}
+
+// perDeltaTypeStreamState is the state maintained per resource type for each
+// delta xDS stream.
+type perDeltaTypeStreamState struct {
+	// typeURL identifies the resource type.
+	typeURL string
+
+	// pendingWatchCancel is a pending watch on this resource type.
+	// If nil, no watch is pending.
+	pendingWatchCancel context.CancelFunc
+
+	// Last ACKed version is the largest version number of any resource sent to the client
+	// (== the overall cache version).
+	lastAckedVersion uint64
+
+	// ackedResourceNames is the set of resource names currently in use at the client.
+	ackedResourceNames map[string]struct{}
+
+	// subscriptions is the list of resource names the client has expressed
+	// interest in. By server convention an empty list is treated as wildcard
+	// interest, and "*" is an explicit wildcard marker that may coexist with
+	// named subscriptions. Kept in sorted order.
+	subscriptions []string
+
+	// Nonce sent in the last response, if any.
+	nonce string
+
+	// pendingResponse is the last responsse sent for this resource type.
+	pendingResponse *VersionedResources
+}
+
+// processDeltaRequestStream processes the requests in an xDS stream from a channel.
+func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.Logger, stream DeltaStream,
+	reqCh <-chan *envoy_service_discovery.DeltaDiscoveryRequest, defaultTypeURL, afterTypeURL string,
+) error {
+	// The request state for every type URL.
+	typeStates := make([]perDeltaTypeStreamState, len(s.watchers))
+	defer func() {
+		for _, state := range typeStates {
+			if state.pendingWatchCancel != nil {
+				state.pendingWatchCancel()
+			}
+		}
+	}()
+
+	// A map of a resource type's URL to the corresponding index in typeStates
+	// for the resource type.
+	typeIndexes := make(map[string]int, len(typeStates))
+
+	// The set of channels to select from. Since the set of channels is
+	// dynamic, we use reflection for selection.
+	// The indexes in selectCases from 0 to len(typeStates)-1 match the indexes
+	// in typeStates.
+	selectCases := make([]reflect.SelectCase, len(typeStates)+2)
+
+	// The last select case index is always the request channel.
+	reqChIndex := len(selectCases) - 1
+	selectCases[reqChIndex] = reflect.SelectCase{
+		Dir:  reflect.SelectRecv,
+		Chan: reflect.ValueOf(reqCh),
+	}
+
+	// The next-to-last select case is the context's Done channel.
+	doneChIndex := reqChIndex - 1
+	selectCases[doneChIndex] = reflect.SelectCase{
+		Dir:  reflect.SelectRecv,
+		Chan: reflect.ValueOf(ctx.Done()),
+	}
+
+	// Initially there are no pending watches, so just select a dead channel
+	// that will never be selected.
+	quietCh := make(chan *VersionedResources)
+	defer close(quietCh)
+	quietChValue := reflect.ValueOf(quietCh)
+
+	i := 0
+	for typeURL := range s.watchers {
+		typeStates[i] = perDeltaTypeStreamState{
+			typeURL:            typeURL,
+			ackedResourceNames: make(map[string]struct{}),
+		}
+
+		selectCases[i] = reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: quietChValue,
+		}
+
+		typeIndexes[typeURL] = i
+
+		i++
+	}
+
+	streamLog.Info("starting Delta xDS stream processing", logfields.XDSTypeURL, defaultTypeURL)
+
+	nodeIP := ""
+	firstRequest := true
+	scopedLogger := streamLog
+	for {
+		// Process either a new request from the xDS stream or a response
+		// from the resource watcher.
+		chosen, recv, recvOK := reflect.Select(selectCases)
+
+		switch chosen {
+		case doneChIndex: // Context got canceled, most likely by the client terminating.
+			scopedLogger.Debug("Delta xDS stream context canceled", logfields.Error, ctx.Err())
+			return nil
+
+		case reqChIndex: // Request received from the stream.
+			if !recvOK {
+				scopedLogger.Info("Delta xDS stream closed")
+				return nil
+			}
+
+			req := recv.Interface().(*envoy_service_discovery.DeltaDiscoveryRequest)
+
+			// only require Node to exist in the first request
+			if firstRequest {
+				id := req.GetNode().GetId()
+				scopedLogger = streamLog.With(logfields.XDSClientNode, id)
+				var err error
+				nodeIP, err = EnvoyNodeIdToIP(id)
+				if err != nil {
+					scopedLogger.Error("invalid Node in Delta xDS request", logfields.Error, err)
+					return ErrInvalidNodeFormat
+				}
+				scopedLogger.Info("Received first request in a new Delta xDS stream", getDeltaRequestFields(req)...)
+
+				// delay responding to the first request until 'afterTypeURL' has
+				// been acked, if any
+				if afterTypeURL != "" {
+					s.ackObservers[afterTypeURL].WaitForFirstAck(ctx, nodeIP, afterTypeURL)
+				}
+			}
+
+			requestLog := scopedLogger.With(getDeltaRequestFields(req)...)
+
+			typeURL := req.GetTypeUrl()
+			if defaultTypeURL == AnyTypeURL && typeURL == "" {
+				requestLog.Error("no type URL given in ADS request")
+				return ErrNoADSTypeURL
+			}
+
+			if defaultTypeURL != AnyTypeURL && typeURL != defaultTypeURL {
+				requestLog.Error("mismatching type URL given in xDS request",
+					logfields.XDSTypeURL, typeURL,
+					logfields.Expected, defaultTypeURL,
+				)
+				return ErrMismatchingTypeURL
+			}
+
+			index, exists := typeIndexes[typeURL]
+			if !exists {
+				requestLog.Error("unknown type URL in xDS request")
+				return ErrUnknownTypeURL
+			}
+			state := &typeStates[index]
+
+			responseNonce := req.GetResponseNonce()
+			hasResponseNonce := responseNonce != ""
+			if hasResponseNonce && responseNonce != state.nonce {
+				requestLog.Error("invalid response nonce in delta xDS request",
+					logfields.ResponseNonce, responseNonce,
+					logfields.Expected, state.nonce,
+				)
+				return ErrInvalidResponseNonce
+			}
+			if !hasResponseNonce && req.GetErrorDetail() != nil {
+				requestLog.Error("delta xDS request carries error detail without a response nonce")
+				return ErrInvalidResponseNonce
+			}
+
+			var lastReceivedVersion uint64
+			if hasResponseNonce {
+				var err error
+				lastReceivedVersion, err = strconv.ParseUint(responseNonce, 10, 64)
+				if err != nil {
+					requestLog.Error("invalid response nonce in delta xDS request, not a uint64",
+						logfields.ResponseNonce, responseNonce,
+					)
+					return ErrInvalidResponseNonce
+				}
+			}
+
+			var detail string
+			errorDetail := req.GetErrorDetail()
+			if errorDetail == nil && hasResponseNonce {
+				state.lastAckedVersion = lastReceivedVersion
+				// update ACKed resource names
+				if state.pendingResponse != nil {
+					for _, name := range state.pendingResponse.RemovedNames {
+						delete(state.ackedResourceNames, name)
+					}
+					for _, vr := range state.pendingResponse.VersionedResources {
+						state.ackedResourceNames[vr.Name] = struct{}{}
+					}
+				}
+			} else {
+				if errorDetail != nil {
+					detail = errorDetail.Message // can be empty
+				}
+			}
+
+			// Delta xDS reconnect state from initial_resource_versions is ignored
+			// on purpose. Cilium does not preserve meaningful version continuity
+			// across streams or agent restarts, so a new stream should still
+			// receive the currently subscribed resources.
+			subscribe := req.GetResourceNamesSubscribe()
+			unsubscribe := req.GetResourceNamesUnsubscribe()
+			immediate := len(subscribe) > 0 || len(unsubscribe) > 0
+
+			// update subscriptions
+			for _, name := range unsubscribe {
+				i, exists := slices.BinarySearch(state.subscriptions, name)
+				if exists {
+					state.subscriptions = slices.Delete(state.subscriptions, i, i+1)
+				}
+				delete(state.ackedResourceNames, name)
+			}
+			// sort for the use in "mandatory names" in WatchResourcesDelta below
+			slices.Sort(subscribe)
+			subscribe = slices.Compact(subscribe)
+			state.subscriptions = append(state.subscriptions, subscribe...)
+			slices.Sort(state.subscriptions)
+			state.subscriptions = slices.Compact(state.subscriptions)
+
+			watcher := s.watchers[typeURL]
+
+			// We want to trigger HandleResourceVersionAck even for NACKs
+			if hasResponseNonce {
+				ackObserver := s.ackObservers[typeURL]
+				if ackObserver != nil {
+					requestLog.Debug("notifying observers of ACKs")
+					var names []string
+					if state.pendingResponse != nil {
+						for i := range state.pendingResponse.VersionedResources {
+							names = append(names, state.pendingResponse.VersionedResources[i].Name)
+						}
+					}
+					ackObserver.HandleResourceVersionAck(state.lastAckedVersion, lastReceivedVersion, nodeIP, names, typeURL, detail)
+				} else {
+					requestLog.Info("ACK received but no observers are waiting for ACKs")
+				}
+				if errorDetail != nil && state.lastAckedVersion < lastReceivedVersion {
+					s.metrics.IncreaseNACK(typeURL)
+					// versions after lastAckedVersion, upto and including
+					// lastReceivedVersion were NACKed
+					requestLog.Warn(
+						"delta xDS NACK received for versions between the reported version up to the response nonce; waiting for a version update before sending again",
+						logfields.XDSDetail, detail,
+					)
+				}
+			}
+
+			if state.pendingWatchCancel != nil {
+				// A pending watch exists for this type URL. Cancel it to
+				// start a new watch.
+				requestLog.Debug("canceling pending watch")
+				state.pendingWatchCancel()
+			}
+
+			respCh := make(chan *VersionedResources, 1)
+			selectCases[index].Chan = reflect.ValueOf(respCh)
+
+			ctx, cancel := context.WithCancel(ctx)
+			state.pendingWatchCancel = cancel
+
+			requestLog.Debug(
+				"starting watch resources",
+				logfields.Resources, len(state.subscriptions),
+			)
+			go watcher.WatchResourcesDelta(ctx, typeURL, lastReceivedVersion, state.lastAckedVersion, state.subscriptions, state.ackedResourceNames, subscribe, immediate, respCh)
+			firstRequest = false
+
+		default: // Pending watch response.
+			state := &typeStates[chosen]
+			if state.pendingWatchCancel != nil {
+				state.pendingWatchCancel()
+				state.pendingWatchCancel = nil
+			}
+
+			if !recvOK {
+				// chosen channel was closed. If context has an error (e.g.,
+				// cancelled or deadline exceeded) we should not log an error here.
+				if ctx.Err() != nil {
+					// The context is done, so the doneChIndex case WILL fire,
+					// can just continue here
+					continue
+				}
+
+				scopedLogger.Error(
+					"xDS resource watch failed; terminating",
+					logfields.XDSTypeURL, state.typeURL,
+				)
+				return ErrResourceWatch
+			}
+
+			// Disabling reading from the channel after reading any from it,
+			// since the watcher will close it anyway.
+			selectCases[chosen].Chan = quietChValue
+
+			resp := recv.Interface().(*VersionedResources)
+
+			responseLog := scopedLogger.With(
+				logfields.XDSCachedVersion, resp.Version,
+				logfields.XDSCanary, resp.Canary,
+				logfields.XDSTypeURL, state.typeURL,
+				logfields.XDSNonce, resp.Version,
+			)
+
+			resources := make([]*envoy_service_discovery.Resource, len(resp.VersionedResources))
+
+			// Marshall the resources into protobuf's Any type.
+			for i := range resp.VersionedResources {
+				any, err := anypb.New(resp.VersionedResources[i].Resource)
+				if err != nil {
+					responseLog.Error(
+						"error marshalling xDS response with resources",
+						logfields.Error, err,
+						logfields.Resources, len(resp.VersionedResources),
+					)
+					return err
+				}
+				versionStr := strconv.FormatUint(resp.VersionedResources[i].Version, 10)
+
+				resources[i] = &envoy_service_discovery.Resource{
+					Name:     resp.VersionedResources[i].Name,
+					Version:  versionStr,
+					Resource: any,
+				}
+			}
+
+			responseLog.Debug(
+				"sending xDS response with resources",
+				logfields.Resources, len(resources),
+			)
+
+			versionStr := strconv.FormatUint(resp.Version, 10)
+			out := &envoy_service_discovery.DeltaDiscoveryResponse{
+				TypeUrl:           state.typeURL,
+				Resources:         resources,
+				RemovedResources:  resp.RemovedNames,
+				Nonce:             versionStr,
+				SystemVersionInfo: versionStr,
+			}
+			err := stream.Send(out)
+			if err != nil {
+				return err
+			}
+
+			state.nonce = versionStr
+			state.pendingResponse = resp
 		}
 	}
 }

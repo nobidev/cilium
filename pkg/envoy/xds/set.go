@@ -15,11 +15,18 @@ import (
 type ResourceSource interface {
 	// GetResources returns the current version of the resources with the given
 	// names.
-	// If lastVersion is not nil and the resources with the given names haven't
+	// If lastVersion is not zero and the resources with the given names haven't
 	// changed since lastVersion, nil is returned.
 	// If resourceNames is empty, all resources are returned.
-	// Should not be blocking.
 	GetResources(typeURL string, lastVersion uint64, resourceNames []string) *VersionedResources
+
+	// GetDeltaResources returns the delta xDS changes for the currently tracked
+	// subscriptions relative to the client's last ACKed cache version.
+	// Empty subscriptions and "*" both track all resources.
+	// forceResponseNames forces the named resources, or all resources when it
+	// contains "*", into the next response even if their version is not newer
+	// than lastAckedVersion.
+	GetDeltaResources(typeURL string, lastAckedVersion uint64, subscriptions []string, ackedResourceNames map[string]struct{}, forceResponseNames []string) *VersionedResources
 
 	// EnsureVersion increases this resource set's version to be past the
 	// given version. If the current version is already higher than that, this has no effect.
@@ -47,6 +54,9 @@ type VersionedResources struct {
 	// VersionedResources is a set of versioned resources
 	// May be empty.
 	VersionedResources []VersionedResource
+
+	// RemovedNames is only populated for delta protocol
+	RemovedNames []string
 
 	// Canary indicates whether the client should only do a dry run of
 	// using  the resources.

@@ -4,6 +4,7 @@
 package envoy
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -16,10 +17,12 @@ import (
 	"github.com/stretchr/testify/require"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/envoy/test"
+	envoyxds "github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -311,10 +314,22 @@ var ExpectedPortNetworkPolicyRule12 = &cilium.PortNetworkPolicyRule{
 	L7:             ExpectedHttpRule12,
 }
 
+var ExpectedSelectorPortNetworkPolicyRule12 = &cilium.PortNetworkPolicyRule{
+	Precedence: uint32(policyTypes.MaxAllowPrecedence + 1),
+	Selectors:  []string{"s-2"},
+	L7:         ExpectedHttpRule12,
+}
+
 var ExpectedPortNetworkPolicyRule12Precedence = &cilium.PortNetworkPolicyRule{
 	Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
 	RemotePolicies: []uint32{1001, 1002},
 	L7:             ExpectedHttpRule12,
+}
+
+var ExpectedSelectorPortNetworkPolicyRule12Precedence = &cilium.PortNetworkPolicyRule{
+	Precedence: uint32(policyTypes.MaxAllowPrecedence + 1),
+	Selectors:  []string{"s-2"},
+	L7:         ExpectedHttpRule12,
 }
 
 var ExpectedPortNetworkPolicyRule12Deny = &cilium.PortNetworkPolicyRule{
@@ -323,10 +338,22 @@ var ExpectedPortNetworkPolicyRule12Deny = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint32{1001, 1002},
 }
 
+var ExpectedSelectorPortNetworkPolicyRule12Deny = &cilium.PortNetworkPolicyRule{
+	Precedence: uint32(policyTypes.MaxDenyPrecedence),
+	Verdict:    DenyVerdict,
+	Selectors:  []string{"s-2"},
+}
+
 var ExpectedPortNetworkPolicyRule12DenyPrecedence = &cilium.PortNetworkPolicyRule{
 	Verdict:        DenyVerdict,
 	RemotePolicies: []uint32{1001, 1002},
 	Precedence:     uint32(policyTypes.MaxDenyPrecedence),
+}
+
+var ExpectedSelectorPortNetworkPolicyRule12DenyPrecedence = &cilium.PortNetworkPolicyRule{
+	Verdict:    DenyVerdict,
+	Selectors:  []string{"s-2"},
+	Precedence: uint32(policyTypes.MaxDenyPrecedence),
 }
 
 var ExpectedPortNetworkPolicyRule12Wildcard = &cilium.PortNetworkPolicyRule{
@@ -340,10 +367,22 @@ var ExpectedPortNetworkPolicyRule122HeaderMatch = &cilium.PortNetworkPolicyRule{
 	L7:             ExpectedHttpRule122HeaderMatch,
 }
 
+var ExpectedSelectorPortNetworkPolicyRule122HeaderMatch = &cilium.PortNetworkPolicyRule{
+	Precedence: uint32(policyTypes.MaxAllowPrecedence + 1),
+	Selectors:  []string{"s-2"},
+	L7:         ExpectedHttpRule122HeaderMatch,
+}
+
 var ExpectedPortNetworkPolicyRule122HeaderMatchPrecedence = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint32{1001, 1002},
 	L7:             ExpectedHttpRule122HeaderMatch,
 	Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
+}
+
+var ExpectedSelectorPortNetworkPolicyRule122HeaderMatchPrecedence = &cilium.PortNetworkPolicyRule{
+	Selectors:  []string{"s-2"},
+	L7:         ExpectedHttpRule122HeaderMatch,
+	Precedence: uint32(policyTypes.MaxAllowPrecedence + 1),
 }
 
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
@@ -352,10 +391,22 @@ var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	L7:             ExpectedHttpRule1,
 }
 
+var ExpectedSelectorPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
+	Precedence: uint32(policyTypes.MaxAllowPrecedence + 1),
+	Selectors:  []string{"s-4"},
+	L7:         ExpectedHttpRule1,
+}
+
 var ExpectedPortNetworkPolicyRule1Precedence = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint32{1001, 1003},
 	L7:             ExpectedHttpRule1,
 	Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
+}
+
+var ExpectedSelectorPortNetworkPolicyRule1Precedence = &cilium.PortNetworkPolicyRule{
+	Selectors:  []string{"s-4"},
+	L7:         ExpectedHttpRule1,
+	Precedence: uint32(policyTypes.MaxAllowPrecedence + 1),
 }
 
 var ExpectedPortNetworkPolicyRule1Wildcard = &cilium.PortNetworkPolicyRule{
@@ -884,6 +935,58 @@ func TestGetPortNetworkPolicyRule(t *testing.T) {
 		Precedence:     0xff000000,
 		Verdict:        &cilium.PortNetworkPolicyRule_PassPrecedence{PassPrecedence: 0xfe000000},
 		RemotePolicies: []uint32{1001, 1002},
+	}, obtained)
+	require.True(t, canShortCircuit)
+}
+
+func TestGetPortNetworkPolicyRule_Selectors(t *testing.T) {
+	xds := testDeltaXdsServer(t)
+
+	version := testSelectorCache.GetSelectorSnapshot()
+
+	obtained, canShortCircuit := xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, policyTypes.LowestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedSelectorPortNetworkPolicyRule12, obtained)
+	require.True(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12Deny, policyTypes.LowestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedSelectorPortNetworkPolicyRule12Deny, obtained)
+	require.False(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12HeaderMatch, policyTypes.LowestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedSelectorPortNetworkPolicyRule122HeaderMatch, obtained)
+	require.False(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector2, L7Rules1, policyTypes.LowestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedSelectorPortNetworkPolicyRule1, obtained)
+	require.True(t, canShortCircuit)
+
+	// With precedence
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, policyTypes.HighestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedSelectorPortNetworkPolicyRule12Precedence, obtained)
+	require.True(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12Deny, policyTypes.HighestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedSelectorPortNetworkPolicyRule12DenyPrecedence, obtained)
+	require.False(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12HeaderMatch, policyTypes.HighestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedSelectorPortNetworkPolicyRule122HeaderMatchPrecedence, obtained)
+	require.False(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector2, L7Rules1, policyTypes.HighestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedSelectorPortNetworkPolicyRule1Precedence, obtained)
+	require.True(t, canShortCircuit)
+
+	// with pass verdict
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1,
+		&policy.PerSelectorPolicy{Verdict: types.Pass, Priority: 0xffff},
+		0xffff, 0x1ffff, false, false, "")
+	require.Equal(t, &cilium.PortNetworkPolicyRule{
+		Precedence: 0xff000000,
+		Verdict:    &cilium.PortNetworkPolicyRule_PassPrecedence{PassPrecedence: 0xfe000000},
+		Selectors:  []string{"s-2"},
 	}, obtained)
 	require.True(t, canShortCircuit)
 }
@@ -2214,10 +2317,174 @@ func Test_getLocalListenerAddresses(t *testing.T) {
 	}
 }
 
-func testXdsServer(t *testing.T) *xdsServer {
-	logger := hivetest.Logger(t)
-	return &xdsServer{
-		logger:            logger,
-		l7RulesTranslator: envoypolicy.NewEnvoyL7RulesTranslator(logger, nil),
+func TestSelectorCacheUpdatedPublishesSelectorResources(t *testing.T) {
+	xds := testDeltaXdsServer(t)
+
+	xds.SelectorCacheUpdated(policy.SelectorUpdates{
+		Revision: 5,
+		Changes: []policy.SelectorChange{
+			{ID: 1},
+			{ID: 2, Selections: identity.NumericIdentitySlice{1001, 1002}},
+		},
+	})
+
+	res1 := xds.networkPolicyCache.Lookup(NetworkPolicyResourceTypeURL, xdsSelectorIdentifier(1))
+	selector1 := res1.(*cilium.NetworkPolicyResource).GetSelector()
+	require.Empty(t, selector1.GetRemoteIdentities())
+
+	res2 := xds.networkPolicyCache.Lookup(NetworkPolicyResourceTypeURL, xdsSelectorIdentifier(2))
+	selector2 := res2.(*cilium.NetworkPolicyResource).GetSelector()
+	require.Equal(t, []uint32{1001, 1002}, selector2.GetRemoteIdentities())
+	require.Equal(t, policy.SelectorRevision(5), xds.selectorResourceRevision)
+
+	xds.SelectorCacheUpdated(policy.SelectorUpdates{
+		Revision: 6,
+		Changes: []policy.SelectorChange{
+			{ID: 1, Removed: true},
+		},
+	})
+
+	res1 = xds.networkPolicyCache.Lookup(NetworkPolicyResourceTypeURL, xdsSelectorIdentifier(1))
+	require.Nil(t, res1)
+	require.Equal(t, policy.SelectorRevision(6), xds.selectorResourceRevision)
+}
+
+func TestGetNetworkPoliciesDeltaSkipsSelectorResources(t *testing.T) {
+	xds := testDeltaXdsServer(t)
+
+	policyResource := &cilium.NetworkPolicyResource{
+		Resource: &cilium.NetworkPolicyResource_Policy{
+			Policy: &cilium.NetworkPolicy{
+				EndpointId:  42,
+				EndpointIps: []string{"10.0.0.1", "f00d::1"},
+			},
+		},
 	}
+	xds.networkPolicyMutator.Upsert(NetworkPolicyResourceTypeURL, "42", policyResource, nil, nil, nil)
+
+	xds.SelectorCacheUpdated(policy.SelectorUpdates{
+		Revision: 1,
+		Changes: []policy.SelectorChange{
+			{ID: 7, Selections: identity.NumericIdentitySlice{1001}},
+		},
+	})
+
+	selector := xds.networkPolicyCache.Lookup(NetworkPolicyResourceTypeURL, xdsSelectorIdentifier(7))
+	require.NotNil(t, selector)
+
+	networkPolicies, err := xds.GetNetworkPolicies(nil)
+	require.NoError(t, err)
+	require.Len(t, networkPolicies, 2)
+	require.Equal(t, policyResource.GetPolicy(), networkPolicies["10.0.0.1"])
+	require.Equal(t, policyResource.GetPolicy(), networkPolicies["f00d::1"])
+}
+
+func TestWaitForSelectorRevision(t *testing.T) {
+	xds := testDeltaXdsServer(t)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- xds.waitForSelectorRevision(3)
+	}()
+
+	xds.SelectorCacheUpdated(policy.SelectorUpdates{Revision: 3})
+	require.NoError(t, <-done)
+}
+
+func TestWaitForSelectorRevisionCanceled(t *testing.T) {
+	xds := testDeltaXdsServer(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	xds.runCtx = ctx
+	xds.runCancel = cancel
+
+	done := make(chan error, 1)
+	go func() {
+		done <- xds.waitForSelectorRevision(1)
+	}()
+
+	cancel()
+	require.ErrorIs(t, <-done, context.Canceled)
+}
+
+func TestNoOpPolicyUpsertWaitsForCurrentVersionAfterSelectorUpdate(t *testing.T) {
+	xds := testDeltaXdsServer(t)
+	nodeID := "127.0.0.1"
+	resourceName := "42"
+	policyResource := &cilium.NetworkPolicyResource{
+		Resource: &cilium.NetworkPolicyResource_Policy{
+			Policy: &cilium.NetworkPolicy{EndpointId: 42},
+		},
+	}
+
+	xds.networkPolicyMutator.Upsert(NetworkPolicyResourceTypeURL, resourceName, policyResource, []string{nodeID}, nil, nil)
+	xds.SelectorCacheUpdated(policy.SelectorUpdates{
+		Revision: 1,
+		Changes: []policy.SelectorChange{
+			{ID: 7, Selections: identity.NumericIdentitySlice{1001}},
+		},
+	})
+
+	current := xds.networkPolicyCache.GetResources(NetworkPolicyResourceTypeURL, 0, nil)
+
+	wg := completion.NewWaitGroup(context.Background())
+	xds.networkPolicyMutator.Upsert(NetworkPolicyResourceTypeURL, resourceName, policyResource, []string{nodeID}, wg, nil)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- wg.Wait()
+	}()
+
+	xds.resourceConfig[NetworkPolicyResourceTypeURL].AckObserver.HandleResourceVersionAck(current.Version-1, current.Version-1, nodeID, nil, NetworkPolicyResourceTypeURL, "")
+	select {
+	case err := <-done:
+		t.Fatalf("wait completed too early: %v", err)
+	default:
+	}
+
+	xds.resourceConfig[NetworkPolicyResourceTypeURL].AckObserver.HandleResourceVersionAck(current.Version, current.Version, nodeID, nil, NetworkPolicyResourceTypeURL, "")
+	require.NoError(t, <-done)
+}
+
+func TestNewXDSServerSeedsSelectorSnapshot(t *testing.T) {
+	logger := hivetest.Logger(t)
+	repo := policy.NewPolicyRepository(logger, identity.IdentityMap{
+		1001: labels.LabelArray{labels.NewLabel("id", "a", labels.LabelSourceK8s)},
+	}, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	sc := repo.GetSelectorCache()
+	fooSelector, _ := sc.AddIdentitySelectorForTest(nil, api.NewESFromLabels(labels.ParseSelectLabel("k8s:id=a")))
+	barSelector, _ := sc.AddIdentitySelectorForTest(nil, api.NewESFromLabels(labels.ParseSelectLabel("k8s:id=b")))
+	snapshot := sc.GetSelectorSnapshot()
+	t.Cleanup(func() { snapshot.Invalidate() })
+
+	secretManager := certificatemanager.NewMockSecretManagerInline()
+	xds := newXDSServer(logger, nil, nil, repo, newLocalEndpointStore(), xdsServerConfig{
+		useNPRDS: true,
+		metrics:  envoyxds.NewXDSMetric(),
+	}, secretManager)
+	t.Cleanup(xds.stop)
+
+	res1 := xds.networkPolicyCache.Lookup(NetworkPolicyResourceTypeURL, xdsSelectorIdentifier(fooSelector.Id()))
+	selector1 := res1.(*cilium.NetworkPolicyResource).GetSelector()
+	require.Equal(t, []uint32{1001}, selector1.GetRemoteIdentities())
+
+	res2 := xds.networkPolicyCache.Lookup(NetworkPolicyResourceTypeURL, xdsSelectorIdentifier(barSelector.Id()))
+	selector2 := res2.(*cilium.NetworkPolicyResource).GetSelector()
+	require.Empty(t, selector2.GetRemoteIdentities())
+
+	require.Equal(t, snapshot.Revision, xds.selectorResourceRevision)
+}
+
+func testDeltaXdsServer(t *testing.T) *xdsServer { return testxdsServer(t, true) }
+
+func testXdsServer(t *testing.T) *xdsServer { return testxdsServer(t, false) }
+
+func testxdsServer(t *testing.T, use_nprds bool) *xdsServer {
+	logger := hivetest.Logger(t)
+	secretManager := certificatemanager.NewMockSecretManagerInline()
+	xds := newXDSServer(logger, nil, nil, nil, newLocalEndpointStore(), xdsServerConfig{
+		useNPRDS: use_nprds,
+		metrics:  envoyxds.NewXDSMetric(),
+	}, secretManager)
+	xds.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
+	return xds
 }

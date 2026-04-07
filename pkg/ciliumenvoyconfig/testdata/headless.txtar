@@ -215,6 +215,7 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
         use_original_source_address: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        use_delta_npds: true
       }
     }
   }
@@ -246,6 +247,7 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
         use_original_source_address: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        use_delta_npds: true
       }
     }
   }
@@ -292,6 +294,7 @@ listener:test/envoy-lb-listener/envoy-lb-listener:
         use_original_source_address: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        use_delta_npds: true
       }
     }
   }

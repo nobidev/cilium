@@ -1586,6 +1586,10 @@ func (t selectorMock) String() string {
 	return t.key
 }
 
+func (t selectorMock) Id() types.SelectorId {
+	return 0
+}
+
 func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	const (
 		nEPs              = 10000

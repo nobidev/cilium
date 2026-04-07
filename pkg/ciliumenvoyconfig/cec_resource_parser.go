@@ -68,6 +68,7 @@ type CECResourceParser struct {
 	defaultMaxRequests          uint32
 	httpLingerConfig            int
 	accessLogPath               string
+	useNPRDS                    bool
 }
 
 type parserParams struct {
@@ -92,6 +93,7 @@ func newCECResourceParser(params parserParams) *CECResourceParser {
 		defaultMaxConnections:       params.EnvoyConfig.ProxyClusterMaxConnections,
 		defaultMaxRequests:          params.EnvoyConfig.ProxyClusterMaxRequests,
 		httpLingerConfig:            params.EnvoyConfig.EnvoyHTTPUpstreamLingerTimeout,
+		useNPRDS:                    params.EnvoyConfig.UseNPRDS,
 	}
 	if params.EnvoyConfig.EnvoyAccessLogEnabled {
 		parser.accessLogPath = envoy.GetAccessLogSocketPath()
@@ -580,6 +582,7 @@ func (r *CECResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr b
 		IsL7Lb:                   l7lb,
 		ProxyId:                  uint32(proxyPort),
 		IpcacheName:              ipcache.Name,
+		UseDeltaNpds:             r.useNPRDS,
 	}
 
 	if isHTTPListener && r.httpLingerConfig >= 0 {

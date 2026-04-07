@@ -224,6 +224,16 @@ func (c *Cache) HasAny(typeURL string) bool {
 	return false
 }
 
+func compareVersionedResource(a, b VersionedResource) int {
+	if a.Name < b.Name {
+		return -1
+	}
+	if a.Name > b.Name {
+		return 1
+	}
+	return 0
+}
+
 func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames []string) *VersionedResources {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
@@ -233,13 +243,17 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 		logfields.XDSTypeURL, typeURL,
 	)
 
+	if lastVersion > 0 && c.version <= lastVersion {
+		// nothing has changed in the cache
+		return nil
+	}
+
 	res := &VersionedResources{
 		Version: c.version,
 		Canary:  false,
 	}
 
 	// Return all resources of given typeURL.
-	// TODO: return nil if no changes since the last version?
 	if len(resourceNames) == 0 {
 		res.VersionedResources = make([]VersionedResource, 0, len(c.resources))
 		for k, v := range c.resources {
@@ -256,7 +270,6 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 		scopedLog.Debug(
 			"no resource names requested",
 			logfields.Resources, len(res.VersionedResources),
-			logfields.Type, typeURL,
 		)
 		return res
 	}
@@ -295,7 +308,7 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 			}
 			res.VersionedResources = append(res.VersionedResources,
 				VersionedResource{
-					Name:     k.resourceName,
+					Name:     name,
 					Version:  v.lastModifiedVersion,
 					Resource: v.resource,
 				})
@@ -307,27 +320,117 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 			allResourcesFound = false
 		}
 	}
-
 	if allResourcesFound && !updatedSinceLastVersion {
 		scopedLog.Debug("all requested resources found but not updated since last version, returning no response")
 		return nil
 	}
 
-	slices.SortFunc(res.VersionedResources, func(a, b VersionedResource) int {
-		if a.Name < b.Name {
-			return -1
-		}
-		if a.Name > b.Name {
-			return 1
-		}
-		return 0
-	})
+	slices.SortFunc(res.VersionedResources, compareVersionedResource)
 
 	scopedLog.Debug(
 		"returning resources",
 		logfields.ReturningResources, len(res.VersionedResources),
 		logfields.RequestedResources, len(resourceNames),
 	)
+	return res
+}
+
+// canSkipResource returns true if 'name' is not in 'mandatoryNames' (also
+// considering wildcard), and if 'version' is not past 'ackedVersion'.
+func canSkipResource(mandatoryNames []string, name string, version, ackedVersion uint64) bool {
+	if _, wildcard := slices.BinarySearch(mandatoryNames, "*"); wildcard {
+		return false
+	}
+
+	_, mandatory := slices.BinarySearch(mandatoryNames, name)
+	return !mandatory && version <= ackedVersion
+}
+
+// Empty subscriptions are treated as wildcard interest so wildcard-only delta
+// xDS clients that send an empty first request still receive resources.
+func hasWildcardSubscription(subscriptions []string) bool {
+	if len(subscriptions) == 0 {
+		return true
+	}
+	_, wildcard := slices.BinarySearch(subscriptions, "*")
+	return wildcard
+}
+
+func (c *Cache) GetDeltaResources(typeURL string, lastAckedVersion uint64, subscriptions []string, ackedResourceNames map[string]struct{}, forceResponseNames []string) *VersionedResources {
+	c.locker.RLock()
+	defer c.locker.RUnlock()
+
+	scopedLog := c.logger.With(
+		logfields.XDSAckedVersion, lastAckedVersion,
+		logfields.XDSTypeURL, typeURL,
+	)
+
+	res := &VersionedResources{
+		Version: c.version,
+		Canary:  false,
+	}
+
+	key := cacheKey{typeURL: typeURL}
+
+	wildcard := hasWildcardSubscription(subscriptions)
+	if wildcard {
+		for k, v := range c.resources {
+			if k.typeURL != typeURL {
+				continue
+			}
+			if canSkipResource(forceResponseNames, k.resourceName, v.lastModifiedVersion, lastAckedVersion) {
+				continue
+			}
+			res.VersionedResources = append(res.VersionedResources, VersionedResource{
+				Name:     k.resourceName,
+				Version:  v.lastModifiedVersion,
+				Resource: v.resource,
+			})
+		}
+	} else {
+		for _, name := range subscriptions {
+			key.resourceName = name
+			v, found := c.resources[key]
+			if !found {
+				continue
+			}
+			if canSkipResource(forceResponseNames, name, v.lastModifiedVersion, lastAckedVersion) {
+				continue
+			}
+			res.VersionedResources = append(res.VersionedResources, VersionedResource{
+				Name:     name,
+				Version:  v.lastModifiedVersion,
+				Resource: v.resource,
+			})
+		}
+	}
+
+	// record removed resource name as removed if previously acknowledged and still subscribed
+	for name := range ackedResourceNames {
+		if !wildcard {
+			if _, tracked := slices.BinarySearch(subscriptions, name); !tracked {
+				continue
+			}
+		}
+		key.resourceName = name
+		if _, exists := c.resources[key]; !exists {
+			res.RemovedNames = append(res.RemovedNames, name)
+		}
+	}
+
+	if len(res.VersionedResources) == 0 && len(res.RemovedNames) == 0 {
+		scopedLog.Debug("Delta xDS: no changes")
+		return nil
+	}
+
+	slices.SortFunc(res.VersionedResources, compareVersionedResource)
+
+	scopedLog.Debug(
+		"returning delta resources",
+		logfields.ReturningResources, len(res.VersionedResources),
+		logfields.Removed, len(res.RemovedNames),
+	)
+
 	return res
 }
 
@@ -342,7 +445,7 @@ func (c *Cache) EnsureVersion(typeURL string, version uint64) {
 			logfields.XDSAckedVersion, version,
 		)
 
-		// bump the lastUpdatedVersion of each resource
+		// bump the lastUpdatedVersion of each resource of this typeURL
 		for k, v := range c.resources {
 			if k.typeURL != typeURL {
 				continue

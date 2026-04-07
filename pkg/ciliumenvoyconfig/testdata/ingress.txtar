@@ -724,6 +724,7 @@ listener:default/cilium-ingress-default-basic-ingress/listener:
         is_l7lb: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        use_delta_npds: true
       }
     }
   }

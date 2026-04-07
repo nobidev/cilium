@@ -188,6 +188,7 @@ listener:/envoy-lb-listener-2/envoy-lb-listener-2:
         is_l7lb: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        use_delta_npds: true
       }
     }
   }
@@ -220,6 +221,7 @@ listener:/envoy-lb-listener-2/envoy-lb-listener-2:
         is_l7lb: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        use_delta_npds: true
       }
     }
   }
@@ -282,6 +284,7 @@ listener:/envoy-lb-listener-2/envoy-lb-listener-2:
         is_l7lb: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        use_delta_npds: true
       }
     }
   }

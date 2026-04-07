@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
@@ -61,6 +62,7 @@ type xdsServerParams struct {
 	JobGroup           job.Group
 	Logger             *slog.Logger
 	IPCache            *ipcache.IPCache
+	PolicyRepo         policy.PolicyRepository
 	RestorerPromise    promise.Promise[endpointstate.Restorer]
 	LocalNodeStore     *node.LocalNodeStore
 	LocalEndpointStore *LocalEndpointStore
@@ -89,6 +91,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		params.Logger,
 		params.RestorerPromise,
 		params.IPCache,
+		params.PolicyRepo,
 		params.LocalEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:                GetSocketDir(option.Config.RunDir),
@@ -108,6 +111,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			metrics:                       params.Metrics,
 			httpLingerConfig:              params.EnvoyProxyConfig.EnvoyHTTPUpstreamLingerTimeout,
 			envoyAccessLogEnabled:         params.EnvoyProxyConfig.EnvoyAccessLogEnabled,
+			useNPRDS:                      params.EnvoyProxyConfig.UseNPRDS,
 		},
 		params.SecretManager)
 

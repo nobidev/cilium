@@ -327,6 +327,7 @@ listener:test/listener-a/listener:
         is_l7lb: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        use_delta_npds: true
       }
     }
   }
@@ -355,6 +356,7 @@ listener:test/listener-b/listener:
         use_original_source_address: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        use_delta_npds: true
       }
     }
   }
@@ -423,6 +425,7 @@ listener:test/listener-b/listener:
         use_original_source_address: true
         proxy_id: 1000
         ipcache_name: "cilium_ipcache_v2"
+        use_delta_npds: true
       }
     }
   }

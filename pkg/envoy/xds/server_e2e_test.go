@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"reflect"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -78,6 +79,29 @@ func responseCheck(response *envoy_service_discovery.DiscoveryResponse,
 
 		return result
 	}
+}
+
+func requireDeltaResponse(t *testing.T, resp *envoy_service_discovery.DeltaDiscoveryResponse, typeURL, wantNonce string, wantResourceVersions map[string]string, wantRemoved []string) {
+	t.Helper()
+
+	require.Equal(t, typeURL, resp.TypeUrl)
+	require.Equal(t, wantNonce, resp.Nonce)
+	require.Equal(t, wantNonce, resp.SystemVersionInfo)
+
+	gotResourceVersions := make(map[string]string, len(resp.Resources))
+	for _, res := range resp.Resources {
+		require.NotEmpty(t, res.Version)
+		_, err := strconv.ParseUint(res.Version, 10, 64)
+		require.NoError(t, err)
+		gotResourceVersions[res.Name] = res.Version
+	}
+	require.Equal(t, wantResourceVersions, gotResourceVersions)
+
+	gotRemoved := append([]string(nil), resp.RemovedResources...)
+	sort.Strings(gotRemoved)
+	wantRemoved = append([]string(nil), wantRemoved...)
+	sort.Strings(wantRemoved)
+	require.Equal(t, wantRemoved, gotRemoved)
 }
 
 func TestRequestAllResources(t *testing.T) {
@@ -774,6 +798,524 @@ func TestRequestStaleNonce(t *testing.T) {
 	select {
 	case <-ctx.Done():
 		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
+func TestDeltaUnsubscribeStopsResourceUpdates(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+
+	_, updated, _ := cache.Upsert(typeURL, resources[0].Name, resources[0])
+	require.True(t, updated)
+	_, updated, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
+	require.True(t, updated)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockDeltaStream(streamCtx, 2, 2, StreamTimeout, noResponseTestStreamTimeout)
+	defer stream.Close()
+
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		err := server.HandleDeltaRequestStream(ctx, stream, AnyTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	req := &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:                typeURL,
+		Node:                   nodes[node0],
+		ResourceNamesSubscribe: []string{resources[0].Name, resources[1].Name},
+	}
+	err := stream.SendRequest(req)
+	require.NoError(t, err)
+
+	resp, err := stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "3", map[string]string{
+		resources[0].Name: "2",
+		resources[1].Name: "3",
+	}, nil)
+
+	req = &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:       typeURL,
+		ResponseNonce: resp.Nonce,
+	}
+	err = stream.SendRequest(req)
+	require.NoError(t, err)
+
+	req = &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:                  typeURL,
+		ResourceNamesUnsubscribe: []string{resources[0].Name},
+	}
+	err = stream.SendRequest(req)
+	require.NoError(t, err)
+
+	_, err = stream.RecvResponse()
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	resource0Updated := proto.Clone(resources[0]).(*envoy_config_route.RouteConfiguration)
+	resource0Updated.VirtualHosts = []*envoy_config_route.VirtualHost{{Name: "vh0"}}
+	_, updated, _ = cache.Upsert(typeURL, resource0Updated.Name, resource0Updated)
+	require.True(t, updated)
+
+	_, err = stream.RecvResponse()
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	resource1Updated := proto.Clone(resources[1]).(*envoy_config_route.RouteConfiguration)
+	resource1Updated.VirtualHosts = []*envoy_config_route.VirtualHost{{Name: "vh1"}}
+	_, updated, _ = cache.Upsert(typeURL, resource1Updated.Name, resource1Updated)
+	require.True(t, updated)
+
+	resp, err = stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "5", map[string]string{
+		resources[1].Name: "5",
+	}, nil)
+
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleDeltaRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
+func TestDeltaSubscribeWithoutNonceAcceptedAndResendsSubscribedResource(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+
+	_, updated, _ := cache.Upsert(typeURL, resources[0].Name, resources[0])
+	require.True(t, updated)
+	_, updated, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
+	require.True(t, updated)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockDeltaStream(streamCtx, 2, 2, StreamTimeout, noResponseTestStreamTimeout)
+	defer stream.Close()
+
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		err := server.HandleDeltaRequestStream(ctx, stream, AnyTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	req := &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:                typeURL,
+		Node:                   nodes[node0],
+		ResourceNamesSubscribe: []string{resources[0].Name},
+	}
+	err := stream.SendRequest(req)
+	require.NoError(t, err)
+
+	resp, err := stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "3", map[string]string{
+		resources[0].Name: "2",
+	}, nil)
+
+	req = &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:       typeURL,
+		ResponseNonce: resp.Nonce,
+	}
+	err = stream.SendRequest(req)
+	require.NoError(t, err)
+
+	req = &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:                typeURL,
+		ResourceNamesSubscribe: []string{resources[1].Name},
+	}
+	err = stream.SendRequest(req)
+	require.NoError(t, err)
+
+	resp, err = stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "3", map[string]string{
+		resources[1].Name: "3",
+	}, nil)
+
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleDeltaRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
+func TestDeltaRemoveThenAddForcesResend(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+
+	_, updated, _ := cache.Upsert(typeURL, resources[0].Name, resources[0])
+	require.True(t, updated)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockDeltaStream(streamCtx, 2, 2, StreamTimeout, noResponseTestStreamTimeout)
+	defer stream.Close()
+
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		err := server.HandleDeltaRequestStream(ctx, stream, AnyTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	req := &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:                typeURL,
+		Node:                   nodes[node0],
+		ResourceNamesSubscribe: []string{resources[0].Name},
+	}
+	err := stream.SendRequest(req)
+	require.NoError(t, err)
+
+	resp, err := stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "2", map[string]string{
+		resources[0].Name: "2",
+	}, nil)
+
+	req = &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:                  typeURL,
+		ResponseNonce:            resp.Nonce,
+		ResourceNamesUnsubscribe: []string{resources[0].Name},
+		ResourceNamesSubscribe:   []string{resources[0].Name},
+	}
+	err = stream.SendRequest(req)
+	require.NoError(t, err)
+
+	resp, err = stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "2", map[string]string{
+		resources[0].Name: "2",
+	}, nil)
+
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleDeltaRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
+func TestDeltaEmptySubscriptionsBehaveAsWildcard(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+
+	_, updated, _ := cache.Upsert(typeURL, resources[0].Name, resources[0])
+	require.True(t, updated)
+	_, updated, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
+	require.True(t, updated)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout, noResponseTestStreamTimeout)
+	defer stream.Close()
+
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		err := server.HandleDeltaRequestStream(ctx, stream, AnyTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	req := &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl: typeURL,
+		Node:    nodes[node0],
+	}
+	err := stream.SendRequest(req)
+	require.NoError(t, err)
+
+	resp, err := stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "3", map[string]string{
+		resources[0].Name: "2",
+		resources[1].Name: "3",
+	}, nil)
+
+	req = &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:       typeURL,
+		ResponseNonce: resp.Nonce,
+	}
+	err = stream.SendRequest(req)
+	require.NoError(t, err)
+
+	_, err = stream.RecvResponse()
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleDeltaRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
+func TestDeltaWildcardSubscriptionReturnsAllResources(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+
+	_, updated, _ := cache.Upsert(typeURL, resources[0].Name, resources[0])
+	require.True(t, updated)
+	_, updated, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
+	require.True(t, updated)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout, noResponseTestStreamTimeout)
+	defer stream.Close()
+
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		err := server.HandleDeltaRequestStream(ctx, stream, AnyTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	req := &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:                typeURL,
+		Node:                   nodes[node0],
+		ResourceNamesSubscribe: []string{"*", resources[0].Name},
+	}
+	err := stream.SendRequest(req)
+	require.NoError(t, err)
+
+	resp, err := stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "3", map[string]string{
+		resources[0].Name: "2",
+		resources[1].Name: "3",
+	}, nil)
+
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleDeltaRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
+func TestDeltaNamedSubscriptionSurvivesWildcardUnsubscribe(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+
+	_, updated, _ := cache.Upsert(typeURL, resources[0].Name, resources[0])
+	require.True(t, updated)
+	_, updated, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
+	require.True(t, updated)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockDeltaStream(streamCtx, 2, 2, StreamTimeout, noResponseTestStreamTimeout)
+	defer stream.Close()
+
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		err := server.HandleDeltaRequestStream(ctx, stream, AnyTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	req := &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:                typeURL,
+		Node:                   nodes[node0],
+		ResourceNamesSubscribe: []string{"*", resources[1].Name},
+	}
+	err := stream.SendRequest(req)
+	require.NoError(t, err)
+
+	resp, err := stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "3", map[string]string{
+		resources[0].Name: "2",
+		resources[1].Name: "3",
+	}, nil)
+
+	req = &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:                  typeURL,
+		ResponseNonce:            resp.Nonce,
+		ResourceNamesUnsubscribe: []string{"*"},
+	}
+	err = stream.SendRequest(req)
+	require.NoError(t, err)
+
+	_, err = stream.RecvResponse()
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	resource0Updated := proto.Clone(resources[0]).(*envoy_config_route.RouteConfiguration)
+	resource0Updated.VirtualHosts = []*envoy_config_route.VirtualHost{{Name: "vh0"}}
+	_, updated, _ = cache.Upsert(typeURL, resource0Updated.Name, resource0Updated)
+	require.True(t, updated)
+
+	_, err = stream.RecvResponse()
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	resource1Updated := proto.Clone(resources[1]).(*envoy_config_route.RouteConfiguration)
+	resource1Updated.VirtualHosts = []*envoy_config_route.VirtualHost{{Name: "vh1"}}
+	_, updated, _ = cache.Upsert(typeURL, resource1Updated.Name, resource1Updated)
+	require.True(t, updated)
+
+	resp, err = stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "5", map[string]string{
+		resources[1].Name: "5",
+	}, nil)
+
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleDeltaRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
+func TestDeltaInitialResourceVersionsIgnored(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+
+	_, updated, _ := cache.Upsert(typeURL, resources[0].Name, resources[0])
+	require.True(t, updated)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout, noResponseTestStreamTimeout)
+	defer stream.Close()
+
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		err := server.HandleDeltaRequestStream(ctx, stream, AnyTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	req := &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:                 typeURL,
+		Node:                    nodes[node0],
+		ResourceNamesSubscribe:  []string{resources[0].Name},
+		InitialResourceVersions: map[string]string{resources[0].Name: "999"},
+	}
+	err := stream.SendRequest(req)
+	require.NoError(t, err)
+
+	resp, err := stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "2", map[string]string{
+		resources[0].Name: "2",
+	}, nil)
+
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleDeltaRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
+func TestDeltaResourceLocatorsIgnored(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+
+	_, updated, _ := cache.Upsert(typeURL, resources[0].Name, resources[0])
+	require.True(t, updated)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout, noResponseTestStreamTimeout)
+	defer stream.Close()
+
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		err := server.HandleDeltaRequestStream(ctx, stream, AnyTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	req := &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl:                   typeURL,
+		Node:                      nodes[node0],
+		ResourceNamesSubscribe:    []string{resources[0].Name},
+		ResourceLocatorsSubscribe: []*envoy_service_discovery.ResourceLocator{{Name: "xdstp://ignored"}},
+	}
+	err := stream.SendRequest(req)
+	require.NoError(t, err)
+
+	resp, err := stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "2", map[string]string{
+		resources[0].Name: "2",
+	}, nil)
+
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleDeltaRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
 	case <-streamDone:
 	}
 }

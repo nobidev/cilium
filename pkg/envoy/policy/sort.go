@@ -113,20 +113,42 @@ func PortNetworkPolicyRuleLess(r1, r2 *cilium.PortNetworkPolicyRule) bool {
 	}
 
 	remotePolicies1, remotePolicies2 := r1.RemotePolicies, r2.RemotePolicies
-	switch {
-	case len(remotePolicies1) < len(remotePolicies2):
-		return true
-	case len(remotePolicies1) > len(remotePolicies2):
-		return false
-	}
-	// Assuming that the slices are sorted.
-	for idx := range remotePolicies1 {
-		p1, p2 := remotePolicies1[idx], remotePolicies2[idx]
+	if len(remotePolicies1)+len(remotePolicies2) > 0 {
 		switch {
-		case p1 < p2:
+		case len(remotePolicies1) < len(remotePolicies2):
 			return true
-		case p1 > p2:
+		case len(remotePolicies1) > len(remotePolicies2):
 			return false
+		}
+		// Assuming that the slices are sorted.
+		for idx := range remotePolicies1 {
+			p1, p2 := remotePolicies1[idx], remotePolicies2[idx]
+			switch {
+			case p1 < p2:
+				return true
+			case p1 > p2:
+				return false
+			}
+		}
+	}
+
+	selectors1, selectors2 := r1.Selectors, r2.Selectors
+	if len(selectors1)+len(selectors2) > 0 {
+		switch {
+		case len(selectors1) < len(selectors2):
+			return true
+		case len(selectors1) > len(selectors2):
+			return false
+		}
+		// Assuming that the slices are sorted.
+		for idx := range selectors1 {
+			p1, p2 := selectors1[idx], selectors2[idx]
+			switch {
+			case p1 < p2:
+				return true
+			case p1 > p2:
+				return false
+			}
 		}
 	}
 
