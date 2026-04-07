@@ -46,6 +46,11 @@ const (
 
 	dnsProxyContainerName   = "cilium-dnsproxy"
 	dnsProxyMetricsPortName = "metrics"
+
+	privateNetworksCertgenCronJob           = "cilium-private-networks-generate-certs"
+	privateNetworksCertgenCronJobFileName   = privateNetworksCertgenCronJob + ".yaml"
+	privateNetworksCertgenLabelSelector     = "k8s-app=cilium-private-networks-generate-certs"
+	privateNetworksCertManagerCertsFileName = "cilium-private-networks-certmanager-certs.yaml"
 )
 
 var (
@@ -1000,6 +1005,57 @@ func addSysdumpTasks(collector *sysdump.Collector, opts *EnterpriseOptions) erro
 					return fmt.Errorf("failed to collect Private Network Node Attachments: %w", err)
 				}
 				return nil
+			},
+		},
+		{
+			Description: "Collecting the Private Networks certgen cronjob",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := collector.Client.GetCronJob(ctx, collector.Options.CiliumNamespace, privateNetworksCertgenCronJob, metav1.GetOptions{})
+				if err == nil {
+					err = collector.WriteYAML(privateNetworksCertgenCronJobFileName, v)
+				}
+				if err != nil {
+					return fmt.Errorf("failed to collect the Private Networks certgen cronjob: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Private Networks certgen logs",
+			Quick:       false,
+			Task: func(ctx context.Context) error {
+				p, err := collector.Client.ListPods(ctx, collector.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: privateNetworksCertgenLabelSelector,
+				})
+				if err == nil {
+					err = collector.SubmitLogsTasks(
+						sysdump.AllPods(p),
+						collector.Options.LogsSinceTime,
+						collector.Options.LogsLimitBytes)
+				}
+				if err != nil {
+					return fmt.Errorf("failed to collect logs from Private Networks certgen pods")
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Private Networks cert-manager certificates",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				return collector.GatherResourceUnstructured(
+					ctx,
+					schema.GroupVersionResource{
+						Group:    "cert-manager.io",
+						Resource: "certificates",
+						Version:  "v1",
+					},
+					privateNetworksCertManagerCertsFileName,
+					"cilium-private-networks-webhook",
+					"cilium-private-networks-api-client",
+					"cilium-private-networks-api-server",
+				)
 			},
 		},
 		{
