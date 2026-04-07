@@ -13,12 +13,8 @@ package tests
 import (
 	"bytes"
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"net"
@@ -45,6 +41,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	whcfg "github.com/cilium/cilium/enterprise/operator/pkg/privnet/webhook/config"
+	privnettestutils "github.com/cilium/cilium/enterprise/pkg/privnet/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/safeio"
 )
@@ -54,6 +51,7 @@ func WebhookTestCell(t testing.TB) cell.Cell {
 		cell.Provide(
 			func() *webhook {
 				return &webhook{
+					tb:   t,
 					path: t.TempDir(),
 					root: x509.NewCertPool(),
 				}
@@ -90,6 +88,7 @@ func WebhookTestCell(t testing.TB) cell.Cell {
 }
 
 type webhook struct {
+	tb   testing.TB
 	path string
 	root *x509.CertPool
 }
@@ -292,68 +291,14 @@ func (w *webhook) generateTLSPair(cfg whcfg.Config) error {
 		return nil
 	}
 
-	newPair := func(tmpl, parent *x509.Certificate, signer ed25519.PrivateKey) (ed25519.PrivateKey, []byte, error) {
-		var reader = rand.Reader
-
-		tmpl.NotBefore = time.Now().Add(-time.Minute)
-		tmpl.NotAfter = time.Now().Add(60 * time.Minute)
-
-		pub, priv, err := ed25519.GenerateKey(reader)
-		if err != nil {
-			return nil, nil, fmt.Errorf("generating key: %w", err)
-		}
-
-		if parent == nil {
-			parent, signer = tmpl, priv
-		}
-
-		der, err := x509.CreateCertificate(reader, tmpl, parent, pub, signer)
-		if err != nil {
-			return nil, nil, fmt.Errorf("creating certificate: %w", err)
-		}
-
-		return priv, der, nil
-	}
-
-	cakey, cader, err := newPair(&x509.Certificate{
-		Subject:               pkix.Name{Organization: []string{"Cilium Test CA"}},
-		IsCA:                  true,
-		BasicConstraintsValid: true,
-	}, nil, nil)
-	if err != nil {
-		return fmt.Errorf("CA cert: %w", err)
-	}
-
-	cacrt, err := x509.ParseCertificate(cader)
-	if err != nil {
-		return fmt.Errorf("parsing certificate: %w", err)
-	}
-	w.root.AddCert(cacrt)
-
-	key, der, err := newPair(&x509.Certificate{
-		DNSNames:    []string{"localhost"},
-		IPAddresses: []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")},
-	}, cacrt, cakey)
-	if err != nil {
-		return fmt.Errorf("server cert: %w", err)
-	}
-
-	keyder, err := x509.MarshalPKCS8PrivateKey(key)
-	if err != nil {
-		return fmt.Errorf("marshaling key: %w", err)
-	}
-
-	if err = os.WriteFile(w.tlsKeyFile(), pem.EncodeToMemory(
-		&pem.Block{Type: "PRIVATE KEY", Bytes: keyder},
-	), 0644); err != nil {
-		return fmt.Errorf("writing tls.key: %w", err)
-	}
-
-	if err = os.WriteFile(w.tlsCertFile(), pem.EncodeToMemory(
-		&pem.Block{Type: "CERTIFICATE", Bytes: der},
-	), 0644); err != nil {
-		return fmt.Errorf("writing tls.crt: %w", err)
-	}
-
+	_, caPool := privnettestutils.WriteTLSFiles(w.tb, privnettestutils.TLSConfig{
+		Dir:                w.path,
+		CACommonName:       "Cilium Test CA",
+		ServerDNSNames:     []string{"localhost"},
+		ServerIPAddrs:      []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")},
+		ServerCertFileName: path.Base(w.tlsCertFile()),
+		ServerKeyFileName:  path.Base(w.tlsKeyFile()),
+	})
+	w.root = caPool
 	return nil
 }
