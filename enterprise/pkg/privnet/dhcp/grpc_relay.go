@@ -18,18 +18,15 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/insomniacslk/dhcp/dhcpv4"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	api "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/api/v1"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/grpc/client"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-// GRPCConnFactoryFn dials a gRPC connection to the target INB node.
-type GRPCConnFactoryFn func(target tables.INBNode) (*grpc.ClientConn, error)
 
 // GRPCRelayFactory provides gRPC-backed DHCP relays for workloads.
 type GRPCRelayFactory struct {
@@ -37,7 +34,7 @@ type GRPCRelayFactory struct {
 	DB      *statedb.DB
 	INBs    statedb.Table[tables.INB]
 	Subnets statedb.Table[tables.Subnet]
-	Factory GRPCConnFactoryFn
+	Factory client.ConnFactoryFn
 }
 
 // RelayFor implements RelayFactory.
@@ -71,7 +68,7 @@ type grpcRelay struct {
 	log     *slog.Logger
 	db      *statedb.DB
 	inbs    statedb.Table[tables.INB]
-	factory GRPCConnFactoryFn
+	factory client.ConnFactoryFn
 	network tables.NetworkName
 	subnet  tables.SubnetName
 	cfg     iso_v1alpha1.PrivateNetworkSubnetDHCPSpec
@@ -106,7 +103,7 @@ func (r *grpcRelay) Relay(ctx context.Context, waitTime time.Duration, req *dhcp
 		return nil, fmt.Errorf("active INB not found for network %q", r.network)
 	}
 
-	conn, err := r.factory(inb.Node)
+	conn, err := r.factory(ctx, inb.Node)
 	if err != nil {
 		log.Info("Failed to dial INB for DHCP relay",
 			logfields.Target, inb.Node,

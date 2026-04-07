@@ -79,7 +79,7 @@ func TestGRPCRelay(t *testing.T) {
 				},
 			},
 		},
-		factory: func(target tables.INBNode) (*grpc.ClientConn, error) {
+		factory: func(_ context.Context, target tables.INBNode) (*grpc.ClientConn, error) {
 			require.Equal(t, "local/inb-0", target.String())
 			require.Equal(t, uint16(4242), target.APIPort)
 			return grpc.NewClient(

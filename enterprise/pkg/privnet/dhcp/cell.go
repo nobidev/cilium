@@ -105,7 +105,7 @@ func newRelayFactory(p relayParams) (RelayFactory, error) {
 		DB:      p.DB,
 		INBs:    p.INBs,
 		Subnets: p.Subnets,
-		Factory: GRPCConnFactoryFn(p.ConnFn),
+		Factory: p.ConnFn,
 	}, nil
 }
 

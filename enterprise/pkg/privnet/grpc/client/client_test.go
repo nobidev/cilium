@@ -86,7 +86,7 @@ func TestConnFactory(t *testing.T) {
 				TLSConfigPromise: config.ClientConfigPromise(tlsPromise),
 			})
 
-			conn, err := factory(tables.INBNode{
+			conn, err := factory(t.Context(), tables.INBNode{
 				Cluster: "remote-cluster",
 				IP:      netip.MustParseAddr("127.0.0.1"),
 				APIPort: port,

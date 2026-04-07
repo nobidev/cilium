@@ -52,7 +52,7 @@ type checker struct {
 
 	log     *slog.Logger
 	config  config.Config
-	factory grpcclient.ConnFactoryFn
+	factory func(tables.INBNode) *connection
 	self    LocalNode
 
 	mu        lock.RWMutex
@@ -72,7 +72,7 @@ func New(log *slog.Logger, lc cell.Lifecycle, cfg config.Config, factory grpccli
 
 		log:     log,
 		config:  cfg,
-		factory: factory,
+		factory: newConnectionFactory(factory),
 		self:    self,
 
 		instances: make(map[tables.INBNode]*instance),
@@ -91,14 +91,7 @@ func (c *checker) Register(node tables.INBNode, network tables.NetworkName) erro
 
 	instance, ok := c.instances[node]
 	if !ok {
-		var err error
-		instance, err = c.newInstance(node)
-
-		// Returned errors are unrecoverable (e.g., invalid target IP).
-		if err != nil {
-			return err
-		}
-
+		instance = c.newInstance(node)
 		instance.Start()
 		c.instances[node] = instance
 	}
@@ -212,28 +205,25 @@ type instance struct {
 	nodeState atomic.Value
 	emit      func(tables.NetworkName, tables.INBNetworkState)
 
-	conn      *grpc.ClientConn
+	conn *connection
+
 	prober    *prober
 	networker *networker
 }
 
-func (c *checker) newInstance(node tables.INBNode) (*instance, error) {
+func (c *checker) newInstance(node tables.INBNode) *instance {
 	var (
 		log  = c.log.With(logfields.Node, node)
-		self = api.Node{Cluster: string(c.self.Cluster), Name: string(c.self.Name)}
+		self = &api.Node{Cluster: string(c.self.Cluster), Name: string(c.self.Name)}
+		conn = c.factory(node)
 	)
-
-	conn, err := c.factory(node)
-	if err != nil {
-		return nil, fmt.Errorf("creating gRPC client: %w", err)
-	}
 
 	inst := &instance{
 		log: log,
 
 		conn:      conn,
-		prober:    newProber(log, c.config, api.NewHealthClient(conn), &self),
-		networker: newNetworker(log, c.config, api.NewNetworksClient(conn), &self),
+		prober:    newProber(log, c.config, api.NewHealthClient(conn), self),
+		networker: newNetworker(log, c.config, api.NewNetworksClient(conn), self),
 
 		synced: make(chan struct{}),
 	}
@@ -247,19 +237,18 @@ func (c *checker) newInstance(node tables.INBNode) (*instance, error) {
 		})
 	}
 
-	return inst, nil
+	return inst
 }
 
 func (i *instance) Start() {
-	var ctx context.Context
-	ctx, i.cancel = context.WithCancel(context.Background())
-	i.wg.Go(func() { i.run(ctx) })
+	runCtx, cancel := context.WithCancel(context.Background())
+	i.cancel = cancel
+	i.wg.Go(func() { i.run(runCtx) })
 }
 
 func (i *instance) Stop() {
 	i.cancel()
 	i.wg.Wait()
-
 	i.conn.Close()
 }
 
@@ -290,6 +279,7 @@ func (i *instance) Deactivate(network tables.NetworkName) error {
 func (i *instance) run(ctx context.Context) {
 	var wg sync.WaitGroup
 
+	wg.Go(func() { i.conn.Init(ctx) })
 	wg.Go(func() { i.prober.Run(ctx) })
 	wg.Go(func() { i.proberLoop(ctx) })
 
@@ -342,4 +332,73 @@ func (i *instance) proberLoop(ctx context.Context) {
 
 	cancel()
 	wg.Wait()
+}
+
+type connection struct {
+	factory grpcclient.ConnFactoryFn
+	node    tables.INBNode
+
+	init chan struct{}
+	res  atomic.Pointer[connResult]
+}
+
+type connResult struct {
+	conn *grpc.ClientConn
+	err  error
+}
+
+func newConnectionFactory(factory grpcclient.ConnFactoryFn) func(tables.INBNode) *connection {
+	return func(node tables.INBNode) *connection {
+		return &connection{
+			factory: factory,
+			node:    node,
+			init:    make(chan struct{}),
+		}
+	}
+}
+
+func (c *connection) Init(ctx context.Context) {
+	defer close(c.init)
+
+	conn, err := c.factory(ctx, c.node)
+	c.res.Store(&connResult{conn: conn, err: err})
+}
+
+func (c *connection) Close() {
+	res := c.res.Load()
+	if res != nil && res.conn != nil {
+		_ = res.conn.Close()
+	}
+}
+
+func (c *connection) Invoke(ctx context.Context, method string, args any, reply any, opts ...grpc.CallOption) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("initializing connection: %w", ctx.Err())
+	case <-c.init:
+		res := c.res.Load()
+		if res == nil {
+			return errors.New("connection initialization failed")
+		}
+		if res.err != nil {
+			return fmt.Errorf("initializing connection: %w", res.err)
+		}
+		return res.conn.Invoke(ctx, method, args, reply, opts...)
+	}
+}
+
+func (c *connection) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("initializing connection: %w", ctx.Err())
+	case <-c.init:
+		res := c.res.Load()
+		if res == nil {
+			return nil, errors.New("connection initialization failed")
+		}
+		if res.err != nil {
+			return nil, fmt.Errorf("initializing connection: %w", res.err)
+		}
+		return res.conn.NewStream(ctx, desc, method, opts...)
+	}
 }

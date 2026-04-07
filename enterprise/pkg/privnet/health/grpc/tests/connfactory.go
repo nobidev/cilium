@@ -64,7 +64,7 @@ func (f ConnFactory) NewListener(inst Instance) (net.Listener, error) {
 }
 
 func (f ConnFactory) ClientConnFactory() grpcclient.ConnFactoryFn {
-	return func(target tables.INBNode) (*grpc.ClientConn, error) {
+	return func(_ context.Context, target tables.INBNode) (*grpc.ClientConn, error) {
 		return grpc.NewClient(
 			"unix://"+f.Path(Instance{Cluster: target.Cluster, Name: target.Name}),
 			grpc.WithChainStreamInterceptor(f.interceptors.Stream()...),

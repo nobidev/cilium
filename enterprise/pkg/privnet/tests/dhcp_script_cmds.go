@@ -38,6 +38,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/dhcp"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/grpc/client"
 	grpcclient "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/client"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -94,7 +95,7 @@ func dhcpScriptCmdsCell(t testing.TB) cell.Cell {
 			}
 
 			if grpcRelay, ok := relay.(*dhcp.GRPCRelayFactory); ok && grpcRelay.Factory == nil {
-				grpcRelay.Factory = dhcp.GRPCConnFactoryFn(connFactory)
+				grpcRelay.Factory = client.ConnFactoryFn(connFactory)
 			}
 
 			return relay

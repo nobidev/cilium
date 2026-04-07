@@ -22,13 +22,12 @@ import (
 	"github.com/cilium/cilium/enterprise/pkg/privnet/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 type (
 	// ConnFactoryFn is the type of the function returning a grpc client connection
 	// for a given target node.
-	ConnFactoryFn func(target tables.INBNode) (*grpc.ClientConn, error)
+	ConnFactoryFn func(ctx context.Context, target tables.INBNode) (*grpc.ClientConn, error)
 )
 
 type connFactoryParams struct {
@@ -39,11 +38,7 @@ type connFactoryParams struct {
 }
 
 func NewDefaultConnFactory(params connFactoryParams) ConnFactoryFn {
-	return func(target tables.INBNode) (*grpc.ClientConn, error) {
-		// Wait up to 1 minute for the TLS certificate to appear
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-
+	return func(ctx context.Context, target tables.INBNode) (*grpc.ClientConn, error) {
 		var tlsConfig *certloader.WatchedClientConfig
 		if params.TLSConfigPromise != nil {
 			var err error
