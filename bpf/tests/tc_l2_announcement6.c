@@ -64,10 +64,10 @@ static __always_inline int build_packet(struct __ctx_buff *ctx, bool targeted)
 	pktgen__init(&builder, ctx);
 
 	if (targeted)
-		scapy__push_data(&builder, (void *)l2_announce6_targeted_ns,
+		scapy_push_data(&builder, (void *)l2_announce6_targeted_ns,
 				 sizeof(l2_announce6_targeted_ns));
 	else
-		scapy__push_data(&builder, (void *)l2_announce6_ns,
+		scapy_push_data(&builder, (void *)l2_announce6_ns,
 				 sizeof(l2_announce6_ns));
 
 	pktgen__finish(&builder);

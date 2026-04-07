@@ -122,7 +122,7 @@ int ipv6_from_netdev_ns_pod_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)v6_ndp_pod_ns_llopt, sizeof(v6_ndp_pod_ns_llopt));
+	scapy_push_data(&builder, (void *)v6_ndp_pod_ns_llopt, sizeof(v6_ndp_pod_ns_llopt));
 
 	pktgen__finish(&builder);
 	return 0;
@@ -158,7 +158,7 @@ int ipv6_from_netdev_ns_pod_pktgen_noopt(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)v6_ndp_pod_ns, sizeof(v6_ndp_pod_ns));
+	scapy_push_data(&builder, (void *)v6_ndp_pod_ns, sizeof(v6_ndp_pod_ns));
 
 	pktgen__finish(&builder);
 
@@ -207,7 +207,7 @@ int ipv6_from_netdev_ns_pod_pktgen_mcast(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)v6_ndp_pod_ns_mcast_llopt,
+	scapy_push_data(&builder, (void *)v6_ndp_pod_ns_mcast_llopt,
 			 sizeof(v6_ndp_pod_ns_mcast_llopt));
 
 	pktgen__finish(&builder);
@@ -246,7 +246,7 @@ int ipv6_from_netdev_ns_pod_pktgen_mcast_noopt(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)v6_ndp_pod_ns_mcast, sizeof(v6_ndp_pod_ns_mcast));
+	scapy_push_data(&builder, (void *)v6_ndp_pod_ns_mcast, sizeof(v6_ndp_pod_ns_mcast));
 
 	pktgen__finish(&builder);
 
@@ -301,7 +301,7 @@ int ipv6_from_netdev_ns_node_ip_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)v6_ndp_node_ns_llopt, sizeof(v6_ndp_node_ns_llopt));
+	scapy_push_data(&builder, (void *)v6_ndp_node_ns_llopt, sizeof(v6_ndp_node_ns_llopt));
 
 	pktgen__finish(&builder);
 
@@ -341,7 +341,7 @@ int ipv6_from_netdev_ns_node_ip_pktgen_noopt(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)v6_ndp_node_ns, sizeof(v6_ndp_node_ns));
+	scapy_push_data(&builder, (void *)v6_ndp_node_ns, sizeof(v6_ndp_node_ns));
 
 	pktgen__finish(&builder);
 
@@ -390,7 +390,7 @@ int ipv6_from_netdev_ns_node_ip_pktgen_mcast(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)v6_ndp_node_ns_mcast_llopt,
+	scapy_push_data(&builder, (void *)v6_ndp_node_ns_mcast_llopt,
 			 sizeof(v6_ndp_node_ns_mcast_llopt));
 
 	pktgen__finish(&builder);
@@ -430,7 +430,7 @@ int ipv6_from_netdev_ns_node_ip_pktgen_mcast_noopt(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)v6_ndp_node_ns_mcast, sizeof(v6_ndp_node_ns_mcast));
+	scapy_push_data(&builder, (void *)v6_ndp_node_ns_mcast, sizeof(v6_ndp_node_ns_mcast));
 
 	pktgen__finish(&builder);
 

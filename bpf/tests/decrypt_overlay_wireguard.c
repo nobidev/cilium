@@ -86,7 +86,7 @@ int ipv4_wireguard_no_mark_from_overlay_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)v4_overlay_tcp_packet, sizeof(v4_overlay_tcp_packet));
+	scapy_push_data(&builder, (void *)v4_overlay_tcp_packet, sizeof(v4_overlay_tcp_packet));
 
 	pktgen__finish(&builder);
 	return TEST_PASS;
@@ -135,7 +135,7 @@ int ipv4_wireguard_mark_from_overlay_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)v4_overlay_tcp_packet, sizeof(v4_overlay_tcp_packet));
+	scapy_push_data(&builder, (void *)v4_overlay_tcp_packet, sizeof(v4_overlay_tcp_packet));
 
 	pktgen__finish(&builder);
 	return TEST_PASS;

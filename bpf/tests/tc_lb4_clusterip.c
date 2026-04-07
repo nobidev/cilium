@@ -53,7 +53,7 @@ int lb4_nonroutable_clusterip_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)lb4_clusterip, sizeof(lb4_clusterip));
+	scapy_push_data(&builder, (void *)lb4_clusterip, sizeof(lb4_clusterip));
 
 	pktgen__finish(&builder);
 
@@ -118,7 +118,7 @@ int lb4_routable_clusterip_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)lb4_clusterip, sizeof(lb4_clusterip));
+	scapy_push_data(&builder, (void *)lb4_clusterip, sizeof(lb4_clusterip));
 
 	pktgen__finish(&builder);
 

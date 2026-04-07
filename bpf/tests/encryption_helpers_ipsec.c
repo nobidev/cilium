@@ -47,9 +47,9 @@ pktgen(struct __ctx_buff *ctx, bool ipv4)
 	pktgen__init(&builder, ctx);
 
 	if (ipv4)
-		scapy__push_data(&builder, (void *)v4_ipsec, sizeof(v4_ipsec));
+		scapy_push_data(&builder, (void *)v4_ipsec, sizeof(v4_ipsec));
 	else
-		scapy__push_data(&builder, (void *)v6_ipsec, sizeof(v6_ipsec));
+		scapy_push_data(&builder, (void *)v6_ipsec, sizeof(v6_ipsec));
 
 	pktgen__finish(&builder);
 

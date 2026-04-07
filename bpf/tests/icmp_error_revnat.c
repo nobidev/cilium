@@ -61,7 +61,7 @@ int nat4_icmp_error_tcp_snat_revnat_pktgen(struct __ctx_buff *ctx)
 	pktgen__init(&builder, ctx);
 
 	/* Use Scapy-generated ICMP error packet */
-	scapy__push_data(&builder,
+	scapy_push_data(&builder,
 			 (void *)icmp4_err_frag_needed_for_revnat,
 			 sizeof(icmp4_err_frag_needed_for_revnat));
 

@@ -80,7 +80,7 @@ int nodeport_lb6_fragment1_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)lb6_nodeport_fragment1, sizeof(lb6_nodeport_fragment1));
+	scapy_push_data(&builder, (void *)lb6_nodeport_fragment1, sizeof(lb6_nodeport_fragment1));
 
 	pktgen__finish(&builder);
 
@@ -155,7 +155,7 @@ int nodeport_lb6_fragment2_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)lb6_nodeport_fragment2, sizeof(lb6_nodeport_fragment2));
+	scapy_push_data(&builder, (void *)lb6_nodeport_fragment2, sizeof(lb6_nodeport_fragment2));
 
 	pktgen__finish(&builder);
 

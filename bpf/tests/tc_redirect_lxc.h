@@ -152,7 +152,7 @@ int tc_redirect_lxc_ipv4_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)tc_redirect_lxc_ipv4_pre,
+	scapy_push_data(&builder, (void *)tc_redirect_lxc_ipv4_pre,
 			 sizeof(tc_redirect_lxc_ipv4_pre));
 
 	pktgen__finish(&builder);
@@ -259,7 +259,7 @@ int tc_redirect_lxc_ipv6_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)tc_redirect_lxc_ipv6_pre,
+	scapy_push_data(&builder, (void *)tc_redirect_lxc_ipv6_pre,
 			 sizeof(tc_redirect_lxc_ipv6_pre));
 
 	pktgen__finish(&builder);

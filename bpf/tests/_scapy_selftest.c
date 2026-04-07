@@ -94,7 +94,7 @@ int pktgen_scapy_basic_test(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)sst_req, sizeof(sst_req));
+	scapy_push_data(&builder, (void *)sst_req, sizeof(sst_req));
 
 	pktgen__finish(&builder);
 
@@ -191,7 +191,7 @@ int pktgen_scapy_large_pkts(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)sst_lpkt, sizeof(sst_lpkt));
+	scapy_push_data(&builder, (void *)sst_lpkt, sizeof(sst_lpkt));
 
 	pktgen__finish(&builder);
 
@@ -218,7 +218,7 @@ int pktgen_scapy_xlarge_pkts(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)sst_xlpkt, sizeof(sst_xlpkt));
+	scapy_push_data(&builder, (void *)sst_xlpkt, sizeof(sst_xlpkt));
 
 	pktgen__finish(&builder);
 

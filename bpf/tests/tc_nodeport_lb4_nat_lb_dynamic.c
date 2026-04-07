@@ -100,7 +100,7 @@ int tc_nodeport_lb4_nat_lb_dynamic_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)tc_nodeport_lb4_nat_lb_dynamic_pre,
+	scapy_push_data(&builder, (void *)tc_nodeport_lb4_nat_lb_dynamic_pre,
 			 sizeof(tc_nodeport_lb4_nat_lb_dynamic_pre));
 
 	pktgen__finish(&builder);

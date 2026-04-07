@@ -58,15 +58,15 @@ int pktgen(struct __ctx_buff *ctx, bool ipv4)
 
 #ifdef ENABLE_WIREGUARD
 	if (ipv4)
-		scapy__push_data(&builder, (void *)v4_wireguard, sizeof(v4_wireguard));
+		scapy_push_data(&builder, (void *)v4_wireguard, sizeof(v4_wireguard));
 	else
-		scapy__push_data(&builder, (void *)v6_wireguard, sizeof(v6_wireguard));
+		scapy_push_data(&builder, (void *)v6_wireguard, sizeof(v6_wireguard));
 #endif
 #ifdef ENABLE_IPSEC
 	if (ipv4)
-		scapy__push_data(&builder, (void *)v4_ipsec, sizeof(v4_ipsec));
+		scapy_push_data(&builder, (void *)v4_ipsec, sizeof(v4_ipsec));
 	else
-		scapy__push_data(&builder, (void *)v6_ipsec, sizeof(v6_ipsec));
+		scapy_push_data(&builder, (void *)v6_ipsec, sizeof(v6_ipsec));
 #endif
 
 	pktgen__finish(&builder);

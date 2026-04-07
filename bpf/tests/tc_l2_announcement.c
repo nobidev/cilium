@@ -46,7 +46,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 	struct pktgen builder;
 	pktgen__init(&builder, ctx);
 
-	scapy__push_data(&builder, (void *)l2_announce_arp_req, sizeof(l2_announce_arp_req));
+	scapy_push_data(&builder, (void *)l2_announce_arp_req, sizeof(l2_announce_arp_req));
 
 	pktgen__finish(&builder);
 
