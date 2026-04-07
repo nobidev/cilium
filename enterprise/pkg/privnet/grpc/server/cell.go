@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/enterprise/pkg/privnet/config"
-	grpcConfig "github.com/cilium/cilium/enterprise/pkg/privnet/grpc"
+	grpcConfig "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/pkg/node"
 )

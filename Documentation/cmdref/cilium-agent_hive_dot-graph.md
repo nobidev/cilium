@@ -341,6 +341,12 @@ cilium-agent hive dot-graph [flags]
       --pprof-port uint16                                                Port that pprof listens on (default 6060)
       --prepend-iptables-chains                                          Prepend custom iptables chains instead of appending (default true)
       --private-networks-api-port uint16                                 The TCP port the privnet gRPC server listens to, in bridge mode. Otherwise, it represents the fallback port to connect to a candidate INB if not explicitly advertised by the candidate INB itself. (default 4239)
+      --private-networks-api-tls-ca-files strings                        Paths to one or more CA certificate files trusted by private networks gRPC peers
+      --private-networks-api-tls-client-cert-file string                 Path to the private networks gRPC client certificate file in PEM format
+      --private-networks-api-tls-client-key-file string                  Path to the private networks gRPC client private key file in PEM format
+      --private-networks-api-tls-enabled                                 Enable TLS for the private networks gRPC server and clients
+      --private-networks-api-tls-server-cert-file string                 Path to the private networks gRPC server certificate file in PEM format
+      --private-networks-api-tls-server-key-file string                  Path to the private networks gRPC server private key file in PEM format
       --private-networks-bridge-gneigh-interval duration                 Interval at which workload cluster endpoints are announced using gratuitous ARP/ND in bridge or local-access mode. Ignored in default mode. (default 1m0s)
       --private-networks-enabled                                         Enable support for private networks
       --private-networks-health-check-interval duration                  The interval for performing health checks against candidate INBs. Ignored in bridge mode. (default 2s)

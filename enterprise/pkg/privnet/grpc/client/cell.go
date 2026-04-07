@@ -8,21 +8,10 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package checker
+package client
 
-import (
-	"github.com/cilium/hive/cell"
-)
+import "github.com/cilium/hive/cell"
 
-var Cell = cell.Group(
-	cell.Provide(
-		// Provide the health checker implementation.
-		New,
-	),
-
-	cell.ProvidePrivate(
-		// Provide the identifiers of the local node via hive, so that it
-		// can be overridden for testing purposes.
-		newDefaultLocalNode,
-	),
+var Cell = cell.Provide(
+	NewDefaultConnFactory,
 )

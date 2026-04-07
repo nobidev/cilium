@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	privnetgrpc "github.com/cilium/cilium/enterprise/pkg/privnet/grpc"
+	grpccfg "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/observers"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -57,7 +57,7 @@ func TestNodesObserver(t *testing.T) {
 	const timeout = 3 * time.Second
 
 	var (
-		grpcCfg = privnetgrpc.Config{Port: 1234}
+		grpcCfg = grpccfg.Config{Port: 1234}
 		mock    = &mocknm{nodes: sets.New[notypes.Identity]()}
 
 		mgr nomgr.NodeManager
@@ -71,7 +71,7 @@ func TestNodesObserver(t *testing.T) {
 	err := hive.New(
 		cell.Provide(
 			func() tunnel.Config { return tunnel.NewTestConfig(tunnel.VXLAN) },
-			func() privnetgrpc.Config { return grpcCfg },
+			func() grpccfg.Config { return grpcCfg },
 			func() nomgr.NodeManager { return mock },
 			observers.NewNodes,
 		),
@@ -150,7 +150,7 @@ func TestNodesObserverSync(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obs := observers.NewNodes(&mocknm{}, tunnel.Config{}, privnetgrpc.Config{})
+			obs := observers.NewNodes(&mocknm{}, tunnel.Config{}, grpccfg.Config{})
 			tt.do(obs)
 
 			select {

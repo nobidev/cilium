@@ -12,15 +12,19 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net"
-	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/grpc/config"
+	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -34,80 +38,83 @@ type (
 	Registrar func(*grpc.Server)
 )
 
-type server struct {
-	log        *slog.Logger
-	factory    ListenerFactory
-	shutdowner hive.Shutdowner
-
-	gsrv *grpc.Server
-	wg   sync.WaitGroup
-}
-
 type serverParams struct {
 	cell.In
 
 	Logger     *slog.Logger
-	Lifecycle  cell.Lifecycle
+	JobGroup   job.Group
 	Shutdowner hive.Shutdowner
 
 	Config  pncfg.Config
 	Factory ListenerFactory
 
+	TLSConfigPromise config.ServerConfigPromise
+
 	Registrars []Registrar `group:"privnet-grpc-registrars"`
 }
 
 func registerServer(in serverParams) {
-	srv := &server{
-		log:        in.Logger,
-		factory:    in.Factory,
-		shutdowner: in.Shutdowner,
-	}
-
 	if !in.Config.EnabledAsBridge() || len(in.Registrars) == 0 {
 		return
 	}
 
-	gsrv := grpc.NewServer(grpc.WaitForHandlers(true))
-	for _, register := range in.Registrars {
+	in.JobGroup.Add(
+		job.OneShot("server-start", func(ctx context.Context, health cell.Health) error {
+			gsrv, err := newGRPCServer(ctx, in.TLSConfigPromise, in.Registrars)
+			if err != nil {
+				return err
+			}
+
+			listeners, err := in.Factory(ctx)
+			if err != nil {
+				return fmt.Errorf("cannot create private networks gRPC listeners: %w", err)
+			}
+
+			for _, lis := range listeners {
+				in.JobGroup.Add(
+					job.OneShot(fmt.Sprintf("server-%s", lis.Addr()),
+						func(ctx context.Context, health cell.Health) error {
+							in.Logger.Info("Starting privnet gRPC server", logfields.Address, lis.Addr().String())
+							health.OK("Serving")
+							return gsrv.Serve(lis)
+						},
+						job.WithShutdown()))
+			}
+
+			<-ctx.Done()
+			gsrv.Stop()
+
+			return nil
+		}))
+}
+
+func newGRPCServer(ctx context.Context, promise config.ServerConfigPromise, registrars []Registrar) (*grpc.Server, error) {
+	serverOpts := []grpc.ServerOption{grpc.WaitForHandlers(true)}
+
+	if promise != nil {
+		tlsConfig, err := promise.Await(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("awaiting private networks gRPC TLS config: %w", err)
+		}
+		if tlsConfig != nil {
+			serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(serverTLSConfig(tlsConfig))))
+		}
+	}
+
+	gsrv := grpc.NewServer(serverOpts...)
+	for _, register := range registrars {
 		if register != nil {
 			register(gsrv)
 		}
 	}
-	srv.gsrv = gsrv
 
-	in.Lifecycle.Append(
-		cell.Hook{
-			OnStart: func(hctx cell.HookContext) error {
-				if srv.factory == nil {
-					return fmt.Errorf("missing gRPC listener factory")
-				}
+	return gsrv, nil
+}
 
-				listeners, err := srv.factory(hctx)
-				if err != nil {
-					return fmt.Errorf("cannot create private networks gRPC listeners: %w", err)
-				}
-
-				for _, lis := range listeners {
-					srv.log.Info("Starting privnet gRPC server", logfields.Address, lis.Addr().String())
-
-					srv.wg.Go(func() {
-						err := gsrv.Serve(lis)
-						if err != nil {
-							srv.shutdowner.Shutdown(hive.ShutdownWithError(
-								fmt.Errorf("cannot start private networks gRPC server on %v: %w", lis.Addr(), err),
-							))
-						}
-					})
-				}
-
-				return nil
-			},
-
-			OnStop: func(cell.HookContext) error {
-				srv.gsrv.Stop()
-				srv.wg.Wait()
-				return nil
-			},
-		},
-	)
+func serverTLSConfig(cfg certloader.ServerConfigBuilder) *tls.Config {
+	// NOTE: gosec is unable to resolve the constant and warns about "TLS
+	// MinVersion too low".
+	return cfg.ServerConfig(&tls.Config{ //nolint:gosec
+		MinVersion: tls.VersionTLS13,
+	})
 }

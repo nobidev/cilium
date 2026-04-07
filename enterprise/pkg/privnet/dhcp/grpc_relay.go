@@ -22,7 +22,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	api "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/api/v1"
-	grpcclient "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/client"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
 	iso_v1alpha1 "github.com/cilium/cilium/pkg/k8s/apis/isovalent.com/v1alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -57,18 +56,11 @@ func (f *GRPCRelayFactory) RelayFor(lw *tables.LocalWorkload) (Relayer, error) {
 	if !found {
 		return nil, fmt.Errorf("subnet %q not found for network %q", lw.Subnet, network)
 	}
-
-	factory := f.Factory
-	if factory == nil {
-		factory = func(target tables.INBNode) (*grpc.ClientConn, error) {
-			return grpcclient.Dial(target.APIAddress())
-		}
-	}
 	return &grpcRelay{
 		log:     f.Log,
 		db:      f.DB,
 		inbs:    f.INBs,
-		factory: factory,
+		factory: f.Factory,
 		network: network,
 		subnet:  lw.Subnet,
 		cfg:     subnet.DHCP,

@@ -8,21 +8,20 @@
 //  or reproduction of this material is strictly forbidden unless prior written
 //  permission is obtained from Isovalent Inc.
 
-package checker
+package grpc
 
 import (
 	"github.com/cilium/hive/cell"
+
+	"github.com/cilium/cilium/enterprise/pkg/privnet/grpc/client"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/grpc/config"
+	"github.com/cilium/cilium/enterprise/pkg/privnet/grpc/server"
 )
 
+// Cell provides the privnet gRPC server (runs if in bridge-mode) and the
+// [client.ConnFactoryFn] for dialing a INB node.
 var Cell = cell.Group(
-	cell.Provide(
-		// Provide the health checker implementation.
-		New,
-	),
-
-	cell.ProvidePrivate(
-		// Provide the identifiers of the local node via hive, so that it
-		// can be overridden for testing purposes.
-		newDefaultLocalNode,
-	),
+	config.Cell,
+	client.Cell,
+	server.Cell,
 )

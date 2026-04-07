@@ -16,7 +16,7 @@ import (
 
 	"github.com/cilium/stream"
 
-	privnetgrpc "github.com/cilium/cilium/enterprise/pkg/privnet/grpc"
+	grpcConfig "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -52,7 +52,7 @@ var (
 	_ stream.Observable[NodeEvents] = (*Nodes)(nil)
 )
 
-func NewNodes(nm nomgr.NodeManager, tcfg tunnel.Config, grpcCfg privnetgrpc.Config) *Nodes {
+func NewNodes(nm nomgr.NodeManager, tcfg tunnel.Config, grpcCfg grpcConfig.Config) *Nodes {
 	return &Nodes{
 		NodeManager:  nm,
 		Generic:      NewGeneric[*types.Node, resource.EventKind](),

@@ -38,7 +38,6 @@ func ConnFactoryCell(path string) cell.Cell {
 		cell.Provide(
 			func() *Interceptors { return &Interceptors{} },
 			func(i *Interceptors) ConnFactory { return ConnFactory{path: path, interceptors: i} },
-			ConnFactory.ClientConnFactory,
 		),
 	)
 }

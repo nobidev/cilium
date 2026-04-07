@@ -11,10 +11,18 @@
 package client
 
 import (
+	"context"
+	"crypto/tls"
+
+	"github.com/cilium/hive/cell"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/cilium/cilium/enterprise/pkg/privnet/grpc/config"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/pkg/crypto/certloader"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type (
@@ -23,16 +31,40 @@ type (
 	ConnFactoryFn func(target tables.INBNode) (*grpc.ClientConn, error)
 )
 
-func NewDefaultConnFactory() ConnFactoryFn {
+type connFactoryParams struct {
+	cell.In
+
+	Lifecycle        cell.Lifecycle
+	TLSConfigPromise config.ClientConfigPromise
+}
+
+func NewDefaultConnFactory(params connFactoryParams) ConnFactoryFn {
 	return func(target tables.INBNode) (*grpc.ClientConn, error) {
-		return Dial(target.APIAddress())
+		// Wait up to 1 minute for the TLS certificate to appear
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+
+		var tlsConfig *certloader.WatchedClientConfig
+		if params.TLSConfigPromise != nil {
+			var err error
+			tlsConfig, err = params.TLSConfigPromise.Await(ctx)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return grpc.NewClient(target.APIAddress(), transportCredentials(string(target.Cluster), tlsConfig))
 	}
 }
 
-// Dial returns a gRPC client connection using the default privnet settings.
-func Dial(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	opts = append([]grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}, opts...)
-	return grpc.NewClient(target, opts...)
+func transportCredentials(serverName string, tlsConfig *certloader.WatchedClientConfig) grpc.DialOption {
+	if tlsConfig == nil {
+		return grpc.WithTransportCredentials(insecure.NewCredentials())
+	}
+
+	// NOTE: gosec is unable to resolve the constant and warns about "TLS
+	// MinVersion too low".
+	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig.ClientConfig(&tls.Config{ //nolint:gosec
+		ServerName: serverName,
+		MinVersion: tls.VersionTLS13,
+	})))
 }

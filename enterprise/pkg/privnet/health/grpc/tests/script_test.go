@@ -30,11 +30,15 @@ import (
 
 	pnmaps "github.com/cilium/cilium/enterprise/pkg/maps/privnet"
 	pncfg "github.com/cilium/cilium/enterprise/pkg/privnet/config"
+	grpcclient "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/client"
+	grpccfg "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/config"
 	grpcserver "github.com/cilium/cilium/enterprise/pkg/privnet/grpc/server"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/health/grpc"
 	"github.com/cilium/cilium/enterprise/pkg/privnet/tables"
+	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/promise"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
@@ -52,6 +56,8 @@ func TestScript(t *testing.T) {
 				logging.SetLogLevelToDebug()
 			}
 			log := hivetest.Logger(t, opts...)
+			resolver, tlsPromise := promise.New[*certloader.WatchedServerConfig]()
+			resolver.Resolve(nil)
 
 			h := hive.New(
 				pncfg.Cell,
@@ -69,6 +75,12 @@ func TestScript(t *testing.T) {
 						statedb.RWTable[tables.PrivateNetwork].ToTable,
 						statedb.RWTable[*tables.NodeAttachment].ToTable,
 						func() pnmaps.Watchdog { return watchdog{} },
+						func() grpccfg.ServerConfigPromise {
+							return grpccfg.ServerConfigPromise(tlsPromise)
+						},
+						func(cf ConnFactory) grpcclient.ConnFactoryFn {
+							return cf.ClientConnFactory()
+						},
 					),
 
 					cell.DecorateAll(
