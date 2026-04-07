@@ -153,6 +153,7 @@ runs:
           tags:
            usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
            owner: "${{ inputs.owner }}"
+           svic_osquery_supported: "no"
 
         vpc:
           clusterEndpoints:
