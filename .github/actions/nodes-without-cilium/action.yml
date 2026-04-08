@@ -1,4 +1,9 @@
 name: Patch nodes without Cilium
+inputs:
+  amount:
+    description: 'How many nodes will not run Cilium'
+    required: false
+    default: 2
 description: Add no-schedule labels to nodes without Cilium
 runs:
   using: composite
@@ -6,5 +11,5 @@ runs:
     - name: Add no-schedule labels to nodes without Cilium
       shell: bash
       run: |
-        mapfile -t nodes_without_cilium < <(kubectl get nodes -o name | head -n 2)
+        mapfile -t nodes_without_cilium < <(kubectl get nodes -o name | head -n ${{ inputs.amount }})
         kubectl patch "${nodes_without_cilium[@]}" --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'

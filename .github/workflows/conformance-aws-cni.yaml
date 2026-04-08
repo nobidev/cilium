@@ -328,6 +328,7 @@ jobs:
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
           spot: false
+          nodes_without_cilium: 2
 
       - name: Generate cilium-cli kubeconfig
         id: gen-kubeconfig
@@ -359,7 +360,8 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
+          --nodes-without-cilium
 
       - name: Wait for Cilium to be ready
         run: |
