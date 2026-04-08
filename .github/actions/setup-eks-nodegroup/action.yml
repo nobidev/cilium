@@ -26,6 +26,10 @@ inputs:
     description: 'eksctl create nodegroup timeout (e.g. 15m). If empty, no --timeout flag is passed.'
     required: false
     default: ''
+  nodes_without_cilium:
+    description: 'How many nodes will not run Cilium'
+    required: false
+    default: 0
 runs:
   using: composite
   steps:
@@ -39,6 +43,18 @@ runs:
           instanceTypes:
            - t3a.medium
           desiredCapacity: 2
+          spot: ${{ inputs.spot }}
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 25
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
+        - name: ng-amd64-external
+          instanceTypes:
+           - t3a.medium
+          desiredCapacity: ${{ inputs.nodes_without_cilium }}
           spot: ${{ inputs.spot }}
           privateNetworking: true
           volumeType: "gp3"
@@ -100,3 +116,10 @@ runs:
         fi
 
         eksctl create nodegroup -f ./eks-nodegroups.yaml ${TIMEOUT_ARG}
+
+    - name: Patch nodes without Cilium
+      if: ${{ inputs.nodes_without_cilium > 0 }}
+      uses: ./.github/actions/nodes-without-cilium
+      with:
+        amount: ${{ inputs.nodes_without_cilium }}
+        eks: true

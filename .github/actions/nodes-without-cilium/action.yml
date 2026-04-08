@@ -1,4 +1,13 @@
 name: Patch nodes without Cilium
+inputs:
+  amount:
+    description: 'How many nodes will not run Cilium'
+    required: false
+    default: 2
+  eks:
+    description: 'Set if running on EKS to filter ng-amd64-external nodes'
+    required: false
+    default: false
 description: Add no-schedule labels to nodes without Cilium
 runs:
   using: composite
@@ -6,5 +15,9 @@ runs:
     - name: Add no-schedule labels to nodes without Cilium
       shell: bash
       run: |
-        mapfile -t nodes_without_cilium < <(kubectl get nodes -o name | head -n 2)
+        FILTERS=()
+        if [ "${{ inputs.eks }}" = "true" ]; then
+          FILTERS=(-l eks.amazonaws.com/nodegroup=ng-amd64-external)
+        fi
+        mapfile -t nodes_without_cilium < <(kubectl get nodes -o name "${FILTERS[@]}" | head -n ${{ inputs.amount }})
         kubectl patch "${nodes_without_cilium[@]}" --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
