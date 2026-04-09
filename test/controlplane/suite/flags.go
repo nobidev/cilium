@@ -18,6 +18,6 @@ var (
 func ParseFlags() {
 	flag.Parse()
 	if *FlagDebug {
-		logging.SetLogLevelToDebug()
+		logging.SetLogLevel(slog.LevelDebug)
 	}
 }

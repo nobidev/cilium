@@ -159,7 +159,7 @@ func (d SignalData) String() string {
 }
 
 func TestLifeCycle(t *testing.T) {
-	logging.SetLogLevelToDebug()
+	logging.SetLogLevel(slog.LevelDebug)
 	logger := hivetest.Logger(t)
 
 	buf1 := new(bytes.Buffer)
