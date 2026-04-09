@@ -11,6 +11,8 @@ import (
 	"github.com/cilium/cilium/test/controlplane/suite"
 )
 
+// test in CI
+
 func TestControlPlane(t *testing.T) {
 	suite.RunSuite(t)
 }
