@@ -379,6 +379,7 @@ jobs:
           test-name: datapath-conformance
           install-dependencies: true
           image-version: ${{ matrix.kernel }}
+          image: kind-ci
           images-folder-parent: "/tmp"
           host-mount: ./
           cpu: 4

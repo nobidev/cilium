@@ -197,11 +197,11 @@ jobs:
             cliFocus: "RuntimeDatapathMonitorTest"
             # TODO: not updated by by renovate, investigate why the tests fail on newer images
             #  see https://github.com/cilium/cilium/issues/38058
-            lvhImage: "6.12-20241218.004849"
+            lvhImage: "static-stack-liveness-20260409.124322-amd64"
 
           - focus: "privileged"
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            lvhImage: "6.18-20260310.122539"
+            lvhImage: "static-stack-liveness-20260409.124322-amd64"
 
     timeout-minutes: 50
     steps:
@@ -252,6 +252,7 @@ jobs:
           test-name: runtime-tests
           install-dependencies: true
           image-version: "${{ matrix.lvhImage }}"
+          image: kind-ci
           host-mount: ./
           images-folder-parent: "/tmp"
           cpu: 4
