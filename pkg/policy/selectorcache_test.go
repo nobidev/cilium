@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -180,6 +181,34 @@ func (csu *cachedSelectionUser) RemoveSelector(sel CachedSelector) {
 	require.False(csu.t, csu.sc.haveUserNotifications())
 }
 
+func TestAddSelectorUserRetainsSelectorWithoutRevisionChange(t *testing.T) {
+	logger := hivetest.Logger(t)
+	sc := testNewSelectorCache(t, logger, identity.IdentityMap{
+		1001: labels.LabelArray{labels.NewLabel("id", "a", labels.LabelSourceK8s)},
+	})
+	selector := api.NewESFromLabels(labels.ParseSelectLabel("id=a"))
+
+	user1 := newUser(t, "user1", sc)
+	cachedSelector := user1.AddIdentitySelector(selector)
+	initialSnapshot := sc.GetSelectorSnapshot()
+	initialRevision := initialSnapshot.Revision
+	t.Cleanup(initialSnapshot.Invalidate)
+
+	user2 := newUser(t, "user2", sc)
+	require.True(t, sc.AddUserToSelectors(user2, cachedSelector))
+
+	afterSnapshot := sc.GetSelectorSnapshot()
+	t.Cleanup(afterSnapshot.Invalidate)
+	require.Equal(t, initialRevision, afterSnapshot.Revision)
+	require.False(t, sc.haveUserNotifications())
+
+	user1.RemoveSelector(cachedSelector)
+	require.NotNil(t, sc.findCachedIdentitySelector(selector))
+
+	user2.RemoveSelector(cachedSelector)
+	require.Nil(t, sc.findCachedIdentitySelector(selector))
+}
+
 func (csu *cachedSelectionUser) Reset() {
 	csu.updateMutex.Lock()
 	defer csu.updateMutex.Unlock()
@@ -252,13 +281,18 @@ type testCachedSelector struct {
 	name       string
 	wildcard   bool
 	selections []identity.NumericIdentity
+	id         types.SelectorId
 }
 
+var testId atomic.Uint64
+
 func newTestCachedSelector(name string, wildcard bool, selections ...int) *testCachedSelector {
+	testId.Add(1)
 	cs := &testCachedSelector{
 		name:       name,
 		wildcard:   wildcard,
 		selections: make([]identity.NumericIdentity, 0, len(selections)),
+		id:         policytypes.SelectorId(testId.Load()),
 	}
 	cs.addSelections(selections...)
 	return cs
@@ -324,6 +358,10 @@ func (cs *testCachedSelector) IsNone() bool {
 
 func (cs *testCachedSelector) String() string {
 	return cs.name
+}
+
+func (cs *testCachedSelector) Id() types.SelectorId {
+	return cs.id
 }
 
 func TestAddRemoveSelector(t *testing.T) {

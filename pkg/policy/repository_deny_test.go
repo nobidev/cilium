@@ -568,7 +568,7 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 
 	cachedSelectors, _ := td.sc.AddSelectors(dummySelectorCacheUser,
 		types.ToSelector(api.CIDR("192.0.0.0/3")))
-	defer td.sc.RemoveSelectors(cachedSelectors, dummySelectorCacheUser)
+	defer td.sc.RemoveSelectors(dummySelectorCacheUser, cachedSelectors...)
 
 	l480Get := api.Rule{
 		EgressDeny: []api.EgressDenyRule{

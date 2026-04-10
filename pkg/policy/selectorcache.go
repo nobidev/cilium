@@ -273,11 +273,54 @@ type SelectorCache struct {
 
 	// userHandlerDone is initialized only in tests to allow termination of the handler
 	userHandlerDone chan struct{}
+
+	// observer is a global selector-cache observer. The selector-cache write lock
+	// serializes registration, unregistration, and setting the observer.
+	observer SelectorCacheObserver
+
+	// observerCond is a condition variable for receiving signals about
+	// addition of new selectorObserverNotifications. The slice plus cond is retained as
+	// an unbounded FIFO wakeup mechanism; a plain Go channel would either need a
+	// fixed capacity that can backpressure commits or another heap-backed queue.
+	observerCond *sync.Cond
+
+	// pendingSelectorChanges stores the final post-commit selector state for the
+	// current open write transaction.
+	pendingSelectorChanges map[types.SelectorId]types.SelectorChange
+
+	// observerNotifications holds a FIFO list of selector observer observerNotifications.
+	observerNotifications []observerNotification
+
+	// observerHandlerDone is initialized lazily when the live observer handler
+	// starts, and closed when that handler exits.
+	observerHandlerDone chan struct{}
+}
+
+// RegisterSelectorCacheObserver registers a global observer for selector-cache
+// updates and returns a snapshot captured while the selector-cache write lock
+// also serializes observer enlistment. Live updates can only be enqueued after
+// this call returns, so callers can use the returned snapshot as their initial
+// seed before consuming live callbacks.
+func (sc *SelectorCache) RegisterSelectorCacheObserver(obs SelectorCacheObserver) (snapshot SelectorSnapshot, unregister func()) {
+	sc.mutex.Lock()
+	snapshot = sc.GetSelectorSnapshot()
+	sc.setObserver(obs)
+	sc.mutex.Unlock()
+
+	return snapshot, func() {
+		sc.mutex.Lock()
+		ch := sc.resetObserver(obs)
+		sc.mutex.Unlock()
+		if ch != nil {
+			<-ch
+		}
+	}
 }
 
 // GetSelectorSnapshot returns a read-only state of the current selectors in the selector cache.
 // The returned SelectorSnapshot should be Invalidate()d if stored on the heap and not needed any more.
 func (sc *SelectorCache) GetSelectorSnapshot() SelectorSnapshot {
+	// nil check for the benefit of some testing code that does not initialize selector cache.
 	if sc != nil {
 		return *sc.readTxn.Load()
 	}
@@ -443,14 +486,16 @@ func (sc *SelectorCache) queueNotifiedUsersCommit(txn SelectorSnapshot, wg *sync
 // NewSelectorCache creates a new SelectorCache with the given identities.
 func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
 	sc := &SelectorCache{
-		logger:    logger,
-		idCache:   newScIdentityCache(ids),
-		selectors: selectorMapInitializer(),
+		logger:                 logger,
+		idCache:                newScIdentityCache(ids),
+		selectors:              selectorMapInitializer(),
+		pendingSelectorChanges: make(map[types.SelectorId]types.SelectorChange),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	sc.writeableSelections = sc.readableSelections.Txn()
 	readTxn := types.InitSelectorSnapshot(sc.readableSelections, sc.revision)
 	sc.readTxn.Store(&readTxn)
+	sc.observerCond = sync.NewCond(&sc.mutex)
 	return sc
 }
 
@@ -507,11 +552,12 @@ type identityNotifier interface {
 // may exist.
 //
 // Lock must be held.
-func (sc *SelectorCache) commit() SelectorSnapshot {
+func (sc *SelectorCache) commit(wg *sync.WaitGroup) SelectorSnapshot {
 	sc.revision++
 	sc.readableSelections = sc.writeableSelections.Commit()
 	readTxn := types.InitSelectorSnapshot(sc.readableSelections, sc.revision)
 	sc.readTxn.Store(&readTxn)
+	sc.queueObserverUpdate(readTxn.Revision, wg)
 	return readTxn
 }
 
@@ -520,7 +566,7 @@ func (sc *SelectorCache) commit() SelectorSnapshot {
 func (sc *SelectorCache) Commit() {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
-	sc.commit()
+	sc.commit(nil)
 }
 
 func selectsAll(selectors ...Selector) bool {
@@ -560,8 +606,45 @@ func (sc *SelectorCache) AddSelectors(user CachedSelectionUser, selectors ...Sel
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
-	defer sc.commit()
+	defer sc.commit(nil)
 	return sc.addSelectorsTxn(user, selectors...)
+}
+
+// AddUserToSelectors adds an additional user to already-cached selectors.
+// Returns false if any of the selectors is no longer present in the cache,
+// or if the user has already been registered.
+// Ownership-only changes do not advance selector revisions or emit updates.
+func (sc *SelectorCache) AddUserToSelectors(user CachedSelectionUser, css ...CachedSelector) bool {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	if len(css) == 1 {
+		for _, cs := range css {
+			key := cs.String()
+			sel, exists := sc.selectors.Get(key)
+			if !exists || !sel.isAdditionalUser(user) {
+				return false
+			}
+			// Additional users do not need to pass in localIdentityNotifier
+			sel.addUser(user, nil)
+		}
+	} else {
+		for _, cs := range css {
+			key := cs.String()
+			sel, exists := sc.selectors.Get(key)
+			if !exists || !sel.isAdditionalUser(user) {
+				return false
+			}
+		}
+
+		for _, cs := range css {
+			key := cs.String()
+			sel, _ := sc.selectors.Get(key)
+			// Additional users do not need to pass in localIdentityNotifier
+			sel.addUser(user, nil)
+		}
+	}
+	return true
 }
 
 func (sc *SelectorCache) addSelectorsTxn(user CachedSelectionUser, selectors ...Selector) (CachedSelectorSlice, bool) {
@@ -610,7 +693,8 @@ func (sc *SelectorCache) addSelectorLocked(key string, source Selector) *identit
 
 	// Create the immutable slice representation of the selected
 	// numeric identities
-	sel.updateSelections()
+	ids := sel.updateSelections()
+	sc.selectorUpdated(sel, ids)
 
 	return sel
 }
@@ -631,7 +715,7 @@ func (sc *SelectorCache) AddIdentitySelectorForTest(user CachedSelectionUser, es
 	sel, exists := sc.selectors.Get(key)
 	if !exists {
 		sel = sc.addSelectorLocked(key, types.NewLabelSelector(es))
-		sc.commit()
+		sc.commit(nil)
 	}
 	return sel, sel.addUser(user, sc.localIdentityNotifier)
 }
@@ -644,6 +728,7 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 	if exists && sel.removeUser(user, sc.localIdentityNotifier) {
 		sc.writeableSelections.Delete(sel.id)
 		sc.selectors.Delete(sel)
+		sc.selectorRemoved(sel)
 		selectorCacheOperationDuration.WithLabelValues(types.LabelValueSCOperationRemoveSelector, types.LabelValueSCOperation, types.LabelValueSCTypePeer).Observe(time.Since(start).Seconds())
 	}
 }
@@ -652,17 +737,17 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 func (sc *SelectorCache) RemoveSelector(selector CachedSelector, user CachedSelectionUser) {
 	sc.mutex.Lock()
 	sc.removeSelectorLocked(selector, user)
-	sc.commit()
+	sc.commit(nil)
 	sc.mutex.Unlock()
 }
 
 // RemoveSelectors removes CachedSelectorSlice for the user.
-func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user CachedSelectionUser) {
+func (sc *SelectorCache) RemoveSelectors(user CachedSelectionUser, css ...CachedSelector) {
 	sc.mutex.Lock()
-	for _, selector := range selectors {
+	for _, selector := range css {
 		sc.removeSelectorLocked(selector, user)
 	}
-	sc.commit()
+	sc.commit(nil)
 	sc.mutex.Unlock()
 }
 
@@ -742,10 +827,13 @@ func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.
 			delete(sel.cachedSelections, numericID)
 		}
 	}
-	if len(dels)+len(adds) > 0 {
+	if len(dels)+len(adds) > 0 || mutated {
 		updated = true
-		sel.updateSelections()
-		sel.notifyUsers(sc, adds, dels, wg)
+		ids := sel.updateSelections()
+		sc.selectorUpdated(sel, ids)
+		if len(dels)+len(adds) > 0 {
+			sel.notifyUsers(sc, adds, dels, wg)
+		}
 	}
 	return updated, mutated
 }
@@ -755,9 +843,12 @@ func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
 //
-// Caller should Wait() on the returned sync.WaitGroup before triggering any
-// policy updates. Policy updates may need Endpoint locks, so this Wait() can
-// deadlock if the caller is holding any endpoint locks.
+// Caller should Wait() on the supplied sync.WaitGroup before triggering any
+// policy updates. The same waitgroup now also covers publication of any
+// selector-resource changes into NPRDS, so later ACK waits observe the selector
+// updates in the same xDS cache version stream. Policy updates may need
+// Endpoint locks, so this Wait() can deadlock if the caller is holding any
+// endpoint locks.
 //
 // Incremental deletes of mutated identities are not sent to the users, as that could
 // lead to deletion of policy map entries while other selectors may still select the mutated
@@ -869,7 +960,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 	}
 
 	if updated {
-		readTxn := sc.commit()
+		readTxn := sc.commit(wg)
 		sc.queueNotifiedUsersCommit(readTxn, wg)
 	}
 	return mutated

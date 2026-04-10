@@ -547,6 +547,33 @@ func init() {
 type SelectionsMap = part.Map[SelectorId, identity.NumericIdentitySlice]
 type SelectorWriteTxn = part.MapTxn[SelectorId, identity.NumericIdentitySlice]
 
+// SelectorUpdates is an ordered selector-cache commit notification.
+// Revision is the committed selector-cache revision, even if Changes is empty.
+type SelectorUpdates struct {
+	Revision SelectorRevision
+	Changes  []SelectorChange
+}
+
+// SelectorChange describes the post-commit state of a single selector.
+// Deleted selectors are removed entirely, while non-deleted selectors may have
+// an empty Selections slice to mean "matches nothing".
+type SelectorChange struct {
+	ID         SelectorId
+	Removed    bool
+	Selections identity.NumericIdentitySlice
+}
+
+func SelectorChangeCompare(a, b SelectorChange) int {
+	switch {
+	case a.ID < b.ID:
+		return -1
+	case a.ID > b.ID:
+		return 1
+	default:
+		return 0
+	}
+}
+
 // SelectorSnapshot contains state needed to observe a coherent set of selectors
 type SelectorSnapshot struct {
 	Revision   SelectorRevision
@@ -632,6 +659,11 @@ type CachedSelector interface {
 	// String returns the string representation of this selector.
 	// Used as a map key.
 	String() string
+
+	// Id returns the unique identifier for this selector.
+	// The returned identifier id unique for this instance of the Cilium Agent, uniqueness is
+	// NOT maintained across agent restarts or between Cilium Agent instances!
+	Id() SelectorId
 }
 
 // CachedSelectorSlice is a slice of CachedSelectors that can be sorted.

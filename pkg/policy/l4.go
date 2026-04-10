@@ -1107,7 +1107,7 @@ func (l4 *L4Filter) removeSelectors(selectorCache *SelectorCache) {
 	for cs := range l4.PerSelectorPolicies {
 		selectors = append(selectors, cs)
 	}
-	selectorCache.RemoveSelectors(selectors, l4)
+	selectorCache.RemoveSelectors(l4, selectors...)
 }
 
 // detach releases the references held in the L4Filter and must be called before

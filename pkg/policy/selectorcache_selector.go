@@ -19,6 +19,8 @@ import (
 type CachedSelector = types.CachedSelector
 type CachedSelectorSlice = types.CachedSelectorSlice
 type CachedSelectionUser = types.CachedSelectionUser
+type SelectorChange = types.SelectorChange
+type SelectorUpdates = types.SelectorUpdates
 type Selector = types.Selector
 type Selectors = types.Selectors
 type SelectorSnapshot = types.SelectorSnapshot
@@ -177,9 +179,24 @@ func (i *identitySelector) String() string {
 	return i.key
 }
 
+// Id returns the unique-to-this-agent-instance identifier for this selector.
+func (i *identitySelector) Id() types.SelectorId {
+	return i.id
+}
+
 //
 // identitySelector implementation (== internal API)
 //
+
+func (i *identitySelector) isAdditionalUser(user CachedSelectionUser) bool {
+	if len(i.users) == 0 {
+		return false
+	}
+	if _, exists := i.users[user]; exists {
+		return false
+	}
+	return true
+}
 
 // lock must be held
 func (i *identitySelector) addUser(user CachedSelectionUser, idNotifier identityNotifier) (added bool) {
@@ -226,7 +243,7 @@ func (i *identitySelector) numUsers() int {
 // cached selections after the cached selections have been changed.
 //
 // lock must be held
-func (i *identitySelector) updateSelections() {
+func (i *identitySelector) updateSelections() identity.NumericIdentitySlice {
 	ids := make(identity.NumericIdentitySlice, 0, len(i.cachedSelections))
 
 	for nid := range i.cachedSelections {
@@ -237,4 +254,5 @@ func (i *identitySelector) updateSelections() {
 	slices.Sort(ids)
 
 	i.selectorCache.writeableSelections.Set(i.id, ids)
+	return ids
 }
