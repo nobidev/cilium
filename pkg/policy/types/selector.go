@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net/netip"
 	"slices"
@@ -553,7 +554,7 @@ type SelectorSnapshot struct {
 	valid      bool
 }
 
-func GetSelectorSnapshot(selections SelectionsMap, rev SelectorRevision) SelectorSnapshot {
+func InitSelectorSnapshot(selections SelectionsMap, rev SelectorRevision) SelectorSnapshot {
 	return SelectorSnapshot{selections: selections, Revision: rev, valid: true}
 }
 
@@ -568,6 +569,12 @@ func (s *SelectorSnapshot) Get(id SelectorId) identity.NumericIdentitySlice {
 		return nil
 	}
 	return v
+}
+
+// All iterates every live selector in the SelectorSnapshot, including
+// selectors that currently match nothing.
+func (s *SelectorSnapshot) All() iter.Seq2[SelectorId, identity.NumericIdentitySlice] {
+	return s.selections.All()
 }
 
 // Invalidate should be called on any SelectorReadTxn values that are stored in the heap.

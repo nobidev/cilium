@@ -235,20 +235,13 @@ func (i *identitySelector) numUsers() int {
 //
 // lock must be held
 func (i *identitySelector) updateSelections() {
-	if len(i.cachedSelections) == 0 {
-		i.selectorCache.writeableSelections.Delete(i.id)
-		return
-	}
-
 	ids := make(identity.NumericIdentitySlice, 0, len(i.cachedSelections))
 
 	for nid := range i.cachedSelections {
 		ids = append(ids, nid)
 	}
 
-	// Sort the numeric identities so that the map iteration order
-	// does not matter. This makes testing easier, but may help
-	// identifying changes easier also otherwise.
+	// Keep the numeric identities in sorted order.
 	slices.Sort(ids)
 
 	i.selectorCache.writeableSelections.Set(i.id, ids)

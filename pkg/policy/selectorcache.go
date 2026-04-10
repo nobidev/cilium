@@ -449,7 +449,7 @@ func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCa
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	sc.writeableSelections = sc.readableSelections.Txn()
-	readTxn := types.GetSelectorSnapshot(sc.readableSelections, sc.revision)
+	readTxn := types.InitSelectorSnapshot(sc.readableSelections, sc.revision)
 	sc.readTxn.Store(&readTxn)
 	return sc
 }
@@ -510,7 +510,7 @@ type identityNotifier interface {
 func (sc *SelectorCache) commit() SelectorSnapshot {
 	sc.revision++
 	sc.readableSelections = sc.writeableSelections.Commit()
-	readTxn := types.GetSelectorSnapshot(sc.readableSelections, sc.revision)
+	readTxn := types.InitSelectorSnapshot(sc.readableSelections, sc.revision)
 	sc.readTxn.Store(&readTxn)
 	return readTxn
 }
@@ -642,8 +642,8 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 	key := selector.String()
 	sel, exists := sc.selectors.Get(key)
 	if exists && sel.removeUser(user, sc.localIdentityNotifier) {
+		sc.writeableSelections.Delete(sel.id)
 		sc.selectors.Delete(sel)
-		sel.updateSelections()
 		selectorCacheOperationDuration.WithLabelValues(types.LabelValueSCOperationRemoveSelector, types.LabelValueSCOperation, types.LabelValueSCTypePeer).Observe(time.Since(start).Seconds())
 	}
 }
