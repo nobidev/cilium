@@ -113,29 +113,6 @@ func (m *AckingResourceMutatorWrapper) currentVersionAcked(nodeIDs []string) boo
 	return true
 }
 
-// useCurrent adds a completion to the WaitGroup if the current
-// version of the cached resource has not been acked yet, allowing the
-// caller to wait for the ACK.
-func (m *AckingResourceMutatorWrapper) useCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup) {
-	m.locker.Lock()
-	defer m.locker.Unlock()
-
-	if wg == nil {
-		return
-	}
-
-	if m.restoring {
-		// Do not wait for acks when restoring state
-		m.logger.Debug("useCurrent: Restoring, skipping wait for ACK",
-			logfields.XDSTypeURL, typeURL,
-		)
-		return
-	}
-
-	// Add a completion object for the current version so that the caller may wait for the N/ACK
-	m.addCurrentVersionCompletion(typeURL, nodeIDs, wg, nil)
-}
-
 func TestUpsertSingleNode(t *testing.T) {
 	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -229,7 +206,7 @@ func TestUseCurrent(t *testing.T) {
 	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Use current version, not yet acked
-	acker.useCurrent(typeURL, []string{node0}, wg)
+	acker.UseCurrent(typeURL, []string{node0}, wg, nil)
 	require.Len(t, acker.pendingCompletions, 2)
 
 	// Ack the right version, for another resource, from the right node.
@@ -297,7 +274,7 @@ func TestUseCurrentSkipsNodesThatAlreadyAckedCurrentVersion(t *testing.T) {
 	currentWG := completion.NewWaitGroup(currentCtx)
 
 	// useCurrent must only wait for node1, as node0 has already ACKed version 3.
-	acker.useCurrent(typeURL, []string{node0, node1}, currentWG)
+	acker.UseCurrent(typeURL, []string{node0, node1}, currentWG, nil)
 	// There are now two outstanding waits for version 3:
 	// 1. the original Upsert completion, still waiting for node1 to ACK resources[1]
 	// 2. the new useCurrent completion, which should only wait for nodes that have not ACKed

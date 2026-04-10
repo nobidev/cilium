@@ -247,7 +247,7 @@ func TestEnvoy(t *testing.T) {
 	// Push Network Policies with Selectors
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	err, _ = xdsServer.upsertNetworkPolicyLocked(ep, selectors, []string{"1.2.3.4"}, l4Policy,
-		true, true, xdsServer.config.useFullTLSContext, xdsServer.config.useSDS, "", s.waitGroup)
+		true, true, xdsServer.config.useFullTLSContext, xdsServer.config.useSDS, "", s.waitGroup, nil, publishedNetworkPolicyState{})
 	require.NoError(t, err)
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)

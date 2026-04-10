@@ -5,6 +5,7 @@ package envoy
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -15,6 +16,7 @@ import (
 	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -2474,6 +2476,192 @@ func TestNewXDSServerSeedsSelectorSnapshot(t *testing.T) {
 	require.Equal(t, snapshot.Revision, xds.selectorResourceRevision)
 }
 
+func TestUpdateNetworkPolicyDeltaUsesCurrentAfterSelectorUpdate(t *testing.T) {
+	redirectEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
+		Id:   42,
+		Ipv4: "10.0.0.1",
+		Ipv6: "f00d::1",
+	}}
+	repo, localIdentity, epp := newFastPathTestEndpointPolicy(t, redirectEP)
+	xds, spy := newFastPathTestXDSServer(t, true, repo)
+	enablePolicyAckWaits(xds)
+
+	err, revert := xds.UpdateNetworkPolicy(redirectEP, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+	require.Equal(t, 1, spy.upsertCalls)
+	require.Equal(t, 0, spy.useCurrentCalls)
+
+	advanceEndpointPolicySelectors(t, repo, epp, identity.IdentityMap{
+		9003: labels.LabelArray{labels.NewLabel("id", "b", labels.LabelSourceK8s)},
+	})
+
+	current := xds.networkPolicyCache.GetResources(NetworkPolicyResourceTypeURL, 0, nil)
+
+	wg := completion.NewWaitGroup(context.Background())
+	err, revert = xds.UpdateNetworkPolicy(redirectEP, epp, wg)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+	require.Equal(t, 1, spy.upsertCalls)
+	require.Equal(t, 1, spy.useCurrentCalls)
+
+	after := xds.networkPolicyCache.GetResources(NetworkPolicyResourceTypeURL, 0, nil)
+	require.Equal(t, current.Version, after.Version)
+	require.Equal(t, epp.GetPolicySelectors().Revision, xds.publishedNetworkPolicies[redirectEP.GetID()].selectorRevision)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- wg.Wait()
+	}()
+
+	nodeID := getNodeIDs(redirectEP, &epp.SelectorPolicy.L4Policy)[0]
+	xds.resourceConfig[NetworkPolicyResourceTypeURL].AckObserver.HandleResourceVersionAck(current.Version-1, current.Version-1, nodeID, nil, NetworkPolicyResourceTypeURL, "")
+	select {
+	case err := <-done:
+		t.Fatalf("wait completed too early: %v", err)
+	default:
+	}
+
+	xds.resourceConfig[NetworkPolicyResourceTypeURL].AckObserver.HandleResourceVersionAck(current.Version, current.Version, nodeID, nil, NetworkPolicyResourceTypeURL, "")
+	require.NoError(t, <-done)
+
+	// Keep localIdentity live for the lifetime of the policy repository.
+	require.Equal(t, identity.NumericIdentity(9001), localIdentity.ID)
+}
+
+func TestUpdateNetworkPolicySotWUsesCurrentWhenUnchanged(t *testing.T) {
+	redirectEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
+		Id:   43,
+		Ipv4: "10.0.0.2",
+		Ipv6: "f00d::2",
+	}}
+	repo, _, epp := newFastPathTestEndpointPolicy(t, redirectEP)
+	xds, spy := newFastPathTestXDSServer(t, false, repo)
+
+	err, revert := xds.UpdateNetworkPolicy(redirectEP, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+	require.Equal(t, 1, spy.upsertCalls)
+	require.Equal(t, 0, spy.useCurrentCalls)
+
+	current := xds.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, nil)
+
+	err, revert = xds.UpdateNetworkPolicy(redirectEP, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+	require.Equal(t, 1, spy.upsertCalls)
+	require.Equal(t, 1, spy.useCurrentCalls)
+
+	after := xds.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, nil)
+	require.Equal(t, current.Version, after.Version)
+}
+
+func TestUpdateNetworkPolicySotWFallsBackWhenSelectorsChange(t *testing.T) {
+	redirectEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
+		Id:   44,
+		Ipv4: "10.0.0.3",
+		Ipv6: "f00d::3",
+	}}
+	repo, _, epp := newFastPathTestEndpointPolicy(t, redirectEP)
+	xds, spy := newFastPathTestXDSServer(t, false, repo)
+
+	err, revert := xds.UpdateNetworkPolicy(redirectEP, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+	require.Equal(t, 1, spy.upsertCalls)
+
+	current := xds.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, nil)
+
+	advanceEndpointPolicySelectors(t, repo, epp, identity.IdentityMap{
+		9003: labels.LabelArray{labels.NewLabel("id", "b", labels.LabelSourceK8s)},
+	})
+
+	err, revert = xds.UpdateNetworkPolicy(redirectEP, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+	require.Equal(t, 2, spy.upsertCalls)
+	require.Equal(t, 0, spy.useCurrentCalls)
+
+	after := xds.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, nil)
+	require.Greater(t, after.Version, current.Version)
+}
+
+func TestUpdateNetworkPolicyFallsBackWhenPolicyNamesChange(t *testing.T) {
+	redirectEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
+		Id:   45,
+		Ipv4: "10.0.0.4",
+		Ipv6: "f00d::4",
+	}}
+	repo, _, epp := newFastPathTestEndpointPolicy(t, redirectEP)
+	xds, spy := newFastPathTestXDSServer(t, true, repo)
+
+	err, revert := xds.UpdateNetworkPolicy(redirectEP, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+	require.Equal(t, 1, spy.upsertCalls)
+
+	redirectEP.Ipv4 = "10.0.0.5"
+
+	err, revert = xds.UpdateNetworkPolicy(redirectEP, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+	require.Equal(t, 2, spy.upsertCalls)
+	require.Equal(t, 0, spy.useCurrentCalls)
+}
+
+func TestUpdateNetworkPolicyRevertRestoresPublishedState(t *testing.T) {
+	redirectEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
+		Id:   46,
+		Ipv4: "10.0.0.6",
+		Ipv6: "f00d::6",
+	}}
+	repo, localIdentity, epp1 := newFastPathTestEndpointPolicy(t, redirectEP)
+	xds, spy := newFastPathTestXDSServer(t, false, repo)
+
+	err, revert1 := xds.UpdateNetworkPolicy(redirectEP, epp1, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert1)
+	require.Equal(t, 1, spy.upsertCalls)
+
+	epp2 := distillFastPathEndpointPolicy(t, repo, localIdentity, redirectEP)
+
+	err, revert2 := xds.UpdateNetworkPolicy(redirectEP, epp2, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert2)
+	require.Equal(t, 2, spy.upsertCalls)
+
+	require.NoError(t, revert2())
+
+	err, revert3 := xds.UpdateNetworkPolicy(redirectEP, epp2, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert3)
+	require.Equal(t, 3, spy.upsertCalls)
+	require.Equal(t, 0, spy.useCurrentCalls)
+}
+
+func TestRemoveNetworkPolicyClearsPublishedState(t *testing.T) {
+	redirectEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
+		Id:   47,
+		Ipv4: "10.0.0.7",
+		Ipv6: "f00d::7",
+	}}
+	repo, _, epp := newFastPathTestEndpointPolicy(t, redirectEP)
+	xds, spy := newFastPathTestXDSServer(t, false, repo)
+
+	err, revert := xds.UpdateNetworkPolicy(redirectEP, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+	require.Equal(t, 1, spy.upsertCalls)
+
+	xds.RemoveNetworkPolicy(redirectEP)
+
+	err, revert = xds.UpdateNetworkPolicy(redirectEP, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+	require.Equal(t, 2, spy.upsertCalls)
+	require.Equal(t, 0, spy.useCurrentCalls)
+}
+
 func testDeltaXdsServer(t *testing.T) *xdsServer { return testxdsServer(t, true) }
 
 func testXdsServer(t *testing.T) *xdsServer { return testxdsServer(t, false) }
@@ -2487,4 +2675,117 @@ func testxdsServer(t *testing.T, use_nprds bool) *xdsServer {
 	}, secretManager)
 	xds.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
 	return xds
+}
+
+type spyAckingResourceMutator struct {
+	delegate        envoyxds.AckingResourceMutator
+	upsertCalls     int
+	useCurrentCalls int
+}
+
+func (m *spyAckingResourceMutator) Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) envoyxds.AckingResourceMutatorRevertFunc {
+	m.upsertCalls++
+	return m.delegate.Upsert(typeURL, resourceName, resource, nodeIDs, wg, callback)
+}
+
+func (m *spyAckingResourceMutator) UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) {
+	m.useCurrentCalls++
+	m.delegate.UseCurrent(typeURL, nodeIDs, wg, callback)
+}
+
+func (m *spyAckingResourceMutator) DeleteNode(nodeID string) {
+	m.delegate.DeleteNode(nodeID)
+}
+
+func (m *spyAckingResourceMutator) Delete(typeURL string, resourceName string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) envoyxds.AckingResourceMutatorRevertFunc {
+	return m.delegate.Delete(typeURL, resourceName, nodeIDs, wg, callback)
+}
+
+func (m *spyAckingResourceMutator) CancelCompletions(typeURL string) {
+	m.delegate.CancelCompletions(typeURL)
+}
+
+func newFastPathTestXDSServer(t *testing.T, useNPRDS bool, repo policy.PolicyRepository) (*xdsServer, *spyAckingResourceMutator) {
+	logger := hivetest.Logger(t)
+	secretManager := certificatemanager.NewMockSecretManagerInline()
+	xds := newXDSServer(logger, nil, nil, repo, newLocalEndpointStore(), xdsServerConfig{
+		useNPRDS: useNPRDS,
+		metrics:  envoyxds.NewXDSMetric(),
+	}, secretManager)
+	xds.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
+	t.Cleanup(xds.stop)
+
+	spy := &spyAckingResourceMutator{delegate: xds.networkPolicyMutator}
+	xds.networkPolicyMutator = spy
+	return xds, spy
+}
+
+func enablePolicyAckWaits(xds *xdsServer) {
+	xds.mutex.Lock()
+	defer xds.mutex.Unlock()
+
+	xds.npdsListeners.Add("test-npds")
+}
+
+func newFastPathTestEndpointPolicy(t *testing.T, ep *listenerProxyUpdaterMock) (policy.PolicyRepository, *identity.Identity, *policy.EndpointPolicy) {
+	logger := hivetest.Logger(t)
+	localIdentity := identity.NewIdentity(9001, labels.LabelArray{
+		labels.NewLabel("id", "a", labels.LabelSourceK8s),
+	}.Labels())
+	remoteIdentity := identity.NewIdentity(9002, labels.LabelArray{
+		labels.NewLabel("id", "b", labels.LabelSourceK8s),
+	}.Labels())
+
+	idMgr := identitymanager.NewIDManager(logger)
+	repo := policy.NewPolicyRepository(logger, identity.IdentityMap{
+		localIdentity.ID:  localIdentity.LabelArray,
+		remoteIdentity.ID: remoteIdentity.LabelArray,
+	}, nil, nil, idMgr, testpolicy.NewPolicyMetricsNoop())
+	idMgr.Add(localIdentity)
+	t.Cleanup(func() {
+		idMgr.Remove(localIdentity)
+	})
+
+	rule := &api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=a")),
+		Ingress: []api.IngressRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{
+					api.NewESFromLabels(labels.ParseSelectLabel("id=b")),
+				},
+			},
+			ToPorts: []api.PortRule{{
+				Ports: []api.PortProtocol{{
+					Port:     "80",
+					Protocol: api.ProtoTCP,
+				}},
+			}},
+		}},
+	}
+	require.NoError(t, rule.Sanitize())
+	repo.MustAddList(api.Rules{rule})
+
+	return repo, localIdentity, distillFastPathEndpointPolicy(t, repo, localIdentity, ep)
+}
+
+func distillFastPathEndpointPolicy(t *testing.T, repo policy.PolicyRepository, localIdentity *identity.Identity, ep *listenerProxyUpdaterMock) *policy.EndpointPolicy {
+	logger := hivetest.Logger(t)
+	selPolicy, _, err := repo.GetSelectorPolicy(localIdentity, 0, &dummyPolicyStats{}, ep.GetID())
+	require.NoError(t, err)
+
+	epp := selPolicy.DistillPolicy(logger, ep, nil)
+	t.Cleanup(func() {
+		epp.Detach(logger)
+	})
+	return epp
+}
+
+func advanceEndpointPolicySelectors(t *testing.T, repo policy.PolicyRepository, epp *policy.EndpointPolicy, added identity.IdentityMap) {
+	var selectorWG sync.WaitGroup
+	mutated := repo.GetSelectorCache().UpdateIdentities(added, nil, &selectorWG)
+	require.False(t, mutated)
+	selectorWG.Wait()
+
+	closer, _ := epp.ConsumeMapChanges()
+	closer()
 }

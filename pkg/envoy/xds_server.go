@@ -212,9 +212,21 @@ type xdsServer struct {
 	runCtx    context.Context
 	runCancel context.CancelFunc
 
+	// publishedNetworkPolicies tracks the exact policy inputs last published for
+	// each endpoint so UpdateNetworkPolicy() can skip protobuf regeneration
+	// safely when both the xDS resource and its endpoint-local inputs are
+	// unchanged.
+	publishedNetworkPolicies map[uint64]publishedNetworkPolicyState
+
 	selectorResourceRevision   policy.SelectorRevision
 	selectorRevisionCh         chan struct{}
 	selectorObserverUnregister func()
+}
+
+type publishedNetworkPolicyState struct {
+	policy           *policy.EndpointPolicy
+	selectorRevision policy.SelectorRevision
+	policyNames      []string
 }
 
 // npdsListenersTracker tracks the set of listener names that require NPDS.
@@ -281,13 +293,14 @@ type xdsServerConfig struct {
 func newXDSServer(logger *slog.Logger, restorerPromise promise.Promise[endpointstate.Restorer], ipCache IPCacheEventSource, policyRepo policy.PolicyRepository, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager) *xdsServer {
 	runCtx, runCancel := context.WithCancel(context.Background())
 	xdsServer := &xdsServer{
-		logger:             logger,
-		restorerPromise:    restorerPromise,
-		listenerCount:      make(map[string]uint),
-		npdsListeners:      make(npdsListenersTracker),
-		ipCache:            ipCache,
-		policyRepo:         policyRepo,
-		localEndpointStore: localEndpointStore,
+		logger:                   logger,
+		restorerPromise:          restorerPromise,
+		listenerCount:            make(map[string]uint),
+		npdsListeners:            make(npdsListenersTracker),
+		publishedNetworkPolicies: make(map[uint64]publishedNetworkPolicyState),
+		ipCache:                  ipCache,
+		policyRepo:               policyRepo,
+		localEndpointStore:       localEndpointStore,
 
 		socketPath:         getXDSSocketPath(config.envoySocketDir),
 		config:             config,
@@ -1997,6 +2010,41 @@ func (s *xdsServer) waitForSelectorRevision(revision policy.SelectorRevision) er
 	}
 }
 
+func newPublishedNetworkPolicyState(epp *policy.EndpointPolicy, selectorRevision policy.SelectorRevision, policyNames []string) publishedNetworkPolicyState {
+	return publishedNetworkPolicyState{
+		policy:           epp,
+		selectorRevision: selectorRevision,
+		policyNames:      slices.Clone(policyNames),
+	}
+}
+
+func (s *xdsServer) restorePublishedNetworkPolicyStateLocked(endpointID uint64, previous publishedNetworkPolicyState, hadPrevious bool) {
+	if hadPrevious {
+		s.publishedNetworkPolicies[endpointID] = previous
+		return
+	}
+
+	delete(s.publishedNetworkPolicies, endpointID)
+}
+
+func (s *xdsServer) canUseCurrentNetworkPolicyLocked(endpointID uint64, epp *policy.EndpointPolicy, selectors policy.SelectorSnapshot, ips []string) bool {
+	previous, ok := s.publishedNetworkPolicies[endpointID]
+	if !ok {
+		return false
+	}
+	if previous.policy != epp {
+		return false
+	}
+	if !slices.Equal(previous.policyNames, ips) {
+		return false
+	}
+	if !s.config.useNPRDS && previous.selectorRevision != selectors.Revision {
+		return false
+	}
+
+	return true
+}
+
 func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy.EndpointPolicy, wg *completion.WaitGroup,
 ) (error, func() error) {
 	if epp == nil {
@@ -2030,6 +2078,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	epID := ep.GetID()
 	ips := ep.GetPolicyNames()
 	if len(ips) == 0 {
 		// It looks like the "host EP" (identity == 1) has no IPs, so it is possible to find
@@ -2045,15 +2094,55 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 		return nil, func() error { return nil }
 	}
 
+	previous, hadPrevious := s.publishedNetworkPolicies[epID]
+	newState := newPublishedNetworkPolicyState(epp, selectors.Revision, ips)
+
+	// Reuse the current resource when the EndpointPolicy pointer and endpoint
+	// policy names are unchanged. SotW still requires the same selector revision,
+	// because selector membership is encoded into the policy resource there.
+	// Delta NPRDS can reuse the policy resource even when selectors changed,
+	// because selector resources are published separately in the same stream.
+	if s.canUseCurrentNetworkPolicyLocked(epID, epp, selectors, ips) {
+		// Selector publication is waited on before taking xdsServer.mutex, so
+		// UseCurrent covers selector-only NPRDS cache advances as well.
+		if s.npdsListeners.Empty() {
+			wg = nil
+		}
+
+		policyRevision := l4policy.Revision
+		callback := func(err error) {
+			if err == nil {
+				go ep.OnProxyPolicyUpdate(policyRevision)
+			}
+		}
+
+		typeURL := s.networkPolicyTypeURL()
+		s.networkPolicyMutator.UseCurrent(typeURL, getNodeIDs(ep, l4policy), wg, callback)
+		s.publishedNetworkPolicies[epID] = newState
+
+		return nil, func() error {
+			s.mutex.Lock()
+			defer s.mutex.Unlock()
+
+			s.restorePublishedNetworkPolicyStateLocked(epID, previous, hadPrevious)
+			return nil
+		}
+	}
+
 	return s.upsertNetworkPolicyLocked(ep, selectors, ips, l4policy,
 		ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext, s.config.useSDS,
-		s.secretManager.GetSecretSyncNamespace(), wg)
+		s.secretManager.GetSecretSyncNamespace(), wg, func() {
+			// Restore the published-policy bookkeeping together with the xDS cache
+			// mutation so failed regenerations do not poison future fast-path
+			// decisions.
+			s.restorePublishedNetworkPolicyStateLocked(epID, previous, hadPrevious)
+		}, newState)
 }
 
 func (s *xdsServer) upsertNetworkPolicyLocked(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot,
 	ips []string, l4policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced, useFullTLSContext, useSDS bool,
-	policySecretsNamespace string, wg *completion.WaitGroup) (error, func() error) {
+	policySecretsNamespace string, wg *completion.WaitGroup, revertHook func(), publishedState publishedNetworkPolicyState) (error, func() error) {
 
 	networkPolicy := s.getNetworkPolicy(ep, selectors, ips, l4policy, ingressPolicyEnforced, egressPolicyEnforced, useFullTLSContext, useSDS, policySecretsNamespace)
 
@@ -2103,6 +2192,7 @@ func (s *xdsServer) upsertNetworkPolicyLocked(ep endpoint.EndpointUpdater, selec
 	var revertFunc xds.AckingResourceMutatorRevertFunc
 	typeURL := s.networkPolicyTypeURL()
 	revertFunc = s.networkPolicyMutator.Upsert(typeURL, resourceName, resource, nodeIDs, wg, callback)
+	s.publishedNetworkPolicies[epID] = publishedState
 	revertUpdatedNetworkPolicyEndpoints := make(map[string]endpoint.EndpointUpdater, len(ips))
 	for _, ip := range ips {
 		revertUpdatedNetworkPolicyEndpoints[ip] = s.localEndpointStore.getLocalEndpoint(ip)
@@ -2124,6 +2214,9 @@ func (s *xdsServer) upsertNetworkPolicyLocked(ep endpoint.EndpointUpdater, selec
 		}
 
 		revertFunc()
+		if revertHook != nil {
+			revertHook()
+		}
 
 		s.logger.Debug("Finished reverting xDS network policy update")
 
@@ -2137,6 +2230,7 @@ func (s *xdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 
 	epID := ep.GetID()
 	resourceName := strconv.FormatUint(epID, 10)
+	delete(s.publishedNetworkPolicies, epID)
 
 	// Safe to pass nodeIPs as nil when wg is also nil and the returned revert function is
 	// ignored.
@@ -2154,6 +2248,10 @@ func (s *xdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 }
 
 func (s *xdsServer) RemoveAllNetworkPolicies() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	clear(s.publishedNetworkPolicies)
 	s.networkPolicyCache.Clear(s.networkPolicyTypeURL())
 }
 
