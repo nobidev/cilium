@@ -5771,9 +5771,6 @@
         "terminationGracePeriodSeconds": {
           "type": "integer"
         },
-        "tofqdnsPreCache": {
-          "type": "string"
-        },
         "tolerations": {
           "items": {
             "anyOf": [
