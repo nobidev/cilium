@@ -104,6 +104,44 @@ func requireDeltaResponse(t *testing.T, resp *envoy_service_discovery.DeltaDisco
 	require.Equal(t, wantRemoved, gotRemoved)
 }
 
+type ackEvent struct {
+	ackVersion    uint64
+	nackVersion   uint64
+	nodeIP        string
+	resourceNames []string
+	typeURL       string
+	detail        string
+}
+
+type spyAckObserver struct {
+	events chan ackEvent
+}
+
+func newSpyAckObserver() *spyAckObserver {
+	return &spyAckObserver{
+		events: make(chan ackEvent, 8),
+	}
+}
+
+func (s *spyAckObserver) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string) {
+	names := append([]string(nil), resourceNames...)
+	sort.Strings(names)
+	s.events <- ackEvent{
+		ackVersion:    ackVersion,
+		nackVersion:   nackVersion,
+		nodeIP:        nodeIP,
+		resourceNames: names,
+		typeURL:       typeURL,
+		detail:        detail,
+	}
+}
+
+func (*spyAckObserver) MarkRestorePending() {}
+
+func (*spyAckObserver) MarkRestoreCompleted() {}
+
+func (*spyAckObserver) WaitForFirstAck(ctx context.Context, node string, typeURL string) {}
+
 func TestRequestAllResources(t *testing.T) {
 	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
@@ -2197,5 +2235,265 @@ func TestWaitForAckNoClusters(t *testing.T) {
 	case <-ctx.Done():
 		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", ListenerTypeURL)
 	case <-ldsStreamDone:
+	}
+}
+
+func TestADSPerTypeAckStateDoesNotLeakAfterAck(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeAURL := "type.googleapis.com/envoy.config.v3.TypeAConfiguration"
+	typeBURL := "type.googleapis.com/envoy.config.v3.TypeBConfiguration"
+	metrics := newMockMetrics()
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	typeACache := NewCache(logger)
+	typeBCache := NewCache(logger)
+	_, updated, _ := typeBCache.Upsert(typeBURL, resources[1].Name, resources[1])
+	require.True(t, updated)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockStream(streamCtx, 4, 4, StreamTimeout, StreamTimeout)
+	defer stream.Close()
+
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{
+		typeAURL: {Source: typeACache},
+		typeBURL: {Source: typeBCache},
+	}, nil, metrics)
+
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	reqA := &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeAURL,
+		VersionInfo:   "",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err := stream.SendRequest(reqA)
+	require.NoError(t, err)
+
+	respA, err := stream.RecvResponse()
+	require.NoError(t, err)
+	require.Equal(t, respA.VersionInfo, respA.Nonce)
+	require.Condition(t, responseCheck(respA, "1", nil, false, typeAURL))
+
+	reqA = &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeAURL,
+		VersionInfo:   respA.VersionInfo,
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: respA.Nonce,
+	}
+	err = stream.SendRequest(reqA)
+	require.NoError(t, err)
+
+	reqB := &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeBURL,
+		VersionInfo:   "7",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err = stream.SendRequest(reqB)
+	require.NoError(t, err)
+
+	respB, err := stream.RecvResponse()
+	require.NoError(t, err)
+	require.Equal(t, respB.VersionInfo, respB.Nonce)
+	require.Condition(t, responseCheck(respB, "8", []proto.Message{resources[1]}, false, typeBURL))
+
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
+func TestADSPerTypeSeenResponseStateDoesNotLeakBeforeAck(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeAURL := "type.googleapis.com/envoy.config.v3.TypeAConfiguration"
+	typeBURL := "type.googleapis.com/envoy.config.v3.TypeBConfiguration"
+	metrics := newMockMetrics()
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	typeACache := NewCache(logger)
+	typeBCache := NewCache(logger)
+	_, updated, _ := typeBCache.Upsert(typeBURL, resources[2].Name, resources[2])
+	require.True(t, updated)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockStream(streamCtx, 4, 4, StreamTimeout, StreamTimeout)
+	defer stream.Close()
+
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{
+		typeAURL: {Source: typeACache},
+		typeBURL: {Source: typeBCache},
+	}, nil, metrics)
+
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	reqA := &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeAURL,
+		VersionInfo:   "",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err := stream.SendRequest(reqA)
+	require.NoError(t, err)
+
+	respA, err := stream.RecvResponse()
+	require.NoError(t, err)
+	require.Equal(t, respA.VersionInfo, respA.Nonce)
+	require.Condition(t, responseCheck(respA, "1", nil, false, typeAURL))
+
+	reqA = &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeAURL,
+		VersionInfo:   "",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: respA.Nonce,
+	}
+	err = stream.SendRequest(reqA)
+	require.NoError(t, err)
+
+	reqB := &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeBURL,
+		VersionInfo:   "7",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err = stream.SendRequest(reqB)
+	require.NoError(t, err)
+
+	respB, err := stream.RecvResponse()
+	require.NoError(t, err)
+	require.Equal(t, respB.VersionInfo, respB.Nonce)
+	require.Condition(t, responseCheck(respB, "8", []proto.Message{resources[2]}, false, typeBURL))
+
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
+func TestADSPerTypeAckObserverStateDoesNotLeak(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeAURL := "type.googleapis.com/envoy.config.v3.TypeAConfiguration"
+	typeBURL := "type.googleapis.com/envoy.config.v3.TypeBConfiguration"
+	metrics := newMockMetrics()
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	typeACache := NewCache(logger)
+	typeBCache := NewCache(logger)
+	_, updated, _ := typeBCache.Upsert(typeBURL, resources[0].Name, resources[0])
+	require.True(t, updated)
+	spyObserver := newSpyAckObserver()
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockStream(streamCtx, 6, 6, StreamTimeout, StreamTimeout)
+	defer stream.Close()
+
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{
+		typeAURL: {Source: typeACache},
+		typeBURL: {Source: typeBCache, AckObserver: spyObserver},
+	}, nil, metrics)
+
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL, "")
+		require.NoError(t, err)
+	}()
+
+	reqA := &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeAURL,
+		VersionInfo:   "",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err := stream.SendRequest(reqA)
+	require.NoError(t, err)
+
+	respA, err := stream.RecvResponse()
+	require.NoError(t, err)
+	require.Equal(t, respA.VersionInfo, respA.Nonce)
+	require.Condition(t, responseCheck(respA, "1", nil, false, typeAURL))
+
+	reqA = &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeAURL,
+		VersionInfo:   respA.VersionInfo,
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: respA.Nonce,
+	}
+	err = stream.SendRequest(reqA)
+	require.NoError(t, err)
+
+	reqB := &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeBURL,
+		VersionInfo:   "7",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err = stream.SendRequest(reqB)
+	require.NoError(t, err)
+
+	respB, err := stream.RecvResponse()
+	require.NoError(t, err)
+	require.Equal(t, respB.VersionInfo, respB.Nonce)
+	require.Condition(t, responseCheck(respB, "8", []proto.Message{resources[0]}, false, typeBURL))
+
+	reqB = &envoy_service_discovery.DiscoveryRequest{
+		TypeUrl:       typeBURL,
+		VersionInfo:   "7",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: respB.Nonce,
+	}
+	err = stream.SendRequest(reqB)
+	require.NoError(t, err)
+
+	select {
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for ACK observer event")
+	case event := <-spyObserver.events:
+		require.Equal(t, uint64(0), event.ackVersion)
+		require.Equal(t, uint64(8), event.nackVersion)
+		require.Equal(t, node0, event.nodeIP)
+		require.Equal(t, typeBURL, event.typeURL)
+		require.Empty(t, event.detail)
+		require.Equal(t, []string{resources[0].Name}, event.resourceNames)
+	}
+
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
 	}
 }

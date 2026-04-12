@@ -199,6 +199,16 @@ type perTypeStreamState struct {
 	// If nil, no watch is pending.
 	pendingWatchCancel context.CancelFunc
 
+	// clientReceivedFirstResponse tracks whether this stream has already sent a
+	// response for this type. This state must stay per-type so ADS streams do
+	// not leak nonce handling across multiplexed resource types.
+	clientReceivedFirstResponse bool
+
+	// responseAcked tracks whether this stream has seen at least one ACK for
+	// this type. This also stays per-type so ACK observer state does not leak
+	// across multiplexed ADS resource types.
+	responseAcked bool
+
 	// resourceNames is the list of names of resources sent in the last
 	// response to a request for this resource type.
 	resourceNames []string
@@ -266,15 +276,11 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 
 	streamLog.Info("starting xDS stream processing", logfields.XDSTypeURL, defaultTypeURL)
 
+	// stream-scoped state
 	nodeIP := ""
 	firstRequest := true
 	scopedLogger := streamLog
-	// Indicates if client received the first response,
-	// but it doesn't necessarily mean that it was ACKed.
-	clientReceivedFirstResponse := false
-	// responseAcked indicates if we already
-	// had some request on this stream that was ACKed by a client.
-	responseAcked := false
+
 	for {
 		// Process either a new request from the xDS stream or a response
 		// from the resource watcher.
@@ -373,13 +379,13 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 			if lastReceivedVersion > 0 {
 				// Non-zero lastReceivedVersion indicates that we have already sent
 				// a response to the client and client saw response.
-				clientReceivedFirstResponse = true
+				state.clientReceivedFirstResponse = true
 			}
 
-			if clientReceivedFirstResponse && lastAckedVersion == lastReceivedVersion {
+			if state.clientReceivedFirstResponse && lastAckedVersion == lastReceivedVersion {
 				// Once we get the first ACK,
 				// we can start using versionInfo for ACKing observers.
-				responseAcked = true
+				state.responseAcked = true
 			}
 
 			if lastAckedVersion > 0 && firstRequest {
@@ -388,17 +394,17 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				)
 			}
 
-			if lastAckedVersion > lastReceivedVersion && clientReceivedFirstResponse {
+			if lastAckedVersion > lastReceivedVersion && state.clientReceivedFirstResponse {
 				requestLog.Warn("received invalid nonce in xDS request")
 				return ErrInvalidResponseNonce
 			}
 
 			// We want to trigger HandleResourceVersionAck even for NACKs
-			if clientReceivedFirstResponse {
+			if state.clientReceivedFirstResponse {
 				ackObserver := s.ackObservers[typeURL]
 				if ackObserver != nil {
 					requestLog.Debug("notifying observers of ACKs")
-					if !responseAcked {
+					if !state.responseAcked {
 						// If we haven't received any ACK, it means that lastAppliedVersion
 						// is stale and we can't ACK anything.
 						// Also we can't send lastAppliedVersion as it would incorrectly be cached
@@ -412,7 +418,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				}
 			}
 
-			if lastAckedVersion < lastReceivedVersion && clientReceivedFirstResponse {
+			if lastAckedVersion < lastReceivedVersion && state.clientReceivedFirstResponse {
 				s.metrics.IncreaseNACK(typeURL)
 				// versions after lastAppliedVersion, upto and including lastReceivedVersion are NACKed
 				requestLog.Warn(
