@@ -31,7 +31,7 @@ import (
 const (
 	TestTimeout                 = 10 * time.Second
 	StreamTimeout               = 4 * time.Second
-	noResponseTestStreamTimeout = 1 * time.Second
+	noResponseTestStreamTimeout = 100 * time.Millisecond
 )
 
 var (
@@ -160,7 +160,7 @@ func TestRequestAllResources(t *testing.T) {
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -300,7 +300,7 @@ func TestAck(t *testing.T) {
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -423,7 +423,7 @@ func TestRequestSomeResources(t *testing.T) {
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -611,7 +611,7 @@ func TestUpdateRequestResources(t *testing.T) {
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -713,7 +713,7 @@ func TestUpdateRequestResourcesWithoutCacheChangeRespondsImmediately(t *testing.
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -782,7 +782,7 @@ func TestUpdateRequestResourcesUsesCurrentVersionWhenCacheAlreadyAdvanced(t *tes
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -860,7 +860,7 @@ func TestUpdateRequestResourcesWithRemovalAndAdditionRespondsImmediately(t *test
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -930,7 +930,7 @@ func TestUpdateRequestResourcesRemovalOnlyWaitsForChange(t *testing.T) {
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, noResponseTestStreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -974,7 +974,7 @@ func TestUpdateRequestResourcesRemovalOnlyWaitsForChange(t *testing.T) {
 	err = stream.SendRequest(req)
 	require.NoError(t, err)
 
-	_, err = stream.RecvResponse()
+	_, err = stream.RecvResponseWithTimeout(noResponseTestStreamTimeout)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	resource1Updated := &envoy_config_route.RouteConfiguration{
@@ -1010,7 +1010,7 @@ func TestUpdateRequestResourcesSameMissingSetDoesNotRetriggerImmediateResponse(t
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, noResponseTestStreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -1051,7 +1051,7 @@ func TestUpdateRequestResourcesSameMissingSetDoesNotRetriggerImmediateResponse(t
 	err = stream.SendRequest(req)
 	require.NoError(t, err)
 
-	_, err = stream.RecvResponse()
+	_, err = stream.RecvResponseWithTimeout(noResponseTestStreamTimeout)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	version, updated, _ = cache.Upsert(typeURL, resources[2].Name, resources[2])
@@ -1089,7 +1089,7 @@ func TestRequestStaleNonce(t *testing.T) {
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -1228,7 +1228,7 @@ func TestDeltaUnsubscribeStopsResourceUpdates(t *testing.T) {
 	require.True(t, updated)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockDeltaStream(streamCtx, 2, 2, StreamTimeout, noResponseTestStreamTimeout)
+	stream := NewMockDeltaStream(streamCtx, 2, 2, StreamTimeout)
 	defer stream.Close()
 
 	streamDone := make(chan struct{})
@@ -1267,7 +1267,7 @@ func TestDeltaUnsubscribeStopsResourceUpdates(t *testing.T) {
 	err = stream.SendRequest(req)
 	require.NoError(t, err)
 
-	_, err = stream.RecvResponse()
+	_, err = stream.RecvResponseWithTimeout(noResponseTestStreamTimeout)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	resource0Updated := proto.Clone(resources[0]).(*envoy_config_route.RouteConfiguration)
@@ -1275,7 +1275,7 @@ func TestDeltaUnsubscribeStopsResourceUpdates(t *testing.T) {
 	_, updated, _ = cache.Upsert(typeURL, resource0Updated.Name, resource0Updated)
 	require.True(t, updated)
 
-	_, err = stream.RecvResponse()
+	_, err = stream.RecvResponseWithTimeout(noResponseTestStreamTimeout)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	resource1Updated := proto.Clone(resources[1]).(*envoy_config_route.RouteConfiguration)
@@ -1316,7 +1316,7 @@ func TestDeltaSubscribeWithoutNonceAcceptedAndResendsSubscribedResource(t *testi
 	require.True(t, updated)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockDeltaStream(streamCtx, 2, 2, StreamTimeout, noResponseTestStreamTimeout)
+	stream := NewMockDeltaStream(streamCtx, 2, 2, StreamTimeout)
 	defer stream.Close()
 
 	streamDone := make(chan struct{})
@@ -1385,7 +1385,7 @@ func TestDeltaRemoveThenAddForcesResend(t *testing.T) {
 	require.True(t, updated)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockDeltaStream(streamCtx, 2, 2, StreamTimeout, noResponseTestStreamTimeout)
+	stream := NewMockDeltaStream(streamCtx, 2, 2, StreamTimeout)
 	defer stream.Close()
 
 	streamDone := make(chan struct{})
@@ -1451,7 +1451,7 @@ func TestDeltaEmptySubscriptionsBehaveAsWildcard(t *testing.T) {
 	require.True(t, updated)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout, noResponseTestStreamTimeout)
+	stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	streamDone := make(chan struct{})
@@ -1482,7 +1482,7 @@ func TestDeltaEmptySubscriptionsBehaveAsWildcard(t *testing.T) {
 	err = stream.SendRequest(req)
 	require.NoError(t, err)
 
-	_, err = stream.RecvResponse()
+	_, err = stream.RecvResponseWithTimeout(noResponseTestStreamTimeout)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	closeStream()
@@ -1513,7 +1513,7 @@ func TestDeltaRestartedStreamEmptySubscriptionsBehaveAsWildcard(t *testing.T) {
 
 	runStream := func() (*MockDeltaStream, context.CancelFunc, <-chan struct{}) {
 		streamCtx, closeStream := context.WithCancel(ctx)
-		stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout, noResponseTestStreamTimeout)
+		stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout)
 
 		streamDone := make(chan struct{})
 		go func() {
@@ -1596,7 +1596,7 @@ func TestDeltaWildcardSubscriptionReturnsAllResources(t *testing.T) {
 	require.True(t, updated)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout, noResponseTestStreamTimeout)
+	stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	streamDone := make(chan struct{})
@@ -1648,7 +1648,7 @@ func TestDeltaNamedSubscriptionSurvivesWildcardUnsubscribe(t *testing.T) {
 	require.True(t, updated)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockDeltaStream(streamCtx, 2, 2, StreamTimeout, noResponseTestStreamTimeout)
+	stream := NewMockDeltaStream(streamCtx, 2, 2, StreamTimeout)
 	defer stream.Close()
 
 	streamDone := make(chan struct{})
@@ -1681,7 +1681,7 @@ func TestDeltaNamedSubscriptionSurvivesWildcardUnsubscribe(t *testing.T) {
 	err = stream.SendRequest(req)
 	require.NoError(t, err)
 
-	_, err = stream.RecvResponse()
+	_, err = stream.RecvResponseWithTimeout(noResponseTestStreamTimeout)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	resource0Updated := proto.Clone(resources[0]).(*envoy_config_route.RouteConfiguration)
@@ -1689,7 +1689,7 @@ func TestDeltaNamedSubscriptionSurvivesWildcardUnsubscribe(t *testing.T) {
 	_, updated, _ = cache.Upsert(typeURL, resource0Updated.Name, resource0Updated)
 	require.True(t, updated)
 
-	_, err = stream.RecvResponse()
+	_, err = stream.RecvResponseWithTimeout(noResponseTestStreamTimeout)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	resource1Updated := proto.Clone(resources[1]).(*envoy_config_route.RouteConfiguration)
@@ -1728,7 +1728,7 @@ func TestDeltaInitialResourceVersionsIgnored(t *testing.T) {
 	require.True(t, updated)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout, noResponseTestStreamTimeout)
+	stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	streamDone := make(chan struct{})
@@ -1778,7 +1778,7 @@ func TestDeltaResourceLocatorsIgnored(t *testing.T) {
 	require.True(t, updated)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout, noResponseTestStreamTimeout)
+	stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	streamDone := make(chan struct{})
@@ -1829,7 +1829,7 @@ func TestNAck(t *testing.T) {
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -1969,7 +1969,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -2110,7 +2110,7 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -2183,7 +2183,7 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
@@ -2204,7 +2204,7 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 	// Close previous stream and create a new one.
 	closeStream()
 	streamCtx, closeStream = context.WithCancel(ctx)
-	stream = NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	stream = NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	select {
@@ -2273,7 +2273,7 @@ func TestNotAckedAfterRestart(t *testing.T) {
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 1, 1, noResponseTestStreamTimeout, noResponseTestStreamTimeout)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
@@ -2329,7 +2329,7 @@ func TestNotAckedAfterRestart(t *testing.T) {
 	// Since we don't update resources, we expect that we will not receive
 	// any response. However, we want to make sure that previously
 	// pending completions are still not ACKed, but they are NACKed.
-	_, err = stream.RecvResponse()
+	_, err = stream.RecvResponseWithTimeout(noResponseTestStreamTimeout)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	// IsCompleted is true only for completions without error
 	require.Condition(t, doesNotCompleteComparison(comp1))
@@ -2376,14 +2376,14 @@ func TestWaitForAck(t *testing.T) {
 	ldsCache := NewCache(logger)
 	ldsMutator := NewAckingResourceMutatorWrapper(logger, ldsCache, metrics)
 	ldsStreamCtx, ldsCloseStream := context.WithCancel(ctx)
-	ldsStream := NewMockStream(ldsStreamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	ldsStream := NewMockStream(ldsStreamCtx, 1, 1, StreamTimeout)
 	defer ldsStream.Close()
 	ldsStreamDone := make(chan struct{})
 
 	cdsCache := NewCache(logger)
 	cdsMutator := NewAckingResourceMutatorWrapper(logger, cdsCache, metrics)
 	cdsStreamCtx, cdsCloseStream := context.WithCancel(ctx)
-	cdsStream := NewMockStream(cdsStreamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	cdsStream := NewMockStream(cdsStreamCtx, 1, 1, StreamTimeout)
 	defer cdsStream.Close()
 	cdsStreamDone := make(chan struct{})
 
@@ -2579,14 +2579,14 @@ func TestWaitForAckNoClusters(t *testing.T) {
 	ldsCache := NewCache(logger)
 	ldsMutator := NewAckingResourceMutatorWrapper(logger, ldsCache, metrics)
 	ldsStreamCtx, ldsCloseStream := context.WithCancel(ctx)
-	ldsStream := NewMockStream(ldsStreamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	ldsStream := NewMockStream(ldsStreamCtx, 1, 1, StreamTimeout)
 	defer ldsStream.Close()
 	ldsStreamDone := make(chan struct{})
 
 	cdsCache := NewCache(logger)
 	cdsMutator := NewAckingResourceMutatorWrapper(logger, cdsCache, metrics)
 	cdsStreamCtx, cdsCloseStream := context.WithCancel(ctx)
-	cdsStream := NewMockStream(cdsStreamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	cdsStream := NewMockStream(cdsStreamCtx, 1, 1, StreamTimeout)
 	defer cdsStream.Close()
 	cdsStreamDone := make(chan struct{})
 
@@ -2707,7 +2707,7 @@ func TestADSPerTypeAckStateDoesNotLeakAfterAck(t *testing.T) {
 	require.True(t, updated)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 4, 4, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 4, 4, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{
@@ -2786,7 +2786,7 @@ func TestADSPerTypeSeenResponseStateDoesNotLeakBeforeAck(t *testing.T) {
 	require.True(t, updated)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 4, 4, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 4, 4, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{
@@ -2866,7 +2866,7 @@ func TestADSPerTypeAckObserverStateDoesNotLeak(t *testing.T) {
 	spyObserver := newSpyAckObserver()
 
 	streamCtx, closeStream := context.WithCancel(ctx)
-	stream := NewMockStream(streamCtx, 6, 6, StreamTimeout, StreamTimeout)
+	stream := NewMockStream(streamCtx, 6, 6, StreamTimeout)
 	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{

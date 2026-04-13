@@ -158,7 +158,7 @@ func TestWatchResourcesDeltaPureAckWaitsForNextVersion(t *testing.T) {
 	select {
 	case resp := <-out:
 		t.Fatalf("received unexpected immediate delta response: %+v", resp)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(noResponseTestStreamTimeout):
 	}
 
 	resource0Updated := &envoy_config_route.RouteConfiguration{
