@@ -18,8 +18,6 @@ func TestWatchResourcesSotWImmediateOnAddForcesVersionWhenCacheUnchanged(t *test
 	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	cache := NewCache(logger)
-	watcher := NewResourceWatcher(logger, typeURL, cache)
-	cache.AddResourceVersionObserver(watcher)
 
 	version, updated, _ := cache.TX(typeURL, map[string]proto.Message{
 		resources[0].Name: resources[0],
@@ -32,7 +30,15 @@ func TestWatchResourcesSotWImmediateOnAddForcesVersionWhenCacheUnchanged(t *test
 	defer cancel()
 
 	out := make(chan *VersionedResources, 1)
-	go watcher.WatchResourcesSotW(ctx, typeURL, 2, 2, []string{resources[0].Name, resources[1].Name}, true, out)
+	go (sotwWatchRequest{
+		logger:              logger,
+		source:              cache,
+		typeURL:             typeURL,
+		lastReceivedVersion: 2,
+		lastAckedVersion:    2,
+		resourceNames:       []string{resources[0].Name, resources[1].Name},
+		interestExpanded:    true,
+	}).run(ctx, out)
 
 	select {
 	case <-ctx.Done():
@@ -52,8 +58,6 @@ func TestWatchResourcesSotWImmediateOnAddUsesCurrentVersion(t *testing.T) {
 	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	cache := NewCache(logger)
-	watcher := NewResourceWatcher(logger, typeURL, cache)
-	cache.AddResourceVersionObserver(watcher)
 
 	_, updated, _ := cache.Upsert(typeURL, resources[0].Name, resources[0])
 	require.True(t, updated)
@@ -68,7 +72,15 @@ func TestWatchResourcesSotWImmediateOnAddUsesCurrentVersion(t *testing.T) {
 	defer cancel()
 
 	out := make(chan *VersionedResources, 1)
-	go watcher.WatchResourcesSotW(ctx, typeURL, 2, 2, []string{resources[0].Name, resources[1].Name}, true, out)
+	go (sotwWatchRequest{
+		logger:              logger,
+		source:              cache,
+		typeURL:             typeURL,
+		lastReceivedVersion: 2,
+		lastAckedVersion:    2,
+		resourceNames:       []string{resources[0].Name, resources[1].Name},
+		interestExpanded:    true,
+	}).run(ctx, out)
 
 	select {
 	case <-ctx.Done():
@@ -88,8 +100,6 @@ func TestWatchResourcesDeltaSubscriptionChangeRespondsImmediately(t *testing.T) 
 	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	cache := NewCache(logger)
-	watcher := NewResourceWatcher(logger, typeURL, cache)
-	cache.AddResourceVersionObserver(watcher)
 
 	_, updated, _ := cache.Upsert(typeURL, resources[0].Name, resources[0])
 	require.True(t, updated)
@@ -98,7 +108,17 @@ func TestWatchResourcesDeltaSubscriptionChangeRespondsImmediately(t *testing.T) 
 	defer cancel()
 
 	out := make(chan *VersionedResources, 1)
-	go watcher.WatchResourcesDelta(ctx, typeURL, 2, 2, []string{resources[0].Name}, map[string]struct{}{}, []string{resources[0].Name}, true, out)
+	go (deltaWatchRequest{
+		logger:              logger,
+		source:              cache,
+		typeURL:             typeURL,
+		lastReceivedVersion: 2,
+		lastAckedVersion:    2,
+		subscriptions:       []string{resources[0].Name},
+		ackedResourceNames:  map[string]struct{}{},
+		forceResponseNames:  []string{resources[0].Name},
+		immediate:           true,
+	}).run(ctx, out)
 
 	select {
 	case <-ctx.Done():
@@ -116,8 +136,6 @@ func TestWatchResourcesDeltaPureAckWaitsForNextVersion(t *testing.T) {
 	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	cache := NewCache(logger)
-	watcher := NewResourceWatcher(logger, typeURL, cache)
-	cache.AddResourceVersionObserver(watcher)
 
 	_, updated, _ := cache.Upsert(typeURL, resources[0].Name, resources[0])
 	require.True(t, updated)
@@ -126,7 +144,16 @@ func TestWatchResourcesDeltaPureAckWaitsForNextVersion(t *testing.T) {
 	defer cancel()
 
 	out := make(chan *VersionedResources, 1)
-	go watcher.WatchResourcesDelta(ctx, typeURL, 2, 2, []string{resources[0].Name}, map[string]struct{}{resources[0].Name: {}}, nil, false, out)
+	go (deltaWatchRequest{
+		logger:              logger,
+		source:              cache,
+		typeURL:             typeURL,
+		lastReceivedVersion: 2,
+		lastAckedVersion:    2,
+		subscriptions:       []string{resources[0].Name},
+		ackedResourceNames:  map[string]struct{}{resources[0].Name: {}},
+		immediate:           false,
+	}).run(ctx, out)
 
 	select {
 	case resp := <-out:
@@ -150,5 +177,62 @@ func TestWatchResourcesDeltaPureAckWaitsForNextVersion(t *testing.T) {
 		require.Len(t, resp.VersionedResources, 1)
 		require.Equal(t, resources[0].Name, resp.VersionedResources[0].Name)
 		require.Equal(t, uint64(3), resp.VersionedResources[0].Version)
+	}
+}
+
+func TestWatchResourcesSotWCanceledContextClosesOutput(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	cache := NewCache(logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	out := make(chan *VersionedResources, 1)
+	go (sotwWatchRequest{
+		logger:              logger,
+		source:              cache,
+		typeURL:             typeURL,
+		lastReceivedVersion: 1,
+		lastAckedVersion:    1,
+		resourceNames:       []string{resources[0].Name},
+		interestExpanded:    false,
+	}).run(ctx, out)
+
+	cancel()
+
+	select {
+	case resp, ok := <-out:
+		require.False(t, ok)
+		require.Nil(t, resp)
+	case <-time.After(TestTimeout):
+		t.Fatal("timed out waiting for SotW watcher to exit after cancellation")
+	}
+}
+
+func TestWatchResourcesDeltaCanceledContextClosesOutput(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	cache := NewCache(logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	out := make(chan *VersionedResources, 1)
+	go (deltaWatchRequest{
+		logger:              logger,
+		source:              cache,
+		typeURL:             typeURL,
+		lastReceivedVersion: 1,
+		lastAckedVersion:    1,
+		subscriptions:       []string{resources[0].Name},
+		ackedResourceNames:  map[string]struct{}{resources[0].Name: {}},
+		immediate:           false,
+	}).run(ctx, out)
+
+	cancel()
+
+	select {
+	case resp, ok := <-out:
+		require.False(t, ok)
+		require.Nil(t, resp)
+	case <-time.After(TestTimeout):
+		t.Fatal("timed out waiting for delta watcher to exit after cancellation")
 	}
 }

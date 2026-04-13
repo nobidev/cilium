@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"reflect"
 	"slices"
 	"strconv"
@@ -71,9 +72,8 @@ var (
 // Server implements the handling of xDS streams.
 type Server struct {
 	logger *slog.Logger
-	// watchers maps each supported type URL to its corresponding resource
-	// watcher.
-	watchers map[string]*ResourceWatcher
+	// sources maps each supported type URL to its corresponding resource source.
+	sources map[string]ResourceSource
 
 	// ackObservers maps each supported type URL to its corresponding observer
 	// of ACKs received from Envoy nodes.
@@ -90,7 +90,7 @@ type Server struct {
 // resource type.
 type ResourceTypeConfiguration struct {
 	// Source contains the resources of this type.
-	Source ObservableResourceSource
+	Source ResourceSource
 
 	// AckObserver is called back whenever a node acknowledges having applied a
 	// version of the resources of this type.
@@ -102,12 +102,10 @@ type ResourceTypeConfiguration struct {
 // types maps each supported resource type URL to its corresponding resource
 // source and ACK observer.
 func NewServer(logger *slog.Logger, resourceTypes map[string]*ResourceTypeConfiguration, restorerPromise promise.Promise[endpointstate.Restorer], metrics Metrics) *Server {
-	watchers := make(map[string]*ResourceWatcher, len(resourceTypes))
+	sources := make(map[string]ResourceSource, len(resourceTypes))
 	ackObservers := make(map[string]ResourceVersionAckObserver, len(resourceTypes))
 	for typeURL, resType := range resourceTypes {
-		w := NewResourceWatcher(logger, typeURL, resType.Source)
-		resType.Source.AddResourceVersionObserver(w)
-		watchers[typeURL] = w
+		sources[typeURL] = resType.Source
 
 		if resType.AckObserver != nil {
 			if restorerPromise != nil {
@@ -117,9 +115,7 @@ func NewServer(logger *slog.Logger, resourceTypes map[string]*ResourceTypeConfig
 		}
 	}
 
-	// TODO: Unregister the watchers when stopping the server.
-
-	return &Server{logger: logger, watchers: watchers, ackObservers: ackObservers, metrics: metrics}
+	return &Server{logger: logger, sources: sources, ackObservers: ackObservers, metrics: metrics}
 }
 
 func (s *Server) RestoreCompleted() {
@@ -263,7 +259,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 	reqCh <-chan *envoy_service_discovery.DiscoveryRequest, defaultTypeURL, afterTypeURL string,
 ) error {
 	// The request state for every type URL.
-	typeStates := make([]perTypeStreamState, len(s.watchers))
+	typeStates := make([]perTypeStreamState, len(s.sources))
 	defer func() {
 		for _, state := range typeStates {
 			if state.pendingWatchCancel != nil {
@@ -303,7 +299,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 	quietChValue := reflect.ValueOf(quietCh)
 
 	i := 0
-	for typeURL := range s.watchers {
+	for typeURL := range s.sources {
 		typeStates[i] = perTypeStreamState{
 			typeURL: typeURL,
 		}
@@ -418,7 +414,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 			}
 
 			state := &typeStates[index]
-			watcher := s.watchers[typeURL]
+			source := s.sources[typeURL]
 
 			if lastReceivedVersion > 0 {
 				// Non-zero lastReceivedVersion indicates that we have already sent
@@ -489,7 +485,15 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				"starting watch resources",
 				logfields.Resources, len(state.requestedResourceNames),
 			)
-			go watcher.WatchResourcesSotW(ctx, typeURL, lastReceivedVersion, lastAckedVersion, state.requestedResourceNames, interestExpanded, respCh)
+			go (sotwWatchRequest{
+				logger:              requestLog,
+				source:              source,
+				typeURL:             typeURL,
+				lastReceivedVersion: lastReceivedVersion,
+				lastAckedVersion:    lastAckedVersion,
+				resourceNames:       slices.Clone(state.requestedResourceNames),
+				interestExpanded:    interestExpanded,
+			}).run(ctx, respCh)
 			firstRequest = false
 
 		default: // Pending watch response.
@@ -668,7 +672,7 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 	reqCh <-chan *envoy_service_discovery.DeltaDiscoveryRequest, defaultTypeURL, afterTypeURL string,
 ) error {
 	// The request state for every type URL.
-	typeStates := make([]perDeltaTypeStreamState, len(s.watchers))
+	typeStates := make([]perDeltaTypeStreamState, len(s.sources))
 	defer func() {
 		for _, state := range typeStates {
 			if state.pendingWatchCancel != nil {
@@ -708,7 +712,7 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 	quietChValue := reflect.ValueOf(quietCh)
 
 	i := 0
-	for typeURL := range s.watchers {
+	for typeURL := range s.sources {
 		typeStates[i] = perDeltaTypeStreamState{
 			typeURL:            typeURL,
 			ackedResourceNames: make(map[string]struct{}),
@@ -857,7 +861,7 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 			slices.Sort(state.subscriptions)
 			state.subscriptions = slices.Compact(state.subscriptions)
 
-			watcher := s.watchers[typeURL]
+			source := s.sources[typeURL]
 
 			// We want to trigger HandleResourceVersionAck even for NACKs
 			if hasResponseNonce {
@@ -902,7 +906,17 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 				"starting watch resources",
 				logfields.Resources, len(state.subscriptions),
 			)
-			go watcher.WatchResourcesDelta(ctx, typeURL, lastReceivedVersion, state.lastAckedVersion, state.subscriptions, state.ackedResourceNames, subscribe, immediate, respCh)
+			go (deltaWatchRequest{
+				logger:              requestLog,
+				source:              source,
+				typeURL:             typeURL,
+				lastReceivedVersion: lastReceivedVersion,
+				lastAckedVersion:    state.lastAckedVersion,
+				subscriptions:       slices.Clone(state.subscriptions),
+				ackedResourceNames:  maps.Clone(state.ackedResourceNames),
+				forceResponseNames:  slices.Clone(subscribe),
+				immediate:           immediate,
+			}).run(ctx, respCh)
 			firstRequest = false
 
 		default: // Pending watch response.
