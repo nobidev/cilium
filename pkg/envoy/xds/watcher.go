@@ -84,9 +84,11 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 //
 // lastAckedVersion is the last version successfully applied by the
 // client; zero if this is the first request for resources.
+// interestExpanded indicates that the tracked request expanded and therefore needs
+// one immediate snapshot before waiting for a newer cache version.
 // This method call must always close the out channel.
 func (w *ResourceWatcher) WatchResourcesSotW(ctx context.Context, typeURL string, lastReceivedVersion, lastAckedVersion uint64,
-	resourceNames []string, out chan<- *VersionedResources) {
+	resourceNames []string, interestExpanded bool, out chan<- *VersionedResources) {
 	defer close(out)
 
 	scopedLog := w.logger.With(
@@ -96,17 +98,18 @@ func (w *ResourceWatcher) WatchResourcesSotW(ctx context.Context, typeURL string
 
 	var res *VersionedResources
 
-	var waitVersion uint64
-	var waitForVersion bool
-	if lastReceivedVersion != 0 {
-		waitForVersion = true
-		waitVersion = lastReceivedVersion
+	waitVersion := lastReceivedVersion
+	waitForVersion := !interestExpanded && lastReceivedVersion != 0
+
+	queryVersion := uint64(0)
+	if waitForVersion {
+		queryVersion = lastReceivedVersion
 	}
 
 	for ctx.Err() == nil && res == nil {
 		w.versionLocker.Lock()
 		// lastReceivedVersion == 0 indicates that this is a new stream and
-		// previouslyAckedVersion comes from previous instance of xDS client.
+		// lastAckedVersion comes from previous instance of xDS client.
 		// In this case, we artificially increase the version of the resource set
 		// to trigger sending a new version to the client.
 		if w.version <= lastAckedVersion && lastReceivedVersion == 0 {
@@ -118,6 +121,14 @@ func (w *ResourceWatcher) WatchResourcesSotW(ctx context.Context, typeURL string
 			// The w.HandleNewResourceVersion callback will update w.version to
 			// the new resource set version.
 			w.resourceSet.EnsureVersion(typeURL, lastAckedVersion+1)
+			w.versionLocker.Lock()
+		}
+		if interestExpanded && w.version <= lastReceivedVersion {
+			w.versionLocker.Unlock()
+			// When the requested resource set expands without any underlying cache
+			// update, bump the resource-set version once so the immediate response
+			// carries a fresh nonce/version for its different resource contents.
+			w.resourceSet.EnsureVersion(typeURL, lastReceivedVersion+1)
 			w.versionLocker.Lock()
 		}
 
@@ -143,7 +154,8 @@ func (w *ResourceWatcher) WatchResourcesSotW(ctx context.Context, typeURL string
 		scopedLog.Debug("getting resources from set",
 			logfields.Resources, len(resourceNames),
 		)
-		res = w.resourceSet.GetResources(typeURL, lastReceivedVersion, resourceNames)
+
+		res = w.resourceSet.GetResources(typeURL, queryVersion, resourceNames)
 	}
 
 	if res != nil {

@@ -212,6 +212,50 @@ type perTypeStreamState struct {
 	// resourceNames is the list of names of resources sent in the last
 	// response to a request for this resource type.
 	resourceNames []string
+
+	// requestedResourceNames is the normalized set of names requested in the
+	// last DiscoveryRequest for this resource type. Nil is the canonical form
+	// for "all resources".
+	requestedResourceNames []string
+}
+
+// updateRequestedResources updates the stored requested resource names and reports if the expressed
+// interest was expanded.
+func (s *perTypeStreamState) updateRequestedResources(current []string) bool {
+	// normalize 'current'
+	if len(current) == 0 {
+		current = nil
+	} else {
+		current = slices.Clone(current)
+		slices.Sort(current)
+		current = slices.Compact(current)
+	}
+
+	previous := s.requestedResourceNames
+	s.requestedResourceNames = current
+
+	// return true only if current is an expansion of interest in comparison to previous,
+	// as then an immediate response is required
+	if len(current) == 0 {
+		// all resources requested, this is an expansion of interest if previous interest
+		// was for a subset
+		return len(previous) > 0
+	}
+	if len(previous) == 0 {
+		return false
+	}
+
+	i := 0
+	for _, name := range current {
+		for i < len(previous) && previous[i] < name {
+			i++
+		}
+		if i == len(previous) || previous[i] != name {
+			// name not in previous, have expansion of interest
+			return true
+		}
+	}
+	return false
 }
 
 // processRequestStream processes the requests in an xDS stream from a channel.
@@ -433,6 +477,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				requestLog.Debug("canceling pending watch")
 				state.pendingWatchCancel()
 			}
+			interestExpanded := state.updateRequestedResources(req.GetResourceNames())
 
 			respCh := make(chan *VersionedResources, 1)
 			selectCases[index].Chan = reflect.ValueOf(respCh)
@@ -442,9 +487,9 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 
 			requestLog.Debug(
 				"starting watch resources",
-				logfields.Resources, len(req.GetResourceNames()),
+				logfields.Resources, len(state.requestedResourceNames),
 			)
-			go watcher.WatchResourcesSotW(ctx, typeURL, lastReceivedVersion, lastAckedVersion, req.GetResourceNames(), respCh)
+			go watcher.WatchResourcesSotW(ctx, typeURL, lastReceivedVersion, lastAckedVersion, state.requestedResourceNames, interestExpanded, respCh)
 			firstRequest = false
 
 		default: // Pending watch response.
