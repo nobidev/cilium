@@ -6,6 +6,7 @@ package envoy
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,17 +16,20 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // This test is not run in CI and is meant to be run locally when iterating on the Envoy (xDS) integration.
@@ -87,44 +91,78 @@ func (r *fakeRestorerPromise) WaitForInitialPolicy(_ context.Context) error {
 	return nil
 }
 
-func newStandaloneTestPolicyRepo(logger *slog.Logger) (*policy.Repository, *policy.L4Policy, policy.SelectorSnapshot) {
+func newStandaloneTestPolicyRepo(t *testing.T, logger *slog.Logger) (*policy.Repository, *identity.Identity) {
+	localIdentity := identity.NewIdentity(9001, labels.LabelArray{
+		labels.NewLabel("id", "a", labels.LabelSourceK8s),
+	}.Labels())
+	idCache := maps.Clone(IdentityCache)
+	idCache[localIdentity.ID] = localIdentity.LabelArray
+	idMgr := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(
 		logger,
-		IdentityCache,
+		idCache,
 		nil,
 		envoypolicy.NewEnvoyL7RulesTranslator(logger, nil),
-		nil,
+		idMgr,
 		testpolicy.NewPolicyMetricsNoop(),
 	)
+	idMgr.Add(localIdentity)
+	t.Cleanup(func() {
+		idMgr.Remove(localIdentity)
+	})
 
-	sc := repo.GetSelectorCache()
-	ingressSelector, _ := sc.AddIdentitySelectorForTest(dummySelectorCacheUser, EndpointSelector1)
-	egressSelector, _ := sc.AddIdentitySelectorForTest(dummySelectorCacheUser, EndpointSelector2)
-
-	l4Policy := &policy.L4Policy{
-		Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
-			"80/TCP": {
-				Port:     80,
-				Protocol: api.ProtoTCP,
-				U8Proto:  u8proto.TCP,
-				PerSelectorPolicies: policy.L7DataMap{
-					ingressSelector: L7Rules12,
-				},
+	rule := &api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=a")),
+		Ingress: []api.IngressRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{EndpointSelector1},
 			},
-		})},
-		Egress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
-			"8080/TCP": {
-				Port:     8080,
-				Protocol: api.ProtoTCP,
-				U8Proto:  u8proto.TCP,
-				PerSelectorPolicies: policy.L7DataMap{
-					egressSelector: L7Rules1,
+			ToPorts: []api.PortRule{{
+				Ports: []api.PortProtocol{{
+					Port:     "80",
+					Protocol: api.ProtoTCP,
+				}},
+				Rules: &api.L7Rules{
+					HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2},
 				},
+			}},
+		}},
+		Egress: []api.EgressRule{{
+			EgressCommonRule: api.EgressCommonRule{
+				ToEndpoints: []api.EndpointSelector{EndpointSelector2},
 			},
-		})},
+			ToPorts: []api.PortRule{{
+				Ports: []api.PortProtocol{{
+					Port:     "8080",
+					Protocol: api.ProtoTCP,
+				}},
+				Rules: &api.L7Rules{
+					HTTP: []api.PortRuleHTTP{*PortRuleHTTP1},
+				},
+			}},
+		}},
 	}
+	require.NoError(t, rule.Sanitize())
+	repo.MustAddList(api.Rules{rule})
 
-	return repo, l4Policy, sc.GetSelectorSnapshot()
+	return repo, localIdentity
+}
+
+func newStandaloneTestEndpointPolicy(t *testing.T, logger *slog.Logger, repo policy.PolicyRepository, localIdentity *identity.Identity) (*listenerProxyUpdaterMock, *policy.EndpointPolicy) {
+	policyOwner := &listenerProxyUpdaterMock{
+		ProxyUpdaterMock:   ep,
+		listenerProxyPorts: map[string]uint16{},
+	}
+	selPolicy, _, err := repo.GetSelectorPolicy(localIdentity, 0, &dummyPolicyStats{}, policyOwner.GetID())
+	require.NoError(t, err)
+
+	epp := selPolicy.DistillPolicy(logger, policyOwner, nil)
+	t.Cleanup(func() {
+		_ = epp.Ready()
+		epp.Detach(logger)
+	})
+
+	return policyOwner, epp
 }
 
 func TestEnvoy(t *testing.T) {
@@ -150,9 +188,10 @@ func TestEnvoy(t *testing.T) {
 
 	//logger := hivetest.Logger(t)
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-	repo, l4Policy, selectors := newStandaloneTestPolicyRepo(logger)
-	defer selectors.Invalidate()
+	repo, localIdentity := newStandaloneTestPolicyRepo(t, logger)
+	policyOwner, epp := newStandaloneTestEndpointPolicy(t, logger, repo, localIdentity)
 
+	secretManager := certificatemanager.NewMockSecretManagerInline()
 	xdsServer := newXDSServer(logger, nil, testipcache.NewMockIPCache(), repo, localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    GetSocketDir(testRunDir),
@@ -161,9 +200,9 @@ func TestEnvoy(t *testing.T) {
 			metrics:           xds.NewXDSMetric(),
 			useNPRDS:          true,
 		},
-		nil)
+		secretManager)
 	require.NotNil(t, xdsServer)
-	xdsServer.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, nil)
+	xdsServer.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
 
 	restorer := &fakeRestorerPromise{ch: make(chan bool)}
 	xdsServer.restorerPromise = restorer
@@ -246,9 +285,12 @@ func TestEnvoy(t *testing.T) {
 
 	// Push Network Policies with Selectors
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	err, _ = xdsServer.upsertNetworkPolicyLocked(ep, selectors, []string{"1.2.3.4"}, l4Policy,
-		true, true, xdsServer.config.useFullTLSContext, xdsServer.config.useSDS, "", s.waitGroup, nil, publishedNetworkPolicyState{})
+	var finalize func()
+	err, _, finalize = xdsServer.UpdateNetworkPolicy(policyOwner, epp, s.waitGroup)
 	require.NoError(t, err)
+	if finalize != nil {
+		finalize()
+	}
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 
@@ -295,17 +337,18 @@ func TestEnvoyNACK(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 
 	logger := hivetest.Logger(t)
-	repo, _, selectors := newStandaloneTestPolicyRepo(logger)
-	defer selectors.Invalidate()
+	repo, _ := newStandaloneTestPolicyRepo(t, logger)
 
+	secretManager := certificatemanager.NewMockSecretManagerInline()
 	xdsServer := newXDSServer(logger, nil, testipcache.NewMockIPCache(), repo, localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    GetSocketDir(testRunDir),
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
-		}, nil)
+		}, secretManager)
 	require.NotNil(t, xdsServer)
+	xdsServer.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
 
 	go func() {
 		err = xdsServer.start(t.Context())

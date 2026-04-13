@@ -49,8 +49,8 @@ func (s *xdsServer) startXDSGRPCServer(ctx context.Context, config map[string]*x
 	envoy_service_cluster.RegisterClusterDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_service_route.RegisterRouteDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_service_listener.RegisterListenerDiscoveryServiceServer(grpcServer, dsServer)
-	cilium.RegisterNetworkPolicyDiscoveryServiceServer(grpcServer, dsServer)
 	cilium.RegisterNetworkPolicyHostsDiscoveryServiceServer(grpcServer, dsServer)
+	cilium.RegisterNetworkPolicyDiscoveryServiceServer(grpcServer, dsServer)
 	cilium.RegisterNetworkPolicyResourceDiscoveryServiceServer(grpcServer, dsServer)
 
 	reflection.Register(grpcServer)

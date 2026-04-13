@@ -971,8 +971,9 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 		e.getLogger().Debug("Regenerate: Initial Envoy NetworkPolicy")
 
 		stats.proxyPolicyCalculation.Start()
-		// Initial NetworkPolicy is not reverted
-		err, _ = e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy, nil)
+		// Initial NetworkPolicy is assumed correct and is not reverted, so
+		// release any deferred selector ownership immediately after success.
+		err, _, finalize := e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy, nil)
 		stats.proxyPolicyCalculation.End(err == nil)
 		if err != nil {
 			e.getLogger().Warn(
@@ -981,6 +982,9 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 			)
 			// Do not error out so that the policy regeneration is tried again.
 			return nil, release
+		}
+		if finalize != nil {
+			finalize()
 		}
 	}
 

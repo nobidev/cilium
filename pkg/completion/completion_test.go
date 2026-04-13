@@ -214,6 +214,73 @@ func TestCompletionWaitCleanupNotCalledOnNormalCompletion(t *testing.T) {
 	require.False(t, cleaned)
 }
 
+func TestSharedResultFanout(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	result := NewSharedResult("")
+	wg1 := NewWaitGroup(ctx)
+	wg2 := NewWaitGroup(ctx)
+
+	callbacks := 0
+	result.AddWaiter(wg1, func(err error) {
+		require.NoError(t, err)
+		callbacks++
+	})
+	result.AddWaiter(wg2, func(err error) {
+		require.NoError(t, err)
+		callbacks++
+	})
+
+	result.Complete(nil)
+
+	require.NoError(t, wg1.Wait())
+	require.NoError(t, wg2.Wait())
+	require.Equal(t, 2, callbacks)
+}
+
+func TestSharedResultAddWaiterAfterCompletion(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	result := NewSharedResult("")
+	wantErr := errors.New("boom")
+	result.Complete(wantErr)
+
+	wg := NewWaitGroup(ctx)
+	result.AddWaiter(wg, nil)
+
+	err := wg.Wait()
+	require.ErrorIs(t, err, wantErr)
+}
+
+func TestSharedResultWaitCleanupOnTimeout(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	wgCtx, cancel := context.WithTimeout(ctx, WaitGroupTimeout)
+	defer cancel()
+
+	result := NewSharedResult("")
+	wg := NewWaitGroup(wgCtx)
+
+	callbacks := 0
+	result.AddWaiter(wg, func(err error) {
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		callbacks++
+	})
+
+	err := wg.Wait()
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Equal(t, 1, callbacks)
+
+	// The timed-out waiter must be detached from the shared result so it is not
+	// completed again later.
+	result.Complete(nil)
+	require.Equal(t, 1, callbacks)
+}
+
 func TestCompletionMultipleCompleteCalls(t *testing.T) {
 	var err error
 

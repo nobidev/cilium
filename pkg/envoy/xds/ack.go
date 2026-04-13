@@ -77,11 +77,6 @@ type AckingResourceMutator interface {
 	// method call.
 	Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc
 
-	// UseCurrent waits for ACK of the current cache version without mutating
-	// any resource. This is used when some other update in the same stream has
-	// already advanced the version, for example NPRDS selector-only updates.
-	UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup, callback func(error))
-
 	// DeleteNode frees resources held for the named node
 	DeleteNode(nodeID string)
 
@@ -302,26 +297,6 @@ func (m *AckingResourceMutatorWrapper) maybeAddCurrentVersionCompletion(wait boo
 	}
 }
 
-// UseCurrent waits for ACK of the current cache version without mutating any
-// resource. Callers use this when another update in the same stream has
-// already advanced the cache version and they only need the corresponding ACK.
-func (m *AckingResourceMutatorWrapper) UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) {
-	m.locker.Lock()
-	defer m.locker.Unlock()
-
-	wait := wg != nil
-
-	if m.restoring {
-		// Do not wait for acks when restoring state.
-		m.logger.Debug("UseCurrent: Restoring, skipping wait for ACK",
-			logfields.XDSTypeURL, typeURL,
-		)
-		wait = false
-	}
-
-	m.maybeAddCurrentVersionCompletion(wait, typeURL, nodeIDs, wg, callback)
-}
-
 // DeleteNode frees resources held for the named nodes
 func (m *AckingResourceMutatorWrapper) DeleteNode(nodeID string) {
 	m.locker.Lock()
@@ -394,9 +369,9 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	if !updated {
 		// Add a completion object for the current version so that the caller may
 		// wait for the N/ACK even when this particular resource is unchanged.
-		// NPRDS selector-only updates rely on this path: the policy resource can be
-		// byte-identical while the shared cache version has still advanced due to
-		// selector resources published in the same stream.
+		// This still matters for callers that reuse the low-level mutator
+		// directly and want an ACK for the current published version without
+		// changing the bytes stored under this resource name.
 		m.maybeAddCurrentVersionCompletion(wait, typeURL, nodeIDs, wg, callback)
 		return func() {}
 	}

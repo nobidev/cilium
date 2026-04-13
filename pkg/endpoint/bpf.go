@@ -1170,10 +1170,12 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 			e.getLogger().Debug("applyPolicyMapChanges: Updating Envoy NetworkPolicy")
 			stats.proxyPolicyCalculation.Start()
 			var rf revert.RevertFunc
-			err, rf = e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy, proxyWaitGroup)
+			var ff revert.FinalizeFunc
+			err, rf, ff = e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy, proxyWaitGroup)
 			stats.proxyPolicyCalculation.End(err == nil)
 			if err == nil {
 				datapathRegenCtxt.revertStack.Push(rf)
+				datapathRegenCtxt.finalizeList.Append(ff)
 			}
 		}
 	}
