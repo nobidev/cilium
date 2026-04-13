@@ -1494,6 +1494,90 @@ func TestDeltaEmptySubscriptionsBehaveAsWildcard(t *testing.T) {
 	}
 }
 
+func TestDeltaRestartedStreamEmptySubscriptionsBehaveAsWildcard(t *testing.T) {
+	logger := hivetest.Logger(t)
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	cache := NewCache(logger)
+	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
+	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
+
+	_, updated, _ := cache.Upsert(typeURL, resources[0].Name, resources[0])
+	require.True(t, updated)
+	_, updated, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
+	require.True(t, updated)
+
+	runStream := func() (*MockDeltaStream, context.CancelFunc, <-chan struct{}) {
+		streamCtx, closeStream := context.WithCancel(ctx)
+		stream := NewMockDeltaStream(streamCtx, 1, 1, StreamTimeout, noResponseTestStreamTimeout)
+
+		streamDone := make(chan struct{})
+		go func() {
+			defer close(streamDone)
+			err := server.HandleDeltaRequestStream(ctx, stream, AnyTypeURL, "")
+			require.NoError(t, err)
+		}()
+
+		return stream, closeStream, streamDone
+	}
+
+	stream, closeStream, streamDone := runStream()
+
+	req := &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl: typeURL,
+		Node:    nodes[node0],
+	}
+	err := stream.SendRequest(req)
+	require.NoError(t, err)
+
+	resp, err := stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "3", map[string]string{
+		resources[0].Name: "2",
+		resources[1].Name: "3",
+	}, nil)
+
+	closeStream()
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleDeltaRequestStream(%v, %v, %v) took too long to return after first stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+	stream.Close()
+
+	stream, closeStream, streamDone = runStream()
+	defer stream.Close()
+
+	req = &envoy_service_discovery.DeltaDiscoveryRequest{
+		TypeUrl: typeURL,
+		Node:    nodes[node0],
+		InitialResourceVersions: map[string]string{
+			resources[0].Name: "2",
+			resources[1].Name: "3",
+		},
+	}
+	err = stream.SendRequest(req)
+	require.NoError(t, err)
+
+	resp, err = stream.RecvResponse()
+	require.NoError(t, err)
+	requireDeltaResponse(t, resp, typeURL, "3", map[string]string{
+		resources[0].Name: "2",
+		resources[1].Name: "3",
+	}, nil)
+
+	closeStream()
+	select {
+	case <-ctx.Done():
+		t.Errorf("HandleDeltaRequestStream(%v, %v, %v) took too long to return after restarted stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
+
 func TestDeltaWildcardSubscriptionReturnsAllResources(t *testing.T) {
 	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
