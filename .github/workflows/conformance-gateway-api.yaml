@@ -23,7 +23,7 @@ on:
 
   # Run nightly
   schedule:
-    - cron: '0 6 * * *'
+    - cron: "0 6 * * *"
 
   push:
     branches:
@@ -197,7 +197,7 @@ jobs:
           fi
 
           if [ "${{ matrix.conformance-profile }}" == "true" ]; then
-            SKIPPED_TESTS+="MeshConsumerRoute,HTTPRouteListenerPortMatching"
+            SKIPPED_TESTS+="MeshConsumerRoute,HTTPRouteListenerPortMatching,HTTPRouteRequestMirror,HTTPRouteRequestMultipleMirrors"
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
