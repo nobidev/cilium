@@ -68,7 +68,31 @@ db/cmp devices --grep dummy devices_empty.table
 db/cmp routes routes_empty.table
 db/cmp neighbors neighbors_empty.table
 
+# Add dummy2 interface with altnames.
+db/insert devices device-dummy2.yaml
+
+# Verify lookup by primary name works.
+db/get devices --index=name --columns=Name dummy2
+stdout 'dummy2 \(altdummy, longinterfacename\)'
+
+# Verify lookup by the alternative name returns the device.
+db/get devices --index=name --columns=Name altdummy
+stdout 'dummy2 \(altdummy, longinterfacename\)'
+
+# Verify both altnames appear in the devices table.
+db/cmp --grep='^dummy2' devices devices_dummy2_altnames.table
+
 # ---------------------------------------------
+-- device-dummy2.yaml --
+index: 22
+name: dummy2
+altnames:
+  - altdummy
+  - longinterfacename
+addrs:
+  - addr: 192.168.2.12
+type: dummy
+operstatus: up
 
 -- devices_empty.table --
 Name   Selected   Type     Addresses     OperStatus
@@ -89,6 +113,9 @@ dummy1   true       dummy   192.168.1.1, 192.168.1.2   unknown
 -- devices_dummy1.table --
 Name     Selected   Type    Addresses                  OperStatus
 dummy1   true       dummy   192.168.1.1, 192.168.1.2   unknown
+-- devices_dummy2_altnames.table --
+Name                                  Selected   Type   Addresses     OperStatus
+dummy2 (altdummy, longinterfacename)  false      dummy  192.168.2.12  up
 -- devices_placeholder --
 
 
