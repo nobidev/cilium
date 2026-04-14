@@ -2,7 +2,28 @@ name: BPF Checks
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request: {}
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      UID:
+        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
+        required: false
+        default: 1
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
   push:
     branches:
       - main
@@ -10,13 +31,34 @@ on:
   merge_group:
     types: [checks_requested]
 
-permissions: read-all
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with cilium/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || github.event.merge_group && github.run_id }}
+  group: ${{ github.workflow }}-${{ inputs.PR-number || github.event.after || github.event.merge_group && github.run_id }}
   cancel-in-progress: ${{ !github.event.merge_group }}
 
 jobs:
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: cilium/cilium/.github/actions/set-commit-status@main
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
   check_changes:
     name: Deduce required tests from code changes
     runs-on: ubuntu-24.04
@@ -27,7 +69,7 @@ jobs:
       workflow-description: ${{ steps.changes.outputs.workflow-description }}
     steps:
       - name: Checkout code
-        if: ${{ !github.event.pull_request }}
+        if: ${{ !github.event.workflow_dispatch }}
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
@@ -37,7 +79,7 @@ jobs:
         id: changes
         with:
           # For `push` events, compare against the `ref` base branch
-          # For `pull_request` events, this is ignored and will compare against the pull request base branch
+          # For `workflow_dispatch` events, this is ignored and will compare against the pull request base branch
           base: ${{ github.ref }}
           filters: |
             bpf-tree:
@@ -59,7 +101,7 @@ jobs:
   checkpatch:
     name: Check Patch
     runs-on: ubuntu-24.04
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -70,7 +112,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          make -C bpf checkpatch || (echo "Run 'make -C bpf checkpatch' locally to investigate reports"; exit 1)
+          # GITHUB_REF needs to be set to a pull request ref for checkpatch.pl to be able to retrieve the patch from the GitHub API
+          GITHUB_REF=refs/pull/${{ inputs.PR-number }}/merge make -C bpf checkpatch || (echo "Run 'make -C bpf checkpatch' locally to investigate reports"; exit 1)
 
   # Runs only if code under bpf/ or contrib/coccinnelle/ is changed.
   coccicheck:
@@ -169,3 +212,18 @@ jobs:
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
           junit-directory: "cilium-junits"
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs:
+    - checkpatch
+    - coccicheck
+    - build_all
+    - bpf_tests
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      success: ${{ needs.checkpatch.result == 'success' && needs.coccicheck.result != 'failure' && needs.build_all.result != 'failure' && needs.bpf_tests.result != 'failure' }}

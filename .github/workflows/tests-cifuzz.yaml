@@ -3,14 +3,53 @@ on:
   schedule:
     # Run the Fuzzers every Monday at 7am
     - cron: '0 7 * * 1'
-  workflow_dispatch: {}
-  pull_request:
-    paths:
-      - '.github/workflows/tests-cifuzz.yaml'
-      - '**/fuzz_test.go'
-      - 'test/fuzzing/*'
-permissions: read-all
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      UID:
+        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
+        required: false
+        default: 1
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with cilium/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
+
 jobs:
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: cilium/cilium/.github/actions/set-commit-status@main
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
   Fuzzing:
     name: Build and Run Fuzzers
     runs-on: ubuntu-24.04
@@ -35,3 +74,14 @@ jobs:
       with:
         name: artifacts
         path: ./out/artifacts
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: Fuzzing
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      success: ${{ needs.Fuzzing.result == 'success' }}
