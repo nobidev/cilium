@@ -3692,6 +3692,28 @@ func testxdsServer(t *testing.T) *xdsServer {
 	return xds
 }
 
+func (s *xdsServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
+	resources := s.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, resourceNames)
+	networkPolicies := make(map[string]*cilium.NetworkPolicy, len(resources.VersionedResources))
+	for i := range resources.VersionedResources {
+		resource := resources.VersionedResources[i].Resource
+		var networkPolicy *cilium.NetworkPolicy
+		r, ok := resource.(*cilium.NetworkPolicyResource)
+		if ok && r != nil {
+			networkPolicy = r.GetPolicy()
+		} else {
+			networkPolicy = resources.VersionedResources[i].Resource.(*cilium.NetworkPolicy)
+		}
+		if networkPolicy == nil {
+			continue
+		}
+		for _, ip := range networkPolicy.EndpointIps {
+			networkPolicies[ip] = networkPolicy
+		}
+	}
+	return networkPolicies, nil
+}
+
 type spyAckingResourceMutator struct {
 	delegate    envoyxds.AckingResourceMutator
 	upsertCalls int

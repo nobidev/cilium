@@ -120,11 +120,6 @@ type XDSServer interface {
 	// responds.
 	DeleteEnvoyResources(ctx context.Context, resources Resources) error
 
-	// GetNetworkPolicies returns the current version of the network policies with the given names.
-	// If resourceNames is empty, all resources are returned.
-	//
-	// Only used for testing
-	GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error)
 	// UpdateNetworkPolicy adds or updates a network policy in the set published to L7 proxies.
 	// When the proxy acknowledges the network policy update, it will result in
 	// a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
@@ -2795,29 +2790,6 @@ func (s *xdsServer) RemoveAllNetworkPolicies() {
 	clear(s.publishedNetworkPolicies)
 	clear(s.pendingNetworkPolicyOperations)
 	clear(s.selectorRefs)
-}
-
-func (s *xdsServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
-	resources := s.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, resourceNames)
-	networkPolicies := make(map[string]*cilium.NetworkPolicy, len(resources.VersionedResources))
-	for i := range resources.VersionedResources {
-		resource := resources.VersionedResources[i].Resource
-		var networkPolicy *cilium.NetworkPolicy
-		r, ok := resource.(*cilium.NetworkPolicyResource)
-		if ok && r != nil {
-			networkPolicy = r.GetPolicy()
-		} else {
-			networkPolicy = resources.VersionedResources[i].Resource.(*cilium.NetworkPolicy)
-		}
-		// Skip non-network-policy resources
-		if networkPolicy == nil {
-			continue
-		}
-		for _, ip := range networkPolicy.EndpointIps {
-			networkPolicies[ip] = networkPolicy
-		}
-	}
-	return networkPolicies, nil
 }
 
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD
