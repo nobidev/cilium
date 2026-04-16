@@ -511,6 +511,51 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
+      - name: Debug steps
+        run: |
+          echo "Pods:"
+          kubectl get pods -o wide --all-namespaces
+          echo "External pods:"
+          kubectl get pods -o wide -l app=nginx --all-namespaces
+          echo "All nodes:"
+          kubectl get nodes -o wide
+          echo "External nodes:"
+          kubectl get nodes -o wide -l eks.amazonaws.com/nodegroup=ng-amd64-external
+          echo "Services:"
+          kubectl get services -o wide --all-namespaces
+          echo "Endpoints of the headless service:"
+          kubectl -n external get endpoints nginx -o wide
+          NODE=$(kubectl get nodes -o name -l eks.amazonaws.com/nodegroup=ng-amd64 | sed 's@.*/@@' | head -n 1)
+          echo "Scheduling curl pods on node $NODE"
+          echo "Trying to ping ${{ steps.external_targets.outputs.ipv4_external_target }}"
+          kubectl run curl-1 --rm --image=badouralix/curl-jq -i --overrides="{\"apiVersion\": \"v1\", \"spec\": {\"nodeName\": \"$NODE\"}}" -- sh -c 'sleep 10; ping -c3 ${{ steps.external_targets.outputs.ipv4_external_target }}' || echo "Exit code $?"
+          sleep 20
+          echo "Trying to curl http://${{ steps.external_targets.outputs.ipv4_external_target }}"
+          kubectl run curl-2 --rm --image=badouralix/curl-jq -i --overrides="{\"apiVersion\": \"v1\", \"spec\": {\"nodeName\": \"$NODE\"}}" -- sh -c 'sleep 10; curl -vv http://${{ steps.external_targets.outputs.ipv4_external_target }}' || echo "Exit code $?"
+          sleep 20
+          echo "Trying to nslookup ${{ steps.external_targets.outputs.external_target_name }}"
+          kubectl run curl-3 --rm --image=badouralix/curl-jq -i --overrides="{\"apiVersion\": \"v1\", \"spec\": {\"nodeName\": \"$NODE\"}}" -- sh -c 'sleep 10; nslookup ${{ steps.external_targets.outputs.external_target_name }}' || echo "Exit code $?"
+          sleep 20
+
+          echo "Applying the egress policy"
+          kubectl apply -f cilium-cli/connectivity/builder/manifests/client-egress-to-entities-world.yaml
+          
+          echo "Trying to curl http://${{ steps.external_targets.outputs.external_target_name }}"
+          kubectl run curl-4 --rm --image=badouralix/curl-jq -i --overrides="{\"apiVersion\": \"v1\", \"spec\": {\"nodeName\": \"$NODE\"}}" -- sh -c 'sleep 10; curl -vv http://${{ steps.external_targets.outputs.external_target_name }}' || echo "Exit code $?"
+          sleep 20
+          echo "Trying to ping ${{ steps.external_targets.outputs.ipv4_external_target }}"
+          kubectl run curl-5 --rm --image=badouralix/curl-jq -i --overrides="{\"apiVersion\": \"v1\", \"spec\": {\"nodeName\": \"$NODE\"}}" -- sh -c 'sleep 10; ping -c3 ${{ steps.external_targets.outputs.ipv4_external_target }}' || echo "Exit code $?"
+          sleep 20
+          echo "Trying to curl http://${{ steps.external_targets.outputs.ipv4_external_target }}"
+          kubectl run curl-6 --rm --image=badouralix/curl-jq -i --overrides="{\"apiVersion\": \"v1\", \"spec\": {\"nodeName\": \"$NODE\"}}" -- sh -c 'sleep 10; curl -vv http://${{ steps.external_targets.outputs.ipv4_external_target }}' || echo "Exit code $?"
+          sleep 20
+          echo "Trying to nslookup ${{ steps.external_targets.outputs.external_target_name }}"
+          kubectl run curl-7 --rm --image=badouralix/curl-jq -i --overrides="{\"apiVersion\": \"v1\", \"spec\": {\"nodeName\": \"$NODE\"}}" -- sh -c 'sleep 10; nslookup ${{ steps.external_targets.outputs.external_target_name }}' || echo "Exit code $?"
+          sleep 20
+          echo "Trying to curl http://${{ steps.external_targets.outputs.external_target_name }}"
+          kubectl run curl-8 --rm --image=badouralix/curl-jq -i --overrides="{\"apiVersion\": \"v1\", \"spec\": {\"nodeName\": \"$NODE\"}}" -- sh -c 'sleep 10; curl -vv http://${{ steps.external_targets.outputs.external_target_name }}' || echo "Exit code $?"
+          sleep 20
+
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
         id: run-tests
         run: |
