@@ -2694,6 +2694,13 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 		for _, ip := range ips {
 			oldEP := s.localEndpointStore.getLocalEndpoint(ip)
 			if oldEP != ep {
+				if oldEP != nil {
+					s.logger.Error("Duplicate endpoint IP detected while updating local endpoint store",
+						logfields.IPAddr, ip,
+						logfields.Old, oldEP.GetID(),
+						logfields.EndpointID, epID,
+					)
+				}
 				revertUpdatedEndpoints[ip] = oldEP
 				s.localEndpointStore.setLocalEndpoint(ip, ep)
 			}
