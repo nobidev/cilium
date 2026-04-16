@@ -1092,6 +1092,12 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (
 		metrics.EndpointDetachedSelectorPolicyTimeStats.WithLabelValues("incremental-update").Observe(time.Since(t).Seconds())
 	}
 
+	if !e.desiredPolicy.IsValid() {
+		// The endpoint has no computed policy yet, so it is pointless to try apply
+		// incremental changes on it.
+		return nil, nil, nil
+	}
+
 	regenCtx := regenerationContext{
 		datapathRegenerationContext: &datapathRegenerationContext{
 			proxyWaitGroup: proxyWaitGroup,

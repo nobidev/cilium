@@ -905,6 +905,38 @@ func TestMapStateWithIngress(t *testing.T) {
 	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
 }
 
+func TestConsumeMapChangesRefreshesStaleSelectorSnapshotWithoutMapChanges(t *testing.T) {
+	logger := hivetest.Logger(t)
+	td := newTestData(t, logger)
+
+	policy := &EndpointPolicy{
+		SelectorPolicy: &selectorPolicy{
+			SelectorCache: td.repo.GetSelectorCache(),
+		},
+		PolicyOwner: DummyOwner{logger: logger},
+		selectors:   td.sc.GetSelectorSnapshot(),
+	}
+
+	original := policy.GetPolicySelectors()
+	require.True(t, original.IsValid())
+
+	require.NoError(t, policy.Ready())
+	stale := policy.GetPolicySelectors()
+	require.False(t, stale.IsValid())
+
+	closer, changes := policy.ConsumeMapChanges()
+	require.Empty(t, changes.Adds)
+	require.Empty(t, changes.Deletes)
+
+	refreshed := policy.GetPolicySelectors()
+	require.True(t, refreshed.IsValid())
+	require.Equal(t, original.Revision, refreshed.Revision)
+
+	closer()
+	closed := policy.GetPolicySelectors()
+	require.False(t, closed.IsValid())
+}
+
 // allowsIdentity returns whether the specified policy allows
 // ingress and egress traffic for the specified numeric security identity.
 // If the 'secID' is zero, it will check if all traffic is allowed.

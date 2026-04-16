@@ -2565,30 +2565,6 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 	l4policy := &epp.SelectorPolicy.L4Policy
 	ingressPolicyEnforced := epp.SelectorPolicy.IngressPolicyEnabled
 	egressPolicyEnforced := epp.SelectorPolicy.EgressPolicyEnabled
-	selectors := epp.GetPolicySelectors()
-
-	// Error out if the selectors are no longer valid.
-	if !selectors.IsValid() {
-		return policy.ErrStaleSelectors, nil, nil
-	}
-
-	if s.policyRepo != nil {
-		// The policy depends on the selectors having been pushed to the xDS cache, so that
-		// when Envoy imports the policy, all the selectors it refers to are up-to-date.
-		// Selector updates are asynchronous, so wait on the selector updates to get to
-		// parity before continuing with the policy update. Incremental policy updates
-		// should not stall here, as that path already waits for the selector updates to
-		// have propagated to the xDS cache.
-		// Wait before taking xdsServer.mutex so selector publication can continue
-		// while a policy publication goroutine is blocked on the selector barrier.
-		if err := s.waitForSelectorRevision(selectors.Revision); err != nil {
-			return err, nil, nil
-		}
-	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	epID := ep.GetID()
 	ips := ep.GetPolicyNames()
 	if len(ips) == 0 {
@@ -2604,6 +2580,33 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 		)
 		return nil, nil, nil
 	}
+
+	selectors := epp.GetPolicySelectors()
+
+	s.mutex.Lock()
+	needPolicyRebuild := !s.canUseCurrentNetworkPolicyLocked(epID, epp, ips)
+	s.mutex.Unlock()
+
+	if needPolicyRebuild && !selectors.IsValid() {
+		return policy.ErrStaleSelectors, nil, nil
+	}
+
+	if needPolicyRebuild && s.policyRepo != nil {
+		// The policy depends on the selectors having been pushed to the xDS cache, so that
+		// when Envoy imports the policy, all the selectors it refers to are up-to-date.
+		// Selector updates are asynchronous, so wait on the selector updates to get to
+		// parity before continuing with the policy update. Incremental policy updates
+		// should not stall here, as that path already waits for the selector updates to
+		// have propagated to the xDS cache.
+		// Wait before taking xdsServer.mutex so selector publication can continue
+		// while a policy publication goroutine is blocked on the selector barrier.
+		if err := s.waitForSelectorRevision(selectors.Revision); err != nil {
+			return err, nil, nil
+		}
+	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	previous := s.publishedNetworkPolicies[epID]
 	newState := newPublishedNetworkPolicyState(epp, selectors.Revision, ips)

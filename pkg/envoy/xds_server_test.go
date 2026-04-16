@@ -3125,6 +3125,30 @@ func TestUpdateNetworkPolicyNPRDSRetainsRenderedSelectors(t *testing.T) {
 	require.Equal(t, policySelectorNames(policyResource), cachedSelectorNames(published.selectors))
 }
 
+func TestUpdateNetworkPolicyFastPathAllowsStaleSelectorSnapshotWhenUnchanged(t *testing.T) {
+	redirectEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
+		Id:   481,
+		Ipv4: "10.0.0.81",
+		Ipv6: "f00d::81",
+	}}
+	repo, _, epp := newFastPathTestEndpointPolicy(t, redirectEP)
+	xds, spy := newFastPathTestXDSServer(t, repo)
+
+	err, revert, _ := xds.UpdateNetworkPolicy(redirectEP, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+	require.Equal(t, 1, spy.upsertCalls)
+
+	require.NoError(t, epp.Ready())
+	stale := epp.GetPolicySelectors()
+	require.False(t, stale.IsValid())
+
+	err, revert, _ = xds.UpdateNetworkPolicy(redirectEP, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+	require.Equal(t, 1, spy.upsertCalls)
+}
+
 func TestNPRDSRetainedSelectorStaysLiveAfterEndpointPolicyDetach(t *testing.T) {
 	logger := hivetest.Logger(t)
 	redirectEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
