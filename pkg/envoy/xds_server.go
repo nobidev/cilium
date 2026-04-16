@@ -2555,6 +2555,7 @@ func (s *xdsServer) canUseCurrentNetworkPolicyLocked(endpointID uint64, epp *pol
 	return true
 }
 
+// UpdateNetworkPolicy returns nil revert/finalize func in case of a synchronous error
 func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy.EndpointPolicy, wg *completion.WaitGroup,
 ) (error, revert.RevertFunc, revert.FinalizeFunc) {
 	if epp == nil {
