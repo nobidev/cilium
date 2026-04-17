@@ -3762,10 +3762,6 @@ func (m *spyAckingResourceMutator) Upsert(typeURL string, resourceName string, r
 	return m.delegate.Upsert(typeURL, resourceName, resource, nodeIDs, wg, callback)
 }
 
-func (m *spyAckingResourceMutator) DeleteNode(nodeID string) {
-	m.delegate.DeleteNode(nodeID)
-}
-
 func (m *spyAckingResourceMutator) Delete(typeURL string, resourceName string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) envoyxds.AckingResourceMutatorRevertFunc {
 	return m.delegate.Delete(typeURL, resourceName, nodeIDs, wg, callback)
 }
