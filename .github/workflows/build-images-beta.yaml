@@ -80,10 +80,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
-      - name: Login to quay.io
+      - name: Login to ${{ env.REGISTRY_DEV }}
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
-          registry: quay.io
+          registry: ${{ env.REGISTRY_DEV }}
           username: ${{ secrets.QUAY_BETA_USERNAME }}
           password: ${{ secrets.QUAY_BETA_PASSWORD }}
 
@@ -96,7 +96,7 @@ jobs:
         id: tag-in-repositories
         shell: bash
         run: |
-          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }} &>/dev/null; then
+          if docker buildx imagetools inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }} &>/dev/null; then
             echo "Tag already exists!"
             exit 1
           fi
@@ -116,7 +116,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}
+            ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}
           target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -126,18 +126,18 @@ jobs:
 
       - name: Sign Container Image
         run: |
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${{ steps.docker_build_release.outputs.digest }}
+          cosign sign -y ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Generate SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
           artifact-name: sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx.json
           output-file: ./sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}
+          image: ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}
 
       - name: Attach SBOM attestation to container image
         run: |
-          cosign attest -y --predicate sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${{ steps.docker_build_release.outputs.digest }}
+          cosign attest -y --predicate sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx.json --type spdxjson ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Image Release Digest
         shell: bash
@@ -145,7 +145,7 @@ jobs:
           mkdir -p image-digest/
           echo "## ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
-          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
+          echo "\`${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
           echo "" >> image-digest/${{ matrix.name }}.txt
 
       # Upload artifact digests
