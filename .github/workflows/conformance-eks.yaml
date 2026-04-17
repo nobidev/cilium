@@ -284,7 +284,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-aws-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       - name: Make sure images available from cluster
@@ -301,7 +301,7 @@ jobs:
               spec:
                 containers:
                 - name: wait-for-images
-                  image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
+                  image: ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
                   command: ["true"]
                 tolerations:
                 - key: "node.cilium.io/agent-not-ready"
