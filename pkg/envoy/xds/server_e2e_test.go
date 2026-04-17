@@ -1712,7 +1712,7 @@ func TestDeltaNamedSubscriptionSurvivesWildcardUnsubscribe(t *testing.T) {
 	}
 }
 
-func TestDeltaInitialResourceVersionsIgnored(t *testing.T) {
+func TestDeltaInitialResourceVersionsRemoveStaleResourcesOnWildcardReconnect(t *testing.T) {
 	logger := hivetest.Logger(t)
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	metrics := newMockMetrics()
@@ -1739,10 +1739,12 @@ func TestDeltaInitialResourceVersionsIgnored(t *testing.T) {
 	}()
 
 	req := &envoy_service_discovery.DeltaDiscoveryRequest{
-		TypeUrl:                 typeURL,
-		Node:                    nodes[node0],
-		ResourceNamesSubscribe:  []string{resources[0].Name},
-		InitialResourceVersions: map[string]string{resources[0].Name: "999"},
+		TypeUrl: typeURL,
+		Node:    nodes[node0],
+		InitialResourceVersions: map[string]string{
+			resources[0].Name: "999",
+			"stale-resource":  "777",
+		},
 	}
 	err := stream.SendRequest(req)
 	require.NoError(t, err)
@@ -1751,7 +1753,7 @@ func TestDeltaInitialResourceVersionsIgnored(t *testing.T) {
 	require.NoError(t, err)
 	requireDeltaResponse(t, resp, typeURL, "2", map[string]string{
 		resources[0].Name: "2",
-	}, nil)
+	}, []string{"stale-resource"})
 
 	closeStream()
 

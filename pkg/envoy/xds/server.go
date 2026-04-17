@@ -838,10 +838,17 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 				}
 			}
 
-			// Delta xDS reconnect state from initial_resource_versions is ignored
-			// on purpose. Cilium does not preserve meaningful version continuity
-			// across streams or agent restarts, so a new stream should still
-			// receive the currently subscribed resources.
+			// The version values in initial_resource_versions are ignored on
+			// purpose. Cilium does not preserve meaningful version continuity across
+			// agent restarts, so a new stream should receive all the currently
+			// subscribed resources. We do, however, treat the names as the client's
+			// currently installed resources so the first response on a restarted stream
+			// can explicitly remove stale entries that no longer exist.
+			if !hasResponseNonce && state.pendingResponse == nil && state.nonce == "" {
+				for name := range req.GetInitialResourceVersions() {
+					state.ackedResourceNames[name] = struct{}{}
+				}
+			}
 			subscribe := req.GetResourceNamesSubscribe()
 			unsubscribe := req.GetResourceNamesUnsubscribe()
 			immediate := len(subscribe) > 0 || len(unsubscribe) > 0
