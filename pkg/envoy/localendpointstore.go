@@ -4,6 +4,8 @@
 package envoy
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 )
@@ -41,4 +43,19 @@ func (s *LocalEndpointStore) removeLocalEndpoint(endpointIP string) {
 	defer s.mutex.Unlock()
 
 	delete(s.networkPolicyEndpoints, endpointIP)
+}
+
+func (s *LocalEndpointStore) updateLocalEndpointStore(ep endpoint.EndpointUpdater, ips []string) []string {
+	var dups []string
+	for _, ip := range ips {
+		oldEP := s.getLocalEndpoint(ip)
+		if oldEP == ep {
+			continue // already there
+		}
+		if oldEP != nil {
+			dups = append(dups, fmt.Sprintf("IP: %s, OldEndpointID: %d", ip, oldEP.GetID()))
+		}
+		s.setLocalEndpoint(ip, ep)
+	}
+	return dups
 }

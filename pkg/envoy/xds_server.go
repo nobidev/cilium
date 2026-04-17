@@ -2555,16 +2555,89 @@ func (s *xdsServer) canUseCurrentNetworkPolicyLocked(endpointID uint64, epp *pol
 	return true
 }
 
+func (s *xdsServer) removePublishedNetworkPolicyLocked(endpointID uint64, endpointIPs []string) {
+	resourceName := strconv.FormatUint(endpointID, 10)
+	publishedState, hadPublishedState := s.publishedNetworkPolicies[endpointID]
+
+	// Safe to pass nodeIDs as nil when wg is also nil and the returned revert
+	// function is ignored.
+	s.networkPolicyResourceMutator.Delete(NetworkPolicyResourceTypeURL, resourceName, nil, nil, nil)
+
+	if hadPublishedState {
+		endpointIPs = append(endpointIPs, publishedState.policyNames...)
+	}
+
+	for _, ip := range endpointIPs {
+		if ip == "" {
+			continue
+		}
+
+		if oldEP := s.localEndpointStore.getLocalEndpoint(ip); oldEP != nil && oldEP.GetID() == endpointID {
+			s.localEndpointStore.removeLocalEndpoint(ip)
+		}
+	}
+
+	if hadPublishedState {
+		s.releaseSelectorsLocked(cachedSelectorSetValues(publishedState.selectors))
+	}
+	s.clearPendingNetworkPolicyOperationsLocked(endpointID)
+	delete(s.publishedNetworkPolicies, endpointID)
+}
+
+func (s *xdsServer) removeStaleDuplicateNetworkPoliciesLocked(ep endpoint.EndpointUpdater, ips []string) {
+	if len(ips) == 0 {
+		return
+	}
+
+	type stalePublishedPolicy struct {
+		endpointID uint64
+		policyIPs  []string
+		overlaps   []string
+	}
+
+	epID := ep.GetID()
+	var stalePolicies []stalePublishedPolicy
+	for otherEndpointID, publishedState := range s.publishedNetworkPolicies {
+		if otherEndpointID == epID || len(publishedState.policyNames) == 0 {
+			continue
+		}
+
+		var overlaps []string
+		for _, name := range publishedState.policyNames {
+			if slices.Contains(ips, name) {
+				overlaps = append(overlaps, name)
+			}
+		}
+
+		if len(overlaps) == 0 {
+			continue
+		}
+
+		stalePolicies = append(stalePolicies, stalePublishedPolicy{
+			endpointID: otherEndpointID,
+			policyIPs:  publishedState.policyNames,
+			overlaps:   overlaps,
+		})
+	}
+
+	for _, stale := range stalePolicies {
+		s.logger.Warn("Removing stale published network policy with duplicate endpoint IPs",
+			logfields.EndpointID, epID,
+			logfields.Old, stale.endpointID,
+			logfields.IPAddr, stale.overlaps,
+		)
+		s.removePublishedNetworkPolicyLocked(stale.endpointID, stale.policyIPs)
+	}
+}
+
 // UpdateNetworkPolicy returns nil revert/finalize func in case of a synchronous error
+// Called while the 'ep' is locked.
 func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy.EndpointPolicy, wg *completion.WaitGroup,
 ) (error, revert.RevertFunc, revert.FinalizeFunc) {
 	if epp == nil {
 		return ErrNilPolicy, nil, nil
 	}
 
-	l4policy := &epp.SelectorPolicy.L4Policy
-	ingressPolicyEnforced := epp.SelectorPolicy.IngressPolicyEnabled
-	egressPolicyEnforced := epp.SelectorPolicy.EgressPolicyEnabled
 	epID := ep.GetID()
 	ips := ep.GetPolicyNames()
 	if len(ips) == 0 {
@@ -2581,25 +2654,21 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 		return nil, nil, nil
 	}
 
+	l4policy := &epp.SelectorPolicy.L4Policy
+	ingressPolicyEnforced := epp.SelectorPolicy.IngressPolicyEnabled
+	egressPolicyEnforced := epp.SelectorPolicy.EgressPolicyEnabled
 	selectors := epp.GetPolicySelectors()
 
-	s.mutex.Lock()
-	needPolicyRebuild := !s.canUseCurrentNetworkPolicyLocked(epID, epp, ips)
-	s.mutex.Unlock()
-
-	if needPolicyRebuild && !selectors.IsValid() {
-		return policy.ErrStaleSelectors, nil, nil
-	}
-
-	if needPolicyRebuild && s.policyRepo != nil {
-		// The policy depends on the selectors having been pushed to the xDS cache, so that
-		// when Envoy imports the policy, all the selectors it refers to are up-to-date.
-		// Selector updates are asynchronous, so wait on the selector updates to get to
-		// parity before continuing with the policy update. Incremental policy updates
-		// should not stall here, as that path already waits for the selector updates to
-		// have propagated to the xDS cache.
-		// Wait before taking xdsServer.mutex so selector publication can continue
-		// while a policy publication goroutine is blocked on the selector barrier.
+	if s.policyRepo != nil {
+		// The policy depends on the selectors having been pushed to the xDS cache,
+		// so that when Envoy imports the policy, all the selectors it refers to are
+		// up-to-date.  Selector updates are asynchronous, so wait on the selector
+		// updates to get to parity before continuing with the policy
+		// update. Incremental policy updates should not stall here, as that path
+		// already waits for the selector updates to have propagated to the xDS
+		// cache.  Wait before taking xdsServer.mutex so selector publication can
+		// continue while a policy publication goroutine is blocked on the selector
+		// barrier.
 		if err := s.waitForSelectorRevision(selectors.Revision); err != nil {
 			return err, nil, nil
 		}
@@ -2607,6 +2676,18 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	// update Endpoint IPs for the access log correlation unconditionally, as any duplicates are
+	// evidence of a missing deletion or update. Log errors for any duplicates found.
+	dups := s.localEndpointStore.updateLocalEndpointStore(ep, ips)
+	if len(dups) > 0 {
+		s.logger.Error("Duplicate endpoint IP detected while updating local endpoint store",
+			logfields.EndpointID, ep.GetID(),
+			logfields.Info, dups,
+		)
+	}
+
+	s.removeStaleDuplicateNetworkPoliciesLocked(ep, ips)
 
 	previous := s.publishedNetworkPolicies[epID]
 	newState := newPublishedNetworkPolicyState(epp, selectors.Revision, ips)
@@ -2620,6 +2701,12 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 	if useCurrent {
 		newState.selectors = previous.selectors
 	} else {
+		// Selections are still needed for named port resolution, so error out on outdated
+		// selectors snapshot
+		if !selectors.IsValid() {
+			return policy.ErrStaleSelectors, nil, nil
+		}
+
 		referredSelectors := SelectorSet(nil)
 		var err error
 		resource, referredSelectors, err = s.buildNetworkPolicyResource(ep, selectors, ips, l4policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext, s.config.useSDS, s.secretManager.GetSecretSyncNamespace())
@@ -2692,36 +2779,6 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 		selectorWaitResult.AddWaiter(wg, callback)
 	}
 
-	if !useCurrent {
-		revertUpdatedEndpoints := make(map[string]endpoint.EndpointUpdater, len(ips))
-		for _, ip := range ips {
-			oldEP := s.localEndpointStore.getLocalEndpoint(ip)
-			if oldEP != ep {
-				if oldEP != nil {
-					s.logger.Error("Duplicate endpoint IP detected while updating local endpoint store",
-						logfields.IPAddr, ip,
-						logfields.Old, oldEP.GetID(),
-						logfields.EndpointID, epID,
-					)
-				}
-				revertUpdatedEndpoints[ip] = oldEP
-				s.localEndpointStore.setLocalEndpoint(ip, ep)
-			}
-		}
-
-		if len(revertUpdatedEndpoints) > 0 {
-			revertList = append(revertList, func() {
-				for ip, ep := range revertUpdatedEndpoints {
-					if ep == nil {
-						s.localEndpointStore.removeLocalEndpoint(ip)
-					} else {
-						s.localEndpointStore.setLocalEndpoint(ip, ep)
-					}
-				}
-			})
-		}
-	}
-
 	operation := &networkPolicyOperation{
 		id:               s.allocateNetworkPolicyOperationIDLocked(),
 		endpointID:       epID,
@@ -2763,26 +2820,7 @@ func (s *xdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	epID := ep.GetID()
-	resourceName := strconv.FormatUint(epID, 10)
-	publishedState, hadPublishedState := s.publishedNetworkPolicies[epID]
-
-	// Safe to pass nodeIDs as nil when wg is also nil and the returned revert
-	// function is ignored.
-	s.networkPolicyResourceMutator.Delete(NetworkPolicyResourceTypeURL, resourceName, nil, nil, nil)
-	ip := ep.GetIPv6Address()
-	if ip != "" {
-		s.localEndpointStore.removeLocalEndpoint(ip)
-	}
-	ip = ep.GetIPv4Address()
-	if ip != "" {
-		s.localEndpointStore.removeLocalEndpoint(ip)
-	}
-	if hadPublishedState {
-		s.releaseSelectorsLocked(cachedSelectorSetValues(publishedState.selectors))
-	}
-	s.clearPendingNetworkPolicyOperationsLocked(epID)
-	delete(s.publishedNetworkPolicies, epID)
+	s.removePublishedNetworkPolicyLocked(ep.GetID(), ep.GetPolicyNames())
 }
 
 func (s *xdsServer) RemoveAllNetworkPolicies() {
