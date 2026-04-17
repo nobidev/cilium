@@ -3632,7 +3632,61 @@ func TestRemoveNetworkPolicyClearsPublishedState(t *testing.T) {
 	require.Equal(t, 2, spy.upsertCalls)
 }
 
-func TestUpdateNetworkPolicyRemovesStalePublishedPolicyWithDuplicateIPs(t *testing.T) {
+func TestRemoveNetworkPolicyNACKDoesNotRestoreDeletedPolicy(t *testing.T) {
+	redirectEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
+		Id:   48,
+		Ipv4: "10.0.0.8",
+		Ipv6: "f00d::8",
+	}}
+	repo, _, epp := newFastPathTestEndpointPolicy(t, redirectEP)
+	xds, spy := newPolicyWaitTestXDSServer(t, repo)
+	enablePolicyAckWaits(xds)
+
+	wg := completion.NewWaitGroup(context.Background())
+	err, revert, _ := xds.UpdateNetworkPolicy(redirectEP, epp, wg)
+	require.NoError(t, err)
+	require.NotNil(t, revert)
+
+	resourceName := strconv.FormatUint(redirectEP.GetID(), 10)
+	current := xds.networkPolicyResourceCache.GetResources(NetworkPolicyResourceTypeURL, 0, nil)
+	require.NotNil(t, xds.networkPolicyResourceCache.Lookup(NetworkPolicyResourceTypeURL, resourceName))
+
+	done := make(chan error, 1)
+	go func() {
+		done <- wg.Wait()
+	}()
+
+	xds.RemoveNetworkPolicy(redirectEP)
+
+	require.Len(t, spy.calls, 2)
+	require.Equal(t, "delete", spy.calls[1].kind)
+	require.Equal(t, NetworkPolicyResourceTypeURL, spy.calls[1].typeURL)
+	require.Nil(t, xds.networkPolicyResourceCache.Lookup(NetworkPolicyResourceTypeURL, resourceName))
+	_, exists := xds.publishedNetworkPolicies[redirectEP.GetID()]
+	require.False(t, exists)
+	require.Empty(t, xds.pendingNetworkPolicyOperations[redirectEP.GetID()])
+
+	nodeID := getNodeIDs(redirectEP, &epp.SelectorPolicy.L4Policy)[0]
+	xds.resourceConfig[NetworkPolicyResourceTypeURL].AckObserver.HandleResourceVersionAck(current.Version-1, current.Version, nodeID, nil, NetworkPolicyResourceTypeURL, "post-delete nack")
+
+	err = <-done
+	require.Error(t, err)
+	var proxyErr *envoyxds.ProxyError
+	require.ErrorAs(t, err, &proxyErr)
+	require.Equal(t, envoyxds.ErrNackReceived, proxyErr.Err)
+
+	require.Nil(t, xds.networkPolicyResourceCache.Lookup(NetworkPolicyResourceTypeURL, resourceName))
+	_, exists = xds.publishedNetworkPolicies[redirectEP.GetID()]
+	require.False(t, exists)
+	require.Empty(t, xds.pendingNetworkPolicyOperations[redirectEP.GetID()])
+
+	require.NoError(t, revert())
+	require.Nil(t, xds.networkPolicyResourceCache.Lookup(NetworkPolicyResourceTypeURL, resourceName))
+	_, exists = xds.publishedNetworkPolicies[redirectEP.GetID()]
+	require.False(t, exists)
+}
+
+func TestUpdateNetworkPolicyPanicsOnDuplicateIPsInCachedPolicyResources(t *testing.T) {
 	oldEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
 		Id:   500,
 		Ipv4: "10.0.0.159",
@@ -3653,131 +3707,67 @@ func TestUpdateNetworkPolicyRemovesStalePublishedPolicyWithDuplicateIPs(t *testi
 	}}
 	newEPP := distillFastPathEndpointPolicy(t, repo, localIdentity, newEP)
 
-	err, revert, _ = xds.UpdateNetworkPolicy(newEP, newEPP, nil)
-	require.NoError(t, err)
-	require.NotNil(t, revert)
-	require.Equal(t, 2, spy.upsertCalls)
+	var recovered any
+	func() {
+		defer func() {
+			recovered = recover()
+		}()
 
-	_, exists := xds.publishedNetworkPolicies[oldEP.GetID()]
+		_, _, _ = xds.UpdateNetworkPolicy(newEP, newEPP, nil)
+	}()
+	require.NotNil(t, recovered)
+	panicErr, ok := recovered.(error)
+	require.True(t, ok)
+	require.ErrorContains(t, panicErr, "duplicate endpoint IPs detected in NPRDS cache")
+	require.ErrorContains(t, panicErr, strconv.FormatUint(oldEP.GetID(), 10))
+	require.ErrorContains(t, panicErr, strconv.FormatUint(newEP.GetID(), 10))
+	require.Equal(t, 1, spy.upsertCalls)
+	_, exists := xds.publishedNetworkPolicies[newEP.GetID()]
 	require.False(t, exists)
-	require.Same(t, newEPP, xds.publishedNetworkPolicies[newEP.GetID()].policy)
-
-	require.Nil(t, xds.networkPolicyResourceCache.Lookup(NetworkPolicyResourceTypeURL, strconv.FormatUint(oldEP.GetID(), 10)))
-	require.NotNil(t, xds.networkPolicyResourceCache.Lookup(NetworkPolicyResourceTypeURL, strconv.FormatUint(newEP.GetID(), 10)))
-
-	localEP := xds.localEndpointStore.getLocalEndpoint(oldEP.Ipv4)
-	require.NotNil(t, localEP)
-	require.Equal(t, newEP.GetID(), localEP.GetID())
-
-	deleteCalls := 0
-	for _, call := range spy.calls {
-		if call.kind == "delete" && call.typeURL == NetworkPolicyResourceTypeURL && call.resourceName == strconv.FormatUint(oldEP.GetID(), 10) {
-			deleteCalls++
-		}
-	}
-	require.Equal(t, 1, deleteCalls)
 }
 
-func TestUpdateNetworkPolicyFastPathRestoresLocalEndpointStoreAfterStaleDuplicateRemoval(t *testing.T) {
+func TestUpdateNetworkPolicyPanicsOnDuplicateIPsPresentOnlyInNPRDSCache(t *testing.T) {
 	currentEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
 		Id:   2766,
 		Ipv4: "10.0.0.159",
 		Ipv6: "fd00:10:244::ab0e",
 	}}
-	repo, localIdentity, currentEPP := newFastPathTestEndpointPolicy(t, currentEP)
+	repo, _, currentEPP := newFastPathTestEndpointPolicy(t, currentEP)
 	xds, spy := newFastPathTestXDSServer(t, repo)
-
-	err, revert, _ := xds.UpdateNetworkPolicy(currentEP, currentEPP, nil)
-	require.NoError(t, err)
-	require.NotNil(t, revert)
-	require.Equal(t, 1, spy.upsertCalls)
 
 	staleEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
 		Id:   500,
 		Ipv4: currentEP.Ipv4,
 		Ipv6: currentEP.Ipv6,
 	}}
-	staleEPP := distillFastPathEndpointPolicy(t, repo, localIdentity, staleEP)
-	xds.publishedNetworkPolicies[staleEP.GetID()] = newPublishedNetworkPolicyState(staleEPP, 0, staleEP.GetPolicyNames())
-	_, updated, _ := xds.networkPolicyResourceCache.Upsert(NetworkPolicyResourceTypeURL, strconv.FormatUint(staleEP.GetID(), 10), &cilium.NetworkPolicyResource{})
-	require.True(t, updated)
-	xds.localEndpointStore.setLocalEndpoint(staleEP.Ipv4, staleEP)
-	xds.localEndpointStore.setLocalEndpoint(staleEP.Ipv6, staleEP)
-
-	err, revert, _ = xds.UpdateNetworkPolicy(currentEP, currentEPP, nil)
-	require.NoError(t, err)
-	require.NotNil(t, revert)
-	require.Equal(t, 1, spy.upsertCalls)
-
-	_, exists := xds.publishedNetworkPolicies[staleEP.GetID()]
-	require.False(t, exists)
-	require.Nil(t, xds.networkPolicyResourceCache.Lookup(NetworkPolicyResourceTypeURL, strconv.FormatUint(staleEP.GetID(), 10)))
-
-	localEP := xds.localEndpointStore.getLocalEndpoint(currentEP.Ipv4)
-	require.NotNil(t, localEP)
-	require.Equal(t, currentEP.GetID(), localEP.GetID())
-	localEP = xds.localEndpointStore.getLocalEndpoint(currentEP.Ipv6)
-	require.NotNil(t, localEP)
-	require.Equal(t, currentEP.GetID(), localEP.GetID())
-
-	deleteCalls := 0
-	for _, call := range spy.calls {
-		if call.kind == "delete" && call.typeURL == NetworkPolicyResourceTypeURL && call.resourceName == strconv.FormatUint(staleEP.GetID(), 10) {
-			deleteCalls++
-		}
+	staleResource := &cilium.NetworkPolicyResource{
+		Resource: &cilium.NetworkPolicyResource_Policy{
+			Policy: &cilium.NetworkPolicy{
+				EndpointId:  staleEP.GetID(),
+				EndpointIps: staleEP.GetPolicyNames(),
+			},
+		},
 	}
-	require.Equal(t, 1, deleteCalls)
-}
-
-func TestUpdateNetworkPolicyRevertKeepsLocalEndpointStoreAfterStaleDuplicateRemoval(t *testing.T) {
-	currentEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
-		Id:   2766,
-		Ipv4: "10.0.0.159",
-		Ipv6: "fd00:10:244::ab0e",
-	}}
-	repo, localIdentity, currentEPP := newFastPathTestEndpointPolicy(t, currentEP)
-	xds, spy := newFastPathTestXDSServer(t, repo)
-
-	err, revert, _ := xds.UpdateNetworkPolicy(currentEP, currentEPP, nil)
-	require.NoError(t, err)
-	require.NotNil(t, revert)
-	require.Equal(t, 1, spy.upsertCalls)
-
-	staleEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
-		Id:   500,
-		Ipv4: currentEP.Ipv4,
-		Ipv6: currentEP.Ipv6,
-	}}
-	staleEPP := distillFastPathEndpointPolicy(t, repo, localIdentity, staleEP)
-	xds.publishedNetworkPolicies[staleEP.GetID()] = newPublishedNetworkPolicyState(staleEPP, 0, staleEP.GetPolicyNames())
-	_, updated, _ := xds.networkPolicyResourceCache.Upsert(NetworkPolicyResourceTypeURL, strconv.FormatUint(staleEP.GetID(), 10), &cilium.NetworkPolicyResource{})
+	_, updated, _ := xds.networkPolicyResourceCache.Upsert(NetworkPolicyResourceTypeURL, strconv.FormatUint(staleEP.GetID(), 10), staleResource)
 	require.True(t, updated)
-	xds.localEndpointStore.setLocalEndpoint(staleEP.Ipv4, staleEP)
-	xds.localEndpointStore.setLocalEndpoint(staleEP.Ipv6, staleEP)
 
-	refreshedCurrentEPP := distillFastPathEndpointPolicy(t, repo, localIdentity, currentEP)
-	err, revert, _ = xds.UpdateNetworkPolicy(currentEP, refreshedCurrentEPP, nil)
-	require.NoError(t, err)
-	require.NotNil(t, revert)
-	require.Equal(t, 2, spy.upsertCalls)
+	var recovered any
+	func() {
+		defer func() {
+			recovered = recover()
+		}()
 
-	localEP := xds.localEndpointStore.getLocalEndpoint(currentEP.Ipv4)
-	require.NotNil(t, localEP)
-	require.Equal(t, currentEP.GetID(), localEP.GetID())
-	localEP = xds.localEndpointStore.getLocalEndpoint(currentEP.Ipv6)
-	require.NotNil(t, localEP)
-	require.Equal(t, currentEP.GetID(), localEP.GetID())
-
-	require.NoError(t, revert())
-
-	localEP = xds.localEndpointStore.getLocalEndpoint(currentEP.Ipv4)
-	require.NotNil(t, localEP)
-	require.Equal(t, currentEP.GetID(), localEP.GetID())
-	localEP = xds.localEndpointStore.getLocalEndpoint(currentEP.Ipv6)
-	require.NotNil(t, localEP)
-	require.Equal(t, currentEP.GetID(), localEP.GetID())
-
-	require.Nil(t, xds.networkPolicyResourceCache.Lookup(NetworkPolicyResourceTypeURL, strconv.FormatUint(staleEP.GetID(), 10)))
+		_, _, _ = xds.UpdateNetworkPolicy(currentEP, currentEPP, nil)
+	}()
+	require.NotNil(t, recovered)
+	panicErr, ok := recovered.(error)
+	require.True(t, ok)
+	require.ErrorContains(t, panicErr, "duplicate endpoint IPs detected in NPRDS cache")
+	require.ErrorContains(t, panicErr, strconv.FormatUint(staleEP.GetID(), 10))
+	require.ErrorContains(t, panicErr, strconv.FormatUint(currentEP.GetID(), 10))
+	require.Equal(t, 0, spy.upsertCalls)
+	_, exists := xds.publishedNetworkPolicies[currentEP.GetID()]
+	require.False(t, exists)
 }
 
 func TestUpdateNetworkPolicyWaitsOnCanonicalNPRDSWhenNPDSListenersPresent(t *testing.T) {

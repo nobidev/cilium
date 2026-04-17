@@ -255,6 +255,29 @@ type networkPolicyOperation struct {
 	failed           bool
 }
 
+type cachedNetworkPolicyOwner struct {
+	resourceName string
+	endpointID   uint64
+	endpointIPs  []string
+}
+
+type duplicateNetworkPolicyIPsError struct {
+	resourceName string
+	endpointID   uint64
+	endpointIPs  []string
+	details      []string
+}
+
+func (e *duplicateNetworkPolicyIPsError) Error() string {
+	return fmt.Sprintf(
+		"duplicate endpoint IPs detected in NPRDS cache for incoming policy resource %q (endpoint_id %d, endpoint_ips %v): %v",
+		e.resourceName,
+		e.endpointID,
+		e.endpointIPs,
+		e.details,
+	)
+}
+
 type selectorPublication struct {
 	revision policy.SelectorRevision
 	version  uint64
@@ -2559,6 +2582,11 @@ func (s *xdsServer) removePublishedNetworkPolicyLocked(endpointID uint64, endpoi
 	resourceName := strconv.FormatUint(endpointID, 10)
 	publishedState, hadPublishedState := s.publishedNetworkPolicies[endpointID]
 
+	// Forget any pending per-endpoint operation bookkeeping before deleting the
+	// shared NPRDS cache entry so later NACK-driven revert/finalize callbacks
+	// cannot resurrect a policy that has already been removed.
+	s.clearPendingNetworkPolicyOperationsLocked(endpointID)
+
 	// Safe to pass nodeIDs as nil when wg is also nil and the returned revert
 	// function is ignored.
 	s.networkPolicyResourceMutator.Delete(NetworkPolicyResourceTypeURL, resourceName, nil, nil, nil)
@@ -2580,53 +2608,91 @@ func (s *xdsServer) removePublishedNetworkPolicyLocked(endpointID uint64, endpoi
 	if hadPublishedState {
 		s.releaseSelectorsLocked(cachedSelectorSetValues(publishedState.selectors))
 	}
-	s.clearPendingNetworkPolicyOperationsLocked(endpointID)
 	delete(s.publishedNetworkPolicies, endpointID)
 }
 
-func (s *xdsServer) removeStaleDuplicateNetworkPoliciesLocked(ep endpoint.EndpointUpdater, ips []string) {
-	if len(ips) == 0 {
-		return
+func (s *xdsServer) detectDuplicateNetworkPolicyIPsLocked(resourceName string, endpointID uint64, endpointIPs []string) error {
+	current := s.networkPolicyResourceCache.GetResources(NetworkPolicyResourceTypeURL, 0, nil)
+	if current == nil {
+		return nil
 	}
 
-	type stalePublishedPolicy struct {
-		endpointID uint64
-		policyIPs  []string
-		overlaps   []string
+	ownersByIP := make(map[string]cachedNetworkPolicyOwner)
+	duplicateDetails := make([]string, 0)
+	seenDetails := make(map[string]struct{})
+	addDetail := func(detail string) {
+		if _, exists := seenDetails[detail]; exists {
+			return
+		}
+		seenDetails[detail] = struct{}{}
+		duplicateDetails = append(duplicateDetails, detail)
 	}
 
-	epID := ep.GetID()
-	var stalePolicies []stalePublishedPolicy
-	for otherEndpointID, publishedState := range s.publishedNetworkPolicies {
-		if otherEndpointID == epID || len(publishedState.policyNames) == 0 {
+	for _, versioned := range current.VersionedResources {
+		networkPolicyResource, ok := versioned.Resource.(*cilium.NetworkPolicyResource)
+		if !ok || networkPolicyResource == nil {
+			continue
+		}
+		networkPolicy := networkPolicyResource.GetPolicy()
+		if networkPolicy == nil {
 			continue
 		}
 
-		var overlaps []string
-		for _, name := range publishedState.policyNames {
-			if slices.Contains(ips, name) {
-				overlaps = append(overlaps, name)
+		owner := cachedNetworkPolicyOwner{
+			resourceName: versioned.Name,
+			endpointID:   networkPolicy.GetEndpointId(),
+			endpointIPs:  slices.Clone(networkPolicy.GetEndpointIps()),
+		}
+		for _, ip := range owner.endpointIPs {
+			if ip == "" {
+				continue
 			}
+			if previousOwner, exists := ownersByIP[ip]; exists && previousOwner.resourceName != owner.resourceName {
+				addDetail(fmt.Sprintf(
+					"cache contains duplicate endpoint IP %q in policy resource %q (endpoint_id %d, endpoint_ips %v) and policy resource %q (endpoint_id %d, endpoint_ips %v)",
+					ip,
+					previousOwner.resourceName,
+					previousOwner.endpointID,
+					previousOwner.endpointIPs,
+					owner.resourceName,
+					owner.endpointID,
+					owner.endpointIPs,
+				))
+				continue
+			}
+			ownersByIP[ip] = owner
 		}
-
-		if len(overlaps) == 0 {
-			continue
-		}
-
-		stalePolicies = append(stalePolicies, stalePublishedPolicy{
-			endpointID: otherEndpointID,
-			policyIPs:  publishedState.policyNames,
-			overlaps:   overlaps,
-		})
 	}
 
-	for _, stale := range stalePolicies {
-		s.logger.Warn("Removing stale published network policy with duplicate endpoint IPs",
-			logfields.EndpointID, epID,
-			logfields.Old, stale.endpointID,
-			logfields.IPAddr, stale.overlaps,
-		)
-		s.removePublishedNetworkPolicyLocked(stale.endpointID, stale.policyIPs)
+	for _, ip := range endpointIPs {
+		if ip == "" {
+			continue
+		}
+		owner, exists := ownersByIP[ip]
+		if !exists || owner.resourceName == resourceName {
+			continue
+		}
+		addDetail(fmt.Sprintf(
+			"incoming policy resource %q (endpoint_id %d, endpoint_ips %v) conflicts on endpoint IP %q with cached policy resource %q (endpoint_id %d, endpoint_ips %v)",
+			resourceName,
+			endpointID,
+			endpointIPs,
+			ip,
+			owner.resourceName,
+			owner.endpointID,
+			owner.endpointIPs,
+		))
+	}
+
+	if len(duplicateDetails) == 0 {
+		return nil
+	}
+
+	return &duplicateNetworkPolicyIPsError{
+		resourceName: resourceName,
+		endpointID:   endpointID,
+		endpointIPs:  slices.Clone(endpointIPs),
+		details:      duplicateDetails,
 	}
 }
 
@@ -2677,6 +2743,20 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	nodeIDs := getNodeIDs(ep, l4policy)
+	resourceName := strconv.FormatUint(epID, 10)
+
+	if err := s.detectDuplicateNetworkPolicyIPsLocked(resourceName, epID, ips); err != nil {
+		s.logger.Error("Duplicate endpoint IP detected in NPRDS cache during network policy update",
+			logfields.EndpointID, epID,
+			logfields.XDSResourceName, resourceName,
+			logfields.Name, ips,
+			logfields.Error, err,
+		)
+		panic(err)
+		//return err, nil, nil
+	}
+
 	// update Endpoint IPs for the access log correlation unconditionally, as any duplicates are
 	// evidence of a missing deletion or update. Log errors for any duplicates found.
 	dups := s.localEndpointStore.updateLocalEndpointStore(ep, ips)
@@ -2687,14 +2767,9 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 		)
 	}
 
-	s.removeStaleDuplicateNetworkPoliciesLocked(ep, ips)
-
 	previous := s.publishedNetworkPolicies[epID]
 	newState := newPublishedNetworkPolicyState(epp, selectors.Revision, ips)
 	lastPendingOperation := s.lastPendingNetworkPolicyOperationLocked(epID)
-
-	nodeIDs := getNodeIDs(ep, l4policy)
-	resourceName := strconv.FormatUint(epID, 10)
 
 	useCurrent := s.canUseCurrentNetworkPolicyLocked(epID, epp, ips)
 	var resource proto.Message
