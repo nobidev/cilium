@@ -661,10 +661,45 @@ type perDeltaTypeStreamState struct {
 	subscriptions []string
 
 	// Nonce sent in the last response, if any.
+	// Non-empty means this exact response is still awaiting ACK/NACK.
 	nonce string
 
-	// pendingResponse is the last responsse sent for this resource type.
+	// pendingResponse is the last response sent for this resource type.
 	pendingResponse *VersionedResources
+
+	// deferredImmediate records that a nonce-less request updated subscriptions
+	// while a previous response for this type was still awaiting ACK/NACK.
+	deferredImmediate bool
+
+	// deferredForceResponseNames tracks newly subscribed resources received
+	// while a previous response for this type was still awaiting ACK/NACK.
+	// These names must be force-sent in the first response after that
+	// outstanding response is ACKed or NACKed.
+	deferredForceResponseNames []string
+}
+
+func addSortedUniqueStrings(dst []string, names []string) []string {
+	if len(names) == 0 {
+		return dst
+	}
+
+	dst = append(dst, names...)
+	slices.Sort(dst)
+	return slices.Compact(dst)
+}
+
+func removeSortedUniqueStrings(dst []string, names []string) []string {
+	if len(dst) == 0 || len(names) == 0 {
+		return dst
+	}
+
+	for _, name := range names {
+		if i, found := slices.BinarySearch(dst, name); found {
+			dst = slices.Delete(dst, i, i+1)
+		}
+	}
+
+	return dst
 }
 
 // processDeltaRequestStream processes the requests in an xDS stream from a channel.
@@ -794,66 +829,97 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 			state := &typeStates[index]
 
 			responseNonce := req.GetResponseNonce()
-			hasResponseNonce := responseNonce != ""
-			if hasResponseNonce && responseNonce != state.nonce {
-				requestLog.Error("invalid response nonce in delta xDS request",
-					logfields.ResponseNonce, responseNonce,
-					logfields.Expected, state.nonce,
-				)
-				return ErrInvalidResponseNonce
-			}
-			if !hasResponseNonce && req.GetErrorDetail() != nil {
-				requestLog.Error("delta xDS request carries error detail without a response nonce")
-				return ErrInvalidResponseNonce
+			errorDetail := req.GetErrorDetail()
+			detail := ""
+			if errorDetail != nil {
+				detail = errorDetail.Message // can be empty
 			}
 
 			var lastReceivedVersion uint64
-			if hasResponseNonce {
-				var err error
-				lastReceivedVersion, err = strconv.ParseUint(responseNonce, 10, 64)
-				if err != nil {
-					requestLog.Error("invalid response nonce in delta xDS request, not a uint64",
+			var ackedResponse *VersionedResources
+
+			if responseNonce == "" {
+				if errorDetail != nil {
+					requestLog.Warn("delta xDS request carries error detail without a response nonce")
+					return ErrInvalidResponseNonce
+				}
+
+				// The version values in initial_resource_versions are ignored on
+				// purpose. Cilium does not preserve meaningful version continuity
+				// across agent restarts, so a new stream should receive all the
+				// currently subscribed resources. We do, however, treat the names
+				// as the client's currently installed resources so the first
+				// response on a restarted stream can explicitly remove stale
+				// entries that no longer exist.
+				if state.pendingResponse == nil && state.nonce == "" {
+					for name := range req.GetInitialResourceVersions() {
+						state.ackedResourceNames[name] = struct{}{}
+					}
+				}
+			} else { // has responseNonce
+				if state.nonce == "" {
+					requestLog.Warn("delta xDS request carries a response nonce but no response is awaiting ACK/NACK",
 						logfields.ResponseNonce, responseNonce,
 					)
 					return ErrInvalidResponseNonce
 				}
-			}
+				if responseNonce != state.nonce {
+					requestLog.Warn("invalid response nonce in delta xDS request",
+						logfields.ResponseNonce, responseNonce,
+						logfields.Expected, state.nonce,
+					)
+					return ErrInvalidResponseNonce
+				}
 
-			var detail string
-			errorDetail := req.GetErrorDetail()
-			if errorDetail == nil && hasResponseNonce {
-				state.lastAckedVersion = lastReceivedVersion
-				// update ACKed resource names
-				if state.pendingResponse != nil {
-					for _, name := range state.pendingResponse.RemovedNames {
+				ackedResponse = state.pendingResponse
+				if ackedResponse == nil {
+					requestLog.Error("delta xDS stream state missing pending response for outstanding nonce",
+						logfields.ResponseNonce, responseNonce,
+					)
+					return ErrInvalidResponseNonce
+				}
+				lastReceivedVersion = ackedResponse.Version
+
+				if errorDetail == nil {
+					state.lastAckedVersion = lastReceivedVersion
+					for _, name := range ackedResponse.RemovedNames {
 						delete(state.ackedResourceNames, name)
 					}
-					for _, vr := range state.pendingResponse.VersionedResources {
+					for _, vr := range ackedResponse.VersionedResources {
 						state.ackedResourceNames[vr.Name] = struct{}{}
 					}
 				}
-			} else {
-				if errorDetail != nil {
-					detail = errorDetail.Message // can be empty
+
+				// response is now accepted, a new request may be sent
+				state.nonce = ""
+
+				ackObserver := s.ackObservers[typeURL]
+				if ackObserver != nil {
+					requestLog.Debug("notifying observers of ACKs")
+					var observerNames []string
+					for i := range ackedResponse.VersionedResources {
+						observerNames = append(observerNames, ackedResponse.VersionedResources[i].Name)
+					}
+					ackObserver.HandleResourceVersionAck(state.lastAckedVersion, lastReceivedVersion, nodeIP, observerNames, typeURL, detail)
+				} else {
+					requestLog.Info("ACK or NACK received but no observers are waiting for ACKs")
+				}
+				if errorDetail != nil && state.lastAckedVersion < lastReceivedVersion {
+					s.metrics.IncreaseNACK(typeURL)
+					// versions after lastAckedVersion, upto and including
+					// lastReceivedVersion were NACKed
+					requestLog.Warn(
+						"delta xDS NACK received for versions between the reported version up to the response nonce; waiting for a version update before sending again",
+						logfields.XDSDetail, detail,
+					)
 				}
 			}
 
-			// The version values in initial_resource_versions are ignored on
-			// purpose. Cilium does not preserve meaningful version continuity across
-			// agent restarts, so a new stream should receive all the currently
-			// subscribed resources. We do, however, treat the names as the client's
-			// currently installed resources so the first response on a restarted stream
-			// can explicitly remove stale entries that no longer exist.
-			if !hasResponseNonce && state.pendingResponse == nil && state.nonce == "" {
-				for name := range req.GetInitialResourceVersions() {
-					state.ackedResourceNames[name] = struct{}{}
-				}
-			}
+			// update subscriptions
 			subscribe := req.GetResourceNamesSubscribe()
 			unsubscribe := req.GetResourceNamesUnsubscribe()
 			immediate := len(subscribe) > 0 || len(unsubscribe) > 0
 
-			// update subscriptions
 			for _, name := range unsubscribe {
 				i, exists := slices.BinarySearch(state.subscriptions, name)
 				if exists {
@@ -868,33 +934,27 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 			slices.Sort(state.subscriptions)
 			state.subscriptions = slices.Compact(state.subscriptions)
 
+			state.deferredForceResponseNames = removeSortedUniqueStrings(state.deferredForceResponseNames, unsubscribe)
+
+			if state.nonce != "" {
+				// response is pending, defer any immediate responses
+				if immediate {
+					state.deferredImmediate = true
+				}
+				state.deferredForceResponseNames = addSortedUniqueStrings(state.deferredForceResponseNames, subscribe)
+				firstRequest = false
+				continue
+			}
+
+			// state.nonce == "" : either immediate response of a watch must be created
+
 			source := s.sources[typeURL]
 
-			// We want to trigger HandleResourceVersionAck even for NACKs
-			if hasResponseNonce {
-				ackObserver := s.ackObservers[typeURL]
-				if ackObserver != nil {
-					requestLog.Debug("notifying observers of ACKs")
-					var names []string
-					if state.pendingResponse != nil {
-						for i := range state.pendingResponse.VersionedResources {
-							names = append(names, state.pendingResponse.VersionedResources[i].Name)
-						}
-					}
-					ackObserver.HandleResourceVersionAck(state.lastAckedVersion, lastReceivedVersion, nodeIP, names, typeURL, detail)
-				} else {
-					requestLog.Info("ACK received but no observers are waiting for ACKs")
-				}
-				if errorDetail != nil && state.lastAckedVersion < lastReceivedVersion {
-					s.metrics.IncreaseNACK(typeURL)
-					// versions after lastAckedVersion, upto and including
-					// lastReceivedVersion were NACKed
-					requestLog.Warn(
-						"delta xDS NACK received for versions between the reported version up to the response nonce; waiting for a version update before sending again",
-						logfields.XDSDetail, detail,
-					)
-				}
-			}
+			// fold in any deferred immediate state
+			immediate = immediate || state.deferredImmediate || len(state.deferredForceResponseNames) > 0
+			state.deferredImmediate = false
+			subscribe = addSortedUniqueStrings(subscribe, state.deferredForceResponseNames)
+			state.deferredForceResponseNames = nil
 
 			if state.pendingWatchCancel != nil {
 				// A pending watch exists for this type URL. Cancel it to
@@ -921,7 +981,7 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 				lastAckedVersion:    state.lastAckedVersion,
 				subscriptions:       slices.Clone(state.subscriptions),
 				ackedResourceNames:  maps.Clone(state.ackedResourceNames),
-				forceResponseNames:  slices.Clone(subscribe),
+				forceResponseNames:  subscribe,
 				immediate:           immediate,
 			}).run(ctx, respCh)
 			firstRequest = false
