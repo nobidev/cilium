@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -213,18 +214,18 @@ type xdsServer struct {
 	runCtx    context.Context
 	runCancel context.CancelFunc
 
-	// publishedNetworkPolicies tracks the exact policy inputs last published for
+	// publishedNPDSs tracks the exact policy inputs last published for
 	// each endpoint so UpdateNetworkPolicy() can skip protobuf regeneration
 	// safely when both the xDS resource and its endpoint-local inputs are
 	// unchanged.
-	publishedNetworkPolicies map[uint64]publishedNetworkPolicyState
-	// pendingNetworkPolicyOperations keeps the unresolved per-endpoint update
+	publishedNPDSs map[uint64]publishedNetworkPolicyState
+	// pendingNPDSOps keeps the unresolved per-endpoint update
 	// chain since the last committed success so overlapping updates can either
 	// commit or unwind safely.
-	pendingNetworkPolicyOperations map[uint64][]*networkPolicyOperation
-	pendingSelectorPublications    []*selectorPublication
-	nextNetworkPolicyOperationID   uint64
-	selectorRefs                   map[policy.CachedSelector]int
+	pendingNPDSOps               map[uint64][]*networkPolicyOperation
+	pendingSelectorPublications  []*selectorPublication
+	nextNetworkPolicyOperationID uint64
+	selectorRefs                 map[policy.CachedSelector]int
 
 	selectorResourceRevision   policy.SelectorRevision
 	selectorRevisionCh         chan struct{}
@@ -251,31 +252,8 @@ type networkPolicyOperation struct {
 	// removedSelectors keep the previous state restorable until the operation is
 	// either committed or superseded.
 	removedSelectors policy.CachedSelectorSlice
-	revertList       xds.AckingResourceMutatorRevertFuncList
+	revert           xds.AckingResourceMutatorRevertFunc
 	failed           bool
-}
-
-type cachedNetworkPolicyOwner struct {
-	resourceName string
-	endpointID   uint64
-	endpointIPs  []string
-}
-
-type duplicateNetworkPolicyIPsError struct {
-	resourceName string
-	endpointID   uint64
-	endpointIPs  []string
-	details      []string
-}
-
-func (e *duplicateNetworkPolicyIPsError) Error() string {
-	return fmt.Sprintf(
-		"duplicate endpoint IPs detected in NPRDS cache for incoming policy resource %q (endpoint_id %d, endpoint_ips %v): %v",
-		e.resourceName,
-		e.endpointID,
-		e.endpointIPs,
-		e.details,
-	)
 }
 
 type selectorPublication struct {
@@ -546,15 +524,13 @@ func (s *xdsServer) cancelPendingNetworkPolicyCompletions() {
 	s.cancelSelectorPublications()
 }
 
-func newNetworkPolicyUpdateCallback(ep endpoint.EndpointUpdater, policyRevision uint64, expected int) func(error) {
+func newNPDSUpdateCallback(ep endpoint.EndpointUpdater, policyRevision uint64, expected int) func(error) {
 	if expected == 0 {
 		return nil
 	}
 
-	var (
-		mutex     lock.Mutex
-		remaining = expected
-	)
+	var remaining atomic.Int32
+	remaining.Store(int32(expected))
 
 	return func(err error) {
 		if err != nil {
@@ -563,15 +539,17 @@ func newNetworkPolicyUpdateCallback(ep endpoint.EndpointUpdater, policyRevision 
 
 		// Successful ACKs and completion cancellations both complete with a nil
 		// error, so both cases reduce the remaining expected completion count.
-		mutex.Lock()
-		defer mutex.Unlock()
-
-		if remaining == 0 {
-			return
-		}
-		remaining--
-		if remaining == 0 {
-			go ep.OnProxyPolicyUpdate(policyRevision)
+		for {
+			current := remaining.Load()
+			if current == 0 {
+				return
+			}
+			if remaining.CompareAndSwap(current, current-1) {
+				if current == 1 {
+					go ep.OnProxyPolicyUpdate(policyRevision)
+				}
+				return
+			}
 		}
 	}
 }
@@ -609,16 +587,16 @@ type xdsServerConfig struct {
 func newXDSServer(logger *slog.Logger, restorerPromise promise.Promise[endpointstate.Restorer], ipCache IPCacheEventSource, policyRepo policy.PolicyRepository, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager) *xdsServer {
 	runCtx, runCancel := context.WithCancel(context.Background())
 	xdsServer := &xdsServer{
-		logger:                         logger,
-		restorerPromise:                restorerPromise,
-		listenerCount:                  make(map[string]uint),
-		npdsListeners:                  make(npdsListenersTracker),
-		publishedNetworkPolicies:       make(map[uint64]publishedNetworkPolicyState),
-		pendingNetworkPolicyOperations: make(map[uint64][]*networkPolicyOperation),
-		selectorRefs:                   make(map[policy.CachedSelector]int),
-		ipCache:                        ipCache,
-		policyRepo:                     policyRepo,
-		localEndpointStore:             localEndpointStore,
+		logger:             logger,
+		restorerPromise:    restorerPromise,
+		listenerCount:      make(map[string]uint),
+		npdsListeners:      make(npdsListenersTracker),
+		publishedNPDSs:     make(map[uint64]publishedNetworkPolicyState),
+		pendingNPDSOps:     make(map[uint64][]*networkPolicyOperation),
+		selectorRefs:       make(map[policy.CachedSelector]int),
+		ipCache:            ipCache,
+		policyRepo:         policyRepo,
+		localEndpointStore: localEndpointStore,
 
 		socketPath:         getXDSSocketPath(config.envoySocketDir),
 		config:             config,
@@ -2422,20 +2400,20 @@ func newPublishedNetworkPolicyState(epp *policy.EndpointPolicy, selectorRevision
 
 func (s *xdsServer) restorePublishedNetworkPolicyStateLocked(endpointID uint64, previous publishedNetworkPolicyState) {
 	if previous.policy != nil {
-		s.publishedNetworkPolicies[endpointID] = previous
+		s.publishedNPDSs[endpointID] = previous
 		return
 	}
 
-	delete(s.publishedNetworkPolicies, endpointID)
+	delete(s.publishedNPDSs, endpointID)
 }
 
-func (s *xdsServer) allocateNetworkPolicyOperationIDLocked() uint64 {
+func (s *xdsServer) allocateNPDSOpIDLocked() uint64 {
 	s.nextNetworkPolicyOperationID++
 	return s.nextNetworkPolicyOperationID
 }
 
 func (s *xdsServer) findNetworkPolicyOperationLocked(endpointID, operationID uint64) ([]*networkPolicyOperation, int) {
-	operations := s.pendingNetworkPolicyOperations[endpointID]
+	operations := s.pendingNPDSOps[endpointID]
 	for i, operation := range operations {
 		if operation.id == operationID {
 			return operations, i
@@ -2445,14 +2423,14 @@ func (s *xdsServer) findNetworkPolicyOperationLocked(endpointID, operationID uin
 }
 
 func (s *xdsServer) lastPendingNetworkPolicyOperationLocked(endpointID uint64) *networkPolicyOperation {
-	operations := s.pendingNetworkPolicyOperations[endpointID]
+	operations := s.pendingNPDSOps[endpointID]
 	if len(operations) == 0 {
 		return nil
 	}
 	return operations[len(operations)-1]
 }
 
-func (s *xdsServer) finalizeNetworkPolicyOperationLocked(epID uint64, operationId uint64) {
+func (s *xdsServer) finalizeNPDSOpLocked(epID uint64, operationId uint64) {
 	operations, operationIndex := s.findNetworkPolicyOperationLocked(epID, operationId)
 	if operationIndex < 0 {
 		// operation was already finalized/reverted/removed
@@ -2466,13 +2444,13 @@ func (s *xdsServer) finalizeNetworkPolicyOperationLocked(epID uint64, operationI
 
 	// clean up
 	if operationIndex+1 == len(operations) {
-		delete(s.pendingNetworkPolicyOperations, epID)
+		delete(s.pendingNPDSOps, epID)
 		return
 	}
-	s.pendingNetworkPolicyOperations[epID] = operations[operationIndex+1:]
+	s.pendingNPDSOps[epID] = operations[operationIndex+1:]
 }
 
-func (s *xdsServer) revertNetworkPolicyOperationLocked(epID uint64, opId uint64) {
+func (s *xdsServer) revertNPDSOpLocked(epID uint64, opId uint64) {
 	operations, operationIndex := s.findNetworkPolicyOperationLocked(epID, opId)
 	if operationIndex < 0 {
 		// operation was already finalized/reverted/removed
@@ -2486,7 +2464,9 @@ func (s *xdsServer) revertNetworkPolicyOperationLocked(epID uint64, opId uint64)
 	for len(operations) > 0 && operations[len(operations)-1].failed {
 		operation := operations[len(operations)-1]
 
-		operation.revertList.Revert()
+		if operation.revert != nil {
+			operation.revert()
+		}
 
 		s.restorePublishedNetworkPolicyStateLocked(epID, operation.previous)
 		s.releaseSelectorsLocked(operation.addedSelectors)
@@ -2494,18 +2474,18 @@ func (s *xdsServer) revertNetworkPolicyOperationLocked(epID uint64, opId uint64)
 	}
 
 	if len(operations) == 0 {
-		delete(s.pendingNetworkPolicyOperations, epID)
+		delete(s.pendingNPDSOps, epID)
 		return
 	}
 
-	s.pendingNetworkPolicyOperations[epID] = operations
+	s.pendingNPDSOps[epID] = operations
 }
 
 func (s *xdsServer) clearPendingNetworkPolicyOperationsLocked(endpointID uint64) {
-	for _, operation := range s.pendingNetworkPolicyOperations[endpointID] {
+	for _, operation := range s.pendingNPDSOps[endpointID] {
 		s.releaseSelectorsLocked(operation.removedSelectors)
 	}
-	delete(s.pendingNetworkPolicyOperations, endpointID)
+	delete(s.pendingNPDSOps, endpointID)
 }
 
 func (s *xdsServer) retainSelectorsLocked(selectors policy.CachedSelectorSlice) error {
@@ -2565,7 +2545,7 @@ func (s *xdsServer) releaseSelectorsLocked(selectors policy.CachedSelectorSlice)
 }
 
 func (s *xdsServer) canUseCurrentNetworkPolicyLocked(endpointID uint64, epp *policy.EndpointPolicy, ips []string) bool {
-	previous, ok := s.publishedNetworkPolicies[endpointID]
+	previous, ok := s.publishedNPDSs[endpointID]
 	if !ok {
 		return false
 	}
@@ -2580,7 +2560,7 @@ func (s *xdsServer) canUseCurrentNetworkPolicyLocked(endpointID uint64, epp *pol
 
 func (s *xdsServer) removePublishedNetworkPolicyLocked(endpointID uint64, endpointIPs []string) {
 	resourceName := strconv.FormatUint(endpointID, 10)
-	publishedState, hadPublishedState := s.publishedNetworkPolicies[endpointID]
+	publishedState, hadPublishedState := s.publishedNPDSs[endpointID]
 
 	// Forget any pending per-endpoint operation bookkeeping before deleting the
 	// shared NPRDS cache entry so later NACK-driven revert/finalize callbacks
@@ -2608,92 +2588,7 @@ func (s *xdsServer) removePublishedNetworkPolicyLocked(endpointID uint64, endpoi
 	if hadPublishedState {
 		s.releaseSelectorsLocked(cachedSelectorSetValues(publishedState.selectors))
 	}
-	delete(s.publishedNetworkPolicies, endpointID)
-}
-
-func (s *xdsServer) detectDuplicateNetworkPolicyIPsLocked(resourceName string, endpointID uint64, endpointIPs []string) error {
-	current := s.networkPolicyResourceCache.GetResources(NetworkPolicyResourceTypeURL, 0, nil)
-	if current == nil {
-		return nil
-	}
-
-	ownersByIP := make(map[string]cachedNetworkPolicyOwner)
-	duplicateDetails := make([]string, 0)
-	seenDetails := make(map[string]struct{})
-	addDetail := func(detail string) {
-		if _, exists := seenDetails[detail]; exists {
-			return
-		}
-		seenDetails[detail] = struct{}{}
-		duplicateDetails = append(duplicateDetails, detail)
-	}
-
-	for _, versioned := range current.VersionedResources {
-		networkPolicyResource, ok := versioned.Resource.(*cilium.NetworkPolicyResource)
-		if !ok || networkPolicyResource == nil {
-			continue
-		}
-		networkPolicy := networkPolicyResource.GetPolicy()
-		if networkPolicy == nil {
-			continue
-		}
-
-		owner := cachedNetworkPolicyOwner{
-			resourceName: versioned.Name,
-			endpointID:   networkPolicy.GetEndpointId(),
-			endpointIPs:  slices.Clone(networkPolicy.GetEndpointIps()),
-		}
-		for _, ip := range owner.endpointIPs {
-			if ip == "" {
-				continue
-			}
-			if previousOwner, exists := ownersByIP[ip]; exists && previousOwner.resourceName != owner.resourceName {
-				addDetail(fmt.Sprintf(
-					"cache contains duplicate endpoint IP %q in policy resource %q (endpoint_id %d, endpoint_ips %v) and policy resource %q (endpoint_id %d, endpoint_ips %v)",
-					ip,
-					previousOwner.resourceName,
-					previousOwner.endpointID,
-					previousOwner.endpointIPs,
-					owner.resourceName,
-					owner.endpointID,
-					owner.endpointIPs,
-				))
-				continue
-			}
-			ownersByIP[ip] = owner
-		}
-	}
-
-	for _, ip := range endpointIPs {
-		if ip == "" {
-			continue
-		}
-		owner, exists := ownersByIP[ip]
-		if !exists || owner.resourceName == resourceName {
-			continue
-		}
-		addDetail(fmt.Sprintf(
-			"incoming policy resource %q (endpoint_id %d, endpoint_ips %v) conflicts on endpoint IP %q with cached policy resource %q (endpoint_id %d, endpoint_ips %v)",
-			resourceName,
-			endpointID,
-			endpointIPs,
-			ip,
-			owner.resourceName,
-			owner.endpointID,
-			owner.endpointIPs,
-		))
-	}
-
-	if len(duplicateDetails) == 0 {
-		return nil
-	}
-
-	return &duplicateNetworkPolicyIPsError{
-		resourceName: resourceName,
-		endpointID:   endpointID,
-		endpointIPs:  slices.Clone(endpointIPs),
-		details:      duplicateDetails,
-	}
+	delete(s.publishedNPDSs, endpointID)
 }
 
 // UpdateNetworkPolicy returns nil revert/finalize func in case of a synchronous error
@@ -2743,20 +2638,6 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	nodeIDs := getNodeIDs(ep, l4policy)
-	resourceName := strconv.FormatUint(epID, 10)
-
-	if err := s.detectDuplicateNetworkPolicyIPsLocked(resourceName, epID, ips); err != nil {
-		s.logger.Error("Duplicate endpoint IP detected in NPRDS cache during network policy update",
-			logfields.EndpointID, epID,
-			logfields.XDSResourceName, resourceName,
-			logfields.Name, ips,
-			logfields.Error, err,
-		)
-		panic(err)
-		//return err, nil, nil
-	}
-
 	// update Endpoint IPs for the access log correlation unconditionally, as any duplicates are
 	// evidence of a missing deletion or update. Log errors for any duplicates found.
 	dups := s.localEndpointStore.updateLocalEndpointStore(ep, ips)
@@ -2767,28 +2648,55 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 		)
 	}
 
-	previous := s.publishedNetworkPolicies[epID]
-	newState := newPublishedNetworkPolicyState(epp, selectors.Revision, ips)
+	previous := s.publishedNPDSs[epID]
 	lastPendingOperation := s.lastPendingNetworkPolicyOperationLocked(epID)
 
-	useCurrent := s.canUseCurrentNetworkPolicyLocked(epID, epp, ips)
-	var resource proto.Message
-	if useCurrent {
-		newState.selectors = previous.selectors
-	} else {
-		// Selections are still needed for named port resolution, so error out on outdated
-		// selectors snapshot
-		if !selectors.IsValid() {
-			return policy.ErrStaleSelectors, nil, nil
-		}
+	waitForAck := wg != nil && !s.npdsListeners.Empty()
 
-		referredSelectors := SelectorSet(nil)
-		var err error
-		resource, referredSelectors, err = s.buildNetworkPolicyResource(ep, selectors, ips, l4policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext, s.config.useSDS, s.secretManager.GetSecretSyncNamespace())
-		if err != nil {
-			return err, nil, nil
+	if s.canUseCurrentNetworkPolicyLocked(epID, epp, ips) {
+		if waitForAck {
+			piggybackPendingResult := lastPendingOperation != nil &&
+				lastPendingOperation.result != nil
+
+			var selectorWaitResult *completion.SharedResult
+			if previous.selectorRevision != selectors.Revision {
+				selectorWaitResult = s.selectorPublicationResultLocked(selectors.Revision)
+			}
+
+			waitCount := 0
+			if piggybackPendingResult {
+				waitCount++
+			}
+			if selectorWaitResult != nil {
+				waitCount++
+			}
+
+			callback := newNPDSUpdateCallback(ep, l4policy.Revision, waitCount)
+
+			if piggybackPendingResult {
+				lastPendingOperation.result.AddWaiter(wg, callback)
+			}
+			if selectorWaitResult != nil {
+				selectorWaitResult.AddWaiter(wg, callback)
+			}
 		}
-		newState.selectors = referredSelectors
+		return nil, nil, nil
+	}
+
+	var resource proto.Message
+	var operation *networkPolicyOperation
+	newState := newPublishedNetworkPolicyState(epp, selectors.Revision, ips)
+
+	// Selections are still needed for named port resolution, so error out on outdated
+	// selectors snapshot
+	if !selectors.IsValid() {
+		return policy.ErrStaleSelectors, nil, nil
+	}
+
+	var err error
+	resource, newState.selectors, err = s.buildNetworkPolicyResource(ep, selectors, ips, l4policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext, s.config.useSDS, s.secretManager.GetSecretSyncNamespace())
+	if err != nil {
+		return err, nil, nil
 	}
 
 	addedSelectors, removedSelectors := previous.selectors.diff(newState.selectors)
@@ -2796,76 +2704,36 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 		return err, nil, nil
 	}
 
-	waitForAck := wg != nil && !s.npdsListeners.Empty()
-	piggybackPendingResult := waitForAck &&
-		useCurrent &&
-		lastPendingOperation != nil &&
-		lastPendingOperation.result != nil
-	var selectorWaitResult *completion.SharedResult
-	if waitForAck &&
-		useCurrent &&
-		previous.selectorRevision != selectors.Revision {
-		selectorWaitResult = s.selectorPublicationResultLocked(selectors.Revision)
-	}
-
-	policyWaitNeeded := waitForAck && !useCurrent
-
-	waitCount := 0
-	if policyWaitNeeded {
-		waitCount++
-	}
-	if piggybackPendingResult {
-		waitCount++
-	}
-	if selectorWaitResult != nil {
-		waitCount++
-	}
-	callback := newNetworkPolicyUpdateCallback(ep, l4policy.Revision, waitCount)
-
 	var result *completion.SharedResult
-	if policyWaitNeeded {
+	var typeWG *completion.WaitGroup
+	var typeCallback func(error)
+	if waitForAck {
+		callback := newNPDSUpdateCallback(ep, l4policy.Revision, 1)
 		result = completion.NewSharedResult(fmt.Sprintf("network-policy endpoint:%d", epID))
-	}
-
-	revertList := make(xds.AckingResourceMutatorRevertFuncList, 0, 2)
-	if !useCurrent {
-		var typeWG *completion.WaitGroup
-		var typeCallback func(error)
-		if policyWaitNeeded {
-			typeWG = wg
-			typeCallback = func(err error) {
-				result.Complete(err)
-				if callback != nil {
-					callback(err)
-				}
-			}
-		}
-
-		revert := s.networkPolicyResourceMutator.Upsert(NetworkPolicyResourceTypeURL, resourceName, resource, nodeIDs, typeWG, typeCallback)
-		if revert != nil {
-			revertList = append(revertList, revert)
+		typeWG = wg
+		typeCallback = func(err error) {
+			result.Complete(err)
+			callback(err)
 		}
 	}
 
-	if piggybackPendingResult {
-		lastPendingOperation.result.AddWaiter(wg, callback)
-	}
-	if selectorWaitResult != nil {
-		selectorWaitResult.AddWaiter(wg, callback)
-	}
+	nodeIDs := getNodeIDs(ep, l4policy)
+	resourceName := strconv.FormatUint(epID, 10)
 
-	operation := &networkPolicyOperation{
-		id:               s.allocateNetworkPolicyOperationIDLocked(),
+	revert := s.networkPolicyResourceMutator.Upsert(NetworkPolicyResourceTypeURL, resourceName, resource, nodeIDs, typeWG, typeCallback)
+
+	operation = &networkPolicyOperation{
+		id:               s.allocateNPDSOpIDLocked(),
 		endpointID:       epID,
 		previous:         previous,
 		result:           result,
 		addedSelectors:   addedSelectors,
 		removedSelectors: removedSelectors,
-		revertList:       revertList,
+		revert:           revert,
 	}
 
-	s.pendingNetworkPolicyOperations[epID] = append(s.pendingNetworkPolicyOperations[epID], operation)
-	s.publishedNetworkPolicies[epID] = newState
+	s.pendingNPDSOps[epID] = append(s.pendingNPDSOps[epID], operation)
+	s.publishedNPDSs[epID] = newState
 
 	return nil, func() error {
 			s.logger.Debug("Reverting xDS network policy update",
@@ -2876,7 +2744,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 			s.mutex.Lock()
 			defer s.mutex.Unlock()
 
-			s.revertNetworkPolicyOperationLocked(epID, operation.id)
+			s.revertNPDSOpLocked(epID, operation.id)
 			return nil
 		}, func() {
 			s.logger.Debug("Finalizing xDS network policy update",
@@ -2887,7 +2755,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 			s.mutex.Lock()
 			defer s.mutex.Unlock()
 
-			s.finalizeNetworkPolicyOperationLocked(epID, operation.id)
+			s.finalizeNPDSOpLocked(epID, operation.id)
 		}
 }
 
@@ -2903,14 +2771,14 @@ func (s *xdsServer) RemoveAllNetworkPolicies() {
 	defer s.mutex.Unlock()
 
 	s.networkPolicyResourceCache.Clear(NetworkPolicyResourceTypeURL)
-	for _, publishedState := range s.publishedNetworkPolicies {
+	for _, publishedState := range s.publishedNPDSs {
 		s.releaseSelectorsLocked(cachedSelectorSetValues(publishedState.selectors))
 	}
-	for endpointID := range s.pendingNetworkPolicyOperations {
+	for endpointID := range s.pendingNPDSOps {
 		s.clearPendingNetworkPolicyOperationsLocked(endpointID)
 	}
-	clear(s.publishedNetworkPolicies)
-	clear(s.pendingNetworkPolicyOperations)
+	clear(s.publishedNPDSs)
+	clear(s.pendingNPDSOps)
 	clear(s.selectorRefs)
 }
 

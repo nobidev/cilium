@@ -3117,7 +3117,7 @@ func TestUpdateNetworkPolicyNPRDSRetainsRenderedSelectors(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, revert)
 
-	published := xds.publishedNetworkPolicies[redirectEP.GetID()]
+	published := xds.publishedNPDSs[redirectEP.GetID()]
 	resource := xds.networkPolicyResourceCache.Lookup(NetworkPolicyResourceTypeURL, strconv.FormatUint(redirectEP.GetID(), 10))
 	require.NotNil(t, resource)
 	policyResource := resource.(*cilium.NetworkPolicyResource).GetPolicy()
@@ -3145,7 +3145,7 @@ func TestUpdateNetworkPolicyFastPathAllowsStaleSelectorSnapshotWhenUnchanged(t *
 
 	err, revert, _ = xds.UpdateNetworkPolicy(redirectEP, epp, nil)
 	require.NoError(t, err)
-	require.NotNil(t, revert)
+	require.Nil(t, revert)
 	require.Equal(t, 1, spy.upsertCalls)
 }
 
@@ -3163,7 +3163,7 @@ func TestNPRDSRetainedSelectorStaysLiveAfterEndpointPolicyDetach(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, revert)
 
-	published := xds.publishedNetworkPolicies[redirectEP.GetID()]
+	published := xds.publishedNPDSs[redirectEP.GetID()]
 	selectorName := xdsSelectorIdentifier(onlyCachedSelector(t, published.selectors).Id())
 
 	require.NoError(t, epp.Ready())
@@ -3195,7 +3195,7 @@ func TestRemoveNetworkPolicyReleasesRetainedSelectorAfterDetach(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, revert)
 
-	published := xds.publishedNetworkPolicies[redirectEP.GetID()]
+	published := xds.publishedNPDSs[redirectEP.GetID()]
 	retainedSelector := onlyCachedSelector(t, published.selectors)
 	selectorName := xdsSelectorIdentifier(retainedSelector.Id())
 
@@ -3230,7 +3230,7 @@ func TestSharedNPRDSRetainedSelectorReleasedAfterLastPolicyRemoved(t *testing.T)
 	require.NoError(t, err)
 	require.NotNil(t, revert)
 
-	published := xds.publishedNetworkPolicies[redirectEP1.GetID()]
+	published := xds.publishedNPDSs[redirectEP1.GetID()]
 	cs := onlyCachedSelector(t, published.selectors)
 	selectorID := cs.Id()
 	selectorName := xdsSelectorIdentifier(selectorID)
@@ -3274,9 +3274,8 @@ func TestUpdateNetworkPolicyDeltaWaitsForSelectorPublicationAfterSelectorUpdate(
 	wg := completion.NewWaitGroup(context.Background())
 	err, revert, _ = xds.UpdateNetworkPolicy(redirectEP, epp, wg)
 	require.NoError(t, err)
-	require.NotNil(t, revert)
+	require.Nil(t, revert)
 	require.Equal(t, 1, spy.upsertCalls)
-	require.Equal(t, epp.GetPolicySelectors().Revision, xds.publishedNetworkPolicies[redirectEP.GetID()].selectorRevision)
 
 	done := make(chan error, 1)
 	go func() {
@@ -3321,7 +3320,7 @@ func TestUpdateNetworkPolicyDeltaSelectorPublicationNACKCompletesWaitSuccessfull
 	wg := completion.NewWaitGroup(context.Background())
 	err, revert, _ = xds.UpdateNetworkPolicy(redirectEP, epp, wg)
 	require.NoError(t, err)
-	require.NotNil(t, revert)
+	require.Nil(t, revert)
 	require.Equal(t, 1, spy.upsertCalls)
 
 	done := make(chan error, 1)
@@ -3359,7 +3358,7 @@ func TestProjectedNPDSSatisfiesSelectorPublicationWait(t *testing.T) {
 	wg := completion.NewWaitGroup(context.Background())
 	err, revert, _ = xds.UpdateNetworkPolicy(redirectEP, epp, wg)
 	require.NoError(t, err)
-	require.NotNil(t, revert)
+	require.Nil(t, revert)
 	require.Equal(t, 1, spy.upsertCalls)
 
 	done := make(chan error, 1)
@@ -3401,7 +3400,7 @@ func TestUpdateNetworkPolicySotWSkipsMutationWhenUnchanged(t *testing.T) {
 
 	err, revert, _ = xds.UpdateNetworkPolicy(redirectEP, epp, nil)
 	require.NoError(t, err)
-	require.NotNil(t, revert)
+	require.Nil(t, revert)
 	require.Equal(t, 1, spy.upsertCalls)
 
 	after := xds.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, nil)
@@ -3430,8 +3429,8 @@ func TestUpdateNetworkPolicyWaitsOnPendingOperationForSameEndpoint(t *testing.T)
 	wg2 := completion.NewWaitGroup(context.Background())
 	err, revert2, finalize2 := xds.UpdateNetworkPolicy(redirectEP, epp, wg2)
 	require.NoError(t, err)
-	require.NotNil(t, revert2)
-	require.NotNil(t, finalize2)
+	require.Nil(t, revert2)
+	require.Nil(t, finalize2)
 	require.Equal(t, 1, spy.upsertCalls)
 
 	done1 := make(chan error, 1)
@@ -3460,7 +3459,6 @@ func TestUpdateNetworkPolicyWaitsOnPendingOperationForSameEndpoint(t *testing.T)
 	require.NoError(t, <-done2)
 
 	finalize1()
-	finalize2()
 }
 
 func TestUpdateNetworkPolicySotWProjectionUpdatesWhenSelectorsChange(t *testing.T) {
@@ -3485,7 +3483,7 @@ func TestUpdateNetworkPolicySotWProjectionUpdatesWhenSelectorsChange(t *testing.
 
 	err, revert, _ = xds.UpdateNetworkPolicy(redirectEP, epp, nil)
 	require.NoError(t, err)
-	require.NotNil(t, revert)
+	require.Nil(t, revert)
 	require.Equal(t, 1, spy.upsertCalls)
 
 	after := xds.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, nil)
@@ -3567,14 +3565,14 @@ func TestUpdateNetworkPolicyOverlappingFailuresRestoreLastCommittedState(t *test
 	err, revert3, _ := xds.UpdateNetworkPolicy(redirectEP, epp3, nil)
 	require.NoError(t, err)
 	require.NotNil(t, revert3)
-	require.Same(t, epp3, xds.publishedNetworkPolicies[redirectEP.GetID()].policy)
+	require.Same(t, epp3, xds.publishedNPDSs[redirectEP.GetID()].policy)
 
 	require.NoError(t, revert2())
-	require.Same(t, epp3, xds.publishedNetworkPolicies[redirectEP.GetID()].policy)
+	require.Same(t, epp3, xds.publishedNPDSs[redirectEP.GetID()].policy)
 
 	require.NoError(t, revert3())
-	require.Same(t, epp1, xds.publishedNetworkPolicies[redirectEP.GetID()].policy)
-	require.Empty(t, xds.pendingNetworkPolicyOperations[redirectEP.GetID()])
+	require.Same(t, epp1, xds.publishedNPDSs[redirectEP.GetID()].policy)
+	require.Empty(t, xds.pendingNPDSOps[redirectEP.GetID()])
 }
 
 func TestUpdateNetworkPolicyFinalizeSupersedesOlderFailedOperation(t *testing.T) {
@@ -3603,11 +3601,11 @@ func TestUpdateNetworkPolicyFinalizeSupersedesOlderFailedOperation(t *testing.T)
 	require.NotNil(t, finalize3)
 
 	require.NoError(t, revert2())
-	require.Same(t, epp3, xds.publishedNetworkPolicies[redirectEP.GetID()].policy)
+	require.Same(t, epp3, xds.publishedNPDSs[redirectEP.GetID()].policy)
 
 	finalize3()
-	require.Same(t, epp3, xds.publishedNetworkPolicies[redirectEP.GetID()].policy)
-	require.Empty(t, xds.pendingNetworkPolicyOperations[redirectEP.GetID()])
+	require.Same(t, epp3, xds.publishedNPDSs[redirectEP.GetID()].policy)
+	require.Empty(t, xds.pendingNPDSOps[redirectEP.GetID()])
 }
 
 func TestRemoveNetworkPolicyClearsPublishedState(t *testing.T) {
@@ -3662,9 +3660,9 @@ func TestRemoveNetworkPolicyNACKDoesNotRestoreDeletedPolicy(t *testing.T) {
 	require.Equal(t, "delete", spy.calls[1].kind)
 	require.Equal(t, NetworkPolicyResourceTypeURL, spy.calls[1].typeURL)
 	require.Nil(t, xds.networkPolicyResourceCache.Lookup(NetworkPolicyResourceTypeURL, resourceName))
-	_, exists := xds.publishedNetworkPolicies[redirectEP.GetID()]
+	_, exists := xds.publishedNPDSs[redirectEP.GetID()]
 	require.False(t, exists)
-	require.Empty(t, xds.pendingNetworkPolicyOperations[redirectEP.GetID()])
+	require.Empty(t, xds.pendingNPDSOps[redirectEP.GetID()])
 
 	nodeID := getNodeIDs(redirectEP, &epp.SelectorPolicy.L4Policy)[0]
 	xds.resourceConfig[NetworkPolicyResourceTypeURL].AckObserver.HandleResourceVersionAck(current.Version-1, current.Version, nodeID, nil, NetworkPolicyResourceTypeURL, "post-delete nack")
@@ -3676,97 +3674,13 @@ func TestRemoveNetworkPolicyNACKDoesNotRestoreDeletedPolicy(t *testing.T) {
 	require.Equal(t, envoyxds.ErrNackReceived, proxyErr.Err)
 
 	require.Nil(t, xds.networkPolicyResourceCache.Lookup(NetworkPolicyResourceTypeURL, resourceName))
-	_, exists = xds.publishedNetworkPolicies[redirectEP.GetID()]
+	_, exists = xds.publishedNPDSs[redirectEP.GetID()]
 	require.False(t, exists)
-	require.Empty(t, xds.pendingNetworkPolicyOperations[redirectEP.GetID()])
+	require.Empty(t, xds.pendingNPDSOps[redirectEP.GetID()])
 
 	require.NoError(t, revert())
 	require.Nil(t, xds.networkPolicyResourceCache.Lookup(NetworkPolicyResourceTypeURL, resourceName))
-	_, exists = xds.publishedNetworkPolicies[redirectEP.GetID()]
-	require.False(t, exists)
-}
-
-func TestUpdateNetworkPolicyPanicsOnDuplicateIPsInCachedPolicyResources(t *testing.T) {
-	oldEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
-		Id:   500,
-		Ipv4: "10.0.0.159",
-		Ipv6: "fd00:10:244::ab0e",
-	}}
-	repo, localIdentity, oldEPP := newFastPathTestEndpointPolicy(t, oldEP)
-	xds, spy := newFastPathTestXDSServer(t, repo)
-
-	err, revert, _ := xds.UpdateNetworkPolicy(oldEP, oldEPP, nil)
-	require.NoError(t, err)
-	require.NotNil(t, revert)
-	require.Equal(t, 1, spy.upsertCalls)
-
-	newEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
-		Id:   2766,
-		Ipv4: oldEP.Ipv4,
-		Ipv6: oldEP.Ipv6,
-	}}
-	newEPP := distillFastPathEndpointPolicy(t, repo, localIdentity, newEP)
-
-	var recovered any
-	func() {
-		defer func() {
-			recovered = recover()
-		}()
-
-		_, _, _ = xds.UpdateNetworkPolicy(newEP, newEPP, nil)
-	}()
-	require.NotNil(t, recovered)
-	panicErr, ok := recovered.(error)
-	require.True(t, ok)
-	require.ErrorContains(t, panicErr, "duplicate endpoint IPs detected in NPRDS cache")
-	require.ErrorContains(t, panicErr, strconv.FormatUint(oldEP.GetID(), 10))
-	require.ErrorContains(t, panicErr, strconv.FormatUint(newEP.GetID(), 10))
-	require.Equal(t, 1, spy.upsertCalls)
-	_, exists := xds.publishedNetworkPolicies[newEP.GetID()]
-	require.False(t, exists)
-}
-
-func TestUpdateNetworkPolicyPanicsOnDuplicateIPsPresentOnlyInNPRDSCache(t *testing.T) {
-	currentEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
-		Id:   2766,
-		Ipv4: "10.0.0.159",
-		Ipv6: "fd00:10:244::ab0e",
-	}}
-	repo, _, currentEPP := newFastPathTestEndpointPolicy(t, currentEP)
-	xds, spy := newFastPathTestXDSServer(t, repo)
-
-	staleEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
-		Id:   500,
-		Ipv4: currentEP.Ipv4,
-		Ipv6: currentEP.Ipv6,
-	}}
-	staleResource := &cilium.NetworkPolicyResource{
-		Resource: &cilium.NetworkPolicyResource_Policy{
-			Policy: &cilium.NetworkPolicy{
-				EndpointId:  staleEP.GetID(),
-				EndpointIps: staleEP.GetPolicyNames(),
-			},
-		},
-	}
-	_, updated, _ := xds.networkPolicyResourceCache.Upsert(NetworkPolicyResourceTypeURL, strconv.FormatUint(staleEP.GetID(), 10), staleResource)
-	require.True(t, updated)
-
-	var recovered any
-	func() {
-		defer func() {
-			recovered = recover()
-		}()
-
-		_, _, _ = xds.UpdateNetworkPolicy(currentEP, currentEPP, nil)
-	}()
-	require.NotNil(t, recovered)
-	panicErr, ok := recovered.(error)
-	require.True(t, ok)
-	require.ErrorContains(t, panicErr, "duplicate endpoint IPs detected in NPRDS cache")
-	require.ErrorContains(t, panicErr, strconv.FormatUint(staleEP.GetID(), 10))
-	require.ErrorContains(t, panicErr, strconv.FormatUint(currentEP.GetID(), 10))
-	require.Equal(t, 0, spy.upsertCalls)
-	_, exists := xds.publishedNetworkPolicies[currentEP.GetID()]
+	_, exists = xds.publishedNPDSs[redirectEP.GetID()]
 	require.False(t, exists)
 }
 
