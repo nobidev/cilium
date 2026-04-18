@@ -282,12 +282,7 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 			if k.typeURL != typeURL {
 				continue
 			}
-			res.VersionedResources = append(res.VersionedResources,
-				VersionedResource{
-					Name:     k.resourceName,
-					Version:  v.lastModifiedVersion,
-					Resource: v.resource,
-				})
+			res.appendResource(k.resourceName, v.lastModifiedVersion, v.resource)
 		}
 		scopedLog.Debug(
 			"no resource names requested",
@@ -328,12 +323,7 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 			if lastVersion == 0 || (lastVersion < v.lastModifiedVersion) {
 				updatedSinceLastVersion = true
 			}
-			res.VersionedResources = append(res.VersionedResources,
-				VersionedResource{
-					Name:     name,
-					Version:  v.lastModifiedVersion,
-					Resource: v.resource,
-				})
+			res.appendResource(name, v.lastModifiedVersion, v.resource)
 		} else {
 			scopedLog.Debug(
 				"resource not found",
@@ -410,11 +400,7 @@ func (c *Cache) GetDeltaResources(typeURL string, lastAckedVersion uint64, subsc
 			if canSkipResource(forceResponseNames, k.resourceName, v.lastModifiedVersion, lastAckedVersion) {
 				continue
 			}
-			res.VersionedResources = append(res.VersionedResources, VersionedResource{
-				Name:     k.resourceName,
-				Version:  v.lastModifiedVersion,
-				Resource: v.resource,
-			})
+			res.appendResource(k.resourceName, v.lastModifiedVersion, v.resource)
 		}
 	} else {
 		for _, name := range subscriptions {
@@ -426,11 +412,7 @@ func (c *Cache) GetDeltaResources(typeURL string, lastAckedVersion uint64, subsc
 			if canSkipResource(forceResponseNames, name, v.lastModifiedVersion, lastAckedVersion) {
 				continue
 			}
-			res.VersionedResources = append(res.VersionedResources, VersionedResource{
-				Name:     name,
-				Version:  v.lastModifiedVersion,
-				Resource: v.resource,
-			})
+			res.appendResource(name, v.lastModifiedVersion, v.resource)
 		}
 	}
 

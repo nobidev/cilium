@@ -36,10 +36,10 @@ type ResourceSource interface {
 
 // VersionedResource is a single protobuf-encoded resource along with it's version.
 type VersionedResource struct {
-	// Name is the name of a resource. May be empty.
+	// Name is the name of a resource. Must not be empty for Delta xDS.
 	Name string
 	// Version is the version of this specific resource.
-	// Zero if not tracked.
+	// Zero if not-tracked.
 	// Must be non-zero for Delta xDS
 	Version uint64
 	// Resource is the protobuf resource.
@@ -63,6 +63,15 @@ type VersionedResources struct {
 	// using  the resources.
 	// Only used for state-of-the-world xDS
 	Canary bool
+}
+
+func (r *VersionedResources) appendResource(name string, version uint64, resource proto.Message) {
+	r.VersionedResources = append(r.VersionedResources,
+		VersionedResource{
+			Name:     name,
+			Version:  version,
+			Resource: resource,
+		})
 }
 
 // ResourceMutatorRevertFunc is a function which reverts the effects of an update on a
