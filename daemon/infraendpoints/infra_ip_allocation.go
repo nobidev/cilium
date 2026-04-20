@@ -258,6 +258,7 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 	// by the caller.
 	// This will also cause disruption of networking until all endpoints
 	// have been regenerated.
+	r.logger.Debug("Trying to reallocate router IP", "fromK8s", fromK8s, "fromFS", fromFS)
 	result := r.reallocateOldRouterIPs(fromK8s, fromFS)
 	if result == nil {
 		family := ipam.DeriveFamily(family.PrimaryExternal())
@@ -266,6 +267,7 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 			return nil, fmt.Errorf("unable to allocate router IP for family %s: %w", family, err)
 		}
 	}
+	r.logger.Debug("Reallocated router IP", "PrimaryMAC", result.PrimaryMAC)
 
 	ipfamily := ipam.DeriveFamily(family.PrimaryExternal())
 	masq := (ipfamily == ipam.IPv4 && r.daemonConfig.EnableIPv4Masquerade) ||
@@ -300,7 +302,7 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 			if err := r.waitForENI(ctx, result.PrimaryMAC); err != nil {
 				r.logger.Warn("unable to find ENI netlink interface, this will likely lead to an error in configuring the router routes and rules",
 					logfields.MACAddr, result.PrimaryMAC,
-				)
+					logfields.Error, err)
 			}
 		}
 
