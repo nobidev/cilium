@@ -686,10 +686,6 @@ func (c *Collector) Run() error {
 					return fmt.Errorf("failed to get namespaces")
 				}
 				for _, namespace := range namespaces.Items {
-					if !strings.HasPrefix(namespace.Name, defaults.ConnectivityCheckNamespace) {
-						continue
-					}
-
 					p, err := c.Client.ListPods(ctx, namespace.Name, metav1.ListOptions{})
 					if err != nil {
 						return fmt.Errorf("failed to get logs from crashloop/restarted pods: %w", err)
@@ -3170,17 +3166,7 @@ func FilterPods(l *corev1.PodList, n []string) []*corev1.Pod {
 
 func filterCrashedPods(l *corev1.PodList, limit int) []*corev1.Pod {
 	return filterPods(l, func(po *corev1.Pod) bool {
-		for _, containerStatus := range po.Status.InitContainerStatuses {
-			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
-				return true
-			}
-		}
-		for _, containerStatus := range po.Status.ContainerStatuses {
-			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
-				return true
-			}
-		}
-		return false
+		return true
 	}, limit)
 }
 
