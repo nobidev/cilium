@@ -1063,6 +1063,14 @@ ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 	}
 }
 
+/* Store struct drop_notify and struct  objects in a map to optimize stack usage. */
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, int);
+	__type(value, struct ct_entry);
+} ct_entry_storage __section_maps_btf;
+
 /* Offset must point to IPv6 */
 static __always_inline int ct_create6(const void *map_main, const void *map_related,
 				      struct ipv6_ct_tuple *tuple,
@@ -1070,19 +1078,24 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 				      const struct ct_state *ct_state, __s8 *ext_err)
 {
 	/* Create entry in original direction */
-	struct ct_entry entry = { };
+	struct ct_entry *entry;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
-	int err;
+	int err, zero = 0;
+
+	entry = map_lookup_elem(&ct_entry_storage, &zero);
+	if (!entry)
+		return DROP_INVALID;
+	/* TODO Need to clear entry. */
 
 	if (ct_state)
-		ct_create_fill_entry(&entry, ct_state, dir);
+		ct_create_fill_entry(entry, ct_state, dir);
 
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
-	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
+	ct_update_timeout(entry, is_tcp, dir, seen_flags);
 
-	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index,
-		    entry.src_sec_id, 0);
+	cilium_dbg3(ctx, DBG_CT_CREATED6, entry->rev_nat_index,
+		    entry->src_sec_id, 0);
 
 	if (map_related != NULL) {
 		/* Create an ICMPv6 entry to relate errors */
@@ -1096,17 +1109,17 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 		ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
 		ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
 
-		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
+		err = map_update_elem(map_related, &icmp_tuple, entry, 0);
 		if (unlikely(err < 0))
 			goto drop_err;
 	}
 
 	if (CONFIG(enable_conntrack_accounting)) {
-		entry.packets = 1;
-		entry.bytes = ctx_full_len(ctx);
+		entry->packets = 1;
+		entry->bytes = ctx_full_len(ctx);
 	}
 
-	err = map_update_elem(map_main, tuple, &entry, 0);
+	err = map_update_elem(map_main, tuple, entry, 0);
 	if (unlikely(err < 0))
 		goto drop_err;
 
