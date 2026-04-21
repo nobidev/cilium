@@ -32,6 +32,15 @@ In order to understand the following threat model, readers will need
 familiarity with basic Kubernetes concepts, as well as a high-level
 understanding of Cilium's :ref:`architecture and components<component_overview>`.
 
+.. _threat_model_dns_trust:
+
+When using ``toFQDNs`` to define permitted traffic, Cilium assumes that the
+DNS servers used by the cluster can be trusted to return correct answers for
+policy decisions. If those DNS servers are compromised or malicious, they may
+influence which IPs Cilium learns and allows for ``toFQDNs``-based policy.
+For guidance on constraining that DNS trust boundary, see :ref:`DNS Policy and
+IP Discovery <dns_discovery>`.
+
 .. _security audit: https://github.com/cilium/cilium.io/blob/main/Security-Reports/CiliumSecurityAudit2022.pdf
 .. _the SLSA framework:  https://slsa.dev/
 

@@ -724,6 +724,7 @@ reproducibility
 reqid
 requireIPv
 resizable
+resolvers
 resync
 retpoline
 retransmission
