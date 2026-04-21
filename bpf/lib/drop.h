@@ -49,6 +49,14 @@ struct drop_notify {
 };
 
 #ifdef DROP_NOTIFY
+/* Store struct drop_notify and struct  objects in a map to optimize stack usage. */
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, int);
+	__type(value, struct drop_notify);
+} msg_storage __section_maps_btf;
+
 /*
  * We pass information in the meta area as follows:
  *
@@ -68,13 +76,18 @@ int drop_notify(struct __ctx_buff *ctx, __u32 src, __u32 dst, __u32 error, __u32
 	__u16 line = (__u16)(meta >> 16);
 	__u8 file = (__u8)(meta >> 8);
 	cls_flags_t flags = CLS_FLAG_NONE;
+	struct drop_notify *msg;
+	int zero = 0;
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
 	struct ratelimit_settings settings = {
 		.topup_interval_ns = NSEC_PER_SEC,
 	};
-	struct drop_notify msg;
+
+	msg = map_lookup_elem(&msg_storage, &zero);
+	if (!msg)
+		return DROP_INVALID;
 
 	if (CONFIG(events_map_rate_limit) > 0) {
 		settings.bucket_size = CONFIG(events_map_burst_limit);
@@ -86,24 +99,28 @@ int drop_notify(struct __ctx_buff *ctx, __u32 src, __u32 dst, __u32 error, __u32
 	flags = ctx_classify(ctx, 0, TRACE_POINT_UNKNOWN);
 	cap_len = compute_capture_len(ctx, 0, flags, TRACE_POINT_UNKNOWN);
 
-	msg = (typeof(msg)) {
-		__notify_common_hdr(CILIUM_NOTIFY_DROP, (__u8)error),
-		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_DROP_VER),
-		.src_label	= src,
-		.dst_label	= dst,
-		.dst_id		= dst_id,
-		.line           = line,
-		.file           = file,
-		.ext_error      = (__s8)(__u8)(error >> 8),
-		.ifindex        = ctx_get_ifindex(ctx),
-		.flags          = flags,
-		.ip_trace_id    = ip_trace_id,
-	};
+	msg->type        = CILIUM_NOTIFY_DROP;
+	msg->subtype     = (__u8)error;
+	msg->source      = EVENT_SOURCE;
+	msg->hash        = get_hash(ctx);
+	msg->len_orig    = (__u32)ctx_len;
+	msg->len_cap     = (__u16)cap_len;
+	msg->version     = NOTIFY_DROP_VER;
+	msg->ext_version = 0;
+	msg->src_label   = src;
+	msg->dst_label   = dst;
+	msg->dst_id      = dst_id;
+	msg->line        = line;
+	msg->file        = file;
+	msg->ext_error   = (__s8)(__u8)(error >> 8);
+	msg->ifindex     = ctx_get_ifindex(ctx);
+	msg->flags       = flags;
+	msg->ip_trace_id = ip_trace_id;
 
 	drop_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
+			 msg, sizeof(*msg));
 
 	return 0;
 }
