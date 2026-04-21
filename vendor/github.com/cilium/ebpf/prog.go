@@ -586,7 +586,7 @@ func retryLogAttrs(attr *sys.ProgLoadAttr, startSize uint32, err error) bool {
 	if attr.LogLevel == 0 {
 		// Loading the program failed, it wasn't a buffer-related error, and the log
 		// was disabled the previous iteration. Enable basic logging and retry.
-		attr.LogLevel = LogLevelBranch
+		attr.LogLevel = LogLevelInstruction
 		attr.LogSize = internal.Between(startSize, minVerifierLogSize, maxVerifierLogSize)
 		return true
 	}
