@@ -327,26 +327,39 @@ lb6_ctx_store_state(struct __ctx_buff *ctx, const struct ct_state *state,
 		       state->loopback);
 }
 
+/* Store struct ipv6_ct_tuple objects in a map to optimize stack usage. */
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, int);
+	__type(value, struct ipv6_ct_tuple);
+} lxc_tuple_storage __section_maps_btf;
+
 static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr *ip6,
 						       __s8 *ext_err)
 {
-	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct ct_state ct_state_new = {};
 	fraginfo_t fraginfo;
 	const struct lb6_service *svc;
+	struct ipv6_ct_tuple *tuple;
 	struct lb6_key key = {};
 	__u16 proxy_port = 0;
+	int ret, zero = 0;
 	int l4_off;
-	int ret;
 
-	tuple.nexthdr = ip6->nexthdr;
-	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+	tuple = map_lookup_elem(&lxc_tuple_storage, &zero);
+	if (!tuple)
+		return DROP_INVALID;
+	/* TODO Clear tuple? */
+
+	tuple->nexthdr = ip6->nexthdr;
+	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr, &fraginfo);
 	if (ret < 0)
 		return ret;
 
 	l4_off = ETH_HLEN + ret;
 
-	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &tuple);
+	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
@@ -354,7 +367,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			return ret;
 	}
 
-	lb6_fill_key(&key, &tuple);
+	lb6_fill_key(&key, tuple);
 
 	/*
 	 * Check if the destination address is among the address that should
@@ -368,28 +381,27 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 #if defined(ENABLE_NODEPORT)
 	if (!svc) {
 		/* look up with SCOPE_FORWARD: */
-		__ipv6_ct_tuple_reverse(&tuple);
+		__ipv6_ct_tuple_reverse(tuple);
 
 		/* If a CT_EGRESS entry exists, it indicates the connection was
 		 * established via the legacy path. Preserve this behavior (skip
 		 * wildcard lookup) to maintain consistency for existing flows.
 		 * Wildcard lookup is applied only for new connections.
 		 */
-		if (!ct_has_egress_entry6(get_ct_map6(&tuple), &tuple)) {
+		if (!ct_has_egress_entry6(get_ct_map6(tuple), tuple)) {
 			svc = lb6_lookup_wildcard_service(&key);
 			if (svc) {
 				struct nodeport_nat_info nat_info = {};
-				__u32 zero = 0;
 
-				ipv6_addr_copy(&nat_info.nat_addr, &tuple.daddr);
-				nat_info.nat_port = tuple.sport;
+				ipv6_addr_copy(&nat_info.nat_addr, &tuple->daddr);
+				nat_info.nat_port = tuple->sport;
 				map_update_elem(&cilium_nodeport_nat_buffer,
 						&zero, &nat_info, 0);
 			}
 		}
 
 		/* restore the original order */
-		__ipv6_ct_tuple_reverse(&tuple);
+		__ipv6_ct_tuple_reverse(tuple);
 	}
 #endif /* ENABLE_NODEPORT */
 
@@ -410,8 +422,8 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		    unlikely(lb6_svc_is_localredirect(svc)))
 			goto skip_service_lookup;
 
-		ret = lb6_local(get_ct_map6(&tuple), ctx, fraginfo,
-				l4_off, &key, &tuple, svc, &ct_state_new,
+		ret = lb6_local(get_ct_map6(tuple), ctx, fraginfo,
+				l4_off, &key, tuple, svc, &ct_state_new,
 				&backend, ext_err);
 
 		if (IS_ERR(ret)) {
@@ -426,13 +438,13 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			return ret;
 		}
 
-		if (ipv6_addr_equals(&tuple.saddr, &backend->address)) {
+		if (ipv6_addr_equals(&tuple->saddr, &backend->address)) {
 			if (CONFIG(enable_lrp)) {
 				__net_cookie netns_cookie = CONFIG(endpoint_netns_cookie);
 
 				if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
-				    lrp_v6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple.daddr,
-								      tuple.sport))
+				    lrp_v6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr,
+								      tuple->sport))
 					goto skip_service_lookup;
 			}
 
@@ -440,7 +452,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		}
 
 		ret = lb6_dnat_request(ctx, backend, ETH_HLEN, fraginfo,
-				       l4_off, &tuple, ct_state_new.loopback);
+				       l4_off, tuple, ct_state_new.loopback);
 		if (IS_ERR(ret))
 			return ret;
 	}
