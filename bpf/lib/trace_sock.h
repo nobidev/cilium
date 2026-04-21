@@ -131,9 +131,6 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_SOCKET_EVENTS_MAP,
 	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = CT_REPORT_INTERVAL * NSEC_PER_SEC,
-	};
 
 	if (!emit_trace_sock_notify(xlate_point, is_connect))
 		return;
@@ -146,9 +143,7 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 		/* One token per CT_REPORT_INTERVAL with no burst to align with
 		 * monitor aggregation semantics ("~1 per interval").
 		 */
-		settings.bucket_size = 1;
-		settings.tokens_per_topup = 1;
-		if (!ratelimit_check_and_take(&rkey, &settings))
+		if (!ratelimit_check_and_take(&rkey, 1, 1, CT_REPORT_INTERVAL * NSEC_PER_SEC))
 			return;
 	}
 
@@ -175,9 +170,6 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_SOCKET_EVENTS_MAP,
 	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = CT_REPORT_INTERVAL * NSEC_PER_SEC,
-	};
 
 	if (!emit_trace_sock_notify(xlate_point, is_connect))
 		return;
@@ -190,9 +182,7 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 		/* One token per CT_REPORT_INTERVAL with no burst to align with
 		 * monitor aggregation semantics ("~1 per interval").
 		 */
-		settings.bucket_size = 1;
-		settings.tokens_per_topup = 1;
-		if (!ratelimit_check_and_take(&rkey, &settings))
+		if (!ratelimit_check_and_take(&rkey, 1, 1, CT_REPORT_INTERVAL * NSEC_PER_SEC))
 			return;
 	}
 

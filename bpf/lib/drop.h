@@ -81,18 +81,14 @@ int drop_notify(struct __ctx_buff *ctx, __u32 src, __u32 dst, __u32 error, __u32
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
 
 	msg = map_lookup_elem(&msg_storage, &zero);
 	if (!msg)
 		return DROP_INVALID;
 
 	if (CONFIG(events_map_rate_limit) > 0) {
-		settings.bucket_size = CONFIG(events_map_burst_limit);
-		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
-		if (!ratelimit_check_and_take(&rkey, &settings))
+		if (!ratelimit_check_and_take(&rkey, CONFIG(events_map_burst_limit),
+					      CONFIG(events_map_rate_limit), NSEC_PER_SEC))
 			return 0;
 	}
 

@@ -2730,17 +2730,12 @@ int tail_policy_denied_ipv6(struct __ctx_buff *ctx)
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_ICMPV6,
 	};
-	/* Rate limit to 100 ICMPv6 replies per second, burstable to 1000 responses/s */
-	struct ratelimit_settings settings = {
-		.bucket_size = 1000,
-		.tokens_per_topup = 100,
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
 	__u32 verdict = ctx_load_meta(ctx, CB_VERDICT);
 	int ret;
 
 	rkey.key.icmpv6.netdev_idx = ctx_get_ifindex(ctx);
-	if (!ratelimit_check_and_take(&rkey, &settings))
+	/* Rate limit to 100 ICMPv6 replies per second, burstable to 1000 responses/s */
+	if (!ratelimit_check_and_take(&rkey, 1000, 100, NSEC_PER_SEC))
 		goto drop_err;
 
 	ret = generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_ADM_PROHIBITED);

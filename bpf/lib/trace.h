@@ -218,9 +218,6 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
 	struct trace_notify msg = {};
 	cls_flags_t flags = CLS_FLAG_NONE;
 
@@ -230,9 +227,8 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		return;
 
 	if (CONFIG(events_map_rate_limit) > 0) {
-		settings.bucket_size = CONFIG(events_map_burst_limit);
-		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
-		if (!ratelimit_check_and_take(&rkey, &settings))
+		if (!ratelimit_check_and_take(&rkey, CONFIG(events_map_burst_limit),
+					      CONFIG(events_map_rate_limit), NSEC_PER_SEC))
 			return;
 	}
 
@@ -270,9 +266,6 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
 	struct trace_notify msg = {};
 	cls_flags_t flags = CLS_FLAG_NONE;
 
@@ -282,9 +275,8 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		return;
 
 	if (CONFIG(events_map_rate_limit) > 0) {
-		settings.bucket_size = CONFIG(events_map_burst_limit);
-		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
-		if (!ratelimit_check_and_take(&rkey, &settings))
+		if (!ratelimit_check_and_take(&rkey, CONFIG(events_map_burst_limit),
+					      CONFIG(events_map_rate_limit), NSEC_PER_SEC))
 			return;
 	}
 
@@ -322,9 +314,6 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
 	struct trace_notify msg = {};
 	cls_flags_t flags = CLS_FLAG_NONE;
 
@@ -334,9 +323,8 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		return;
 
 	if (CONFIG(events_map_rate_limit) > 0) {
-		settings.bucket_size = CONFIG(events_map_burst_limit);
-		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
-		if (!ratelimit_check_and_take(&rkey, &settings))
+		if (!ratelimit_check_and_take(&rkey, CONFIG(events_map_burst_limit),
+					      CONFIG(events_map_rate_limit), NSEC_PER_SEC))
 			return;
 	}
 

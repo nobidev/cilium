@@ -18,11 +18,6 @@ static __u64 mock_ktime_get_ns(void)
 
 CHECK("xdp", "ratelimit") int test_ratelimit(void)
 {
-	struct ratelimit_settings settings = {
-		.bucket_size = 1000,
-		.tokens_per_topup = 100,
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
 	struct ratelimit_key key = {
 		.usage = RATELIMIT_USAGE_ICMPV6,
 		.key = {
@@ -31,7 +26,10 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 			},
 		},
 	};
+	__u64 topup_interval_ns = NSEC_PER_SEC;
 	struct ratelimit_value *value;
+	__u64 tokens_per_topup = 100;
+	__u64 bucket_size = 1000;
 
 	test_init();
 
@@ -40,7 +38,7 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 		if (value)
 			test_fatal("Bucket already exits");
 
-		ratelimit_check_and_take(&key, &settings);
+		ratelimit_check_and_take(&key, bucket_size, tokens_per_topup, topup_interval_ns);
 
 		value = map_lookup_elem(&cilium_ratelimit, &key);
 		if (!value)
@@ -53,13 +51,13 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 			test_fatal("Bucket not created");
 
 		value->tokens = 1;
-		if (!ratelimit_check_and_take(&key, &settings))
+		if (!ratelimit_check_and_take(&key, bucket_size, tokens_per_topup, topup_interval_ns))
 			test_fatal("Rate limit not allowed when bucket not empty");
 
 		if (value->tokens != 0)
 			test_fatal("Bucket not empty");
 
-		if (ratelimit_check_and_take(&key, &settings))
+		if (ratelimit_check_and_take(&key, bucket_size, tokens_per_topup, topup_interval_ns))
 			test_fatal("Rate limit allowed when bucket empty");
 	})
 
@@ -70,12 +68,12 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 
 		/* Set last topup to 1 interval ago */
 		value->tokens = 0;
-		value->last_topup = ktime_get_ns() - (settings.topup_interval_ns + 1);
+		value->last_topup = ktime_get_ns() - (topup_interval_ns + 1);
 
-		if (!ratelimit_check_and_take(&key, &settings))
+		if (!ratelimit_check_and_take(&key, bucket_size, tokens_per_topup, topup_interval_ns))
 			test_fatal("Rate limit not allowed after topup");
 
-		if (value->tokens != settings.tokens_per_topup - 1)
+		if (value->tokens != tokens_per_topup - 1)
 			test_fatal("Unexpected token amount after topup");
 	})
 
@@ -86,12 +84,12 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 
 		/* Set last topup to 100 intervals ago */
 		value->tokens = 0;
-		value->last_topup = ktime_get_ns() - (100 * settings.topup_interval_ns);
+		value->last_topup = ktime_get_ns() - (100 * topup_interval_ns);
 
-		if (!ratelimit_check_and_take(&key, &settings))
+		if (!ratelimit_check_and_take(&key, bucket_size, tokens_per_topup, topup_interval_ns))
 			test_fatal("Rate limit not allowed after topup");
 
-		if (value->tokens != settings.bucket_size - 1)
+		if (value->tokens != bucket_size - 1)
 			test_fatal("Unexpected token amount after topup");
 	})
 

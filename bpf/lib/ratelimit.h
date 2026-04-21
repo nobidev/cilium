@@ -50,17 +50,9 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_ratelimit_metrics __section_maps_btf;
 
-struct ratelimit_settings {
-	/* A bucket will never have more than X amount of tokens, limits burst size */
-	__u64 bucket_size;
-	/* The amount of tokens added to a bucket for every topup */
-	__u64 tokens_per_topup;
-	/* The interval at which the topups happen */
-	__u64 topup_interval_ns;
-};
-
-static __always_inline bool ratelimit_check_and_take(struct ratelimit_key *key,
-						     const struct ratelimit_settings *settings)
+static __always_inline
+bool ratelimit_check_and_take(struct ratelimit_key *key, __u64 bucket_size, __u64 tokens_per_topup,
+			      __u64 topup_interval_ns)
 {
 	struct ratelimit_value *value;
 	struct ratelimit_value new_value;
@@ -93,7 +85,7 @@ static __always_inline bool ratelimit_check_and_take(struct ratelimit_key *key,
 	value = map_lookup_elem(&cilium_ratelimit, key);
 	if (!value) {
 		new_value.last_topup = now;
-		new_value.tokens = settings->tokens_per_topup - 1;
+		new_value.tokens = tokens_per_topup - 1;
 		ret = map_update_elem(&cilium_ratelimit, key, &new_value, BPF_ANY);
 		if (unlikely(ret < 0)) {
 			/* This bucket update is racy and might cause a bit of
@@ -113,15 +105,15 @@ static __always_inline bool ratelimit_check_and_take(struct ratelimit_key *key,
 
 	/* Topup the bucket if it has been at least more than 1 interval since we have done so */
 	since_last_topup = now - value->last_topup;
-	if (since_last_topup > settings->topup_interval_ns) {
-		interval = since_last_topup / settings->topup_interval_ns;
-		remainder = since_last_topup % settings->topup_interval_ns;
+	if (since_last_topup > topup_interval_ns) {
+		interval = since_last_topup / topup_interval_ns;
+		remainder = since_last_topup % topup_interval_ns;
 		/* Add tokens of every missed interval */
-		value->tokens += interval * settings->tokens_per_topup;
+		value->tokens += interval * tokens_per_topup;
 		value->last_topup = now - remainder;
 		/* Make sure to not overflow the bucket */
-		if (value->tokens > settings->bucket_size)
-			value->tokens = settings->bucket_size;
+		if (value->tokens > bucket_size)
+			value->tokens = bucket_size;
 	}
 
 	/* Take a token if there is at least one */
