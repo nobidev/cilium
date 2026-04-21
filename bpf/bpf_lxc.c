@@ -841,6 +841,13 @@ pass_to_stack: __maybe_unused
 	return CTX_ACT_OK;
 }
 
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, int);
+	__type(value, struct ct_state);
+} lxc_state_storage __section_maps_btf;
+
 /* Handle egress IPv6 traffic from a container after service translation has been done
  * either at the socket level or by the caller.
  * In the case of the caller doing the service translation it passes in state via CB,
@@ -849,7 +856,7 @@ pass_to_stack: __maybe_unused
 static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *dst_sec_identity,
 						__s8 *ext_err)
 {
-	struct ct_state *ct_state, ct_state_new = {};
+	struct ct_state *ct_state, *ct_state_new;
 	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple;
 	struct ct_buffer6 *ct_buffer;
@@ -872,6 +879,10 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	bool from_l7lb = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	ct_state_new = map_lookup_elem(&lxc_state_storage, &zero);
+	if (!ct_state_new)
 		return DROP_INVALID;
 
 	/* Determine the destination category for policy fallback.  Service
@@ -903,14 +914,14 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 #ifdef ENABLE_PER_PACKET_LB
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, true);
-	hairpin_flow = ct_state_new.loopback;
+	lb6_ctx_restore_state(ctx, ct_state_new, &proxy_port, true);
+	hairpin_flow = ct_state_new->loopback;
 
 #if defined(ENABLE_NODEPORT)
 	nat_info = map_lookup_elem(&cilium_nodeport_nat_buffer, &zero);
 	if (nat_info) {
-		ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
-		ct_state_new.nat_port = nat_info->nat_port;
+		ipv6_addr_copy(&ct_state_new->nat_addr, &nat_info->nat_addr);
+		ct_state_new->nat_port = nat_info->nat_port;
 
 		memset(&nat_info->nat_addr, 0, sizeof(nat_info->nat_addr));
 		nat_info->nat_port = 0;
@@ -1027,12 +1038,12 @@ ct_recreate6:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
-		ct_state_new.src_sec_id = SECLABEL_IPV6;
-		ct_state_new.proxy_redirect = proxy_port > 0;
-		ct_state_new.from_l7lb = from_l7lb;
+		ct_state_new->src_sec_id = SECLABEL_IPV6;
+		ct_state_new->proxy_redirect = proxy_port > 0;
+		ct_state_new->from_l7lb = from_l7lb;
 
 		ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global, tuple, ctx,
-				 CT_EGRESS, &ct_state_new, ext_err);
+				 CT_EGRESS, ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 		trace.monitor = TRACE_PAYLOAD_LEN;
@@ -1040,12 +1051,12 @@ ct_recreate6:
 
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
-		if (unlikely(ct_state->rev_nat_index != ct_state_new.rev_nat_index))
+		if (unlikely(ct_state->rev_nat_index != ct_state_new->rev_nat_index))
 			goto ct_recreate6;
 
 		/* See comment in handle_ipv4_from_lxc(). */
-		ct_state_new.proxy_redirect = proxy_port > 0;
-		if (unlikely(ct_state->proxy_redirect != ct_state_new.proxy_redirect))
+		ct_state_new->proxy_redirect = proxy_port > 0;
+		if (unlikely(ct_state->proxy_redirect != ct_state_new->proxy_redirect))
 			goto ct_recreate6;
 		break;
 
