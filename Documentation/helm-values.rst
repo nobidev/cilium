@@ -1344,10 +1344,6 @@
      - Enable transparent network encryption.
      - bool
      - ``false``
-   * - :spelling:ignore:`encryption.ipsec.encryptedOverlay`
-     - Enable IPsec encrypted overlay
-     - bool
-     - ``false``
    * - :spelling:ignore:`encryption.ipsec.interface`
      - The interface to use for encrypted traffic.
      - string
