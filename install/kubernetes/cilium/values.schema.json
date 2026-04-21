@@ -1952,12 +1952,6 @@
         },
         "strictMode": {
           "properties": {
-            "allowRemoteNodeIdentities": {
-              "type": "boolean"
-            },
-            "cidr": {
-              "type": "string"
-            },
             "egress": {
               "properties": {
                 "allowRemoteNodeIdentities": {
@@ -1971,9 +1965,6 @@
                 }
               },
               "type": "object"
-            },
-            "enabled": {
-              "type": "boolean"
             },
             "ingress": {
               "properties": {
