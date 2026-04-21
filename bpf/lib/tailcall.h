@@ -38,8 +38,8 @@
 #define __not_1 0
 #define __not(x) __eval(__not_, x)
 
-#define CILIUM_CALL_DROP_NOTIFY			1
-#define CILIUM_CALL_ERROR_NOTIFY		2
+#define CILIUM_CALL_UNUSED1	1
+#define CILIUM_CALL_UNUSED2	2
 /*
  * A gap in the macro numbering sequence was created by #24921.
  * It can be reused for a new macro in the future, but caution is needed when

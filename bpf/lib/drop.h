@@ -53,31 +53,20 @@ struct drop_notify {
  * We pass information in the meta area as follows:
  *
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |                         Source Label                          |
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |                       Destination Label                       |
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |  Error Code   | Extended Error|            Unused             |
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |             Designated Destination Endpoint ID                |
- *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |   Exit Code   |  Source File  |         Source Line           |
+ *     |   Unused      |  Source File  |         Source Line           |
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-
-__declare_tail(CILIUM_CALL_DROP_NOTIFY)
-int tail_drop_notify(struct __ctx_buff *ctx)
+__noinline __weak
+int drop_notify(struct __ctx_buff *ctx, __u32 src, __u32 dst, __u32 error, __u32 dst_id)
 {
 	/* Mask needed to calm verifier. */
-	__u32 error = ctx_load_meta(ctx, 2) & 0xFFFFFFFF;
 	__u64 ip_trace_id = load_ip_trace_id();
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len;
-	__u32 meta4 = ctx_load_meta(ctx, 4);
-	__u16 line = (__u16)(meta4 >> 16);
-	__u8 file = (__u8)(meta4 >> 8);
-	__u8 exitcode = (__u8)meta4;
+	__u32 meta = ctx_load_meta(ctx, 0);
+	__u16 line = (__u16)(meta >> 16);
+	__u8 file = (__u8)(meta >> 8);
 	cls_flags_t flags = CLS_FLAG_NONE;
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
@@ -91,7 +80,7 @@ int tail_drop_notify(struct __ctx_buff *ctx)
 		settings.bucket_size = CONFIG(events_map_burst_limit);
 		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
 		if (!ratelimit_check_and_take(&rkey, &settings))
-			return exitcode;
+			return 0;
 	}
 
 	flags = ctx_classify(ctx, 0, TRACE_POINT_UNKNOWN);
@@ -100,9 +89,9 @@ int tail_drop_notify(struct __ctx_buff *ctx)
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_DROP, (__u8)error),
 		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_DROP_VER),
-		.src_label	= ctx_load_meta(ctx, 0),
-		.dst_label	= ctx_load_meta(ctx, 1),
-		.dst_id		= ctx_load_meta(ctx, 3),
+		.src_label	= src,
+		.dst_label	= dst,
+		.dst_id		= dst_id,
 		.line           = line,
 		.file           = file,
 		.ext_error      = (__s8)(__u8)(error >> 8),
@@ -116,7 +105,7 @@ int tail_drop_notify(struct __ctx_buff *ctx)
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 
-	return exitcode;
+	return 0;
 }
 
 /**
@@ -137,11 +126,8 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 		  __u32 src, __u32 dst, __u32 dst_id,
 		  __u32 reason, __u32 exitcode, enum metric_dir direction)
 {
-	int ret __maybe_unused;
-
 	/* These fields should be constants and fit (together) in 32 bits */
-	if (!__builtin_constant_p(exitcode) || exitcode > 0xff ||
-	    !__builtin_constant_p(file) || file > 0xff ||
+	if (!__builtin_constant_p(file) || file > 0xff ||
 	    !__builtin_constant_p(line) || line > 0xffff)
 		__throw_build_bug();
 
@@ -149,16 +135,12 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 	if (dst_id != 0 && (!__builtin_constant_p(direction) || direction != METRIC_INGRESS))
 		__throw_build_bug();
 
-	ctx_store_meta(ctx, 0, src);
-	ctx_store_meta(ctx, 1, dst);
-	ctx_store_meta(ctx, 2, reason);
-	ctx_store_meta(ctx, 3, dst_id);
-	ctx_store_meta(ctx, 4, exitcode | file << 8 | line << 16);
+	ctx_store_meta(ctx, 0, file << 8 | line << 16);
 
 	_update_metrics(ctx_full_len(ctx), direction, (__u8)reason, line, file);
-	ret = tail_call_internal(ctx, CILIUM_CALL_DROP_NOTIFY, NULL);
-	/* ignore the returned error, use caller-provided exitcode */
 
+	/* ignore the returned error, use caller-provided exitcode */
+	drop_notify(ctx, src, dst, reason, dst_id);
 	return exitcode;
 }
 #else

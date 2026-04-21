@@ -42,14 +42,12 @@ int mock_tail_call(void *ctx, const void *map, __u32 index);
 /* redirection. */
 #undef tail_call_internal
 
-static int tail_drop_notify_res;
-
 /* This is the function we use as the callback when stubbing the tailcall. */
 int mock_tail_call(void *ctx, __maybe_unused const void *map, __maybe_unused __u32 index)
 {
   /* We can even unit-test the function which is actually called by the tailcall */
   /* within the callback. */
-  tail_drop_notify_res = tail_drop_notify(ctx);
+  drop_notify(ctx, 0, 0, 0, 0);
   return 0;
 }
 
@@ -61,7 +59,6 @@ int test_send_drop_notify(struct __ctx_buff ctx)
 	test_init();
 
 	assert(send_drop_notify(&ctx, 0, 0, 0, 0, 0) == CTX_ACT_DROP);
-	assert(tail_drop_notify_res == CTX_ACT_DROP);
 
 	test_finish();
 }
