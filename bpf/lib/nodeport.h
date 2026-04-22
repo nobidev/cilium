@@ -522,10 +522,10 @@ static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 static __always_inline int
 nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 			struct ipv6hdr *ip6 __maybe_unused,
-			const struct ipv6_ct_tuple *tuple, int l4_off,
+			struct ipv6_ct_tuple *tuple, int l4_off,
 			union v6addr *addr, __be16 *port, bool *dsr)
 {
-	struct ipv6_ct_tuple tmp = *tuple;
+	int ret = 0;
 
 	if (tuple->nexthdr == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = {};
@@ -533,44 +533,42 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
-		ipv6_ct_tuple_reverse(&tmp);
+		ipv6_ct_tuple_reverse(tuple);
 
 		if (!(tcp_flags.value & TCP_FLAG_SYN)) {
-			*dsr = ct_has_dsr_egress_entry6(get_ct_map6(&tmp), &tmp);
+			*dsr = ct_has_dsr_egress_entry6(get_ct_map6(tuple), tuple);
 			*port = 0;
-			return 0;
+			goto out;
 		}
 	}
 
 #if defined(IS_BPF_OVERLAY)
 	{
 		struct geneve_dsr_opt6 gopt;
-		int ret = ctx_get_tunnel_opt(ctx, &gopt, sizeof(gopt));
 
-		if (ret > 0) {
+		if (ctx_get_tunnel_opt(ctx, &gopt, sizeof(gopt)) > 0) {
 			if (gopt.hdr.opt_class == bpf_htons(DSR_GENEVE_OPT_CLASS) &&
 			    gopt.hdr.type == DSR_GENEVE_OPT_TYPE) {
 				*dsr = true;
 				*port = gopt.port;
 				ipv6_addr_copy_unaligned(addr,
 							 (union v6addr *)&gopt.addr);
-				return 0;
+				goto out;
 			}
 		}
 	}
 #else
 	{
 		struct dsr_opt_v6 opt __align_stack_8 = {};
-		int ret;
 
 		ret = find_dsr_v6(ctx, ip6->nexthdr, &opt, dsr);
 		if (ret != 0)
-			return ret;
+			goto out;
 
 		if (*dsr) {
 			*addr = opt.addr;
 			*port = opt.port;
-			return 0;
+			goto out;
 		}
 	}
 #endif
@@ -579,9 +577,13 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 	 * If it's reopened, avoid sending subsequent traffic down the DSR path.
 	 */
 	if (tuple->nexthdr == IPPROTO_TCP)
-		ct_update_dsr(get_ct_map6(&tmp), &tmp, false);
+		ct_update_dsr(get_ct_map6(tuple), tuple, false);
 
-	return 0;
+out:
+	if (tuple->nexthdr == IPPROTO_TCP)
+		/* Restore tuple's original order */
+		ipv6_ct_tuple_reverse(tuple);
+	return ret;
 }
 
 static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
@@ -1868,10 +1870,10 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct 
 static __always_inline int
 nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 			const struct iphdr *ip4 __maybe_unused,
-			const struct ipv4_ct_tuple *tuple, int l4_off,
+			struct ipv4_ct_tuple *tuple, int l4_off,
 			__be32 *addr, __be16 *port, bool *dsr)
 {
-	struct ipv4_ct_tuple tmp = *tuple;
+	int ret = 0;
 
 	/* Parse DSR info from the packet, to get the addr/port of the
 	 * addressed service. We need this for RevDNATing the backend's replies.
@@ -1886,33 +1888,30 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
-		ipv4_ct_tuple_reverse(&tmp);
+		ipv4_ct_tuple_reverse(tuple);
 
 		if (!(tcp_flags.value & TCP_FLAG_SYN)) {
 			/* If the packet belongs to a tracked DSR connection,
 			 * trigger a CT update.
 			 * We don't have any DSR info to report back, and that's ok.
 			 */
-			*dsr = ct_has_dsr_egress_entry4(get_ct_map4(&tmp), &tmp);
+			*dsr = ct_has_dsr_egress_entry4(get_ct_map4(tuple), tuple);
 			*port = 0;
-			return 0;
+			goto out;
 		}
 	}
 
 #if defined(IS_BPF_OVERLAY)
 	{
 		struct geneve_dsr_opt4 gopt;
-		int ret = 0;
 
-		ret = ctx_get_tunnel_opt(ctx, &gopt, sizeof(gopt));
-
-		if (ret > 0) {
+		if (ctx_get_tunnel_opt(ctx, &gopt, sizeof(gopt)) > 0) {
 			if (gopt.hdr.opt_class == bpf_htons(DSR_GENEVE_OPT_CLASS) &&
 			    gopt.hdr.type == DSR_GENEVE_OPT_TYPE) {
 				*dsr = true;
 				*port = gopt.port;
 				*addr = gopt.addr;
-				return 0;
+				goto out;
 			}
 		}
 	}
@@ -1924,14 +1923,16 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 		struct dsr_opt_v4 opt;
 
 		if (ctx_load_bytes(ctx, ETH_HLEN + sizeof(struct iphdr),
-				   &opt, sizeof(opt)) < 0)
-			return DROP_INVALID;
+				   &opt, sizeof(opt)) < 0) {
+			ret = DROP_INVALID;
+			goto out;
+		}
 
 		if (opt.type == DSR_IPV4_OPT_TYPE && opt.len == sizeof(opt)) {
 			*dsr = true;
 			*addr = bpf_ntohl(opt.addr);
 			*port = bpf_ntohs(opt.port);
-			return 0;
+			goto out;
 		}
 	}
 #endif
@@ -1940,9 +1941,13 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 	 * If it's reopened, avoid sending subsequent traffic down the DSR path.
 	 */
 	if (tuple->nexthdr == IPPROTO_TCP)
-		ct_update_dsr(get_ct_map4(&tmp), &tmp, false);
+		ct_update_dsr(get_ct_map4(tuple), tuple, false);
 
-	return 0;
+out:
+	if (tuple->nexthdr == IPPROTO_TCP)
+		/* Restore tuple's original order */
+		ipv4_ct_tuple_reverse(tuple);
+	return ret;
 }
 
 static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
