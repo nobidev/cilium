@@ -158,7 +158,7 @@ func percentMapCount(i int) float64 {
 }
 
 func colorRelativeChange(program string, i int, p float64) string {
-	s := fmt.Sprintf("%s %+d (%.2f\\\\%%)", program, i, p)
+	s := fmt.Sprintf("%+d (%.2f\\\\%%) for %s", i, p, program)
 	if p == 0 {
 		return texNoColor(s)
 	}
@@ -171,7 +171,7 @@ func colorRelativeChange(program string, i int, p float64) string {
 }
 
 func colorAbsoluteValue(program string, i int, p float64) string {
-	s := fmt.Sprintf("%s %d (%.2f\\\\%%)", program, i, p)
+	s := fmt.Sprintf("%d (%.2f\\\\%%) for %s", i, p, program)
 	if p > 80 {
 		return texRed(s)
 	}
@@ -183,7 +183,7 @@ func colorAbsoluteValue(program string, i int, p float64) string {
 }
 
 func colorAbsoluteValueExponential(program string, i int, p float64) string {
-	s := fmt.Sprintf("%s %d (%.2f\\\\%%)", program, i, p)
+	s := fmt.Sprintf("%d (%.2f\\\\%%) for %s", i, p, program)
 	if p > 70 {
 		return texRed(s)
 	}
@@ -345,11 +345,11 @@ func collectionProgramKey(r verifierComplexityRecord) string {
 }
 
 func kernelBuildLoadKey(r verifierComplexityRecord) string {
-	if r.Kernel == "" {
-		return r.Build + "/" + r.Load
+	key := fmt.Sprintf("%s/%s", r.Build, r.Load)
+	if r.Kernel != "" {
+		key = fmt.Sprintf("%s on %s", key, r.Kernel)
 	}
-
-	return r.Kernel + "/" + r.Build + "/" + r.Load
+	return key
 }
 
 func loadRecords(path string) (map[string]verifierComplexityRecord, error) {
