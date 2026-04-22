@@ -166,6 +166,9 @@
 #   Maintain the tooling that allows eBPF programs to be loaded into the
 #   kernel: LLVM, bpftool, use of cilium/ebpf for loading programs in the
 #   agent, ELF templating, etc.
+# - @cilium/lrp:
+#   Maintain the controlplane and datapath parts that implement the
+#   Local Redirect Policy feature.
 # - @cilium/operator:
 #   Review operations that occur once per cluster via the Cilium Operator
 #   component. Take care of the corresponding garbage collection and leader
@@ -205,8 +208,7 @@
 # - @cilium/sig-lb:
 #   Maintain the layers necessary to coordinate all load balancing
 #   configurations within the agent control plane, including Services,
-#   ClusterIP, NodePorts, Maglev, local redirect policies, and
-#   NAT46/NAT64.
+#   ClusterIP, NodePorts, Maglev, and NAT46/NAT64.
 # - @cilium/sig-policy:
 #   Ensure consistency of semantics for all network policy representations.
 #   Responsible for all policy logic from Kubernetes down to eBPF policymap
@@ -306,7 +308,7 @@ Makefile* @cilium/build
 /bpf/lib/eps.h @cilium/sig-datapath @cilium/endpoint @cilium/ipcache
 /bpf/lib/ipsec.h @cilium/ipsec
 /bpf/lib/lb.h @cilium/sig-lb
-/bpf/lib/lrp.h @cilium/sig-lb
+/bpf/lib/lrp.h @cilium/lrp @cilium/sig-lb
 /bpf/lib/nodeport* @cilium/sig-datapath @cilium/sig-lb
 /bpf/lib/policy* @cilium/sig-datapath @cilium/sig-policy
 /bpf/lib/proxy* @cilium/proxy @cilium/sig-datapath
@@ -316,9 +318,6 @@ Makefile* @cilium/build
 /bpf/Makefile* @cilium/loader
 /bpf/node_config.h @cilium/loader
 /bugtool/ @cilium/cli
-/cilium-dbg/ @cilium/cli
-/cilium-dbg/cmd/encrypt* @cilium/ipsec @cilium/cli
-/cilium-dbg/cmd/preflight_k8s_valid_cnp.go @cilium/sig-k8s
 /cilium-cli/ @cilium/cli
 /cilium-cli/bgp/ @cilium/sig-bgp
 /cilium-cli/cmd/ @cilium/cli
@@ -350,7 +349,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/builder/egress_gateway_excluded_cidrs.go @cilium/egress-gateway
 /cilium-cli/connectivity/builder/egress_gateway_with_l7_policy.go @cilium/egress-gateway
 /cilium-cli/connectivity/builder/l7_lb.go @cilium/sig-servicemesh
-/cilium-cli/connectivity/builder/local_redirect_policy.go @cilium/sig-lb
+/cilium-cli/connectivity/builder/local_redirect_policy.go @cilium/lrp @cilium/sig-lb
 /cilium-cli/connectivity/builder/no_ipsec_xfrm_errors.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/node_to_node_encryption.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/pod_to_ingress_service.go @cilium/sig-servicemesh
@@ -368,7 +367,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/tests/health.go @cilium/sig-agent
 /cilium-cli/connectivity/tests/host.go @cilium/sig-agent
 /cilium-cli/connectivity/tests/ipsec_xfrm.go @cilium/ipsec
-/cilium-cli/connectivity/tests/lrp.go @cilium/sig-lb
+/cilium-cli/connectivity/tests/lrp.go @cilium/lrp @cilium/sig-lb
 /cilium-cli/connectivity/tests/pod.go @cilium/sig-agent
 /cilium-cli/connectivity/tests/service.go @cilium/sig-lb
 /cilium-cli/connectivity/tests/to-cidr.go @cilium/sig-policy
@@ -379,6 +378,10 @@ Makefile* @cilium/build
 /cilium-cli/install/ @cilium/cli @cilium/helm
 /cilium-cli/install/azure.go @cilium/azure
 /cilium-cli/k8s/ @cilium/sig-k8s
+/cilium-dbg/ @cilium/cli
+/cilium-dbg/cmd/encrypt* @cilium/ipsec @cilium/cli
+/cilium-dbg/cmd/lrp* @cilium/lrp
+/cilium-dbg/cmd/preflight_k8s_valid_cnp.go @cilium/sig-k8s
 /cilium-health/ @cilium/sig-agent
 /cilium-health/cmd/ @cilium/sig-agent @cilium/cli
 /clustermesh-apiserver @cilium/sig-clustermesh
@@ -451,7 +454,7 @@ Makefile* @cilium/build
 /Documentation/network/kubernetes/compatibility-table.rst @cilium/release-managers
 /Documentation/network/kubernetes/ipam* @cilium/sig-ipam @cilium/docs-structure
 /Documentation/network/kubernetes/kubeproxy-free.rst @cilium/sig-lb @cilium/docs-structure
-/Documentation/network/kubernetes/local-redirect-policy.rst @cilium/sig-lb @cilium/docs-structure
+/Documentation/network/kubernetes/local-redirect-policy.rst @cilium/lrp @cilium/sig-lb @cilium/docs-structure
 /Documentation/network/kubernetes/ciliumendpointslice.rst @cilium/sig-scalability @cilium/docs-structure
 /Documentation/network/lb-ipam.rst @cilium/sig-lb @cilium/docs-structure
 /Documentation/network/multicast.rst @cilium/sig-datapath @cilium/docs-structure
@@ -483,6 +486,7 @@ Makefile* @cilium/build
 /examples/ @cilium/docs-structure
 /examples/hubble/ @cilium/sig-hubble
 /examples/kubernetes-egress-gateway/ @cilium/egress-gateway
+/examples/kubernetes-local-redirect/ @cilium/lrp
 /examples/kubernetes/ @cilium/sig-k8s
 /examples/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /examples/minikube/ @cilium/sig-k8s
@@ -627,6 +631,7 @@ Makefile* @cilium/build
 /pkg/labelsfilter @cilium/sig-policy
 /pkg/lbipamconfig @cilium/sig-lb
 /pkg/loadbalancer @cilium/sig-lb
+/pkg/loadbalancer/redirectpolicy/ @cilium/lrp @cilium/sig-lb
 /pkg/loadinfo/ @cilium/sig-agent
 /pkg/lock @cilium/sig-agent
 /pkg/logging/ @cilium/sig-agent
@@ -709,7 +714,7 @@ Makefile* @cilium/build
 /test/Makefile* @cilium/ci-structure @cilium/build
 # Service handling tests
 /test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
-/test/k8s/lrp.go @cilium/sig-lb
+/test/k8s/lrp.go @cilium/lrp @cilium/sig-lb
 # Policy tests
 /test/k8s/chaos.go @cilium/sig-policy
 /test/k8s/net_policies.go @cilium/sig-policy @cilium/ci-structure
