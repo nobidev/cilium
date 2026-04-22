@@ -76,7 +76,7 @@ func main() {
 	minMaxInsnsProcessed = calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
 		return r.InsnsProcessed
 	})
-	printTop15MinMax("largest instructions processed", minMaxInsnsProcessed, percentInsnsProcessed, colorAbsoluteValue)
+	printTop15MinMax("largest instructions processed", minMaxInsnsProcessed, percentInsnsProcessed, colorAbsoluteValueExponential)
 
 	minMaxStackDepth = calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
 		return r.StackDepth
@@ -175,6 +175,21 @@ func colorAbsoluteValue(program string, i int, p float64) string {
 	if p > 80 {
 		return texRed(s)
 	}
+	if p > 70 {
+		return texOrange(s)
+	}
+
+	return texGreen(s)
+}
+
+func colorAbsoluteValueExponential(program string, i int, p float64) string {
+	s := fmt.Sprintf("%s %d (%.2f\\\\%%)", program, i, p)
+	if p > 70 {
+		return texRed(s)
+	}
+	if p > 50 {
+		return texOrange(s)
+	}
 
 	return texGreen(s)
 }
@@ -189,6 +204,10 @@ func texGreen(s string) string {
 
 func texRed(s string) string {
 	return "$\\color{red}{\\textsf{" + s + "}}$"
+}
+
+func texOrange(s string) string {
+	return "$\\color{orange}{\\textsf{" + s + "}}$"
 }
 
 type minMax struct {
