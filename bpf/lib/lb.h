@@ -198,7 +198,7 @@ struct {
 	__type(value, struct lb6_service);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_SERVICE_MAP_MAX_ENTRIES);
-	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb6_services_v2 __section_maps_btf;
 
 /* Could be read-only from datapath, but bpf_xdp_store_bytes (unlike

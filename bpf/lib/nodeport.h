@@ -1356,6 +1356,30 @@ drop_err:
 					  METRIC_EGRESS);
 }
 
+__noinline __weak
+int nodeport_svc_lb6_precond(const struct lb6_service *svc, struct lb6_key *key,
+			     union v6addr *saddr)
+{
+	if (!key || !svc || !saddr)
+		return DROP_INVALID;
+
+	/* Check if the identified service is a wildcard entry. This
+	 * means we have no protocol-level service entry, meaning we
+	 * should drop the traffic to avoid it being punted back to
+	 * the network and re-delivered to us in a loop.
+	 */
+	if (lb6_key_is_wildcard(key))
+		return DROP_NO_SERVICE;
+
+	if (!lb6_src_range_ok(svc, saddr))
+		return DROP_NOT_IN_SRC_RANGE;
+
+	if (!lb6_svc_is_routable(svc))
+		return DROP_IS_CLUSTER_IP;
+
+	return CTX_ACT_OK;
+}
+
 static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 					    struct ipv6_ct_tuple *tuple,
 					    const struct lb6_service *svc,
@@ -1374,19 +1398,9 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 	__u32 monitor = 0;
 	int ret;
 
-	/* Check if the identified service is a wildcard entry. This
-	 * means we have no protocol-level service entry, meaning we
-	 * should drop the traffic to avoid it being punted back to
-	 * the network and re-delivered to us in a loop.
-	 */
-	if (lb6_key_is_wildcard(key))
-		return DROP_NO_SERVICE;
-
-	if (!lb6_src_range_ok(svc, (union v6addr *)&ip6->saddr))
-		return DROP_NOT_IN_SRC_RANGE;
-
-	if (!lb6_svc_is_routable(svc))
-		return DROP_IS_CLUSTER_IP;
+	ret = nodeport_svc_lb6_precond(svc, key, (union v6addr *)&ip6->saddr);
+	if (ret < 0)
+		return ret;
 
 	if (lb_punt_etp_local() && lb6_svc_is_etp_local(svc))
 		return CTX_ACT_OK;
