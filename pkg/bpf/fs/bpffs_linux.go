@@ -43,7 +43,7 @@ func setBPFFSRoot(path string) {
 	bpffsRoot = path
 }
 
-func BPFFSRoot() string {
+func Root() string {
 	once.Do(lockDown)
 	return bpffsRoot
 }

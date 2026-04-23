@@ -912,7 +912,7 @@ func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	assert.NotNil(t, lf)
 	assert.False(t, lf.IsIngress)
 	assert.True(t, lf.UseOriginalSourceAddress)
-	assert.Equal(t, bpffs.BPFFSRoot(), lf.BpfRoot)
+	assert.Equal(t, bpffs.Root(), lf.BpfRoot)
 	assert.False(t, lf.IsL7Lb)
 
 	// TCP listener has no SO_LINGER config
@@ -1055,7 +1055,7 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	assert.NotNil(t, lf)
 	assert.False(t, lf.IsIngress)
 	assert.False(t, lf.UseOriginalSourceAddress)
-	assert.Equal(t, bpffs.BPFFSRoot(), lf.BpfRoot)
+	assert.Equal(t, bpffs.Root(), lf.BpfRoot)
 	assert.True(t, lf.IsL7Lb)
 
 	// HTTP listener has zero SO_LINGER config

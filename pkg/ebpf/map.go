@@ -122,7 +122,7 @@ func (m *Map) OpenOrCreate() error {
 	}
 
 	opts := ciliumebpf.MapOptions{
-		PinPath: bpffs.TCGlobalsPath(bpffs.BPFFSRoot()),
+		PinPath: bpffs.TCGlobalsPath(bpffs.Root()),
 	}
 
 	memoryFlags := bpf.GetMapMemoryFlags(m.spec.Type)

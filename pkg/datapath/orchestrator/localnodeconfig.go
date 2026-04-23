@@ -198,7 +198,7 @@ func newLocalNodeConfig(
 		DatapathIsLayer2:             connectorConfig.GetOperationalMode().IsLayer2(),
 		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
 		Plugins:                      plugins,
-		BPFFS:                        config.BPFFS{Root: bpffs.BPFFSRoot()},
+		BPFFS:                        config.BPFFS{Root: bpffs.Root()},
 	}, common.MergeChannels(watchChans...), nil
 }
 

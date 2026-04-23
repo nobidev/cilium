@@ -54,7 +54,7 @@ func init() {
 }
 
 func listAllMaps(logger *slog.Logger) {
-	mapRootPrefixPath := bpffs.TCGlobalsPath(bpffs.BPFFSRoot())
+	mapRootPrefixPath := bpffs.TCGlobalsPath(bpffs.Root())
 	mapMatchExpr := filepath.Join(mapRootPrefixPath, "cilium_policy_*")
 
 	matchFiles, err := filepath.Glob(mapMatchExpr)

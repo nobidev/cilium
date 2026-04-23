@@ -1676,7 +1676,7 @@ func (m *Map) exist() (bool, error) {
 // MapPath returns a path for a BPF map with a given name.
 func MapPath(logger *slog.Logger, name string) string {
 	if components.IsCiliumAgent() {
-		return filepath.Join(bpffs.TCGlobalsPath(bpffs.BPFFSRoot()), name)
+		return filepath.Join(bpffs.TCGlobalsPath(bpffs.Root()), name)
 	}
 	return bpffs.TCPathFromMountInfo(logger, name)
 }

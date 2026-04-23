@@ -229,7 +229,7 @@ func loadAndRecordComplexity(
 			coll, _, err = bpf.LoadCollection(log, spec, &bpf.CollectionOptions{
 				Constants: constants,
 				CollectionOptions: ebpf.CollectionOptions{
-					Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath(bpffs.BPFFSRoot())},
+					Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath(bpffs.Root())},
 					Programs: ebpf.ProgramOptions{
 						LogLevel: logLevel,
 					},

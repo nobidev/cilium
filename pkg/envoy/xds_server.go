@@ -983,7 +983,7 @@ func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uin
 	conf := &cilium.BpfMetadata{
 		IsIngress:                isIngress,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
-		BpfRoot:                  bpffs.BPFFSRoot(),
+		BpfRoot:                  bpffs.Root(),
 		IsL7Lb:                   false,
 		ProxyId:                  uint32(proxyPort),
 		IpcacheName:              ipcache.Name,

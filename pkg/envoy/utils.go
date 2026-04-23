@@ -84,7 +84,7 @@ func listenerRequiresNPDS(listener *envoy_config_listener.Listener) bool {
 		var bpfMeta cilium.BpfMetadata
 		err := lf.GetTypedConfig().UnmarshalTo(&bpfMeta)
 
-		if err == nil && bpfMeta.GetBpfRoot() == bpffs.BPFFSRoot() {
+		if err == nil && bpfMeta.GetBpfRoot() == bpffs.Root() {
 			return true
 		}
 	}

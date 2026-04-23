@@ -53,7 +53,7 @@ var (
 
 // TODO: Clean up bpffs root logic and make this a var.
 func cgroupLinkPath() string {
-	return filepath.Join(bpffs.CiliumPath(bpffs.BPFFSRoot()), Subsystem, "links/cgroup")
+	return filepath.Join(bpffs.CiliumPath(bpffs.Root()), Subsystem, "links/cgroup")
 }
 
 // File to dump the socketlb BPF configuration to.

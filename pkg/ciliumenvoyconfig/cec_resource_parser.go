@@ -576,7 +576,7 @@ func (r *CECResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr b
 	conf := &cilium.BpfMetadata{
 		IsIngress:                false,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
-		BpfRoot:                  bpffs.BPFFSRoot(),
+		BpfRoot:                  bpffs.Root(),
 		IsL7Lb:                   l7lb,
 		ProxyId:                  uint32(proxyPort),
 		IpcacheName:              ipcache.Name,
