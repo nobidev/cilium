@@ -75,7 +75,7 @@ func LoadSockTerm(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (*bpfgen.So
 	// programs may be missing.
 	coll, commit, err := bpf.LoadCollection(l, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath()},
+			Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath(bpffs.BPFFSRoot())},
 		},
 		MapReplacements: mapReplacements,
 	})

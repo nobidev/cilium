@@ -243,7 +243,7 @@ func loadAssignAttach(logger *slog.Logger, reg *registry.MapRegistry,
 			Constants:   xdpConfiguration(lnc, iface),
 			MapRenames:  xdpMapRenames(lnc, iface),
 			CollectionOptions: ebpf.CollectionOptions{
-				Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath()},
+				Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath(bpffs.BPFFSRoot())},
 			},
 			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), xdpConfig),
 		})
@@ -253,7 +253,7 @@ func loadAssignAttach(logger *slog.Logger, reg *registry.MapRegistry,
 		defer obj.Close()
 
 		err = attachXDPProgram(logger, iface, obj.Entrypoint, symbolFromHostNetdevXDP,
-			bpffsDeviceLinksDir(bpffs.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode))
+			bpffsDeviceLinksDir(bpffs.CiliumPath(bpffs.BPFFSRoot()), iface), xdpConfigModeToFlag(xdpMode))
 		if errors.Is(err, unix.EINVAL) {
 			// EINVAL during attachment can have multiple causes. There are two common
 			// cases we can handle:

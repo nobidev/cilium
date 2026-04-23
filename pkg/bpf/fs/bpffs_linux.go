@@ -50,14 +50,12 @@ func BPFFSRoot() string {
 
 // TCGlobalsPath returns the absolute path to <bpffs>/tc/globals, used for
 // legacy map pin paths.
-func TCGlobalsPath() string {
-	once.Do(lockDown)
+func TCGlobalsPath(bpffsRoot string) string {
 	return filepath.Join(bpffsRoot, defaults.TCGlobalsPath)
 }
 
 // CiliumPath returns the bpffs path to be used for Cilium object pins.
-func CiliumPath() string {
-	once.Do(lockDown)
+func CiliumPath(bpffsRoot string) string {
 	return filepath.Join(bpffsRoot, "cilium")
 }
 

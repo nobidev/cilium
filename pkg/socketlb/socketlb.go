@@ -53,7 +53,7 @@ var (
 
 // TODO: Clean up bpffs root logic and make this a var.
 func cgroupLinkPath() string {
-	return filepath.Join(bpffs.CiliumPath(), Subsystem, "links/cgroup")
+	return filepath.Join(bpffs.CiliumPath(bpffs.BPFFSRoot()), Subsystem, "links/cgroup")
 }
 
 // File to dump the socketlb BPF configuration to.
@@ -87,7 +87,7 @@ func Enable(logger *slog.Logger, reg *registry.MapRegistry,
 		MapRegistry: reg,
 		Constants:   cfg,
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath()},
+			Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath(bpffs.BPFFSRoot())},
 		},
 		ConfigDumpPath: configDumpPath,
 	})

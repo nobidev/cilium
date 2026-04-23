@@ -115,7 +115,7 @@ type bpfCleanup struct{}
 
 func (c bpfCleanup) whatWillBeRemoved() []string {
 	return []string{
-		fmt.Sprintf("all BPF maps in %s containing '%s'", bpffs.TCGlobalsPath(), ciliumLinkPrefix),
+		fmt.Sprintf("all BPF maps in %s containing '%s'", bpffs.TCGlobalsPath(bpffs.BPFFSRoot()), ciliumLinkPrefix),
 		fmt.Sprintf("mounted bpffs at %s", bpffs.BPFFSRoot()),
 	}
 }
@@ -425,7 +425,7 @@ func removeDirs() error {
 }
 
 func removeAllMaps() error {
-	mapDir := bpffs.TCGlobalsPath()
+	mapDir := bpffs.TCGlobalsPath(bpffs.BPFFSRoot())
 	maps, err := os.ReadDir(mapDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -550,7 +550,7 @@ func removeTCFilters(linkAndFilters map[string][]*netlink.BpfFilter) error {
 
 func removeXDPAttachments(links []netlink.Link) error {
 	for _, link := range links {
-		if err := loader.DetachXDP(link.Attrs().Name, bpffs.CiliumPath(), "cil_xdp_entry"); err != nil {
+		if err := loader.DetachXDP(link.Attrs().Name, bpffs.CiliumPath(bpffs.BPFFSRoot()), "cil_xdp_entry"); err != nil {
 			return err
 		}
 		fmt.Printf("removed cilium xdp of %s\n", link.Attrs().Name)
@@ -592,7 +592,7 @@ func isCiliumXDP(progId uint32) (bool, error) {
 }
 
 func removeCiliumBPFFS() error {
-	path := bpffs.CiliumPath()
+	path := bpffs.CiliumPath(bpffs.BPFFSRoot())
 
 	if err := bpffs.Remove(path); err != nil {
 		return err

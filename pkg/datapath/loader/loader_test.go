@@ -63,12 +63,12 @@ func initBpffs(tb testing.TB) {
 
 	tb.Helper()
 
-	require.NoError(tb, bpffs.MkdirBPF(bpffs.TCGlobalsPath()))
-	require.NoError(tb, bpffs.MkdirBPF(bpffs.CiliumPath()))
+	require.NoError(tb, bpf.MkdirBPF(bpffs.TCGlobalsPath(bpffs.BPFFSRoot())))
+	require.NoError(tb, bpf.MkdirBPF(bpffs.CiliumPath(bpffs.BPFFSRoot())))
 
 	tb.Cleanup(func() {
-		require.NoError(tb, os.RemoveAll(bpffs.TCGlobalsPath()))
-		require.NoError(tb, os.RemoveAll(bpffs.CiliumPath()))
+		require.NoError(tb, os.RemoveAll(bpffs.TCGlobalsPath(bpffs.BPFFSRoot())))
+		require.NoError(tb, os.RemoveAll(bpffs.CiliumPath(bpffs.BPFFSRoot())))
 	})
 }
 
@@ -92,7 +92,6 @@ func getEpDirs(ep *testutils.TestEndpoint) *directoryInfo {
 
 func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
 	initBpffs(t)
-
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 	stats := &metrics.SpanStat{}

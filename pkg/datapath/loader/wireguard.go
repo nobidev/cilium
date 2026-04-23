@@ -78,7 +78,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, reg *reg
 		Constants:   wireguardConfiguration(lnc, device),
 		MapRenames:  wireguardMapRenames(lnc, device),
 		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath()},
+			Maps: ebpf.MapOptions{PinPath: bpffs.TCGlobalsPath(bpffs.BPFFSRoot())},
 		},
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(device.Attrs().Name), wireguardConfig),
 	})
@@ -87,7 +87,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, reg *reg
 	}
 	defer obj.Close()
 
-	linkDir := bpffsDeviceLinksDir(bpffs.CiliumPath(), device)
+	linkDir := bpffsDeviceLinksDir(bpffs.CiliumPath(bpffs.BPFFSRoot()), device)
 	// Attach/detach cil_to_wireguard to/from egress.
 	if option.Config.NeedEgressOnWireGuardDevice(lnc.KPRConfig, lnc.EnableWireguard) {
 		if err := attachSKBProgram(logger, device, obj.ToWireguard, symbolToWireguard,

@@ -110,7 +110,7 @@ func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
 
 		// Remove the per-device bpffs directory containing pinned links and
 		// per-endpoint maps.
-		bpffsPath := bpffsDeviceDir(bpffs.CiliumPath(), l)
+		bpffsPath := bpffsDeviceDir(bpffs.CiliumPath(bpffs.BPFFSRoot()), l)
 		if err := bpffs.Remove(bpffsPath); err != nil {
 			logger.Error("Failed to remove bpffs entry",
 				logfields.Error, err,
