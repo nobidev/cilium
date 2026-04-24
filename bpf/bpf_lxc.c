@@ -188,28 +188,29 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 
 #if defined(ENABLE_NODEPORT)
 	if (!svc) {
-		struct ipv4_ct_tuple tmp = tuple;
-
 		/* look up with SCOPE_FORWARD: */
-		__ipv4_ct_tuple_reverse(&tmp);
+		__ipv4_ct_tuple_reverse(&tuple);
 
 		/* If a CT_EGRESS entry exists, it indicates the connection was
 		 * established via the legacy path. Preserve this behavior (skip
 		 * wildcard lookup) to maintain consistency for existing flows.
 		 * Wildcard lookup is applied only for new connections.
 		 */
-		if (!ct_has_egress_entry4(get_ct_map4(&tmp), &tmp)) {
+		if (!ct_has_egress_entry4(get_ct_map4(&tuple), &tuple)) {
 			svc = lb4_lookup_wildcard_service(&key);
 			if (svc) {
 				struct nodeport_nat_info nat_info = {};
 				__u32 zero = 0;
 
-				nat_info.nat_addr.p4 = tuple.daddr;
-				nat_info.nat_port = tuple.sport;
+				nat_info.nat_addr.p4 = tuple.saddr;
+				nat_info.nat_port = tuple.dport;
 				map_update_elem(&cilium_nodeport_nat_buffer,
 						&zero, &nat_info, 0);
 			}
 		}
+
+		/* restore tuple order */
+		__ipv4_ct_tuple_reverse(&tuple);
 	}
 #endif /* ENABLE_NODEPORT */
 
@@ -366,28 +367,29 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 
 #if defined(ENABLE_NODEPORT)
 	if (!svc) {
-		struct ipv6_ct_tuple tmp = tuple;
-
 		/* look up with SCOPE_FORWARD: */
-		__ipv6_ct_tuple_reverse(&tmp);
+		__ipv6_ct_tuple_reverse(&tuple);
 
 		/* If a CT_EGRESS entry exists, it indicates the connection was
 		 * established via the legacy path. Preserve this behavior (skip
 		 * wildcard lookup) to maintain consistency for existing flows.
 		 * Wildcard lookup is applied only for new connections.
 		 */
-		if (!ct_has_egress_entry6(get_ct_map6(&tmp), &tmp)) {
+		if (!ct_has_egress_entry6(get_ct_map6(&tuple), &tuple)) {
 			svc = lb6_lookup_wildcard_service(&key);
 			if (svc) {
 				struct nodeport_nat_info nat_info = {};
 				__u32 zero = 0;
 
-				ipv6_addr_copy(&nat_info.nat_addr, &tuple.daddr);
-				nat_info.nat_port = tuple.sport;
+				ipv6_addr_copy(&nat_info.nat_addr, &tuple.saddr);
+				nat_info.nat_port = tuple.dport;
 				map_update_elem(&cilium_nodeport_nat_buffer,
 						&zero, &nat_info, 0);
 			}
 		}
+
+		/* restore tuple order */
+		__ipv6_ct_tuple_reverse(&tuple);
 	}
 #endif /* ENABLE_NODEPORT */
 
