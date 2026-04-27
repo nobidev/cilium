@@ -153,9 +153,7 @@ type agent struct {
 	authKeySize int
 	spi         uint8
 	pendingSPI  uint8
-	// ipSecKeysGlobal is a map of all global IPsec keys per IP, plus a key for
-	// the empty string which is used for the global key.
-	ipSecKeysGlobal map[string]*ipSecKey
+	key         *ipSecKey
 	// ipSecCurrentKeySPI is the SPI of the IPSec currently in use
 	ipSecCurrentKeySPI uint8
 	// ipSecKeysRemovalTime is used to track at which time a given key is
@@ -184,7 +182,7 @@ func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.Local
 		authKeySize:          0,
 		spi:                  0,
 		pendingSPI:           0,
-		ipSecKeysGlobal:      map[string]*ipSecKey{},
+		key:                  nil,
 		ipSecKeysRemovalTime: map[uint8]time.Time{},
 		xfrmStateCache:       NewXfrmStateListCache(time.Minute, c.EnableIPsecXfrmStateCaching),
 	}
@@ -283,17 +281,6 @@ func (a *agent) Enabled() bool {
 	return a.config.Enabled()
 }
 
-func (a *agent) getGlobalIPsecKey(ip net.IP) *ipSecKey {
-	a.ipSecLock.RLock()
-	defer a.ipSecLock.RUnlock()
-
-	key, scoped := a.ipSecKeysGlobal[ip.String()]
-	if !scoped {
-		key = a.ipSecKeysGlobal[""]
-	}
-	return key
-}
-
 // computeNodeIPsecKey computes per-node-pair IPsec keys from the global,
 // pre-shared key. The per-node-pair keys are computed with a SHA256 hash of
 // the global key, source node IP, destination node IP appended together.
@@ -368,9 +355,11 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 // decryption on A (XFRM IN) is the same key used for encryption on B (XFRM
 // OUT), and vice versa. And its key automatically resets on each node reboot.
 func (a *agent) getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, srcBootID, dstBootID string) (*ipSecKey, error) {
-	globalKey := a.getGlobalIPsecKey(localNodeIP)
-	if globalKey == nil {
-		return nil, fmt.Errorf("global IPsec key missing")
+	a.ipSecLock.RLock()
+	defer a.ipSecLock.RUnlock()
+
+	if a.key == nil {
+		return nil, fmt.Errorf("IPsec key missing")
 	}
 
 	srcBootIDBytes := []byte(srcBootID)
@@ -379,7 +368,7 @@ func (a *agent) getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, srcBootID, dst
 		return nil, fmt.Errorf("incorrect size for boot ID, should be at least 36 characters long")
 	}
 
-	return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, srcBootIDBytes, dstBootIDBytes), nil
+	return deriveNodeIPsecKey(a.key, localNodeIP, remoteNodeIP, srcBootIDBytes, dstBootIDBytes), nil
 }
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
@@ -640,31 +629,35 @@ func (a *agent) ipSecReplaceStateOut(params *types.Parameters) (uint8, error) {
 func (a *agent) ipSecReplacePolicyIn(params *types.Parameters) error {
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
-	key := a.getGlobalIPsecKey(params.DestSubnet.IP)
-	if key == nil {
+	a.ipSecLock.RLock()
+	defer a.ipSecLock.RUnlock()
+
+	if a.key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
-	key.ReqID = params.ReqID
+	a.key.ReqID = params.ReqID
 
 	policy := ipSecNewPolicy()
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_IN
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, false, true)
+	ipSecAttachPolicyTempl(policy, a.key, *params.SourceTunnelIP, *params.DestTunnelIP, false, true)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
 func (a *agent) ipsecReplacePolicyFwd(params *types.Parameters) error {
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
-	key := a.getGlobalIPsecKey(net.IP{})
-	if key == nil {
+	a.ipSecLock.RLock()
+	defer a.ipSecLock.RUnlock()
+
+	if a.key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
 
 	policy := ipSecNewPolicy()
 	policy.Dir = netlink.XFRM_DIR_FWD
-	key.ReqID = params.ReqID
+	a.key.ReqID = params.ReqID
 	policy.Priority = linux_defaults.IPsecFwdPriority
 
 	// In case of fwd policies, we should tell the kernel the tmpl src
@@ -672,7 +665,7 @@ func (a *agent) ipsecReplacePolicyFwd(params *types.Parameters) error {
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
 
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, false, true)
+	ipSecAttachPolicyTempl(policy, a.key, *params.SourceTunnelIP, *params.DestTunnelIP, false, true)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -742,18 +735,20 @@ func (a *agent) ipSecReplacePolicyOut(params *types.Parameters) error {
 
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
-	key := a.getGlobalIPsecKey(params.DestSubnet.IP)
-	if key == nil {
+	a.ipSecLock.RLock()
+	defer a.ipSecLock.RUnlock()
+
+	if a.key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
-	key.ReqID = params.ReqID
+	a.key.ReqID = params.ReqID
 
 	policy := ipSecNewPolicy()
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_OUT
-	policy.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, true, false)
+	policy.Mark = generateEncryptMark(a.key.Spi, params.RemoteNodeID)
+	ipSecAttachPolicyTempl(policy, a.key, *params.SourceTunnelIP, *params.DestTunnelIP, true, false)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -1202,16 +1197,16 @@ func (a *agent) LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 		ipSecKey.Spi = spi
 		ipSecKey.KeyLen = keyLen
 
-		if oldKey, ok := a.ipSecKeysGlobal[""]; ok {
-			if oldKey.Spi == spi {
+		if a.key != nil {
+			if a.key.Spi == spi {
 				return 0, 0, fmt.Errorf("invalid SPI: changing IPSec keys requires incrementing the key id")
 			}
-			if oldKey.KeyLen != keyLen {
+			if a.key.KeyLen != keyLen {
 				return 0, 0, fmt.Errorf("invalid key rotation: key length must not change")
 			}
-			a.ipSecKeysRemovalTime[oldKey.Spi] = time.Now()
+			a.ipSecKeysRemovalTime[a.key.Spi] = time.Now()
 		}
-		a.ipSecKeysGlobal[""] = ipSecKey
+		a.key = ipSecKey
 		a.ipSecCurrentKeySPI = spi
 	}
 	return keyLen, spi, nil
@@ -1534,7 +1529,7 @@ func NewTestIPsecAgent(tb testing.TB) *agent {
 
 		authKeySize:          0,
 		spi:                  0,
-		ipSecKeysGlobal:      map[string]*ipSecKey{},
+		key:                  nil,
 		ipSecKeysRemovalTime: map[uint8]time.Time{},
 		xfrmStateCache:       NewXfrmStateListCache(time.Minute, true),
 	}
