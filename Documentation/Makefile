@@ -80,6 +80,19 @@ update-cmdref: cilium-build ## Update the command reference documents (agent, bu
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
 
+# Lightweight target that regenerates only the cilium-cli command reference
+# files (cmdref/cilium_*.md, e.g. cilium_install.md and cilium_upgrade.md).
+# Unlike `update-cmdref`, this target does not depend on `cilium-build` and
+# therefore does not require building all Cilium binaries inside the
+# cilium-builder docker image. This makes it usable from environments where
+# privileged docker is not available (e.g. Renovate's post-upgrade task
+# sandbox), and it is sufficient for dependency bumps that only affect
+# cilium-cli's embedded helm charts (github.com/cilium/charts).
+.PHONY: update-cmdref-cilium-cli
+update-cmdref-cilium-cli: ## Update the cilium-cli command reference documents only.
+	@$(ECHO_GEN)cmdref-cilium-cli
+	$(QUIET)$(GO) run $(ROOT_DIR)/cilium-cli/cmd/cilium cmdref $(CURDIR)/cmdref
+
 .PHONY: update-feature-metrics
 update-feature-metrics: cilium-build ## Update the observability feature metrics documents (agent, operator).
 	@$(ECHO_GEN)feature-metrics

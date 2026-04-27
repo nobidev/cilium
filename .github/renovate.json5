@@ -111,6 +111,7 @@
     "^make -C install/kubernetes$",
     "^make -C Documentation update-helm-values$",
     "^make -C Documentation update-cmdref$",
+    "^make GO='contrib/scripts/builder.sh go' -C Documentation update-cmdref-cilium-cli$",
     "^make -C Documentation update-requirements$",
     "^make manifests$",
     "^make GO='contrib/scripts/builder.sh go' generate-apis$",
@@ -656,7 +657,7 @@
       ],
       "postUpgradeTasks": {
         "commands": [
-          "make -C Documentation update-cmdref"
+          "make GO='contrib/scripts/builder.sh go' -C Documentation update-cmdref-cilium-cli"
         ],
         "fileFilters": [
           "Documentation/cmdref/cilium_install.md",
