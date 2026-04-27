@@ -247,7 +247,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 			// 4. Ensure the MTU returns the correct value.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				overhead := mtu.EncryptionIPsecOverhead + (ipsecAgent.authKeySize - mtu.EncryptionDefaultAuthKeyLength)
+				overhead := mtu.EncryptionIPsecOverhead + (ipsecAgent.AuthKeySize() - mtu.EncryptionDefaultAuthKeyLength)
 				assert.Equal(c, mtuConfig.GetDeviceMTU(), mtuConfig.GetRouteMTU()+overhead)
 			}, TestTimeout, 50*time.Millisecond)
 
@@ -257,23 +257,23 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			// 6. Ensure local node has been updated.
 			localNode, err := nodeStore.Get(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, localNode.EncryptionKey, ipsecAgent.spi)
+			assert.Equal(t, localNode.EncryptionKey, ipsecAgent.activeSPI)
 
 			// 7. Ensure encrypt map is updated accordingly.
 			v, err := encryptMap.Lookup(zeroKey)
 			require.NoError(t, err)
-			assert.Equal(t, ipsecAgent.spi, v.KeyID)
+			assert.Equal(t, ipsecAgent.activeSPI, v.KeyID)
 
 			// 8. Dump another valid IPSec key to file.
 			require.NoError(t, os.WriteFile(keyFile, validKeySPI5, 0644))
 
 			// 9. Ensure the ipsec agent updated the spi accordingly.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				assert.Equal(c, uint8(5), ipsecAgent.spi)
+				assert.Equal(c, uint8(5), ipsecAgent.activeSPI)
 				v, err := encryptMap.Lookup(zeroKey)
 				assert.NoError(c, err)
-				assert.Equal(c, ipsecAgent.spi, v.KeyID)
-				assert.NotEmpty(c, ipsecAgent.ipSecKeysRemovalTime)
+				assert.Equal(c, ipsecAgent.activeSPI, v.KeyID)
+				assert.NotEmpty(c, ipsecAgent.keysRemovalTime)
 			}, TestTimeout, 50*time.Millisecond)
 
 			// 10. Dump an invalid IPSec key to file.
@@ -281,10 +281,10 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 			// 11. Ensure the ipsec agent rejected the new key.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				assert.Equal(c, uint8(5), ipsecAgent.spi)
+				assert.Equal(c, uint8(5), ipsecAgent.activeSPI)
 				v, err := encryptMap.Lookup(zeroKey)
 				assert.NoError(c, err)
-				assert.Equal(c, ipsecAgent.spi, v.KeyID)
+				assert.Equal(c, ipsecAgent.activeSPI, v.KeyID)
 			}, TestTimeout, 50*time.Millisecond)
 
 			// 12. Stop the hive.
@@ -307,8 +307,8 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 			// 2. Verify rotation detected: agent keeps old SPI from BPF map,
 			// defers new SPI publication.
-			assert.Equal(t, uint8(5), ipsecAgent.spi)
-			assert.Equal(t, uint8(6), ipsecAgent.pendingSPI)
+			assert.Equal(t, uint8(5), ipsecAgent.activeSPI)
+			assert.Equal(t, uint8(6), ipsecAgent.currentKeySPI())
 
 			// 3. Verify BPF encrypt map was NOT updated (still old SPI=5).
 			v, err := encryptMap.Lookup(zeroKey)
@@ -328,8 +328,8 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 			// 6. Verify that after dpInitialized, the new SPI is published everywhere.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				assert.Equal(c, uint8(6), ipsecAgent.spi)
-				assert.Equal(c, uint8(0), ipsecAgent.pendingSPI)
+				assert.Equal(c, uint8(6), ipsecAgent.activeSPI)
+				assert.Equal(c, ipsecAgent.activeSPI, ipsecAgent.currentKeySPI())
 				v, err := encryptMap.Lookup(zeroKey)
 				assert.NoError(c, err)
 				assert.Equal(c, uint8(6), v.KeyID)
@@ -372,7 +372,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			// 6. Ensure the ipsec agent did not update the key.
 			//    Current key SPI would've been 4, but encryptMap still has 6 from previous test.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				assert.Equal(c, uint8(0), ipsecAgent.spi)
+				assert.Equal(c, uint8(0), ipsecAgent.activeSPI)
 				v, err := encryptMap.Lookup(zeroKey)
 				assert.NoError(c, err)
 				assert.NotEqual(c, uint8(4), v.KeyID)
