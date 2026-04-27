@@ -209,7 +209,7 @@ func (a *agent) Start(cell.HookContext) error {
 	}
 	a.spi = v.KeyID
 
-	a.authKeySize, a.pendingSPI, err = a.loadIPSecKeysFile(a.config.IPsecKeyFile)
+	err = a.loadIPSecKeysFile(a.config.IPsecKeyFile)
 	if err != nil {
 		return err
 	}
@@ -1095,20 +1095,16 @@ func decodeIPSecKey(keyRaw string) (int, []byte, error) {
 
 // loadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
 // is to put a key per line as follows, (auth-algo auth-key enc-algo enc-key)
-// Returns the authentication overhead in bytes, the key ID, and an error.
-func (a *agent) loadIPSecKeysFile(path string) (int, uint8, error) {
+func (a *agent) loadIPSecKeysFile(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
-		return 0, 0, err
+		return err
 	}
 	defer file.Close()
 	return a.LoadIPSecKeys(file)
 }
 
-func (a *agent) LoadIPSecKeys(r io.Reader) (int, uint8, error) {
-	var spi uint8
-	var keyLen int
-
+func (a *agent) LoadIPSecKeys(r io.Reader) error {
 	a.ipSecLock.Lock()
 	defer a.ipSecLock.Unlock()
 
@@ -1122,7 +1118,7 @@ func (a *agent) LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 			offsetBase int
 		)
 
-		ipSecKey := &ipSecKey{
+		newKey := &ipSecKey{
 			ReqID: DefaultReqID,
 		}
 
@@ -1133,83 +1129,82 @@ func (a *agent) LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 		if len(s) < 3 {
 			// Regardless of the format used, the IPsec secret should have at
 			// least 3 fields separated by white spaces.
-			return 0, 0, fmt.Errorf("missing IPSec key or invalid format")
+			return fmt.Errorf("missing IPSec key or invalid format")
 		}
 
-		spi, offsetBase, err = parseSPI(s[offsetSPI])
+		newKey.Spi, offsetBase, err = parseSPI(s[offsetSPI])
 		if err != nil {
-			return 0, 0, fmt.Errorf("failed to parse SPI: %w", err)
+			return fmt.Errorf("failed to parse SPI: %w", err)
 		}
 
 		if len(s) > offsetBase+maxOffset+1 {
-			return 0, 0, fmt.Errorf("invalid format: too many fields in the IPsec secret")
+			return fmt.Errorf("invalid format: too many fields in the IPsec secret")
 		} else if len(s) == offsetBase+offsetICV+1 {
 			// We're in the first case, with "[spi] aead-algo aead-key icv-len".
 			aeadName := s[offsetBase+offsetAeadAlgo]
 			if !strings.HasPrefix(aeadName, "rfc") {
-				return 0, 0, fmt.Errorf("invalid AEAD algorithm %q", aeadName)
+				return fmt.Errorf("invalid AEAD algorithm %q", aeadName)
 			}
 
 			_, aeadKey, err = decodeIPSecKey(s[offsetBase+offsetAeadKey])
 			if err != nil {
-				return 0, 0, fmt.Errorf("unable to decode AEAD key string %q", s[offsetBase+offsetAeadKey])
+				return fmt.Errorf("unable to decode AEAD key string %q", s[offsetBase+offsetAeadKey])
 			}
 
 			icvLen, err := strconv.Atoi(s[offsetICV+offsetBase])
 			if err != nil {
-				return 0, 0, fmt.Errorf("ICV length is invalid or missing")
+				return fmt.Errorf("ICV length is invalid or missing")
 			}
 
 			if icvLen != 96 && icvLen != 128 && icvLen != 256 {
-				return 0, 0, fmt.Errorf("only ICV lengths 96, 128, and 256 are accepted")
+				return fmt.Errorf("only ICV lengths 96, 128, and 256 are accepted")
 			}
 
-			ipSecKey.Aead = &netlink.XfrmStateAlgo{
+			newKey.Aead = &netlink.XfrmStateAlgo{
 				Name:   aeadName,
 				Key:    aeadKey,
 				ICVLen: icvLen,
 			}
-			keyLen = icvLen / 8
+			newKey.KeyLen = icvLen / 8
 		} else {
 			// We're in the second case, with "[spi] auth-algo auth-key enc-algo enc-key [IP]".
 			authAlgo := s[offsetBase+offsetAuthAlgo]
-			keyLen, authKey, err = decodeIPSecKey(s[offsetBase+offsetAuthKey])
+			newKey.KeyLen, authKey, err = decodeIPSecKey(s[offsetBase+offsetAuthKey])
 			if err != nil {
-				return 0, 0, fmt.Errorf("unable to decode authentication key string %q", s[offsetBase+offsetAuthKey])
+				return fmt.Errorf("unable to decode authentication key string %q", s[offsetBase+offsetAuthKey])
 			}
 
 			encAlgo := s[offsetBase+offsetEncAlgo]
 			_, encKey, err := decodeIPSecKey(s[offsetBase+offsetEncKey])
 			if err != nil {
-				return 0, 0, fmt.Errorf("unable to decode encryption key string %q", s[offsetBase+offsetEncKey])
+				return fmt.Errorf("unable to decode encryption key string %q", s[offsetBase+offsetEncKey])
 			}
 
-			ipSecKey.Auth = &netlink.XfrmStateAlgo{
+			newKey.Auth = &netlink.XfrmStateAlgo{
 				Name: authAlgo,
 				Key:  authKey,
 			}
-			ipSecKey.Crypt = &netlink.XfrmStateAlgo{
+			newKey.Crypt = &netlink.XfrmStateAlgo{
 				Name: encAlgo,
 				Key:  encKey,
 			}
 		}
 
-		ipSecKey.Spi = spi
-		ipSecKey.KeyLen = keyLen
-
 		if a.key != nil {
-			if a.key.Spi == spi {
-				return 0, 0, fmt.Errorf("invalid SPI: changing IPSec keys requires incrementing the key id")
+			if a.key.Spi == newKey.Spi {
+				return fmt.Errorf("invalid SPI: changing IPSec keys requires incrementing the key id")
 			}
-			if a.key.KeyLen != keyLen {
-				return 0, 0, fmt.Errorf("invalid key rotation: key length must not change")
+			if a.key.KeyLen != newKey.KeyLen {
+				return fmt.Errorf("invalid key rotation: key length must not change")
 			}
 			a.ipSecKeysRemovalTime[a.key.Spi] = time.Now()
 		}
-		a.key = ipSecKey
-		a.ipSecCurrentKeySPI = spi
+		a.key = newKey
+		a.ipSecCurrentKeySPI = newKey.Spi
+		a.pendingSPI = newKey.Spi
+		a.authKeySize = newKey.KeyLen
 	}
-	return keyLen, spi, nil
+	return nil
 }
 
 func parseSPI(spiStr string) (uint8, int, error) {
@@ -1331,7 +1326,7 @@ func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 				}
 			}
 
-			a.authKeySize, a.pendingSPI, err = a.loadIPSecKeysFile(keyfilePath)
+			err = a.loadIPSecKeysFile(keyfilePath)
 			if err != nil {
 				health.Degraded(fmt.Sprintf("Failed to load keyfile %q", keyfilePath), err)
 				a.log.Error("Failed to load IPsec keyfile", logfields.Error, err)
