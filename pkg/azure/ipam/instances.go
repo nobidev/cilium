@@ -12,6 +12,10 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 
+	// Register the Azure resource-ID parser. This is the canonical place
+	// for Azure-IPAM-enabled binaries to wire in pkg/azure/types' parser
+	// so AzureInterface.SetID() can populate the VMSS/VM/RG fields.
+	_ "github.com/cilium/cilium/pkg/azure/types/azureid"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
