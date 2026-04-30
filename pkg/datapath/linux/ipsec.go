@@ -28,8 +28,8 @@ import (
 )
 
 var (
-	exactMatchMaskIPv4 = net.IPv4Mask(255, 255, 255, 255)
 	exactMatchMaskIPv6 = net.CIDRMask(0, 128)
+	exactMatchMaskIPv4 = net.IPv4Mask(255, 255, 255, 255)
 	wildcardIP         = net.ParseIP(wildcardIPv4)
 	wildcardCIDR       = &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
 	wildcardIP6        = net.ParseIP(wildcardIPv6)
