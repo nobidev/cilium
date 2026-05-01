@@ -146,7 +146,7 @@ jobs:
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
             "6.1") FULL_KERNEL="6.1-20260310.122539" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.6") FULL_KERNEL="6.6-20260310.122539" ;;
+            "6.6") FULL_KERNEL="v6.6-backports-20260501.182609" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
             "6.12") FULL_KERNEL="6.12-20260310.122539" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
@@ -161,7 +161,7 @@ jobs:
         uses: cilium/little-vm-helper@e249f34602b03d331320955be94cbaa2cc4fb6a8 # v0.0.29
         with:
           test-name: datapath-bpf-complexity
-          image: 'complexity-test'
+          image: 'complexity-test-ci'
           image-version: ${{ steps.kernel-version.outputs.full }}
           host-mount: ./
           images-folder-parent: "/tmp"
