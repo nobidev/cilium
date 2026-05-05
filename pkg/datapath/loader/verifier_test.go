@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/hivetest"
@@ -235,12 +236,6 @@ func loadAndRecordComplexity(
 		t.Parallel()
 		log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
-		// Only print last line + additional stats.
-		logLevel := ebpf.LogLevelStats
-		if *flagFullLog {
-			logLevel = ebpf.LogLevelInstruction | ebpf.LogLevelStats
-		}
-
 		var (
 			coll *ebpf.Collection
 			err  error
@@ -251,19 +246,12 @@ func loadAndRecordComplexity(
 				CollectionOptions: ebpf.CollectionOptions{
 					Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 					Programs: ebpf.ProgramOptions{
-						LogLevel: logLevel,
+						// We need verbose logs to parse the functions visited at runtime and
+						// associate them to the reported stack depths.
+						LogLevel: ebpf.LogLevelInstruction | ebpf.LogLevelStats,
 					},
 				},
 			})
-			if err != nil {
-				// When we have a load error, and we initially did not request the full log,
-				// we retry with the full log enabled.
-				if logLevel != ebpf.LogLevelInstruction|ebpf.LogLevelStats {
-					logLevel = ebpf.LogLevelInstruction | ebpf.LogLevelStats
-					continue
-				}
-			}
-
 			break
 		}
 
@@ -391,7 +379,7 @@ func loadAndRecordComplexity(
 				}
 				depths = append(depths, depth)
 			}
-			r.StackDepth = maxStackDepth(s, depths)
+			r.StackDepth = maxStackDepth(t, s, depths, p.VerifierLog, build, load)
 
 			// Extract the third to last line, which looks like:
 			//   verification time 355643 usec
@@ -413,7 +401,7 @@ func loadAndRecordComplexity(
 	}
 }
 
-func maxStackDepth(spec *ebpf.ProgramSpec, stackDepths []int) int {
+func maxStackDepth(t *testing.T, spec *ebpf.ProgramSpec, stackDepths []int, verifierLogs string, build, load int) int {
 	insns := spec.Instructions
 	graph := make(map[string][]string)
 	sizes := make(map[string]int)
@@ -422,16 +410,17 @@ func maxStackDepth(spec *ebpf.ProgramSpec, stackDepths []int) int {
 	// We iterate through the instructions, and whenever we see a function definition, we take the next stack depth
 	// from the log and associate it with that function. Also record calls to construct a call graph.
 	var cur string
+	kernelInsnOffset := asm.RawInstructionOffset(0)
 	for _, insn := range insns {
 		if insn.IsFunctionCall() {
 			graph[cur] = append(graph[cur], insn.Reference())
-			continue
-		}
-		if fn := btf.FuncMetadata(&insn); fn != nil {
+		} else if fn := btf.FuncMetadata(&insn); fn != nil &&
+			funcWasVerified(t, verifierLogs, kernelInsnOffset) {
 			cur = fn.Name
 			sizes[cur] = stackDepths[0]
 			stackDepths = stackDepths[1:]
 		}
+		kernelInsnOffset += insn.Width()
 	}
 
 	// Recursively visit the call graph to calculate the maximum stack depth, by summing the stack sizes of called
@@ -453,6 +442,16 @@ func maxStackDepth(spec *ebpf.ProgramSpec, stackDepths []int) int {
 	visit([]string{spec.Name})
 
 	return maxDepth
+}
+
+// Returns true if the given function was visited as part of the verifier's main analysis.
+// The function is identified by the raw offset of its first instruction. That instruction number
+// can appear multiple times in logs, including in logs before the main analysis for newer kernels.
+// We thus need to skip all liveness-related logs at the beginning. "Live regs before insn:" is a
+// good marker that we've finished the liveness analysis.
+func funcWasVerified(t *testing.T, verifierLogs string, insn asm.RawInstructionOffset) bool {
+	mainLogsIdx := strings.Index(verifierLogs, "Live regs before insn:")
+	return strings.Contains(verifierLogs[mainLogsIdx+1:], fmt.Sprintf("\n%d: (", insn))
 }
 
 type verifierComplexityRecord struct {
