@@ -340,6 +340,7 @@ func loadAndRecordComplexity(
 			// The part of the log we are interested in is at the end. And looks like this:
 			//   verification time 355643 usec
 			//   stack depth 144+280+120
+			//   insns processed 12591+75421+455  <-- only on newer kernels
 			//   processed 88467 insns (limit 1000000) max_states_per_insn 44 total_states 4141 peak_states 1137 mark_read 56
 
 			// Remove trailing newline so strings.LastIndex finds the newline ahead of the last log line.
@@ -364,10 +365,20 @@ func loadAndRecordComplexity(
 				t.Fatalf("Failed to parse verifier log for program %s: %v", n, err)
 			}
 
-			// Extract the second to last line, which looks like:
+			// Extract the second or third (depending on the kernel version) to last line,
+			// which looks like:
 			//   stack depth 144+280+120
 			stackDepthIndex := strings.LastIndex(p.VerifierLog[:lastLineIndex], "\n")
-			stackDepthLine := strings.TrimPrefix(strings.TrimSpace(p.VerifierLog[stackDepthIndex+1:lastOff]), "stack depth ")
+			stackDepthLine := p.VerifierLog[stackDepthIndex+1 : lastOff]
+			if !strings.Contains(stackDepthLine, "stack depth ") {
+				lastOff = stackDepthIndex + 1
+				stackDepthIndex = strings.LastIndex(p.VerifierLog[:stackDepthIndex], "\n")
+				stackDepthLine = p.VerifierLog[stackDepthIndex+1 : lastOff]
+				if !strings.Contains(stackDepthLine, "stack depth ") {
+					t.Fatalf("Couldn't find stack depths line in verifier logs")
+				}
+			}
+			stackDepthLine = strings.TrimPrefix(strings.TrimSpace(stackDepthLine), "stack depth ")
 
 			// Remove prefix so we are just left with plus separated stack depths, and parse them into ints.
 			//   144+280+120
