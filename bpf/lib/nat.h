@@ -23,7 +23,7 @@
 #include "nat_46x64.h"
 #include "stubs.h"
 #include "trace.h"
-#include "aux.h"
+#include "auxvar.h"
 
 /* Nodeport NAT minimum port value */
 #define NODEPORT_PORT_MIN_NAT CONFIG(nodeport_port_max) + 1
