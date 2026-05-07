@@ -101,7 +101,7 @@ int egressgw_egress1_rt_info_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_world_entry();
 
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP,
-				  EGRESS_IP);
+				  EGRESS_IP, 0);
 
 	return netdev_send_packet(ctx);
 }
@@ -147,7 +147,7 @@ int egressgw_redirect_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_world_entry();
 	create_ct_entry(ctx, client_port(TEST_REDIRECT));
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP,
-				  EGRESS_IP);
+				  EGRESS_IP, 0);
 	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
 
 	return netdev_send_packet(ctx);
@@ -182,9 +182,9 @@ int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_world_entry();
 	create_ct_entry(ctx, client_port(TEST_REDIRECT_EXCL_CIDR));
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP,
-				  EGRESS_IP);
+				  EGRESS_IP, 0);
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR,
-				  EGRESS_IP);
+				  EGRESS_IP, 0);
 	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
 
 	return netdev_send_packet(ctx);
@@ -221,7 +221,7 @@ int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_world_entry();
 	create_ct_entry(ctx, client_port(TEST_REDIRECT_SKIP_NO_GATEWAY));
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_NO_GATEWAY,
-				  EGRESS_IP);
+				  EGRESS_IP, 0);
 
 	return netdev_send_packet(ctx);
 }
@@ -275,7 +275,7 @@ int egressgw_drop_no_egress_ip_setup(struct __ctx_buff *ctx)
 
 	create_ct_entry(ctx, client_port(TEST_DROP_NO_EGRESS_IP));
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, GATEWAY_NODE_IP,
-				  EGRESS_GATEWAY_NO_EGRESS_IP);
+				  EGRESS_GATEWAY_NO_EGRESS_IP, 0);
 
 	return netdev_send_packet(ctx);
 }

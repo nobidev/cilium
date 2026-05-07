@@ -97,7 +97,7 @@ SETUP("tc", "tc_egressgw_snat1")
 int egressgw_snat1_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
-				  GATEWAY_NODE_IP, EGRESS_IP);
+				  GATEWAY_NODE_IP, EGRESS_IP, 0);
 	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
 
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -193,7 +193,7 @@ SETUP("tc", "tc_egressgw_tuple_collision1")
 int egressgw_tuple_collision1_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
-				  GATEWAY_NODE_IP, EGRESS_IP);
+				  GATEWAY_NODE_IP, EGRESS_IP, 0);
 	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
 
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -227,7 +227,7 @@ SETUP("tc", "tc_egressgw_tuple_collision2")
 int egressgw_tuple_collision2_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
-				  GATEWAY_NODE_IP, EGRESS_IP3);
+				  GATEWAY_NODE_IP, EGRESS_IP3, 0);
 	ipcache_v4_add_entry(EGRESS_IP3, 0, HOST_ID, 0, 0);
 
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -299,8 +299,10 @@ SETUP("tc", "tc_egressgw_skip_excluded_cidr_snat")
 int egressgw_skip_excluded_cidr_snat_setup(struct __ctx_buff *ctx)
 {
 
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
+				  GATEWAY_NODE_IP, 0, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32,
+				  EGRESS_GATEWAY_EXCLUDED_CIDR, 0, 0);
 
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
 
@@ -378,7 +380,7 @@ SETUP("tc", "tc_egressgw_fib_redirect")
 int egressgw_fib_redirect_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
-				  GATEWAY_NODE_IP, EGRESS_IP2);
+				  GATEWAY_NODE_IP, EGRESS_IP2, 0);
 	ipcache_v4_add_entry(EGRESS_IP2, 0, HOST_ID, 0, 0);
 
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
