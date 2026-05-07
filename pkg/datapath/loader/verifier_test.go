@@ -160,13 +160,14 @@ func (c *collection) Run(t *testing.T, kv kernelVersion, records *verifierComple
 		t.Parallel()
 		i := 1
 		for perm := range buildPermutations(c.progDir, kv, c.loadPermutations) {
-			t.Run(strconv.Itoa(i), compileAndLoad(perm, c.collection, c.source, c.output, i, records))
+			t.Run(strconv.Itoa(i), compileAndLoad(perm, c.collection, c.source, c.output, kv, i, records))
 			i++
 		}
 	})
 }
 
-func compileAndLoad(perm buildPermutation, collection, source, output string, build int, records *verifierComplexityRecords) func(t *testing.T) {
+func compileAndLoad(perm buildPermutation, collection, source, output string, kv kernelVersion,
+	build int, records *verifierComplexityRecords) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Parallel()
 
@@ -208,7 +209,7 @@ func compileAndLoad(perm buildPermutation, collection, source, output string, bu
 				spec,
 				constants,
 				collection,
-				build, ii,
+				kv, build, ii,
 				records,
 			))
 			ii++
@@ -229,12 +230,18 @@ func loadAndRecordComplexity(
 	spec *ebpf.CollectionSpec,
 	constants any,
 	collection string,
+	kv kernelVersion,
 	build, load int,
 	records *verifierComplexityRecords,
 ) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Parallel()
 		log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+		logLevel := ebpf.LogLevelInstruction | ebpf.LogLevelStats
+		if kv == kernelVersion510 {
+			logLevel = ebpf.LogLevelStats
+		}
 
 		var (
 			coll *ebpf.Collection
@@ -248,7 +255,7 @@ func loadAndRecordComplexity(
 					Programs: ebpf.ProgramOptions{
 						// We need verbose logs to parse the functions visited at runtime and
 						// associate them to the reported stack depths.
-						LogLevel: ebpf.LogLevelInstruction | ebpf.LogLevelStats,
+						LogLevel: logLevel,
 					},
 				},
 			})
@@ -353,33 +360,38 @@ func loadAndRecordComplexity(
 				t.Fatalf("Failed to parse verifier log for program %s: %v", n, err)
 			}
 
-			// Extract the second or third (depending on the kernel version) to last line,
-			// which looks like:
-			//   stack depth 144+280+120
 			stackDepthIndex := strings.LastIndex(p.VerifierLog[:lastLineIndex], "\n")
-			stackDepthLine := p.VerifierLog[stackDepthIndex+1 : lastOff]
-			if !strings.Contains(stackDepthLine, "stack depth ") {
-				lastOff = stackDepthIndex + 1
-				stackDepthIndex = strings.LastIndex(p.VerifierLog[:stackDepthIndex], "\n")
-				stackDepthLine = p.VerifierLog[stackDepthIndex+1 : lastOff]
-				if !strings.Contains(stackDepthLine, "stack depth ") {
-					t.Fatalf("Couldn't find stack depths line in verifier logs")
-				}
-			}
-			stackDepthLine = strings.TrimPrefix(strings.TrimSpace(stackDepthLine), "stack depth ")
 
-			// Remove prefix so we are just left with plus separated stack depths, and parse them into ints.
-			//   144+280+120
-			// Split and parse to ints
-			var depths []int
-			for part := range strings.SplitSeq(stackDepthLine, "+") {
-				depth, err := strconv.Atoi(part)
-				if err != nil {
-					t.Fatalf("Failed to parse stack depth for program %s: %v", n, err)
+			// On v5.15 and before, the full verifier logs are too verbose to retrieve and without
+			// them, we can't properly parse the stack depths.
+			if kv != kernelVersion510 {
+				// Extract the second or third (depending on the kernel version) to last line,
+				// which looks like:
+				//   stack depth 144+280+120
+				stackDepthLine := p.VerifierLog[stackDepthIndex+1 : lastOff]
+				if !strings.Contains(stackDepthLine, "stack depth ") {
+					lastOff = stackDepthIndex + 1
+					stackDepthIndex = strings.LastIndex(p.VerifierLog[:stackDepthIndex], "\n")
+					stackDepthLine = p.VerifierLog[stackDepthIndex+1 : lastOff]
+					if !strings.Contains(stackDepthLine, "stack depth ") {
+						t.Fatalf("Couldn't find stack depths line in verifier logs")
+					}
 				}
-				depths = append(depths, depth)
+				stackDepthLine = strings.TrimPrefix(strings.TrimSpace(stackDepthLine), "stack depth ")
+
+				// Remove prefix so we are just left with plus separated stack depths, and parse them into ints.
+				//   144+280+120
+				// Split and parse to ints
+				var depths []int
+				for part := range strings.SplitSeq(stackDepthLine, "+") {
+					depth, err := strconv.Atoi(part)
+					if err != nil {
+						t.Fatalf("Failed to parse stack depth for program %s: %v", n, err)
+					}
+					depths = append(depths, depth)
+				}
+				r.StackDepth = maxStackDepth(t, s, depths, p.VerifierLog, build, load)
 			}
-			r.StackDepth = maxStackDepth(t, s, depths, p.VerifierLog, build, load)
 
 			// Extract the third to last line, which looks like:
 			//   verification time 355643 usec
