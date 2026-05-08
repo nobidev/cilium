@@ -2011,6 +2011,17 @@
             "annotations": {
               "type": "object"
             },
+            "ca": {
+              "properties": {
+                "type": {
+                  "enum": [
+                    "spire",
+                    "internal"
+                  ]
+                }
+              },
+              "type": "object"
+            },
             "caAddress": {
               "type": "string"
             },
