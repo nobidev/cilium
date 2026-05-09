@@ -286,6 +286,7 @@ spec:
                             cidrGroupSelector] must be set
                           rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
                             == 1
+                      maxItems: 64
                       type: array
                     toEndpoints:
                       description: |-
@@ -1264,6 +1265,7 @@ spec:
                             cidrGroupSelector] must be set
                           rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
                             == 1
+                      maxItems: 64
                       type: array
                     toEndpoints:
                       description: |-
@@ -1888,6 +1890,7 @@ spec:
                             cidrGroupSelector] must be set
                           rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
                             == 1
+                      maxItems: 64
                       type: array
                     fromEndpoints:
                       description: |-
@@ -2725,6 +2728,7 @@ spec:
                             cidrGroupSelector] must be set
                           rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
                             == 1
+                      maxItems: 64
                       type: array
                     fromEndpoints:
                       description: |-
@@ -3418,6 +3422,7 @@ spec:
                               cidrGroupSelector] must be set
                             rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
                               == 1
+                        maxItems: 64
                         type: array
                       toEndpoints:
                         description: |-
@@ -4398,6 +4403,7 @@ spec:
                               cidrGroupSelector] must be set
                             rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
                               == 1
+                        maxItems: 64
                         type: array
                       toEndpoints:
                         description: |-
@@ -5022,6 +5028,7 @@ spec:
                               cidrGroupSelector] must be set
                             rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
                               == 1
+                        maxItems: 64
                         type: array
                       fromEndpoints:
                         description: |-
@@ -5861,6 +5868,7 @@ spec:
                               cidrGroupSelector] must be set
                             rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
                               == 1
+                        maxItems: 64
                         type: array
                       fromEndpoints:
                         description: |-

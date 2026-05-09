@@ -113,6 +113,8 @@ func (s CIDRSlice) String() string {
 // CIDRRuleSlice is a slice of CIDRRules. It allows receiver methods to be
 // defined for transforming the slice into other convenient forms such as
 // EndpointSelectorSlice.
+//
+// +kubebuilder:validation:MaxItems=64
 type CIDRRuleSlice []CIDRRule
 
 // +kubebuilder:validation:MaxLength=253
