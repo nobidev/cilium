@@ -284,8 +284,8 @@ spec:
                         x-kubernetes-validations:
                         - message: exactly one of the fields in [cidr cidrGroupRef
                             cidrGroupSelector] must be set
-                          rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
-                            == 1'
+                          rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
+                            == 1
                       type: array
                     toEndpoints:
                       description: |-
@@ -433,8 +433,8 @@ spec:
                         x-kubernetes-validations:
                         - message: exactly one of the fields in [matchName matchPattern]
                             must be set
-                          rule: '[has(self.matchName),has(self.matchPattern)].filter(x,x==true).size()
-                            == 1'
+                          rule: (has(self.matchName)?1:0)+(has(self.matchPattern)?1:0)
+                            == 1
                       type: array
                     toGroups:
                       description: |-
@@ -756,8 +756,8 @@ spec:
                                   x-kubernetes-validations:
                                   - message: exactly one of the fields in [matchName
                                       matchPattern] must be set
-                                    rule: '[has(self.matchName),has(self.matchPattern)].filter(x,x==true).size()
-                                      == 1'
+                                    rule: (has(self.matchName)?1:0)+(has(self.matchPattern)?1:0)
+                                      == 1
                                 type: array
                               http:
                                 description: HTTP specific rules.
@@ -868,8 +868,7 @@ spec:
                             x-kubernetes-validations:
                             - message: at most one of the fields in [http dns] may
                                 be set
-                              rule: '[has(self.http),has(self.dns)].filter(x,x==true).size()
-                                <= 1'
+                              rule: (has(self.http)?1:0)+(has(self.dns)?1:0) <= 1
                           serverNames:
                             description: |-
                               ServerNames is a list of allowed TLS SNI values. If not empty, then
@@ -1263,8 +1262,8 @@ spec:
                         x-kubernetes-validations:
                         - message: exactly one of the fields in [cidr cidrGroupRef
                             cidrGroupSelector] must be set
-                          rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
-                            == 1'
+                          rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
+                            == 1
                       type: array
                     toEndpoints:
                       description: |-
@@ -1887,8 +1886,8 @@ spec:
                         x-kubernetes-validations:
                         - message: exactly one of the fields in [cidr cidrGroupRef
                             cidrGroupSelector] must be set
-                          rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
-                            == 1'
+                          rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
+                            == 1
                       type: array
                     fromEndpoints:
                       description: |-
@@ -2373,8 +2372,8 @@ spec:
                                   x-kubernetes-validations:
                                   - message: exactly one of the fields in [matchName
                                       matchPattern] must be set
-                                    rule: '[has(self.matchName),has(self.matchPattern)].filter(x,x==true).size()
-                                      == 1'
+                                    rule: (has(self.matchName)?1:0)+(has(self.matchPattern)?1:0)
+                                      == 1
                                 type: array
                               http:
                                 description: HTTP specific rules.
@@ -2485,8 +2484,7 @@ spec:
                             x-kubernetes-validations:
                             - message: at most one of the fields in [http dns] may
                                 be set
-                              rule: '[has(self.http),has(self.dns)].filter(x,x==true).size()
-                                <= 1'
+                              rule: (has(self.http)?1:0)+(has(self.dns)?1:0) <= 1
                           serverNames:
                             description: |-
                               ServerNames is a list of allowed TLS SNI values. If not empty, then
@@ -2725,8 +2723,8 @@ spec:
                         x-kubernetes-validations:
                         - message: exactly one of the fields in [cidr cidrGroupRef
                             cidrGroupSelector] must be set
-                          rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
-                            == 1'
+                          rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
+                            == 1
                       type: array
                     fromEndpoints:
                       description: |-
@@ -3166,12 +3164,11 @@ spec:
             x-kubernetes-validations:
             - message: exactly one of the fields in [endpointSelector nodeSelector]
                 must be set
-              rule: '[has(self.endpointSelector),has(self.nodeSelector)].filter(x,x==true).size()
-                == 1'
+              rule: (has(self.endpointSelector)?1:0)+(has(self.nodeSelector)?1:0)
+                == 1
             - message: at least one of the fields in [ingress ingressDeny egress egressDeny]
                 must be set
-              rule: '[has(self.ingress),has(self.ingressDeny),has(self.egress),has(self.egressDeny)].filter(x,x==true).size()
-                >= 1'
+              rule: has(self.ingress)||has(self.ingressDeny)||has(self.egress)||has(self.egressDeny)
           specs:
             description: Specs is a list of desired Cilium specific rule specification.
             items:
@@ -3419,8 +3416,8 @@ spec:
                           x-kubernetes-validations:
                           - message: exactly one of the fields in [cidr cidrGroupRef
                               cidrGroupSelector] must be set
-                            rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
-                              == 1'
+                            rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
+                              == 1
                         type: array
                       toEndpoints:
                         description: |-
@@ -3568,8 +3565,8 @@ spec:
                           x-kubernetes-validations:
                           - message: exactly one of the fields in [matchName matchPattern]
                               must be set
-                            rule: '[has(self.matchName),has(self.matchPattern)].filter(x,x==true).size()
-                              == 1'
+                            rule: (has(self.matchName)?1:0)+(has(self.matchPattern)?1:0)
+                              == 1
                         type: array
                       toGroups:
                         description: |-
@@ -3891,8 +3888,8 @@ spec:
                                     x-kubernetes-validations:
                                     - message: exactly one of the fields in [matchName
                                         matchPattern] must be set
-                                      rule: '[has(self.matchName),has(self.matchPattern)].filter(x,x==true).size()
-                                        == 1'
+                                      rule: (has(self.matchName)?1:0)+(has(self.matchPattern)?1:0)
+                                        == 1
                                   type: array
                                 http:
                                   description: HTTP specific rules.
@@ -4003,8 +4000,8 @@ spec:
                               x-kubernetes-validations:
                               - message: at most one of the fields in [http dns] may
                                   be set
-                                rule: '[has(self.http),has(self.dns)].filter(x,x==true).size()
-                                  <= 1'
+                                rule: (has(self.http)?1:0)+(has(self.dns)?1:0) <=
+                                  1
                             serverNames:
                               description: |-
                                 ServerNames is a list of allowed TLS SNI values. If not empty, then
@@ -4399,8 +4396,8 @@ spec:
                           x-kubernetes-validations:
                           - message: exactly one of the fields in [cidr cidrGroupRef
                               cidrGroupSelector] must be set
-                            rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
-                              == 1'
+                            rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
+                              == 1
                         type: array
                       toEndpoints:
                         description: |-
@@ -5023,8 +5020,8 @@ spec:
                           x-kubernetes-validations:
                           - message: exactly one of the fields in [cidr cidrGroupRef
                               cidrGroupSelector] must be set
-                            rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
-                              == 1'
+                            rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
+                              == 1
                         type: array
                       fromEndpoints:
                         description: |-
@@ -5510,8 +5507,8 @@ spec:
                                     x-kubernetes-validations:
                                     - message: exactly one of the fields in [matchName
                                         matchPattern] must be set
-                                      rule: '[has(self.matchName),has(self.matchPattern)].filter(x,x==true).size()
-                                        == 1'
+                                      rule: (has(self.matchName)?1:0)+(has(self.matchPattern)?1:0)
+                                        == 1
                                   type: array
                                 http:
                                   description: HTTP specific rules.
@@ -5622,8 +5619,8 @@ spec:
                               x-kubernetes-validations:
                               - message: at most one of the fields in [http dns] may
                                   be set
-                                rule: '[has(self.http),has(self.dns)].filter(x,x==true).size()
-                                  <= 1'
+                                rule: (has(self.http)?1:0)+(has(self.dns)?1:0) <=
+                                  1
                             serverNames:
                               description: |-
                                 ServerNames is a list of allowed TLS SNI values. If not empty, then
@@ -5862,8 +5859,8 @@ spec:
                           x-kubernetes-validations:
                           - message: exactly one of the fields in [cidr cidrGroupRef
                               cidrGroupSelector] must be set
-                            rule: '[has(self.cidr),has(self.cidrGroupRef),has(self.cidrGroupSelector)].filter(x,x==true).size()
-                              == 1'
+                            rule: (has(self.cidr)?1:0)+(has(self.cidrGroupRef)?1:0)+(has(self.cidrGroupSelector)?1:0)
+                              == 1
                         type: array
                       fromEndpoints:
                         description: |-
@@ -6306,12 +6303,11 @@ spec:
               x-kubernetes-validations:
               - message: exactly one of the fields in [endpointSelector nodeSelector]
                   must be set
-                rule: '[has(self.endpointSelector),has(self.nodeSelector)].filter(x,x==true).size()
-                  == 1'
+                rule: (has(self.endpointSelector)?1:0)+(has(self.nodeSelector)?1:0)
+                  == 1
               - message: at least one of the fields in [ingress ingressDeny egress
                   egressDeny] must be set
-                rule: '[has(self.ingress),has(self.ingressDeny),has(self.egress),has(self.egressDeny)].filter(x,x==true).size()
-                  >= 1'
+                rule: has(self.ingress)||has(self.ingressDeny)||has(self.egress)||has(self.egressDeny)
             type: array
           status:
             description: Status is the status of the Cilium policy rule

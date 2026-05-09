@@ -286,8 +286,8 @@ spec:
                   rule: self == oldSelf
                 - message: exactly one of the fields in [addressMatcher serviceMatcher]
                     must be set
-                  rule: '[has(self.addressMatcher),has(self.serviceMatcher)].filter(x,x==true).size()
-                    == 1'
+                  rule: (has(self.addressMatcher)?1:0)+(has(self.serviceMatcher)?1:0)
+                    == 1
               skipRedirectFromBackend:
                 default: false
                 description: |-

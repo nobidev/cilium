@@ -338,7 +338,7 @@ require (
 
 // Using pseudo version of controller-tools to have https://github.com/kubernetes-sigs/controller-tools/pull/1375
 // This can be dropped once there is a new release of controller-tools that includes that PR.
-replace sigs.k8s.io/controller-tools => sigs.k8s.io/controller-tools v0.21.1-0.20260506142635-aca8f6767500
+replace sigs.k8s.io/controller-tools => github.com/HadrienPatte/controller-tools v0.0.0-20260509115401-21ed8c8e1199
 
 // controller-runtime v0.24 (matching k8s.io/* v0.36) is not yet released.
 // Use a commit from main that includes the k8s v0.36 bump.

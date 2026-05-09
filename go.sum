@@ -40,6 +40,8 @@ github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/DATA-DOG/go-sqlmock v1.5.2 h1:OcvFkGmslmlZibjAjaHm3L//6LiuBgolP7OputlJIzU=
 github.com/DATA-DOG/go-sqlmock v1.5.2/go.mod h1:88MAG/4G7SMwSE3CeA0ZKzrT5CiOU3OJ+JlNzwDqpNU=
+github.com/HadrienPatte/controller-tools v0.0.0-20260509115401-21ed8c8e1199 h1:Bl7yBX/OIuBLXzmuTRe45HvIwOOmu9hv7Cvb4ChYd5c=
+github.com/HadrienPatte/controller-tools v0.0.0-20260509115401-21ed8c8e1199/go.mod h1:banErfRzyK7znuLUvu+zdDXUr4ByUIB1xvXOp+OTZos=
 github.com/HdrHistogram/hdrhistogram-go v1.1.2/go.mod h1:yDgFjdqOqDEKOvasDdhWNXYg9BVp4O+o5f6V/ehm6Oo=
 github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ4pzQ=
 github.com/MakeNowJust/heredoc v1.0.0/go.mod h1:mG5amYoWBHf8vpLOuehzbGGw0EHxpZZ6lCpQ4fNJ8LE=
@@ -1067,8 +1069,6 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 h1:hSfpvjjTQXQY2
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
 sigs.k8s.io/controller-runtime v0.23.1-0.20260331131016-598e330bda55 h1:HYrtAkFK1ObCgDcuT4n8zQJOZZXxnERv1H81huW+wF0=
 sigs.k8s.io/controller-runtime v0.23.1-0.20260331131016-598e330bda55/go.mod h1:bTZXYvH6eWv12M5PgRYYTSMw/LDN1xBf0oNTycNo1YY=
-sigs.k8s.io/controller-tools v0.21.1-0.20260506142635-aca8f6767500 h1:k4ZRMh3Iq1MDmuZot6e9fBOIp5II2b02fcA8nRuz3cI=
-sigs.k8s.io/controller-tools v0.21.1-0.20260506142635-aca8f6767500/go.mod h1:DLIypi3Q2+azVAP8jr/mHXJgveYYHFjhnNOUuBJ10JE=
 sigs.k8s.io/gateway-api v1.5.1 h1:RqVRIlkhLhUO8wOHKTLnTJA6o/1un4po4/6M1nRzdd0=
 sigs.k8s.io/gateway-api v1.5.1/go.mod h1:GvCETiaMAlLym5CovLxGjS0NysqFk3+Yuq3/rh6QL2o=
 sigs.k8s.io/gateway-api/conformance v1.5.1 h1:5eruSMKcwKnkX42PFek8oO6BgPNBD5FbWbTcRV76KIw=
