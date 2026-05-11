@@ -71,3 +71,20 @@
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
   # L7 testing: DSR load balancer mode + Ingress controller requires L7 proxy for HTTP routing
   test-l7: 'true'
+- name: 'lb-6'
+  # Annotation-based DSR with IPIP dispatch: cluster default is SNAT,
+  # individual services opt into DSR via the
+  # service.cilium.io/forwarding-mode=dsr annotation, and DSR uses IPIP
+  # encap on the wire. Exercises the BPF IPIP decap on netdev ingress
+  # (do_netdev) and the forced-backend path in lb{4,6}_local, while
+  # leaving bpf_sock east-west traffic on the unannotated default SNAT
+  # path. Native routing (no underlay tunnel); IPIP is the per-service
+  # dispatch, not the cluster underlay.
+  kernel: '6.12'
+  kube-proxy: 'none'
+  kpr: 'true'
+  devices: '{eth0,eth1}'
+  secondary-network: 'true'
+  tunnel: 'disabled'
+  lb-mode: 'snat'
+  misc: 'loadBalancer.dsrDispatch=ipip,bpf.lbModeAnnotation=true'
