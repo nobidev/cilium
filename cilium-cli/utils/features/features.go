@@ -121,6 +121,18 @@ const (
 
 	L7LoadBalancer Feature = "loadbalancer-l7"
 
+	// LBModeAnnotation indicates whether the per-service forwarding-mode
+	// annotation (service.cilium.io/forwarding-mode) is honored by the
+	// agent (bpf.lbModeAnnotation in Helm / bpf-lb-mode-annotation in
+	// the ConfigMap).
+	LBModeAnnotation Feature = "bpf-lb-mode-annotation"
+
+	// LBDSRDispatch carries the DSR dispatch mode the agent is configured
+	// for ("opt", "geneve", "ipip") via loadBalancer.dsrDispatch in Helm /
+	// bpf-lb-dsr-dispatch in the ConfigMap. Status.Mode holds the value;
+	// Status.Enabled is true whenever it is set.
+	LBDSRDispatch Feature = "bpf-lb-dsr-dispatch"
+
 	RHEL Feature = "rhel"
 
 	ExternalEnvoyProxy Feature = "external-envoy-proxy"
@@ -418,6 +430,17 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[L7LoadBalancer] = Status{
 		Enabled: cm.Data[string(L7LoadBalancer)] == "envoy",
+	}
+
+	fs[LBModeAnnotation] = Status{
+		Enabled: cm.Data[string(LBModeAnnotation)] == "true",
+	}
+
+	if v, ok := cm.Data[string(LBDSRDispatch)]; ok {
+		fs[LBDSRDispatch] = Status{
+			Enabled: true,
+			Mode:    v,
+		}
 	}
 
 	fs[Tunnel], fs[TunnelPort] = ExtractTunnelFeatureFromConfigMap(cm)
