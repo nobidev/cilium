@@ -347,6 +347,59 @@ func (s *outsideToIngressService) Run(ctx context.Context, t *check.Test) {
 	}
 }
 
+// OutsideToDSRLoadBalancer sends HTTP requests from a node-without-Cilium
+// to the LoadBalancer-typed Services annotated with
+// service.cilium.io/forwarding-mode=dsr (created in deployment.go when
+// LBModeAnnotation is enabled). With DSR active for those services and
+// the cluster running loadBalancer.dsrDispatch=ipip, this exercises:
+//
+//   - echo-same-node-dsr-lb: the LB IP terminates on a Cilium node whose
+//     local Pod is the chosen backend; backend_local=true at
+//     nodeport_svc_lb{4,6}, lb{4,6}_dnat_request rewrites the inner dst
+//     and the packet is delivered to the lxc - no IPIP encap.
+//   - echo-other-node-dsr-lb: the LB IP terminates on a Cilium node
+//     whose local Pod is NOT the chosen backend; backend_local=false,
+//     the packet is IPIP-encapsulated to the backend node, BPF-decapped
+//     on netdev ingress (do_netdev() in bpf_host.c), and the forced-
+//     backend path in lb{4,6}_local DNATs the inner to the Pod.
+//
+// In both cases the backend's reply is sent DSR-style directly to the
+// outside client; the LB-receiving node is bypassed on the return path.
+func OutsideToDSRLoadBalancer() check.Scenario {
+	return &outsideToDSRLoadBalancer{
+		ScenarioBase: check.NewScenarioBase(),
+	}
+}
+
+type outsideToDSRLoadBalancer struct {
+	check.ScenarioBase
+}
+
+func (s *outsideToDSRLoadBalancer) Name() string {
+	return "outside-to-dsr-loadbalancer"
+}
+
+func (s *outsideToDSRLoadBalancer) Run(ctx context.Context, t *check.Test) {
+	clientPod := t.Context().HostNetNSPodsByNode()[t.NodesWithoutCilium()[0]]
+	i := 0
+
+	for _, svc := range t.Context().DSRLoadBalancerServices() {
+		for _, ingress := range svc.Service.Status.LoadBalancer.Ingress {
+			if ingress.IP == "" {
+				continue
+			}
+			ep := check.HTTPEndpoint(
+				fmt.Sprintf("dsr-lb-%s-%d", svc.Service.Name, i),
+				fmt.Sprintf("%s://%s:%d%s", svc.Scheme(), ingress.IP, svc.Port(), svc.Path()),
+			)
+			t.NewAction(s, fmt.Sprintf("curl-%d", i), &clientPod, svc, features.IPFamilyAny).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, a.CurlCommand(ep))
+			})
+			i++
+		}
+	}
+}
+
 // PodToL7Service sends an HTTP request from a given client Pods
 // to all L7 LB service in the test context.
 func PodToL7Service(name string, clients map[string]check.Pod, opts ...Option) check.Scenario {
