@@ -55,6 +55,9 @@ inputs:
   ingress-controller:
     description: 'Enable ingress controller, required kubeProxyReplacement'
     default: 'false'
+  lb-ipam:
+    description: 'Enable LB IPAM + L2 announcements for LoadBalancer services. Test setup applies a CiliumLoadBalancerIPPool / CiliumL2AnnouncementPolicy in a follow-up workflow step using a CIDR derived from the kind cluster network.'
+    default: 'false'
   devices:
     description: 'List of native devices to attach datapath programs'
     default: ''
@@ -213,6 +216,14 @@ runs:
             fi
           fi
 
+          LB_IPAM=""
+          if [ "${{ inputs.lb-ipam }}" == "true" ]; then
+            # LB-IPAM is on by default in the operator; what we need to
+            # enable here is L2 announcements so the assigned LB IP is
+            # reachable from the no-Cilium node via ARP.
+            LB_IPAM="--helm-set=l2announcements.enabled=true"
+          fi
+
           if [ "${{ inputs.ciliumendpointslice }}" == "true" ]; then
             CILIUMENDPOINTSLICE="--helm-set=ciliumEndpointSlice.enabled=true"
           fi
@@ -227,5 +238,5 @@ runs:
             BGP_CONTROL_PLANE="${{ env.BGP_CONTROL_PLANE_HELM_VALUES }}"
           fi
 
-          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV4} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE} ${LOCAL_REDIRECT_POLICY} ${BGP_CONTROL_PLANE}"
+          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV4} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${LB_IPAM} ${CILIUMENDPOINTSLICE} ${LOCAL_REDIRECT_POLICY} ${BGP_CONTROL_PLANE}"
           echo "config=${CONFIG}" >> $GITHUB_OUTPUT

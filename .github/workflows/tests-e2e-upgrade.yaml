@@ -348,6 +348,7 @@ jobs:
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
           ingress-controller: ${{ matrix.ingress-controller }}
+          lb-ipam: ${{ matrix.lb-ipam }}
           misc: ${{ matrix.misc || 'bpfClockProbe=false,cni.uninstall=false' }}
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
           local-redirect-policy: ${{ matrix.local-redirect-policy }}
@@ -377,6 +378,7 @@ jobs:
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
           ingress-controller: ${{ matrix.ingress-controller }}
+          lb-ipam: ${{ matrix.lb-ipam }}
           misc: ${{ matrix.misc || 'bpfClockProbe=false,cni.uninstall=false' }}
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
           local-redirect-policy: ${{ matrix.local-redirect-policy }}
@@ -537,6 +539,46 @@ jobs:
           sed -i "s/__PILLAR__UPSTREAM__SERVERS__/1.1.1.1/g;" untrusted/cilium-newest/examples/kubernetes-local-redirect/node-local-dns.yaml
           kubectl apply -k untrusted/cilium-newest/examples/kubernetes-local-redirect
           kubectl rollout status --timeout=2m -n kube-system ds/node-local-dns
+
+      - name: Set up LB IPAM
+        timeout-minutes: 2
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.lb-ipam == 'true' }}
+        shell: bash
+        run: |
+          # Discover the kind docker network's IPv4 subnet and carve out
+          # a small /29 in the high end of it for the LB IP pool. This
+          # avoids colliding with node/container addresses (which kind
+          # allocates from the low end). The CIDR is reachable from the
+          # no-Cilium node via ARP, since the L2 announcement policy
+          # below has Cilium nodes respond to ARP for those IPs.
+          SUBNET_V4=$(docker network inspect kind | jq -r '.[0].IPAM.Config[] | select(.Subnet | contains(":") | not) | .Subnet')
+          PREFIX=$(echo "$SUBNET_V4" | awk -F. '{print $1"."$2}')
+          LB_CIDR="${PREFIX}.255.0/29"
+          echo "Using LB-IPAM CIDR ${LB_CIDR} (derived from kind subnet ${SUBNET_V4})"
+          kubectl apply -f - <<EOF
+          apiVersion: cilium.io/v2
+          kind: CiliumLoadBalancerIPPool
+          metadata:
+            name: e2e-lb-ipam-pool
+          spec:
+            blocks:
+              - cidr: "${LB_CIDR}"
+          ---
+          apiVersion: cilium.io/v2alpha1
+          kind: CiliumL2AnnouncementPolicy
+          metadata:
+            name: e2e-lb-l2-announce
+          spec:
+            loadBalancerIPs: true
+            # Restrict announcement to worker nodes; the no-Cilium node
+            # also has the control-plane role label and shouldn't ARP.
+            nodeSelector:
+              matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
+            interfaces:
+              - eth0
+          EOF
 
       - name: Prepare the bpftrace parameters
         if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' }}

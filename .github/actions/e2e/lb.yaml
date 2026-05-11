@@ -79,7 +79,10 @@
   # (do_netdev) and the forced-backend path in lb{4,6}_local, while
   # leaving bpf_sock east-west traffic on the unannotated default SNAT
   # path. Native routing (no underlay tunnel); IPIP is the per-service
-  # dispatch, not the cluster underlay.
+  # dispatch, not the cluster underlay. lb-ipam: true enables L2
+  # announcements; the workflow's LB-IPAM setup step applies a
+  # CiliumLoadBalancerIPPool with a CIDR derived from the kind cluster
+  # network so the outside-to-LB scenario has a reachable LB IP.
   kernel: '6.12'
   kube-proxy: 'none'
   kpr: 'true'
@@ -87,4 +90,5 @@
   secondary-network: 'true'
   tunnel: 'disabled'
   lb-mode: 'snat'
+  lb-ipam: 'true'
   misc: 'loadBalancer.dsrDispatch=ipip,bpf.lbModeAnnotation=true'
