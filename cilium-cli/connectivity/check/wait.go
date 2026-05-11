@@ -163,6 +163,36 @@ func WaitForServiceRetrieval(ctx context.Context, log Logger, client *k8s.Client
 	}
 }
 
+// WaitForLoadBalancerIngress polls until the named LoadBalancer-typed Service
+// has at least one entry in Status.LoadBalancer.Ingress (i.e. Cilium's LB-IPAM
+// has assigned an external IP). Returns a clear error if the wait times out -
+// typically meaning no matching CiliumLoadBalancerIPPool covers the service.
+func WaitForLoadBalancerIngress(ctx context.Context, log Logger, client *k8s.Client, namespace string, name string) (Service, error) {
+	log.Logf("⌛ [%s] Waiting for LoadBalancer ingress IP on service %s/%s ...", client.ClusterName(), namespace, name)
+
+	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
+	defer cancel()
+	var lastErr error
+	for {
+		svc, err := client.GetService(ctx, namespace, name, metav1.GetOptions{})
+		if err == nil {
+			if len(svc.Status.LoadBalancer.Ingress) > 0 {
+				return Service{Service: svc.DeepCopy()}, nil
+			}
+			lastErr = fmt.Errorf("no LoadBalancer ingress IP yet")
+		} else {
+			lastErr = err
+		}
+
+		select {
+		case <-time.After(PollInterval):
+		case <-ctx.Done():
+			return Service{}, fmt.Errorf("timeout reached waiting for LoadBalancer ingress IP on service %s/%s "+
+				"(is a CiliumLoadBalancerIPPool configured?): %w", namespace, name, lastErr)
+		}
+	}
+}
+
 // WaitForService waits until the given service is synchronized in CoreDNS.
 func WaitForService(ctx context.Context, log Logger, client Pod, service Service) error {
 	log.Logf("⌛ [%s] Waiting for Service %s to become ready...", client.K8sClient.ClusterName(), service.Name())

@@ -70,6 +70,12 @@ const (
 	echoSameNodeDeploymentName                 = "echo-same-node"
 	echoOtherNodeDeploymentName                = "echo-other-node"
 	EchoOtherNodeDeploymentHeadlessServiceName = "echo-other-node-headless"
+	// DSR-LoadBalancer service objects targeted at the existing echo-*-node
+	// deployments. Created only when the agent is running with
+	// bpf.lbModeAnnotation=true so that the service.cilium.io/forwarding-mode
+	// annotation actually takes effect on a per-service basis.
+	echoSameNodeDSRLBServiceName  = "echo-same-node-dsr-lb"
+	echoOtherNodeDSRLBServiceName = "echo-other-node-dsr-lb"
 	echoExternalNodeDeploymentName             = "echo-external-node"
 	corednsConfigMapName                       = "coredns-configmap"
 	corednsConfigVolumeName                    = "coredns-config-volume"
@@ -374,6 +380,47 @@ func newDaemonSet(p daemonSetParameters) *appsv1.DaemonSet {
 
 var serviceLabels = map[string]string{
 	"kind": kindEchoName,
+}
+
+// deployDSRLoadBalancerServices creates LoadBalancer-typed Service objects
+// annotated with service.cilium.io/forwarding-mode=dsr (plus
+// service.cilium.io/type=LoadBalancer for Cilium's LB-IPAM machinery) so the
+// OutsideToDSRLoadBalancer scenario can exercise the annotation-based DSR
+// datapath. Only fires when the agent is configured with
+// bpf.lbModeAnnotation=true; otherwise the annotation is a no-op and the
+// service would still be load-balanced via the cluster-wide LB mode.
+//
+// The actual LB IP allocation and L2/BGP reachability are configured by the
+// surrounding CI workflow (CiliumLoadBalancerIPPool +
+// CiliumL2AnnouncementPolicy) since the IP range is environment-specific.
+func (ct *ConnectivityTest) deployDSRLoadBalancerServices(ctx context.Context, serviceLabels map[string]string) error {
+	if !ct.Features[features.LBModeAnnotation].Enabled {
+		return nil
+	}
+
+	specs := []struct {
+		name           string
+		backendDeploy  string
+	}{
+		{echoSameNodeDSRLBServiceName, echoSameNodeDeploymentName},
+		{echoOtherNodeDSRLBServiceName, echoOtherNodeDeploymentName},
+	}
+
+	for _, s := range specs {
+		if _, err := ct.clients.src.GetService(ctx, ct.params.TestNamespace, s.name, metav1.GetOptions{}); err == nil {
+			continue
+		}
+		ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), s.name)
+		svc := newService(s.name, map[string]string{"name": s.backendDeploy}, serviceLabels, "http", 8080, string(corev1.ServiceTypeLoadBalancer))
+		svc.ObjectMeta.Annotations = map[string]string{
+			"service.cilium.io/type":            "LoadBalancer",
+			"service.cilium.io/forwarding-mode": "dsr",
+		}
+		if _, err := ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{}); err != nil {
+			return fmt.Errorf("create DSR-annotated LoadBalancer service %s: %w", s.name, err)
+		}
+	}
+	return nil
 }
 
 func newService(name string, selector map[string]string, labels map[string]string, portName string, port int, serviceType string) *corev1.Service {
@@ -1142,6 +1189,10 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if err := ct.deployDSRLoadBalancerServices(ctx, serviceLabels); err != nil {
+		return err
 	}
 
 	if ct.params.MultiCluster != "" {
@@ -2974,6 +3025,16 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			}
 
 			ct.ingressService[svcName] = svc
+		}
+	}
+
+	if ct.Features[features.LBModeAnnotation].Enabled {
+		for _, svcName := range []string{echoSameNodeDSRLBServiceName, echoOtherNodeDSRLBServiceName} {
+			svc, err := WaitForLoadBalancerIngress(ctx, ct, ct.client, ct.params.TestNamespace, svcName)
+			if err != nil {
+				return err
+			}
+			ct.dsrLBServices[svcName] = svc
 		}
 	}
 

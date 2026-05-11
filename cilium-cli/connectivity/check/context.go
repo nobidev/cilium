@@ -84,6 +84,7 @@ type ConnectivityTest struct {
 	ingressService       map[string]Service
 	l7LBService          map[string]Service
 	l7LBNonL7Service     map[string]Service
+	dsrLBServices        map[string]Service
 	k8sService           Service
 	lrpClientPods        map[string]Pod
 	lrpBackendPods       map[string]Pod
@@ -248,6 +249,7 @@ func NewConnectivityTest(
 		ingressService:           make(map[string]Service),
 		l7LBService:              make(map[string]Service),
 		l7LBNonL7Service:         make(map[string]Service),
+		dsrLBServices:            make(map[string]Service),
 		hostNetNSPodsByNode:      make(map[string]Pod),
 		secondaryNetworkNodeIPv4: make(map[string]string),
 		secondaryNetworkNodeIPv6: make(map[string]string),
@@ -1255,6 +1257,15 @@ func (ct *ConnectivityTest) FRRPods() []Pod {
 
 func (ct *ConnectivityTest) IngressService() map[string]Service {
 	return ct.ingressService
+}
+
+// DSRLoadBalancerServices returns the test LoadBalancer-typed services
+// annotated with service.cilium.io/forwarding-mode=dsr. Populated only
+// when the agent is configured with bpf.lbModeAnnotation=true (see the
+// LBModeAnnotation feature). Used by scenarios that exercise the
+// annotation-based DSR-IPIP datapath from outside the cluster.
+func (ct *ConnectivityTest) DSRLoadBalancerServices() map[string]Service {
+	return ct.dsrLBServices
 }
 
 func (ct *ConnectivityTest) L7LBService() map[string]Service {
