@@ -1887,7 +1887,10 @@ func (m *manager) installRules(state desiredState) error {
 		}
 	}
 
-	if m.sharedCfg.EnableIPSec || m.sharedCfg.EnableWireguard {
+	// For IPSec we can always skip kernel conntrack for encrypted traffic.
+	// For WireGuard, we need kernel conntrack only when node encryption and
+	// host legacy routing are enabled to rev-SNAT back pod-to-host traffic.
+	if m.sharedCfg.EnableIPSec || (m.sharedCfg.EnableWireguard && !(m.sharedCfg.EnableNodeEncrypt && m.sharedCfg.EnableHostLegacyRouting)) {
 		if err := m.addCiliumNoTrackEncryptionRules(); err != nil {
 			return fmt.Errorf("cannot install encryption rules: %w", err)
 		}

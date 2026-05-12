@@ -50,6 +50,8 @@ var Cell = cell.Module(
 			EnableL7Proxy:               cfg.EnableL7Proxy,
 			InstallIptRules:             cfg.InstallIptRules,
 			EnableWireguard:             wgConfig.Enabled(),
+			EnableNodeEncrypt:           cfg.EncryptNode,
+			EnableHostLegacyRouting:     cfg.UnsafeDaemonConfigOption.EnableHostLegacyRouting,
 		}
 	}),
 	cell.Provide(newManager),
@@ -112,4 +114,6 @@ type SharedConfig struct {
 	EnableL7Proxy               bool
 	InstallIptRules             bool
 	EnableWireguard             bool
+	EnableNodeEncrypt           bool
+	EnableHostLegacyRouting     bool
 }
