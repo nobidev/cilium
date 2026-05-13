@@ -177,7 +177,7 @@ var (
 		// renovate: datasource=docker
 		"ConnectivityTestFRRImage": "quay.io/frrouting/frr:10.5.3@sha256:37b42d2b340c322edc5f20dc4598373adb6e813e95cc9d4a18f64f9a37c98a4c",
 		// renovate: datasource=docker
-		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.3@sha256:376403afeffc040ac30d8f3f67c43f47ccaf4d8916e80bfff2bc5736320abb10",
+		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.3@sha256:a26f4bcee25ad4a4096ce91e596c0a2fffcbb51f7fd198dd87a5c86eae66f0e1",
 	}
 
 	ConnectivityCheckOptionalImagesTest = map[string]string{
