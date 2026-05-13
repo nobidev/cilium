@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"slices"
 	"testing"
 	"time"
 
@@ -172,14 +173,14 @@ func TestGetFlowRate(t *testing.T) {
 				c = tc.ringCap
 			}
 			ring := container.NewRing(c)
-			for i := len(tc.events) - 1; i >= 0; i-- {
-				ev := tc.events[i].event
+			for _, e := range slices.Backward(tc.events) {
+				ev := e.event
 				if ev == nil {
 					// Default is flow
 					ev = &flowpb.Flow{}
 				}
 				ring.Write(&hubv1.Event{
-					Timestamp: timestamppb.New(now.Add(-1 * time.Duration(tc.events[i].offset) * time.Millisecond)),
+					Timestamp: timestamppb.New(now.Add(-1 * time.Duration(e.offset) * time.Millisecond)),
 					Event:     ev,
 				})
 			}
