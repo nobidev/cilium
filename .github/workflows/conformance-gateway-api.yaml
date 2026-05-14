@@ -387,6 +387,102 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      - name: Generate upstream conformance report patch
+        if: ${{ matrix.conformance-profile == true && success() }}
+        run: |
+          REPORT_FILE="operator/pkg/gateway-api/report.yaml"
+          if [ ! -f "$REPORT_FILE" ]; then
+            echo "No report file found, skipping patch generation"
+            exit 0
+          fi
+
+          CILIUM_VERSION="${{ steps.vars.outputs.cilium-version }}"
+          CRD_CHANNEL="${{ matrix.crd-channel }}"
+          GW_API_VERSION=$(grep '^gatewayAPIVersion:' "$REPORT_FILE" | awk '{print $2}')
+          # Strip patch version: v1.5.1 -> v1.5
+          GW_API_VERSION_SHORT=$(echo "$GW_API_VERSION" | sed 's/\.[0-9]*$//')
+          REPORT_NAME="${CRD_CHANNEL}-${CILIUM_VERSION}-default-report.yaml"
+          REPORT_DIR="conformance/reports/${GW_API_VERSION_SHORT}/cilium"
+
+          # Create the target file structure in a temp directory
+          PATCH_WORK=$(mktemp -d)
+          mkdir -p "${PATCH_WORK}/${REPORT_DIR}"
+
+          cp "$REPORT_FILE" "${PATCH_WORK}/${REPORT_DIR}/${REPORT_NAME}"
+
+          cat > "${PATCH_WORK}/${REPORT_DIR}/README.md" << 'READMEEOF'
+          # Cilium
+
+          ## Table of Contents
+
+          | API channel  | Implementation version                            | Mode    | Report                                                   |
+          |--------------|---------------------------------------------------|---------|----------------------------------------------------------|
+          READMEEOF
+
+          # Trim leading whitespace from heredoc
+          sed -i 's/^          //' "${PATCH_WORK}/${REPORT_DIR}/README.md"
+
+          # Add the table row
+          echo "| ${CRD_CHANNEL} | [${CILIUM_VERSION}](https://github.com/cilium/cilium/) | default | [${CILIUM_VERSION} report](./${REPORT_NAME}) |" \
+            >> "${PATCH_WORK}/${REPORT_DIR}/README.md"
+
+          cat >> "${PATCH_WORK}/${REPORT_DIR}/README.md" << 'READMEEOF'
+
+          ## Reproduce
+
+          Cilium conformance tests can be reproduced by the following steps from within the [Cilium repo](https://github.com/cilium/cilium).
+
+          1. Build a Kind cluster, and ensure Cilium is working. Cilium will install the checked-out version from the Cilium repo for you if you use the make target:
+
+          ```sh
+          WAIT_DURATION=120s make kind-servicemesh-install-cilium-fast
+          ```
+          (The WAIT_DURATION is there because pulling the images and building all the BPF code can take a while the first time.)
+
+          2. Run the conformance tests using the make target:
+
+          ```sh
+          make gateway-api-conformance
+          ```
+
+          This will run the conformance test using the currently-configured kubeconfig - so it will also work against a non-Kind cluster,
+          as long as the cluster has:
+
+          * Cilium installed with Gateway API enabled
+          * Loadbalancer Service support
+          READMEEOF
+
+          sed -i 's/^          //' "${PATCH_WORK}/${REPORT_DIR}/README.md"
+
+          # Generate the patch using git diff --no-index
+          PATCH_FILE="conformance-report-upstream.patch"
+          git diff --no-index /dev/null "${PATCH_WORK}/${REPORT_DIR}/README.md" \
+            | sed "s|${PATCH_WORK}/||g" \
+            > "$PATCH_FILE" || true
+          git diff --no-index /dev/null "${PATCH_WORK}/${REPORT_DIR}/${REPORT_NAME}" \
+            | sed "s|${PATCH_WORK}/||g" \
+            >> "$PATCH_FILE" || true
+
+          rm -rf "$PATCH_WORK"
+
+          echo ""
+          echo "To apply this patch to the gateway-api repo:"
+          echo ""
+          echo "  cd <gateway-api-repo>"
+          echo "  curl -L <artifact-url>/conformance-report-upstream.patch | git apply"
+          echo "  git add conformance/reports/"
+          echo "  git commit -m 'Add Cilium conformance report for ${GW_API_VERSION}'"
+          echo ""
+
+      - name: Upload conformance report patch
+        if: ${{ matrix.conformance-profile == true && success() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: conformance-report-upstream-patch
+          path: conformance-report-upstream.patch
+          retention-days: 30
+          if-no-files-found: warn
+
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
