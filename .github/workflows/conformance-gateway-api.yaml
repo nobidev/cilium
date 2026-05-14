@@ -208,9 +208,12 @@ jobs:
             --helm-set=gatewayAPI.enabled=true \
             --helm-set=l2announcements.enabled=true"
 
+          CILIUM_VERSION=$(git describe --tags --always)
+
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT
           echo exempt-features=${EXEMPT_FEATURES} >> $GITHUB_OUTPUT
+          echo cilium-version=${CILIUM_VERSION} >> $GITHUB_OUTPUT
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -347,7 +350,7 @@ jobs:
           # Build test flags based on matrix
           GATEWAY_TEST_FLAGS="--gateway-class cilium --all-features --allow-crds-mismatch --cleanup-base-resources=false"
           if [ "${{ matrix.conformance-profile }}" == "true" ]; then
-            GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS --skip-tests \"${{ steps.vars.outputs.skipped_tests }}\" --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC --organization cilium --project cilium --url github.com/cilium/cilium --version main --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md --report-output report.yaml"
+            GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS --skip-tests \"${{ steps.vars.outputs.skipped_tests }}\" --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC --organization cilium --project cilium --url github.com/cilium/cilium --version ${{ steps.vars.outputs.cilium-version }} --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md --report-output report.yaml"
           else
             GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS --exempt-features \"${{ steps.vars.outputs.exempt-features }}\" -test.skip \"${{ steps.vars.outputs.skipped_tests }}\""
           fi
@@ -375,13 +378,14 @@ jobs:
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test 'allow-all-except-world,encryption,packet-drops'
 
-      - name: Upload report artifacts
+      - name: Upload conformance report
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: report-${{ matrix.conformance-profile }}-${{ matrix.crd-channel }}.yaml
+          name: ${{ matrix.crd-channel }}-${{ steps.vars.outputs.cilium-version }}-default-report.yaml
           path: operator/pkg/gateway-api/report.yaml
-          retention-days: 5
-          if-no-files-found: ignore
+          retention-days: 30
+          if-no-files-found: warn
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
