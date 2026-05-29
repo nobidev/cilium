@@ -31,6 +31,7 @@ import (
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
+	kvstoreCommands "github.com/cilium/cilium/pkg/kvstore/commands"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -62,7 +63,7 @@ func TestScript(t *testing.T) {
 
 			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdsOut) {
 				client := kvstore.NewInMemoryClient(db, "__local__")
-				return client, uhive.NewScriptCmds(kvstore.Commands(client))
+				return client, uhive.NewScriptCmds(kvstoreCommands.TestCommands(client))
 			}),
 
 			cell.Provide(

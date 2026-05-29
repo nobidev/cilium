@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package kvstore
+package commands
 
 import (
 	"bytes"
@@ -14,14 +14,12 @@ import (
 
 	"github.com/cilium/hive/script"
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/kvstore"
 )
 
-// Commands returns the script commands associated with the given client.
-func Commands(client Client) map[string]script.Cmd {
-	if !client.IsEnabled() {
-		return nil
-	}
-
+// TestCommands returns the test script commands associated with the given client.
+func TestCommands(client kvstore.Client) map[string]script.Cmd {
 	cmds := cmds{client: client}
 	return map[string]script.Cmd{
 		"kvstore/update": cmds.update(),
@@ -30,7 +28,15 @@ func Commands(client Client) map[string]script.Cmd {
 	}
 }
 
-type cmds struct{ client Client }
+// Commands returns the script commands associated with the given client.
+func Commands(client kvstore.Client) map[string]script.Cmd {
+	cmds := cmds{client: client}
+	return map[string]script.Cmd{
+		"kvstore/list": cmds.list(),
+	}
+}
+
+type cmds struct{ client kvstore.Client }
 
 func (c cmds) update() script.Cmd {
 	return script.Command(

@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
+	kvstoreCommands "github.com/cilium/cilium/pkg/kvstore/commands"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -138,7 +139,7 @@ func TestScript(t *testing.T) {
 
 			cell.Provide(func(db *statedb.DB) (kvstore.Client, uhive.ScriptCmdsOut) {
 				client := kvstore.NewInMemoryClient(db, "__all__")
-				return client, uhive.NewScriptCmds(kvstore.Commands(client))
+				return client, uhive.NewScriptCmds(kvstoreCommands.TestCommands(client))
 			}),
 
 			cell.DecorateAll(func(client kvstore.Client) common.RemoteClientFactoryFn {

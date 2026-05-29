@@ -57,6 +57,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	kpr "github.com/cilium/cilium/pkg/kpr/initializer"
 	"github.com/cilium/cilium/pkg/kvstore"
+	kvstoreCommands "github.com/cilium/cilium/pkg/kvstore/commands"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
@@ -143,6 +144,7 @@ var (
 		// Provides the Client to access the KVStore.
 		cell.Provide(kvstoreExtraOptions),
 		kvstore.Cell(kvstore.DisabledBackendName),
+		kvstoreCommands.Cell,
 		cell.Invoke(kvstoreLocksGC),
 
 		cni.Cell,

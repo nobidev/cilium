@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
+	kvstoreCommands "github.com/cilium/cilium/pkg/kvstore/commands"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 )
 
@@ -33,6 +34,7 @@ var Cell = cell.Module(
 
 	controller.Cell,
 	kvstore.Cell(kvstore.EtcdBackendName),
+	kvstoreCommands.Cell,
 	cell.Provide(func(ss syncstate.SyncState) kvstore.ExtraOptions {
 		return kvstore.ExtraOptions{
 			BootstrapComplete: ss.WaitChannel(),

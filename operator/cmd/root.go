@@ -74,6 +74,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
+	kvstoreCommands "github.com/cilium/cilium/pkg/kvstore/commands"
 	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging"
@@ -127,6 +128,7 @@ var (
 		// Provides the Client to access the KVStore.
 		cell.Provide(kvstoreExtraOptions),
 		kvstore.Cell(kvstore.DisabledBackendName),
+		kvstoreCommands.Cell,
 
 		// Provides the modular metrics registry, metric HTTP server and legacy metrics cell.
 		operatorMetrics.Cell,

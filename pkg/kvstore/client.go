@@ -9,7 +9,6 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/script"
 )
 
 // Client is the client to interact with the kvstore (i.e., etcd).
@@ -64,18 +63,6 @@ func (cl *clientImpl) Stop(cell.HookContext) error {
 		cl.BackendOperations.Close()
 	}
 	return nil
-}
-
-// commands returns the script commands suitable to be used in production environments.
-func (cl *clientImpl) commands() map[string]script.Cmd {
-	if !cl.IsEnabled() {
-		return nil
-	}
-
-	cmds := cmds{client: cl}
-	return map[string]script.Cmd{
-		"kvstore/list": cmds.list(),
-	}
 }
 
 // NewClient returns a new kvstore client based on the configuration
