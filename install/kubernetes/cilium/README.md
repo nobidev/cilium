@@ -210,6 +210,9 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.apiserver.etcd.resources | object | `{}` | Specifies the resources for etcd container in the apiserver |
 | clustermesh.apiserver.etcd.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}` | Security context to be added to clustermesh-apiserver etcd containers |
 | clustermesh.apiserver.etcd.storageMedium | string | `"Disk"` | Specifies whether etcd data is stored in a temporary volume backed by the node's default medium, such as disk, SSD or network storage (Disk), or RAM (Memory). The Memory option enables improved etcd read and write performance at the cost of additional memory usage, which counts against the memory limits of the container. |
+| clustermesh.apiserver.etcdQPS | object | `{"apiserver":50,"kvstoremesh":100}` | Rate limits for the etcd clients used by each clustermesh-apiserver pod. If the amount of request per second to etcd exceeds the configured rate limit, the client will start to throttle the request by delaying them until there is budget. |
+| clustermesh.apiserver.etcdQPS.apiserver | int | `50` | Rate limit for the apiserver container while syncing Kubernetes resources from the local cluster to the local etcd. |
+| clustermesh.apiserver.etcdQPS.kvstoremesh | int | `100` | Rate limit for the kvstoremesh container while syncing resources from all remote clusters to the local etcd. |
 | clustermesh.apiserver.extraArgs | list | `[]` | Additional clustermesh-apiserver arguments. |
 | clustermesh.apiserver.extraEnv | list | `[]` | Additional clustermesh-apiserver environment variables. |
 | clustermesh.apiserver.extraVolumeMounts | list | `[]` | Additional clustermesh-apiserver volumeMounts. |

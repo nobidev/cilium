@@ -3891,7 +3891,17 @@ clustermesh:
     healthPort: 9880
     # -- Configuration for the clustermesh-apiserver readiness probe.
     readinessProbe: {}
-
+    # -- Rate limits for the etcd clients used by each clustermesh-apiserver
+    # pod. If the amount of request per second to etcd exceeds the configured
+    # rate limit, the client will start to throttle the request by delaying
+    # them until there is budget.
+    etcdQPS:
+      # -- Rate limit for the apiserver container while syncing Kubernetes
+      # resources from the local cluster to the local etcd.
+      apiserver: 50
+      # -- Rate limit for the kvstoremesh container while syncing resources
+      # from all remote clusters to the local etcd.
+      kvstoremesh: 100
     etcd:
       # The etcd binary is included in the clustermesh API server image, so the same image from above is reused.
       # Independent override isn't supported, because clustermesh-apiserver is tested against the etcd version it is

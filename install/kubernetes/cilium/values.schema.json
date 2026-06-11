@@ -1018,6 +1018,17 @@
               },
               "type": "object"
             },
+            "etcdQPS": {
+              "properties": {
+                "apiserver": {
+                  "type": "integer"
+                },
+                "kvstoremesh": {
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
             "extraArgs": {
               "items": {},
               "type": "array"
