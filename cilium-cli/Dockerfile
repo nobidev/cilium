@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG BASE_IMAGE=gcr.io/distroless/static:latest@sha256:3592aa8171c77482f62bbc4164e6a2d141c6122554ace66e5cc910cadb961ff0
-ARG GOLANG_IMAGE=docker.io/library/golang:1.26.3@sha256:2d6c80227255c3112a4d08e67ba98e58efd3846daf15d9d7d4c389565d881b1a
+ARG GOLANG_IMAGE=docker.io/library/golang:1.26.4@sha256:792443b89f65105abba56b9bd5e97f680a80074ac62fc844a584212f8c8102c3
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
 # TARGETARCH
