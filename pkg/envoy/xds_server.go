@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -1516,10 +1517,7 @@ func toEnvoyTerminatingTLSContext(tls *policy.TLSContext, policySecretsNamespace
 }
 
 func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, policySecretsNamespace string) string {
-	if policySecretsNamespace == "" {
-		return fmt.Sprintf("%s/%s", namespacedName.Namespace, namespacedName.Name)
-	}
-	return fmt.Sprintf("%s/%s-%s", policySecretsNamespace, namespacedName.Namespace, namespacedName.Name)
+	return syncnames.SyncedSDSSecretName(policySecretsNamespace, namespacedName)
 }
 
 func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *api.L7Rules, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRules, bool) {

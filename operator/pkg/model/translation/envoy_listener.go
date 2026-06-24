@@ -19,10 +19,12 @@ import (
 	envoy_extensions_transport_sockets_tls_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 	"github.com/cilium/cilium/pkg/slices"
 )
 
@@ -400,7 +402,7 @@ func newTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) (*e
 	var tlsSdsConfig []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig
 	tlsMap := map[string]struct{}{}
 	for _, t := range tls {
-		tlsMap[fmt.Sprintf("%s/%s-%s", ciliumSecretNamespace, t.Namespace, t.Name)] = struct{}{}
+		tlsMap[syncnames.SyncedSDSSecretName(ciliumSecretNamespace, types.NamespacedName{Namespace: t.Namespace, Name: t.Name})] = struct{}{}
 	}
 
 	for k := range tlsMap {

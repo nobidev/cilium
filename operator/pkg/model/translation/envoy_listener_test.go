@@ -17,8 +17,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	syncnames "github.com/cilium/cilium/pkg/secretsync/names"
 )
 
 func TestNewListener(t *testing.T) {
@@ -143,9 +145,10 @@ func TestNewListener(t *testing.T) {
 		})
 		secretNames = append(secretNames, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName())
 
-		slices.Sort(secretNames)
-		require.Equal(t, "dummy-secret-namespace/dummy-namespace-dummy-secret-1", secretNames[0])
-		require.Equal(t, "dummy-secret-namespace/dummy-namespace-dummy-secret-2", secretNames[1])
+		require.ElementsMatch(t, []string{
+			syncnames.SyncedSDSSecretName("dummy-secret-namespace", types.NamespacedName{Namespace: "dummy-namespace", Name: "dummy-secret-1"}),
+			syncnames.SyncedSDSSecretName("dummy-secret-namespace", types.NamespacedName{Namespace: "dummy-namespace", Name: "dummy-secret-2"}),
+		}, secretNames)
 	})
 
 	t.Run("with TLS (passthrough)", func(t *testing.T) {
