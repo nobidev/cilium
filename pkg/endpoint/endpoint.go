@@ -186,7 +186,7 @@ type Endpoint struct {
 	parentIfIndex int
 
 	// disableLegacyIdentifiers disables lookup using legacy endpoint identifiers
-	// (container name, container id, pod name) for this endpoint.
+	// (container id, pod name) for this endpoint.
 	// Immutable after Endpoint creation.
 	disableLegacyIdentifiers bool
 

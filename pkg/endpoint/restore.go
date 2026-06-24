@@ -432,7 +432,7 @@ type serializableEndpoint struct {
 	// containerName is the name given to the endpoint by the container runtime
 	ContainerName string
 
-	// containerID is the container ID that docker has assigned to the endpoint
+	// containerID is the container ID associated with the endpoint.
 	// Note: The JSON tag was kept for backward compatibility.
 	ContainerID string `json:"dockerID,omitempty"`
 
@@ -455,7 +455,7 @@ type serializableEndpoint struct {
 	ContainerIfName string
 
 	// DisableLegacyIdentifiers disables lookup using legacy endpoint identifiers
-	// (container name, container id, pod name) for this endpoint.
+	// (container id, pod name) for this endpoint.
 	DisableLegacyIdentifiers bool
 
 	// Labels is the endpoint's label configuration
