@@ -1150,7 +1150,11 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		// 'updateEnvoy' is already set to 'true' if policy changed. In that case there can
 		// be new redirects and a full policy map update even if there were no incremental
 		// updates.
-		updateEnvoy = updateEnvoy || hasEnvoyRedirect || e.isIngress
+		//
+		// When EnvoyConfig is enabled, policy filters will be applied on listeners that might
+		// not be referenced in policy rules(eg. L7 load balancing). Always update proxy policy
+		// in such cases to propagate incremental updates.
+		updateEnvoy = option.Config.EnableEnvoyConfig || updateEnvoy || hasEnvoyRedirect || e.isIngress
 	}
 
 	stats := &regenContext.Stats
