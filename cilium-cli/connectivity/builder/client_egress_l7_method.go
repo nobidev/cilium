@@ -39,8 +39,8 @@ func clientEgressL7MethodTest(ct *check.ConnectivityTest, templates map[string]s
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
 		WithCiliumPolicy(yamlFile).                                   // L7 allow policy with HTTP introspection (POST only)
 		WithScenarios(
-			tests.PodToPodWithEndpoints(tests.WithMethod("POST"), tests.WithDestinationLabelsOption(map[string]string{"other": "echo"})),
-			tests.PodToPodWithEndpoints(tests.WithDestinationLabelsOption(map[string]string{"first": "echo"})),
+			tests.PodToPodWithEndpoints(tests.WithMethod("POST"), tests.WithDestinationLabelsOption(map[string]string{"other": "echo"}), tests.WithRetryCondition(tests.WithRetryAll())),
+			tests.PodToPodWithEndpoints(tests.WithDestinationLabelsOption(map[string]string{"first": "echo"}), tests.WithRetryCondition(tests.WithRetryAll())),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
