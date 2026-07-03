@@ -4,6 +4,7 @@
 package features
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +38,49 @@ const (
 	kubeProxyDaemonSetName    = "kube-proxy"
 
 	clusterWide = "cluster-wide"
+
+	// featureExecRetries is the number of attempts for each ExecInPod call, to
+	// tolerate transient Kubernetes API server exec-proxy errors (e.g. spurious
+	// "502 Bad Gateway" responses while dialing the kubelet backend, commonly
+	// observed on managed clusters such as AKS).
+	featureExecRetries = 3
 )
+
+// featureExecRetryBackoff is the delay between ExecInPod retries. It is a
+// variable rather than a constant so that tests can shorten it.
+var featureExecRetryBackoff = 2 * time.Second
+
+// transientExecErrorSubstrings are error message fragments that indicate a
+// transient failure of the Kubernetes API server -> kubelet exec proxy rather
+// than a genuine failure of the executed command, and are therefore worth
+// retrying. They are intentionally specific to the exec-proxy tunnel so that
+// benign command stderr (e.g. cilium-operator "level=debug" log lines, which
+// are tolerated by fetchCiliumOperatorFeatureMetricsFromPod) is not mistaken
+// for a transient error and needlessly retried.
+var transientExecErrorSubstrings = []string{
+	"error dialing backend",
+	"unable to upgrade connection",
+	"Bad Gateway",         // HTTP 502
+	"Service Unavailable", // HTTP 503
+	"Gateway Timeout",     // HTTP 504
+	"TLS handshake timeout",
+}
+
+// isTransientExecError reports whether err looks like a transient failure of
+// the API server exec proxy, as opposed to a genuine failure of the command
+// that was executed in the pod.
+func isTransientExecError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	for _, substr := range transientExecErrorSubstrings {
+		if strings.Contains(msg, substr) {
+			return true
+		}
+	}
+	return false
+}
 
 // detectClusterWideComponents detects cluster-wide components like kube-proxy and local-node-dns
 // and returns them as metrics with specific names
@@ -246,9 +290,42 @@ func (s *Feature) fetchStatusConcurrently(ctx context.Context, pods []corev1.Pod
 	return data, err
 }
 
+// execInPodWithRetry execs the given command in the pod, retrying up to
+// featureExecRetries times when the failure looks like a transient error of the
+// API server exec proxy (see isTransientExecError). Genuine command failures
+// are returned immediately, without retrying.
+func (s *Feature) execInPodWithRetry(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error) {
+	return retryTransientExec(ctx, func(ctx context.Context) (bytes.Buffer, error) {
+		return s.client.ExecInPod(ctx, namespace, pod, container, command)
+	})
+}
+
+// retryTransientExec invokes exec, retrying up to featureExecRetries times with
+// featureExecRetryBackoff between attempts, but only while the returned error is
+// a transient exec-proxy error. It returns as soon as exec succeeds, returns a
+// non-transient error, or the context is done.
+func retryTransientExec(ctx context.Context, exec func(context.Context) (bytes.Buffer, error)) (bytes.Buffer, error) {
+	var output bytes.Buffer
+	var err error
+	for attempt := range featureExecRetries {
+		output, err = exec(ctx)
+		if err == nil || !isTransientExecError(err) {
+			return output, err
+		}
+		if attempt < featureExecRetries-1 {
+			select {
+			case <-ctx.Done():
+				return output, ctx.Err()
+			case <-time.After(featureExecRetryBackoff):
+			}
+		}
+	}
+	return output, err
+}
+
 func (s *Feature) fetchCiliumFeatureMetricsFromPod(ctx context.Context, pod corev1.Pod) ([]*models.Metric, error) {
 	agentCmd := append([]string{"cilium"}, subCmdMetricsList...)
-	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, agentCmd)
+	output, err := s.execInPodWithRetry(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, agentCmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to features status from %s: %w", pod.Name, err)
 	}
@@ -268,7 +345,7 @@ func (s *Feature) fetchCiliumOperatorFeatureMetricsFromPod(ctx context.Context, 
 		}
 	}
 	operatorCmds := append([]string{operatorCmd}, subCmdMetricsList...)
-	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.OperatorContainerName, operatorCmds)
+	output, err := s.execInPodWithRetry(ctx, pod.Namespace, pod.Name, defaults.OperatorContainerName, operatorCmds)
 	if err != nil && !strings.Contains(err.Error(), "level=debug") {
 		return []*models.Metric{}, fmt.Errorf("failed to get features status from %s: %w", pod.Name, err)
 	}
