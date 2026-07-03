@@ -212,7 +212,6 @@ func clientEgressL7TlsSniTest(ct *check.ConnectivityTest, templates map[string]s
 		WithScenarios(tests.PodToWorldWithTLSIntercept(
 			"-H", "X-Very-Secret-Token: 42",
 			"--retry", "5",
-			"--retry-delay", "0",
 			"--retry-all-errors")).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK, check.ResultNone

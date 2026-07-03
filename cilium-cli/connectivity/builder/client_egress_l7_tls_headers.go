@@ -38,7 +38,6 @@ func clientEgressL7TlsHeadersTest(ct *check.ConnectivityTest, templates map[stri
 		WithScenarios(tests.PodToWorldWithTLSIntercept(
 			"-H", "X-Very-Secret-Token: 42",
 			"--retry", "5",
-			"--retry-delay", "0",
 			"--retry-all-errors")).
 		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK, check.ResultNone
@@ -61,7 +60,6 @@ func clientEgressL7ExtraTlsHeadersTest(ct *check.ConnectivityTest, templates map
 			"externaltarget-tls",
 			"-H", "X-Very-Secret-Token: 42",
 			"--retry", "5",
-			"--retry-delay", "0",
 			"--retry-all-errors")).
 		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK, check.ResultNone
