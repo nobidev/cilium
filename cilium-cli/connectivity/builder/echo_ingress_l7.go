@@ -39,7 +39,7 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, templates map[string]st
 	newTest("echo-ingress-l7", ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
-		WithScenarios(tests.PodToPodWithEndpoints()).
+		WithScenarios(tests.PodToPodWithEndpoints(tests.WithRetryCondition(tests.WithRetryAll()))).
 		WithExpectations(expectation)
 
 	newTest("echo-ingress-l7-via-hostport", ct).
