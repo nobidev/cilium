@@ -6,6 +6,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
@@ -40,7 +41,8 @@ func (s *podToPodConnect) Run(ctx context.Context, t *check.Test) {
 		for _, echo := range ct.EchoPods() {
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, a.CurlCommand(echo, "-X", "CONNECT"))
+					proxyURL := fmt.Sprintf("%s://%s", echo.Scheme(), net.JoinHostPort(echo.Address(ipFam), fmt.Sprint(echo.Port())))
+					a.ExecInPod(ctx, a.CurlCommand(echo, "--proxytunnel", "-x", proxyURL))
 
 					a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
 					a.ValidateFlows(ctx, echo, a.GetIngressRequirements(check.FlowParameters{}))

@@ -1028,6 +1028,9 @@ func GetHttpFilterChainProto(clusterName string, tls bool, isIngress bool, acces
 								ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
 									Cluster: clusterName,
 								},
+								// HCM-level CONNECT support only allows Envoy to parse CONNECT requests.
+								// Route-level ConnectConfig makes the router establish a tunnel instead of
+								// forwarding CONNECT upstream as a normal HTTP request.
 								UpgradeConfigs: []*envoy_config_route.RouteAction_UpgradeConfig{{
 									UpgradeType:   "CONNECT",
 									ConnectConfig: &envoy_config_route.RouteAction_UpgradeConfig_ConnectConfig{},
