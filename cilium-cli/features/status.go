@@ -42,9 +42,16 @@ const (
 	// featureExecRetries is the number of attempts for each ExecInPod call, to
 	// tolerate transient Kubernetes API server exec-proxy errors (e.g. spurious
 	// "502 Bad Gateway" responses while dialing the kubelet backend, commonly
-	// observed on managed clusters such as AKS).
+	// observed on managed clusters such as AKS) and truncated (empty) exec
+	// responses that report success but return no output.
 	featureExecRetries = 3
 )
+
+// errEmptyExecOutput is returned by retryTransientExec when ExecInPod keeps
+// reporting success while returning an empty output stream. Surfacing it
+// explicitly avoids the opaque "unexpected end of JSON input" error that
+// nodeStatusFromOutput would otherwise emit when parsing the empty output.
+var errEmptyExecOutput = errors.New("exec returned empty output")
 
 // featureExecRetryBackoff is the delay between ExecInPod retries. It is a
 // variable rather than a constant so that tests can shorten it.
@@ -292,8 +299,9 @@ func (s *Feature) fetchStatusConcurrently(ctx context.Context, pods []corev1.Pod
 
 // execInPodWithRetry execs the given command in the pod, retrying up to
 // featureExecRetries times when the failure looks like a transient error of the
-// API server exec proxy (see isTransientExecError). Genuine command failures
-// are returned immediately, without retrying.
+// API server exec proxy (see isTransientExecError) or when exec reports success
+// but returns no output. Genuine command failures are returned immediately,
+// without retrying.
 func (s *Feature) execInPodWithRetry(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error) {
 	return retryTransientExec(ctx, func(ctx context.Context) (bytes.Buffer, error) {
 		return s.client.ExecInPod(ctx, namespace, pod, container, command)
@@ -301,16 +309,31 @@ func (s *Feature) execInPodWithRetry(ctx context.Context, namespace, pod, contai
 }
 
 // retryTransientExec invokes exec, retrying up to featureExecRetries times with
-// featureExecRetryBackoff between attempts, but only while the returned error is
-// a transient exec-proxy error. It returns as soon as exec succeeds, returns a
-// non-transient error, or the context is done.
+// featureExecRetryBackoff between attempts while the result looks transient:
+// either a transient exec-proxy error (see isTransientExecError) or a success
+// with empty output. The latter happens when the API server exec proxy
+// truncates the response stream and returns no data with a nil error; a healthy
+// features-status command always prints at least an empty JSON array, so an
+// empty output is never a legitimate result and is worth retrying. It returns as
+// soon as exec succeeds with non-empty output, returns a non-transient error, or
+// the context is done. When exec keeps returning empty output until the attempts
+// are exhausted, it returns errEmptyExecOutput rather than letting the caller
+// fail later with an opaque JSON parse error.
 func retryTransientExec(ctx context.Context, exec func(context.Context) (bytes.Buffer, error)) (bytes.Buffer, error) {
 	var output bytes.Buffer
 	var err error
 	for attempt := range featureExecRetries {
 		output, err = exec(ctx)
-		if err == nil || !isTransientExecError(err) {
-			return output, err
+		if err != nil {
+			if !isTransientExecError(err) {
+				return output, err
+			}
+		} else if output.Len() > 0 {
+			return output, nil
+		} else {
+			// Success with empty output: treat as transient and, if this was
+			// the last attempt, surface an explicit error.
+			err = errEmptyExecOutput
 		}
 		if attempt < featureExecRetries-1 {
 			select {
