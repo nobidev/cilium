@@ -1,0 +1,55 @@
+name: Smoke connectivity check
+description: >-
+  Applies the connectivity-check manifests, waits for the deployments to become
+  available, and writes a single-testcase JUnit report so the job always
+  produces a cilium-junits artifact regardless of outcome.
+
+inputs:
+  template:
+    description: "Path to the connectivity-check manifest to apply."
+    required: true
+  timeout:
+    description: "Timeout passed to kubectl wait, e.g. 2m."
+    required: true
+  junit-name:
+    description: "Name used for the JUnit test suite and report filename."
+    required: true
+  junit-directory:
+    description: "Directory the JUnit report is written to."
+    default: cilium-junits
+
+runs:
+  using: composite
+  steps:
+    - name: Apply connectivity check and record result as JUnit
+      shell: bash
+      env:
+        TEMPLATE: ${{ inputs.template }}
+        WAIT_TIMEOUT: ${{ inputs.timeout }}
+        JUNIT_NAME: ${{ inputs.junit-name }}
+        JUNIT_DIR: ${{ inputs.junit-directory }}
+      run: |
+        mkdir -p "${JUNIT_DIR}"
+        kubectl apply -f "${TEMPLATE}"
+        start=$(date +%s)
+        rc=0
+        kubectl wait --for=condition=Available --all deployment --timeout="${WAIT_TIMEOUT}" || rc=$?
+        end=$(date +%s)
+        # Emit a single-testcase JUnit report so the run always produces a
+        # cilium-junits artifact, regardless of test outcome.
+        if [ "$rc" -eq 0 ]; then
+          failure=""
+        else
+          failure="    <failure message=\"kubectl wait exited with code ${rc}\">connectivity-check deployments did not become Available within ${WAIT_TIMEOUT}</failure>"
+        fi
+        cat > "${JUNIT_DIR}/${JUNIT_NAME}.xml" <<EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <testsuites tests="1" failures="$([ "$rc" -eq 0 ] && echo 0 || echo 1)" time="$((end - start))">
+          <testsuite name="${JUNIT_NAME}" tests="1" failures="$([ "$rc" -eq 0 ] && echo 0 || echo 1)" time="$((end - start))">
+            <testcase name="connectivity-check deployments Available" classname="${JUNIT_NAME}" time="$((end - start))">
+        ${failure}
+            </testcase>
+          </testsuite>
+        </testsuites>
+        EOF
+        exit "$rc"

@@ -239,9 +239,11 @@ jobs:
 
       - name: Run conformance test (e.g. connectivity check)
         id: run-tests
-        run: |
-          kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
-          kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
+        uses: ./.github/actions/smoke-connectivity-check
+        with:
+          template: ${{ env.CONFORMANCE_TEMPLATE }}
+          timeout: ${{ env.TIMEOUT }}
+          junit-name: ${{ env.job_name }}
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
