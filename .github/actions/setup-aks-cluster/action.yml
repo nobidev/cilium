@@ -62,7 +62,7 @@ runs:
           $VERSION \
           --network-plugin none \
           --node-count ${{ inputs.node_count }} \
-          --ip-families ipv4,ipv6 \
+          --ip-families ipv4 \
           ${{ inputs.taints }} \
           --generate-ssh-keys \
           --api-server-authorized-ip-ranges ${{ steps.get-runner-ip.outputs.cidr }}
