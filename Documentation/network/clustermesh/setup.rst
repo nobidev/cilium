@@ -7,8 +7,8 @@ Setting up Cluster Mesh
 
 This is a step-by-step guide on how to build a mesh of Kubernetes clusters by
 connecting them together, enable pod-to-pod connectivity across all clusters,
-define global services to load-balance between clusters and enforce security
-policies to restrict access.
+configure cross-cluster :ref:`service discovery and load-balancing
+<gs_clustermesh_load_balancing>` and enforce security policies to restrict access.
 
 .. admonition:: Video
   :class: attention
@@ -281,7 +281,7 @@ Next Steps
 
 Logical next steps to explore from here are:
 
- * :ref:`gs_clustermesh_services`
+ * :ref:`gs_clustermesh_load_balancing`
  * :ref:`gs_clustermesh_network_policy`
 
 Troubleshooting
