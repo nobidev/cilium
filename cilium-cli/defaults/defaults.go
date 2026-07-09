@@ -138,19 +138,12 @@ var (
 	ExpectedDropReasons = []string{
 		"Policy denied",
 		"Policy denied by denylist",
-		"Unsupported L2 protocol",
 		"Unsupported L3 protocol",
 		"Stale or unroutable IP",
-		"Authentication required",
 		"Service backend not found",
-		"Unsupported protocol for NAT masquerade",
 		"Invalid source ip",
 		"Unknown L3 target address",
 		"Host datapath not ready",
-		"Unknown ICMPv4 code",
-		"Unknown ICMPv6 code",
-		"Forbidden ICMPv6 message",
-		"No egress gateway found",
 	}
 
 	ExpectedXFRMErrors = []string{
