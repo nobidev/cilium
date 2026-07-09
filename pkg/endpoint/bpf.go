@@ -812,7 +812,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 			// 3. New policies need to be applied for this endpoint (hence desiredPolicy != realizedPolicy)
 			// GH-37724: https://github.com/cilium/cilium/issues/37724
 			e.getLogger().Debug(
-				"Policy map is not empty, but no policy has been realized yet, setting policyMapSyncDone to false",
+				"Policy map is not empty, but no policy has been realized yet, syncing desired policy before compilation while preserving restored entries",
 			)
 			// Ensure that e.realizedPolicy actually represents the
 			// current policy map state in case rollback is
@@ -821,9 +821,37 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 			// This may be the case if the agent just restarted,
 			// for example. See GH-38998.
 			e.realizedPolicy.CopyMapStateFrom(datapathRegenCtxt.policyMapDump)
-			// Not strictly required to set as false, but it is a good idea to absolutely
-			// ensure that the policy map is in sync with the desired policy.
-			datapathRegenCtxt.policyMapSyncDone = false
+			// Sync the desired policy into the map now, before the BPF program
+			// is (re)compiled and loaded, just like the empty-dump branch above
+			// does. policyMapSync routes a non-empty dump to
+			// syncPolicyMapWith(dump, skipDeletes=true): it ADDS the desired
+			// keys but does NOT delete the restored ones, so established
+			// connections keep being admitted by the preserved entries while the
+			// desired keys become available to the freshly loaded program from
+			// the very first packet.
+			//
+			// Seeding before the reload (rather than only afterwards, once the
+			// deferred post-reload sync runs) matters across an upgrade or
+			// downgrade that changes how the policy map is keyed. For example a
+			// newer agent aggregates world / world-ipv4 / world-ipv6 into a
+			// single reserved:world entry and relies on a datapath aggregate
+			// lookup to match world-ipv4/world-ipv6 traffic; an older agent that
+			// lacks that lookup needs the explicit world-ipv4 / world-ipv6
+			// entries to admit the same traffic. Preserving only the restored
+			// (aggregated) entries would then black-hole established connections
+			// for the whole reload -> realization window (a POLICY_DENIED window
+			// observed on a v1.20 -> v1.19 downgrade). Adding the desired,
+			// this-version-keyed entries before the reload closes that window.
+			//
+			// The now-stale restored entries that are not part of the desired
+			// policy are left in the map (skipDeletes) and reaped by the periodic
+			// full reconciliation once the desired policy is realized; mark the
+			// endpoint so that reconciliation treats the cleanup as expected
+			// convergence rather than a policy-map bug.
+			if err = e.policyMapSync(datapathRegenCtxt.policyMapDump, stats); err != nil {
+				return newRegenerationErrorf(regenerationFailureReasonPolicyBPFError, "policymap synchronization failed: %w", err)
+			}
+			datapathRegenCtxt.policyMapSyncDone = true
 		}
 	}
 
