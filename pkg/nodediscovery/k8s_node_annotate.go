@@ -28,8 +28,6 @@ func (n *NodeDiscovery) prepareNodeAnnotations(localNode nodeTypes.Node) nodeAnn
 	annotationMap := map[string]fmt.Stringer{
 		annotation.V4CIDRName:     localNode.IPv4AllocCIDR,
 		annotation.V6CIDRName:     localNode.IPv6AllocCIDR,
-		annotation.V4IngressName:  localNode.IPv4IngressIP,
-		annotation.V6IngressName:  localNode.IPv6IngressIP,
 		annotation.CiliumHostIP:   localNode.GetCiliumInternalIP(false),
 		annotation.CiliumHostIPv6: localNode.GetCiliumInternalIP(true),
 	}
@@ -45,6 +43,12 @@ func (n *NodeDiscovery) prepareNodeAnnotations(localNode nodeTypes.Node) nodeAnn
 	}
 	if localNode.IPv6HealthIP.IsValid() {
 		annotations[annotation.V6HealthName] = localNode.IPv6HealthIP.String()
+	}
+	if localNode.IPv4IngressIP.IsValid() {
+		annotations[annotation.V4IngressName] = localNode.IPv4IngressIP.String()
+	}
+	if localNode.IPv6IngressIP.IsValid() {
+		annotations[annotation.V6IngressName] = localNode.IPv6IngressIP.String()
 	}
 	if localNode.EncryptionKey != 0 {
 		annotations[annotation.CiliumEncryptionKey] = strconv.FormatUint(uint64(localNode.EncryptionKey), 10)

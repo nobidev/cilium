@@ -425,7 +425,7 @@ func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP netip.Addr, oldV6Heal
 	return nil
 }
 
-func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6IngressIP net.IP) error {
+func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP netip.Addr, oldV6IngressIP netip.Addr) error {
 	if !r.daemonConfig.EnableEnvoyConfig {
 		return nil
 	}
@@ -436,8 +436,8 @@ func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6Ingres
 		var err error
 
 		// Reallocate the same address as before, if possible
-		if ingressIPv4 != nil {
-			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(iputil.AddrFromIP(ingressIPv4), "ingress", ipam.PoolDefault())
+		if ingressIPv4.IsValid() {
+			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(ingressIPv4, "ingress", ipam.PoolDefault())
 			if err != nil {
 				r.logger.Warn("unable to re-allocate ingress IPv4.",
 					logfields.Error, err,
@@ -464,8 +464,8 @@ func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6Ingres
 			result.CIDRs = r.coalesceCIDRs(result.CIDRs)
 		}
 
-		ingressIPv4 = net.IP(result.IP.AsSlice()).To16()
-		r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = net.IP(result.IP.AsSlice()).To16() })
+		ingressIPv4 = result.IP
+		r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = iputil.AddrFrom(result.IP) })
 		r.logger.Debug("Allocated IPv4 Ingress address", logfields.IPAddr, result.IP)
 
 		// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the
@@ -493,8 +493,8 @@ func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6Ingres
 
 		// Reallocate the same address as before, if possible
 		ingressIPv6 := oldV6IngressIP
-		if ingressIPv6 != nil {
-			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(iputil.AddrFromIP(ingressIPv6), "ingress", ipam.PoolDefault())
+		if ingressIPv6.IsValid() {
+			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(ingressIPv6, "ingress", ipam.PoolDefault())
 			if err != nil {
 				r.logger.Warn("unable to re-allocate ingress IPv6.",
 					logfields.Error, err,
@@ -509,9 +509,9 @@ func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6Ingres
 		if result == nil {
 			result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "ingress", ipam.PoolDefault())
 			if err != nil {
-				if ingressIPv4 != nil {
-					r.ipAllocator.ReleaseIP(iputil.AddrFromIP(ingressIPv4), ipam.PoolDefault())
-					r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = nil })
+				if ingressIPv4.IsValid() {
+					r.ipAllocator.ReleaseIP(ingressIPv4, ipam.PoolDefault())
+					r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = iputil.Addr{} })
 				}
 				return fmt.Errorf("unable to allocate ingress IPs: %w, see https://cilium.link/ipam-range-full", err)
 			}
@@ -525,7 +525,7 @@ func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6Ingres
 			result.CIDRs = r.coalesceCIDRs(result.CIDRs)
 		}
 
-		r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6IngressIP = net.IP(result.IP.AsSlice()).To16() })
+		r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6IngressIP = iputil.AddrFrom(result.IP) })
 		r.logger.Debug("Allocated IPv6 Ingress address", logfields.IPAddr, result.IP)
 	}
 
@@ -553,7 +553,7 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context) error {
 		return fmt.Errorf("failed to allocate service loopback IPs: %w", err)
 	}
 
-	if err := r.allocateIngressIPs(localNode.IPv4IngressIP, localNode.IPv6IngressIP); err != nil {
+	if err := r.allocateIngressIPs(localNode.IPv4IngressIP.Addr, localNode.IPv6IngressIP.Addr); err != nil {
 		return fmt.Errorf("failed to allocate ingress IPs: %w", err)
 	}
 
