@@ -39,6 +39,12 @@ DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 t
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")
 DECLARE_CONFIG(__u16, ephemeral_min, "Ephemeral port range minimun")
 
+/* We only need to SNAT ICMPv4 traffic if BPF masquerading is enabled. If BPF
+ * masquerading is disabled, we only SNAT replies from service backends and we
+ * do not currently support ICMP replies from service backends.
+ */
+#define ENABLE_SNAT_ICMP CONFIG(nat_ipv4_masquerade)
+
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
 	NAT_DIR_INGRESS = TUPLE_F_IN,
@@ -799,6 +805,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off
 					  l4_off, &args->target);
 }
 
+#ifdef ENABLE_SNAT_ICMP
 static __always_inline __maybe_unused int
 snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 			      struct ipv4_nat_entry **state)
@@ -832,9 +839,9 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
+# ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
-#endif /* ENABLE_SCTP */
+# endif /* ENABLE_SCTP */
 		/* No reasons to handle IP fragmentation for this case as it is
 		 * expected that DF isn't set for this particular context.
 		 */
@@ -888,6 +895,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 
 	return ret;
 }
+#endif /* ENABLE_SNAT_ICMP */
 
 static __always_inline int
 __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
@@ -962,6 +970,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			return NAT_PUNT_TO_STACK;
 
 		break;
+#ifdef ENABLE_SNAT_ICMP
 	case IPPROTO_ICMP: {
 		struct icmphdr icmphdr __align_stack_8;
 
@@ -1013,6 +1022,7 @@ nat_icmp_v4:
 		}
 		break;
 	}
+#endif /* ENABLE_SNAT_ICMP */
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
@@ -1021,6 +1031,7 @@ nat_icmp_v4:
 			     port_off, trace, ext_err);
 }
 
+#ifdef ENABLE_SNAT_ICMP
 static __always_inline __maybe_unused int
 snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 				  __u64 inner_l3_off,
@@ -1131,6 +1142,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 		ret = 0;
 	return ret;
 }
+#endif /* ENABLE_SNAT_ICMP */
 
 static __always_inline __maybe_unused int
 snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
@@ -1175,6 +1187,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 			return NAT_PUNT_TO_STACK;
 
 		break;
+#ifdef ENABLE_SNAT_ICMP
 	case IPPROTO_ICMP: {
 		struct icmphdr icmphdr __align_stack_8;
 
@@ -1222,6 +1235,7 @@ rev_nat_icmp_v4:
 		}
 		break;
 	}
+#endif /* ENABLE_SNAT_ICMP */
 	default:
 		return NAT_PUNT_TO_STACK;
 	};
