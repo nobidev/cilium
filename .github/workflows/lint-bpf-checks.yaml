@@ -16,6 +16,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || github.event.merge_group && github.run_id }}
   cancel-in-progress: ${{ !github.event.merge_group }}
 
+env:
+  # renovate: datasource=golang-version depName=go
+  go-version:  1.26.5
+
 jobs:
   check_changes:
     name: Deduce required tests from code changes
@@ -144,25 +148,49 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Install Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      - name: Provision LVH VMs
+        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
         with:
-          # renovate: datasource=golang-version depName=go
-          go-version: 1.26.5
-      - name: Install tparse and go-junit-report
-        timeout-minutes: 15
-        run: |
-          # renovate: datasource=github-releases depName=mfridman/tparse
-          go install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442 # v0.14.0
-          # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
-          go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@4cdc5c96cb4e406fccf943536b5bfcae7a0fb826 # v2.3.1
+          test-name: bpf-tests
+          install-dependencies: true
+          # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          image-version: 6.18-20260706.013554
+          host-mount: ./
+          images-folder-parent: "/tmp"
+          cpu: 4
+          # renovate: datasource=github-tags depName=cilium/little-vm-helper
+          lvh-version: "v0.0.30"
+          # cmd: |
+          #   # Use /var/tmp for Go build temporary files to avoid running out
+          #   # of disk space on the tmpfs-backed /tmp in the VM.
+          #   export TMPDIR=/var/tmp
+
+          #   # The LVH image might ship with an arbitrary Go toolchain version,
+          #   # install the same Go toolchain version as current HEAD.
+          #   CGO_ENABLED=0 GOPROXY=direct GOSUMDB= go install golang.org/dl/go${{ env.go-version }}@latest
+          #   go${{ env.go-version }} download
+
+          #   # The LVH image ships with LLVM taken from a release Cilium version.
+          #   # Replace it with the one extracted from the cilium-builder image.
+          #   /host/contrib/scripts/extract-llvm.sh /var/tmp/llvm
+          #   mv /var/tmp/llvm/usr/local/bin/{clang,llc} /bin/
+          #   rm -r /var/tmp/llvm
+
+          #   # renovate: datasource=github-releases depName=mfridman/tparse
+          #   go install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442 # v0.14.0
+          #   # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
+          #   go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@4cdc5c96cb4e406fccf943536b5bfcae7a0fb826 # v2.3.1
       - name: Run BPF tests
         id: run-tests
-        run: |
-          make run_bpf_tests \
-              LOG_CODEOWNERS=1 \
-              JUNIT_PATH="test/${{ env.job_name }}.xml" \
-          || (echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)
+        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            make run_bpf_tests \
+                LOG_CODEOWNERS=1 \
+                JUNIT_PATH="test/${{ env.job_name }}.xml" \
+            || (sudo dmesg; echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)
       - name: Fetch JUnits
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         shell: bash
