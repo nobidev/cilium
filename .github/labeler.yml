@@ -28,3 +28,8 @@ sig/policy:
     - pkg/identity/**
     - pkg/proxy/dns.go
     - test/**/net_policies.go
+# Add backport labels to any PR opened against this stable branch.
+kind/backports:
+- base-branch: '^v1\.18$'
+backport/1.18:
+- base-branch: '^v1\.18$'
