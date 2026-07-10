@@ -1,0 +1,5 @@
+# Add backport labels to any PR opened against this stable branch.
+kind/backports:
+- base-branch: '^v1\.17$'
+backport/1.17:
+- base-branch: '^v1\.17$'
