@@ -38,8 +38,6 @@ DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 t
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")
 DECLARE_CONFIG(__u16, ephemeral_min, "Ephemeral port range minimun")
-DECLARE_CONFIG(bool, enable_ipv4_bpf_masq_agent, "Enable IPv4 BPF Masquerading agent")
-DECLARE_CONFIG(bool, enable_ipv6_bpf_masq_agent, "Enable IPv6 BPF Masquerading agent")
 
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
