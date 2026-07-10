@@ -1,0 +1,217 @@
+name: Mergeability
+
+# Publishes a commit status (the single required status check to configure in
+# each branch ruleset) that fails whenever any `dont-merge/*` label is present.
+# During shadow mode the context is `Mergeability (GHA)` so it does not collide
+# with the maintainers-little-helper `Mergeability` check; rename it to
+# `Mergeability` at cutover (STATUS_CONTEXT below) once MLH is removed. It also
+# enforces:
+#   * DCO: every commit must carry a `Signed-off-by:` line, else the PR gets
+#     `dont-merge/needs-sign-off` + a helper comment.
+#   * release-note (main only): PRs must carry a `release-note/*` label, else
+#     they get `dont-merge/needs-release-note-label`.
+#
+# Safe under `pull_request_target`: no PR-head code is checked out or executed
+# and PR-controlled text is only read via the API, never interpolated into a
+# shell command.
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
+  # The merge queue re-evaluates required checks on the temporary merge_group
+  # commit; without re-reporting `Mergeability` there the queued entry hangs.
+  merge_group:
+    types:
+      - checks_requested
+
+permissions:
+  contents: read
+
+# Collapse a burst of label events on the same PR to a single run: each run
+# re-reads current state, so the newest event supersedes stale in-progress ones
+# and still posts the definitive status. merge_group runs key on run_id (unique
+# per group), so they are never cancelled by this.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  # The required check is the "Mergeability" commit status posted below, NOT
+  # this job — the job name is deliberately different to keep that unambiguous.
+  pr-gate:
+    name: Compute PR mergeability
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: write # add/remove dont-merge/* labels and post the DCO helper comment
+      statuses: write # post the "Mergeability" commit status
+    steps:
+      - name: Compute DCO + mergeability
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          DCO_HELPER: "https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#developer-s-certificate-of-origin"
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            const issue_number = pr.number;
+            const isMain = pr.base.ref === 'main';
+
+            const SIGN_OFF_LABEL = 'dont-merge/needs-sign-off';
+            const RELEASE_NOTE_LABEL = 'dont-merge/needs-release-note-label';
+            const DCO_MARKER = '<!-- bot:dco-check -->';
+            // Shadow-mode name; rename to 'Mergeability' at cutover (must match
+            // merge-group-gate and the required-check name in the ruleset).
+            const STATUS_CONTEXT = 'Mergeability (GHA)';
+
+            // Re-fetch current labels: the webhook payload can be stale when
+            // several label events arrive in quick succession.
+            const issue = await github.rest.issues.get({ owner, repo, issue_number });
+            const labels = new Set(issue.data.labels.map(l => l.name));
+
+            async function addLabel(name) {
+              if (labels.has(name)) return;
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [name] });
+              labels.add(name);
+            }
+            async function removeLabel(name) {
+              if (!labels.has(name)) return;
+              await github.rest.issues.removeLabel({ owner, repo, issue_number, name })
+                .catch(e => { if (e.status !== 404) throw e; });
+              labels.delete(name);
+            }
+
+            async function findDcoComment() {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number, per_page: 100,
+              });
+              return comments.find(c => c.body && c.body.includes(DCO_MARKER));
+            }
+
+            // --- DCO: every commit must carry a Signed-off-by line ---
+            core.startGroup('DCO: check Signed-off-by on every commit');
+            try {
+              const commits = await github.paginate(github.rest.pulls.listCommits, {
+                owner, repo, pull_number: issue_number, per_page: 100,
+              });
+              const signOff = /^Signed-off-by:/m;
+              const missing = commits
+                .filter(c => !signOff.test(c.commit.message))
+                .map(c => c.sha.substring(0, 8));
+              const wasFlagged = labels.has(SIGN_OFF_LABEL);
+              if (missing.length > 0) await addLabel(SIGN_OFF_LABEL);
+              else await removeLabel(SIGN_OFF_LABEL);
+              core.info(missing.length > 0
+                ? `Missing Signed-off-by: ${missing.join(', ')}`
+                : 'All commits signed off.');
+
+              // Only touch comments when there is a violation (upsert the helper)
+              // or when we just cleared a previously-flagged PR (delete it). A PR
+              // that was already signed off skips the comment listing entirely.
+              if (missing.length > 0) {
+                const existing = await findDcoComment();
+                const noun = missing.length === 1 ? 'commit is' : 'commits are';
+                const body = `${DCO_MARKER}\n`
+                  + `The following ${noun} missing a \`Signed-off-by:\` line: ${missing.join(', ')}.\n\n`
+                  + `Please follow the instructions in ${process.env.DCO_HELPER}`;
+                if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+                else await github.rest.issues.createComment({ owner, repo, issue_number, body });
+              } else if (wasFlagged) {
+                const existing = await findDcoComment();
+                if (existing) await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id });
+              }
+            } finally {
+              core.endGroup();
+            }
+
+            // --- release-note requirement (main only) ---
+            core.startGroup('release-note: require a release-note/* label (main only)');
+            try {
+              if (isMain) {
+                const hasReleaseNote = [...labels].some(l => /^release-note\//.test(l));
+                if (hasReleaseNote) await removeLabel(RELEASE_NOTE_LABEL);
+                else await addLabel(RELEASE_NOTE_LABEL);
+                core.info(hasReleaseNote ? 'release-note/* label present.' : 'No release-note/* label; flagged.');
+              } else {
+                core.info(`base is ${pr.base.ref}; release-note requirement not enforced.`);
+              }
+            } finally {
+              core.endGroup();
+            }
+
+            // --- Mergeability: blocked iff any dont-merge/* label is present ---
+            core.startGroup('Mergeability: post commit status from dont-merge/* labels');
+            try {
+              const blocking = [...labels].filter(l => /^dont-merge\//.test(l)).sort();
+              const state = blocking.length > 0 ? 'failure' : 'success';
+              const description = blocking.length > 0
+                ? `Blocked by: ${blocking.join(', ')}`.substring(0, 140)
+                : 'Everything is set up correctly!';
+              await github.rest.repos.createCommitStatus({
+                owner, repo, sha: pr.head.sha, state, context: STATUS_CONTEXT, description,
+                target_url: `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+              });
+              core.info(`${STATUS_CONTEXT}=${state} (base=${pr.base.ref}, blocking=[${blocking.join(', ')}])`);
+            } finally {
+              core.endGroup();
+            }
+
+  merge-group-gate:
+    # Re-verify (rather than blindly pass) on the merge_group commit: a
+    # dont-merge/* label can be added after a PR is queued, so a failure here
+    # evicts it from the queue instead of letting it merge.
+    name: Re-verify mergeability for merge group
+    if: github.event_name == 'merge_group'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # compareCommits to recompute DCO
+      statuses: write
+    steps:
+      - name: Re-verify Mergeability for merge group
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const mg = context.payload.merge_group;
+            const sha = mg.head_sha;
+            const target_url = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            // Must match STATUS_CONTEXT in pr-gate and the required-check name.
+            const STATUS_CONTEXT = 'Mergeability (GHA)';
+
+            async function post(state, description) {
+              await github.rest.repos.createCommitStatus({
+                owner, repo, sha, state, context: STATUS_CONTEXT,
+                description: description.substring(0, 140), target_url,
+              });
+              core.info(`${STATUS_CONTEXT}=${state}: ${description}`);
+            }
+
+            const reasons = [];
+
+            // DCO: recompute over every commit in the group (base_sha..head_sha).
+            const cmp = await github.rest.repos.compareCommits({ owner, repo, base: mg.base_sha, head: sha });
+            const signOff = /^Signed-off-by:/m;
+            const unsigned = (cmp.data.commits || [])
+              .filter(c => !signOff.test(c.commit.message))
+              .map(c => c.sha.substring(0, 8));
+            if (unsigned.length > 0) reasons.push(`missing Signed-off-by: ${unsigned.join(', ')}`);
+
+            // Labels: recover the PR number from head_ref
+            // (gh-readonly-queue/<base>/pr-<number>-<sha>) and re-fetch its
+            // labels; fail closed if the number can't be parsed.
+            const m = /\/pr-(\d+)-/.exec(mg.head_ref || '');
+            if (!m) {
+              await post('failure', `Could not parse PR number from ref ${mg.head_ref}`);
+              return;
+            }
+            const issue = await github.rest.issues.get({ owner, repo, issue_number: parseInt(m[1], 10) });
+            const blocking = issue.data.labels.map(l => l.name).filter(l => /^dont-merge\//.test(l)).sort();
+            if (blocking.length > 0) reasons.push(`blocked by: ${blocking.join(', ')}`);
+
+            if (reasons.length > 0) await post('failure', reasons.join('; '));
+            else await post('success', 'Everything is set up correctly!');
