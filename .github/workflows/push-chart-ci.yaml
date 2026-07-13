@@ -57,6 +57,9 @@ jobs:
       with:
         persist-credentials: false
         ref: ${{ inputs.checkout_ref }}
+        # checkout_ref may be a fork PR head when called from a
+        # pull_request_target workflow; required by checkout v7+.
+        allow-unsafe-pr-checkout: true
         # required for git describe
         fetch-depth: 0
 
@@ -89,6 +92,9 @@ jobs:
       with:
         persist-credentials: false
         ref: ${{ inputs.checkout_ref }}
+        # checkout_ref may be a fork PR head when called from a
+        # pull_request_target workflow; required by checkout v7+.
+        allow-unsafe-pr-checkout: true
         sparse-checkout: install/kubernetes/cilium
 
     - name: Push charts
