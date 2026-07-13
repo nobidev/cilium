@@ -21,9 +21,6 @@ triggers:
     - tests-e2e-upgrade.yaml
     - tests-ipsec-upgrade.yaml
     - hubble-cli-integration-test.yaml
-  /ci-aks:
-    workflows:
-    - conformance-aks.yaml
   /ci-awscni:
     workflows:
     - conformance-aws-cni.yaml
@@ -89,13 +86,10 @@ triggers:
 schedule:
   nightly:
     workflows:
-    - conformance-aks.yaml
     - conformance-gke.yaml
     - tests-ces-migrate.yaml
 
 workflows:
-  conformance-aks.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   conformance-aws-cni.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|CODEOWNERS|USERS.md|.*_test\.go)$)
   conformance-clustermesh.yaml:
