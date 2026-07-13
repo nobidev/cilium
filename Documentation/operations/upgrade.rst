@@ -293,6 +293,15 @@ notes carefully below to understand what to do during upgrade.
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
 
+* The Cilium agent no longer accepts bare IP addresses (without a prefix
+  length, for example ``192.0.2.3`` instead of ``192.0.2.3/32``) in the
+  ``fromCIDR``, ``toCIDR`` and ``CIDRRule`` fields of CiliumNetworkPolicy and
+  CiliumClusterwideNetworkPolicy. This notation has been rejected at admission
+  time by the Kubernetes API server since cilium v1.16 (the fields carry
+  ``format: cidr``), so this only tightens agent-side validation to match. If a
+  policy authored on a pre-v1.16 cluster still stores a bare IP, rewrite it to
+  use an explicit ``/32`` (IPv4) or ``/128`` (IPv6) prefix before upgrading.
+
 * CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy resources that specify
   neither ``spec`` nor ``specs`` are now rejected at admission time by the
   Kubernetes API server via a CEL validation rule. Previously, such empty
