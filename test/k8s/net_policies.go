@@ -736,6 +736,11 @@ var _ = SkipDescribeIf(func() bool {
 
 				err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "connectivity-check pods are not ready after timeout")
+
+				// DO NOT MERGE - temporary forced failure to validate that the
+				// sysdump/test_results artifact is now uploaded on failure (#47155).
+				// Fails while Cilium is still up so AfterFailed gathers real logs.
+				Fail("DO NOT MERGE: forcing failure to validate #47155 sysdump upload")
 			})
 		})
 	})
