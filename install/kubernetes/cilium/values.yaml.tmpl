@@ -2844,6 +2844,8 @@ envoy:
   maxGlobalDownstreamConnections: 50000
   # -- Maximum number of retries for each HTTP request
   httpRetryCount: 3
+  # -- Time in seconds after which a forwarded but uncompleted HTTP request is retried. Default 0 (never).
+  httpRetryTimeout: 0
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
   maxRequestsPerConnection: 0
   # -- Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
@@ -2866,6 +2868,9 @@ envoy:
   # @schema
   # -- Max duration to wait for endpoint policies to be restored on restart. Default "3m".
   policyRestoreTimeoutDuration: null
+  # @schema
+  # type: [null, integer]
+  # @schema
   # -- Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.
   httpUpstreamLingerTimeout: null
   # -- Static runtime bootstrap config for envoy.

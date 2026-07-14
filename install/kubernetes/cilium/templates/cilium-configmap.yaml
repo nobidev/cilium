@@ -1506,13 +1506,14 @@ data:
   proxy-cluster-max-pending-requests: {{ .Values.envoy.clusterMaxPendingRequests | quote }}
   proxy-cluster-max-requests: {{ .Values.envoy.clusterMaxRequests | quote }}
   http-retry-count: {{ .Values.envoy.httpRetryCount | quote }}
+  http-retry-timeout: {{ .Values.envoy.httpRetryTimeout | quote }}
   http-stream-idle-timeout: {{ .Values.envoy.streamIdleTimeoutDurationSeconds | quote }}
   envoy-node-locality-enabled: {{ .Values.envoy.nodeLocality.enabled | quote }}
 
   external-envoy-proxy: {{ include "envoyDaemonSetEnabled" . | quote }}
   envoy-base-id: {{ .Values.envoy.baseID | quote }}
 
-{{- if .Values.envoy.httpUpstreamLingerTimeout }}
+{{- if ne .Values.envoy.httpUpstreamLingerTimeout nil }}
   envoy-http-upstream-linger-timeout: {{ .Values.envoy.httpUpstreamLingerTimeout | quote }}
 {{- end }}
 

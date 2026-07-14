@@ -2499,8 +2499,14 @@
         "httpRetryCount": {
           "type": "integer"
         },
+        "httpRetryTimeout": {
+          "type": "integer"
+        },
         "httpUpstreamLingerTimeout": {
-          "type": "null"
+          "type": [
+            "null",
+            "integer"
+          ]
         },
         "idleTimeoutDurationSeconds": {
           "type": "integer"
