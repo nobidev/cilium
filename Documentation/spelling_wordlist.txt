@@ -31,6 +31,7 @@ Dangaard
 Datadog
 Dataplane
 Deconfigure
+Dependabot
 Dinan
 Disenroll
 Dockerfile
@@ -521,6 +522,7 @@ kubespray
 kvstore
 kvstoremesh
 kvstores
+labelled
 lan
 latencies
 lbipam
