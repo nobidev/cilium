@@ -132,6 +132,7 @@ cilium-operator-alibabacloud hive dot-graph [flags]
       --policy-external-group-sync-interval duration               Period between refreshing the CIDRs for a given policy external group. (default 10m0s)
       --policy-secrets-namespace string                            Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --proxy-idle-timeout-seconds int                             Set Envoy upstream HTTP idle connection timeout in seconds. Does not apply to connections with pending requests. (default 60)
+      --proxy-max-requests-per-connection int                      Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)
       --proxy-stream-idle-timeout-seconds int                      Set Envoy HTTP stream idle timeout in seconds. A stream is considered idle when there is no upstream or downstream activity. (default 300)
       --remove-cilium-node-taints                                  Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)
       --set-cilium-is-up-condition                                 Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)
