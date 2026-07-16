@@ -209,6 +209,13 @@ func miscSystemCommands() []string {
 		"uname -a",
 		"top -b -n 1",
 		"uptime",
+		// CPU/IO/memory pressure over a short window, to tell sustained host
+		// saturation (which can starve workloads until their socket deadlines
+		// fire) apart from a point-in-time top snapshot.
+		"cat /proc/pressure/cpu",
+		"cat /proc/pressure/io",
+		"cat /proc/pressure/memory",
+		"vmstat 1 5",
 		"dmesg --time-format=iso",
 		"sysctl -a",
 		"bpftool map show",

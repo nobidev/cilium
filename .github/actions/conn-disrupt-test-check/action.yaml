@@ -72,3 +72,28 @@ runs:
           --test-concurrency=${{ inputs.test-concurrency }} \
           --expected-xfrm-errors "+inbound_no_state" \
           ${EXTRA_ARG}
+
+    # A conn-disrupt restart is often not a datapath drop but the test client
+    # being starved off-CPU (BPF recompiles during a rollout on a small KIND
+    # host) until its socket deadline fires. Surface that saturation signal in
+    # the job log so the benign case can be told apart from a real drop without
+    # a manual sysdump dive. Best-effort: never fails the job.
+    - name: Capture host saturation signals on conn-disrupt failure
+      if: ${{ failure() }}
+      shell: bash {0}
+      run: |
+        echo "=== node CPU/memory (best-effort, needs metrics-server) ==="
+        kubectl top nodes || true
+        echo "=== per-node load average ==="
+        for node in $(kubectl get nodes -o name); do
+          echo "--- ${node#node/} ---"
+          docker exec "${node#node/}" cat /proc/loadavg 2>/dev/null || true
+          docker exec "${node#node/}" cat /proc/pressure/cpu 2>/dev/null || true
+        done
+        echo "=== recent BPF compile / regeneration durations per agent ==="
+        for pod in $(kubectl get -n kube-system pods -l k8s-app=cilium -o name); do
+          echo "--- ${pod#pod/} ---"
+          kubectl logs -n kube-system "$pod" -c cilium-agent --since=15m 2>/dev/null \
+            | grep -E 'BPFCompilationTime|eventHandlingDuration|Completed endpoint regeneration' \
+            | tail -20 || true
+        done

@@ -14,10 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 )
@@ -172,11 +175,15 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 
 // restartReason returns a human-readable, best-effort explanation of why the
 // container of the given conn-disrupt client/server pod restarted. It reports
-// the last termination state (exit code, signal, reason) and the tail of the
-// previous container's logs. It is only used to enrich the failure message so
-// that a benign environmental restart can be told apart from a genuine
-// connection disruption; it never changes the pass/fail outcome and swallows
-// its own errors, returning an empty string when nothing can be collected.
+// the last termination state (exit code, signal, reason), the tail of the
+// previous container's logs, and whether Cilium dropped any flow to or from the
+// pod during its downtime. It is only used to enrich the failure message so
+// that a benign environmental restart (e.g. host CPU saturation starving the
+// test client until its socket deadline fires, with the connection never
+// dropped) can be told apart from a genuine datapath disruption (a burst of
+// DROPPED flows on the pod's IP); it never changes the pass/fail outcome and
+// swallows its own errors, returning an empty string when nothing can be
+// collected.
 func restartReason(ctx context.Context, ct *check.ConnectivityTest, client *k8s.Client, podName string) string {
 	if client == nil {
 		return ""
@@ -193,6 +200,15 @@ func restartReason(ctx context.Context, ct *check.ConnectivityTest, client *k8s.
 		fmt.Fprintf(&sb, "; last termination: exitCode=%d signal=%d reason=%q message=%q startedAt=%s finishedAt=%s",
 			term.ExitCode, term.Signal, term.Reason, term.Message,
 			term.StartedAt.Format(time.RFC3339), term.FinishedAt.Format(time.RFC3339))
+
+		// The single most useful benign-vs-real discriminator: did Cilium
+		// actually drop any flow to/from this pod while it was down? A clean
+		// window (no drops) points at host saturation; a POLICY_DENIED burst
+		// points at a real datapath regression.
+		if drops := hubbleDropSummary(ctx, ct, pod.Status.PodIP,
+			term.StartedAt.Time, term.FinishedAt.Time); drops != "" {
+			sb.WriteString(drops)
+		}
 	}
 
 	var logs bytes.Buffer
@@ -205,4 +221,57 @@ func restartReason(ctx context.Context, ct *check.ConnectivityTest, client *k8s.
 	}
 
 	return sb.String()
+}
+
+// hubbleDropSummary asks Hubble for DROPPED flows involving podIP within the
+// pod's downtime window and returns a short summary suitable for appending to
+// the failure message. It returns a "0 dropped flows" note when the window was
+// clean, a per-reason breakdown when drops are found, and an empty string when
+// Hubble is unavailable or the query fails (best-effort, never fatal).
+func hubbleDropSummary(ctx context.Context, ct *check.ConnectivityTest, podIP string, since, until time.Time) string {
+	hubbleClient := ct.HubbleClient()
+	if hubbleClient == nil || podIP == "" || since.IsZero() || until.IsZero() {
+		return ""
+	}
+
+	// Bound the query so a hung Relay can never stall the failure path.
+	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	// Pad the window slightly: container start/finish timestamps and flow
+	// timestamps are not perfectly aligned.
+	req := &observer.GetFlowsRequest{
+		Since: timestamppb.New(since.Add(-5 * time.Second)),
+		Until: timestamppb.New(until.Add(5 * time.Second)),
+		Whitelist: []*flow.FlowFilter{
+			{SourceIp: []string{podIP}, Verdict: []flow.Verdict{flow.Verdict_DROPPED}},
+			{DestinationIp: []string{podIP}, Verdict: []flow.Verdict{flow.Verdict_DROPPED}},
+		},
+	}
+
+	b, err := hubbleClient.GetFlows(queryCtx, req)
+	if err != nil {
+		return ""
+	}
+
+	reasons := make(map[string]int)
+	total := 0
+	for {
+		res, err := b.Recv()
+		if err != nil {
+			break
+		}
+		f := res.GetFlow()
+		if f == nil {
+			continue
+		}
+		total++
+		reason := fmt.Sprintf("%s/%s", f.GetDropReasonDesc(), f.GetTrafficDirection())
+		reasons[reason]++
+	}
+
+	if total == 0 {
+		return fmt.Sprintf("; hubble: 0 dropped flows on %s during downtime (points at benign host saturation, not a datapath drop)", podIP)
+	}
+	return fmt.Sprintf("; hubble: %d dropped flows on %s during downtime %v (points at a real datapath drop, not benign saturation)", total, podIP, reasons)
 }
