@@ -175,3 +175,137 @@ int hostfw_ipv4_bpf_masq_proxy_02_check(const struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+/* We leave on purpose CONFIG(enable_extended_ip_protocols) set to false
+ * to test that HostFW enforces policies for such traffic types (failing with
+ * a ct lookup) only when explicitly carrying HOST_ID.
+ */
+
+/* This one tests an egress packet with an unknown CT protocol (e.g, IGMP)
+ * carrying HOST_ID (host-generated).
+ * We expect conntrack lookup to fail, and the packet to be dropped with
+ * the DROP_CT_UNKNOWN_PROTO error.
+ */
+PKTGEN("tc", "hostfw_ipv4_bpf_masq_extended_protocol")
+int hostfw_ipv4_bpf_masq_extended_protocol_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct iphdr *l3;
+
+	pktgen__init(&builder, ctx);
+
+	l3 = pktgen__push_ipv4_packet(&builder,
+				      (__u8 *)node_mac, (__u8 *)server_mac,
+				      NODE_IP, SERVER_IP);
+
+	if (!l3)
+		return TEST_ERROR;
+
+	l3->protocol = IPPROTO_IGMP;
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "hostfw_ipv4_bpf_masq_extended_protocol")
+int hostfw_ipv4_bpf_masq_extended_protocol_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v4_add_entry(NODE_IP, 0, 0, ENDPOINT_F_HOST, HOST_ID,
+			      0, (__u8 *)node_mac, (__u8 *)node_mac);
+	ipcache_v4_add_entry(NODE_IP, 0, HOST_ID, 0, 0);
+	ipcache_v4_add_world_entry();
+
+	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
+
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+	return TEST_ERROR;
+}
+
+CHECK("tc", "hostfw_ipv4_bpf_masq_extended_protocol")
+int hostfw_ipv4_bpf_masq_extended_protocol_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct metrics_key key = {
+		.dir = METRIC_EGRESS,
+		.reason = (__u8)-DROP_CT_UNKNOWN_PROTO,
+	};
+	__u64 count = 1;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_DROP);
+
+	assert_metrics_count(key, count);
+
+	test_finish();
+}
+
+/* This one tests an egress packet with an unknown CT protocol (e.g, IGMP)
+ * carrying UNKNOWN_ID (e.g., kernel-generated multicast join message).
+ * We expect conntrack lookup to fail, but we tolerate it and skip policies.
+ */
+PKTGEN("tc", "hostfw_ipv4_bpf_masq_unknown_id_extended_protocol")
+int hostfw_ipv4_bpf_masq_unknown_id_extended_protocol_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct iphdr *l3;
+
+	pktgen__init(&builder, ctx);
+
+	l3 = pktgen__push_ipv4_packet(&builder,
+				      (__u8 *)server_mac, (__u8 *)node_mac,
+				      NODE_IP, SERVER_IP);
+	if (!l3)
+		return TEST_ERROR;
+
+	l3->protocol = IPPROTO_IGMP;
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "hostfw_ipv4_bpf_masq_unknown_id_extended_protocol")
+int hostfw_ipv4_bpf_masq_unknown_id_extended_protocol_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v4_add_entry(NODE_IP, 0, 0, ENDPOINT_F_HOST, HOST_ID,
+			      0, (__u8 *)node_mac, (__u8 *)node_mac);
+	ipcache_v4_add_entry(NODE_IP, 0, HOST_ID, 0, 0);
+	ipcache_v4_add_world_entry();
+
+	ctx->mark = 0;
+
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+	return TEST_ERROR;
+}
+
+CHECK("tc", "hostfw_ipv4_bpf_masq_unknown_id_extended_protocol")
+int hostfw_ipv4_bpf_masq_unknown_id_extended_protocol_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+
+	test_finish();
+}

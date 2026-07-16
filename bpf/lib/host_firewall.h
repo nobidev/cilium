@@ -78,6 +78,13 @@ ipv6_host_policy_egress_lookup(const struct __ctx_buff *ctx, __u32 src_sec_ident
 				    ct_buffer->fraginfo, ct_buffer->l4_off,
 				    CT_EGRESS, SCOPE_BIDIR, NULL,
 				    &ct_buffer->monitor);
+	/* Tolerate L4 protocols not supported by CT when source identity
+	 * is not HOST_ID. We wouldn't enforce policies either as UNKNOWN_ID,
+	 * and we don't need to create a CT entry for an unrecognized protocol.
+	 * See https://github.com/cilium/cilium/issues/47223.
+	 */
+	if (src_sec_identity != HOST_ID && ct_buffer->ret == DROP_CT_UNKNOWN_PROTO)
+		return false;
 	return true;
 }
 
@@ -350,6 +357,13 @@ ipv4_host_policy_egress_lookup(const struct __ctx_buff *ctx, __u32 src_sec_ident
 	ct_buffer->l4_off = l3_off + ipv4_hdrlen(ip4);
 	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, ip4, ct_buffer->l4_off,
 				    CT_EGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
+	/* Tolerate L4 protocols not supported by CT when source identity
+	 * is not HOST_ID. We wouldn't enforce policies either as UNKNOWN_ID,
+	 * and we don't need to create a CT entry for an unrecognized protocol.
+	 * See https://github.com/cilium/cilium/issues/47223.
+	 */
+	if (src_sec_identity != HOST_ID && ct_buffer->ret == DROP_CT_UNKNOWN_PROTO)
+		return false;
 	return true;
 }
 
