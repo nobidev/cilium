@@ -176,6 +176,92 @@ int hostfw_ipv4_bpf_masq_proxy_02_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
+/* This one tests an egress packet with a known CT protocol (e.g, UDP)
+ * carrying UNKNOWN_ID (e.g., SNATed pod traffic or non-transparent proxy).
+ * We expect conntrack lookup to work, and the policies skipped.
+ */
+PKTGEN("tc", "hostfw_ipv4_bpf_masq_unknown_id")
+int hostfw_ipv4_bpf_masq_unknown_id_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct udphdr *udp;
+
+	pktgen__init(&builder, ctx);
+
+	udp = pktgen__push_ipv4_udp_packet(&builder,
+					   (__u8 *)server_mac, (__u8 *)node_mac,
+					   NODE_IP, SERVER_IP,
+					   NODE_PORT, SERVER_PORT);
+	if (!udp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "hostfw_ipv4_bpf_masq_unknown_id")
+int hostfw_ipv4_bpf_masq_unknown_id_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v4_add_entry(NODE_IP, 0, 0, ENDPOINT_F_HOST, HOST_ID,
+			      0, (__u8 *)node_mac, (__u8 *)node_mac);
+	ipcache_v4_add_entry(NODE_IP, 0, HOST_ID, 0, 0);
+	ipcache_v4_add_world_entry();
+
+	ctx->mark = 0;
+
+	/* Cleanup conntrack from previous hostfw_ipv4_bpf_masq_proxy tests */
+	struct ipv4_ct_tuple tuple = {
+		.daddr   = NODE_IP,
+		.saddr   = SERVER_IP,
+		.dport   = SERVER_PORT,
+		.sport   = NODE_PORT,
+		.nexthdr = IPPROTO_UDP,
+		.flags = TUPLE_F_OUT,
+	};
+	map_delete_elem(get_ct_map4(&tuple), &tuple);
+
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+	return TEST_ERROR;
+}
+
+CHECK("tc", "hostfw_ipv4_bpf_masq_unknown_id")
+int hostfw_ipv4_bpf_masq_unknown_id_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+
+	/* Check that HostFW updated the CT entry */
+	struct ipv4_ct_tuple tuple = {
+		.daddr   = NODE_IP,
+		.saddr   = SERVER_IP,
+		.dport   = SERVER_PORT,
+		.sport   = NODE_PORT,
+		.nexthdr = IPPROTO_UDP,
+		.flags = TUPLE_F_OUT,
+	};
+	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+
+	if (!ct_entry)
+		test_fatal("no CT entry found");
+
+	assert(ct_entry->packets == 1);
+
+	test_finish();
+}
+
 /* We leave on purpose CONFIG(enable_extended_ip_protocols) set to false
  * to test that HostFW enforces policies for such traffic types (failing with
  * a ct lookup) only when explicitly carrying HOST_ID.
