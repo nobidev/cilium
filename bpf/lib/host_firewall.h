@@ -148,6 +148,10 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 
 	if (!ipv6_host_policy_egress_lookup(ctx, src_id, ipcache_srcid, ip6, &ct_buffer))
 		return CTX_ACT_OK;
+	/* See https://github.com/cilium/cilium/issues/47223. */
+	if (is_defined(ENABLE_MASQUERADE_IPV4) &&
+	    ct_buffer.ret == DROP_CT_UNKNOWN_PROTO && src_id != HOST_ID)
+		return CTX_ACT_OK;
 	if (ct_buffer.ret < 0)
 		return ct_buffer.ret;
 
@@ -432,6 +436,10 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	struct ct_buffer4 ct_buffer = {};
 
 	if (!ipv4_host_policy_egress_lookup(ctx, src_id, ipcache_srcid, ip4, &ct_buffer))
+		return CTX_ACT_OK;
+	/* See https://github.com/cilium/cilium/issues/47223. */
+	if (is_defined(ENABLE_MASQUERADE_IPV4) &&
+	    ct_buffer.ret == DROP_CT_UNKNOWN_PROTO && src_id != HOST_ID)
 		return CTX_ACT_OK;
 	if (ct_buffer.ret < 0)
 		return ct_buffer.ret;
