@@ -8,7 +8,6 @@ include:
     ipsec: true
   - version: "1.32"
     region: us-west-2
-    default: true
     ipsec: true
     kpr: true
     aws-eni-pd: true
@@ -16,3 +15,4 @@ include:
     region: us-east-1
     ipsec: true
     default: true
+    aws-eni-pd: true
