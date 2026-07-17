@@ -16,6 +16,9 @@ steps:
         metricVersion: v1
         unit: s
         enableViolations: {{$ENABLE_VIOLATIONS}}
+        # source: one report sample per source, not "too many samples".
+        dimensions:
+        - source
         queries:
         # Gate on the median, not the tail: histogram p99 is interpolated
         # within the top populated bucket and is too noisy to hard-fail on,
@@ -28,6 +31,33 @@ steps:
         - name: Perc50
           query: histogram_quantile(0.50, sum(rate(cilium_policy_implementation_delay_bucket[%v])) by (le))
           threshold: {{$NETPOL_LATENCY_THRESHOLD}}
+        # Reported-only diagnostics (no threshold) for the next p50 breach.
+        - name: SampleCount
+          query: sum(increase(cilium_policy_implementation_delay_count[%v]))
+        - name: SampleCountBySource
+          query: sum(increase(cilium_policy_implementation_delay_count[%v])) by (source)
+        # Interpolation-free SLO: fraction of realizations under 100ms.
+        - name: FracUnder100ms
+          query: sum(rate(cilium_policy_implementation_delay_bucket{le="0.1"}[%v])) / sum(rate(cilium_policy_implementation_delay_count[%v]))
+
+    # Reported-only: attribute a real slowdown to its regeneration stage.
+    - Identifier: EndpointRegenerationTime
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: NetPol Endpoint Regeneration Time
+        metricVersion: v1
+        unit: s
+        enableViolations: {{$ENABLE_VIOLATIONS}}
+        dimensions:
+        - scope
+        queries:
+        - name: RegenTotalP50
+          query: histogram_quantile(0.5, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="total"}[%v])) by (le))
+        - name: RegenTotalP99
+          query: histogram_quantile(0.99, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="total"}[%v])) by (le))
+        - name: RegenP99ByScope
+          query: histogram_quantile(0.99, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket[%v])) by (le, scope))
 
     - Identifier: CiliumCPUUsage
       Method: GenericPrometheusQuery
