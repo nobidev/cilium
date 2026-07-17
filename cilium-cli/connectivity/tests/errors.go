@@ -45,6 +45,25 @@ func (r regexMatcher) IsMatch(log string) bool {
 	return r.MatchString(log)
 }
 
+// thresholdException tolerates a bad log message while it affects no more than
+// maxDistinct distinct values of the distinctField log field, and fails beyond
+// that.
+type thresholdException struct {
+	matcher       logMatcher
+	distinctField string
+	maxDistinct   int
+}
+
+// thresholdCandidate accumulates the occurrences of a bad log message governed
+// by a thresholdException, so it can be reported as a failure only once more
+// than maxDistinct distinct field values have been seen.
+type thresholdCandidate struct {
+	maxDistinct int
+	count       int
+	example     string
+	distinct    map[string]struct{}
+}
+
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
 // logs. The error messages are defined in badLogMsgsWithExceptions, which key
 // is an error message, while values is a list of ignored messages.
@@ -72,6 +91,12 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		envoyExternalTargetTLSWarning, envoyExternalOtherTargetTLSWarning,
 		hubbleUIEnvVarFallback, k8sClientNetworkStatusError, bgpAlphaResourceDeprecation, ccgAlphaResourceDeprecation,
 		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn, certloaderInitialLoadWarn, localKeyAlreadyAllocated}
+
+	warningThresholdExceptions := []thresholdException{
+		// Benign for one node at ENI capacity, a real IP-starvation signal for
+		// several. cf. https://github.com/cilium/cilium/issues/42092
+		{matcher: instanceOutOfInterfaces, distinctField: "name", maxDistinct: 1},
+	}
 
 	if ciliumVersion.LT(semver.MustParse("1.18.0")) {
 		errorLogExceptions = append(errorLogExceptions, linkNotFound, removeInexistentID)
@@ -110,6 +135,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 	}
 	return &noErrorsInLogs{
 		errorMsgsWithExceptions: errorMsgsWithExceptions,
+		thresholdExceptions:     warningThresholdExceptions,
 		ScenarioBase:            check.NewScenarioBase(),
 		ciliumVersion:           ciliumVersion,
 		startTime:               startTime,
@@ -120,6 +146,7 @@ type noErrorsInLogs struct {
 	check.ScenarioBase
 
 	errorMsgsWithExceptions map[string][]logMatcher
+	thresholdExceptions     []thresholdException
 	ciliumVersion           semver.Version
 	mostCommonFailureLog    string
 	mostCommonFailureCount  int
@@ -343,6 +370,9 @@ func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) podContainers {
 func (n *noErrorsInLogs) findUniqueFailures(logs []byte) (map[string]int, map[string]string) {
 	uniqueFailures := make(map[string]int)
 	exampleLogLine := make(map[string]string)
+	// Occurrences of messages governed by a threshold exception, held back until
+	// we know whether they exceeded their bound.
+	thresholdCandidates := make(map[string]*thresholdCandidate)
 	for chunk := range bytes.SplitSeq(logs, []byte("\n")) {
 		msg := string(chunk)
 		for fail, ignoreMsgs := range n.errorMsgsWithExceptions {
@@ -360,11 +390,20 @@ func (n *noErrorsInLogs) findUniqueFailures(logs []byte) (map[string]int, map[st
 						// Matching didn't work, fallback to previous behaviour
 						justMsg = msg
 					}
-					count := uniqueFailures[justMsg]
-					uniqueFailures[justMsg] = count + 1
+					if n.accumulateThresholdCandidate(justMsg, msg, thresholdCandidates) {
+						continue
+					}
+					uniqueFailures[justMsg]++
 					exampleLogLine[justMsg] = msg
 				}
 			}
+		}
+	}
+	// Promote threshold candidates that exceeded their distinct-value bound.
+	for justMsg, c := range thresholdCandidates {
+		if len(c.distinct) > c.maxDistinct {
+			uniqueFailures[justMsg] += c.count
+			exampleLogLine[justMsg] = c.example
 		}
 	}
 	for f, c := range uniqueFailures {
@@ -374,6 +413,33 @@ func (n *noErrorsInLogs) findUniqueFailures(logs []byte) (map[string]int, map[st
 		}
 	}
 	return uniqueFailures, exampleLogLine
+}
+
+// accumulateThresholdCandidate records a bad log line against a matching
+// threshold exception and reports whether it was handled that way. Such lines
+// are held out of uniqueFailures until the whole log has been scanned, so they
+// are only reported as a failure if their distinct-value bound is exceeded.
+func (n *noErrorsInLogs) accumulateThresholdCandidate(justMsg, line string, candidates map[string]*thresholdCandidate) bool {
+	for _, te := range n.thresholdExceptions {
+		if !te.matcher.IsMatch(line) {
+			continue
+		}
+		value := extractValueFromLog(line, te.distinctField)
+		if value == "" {
+			// Missing field: key on the whole line so it can't collapse into one.
+			value = line
+		}
+		c := candidates[justMsg]
+		if c == nil {
+			c = &thresholdCandidate{maxDistinct: te.maxDistinct, distinct: make(map[string]struct{})}
+			candidates[justMsg] = c
+		}
+		c.count++
+		c.example = line
+		c.distinct[value] = struct{}{}
+		return true
+	}
+	return false
 }
 
 func extractValueFromLog(log string, key string) string {
@@ -501,6 +567,7 @@ const (
 
 	k8sEndpointDeprecatedWarn stringMatcher = "v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice" // cf. https://github.com/cilium/cilium/issues/39105
 	proxylibDeprecatedWarn    stringMatcher = "The support for Envoy Go Extensions (proxylib) has been deprecated"          // cf. https://github.com/cilium/cilium/issues/38224
+	instanceOutOfInterfaces   stringMatcher = "Instance is out of interfaces"                                               // AWS ENI-at-capacity; benign for one node, fails if several nodes hit it. cf. https://github.com/cilium/cilium/issues/42092
 
 	certloaderInitialLoadWarn stringMatcher = certloader.InitialLoadWarn // Expected when certificates are not yet mounted.
 
