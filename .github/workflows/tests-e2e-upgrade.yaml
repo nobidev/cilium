@@ -619,6 +619,22 @@ jobs:
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "${{ steps.vars.outputs.enable_proxy_check }}" "${{ matrix.encryption }}"
 
+      # WIP (do not merge): a "CT: Map insertion failed" INGRESS drop shows up in
+      # this concurrent phase (GH-35010). We suspect it is a transient kernel
+      # map_locked -EBUSY on <6.15 under concurrent CT GC/flush, not a full CT
+      # map. The errno that tells the two apart is only rendered by cilium
+      # monitor, so start a background drop monitor before the concurrent phase
+      # to capture it live; the no-unexpected-packet-drops metric only says a
+      # drop happened, not why.
+      - name: WIP start CT-insertion drop monitor
+        if: ${{ steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
+        shell: bash {0} # keep going even if a single command fails
+        run: |
+          for pod in $(kubectl get -n kube-system pods -l k8s-app=cilium -o name); do
+            kubectl exec -n kube-system "${pod}" -c cilium-agent -- \
+              sh -c 'nohup cilium-dbg monitor --type drop -j > /var/run/cilium/wip-ct-drop.json 2>&1 & echo $! > /var/run/cilium/wip-ct-drop.pid'
+          done
+
       - name: Run concurrent Cilium tests
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
         timeout-minutes: 50
@@ -638,6 +654,39 @@ jobs:
           tests: 'no-unexpected-packet-drops'
           conn-disrupt: 'false'
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+
+      # WIP (do not merge): stop the drop monitor and snapshot CT fill + map
+      # pressure + GC runs. A near-empty CT map with GC-correlated drops points
+      # at -EBUSY contention; a near-full map would instead mean a real -ENOMEM
+      # CT-map-full regression. Runs on always() so we still get the data when
+      # the drop check above failed the job.
+      - name: WIP capture CT-insertion drop diagnostics
+        if: ${{ always() && steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
+        shell: bash {0} # keep going even if a single command fails
+        run: |
+          out="cilium-ct-drop-diag-${{ matrix.name }}.txt"
+          for pod in $(kubectl get -n kube-system pods -l k8s-app=cilium -o name); do
+            echo "===== ${pod} =====" | tee -a "$out"
+            kubectl exec -n kube-system "${pod}" -c cilium-agent -- \
+              sh -c 'kill "$(cat /var/run/cilium/wip-ct-drop.pid)" 2>/dev/null; sleep 1; true'
+            echo "--- drop monitor events (CT: Map insertion failed carries the errno) ---" | tee -a "$out"
+            kubectl exec -n kube-system "${pod}" -c cilium-agent -- \
+              sh -c 'grep -F "Map insertion failed" /var/run/cilium/wip-ct-drop.json || cat /var/run/cilium/wip-ct-drop.json' 2>&1 | tee -a "$out"
+            echo "--- CT global entry count (fill level; LRU maps evict, do not fill) ---" | tee -a "$out"
+            kubectl exec -n kube-system "${pod}" -c cilium-agent -- \
+              sh -c 'cilium-dbg bpf ct list global | wc -l' 2>&1 | tee -a "$out"
+            echo "--- CT map pressure and conntrack GC runs ---" | tee -a "$out"
+            kubectl exec -n kube-system "${pod}" -c cilium-agent -- \
+              sh -c 'cilium-dbg metrics list -o json | grep -E "map_pressure|conntrack_gc_runs" || true' 2>&1 | tee -a "$out"
+          done
+
+      - name: WIP upload CT-insertion drop diagnostics
+        if: ${{ always() && steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: "cilium-ct-drop-diag-${{ matrix.name }}-${{ matrix.mode }}-${{ inputs.UID }}"
+          path: cilium-ct-drop-diag-*.txt
+          if-no-files-found: warn
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.encryption != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
