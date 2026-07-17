@@ -425,7 +425,7 @@ func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP netip.Addr, oldV6Heal
 	return nil
 }
 
-func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6IngressIP net.IP) error {
+func (r *infraIPAllocator) allocateIngressIPs(ctx context.Context, oldV4IngressIP net.IP, oldV6IngressIP net.IP) error {
 	if !r.daemonConfig.EnableEnvoyConfig {
 		return nil
 	}
@@ -475,6 +475,17 @@ func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6Ingres
 			if ingressRouting, err := r.parseRoutingInfo(result); err != nil {
 				r.logger.Warn("Unable to allocate ingress information for ENI", logfields.Error, err)
 			} else {
+				// wait for ENI to be up and running before configuring routes and rules.
+				// This avoids spurious errors where netlink is not able to find
+				// the ifindex by its MAC because the ENI is not showing up yet.
+				if r.daemonConfig.IPAM == ipamOption.IPAMENI {
+					if err := r.waitForENI(ctx, result.PrimaryMAC); err != nil {
+						r.logger.Warn("unable to find ENI netlink interface, this will likely lead to an error in configuring the ingress routes and rules",
+							logfields.MACAddr, result.PrimaryMAC,
+						)
+					}
+				}
+
 				if err := ingressRouting.Configure(
 					result.IP,
 					r.mtuManager.GetDeviceMTU(),
@@ -553,7 +564,7 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context) error {
 		return fmt.Errorf("failed to allocate service loopback IPs: %w", err)
 	}
 
-	if err := r.allocateIngressIPs(localNode.IPv4IngressIP, localNode.IPv6IngressIP); err != nil {
+	if err := r.allocateIngressIPs(ctx, localNode.IPv4IngressIP, localNode.IPv6IngressIP); err != nil {
 		return fmt.Errorf("failed to allocate ingress IPs: %w", err)
 	}
 
