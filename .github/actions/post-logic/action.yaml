@@ -16,6 +16,9 @@ inputs:
   always_capture_sysdump:
     description: "Always capture sysdump, regardless of test status; the result is uploaded as artifact only in case of test failure"
     default: "false"
+  capture_eks_node_forensics:
+    description: "On an EKS failure, capture forensics about the worker nodes and their backing EC2 instances (EC2 state, ASG activities, CloudTrail TerminateInstances principal) to tell a fleet-wide AWS termination apart from a Cilium regression."
+    default: "false"
   junits-directory:
     description: "Directory where JUnit XML files are stored."
     default: cilium-junits
@@ -38,6 +41,15 @@ runs:
         kubectl get pods --all-namespaces -o wide
         cilium status
         cilium sysdump --output-filename "cilium-sysdump-${{ inputs.artifacts_suffix }}"
+
+    # Capture EKS node/EC2 forensics before the caller triggers cluster
+    # deletion, so a fleet-wide AWS termination (nodes vanish mid-test) is
+    # diagnosable rather than mis-triaged as a Cilium datapath regression.
+    - name: EKS node forensics
+      if: ${{ always() && inputs.job_status == 'failure' && inputs.capture_eks_node_forensics == 'true' }}
+      uses: ./.github/actions/eks-node-forensics
+      with:
+        artifacts_suffix: "${{ inputs.artifacts_suffix }}"
 
     - name: Upload artifacts
       if: ${{ always() && inputs.job_status != 'success' }}

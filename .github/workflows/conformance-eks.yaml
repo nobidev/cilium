@@ -531,6 +531,17 @@ jobs:
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods -n kube-system
 
+      # Snapshot the worker node count while the cluster is known-healthy. If the
+      # connectivity test later fails with fewer nodes than this, it points at a
+      # mid-test infrastructure node loss (e.g. a fleet-wide AWS EC2 termination)
+      # rather than a Cilium regression.
+      - name: Snapshot node count
+        id: node-count
+        run: |
+          NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | wc -l)
+          echo "expected=${NODE_COUNT}" >> $GITHUB_OUTPUT
+          echo "Snapshotted ${NODE_COUNT} nodes after Cilium became ready"
+
       - name: Add external targets to the cluster
         uses: ./.github/actions/generic-external-targets
         id: external_targets
@@ -621,6 +632,24 @@ jobs:
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
+      # If the connectivity test failed and the cluster has fewer nodes than the
+      # snapshot taken while it was healthy, the failure is almost certainly a
+      # mid-test infrastructure node loss (e.g. a fleet-wide AWS EC2
+      # termination), not a Cilium regression. Emit a warning so triage isn't
+      # sent hunting a datapath bug; the eks-node-forensics artifact has the
+      # CloudTrail principal behind the terminate.
+      - name: Warn on mid-test node loss
+        if: ${{ always() && steps.run-tests.outcome == 'failure' }}
+        env:
+          EXPECTED_NODES: ${{ steps.node-count.outputs.expected }}
+        run: |
+          LIVE_NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l)
+          echo "Expected ${EXPECTED_NODES:-unknown} nodes, currently see ${LIVE_NODES}"
+          if [ -n "${EXPECTED_NODES}" ] && [ "${LIVE_NODES}" -lt "${EXPECTED_NODES}" ]; then
+            LOST=$((EXPECTED_NODES - LIVE_NODES))
+            echo "::warning::EKS lost ${LOST} worker nodes mid-test (infra) — see eks-node-forensics artifact"
+          fi
+
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
@@ -628,6 +657,7 @@ jobs:
           artifacts_suffix: "eks-${{ join(matrix.*, '-') }}-${{ inputs.UID }}"
           job_status: "${{ job.status }}"
           capture_features_tested: false
+          capture_eks_node_forensics: true
 
       # Surface quarantined failures. continue-on-error makes the job (and thus
       # the workflow) succeed even when a step failed, so without this the

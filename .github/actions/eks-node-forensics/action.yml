@@ -1,0 +1,30 @@
+name: "EKS node forensics"
+description: |
+  On a test failure, capture forensic data about the EKS worker nodes and their
+  backing EC2 instances (Kubernetes node/event state, EC2 instance state and
+  state-transition reason, ASG scaling activities and, crucially, the CloudTrail
+  lookup that reveals the TerminateInstances principal). This lets a fleet-wide
+  or region-scoped AWS infrastructure termination be told apart from a Cilium
+  datapath regression during triage. Every probe is best-effort and never fails
+  the job.
+inputs:
+  artifacts_suffix:
+    description: "Suffix added to the forensics artifact name. Used to distinguish artifacts from parallel matrix legs."
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Capture EKS node forensics
+      shell: bash {0} # Disable default fail-fast so that every probe runs independently
+      env:
+        ARTIFACTS_SUFFIX: ${{ inputs.artifacts_suffix }}
+      run: |
+        bash .github/actions/eks-node-forensics/action.sh "${ARTIFACTS_SUFFIX}"
+
+    - name: Upload EKS node forensics
+      if: ${{ always() }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: "eks-node-forensics-${{ inputs.artifacts_suffix }}"
+        path: eks-node-forensics-*.tar.gz
+        if-no-files-found: ignore
