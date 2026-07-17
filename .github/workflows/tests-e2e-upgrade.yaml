@@ -585,6 +585,33 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-setup
 
+      # WIP (do not merge): capture the pre-upgrade (stable version) per-endpoint
+      # policy maps so we can diff {egress, id 9, dport 8000} against what main
+      # resolves after the upgrade. Proves whether the reused v3 map already had
+      # the explicit world-ipv4:8000 entry or main adds it fresh post-reload.
+      - name: WIP capture pre-upgrade policy maps
+        if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
+        shell: bash {0} # keep going even if a single command fails
+        run: |
+          out="cilium-preupgrade-policymap-${{ matrix.name }}.txt"
+          for pod in $(kubectl get -n kube-system pods -l k8s-app=cilium -o name); do
+            echo "===== ${pod} =====" | tee -a "$out"
+            echo "--- cilium-dbg endpoint list ---" | tee -a "$out"
+            kubectl exec -n kube-system "${pod}" -c cilium-agent -- \
+              cilium-dbg endpoint list 2>&1 | tee -a "$out"
+            echo "--- cilium-dbg bpf policy get --all --numeric ---" | tee -a "$out"
+            kubectl exec -n kube-system "${pod}" -c cilium-agent -- \
+              cilium-dbg bpf policy get --all --numeric 2>&1 | tee -a "$out"
+          done
+
+      - name: WIP upload pre-upgrade policy maps
+        if: ${{ always() && steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: "cilium-preupgrade-policymap-${{ matrix.name }}-${{ matrix.mode }}-${{ inputs.UID }}"
+          path: cilium-preupgrade-policymap-*.txt
+          if-no-files-found: warn
+
       - name: Upgrade Cilium
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
         shell: bash
