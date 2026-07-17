@@ -8,7 +8,6 @@ include:
     ipsec: true
   - version: "1.30"
     region: us-west-2
-    default: true
     ipsec: true
     kpr: true
   - version: "1.31"
