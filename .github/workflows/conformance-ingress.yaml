@@ -441,6 +441,7 @@ jobs:
             --test 'packet-drops'
 
       - name: Features tested
+        if: ${{ always() && steps.install-cilium.outcome == 'success' }}
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested"
