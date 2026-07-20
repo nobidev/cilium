@@ -173,25 +173,6 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 	}
 }
 
-func deviceGetFirstAdresses(dev *tables.Device) (netip.Addr, netip.Addr) {
-	var firstIPv4, firstIPv6 netip.Addr
-
-	for _, addr := range dev.Addrs {
-		if addr.Addr.Is4() && !firstIPv4.IsValid() {
-			firstIPv4 = addr.Addr
-		}
-		if addr.Addr.Is6() && !firstIPv6.IsValid() {
-			firstIPv6 = addr.Addr
-		}
-
-		if firstIPv4.IsValid() && firstIPv6.IsValid() {
-			break
-		}
-	}
-
-	return firstIPv4, firstIPv6
-}
-
 func getDeviceWithAddress(manager *Manager, addr netip.Addr) *tables.Device {
 	for dev := range manager.deviceTable.All(manager.db.ReadTxn()) {
 		if dev.HasIP(addr) {
@@ -221,8 +202,18 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 		dev, _, found := manager.deviceTable.Get(manager.db.ReadTxn(), tables.DeviceByName(gc.iface))
 		if found {
 			gwc.egressIfindex = uint32(dev.Index)
+			addrs := manager.nodeAddrTable.List(manager.db.ReadTxn(), tables.NodeAddressDeviceNameIndex.Query(dev.Name))
 
-			egressIP4, egressIP6 = deviceGetFirstAdresses(dev)
+			for addr := range addrs {
+				if addr.Primary {
+					if addr.Addr.Is4() {
+						egressIP4 = addr.Addr
+					} else if addr.Addr.Is6() {
+						egressIP6 = addr.Addr
+					}
+				}
+			}
+
 			if v4Needed && !egressIP4.IsValid() {
 				return fmt.Errorf("failed to retrieve IPv4 address for egress interface")
 			}
@@ -258,24 +249,29 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 		dev := getDeviceWithAddress(manager, gc.egressIP)
 		if dev != nil {
 			gwc.ifaceName = dev.Name
+			addrs := manager.nodeAddrTable.List(manager.db.ReadTxn(), tables.NodeAddressDeviceNameIndex.Query(dev.Name))
+
+			for addr := range addrs {
+				if addr.Primary {
+					if gc.egressIP.Is4() && addr.Addr.Is6() {
+						egressIP6 = addr.Addr
+					} else if gc.egressIP.Is6() && addr.Addr.Is4() {
+						egressIP4 = addr.Addr
+					}
+				}
+			}
 
 			if gc.egressIP.Is4() {
 				egressIP4 = gc.egressIP
 
-				if v6Needed {
-					_, egressIP6 = deviceGetFirstAdresses(dev)
-					if !egressIP6.IsValid() {
-						return fmt.Errorf("failed to retrieve IPv6 address for egress interface")
-					}
+				if v6Needed && !egressIP6.IsValid() {
+					return fmt.Errorf("failed to retrieve IPv6 address for egress interface")
 				}
 			} else if gc.egressIP.Is6() {
 				egressIP6 = gc.egressIP
 
-				if v4Needed {
-					egressIP4, _ = deviceGetFirstAdresses(dev)
-					if !egressIP4.IsValid() {
-						return fmt.Errorf("failed to retrieve IPv4 address for egress interface")
-					}
+				if v4Needed && !egressIP4.IsValid() {
+					return fmt.Errorf("failed to retrieve IPv4 address for egress interface")
 				}
 			}
 		} else {
