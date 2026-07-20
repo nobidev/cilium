@@ -6,7 +6,6 @@ package subnet
 import (
 	"encoding"
 	"fmt"
-	"iter"
 	"net/netip"
 
 	"github.com/cilium/statedb"
@@ -18,18 +17,6 @@ import (
 )
 
 const TableName = "subnet-identities"
-
-var (
-	SubnetPrimaryIndex = statedb.Index[SubnetTableEntry, netip.Prefix]{
-		Name: "key",
-		FromObject: func(t SubnetTableEntry) index.KeySet {
-			return index.NewKeySet(index.NetIPPrefix(t.Key))
-		},
-		FromKey:    index.NetIPPrefix,
-		FromString: index.NetIPPrefixString,
-		Unique:     true,
-	}
-)
 
 type SubnetTableEntry struct {
 	Key netip.Prefix
@@ -79,26 +66,6 @@ func (s SubnetTableEntry) getStatus() reconciler.Status {
 	return s.Status
 }
 
-// SubnetLPMIndex is the secondary index for SubnetEntry
-// Primary index is exact prefix index and secondary is LPM.
-var SubnetLPMIndex = statedb.NetIPPrefixIndex[SubnetTableEntry]{
-	Name: "prefix",
-	FromObject: func(s SubnetTableEntry) iter.Seq[netip.Prefix] {
-		return statedb.Just(s.Key)
-	},
-	Unique: true,
-}
-
-// newSubnetEntryTable creates and registers the subnet entry table in stateDB.
-func newSubnetEntryTable(db *statedb.DB) (statedb.RWTable[SubnetTableEntry], error) {
-	return statedb.NewTable(
-		db,
-		TableName,
-		SubnetPrimaryIndex,
-		SubnetLPMIndex,
-	)
-}
-
 // BinaryKey returns the binary representation of the subnet prefix for the eBPF map key.
 func (s SubnetTableEntry) BinaryKey() encoding.BinaryMarshaler {
 	var ip types.IPv6
@@ -134,4 +101,24 @@ func (s SubnetTableEntry) BinaryValue() encoding.BinaryMarshaler {
 		Identity: s.Value,
 	}
 	return bpf.StructBinaryMarshaler{Target: &v}
+}
+
+// SubnetIndex is the primary index for SubnetEntry, indexing by Prefix.
+var SubnetIndex = statedb.Index[SubnetTableEntry, netip.Prefix]{
+	Name: "prefix",
+	FromObject: func(s SubnetTableEntry) index.KeySet {
+		return index.NewKeySet(index.NetIPPrefix(s.Key))
+	},
+	FromKey:    index.NetIPPrefix,
+	FromString: index.NetIPPrefixString,
+	Unique:     true,
+}
+
+// newSubnetEntryTable creates and registers the subnet entry table in stateDB.
+func newSubnetEntryTable(db *statedb.DB) (statedb.RWTable[SubnetTableEntry], error) {
+	return statedb.NewTable(
+		db,
+		TableName,
+		SubnetIndex,
+	)
 }
