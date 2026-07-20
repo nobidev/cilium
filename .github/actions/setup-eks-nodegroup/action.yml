@@ -55,6 +55,23 @@ runs:
             --filters "Name=availability-zone,Values=${{ inputs.az_external }}" \
             --query 'Subnets[0].SubnetId' \
             --output text)
+
+          echo "External subnet: $SUBNET"
+
+          SUBNET=$(aws ec2 describe-subnets \
+            --region ${{ inputs.region }} \
+            --subnet-ids $SUBNET_IDS \
+            --filters "Name=availability-zone,Values=${{ inputs.az_external }}" \
+                      "Name=map-public-ip-on-launch,Values=false" \
+            --query 'Subnets[0].SubnetId' \
+            --output text)
+          echo "Right? external subnet: $SUBNET"
+
+          aws ec2 describe-subnets \
+            --region ${{ inputs.region }} \
+            --subnet-ids $SUBNET_IDS \
+            --query 'Subnets[].{SubnetId:SubnetId,CidrBlock:CidrBlock,MapPublicIpOnLaunch:MapPublicIpOnLaunch}' \
+            --output table
         fi
 
         cat <<EOF > nodegroup-details.yaml
