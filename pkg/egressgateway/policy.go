@@ -473,10 +473,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	}
 
 	for _, cidrString := range destinationCIDRs {
-		cidr, err := netip.ParsePrefix(string(cidrString))
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse destination CIDR %s: %w", cidrString, err)
-		}
+		cidr := cidrString.Prefix
 		dstCidrList = append(dstCidrList, cidr)
 		if cidr.Addr().Is6() {
 			v6Needed = true
@@ -486,10 +483,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	}
 
 	for _, cidrString := range cegp.Spec.ExcludedCIDRs {
-		cidr, err := netip.ParsePrefix(string(cidrString))
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse excluded CIDR %s: %w", cidr, err)
-		}
+		cidr := cidrString.Prefix
 		excludedCIDRs = append(excludedCIDRs, cidr)
 	}
 
