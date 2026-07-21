@@ -99,6 +99,38 @@ bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
 	return verdict;
 }
 
+/* XDP has no resolved source identity at the drop epilogue, so resolve it from
+ * the ipcache here to reclassify a world-sourced orphan fragment drop. See
+ * frag_not_found_world() in l4.h for the rationale.
+ */
+#if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT_ACCELERATION)
+static __always_inline int
+xdp_frag_not_found_world_v4(int ret, const struct iphdr *ip4)
+{
+	const struct remote_endpoint_info *info;
+
+	if (ret != DROP_FRAG_NOT_FOUND)
+		return ret;
+
+	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+	return frag_not_found_world(ret, info ? info->sec_identity : WORLD_IPV4_ID);
+}
+#endif /* ENABLE_IPV4 && ENABLE_NODEPORT_ACCELERATION */
+
+#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT_ACCELERATION)
+static __always_inline int
+xdp_frag_not_found_world_v6(int ret, const struct ipv6hdr *ip6)
+{
+	const struct remote_endpoint_info *info;
+
+	if (ret != DROP_FRAG_NOT_FOUND)
+		return ret;
+
+	info = lookup_ip6_remote_endpoint((const union v6addr *)&ip6->saddr, 0);
+	return frag_not_found_world(ret, info ? info->sec_identity : WORLD_IPV6_ID);
+}
+#endif /* ENABLE_IPV6 */
+
 #ifdef ENABLE_IPV4
 #ifdef ENABLE_NODEPORT_ACCELERATION
 __declare_tail(CILIUM_CALL_IPV4_FROM_NETDEV)
@@ -194,6 +226,8 @@ no_encap:
 #endif /* ENABLE_DSR && !ENABLE_DSR_HYBRID && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
 
 		ret = nodeport_lb4(ctx, ip4, l3_off, UNKNOWN_ID, &punt_to_stack, &ext_err, &is_dsr);
+		if (IS_ERR(ret))
+			ret = xdp_frag_not_found_world_v4(ret, ip4);
 		if (ret == NAT_46X64_RECIRC)
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
 						 &ext_err);
@@ -275,8 +309,10 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 		}
 
 		ret = nodeport_lb6(ctx, ip6, UNKNOWN_ID, &punt_to_stack, &ext_err, &is_dsr);
-		if (IS_ERR(ret))
+		if (IS_ERR(ret)) {
+			ret = xdp_frag_not_found_world_v6(ret, ip6);
 			goto drop_err;
+		}
 	}
 
 	return bpf_xdp_exit(ctx, ret);

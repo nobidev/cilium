@@ -123,6 +123,16 @@ static __always_inline bool identity_is_cidr_range(__u32 identity)
 }
 
 /**
+ * identity_is_world returns true if an identity belongs to the world.
+ */
+static __always_inline bool identity_is_world(__u32 identity)
+{
+	return identity_is_world_ipv4(identity) ||
+	       identity_is_world_ipv6(identity) ||
+	       identity_is_cidr_range(identity);
+}
+
+/**
  * identity_is_cluster is used to determine whether an identity is assigned to
  * an entity inside the cluster.
  *

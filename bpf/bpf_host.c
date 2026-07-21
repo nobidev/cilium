@@ -400,9 +400,11 @@ tail_handle_ipv6_cont(struct __ctx_buff *ctx, bool from_host)
 		ret = rewrite_dmac_to_host(ctx);
 	}
 
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
+		ret = frag_not_found_world(ret, src_sec_identity);
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  METRIC_INGRESS);
+	}
 	return ret;
 }
 
@@ -450,9 +452,11 @@ tail_handle_ipv6(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 	}
 
 	/* Catch errors from both handle_ipv6 and invoke_tailcall_if here. */
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
+		ret = frag_not_found_world(ret, src_sec_identity);
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  METRIC_INGRESS);
+	}
 
 	return ret;
 }
@@ -860,9 +864,11 @@ tail_handle_ipv4_cont(struct __ctx_buff *ctx, bool from_host)
 		ret = rewrite_dmac_to_host(ctx);
 	}
 
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
+		ret = frag_not_found_world(ret, src_sec_identity);
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  METRIC_INGRESS);
+	}
 	return ret;
 }
 
@@ -910,9 +916,11 @@ tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 	}
 
 	/* Catch errors from both handle_ipv4 and invoke_tailcall_if here. */
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
+		ret = frag_not_found_world(ret, src_sec_identity);
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  METRIC_INGRESS);
+	}
 
 	return ret;
 }
