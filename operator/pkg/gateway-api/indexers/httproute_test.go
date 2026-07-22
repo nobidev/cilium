@@ -4,10 +4,10 @@
 package indexers
 
 import (
-	"reflect"
 	"slices"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -371,9 +371,8 @@ func Test_IndexHTTPRouteByGammaService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			parentIndexFunc := IndexHTTPRouteByGammaService
 
-			if got := parentIndexFunc(tt.args.obj); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getGammaHTTPRouteParentIndexFunc() = %#v, want %#v", got, tt.want)
-			}
+			got := parentIndexFunc(tt.args.obj)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
