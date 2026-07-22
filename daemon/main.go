@@ -9,7 +9,6 @@ import (
 )
 
 func main() {
-	// Test
 	hiveFn := func() *hive.Hive {
 		return hive.New(cmd.Agent)
 	}
