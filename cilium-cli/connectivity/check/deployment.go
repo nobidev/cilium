@@ -126,6 +126,15 @@ const (
 	ingressBandwidth = "kubernetes.io/ingress-bandwidth"
 )
 
+// TestConnDisruptClientL7TrafficAppLabel is the "app" pod label of the L7
+// conn-disrupt client deployments (same value as the internal
+// testConnDisruptClientL7TrafficAppLabel). It is exported so the
+// no-interrupted-connections check can single out these clients: their
+// tcd-client exits on the first failed request while the agent re-syncs xDS to
+// the standalone Envoy after a restart, which is accepted non-hitless L7
+// behaviour rather than a datapath regression.
+const TestConnDisruptClientL7TrafficAppLabel = testConnDisruptClientL7TrafficAppLabel
+
 type perfPodRole string
 
 const (

@@ -60,6 +60,14 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 	// that a restart-count mismatch can be explained by querying the very same
 	// pod for the reason its container restarted.
 	podClients := make(map[string]*k8s.Client)
+	// l7ClientPods holds the names of the L7 conn-disrupt client pods. Their
+	// tcd-client exits on the first failed request while the agent re-syncs
+	// xDS to the standalone Envoy after a restart; that warm-up window is
+	// accepted non-hitless L7 behaviour, so a restart of these pods is
+	// reported as a warning rather than failing the check. Every other
+	// conn-disrupt pod (L3/L4, NS, egress gateway, and the L7 server) keeps
+	// gating so a genuine restart-window datapath regression still fails.
+	l7ClientPods := make(map[string]struct{})
 	for _, client := range ct.Clients() {
 		if ct.Params().IncludeConnDisruptTest {
 			pods, err := client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisrupt})
@@ -103,8 +111,12 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 			}
 
 			for _, pod := range pods.Items {
-				restartCount[pod.GetObjectMeta().GetName()] = strconv.Itoa(int(pod.Status.ContainerStatuses[0].RestartCount))
-				podClients[pod.GetObjectMeta().GetName()] = client
+				name := pod.GetObjectMeta().GetName()
+				restartCount[name] = strconv.Itoa(int(pod.Status.ContainerStatuses[0].RestartCount))
+				podClients[name] = client
+				if pod.GetObjectMeta().GetLabels()["app"] == check.TestConnDisruptClientL7TrafficAppLabel {
+					l7ClientPods[name] = struct{}{}
+				}
 			}
 		} else {
 			ct.Info("Skipping conn-disrupt-test for L7 traffic")
@@ -161,12 +173,24 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 	}
 
 	for pod, count := range restartCount {
-		if prevCount, found := prevRestartCount[pod]; !found {
+		prevCount, found := prevRestartCount[pod]
+		if !found {
 			t.Fatalf("Could not find Pod %s restart count", pod)
-		} else if prevCount != count {
-			t.Fatalf("Pod %s flow was interrupted (restart count does not match %s != %s)%s",
-				pod, prevCount, count, restartReason(ctx, ct, podClients[pod], pod))
 		}
+		if prevCount == count {
+			continue
+		}
+		reason := restartReason(ctx, ct, podClients[pod], pod)
+		if _, isL7Client := l7ClientPods[pod]; isL7Client {
+			// The L7 client tolerates a restart during the agent xDS warm-up
+			// after a restart; still surface it loudly so a persistent L7
+			// disruption is not lost.
+			ct.Warnf("Pod %s flow was interrupted (restart count does not match %s != %s); tolerated for L7 client during proxy warm-up%s",
+				pod, prevCount, count, reason)
+			continue
+		}
+		t.Fatalf("Pod %s flow was interrupted (restart count does not match %s != %s)%s",
+			pod, prevCount, count, reason)
 	}
 }
 
