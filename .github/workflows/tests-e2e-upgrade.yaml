@@ -664,14 +664,14 @@ jobs:
           kubectl -n kube-system rollout restart daemonset cilium
           kubectl -n kube-system rollout status daemonset cilium
 
+          cilium status --wait --interactive=false --wait-duration=10m
+          kubectl get pods --all-namespaces -o wide
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
+
           mkdir -p /tmp/envoy-logs
           for pod in $(kubectl get pods -n kube-system -l k8s-app=cilium-envoy -o jsonpath='{.items[*].metadata.name}'); do
             kubectl -n kube-system logs $pod > "/tmp/envoy-logs/${pod}.txt"
           done
-
-          cilium status --wait --interactive=false --wait-duration=10m
-          kubectl get pods --all-namespaces -o wide
-          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Test Cilium ${{ steps.vars.outputs.skip_upgrade != 'true' && 'after agent restart' }}
         id: on_restart_conn_disrupt_check
@@ -689,6 +689,13 @@ jobs:
           provision: 'false'
           cmd: |
             kind export logs /host/kind-logs-export
+
+      - name: Copy exported kind logs
+        shell: bash
+        if: failure() && steps.on_restart_conn_disrupt_check.outcome == 'failure'
+        run: |
+          mkdir -p /tmp/kind-logs-export
+          scp -r -o StrictHostKeyChecking=no -P 2222 root@localhost:/host/kind-logs-export /tmp/kind-logs-export
 
       - name: Features tested before downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
@@ -794,7 +801,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: "kind-logs-export-${{ matrix.name }}-${{ matrix.mode }}-${{ inputs.UID }}"
-          path: ./kind-logs-export
+          path: /tmp/kind-logs-export
 
       - name: Run common post steps
         if: ${{ always() && steps.vars.outputs.downgrade_version != '' && steps.install-cilium.outcome != 'skipped' }}
