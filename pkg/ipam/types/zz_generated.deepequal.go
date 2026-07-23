@@ -315,7 +315,7 @@ func (in *IPAMStatus) DeepEqual(other *IPAMStatus) bool {
 		}
 	}
 
-	if in.AssignedStaticIP != other.AssignedStaticIP {
+	if !in.AssignedStaticIP.DeepEqual(&other.AssignedStaticIP) {
 		return false
 	}
 

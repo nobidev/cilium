@@ -218,6 +218,7 @@ func (in *IPAMStatus) DeepCopyInto(out *IPAMStatus) {
 			(*out)[key] = val
 		}
 	}
+	in.AssignedStaticIP.DeepCopyInto(&out.AssignedStaticIP)
 	return
 }
 
