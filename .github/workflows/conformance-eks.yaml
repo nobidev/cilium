@@ -583,12 +583,14 @@ jobs:
           # L7 policy test egresses a secondary ENI while carrying the primary
           # ENI's source IP, so the VPC source/dest check drops it (curl 28).
           # This is a real, still-under-investigation datapath bug rather than a
-          # flake; skip only this test on the affected legs so the failure is
-          # not silently masked elsewhere. The prefix-delegation legs still run
-          # and gate it. Remove once the ENI return-path routing is fixed.
+          # flake. Rather than lose all signal, this test is removed from the
+          # gating run here and executed on its own in a tolerated
+          # (continue-on-error) step below, so it still runs and collects
+          # artifacts on these legs without failing the workflow. The
+          # prefix-delegation legs still run it inline and gate on it. Remove
+          # both once the ENI return-path routing is fixed.
           if [[ "${{ matrix.aws-eni-pd }}" != "true" ]]; then
             CONNECTIVITY_TEST_DEFAULTS+=" --test '!north-south-loadbalancing-with-l7-policy'"
-            echo "::warning title=Test quarantined::north-south-loadbalancing-with-l7-policy/outside-to-nodeport is skipped on this leg (${{ join(matrix.*, ', ') }}) because it hits a known ENI return-path drop without prefix delegation. The test is quarantined here and still gates on the prefix-delegation legs; remove once the bug is fixed."
           fi
 
           # Quarantine egress-gateway-excluded-cidrs on non-PD legs (issue
@@ -627,20 +629,39 @@ jobs:
       # on non-PD legs (issue 47530): it still runs and uploads a JUnit report,
       # but its failure does not fail the workflow.
       - name: Run quarantined test egress-gateway-excluded-cidrs (${{ join(matrix.*, ', ') }})
-        id: run-tests-quarantined
+        id: run-tests-quarantined-egw
         if: ${{ matrix.aws-eni-pd != true }}
         continue-on-error: true
         run: |
           cilium connectivity test ${{ steps.e2e_config.outputs.test_flags }} \
           --test 'egress-gateway-excluded-cidrs' \
           --test-concurrency=${{ env.test_concurrency }} \
-          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - quarantined.xml" \
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - quarantined-egw.xml" \
           --junit-property github_job_step="Run quarantined test egress-gateway-excluded-cidrs (${{ join(matrix.*, ', ') }})"
 
       - name: Warn on quarantined egress-gateway-excluded-cidrs failure (${{ join(matrix.*, ', ') }})
-        if: ${{ always() && steps.run-tests-quarantined.outcome == 'failure' }}
+        if: ${{ always() && steps.run-tests-quarantined-egw.outcome == 'failure' }}
         run: |
           echo "::warning title=Test quarantined::egress-gateway-excluded-cidrs failed on this leg (${{ join(matrix.*, ', ') }}) but is quarantined, so it did not fail the workflow. Without prefix delegation a client pod may be masqueraded to a secondary ENI's primary IP rather than the node HostIP the test asserts. Investigate the failure above; remove the quarantine once the test oracle is fixed."
+
+      # Tolerated re-run of the quarantined north-south-loadbalancing-with-l7-policy
+      # test on non-PD legs (issue 47391): it still runs and uploads a JUnit
+      # report, but its failure does not fail the workflow.
+      - name: Run quarantined test north-south-loadbalancing-with-l7-policy (${{ join(matrix.*, ', ') }})
+        id: run-tests-quarantined-nsl7
+        if: ${{ matrix.aws-eni-pd != true }}
+        continue-on-error: true
+        run: |
+          cilium connectivity test ${{ steps.e2e_config.outputs.test_flags }} \
+          --test 'north-south-loadbalancing-with-l7-policy' \
+          --test-concurrency=${{ env.test_concurrency }} \
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - quarantined-nsl7.xml" \
+          --junit-property github_job_step="Run quarantined test north-south-loadbalancing-with-l7-policy (${{ join(matrix.*, ', ') }})"
+
+      - name: Warn on quarantined north-south-loadbalancing-with-l7-policy failure (${{ join(matrix.*, ', ') }})
+        if: ${{ always() && steps.run-tests-quarantined-nsl7.outcome == 'failure' }}
+        run: |
+          echo "::warning title=Test quarantined::north-south-loadbalancing-with-l7-policy/outside-to-nodeport failed on this leg (${{ join(matrix.*, ', ') }}) but is quarantined, so it did not fail the workflow. Without prefix delegation the reply egresses a secondary ENI carrying the primary ENI's source IP and the VPC source/dest check drops it. Investigate the failure above; remove the quarantine once the ENI return-path routing is fixed."
 
       - name: Features tested
         if: ${{ always() && steps.install-cilium.outcome == 'success' }}
