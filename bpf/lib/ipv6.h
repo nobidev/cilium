@@ -117,8 +117,9 @@ static __always_inline int ipv6_skip_exthdr(const struct __ctx_buff *ctx, __u8 *
 	}
 }
 
-static __always_inline int ipv6_hdrlen_offset(const struct __ctx_buff *ctx, int l3_off,
-					      __u8 *nexthdr, fraginfo_t *fraginfo)
+static __always_inline int
+ipv6_walk_exthdrs(const struct __ctx_buff *ctx, int l3_off, __u8 *nexthdr,
+		  fraginfo_t *fraginfo)
 {
 	int i, len = sizeof(struct ipv6hdr);
 	__u8 nh = *nexthdr;
@@ -168,12 +169,26 @@ int ipv6_hdrlen_with_fraginfo(const struct __ctx_buff *ctx, __u8 *nexthdr, fragi
 	if (!nexthdr)
 		return DROP_INVALID;
 
-	return ipv6_hdrlen_offset(ctx, ETH_HLEN, nexthdr, fraginfo);
+	return ipv6_walk_exthdrs(ctx, ETH_HLEN, nexthdr, fraginfo);
 }
 
-static __always_inline int ipv6_hdrlen(const struct __ctx_buff *ctx, __u8 *nexthdr)
+__noinline __weak
+int ipv6_hdrlen_offset(const struct __ctx_buff *ctx, int l3_off,
+		       __u8 *nexthdr, fraginfo_t *fraginfo)
 {
-	return ipv6_hdrlen_offset(ctx, ETH_HLEN, nexthdr, NULL);
+	if (!nexthdr)
+		return DROP_INVALID;
+
+	return ipv6_walk_exthdrs(ctx, l3_off, nexthdr, fraginfo);
+}
+
+__noinline __weak
+int ipv6_hdrlen(const struct __ctx_buff *ctx, __u8 *nexthdr)
+{
+	if (!nexthdr)
+		return DROP_INVALID;
+
+	return ipv6_walk_exthdrs(ctx, ETH_HLEN, nexthdr, NULL);
 }
 
 static __always_inline
