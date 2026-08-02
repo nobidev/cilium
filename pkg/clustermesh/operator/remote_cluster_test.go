@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 func TestRemoteClusterStatus(t *testing.T) {
 	client := kvstore.NewInMemoryClient(statedb.New(), "__remote__")
 	kvsService := map[string]string{
-		"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 1}`,
+		"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 10}`,
 	}
 	kvsServiceExport := map[string]string{
 		"cilium/state/serviceexports/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "exportCreationTimestamp": "2024-07-07T15:55:07.627472784+02:00", "type": "ClusterSetIP", "sessionAffinity": "None"}`,
@@ -155,6 +155,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 					ServiceExportsEnabled: tt.capabilityServiceExportsEnabled,
 				},
 			}
+			rc.OnClusterIDChange(cfg.ID)
 			ready := make(chan error)
 			wg.Go(func() {
 				rc.Run(ctx, client, cfg, ready)
@@ -229,6 +230,7 @@ func TestRemoteClusterHooks(t *testing.T) {
 	rc := cm.newRemoteCluster("foo", func() *models.RemoteCluster {
 		return &models.RemoteCluster{Ready: true, Config: &models.RemoteClusterConfig{}}
 	})
+	rc.OnClusterIDChange(cfg.ID)
 
 	wg.Go(func() {
 		rc.Run(ctx, client, cfg, ready)
@@ -320,6 +322,7 @@ func TestRemoteClusterExtraObservers(t *testing.T) {
 	rc := cm.newRemoteCluster("foo", func() *models.RemoteCluster {
 		return &models.RemoteCluster{Ready: true}
 	}).(*remoteCluster)
+	rc.OnClusterIDChange(cfg.ID)
 
 	require.False(t, rc.Status().Ready, "Status should not be ready before [Run] is invoked")
 

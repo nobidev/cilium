@@ -37,6 +37,8 @@ type remoteCluster struct {
 	logger *slog.Logger
 	// name is the name of the cluster
 	name string
+	// clusterID is the cluster ID advertised by the remote cluster.
+	clusterID uint32
 
 	clusterMeshEnableEndpointSync bool
 	clusterMeshEnableMCSAPI       bool
@@ -120,6 +122,23 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		clusterAddHook(rc.name)
 	}
 	mgr.Run(ctx)
+}
+
+func (rc *remoteCluster) OnClusterIDChange(newID uint32) {
+	if rc.clusterID != types.ClusterIDUnset {
+		rc.logger.Info(
+			"Remote Cluster ID changed: draining all known entries before reconnecting. "+
+				"Expect connectivity disruption towards this cluster",
+			logfields.ClusterID, newID,
+		)
+		rc.remoteServices.Drain()
+		rc.remoteServiceExports.Drain()
+		for _, obs := range rc.observers {
+			obs.Drain()
+		}
+	}
+
+	rc.clusterID = newID
 }
 
 func (rc *remoteCluster) Stop() {

@@ -101,6 +101,13 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	mgr.Run(ctx)
 }
 
+// OnClusterIDChange is a no-op for now, we may want to drain the cache
+// if the cluster ID changes similarly to the agent and operator. It would
+// likely need more consideration than the existing drain logic since it is
+// performed with retries and backoff, which could be useful here but also
+// block the initial connection in this case.
+func (rc *remoteCluster) OnClusterIDChange(uint32) {}
+
 func (rc *remoteCluster) Stop() {
 	rc.cancel()
 	rc.synced.Stop()

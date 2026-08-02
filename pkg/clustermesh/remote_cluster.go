@@ -42,12 +42,6 @@ type remoteCluster struct {
 	// clusterID is the clusterID advertized by the remote cluster
 	clusterID uint32
 
-	// clusterConfigValidator validates the cluster configuration advertised
-	// by remote clusters.
-	clusterConfigValidator func(cmtypes.CiliumClusterConfig) error
-
-	usedIDs ClusterIDsManager
-
 	// mutex protects the following variables:
 	// - remoteIdentityCache
 	mutex lock.RWMutex
@@ -99,18 +93,6 @@ type remoteCluster struct {
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config cmtypes.CiliumClusterConfig, ready chan<- error) {
-	if err := rc.clusterConfigValidator(config); err != nil {
-		ready <- err
-		close(ready)
-		return
-	}
-
-	if err := rc.onUpdateConfig(config); err != nil {
-		ready <- err
-		close(ready)
-		return
-	}
-
 	rc.featureMetrics.AddClusterMeshConfig(ClusterMeshMode(config, option.Config.IdentityAllocationMode), rc.featureMetricMaxClusters)
 
 	defer rc.featureMetrics.DelClusterMeshConfig(ClusterMeshMode(config, option.Config.IdentityAllocationMode), rc.featureMetricMaxClusters)
@@ -205,8 +187,6 @@ func (rc *remoteCluster) Remove(context.Context) {
 	for _, obs := range rc.observers {
 		obs.Drain()
 	}
-
-	rc.usedIDs.ReleaseClusterID(rc.clusterID)
 }
 
 func (rc *remoteCluster) Status() *models.RemoteCluster {
@@ -257,11 +237,7 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 	return status
 }
 
-func (rc *remoteCluster) onUpdateConfig(newConfig cmtypes.CiliumClusterConfig) error {
-	if newConfig.ID == rc.clusterID {
-		return nil
-	}
-
+func (rc *remoteCluster) OnClusterIDChange(newID uint32) {
 	// Let's fully drain all previously known entries if the remote cluster changed
 	// the cluster ID. Although synthetic deletion events would be generated in any
 	// case upon initial listing (as the entries with the incorrect ID would not pass
@@ -272,7 +248,7 @@ func (rc *remoteCluster) onUpdateConfig(newConfig cmtypes.CiliumClusterConfig) e
 		rc.log.Info(
 			"Remote Cluster ID changed: draining all known entries before reconnecting. "+
 				"Expect connectivity disruption towards this cluster",
-			logfields.ClusterID, newConfig.ID,
+			logfields.ClusterID, newID,
 		)
 		rc.remoteNodes.Drain()
 		rc.remoteServices.Drain()
@@ -283,15 +259,7 @@ func (rc *remoteCluster) onUpdateConfig(newConfig cmtypes.CiliumClusterConfig) e
 			obs.Drain()
 		}
 	}
-
-	if err := rc.usedIDs.ReserveClusterID(newConfig.ID); err != nil {
-		return err
-	}
-
-	rc.usedIDs.ReleaseClusterID(rc.clusterID)
-	rc.clusterID = newConfig.ID
-
-	return nil
+	rc.clusterID = newID
 }
 
 func (rc *remoteCluster) ipCacheWatcherOpts(config *cmtypes.CiliumClusterConfig) []ipcache.IWOpt {
