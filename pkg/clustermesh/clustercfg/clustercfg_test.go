@@ -6,10 +6,12 @@ package clustercfg
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stretchr/testify/require"
@@ -53,6 +55,12 @@ func (mb *mockBackend) UpdateIfDifferent(_ context.Context, key string, value []
 
 	mb.data.Store(key, value)
 	return true, nil
+}
+
+func (mb *mockBackend) ListAndWatch(ctx context.Context, _ string, _ ...kvstore.ListAndWatchOption) kvstore.EventChan {
+	// ListAndWatch is not implemented, as [TestWatchClusterConfig] leverages the
+	// in-memory kvstore client
+	panic("ListAndWatch is not implemented in the mockBackend")
 }
 
 func TestMain(m *testing.M) {
@@ -136,4 +144,69 @@ func TestEnforceClusterConfig(t *testing.T) {
 		assert.NoError(c, err, "failed to read cluster configuration")
 		assert.Equal(c, got, cfg2, "retrieved configuration does not match expected one")
 	}, timeout, tick)
+}
+
+func TestWatchClusterConfig(t *testing.T) {
+	client := kvstore.NewInMemoryClient(statedb.New(), "__local__")
+	log := hivetest.Logger(t)
+
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	cfg1 := cmtypes.CiliumClusterConfig{ID: 11}
+	cfg2 := cmtypes.CiliumClusterConfig{ID: 11, Capabilities: cmtypes.CiliumClusterConfigCapabilities{Cached: true}}
+	cfg3 := cmtypes.CiliumClusterConfig{ID: 22, Capabilities: cmtypes.CiliumClusterConfigCapabilities{Cached: true}}
+
+	require.NoError(t, Set(ctx, "foo", cfg1, client))
+
+	configs := make(chan cmtypes.CiliumClusterConfig)
+	wg.Go(func() {
+		Watch(ctx, "foo", client, log, configs)
+		close(configs)
+	})
+
+	next := func(t *testing.T, expected cmtypes.CiliumClusterConfig, msg string) {
+		t.Helper()
+		select {
+		case got := <-configs:
+			require.Equal(t, expected, got, msg)
+		case <-time.After(timeout):
+			t.Fatal(msg)
+		}
+	}
+
+	none := func(t *testing.T, msg string) {
+		t.Helper()
+		select {
+		case got := <-configs:
+			t.Fatalf("%s: unexpected configuration %v", msg, got)
+		case <-time.After(timeout):
+		}
+	}
+
+	next(t, cfg1, "The current configuration should be propagated")
+
+	// A change limited to the capabilities should be propagated as well.
+	require.NoError(t, Set(ctx, "foo", cfg2, client))
+	next(t, cfg2, "An updated configuration should be propagated")
+
+	require.NoError(t, Set(ctx, "foo", cfg3, client))
+	next(t, cfg3, "An updated configuration should be propagated")
+
+	// A deletion should be ignored, and the identical recreation too
+	require.NoError(t, client.Delete(ctx, kvstore.JoinKey(kvstore.ClusterConfigPrefix, "foo")))
+	none(t, "A deleted configuration should not be propagated")
+	require.NoError(t, Set(ctx, "foo", cfg3, client))
+	none(t, "A recreated unchanged configuration should not be propagated")
+
+	cancel()
+	select {
+	case _, ok := <-configs:
+		require.False(t, ok, "The channel was not closed")
+	case <-time.After(timeout):
+		t.Fatal("The channel was not closed")
+	}
 }
