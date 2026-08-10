@@ -12,8 +12,6 @@
 #include "pktgen.h"
 #include "scapy.h"
 
-#define IPV4_DIRECT_ROUTING		v4_node_one
-
 #define fib_lookup mock_fib_lookup
 long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		     __maybe_unused int plen, __maybe_unused __u32 flags)
@@ -99,6 +97,8 @@ ASSIGN_CONFIG(__u16, tunnel_port, 6081)
 
 ASSIGN_CONFIG(__u32, hash_init4_seed, 0xcafe)
 ASSIGN_CONFIG(__u32, hash_init6_seed, 0xeb9f)
+
+ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = v4_node_one })
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"

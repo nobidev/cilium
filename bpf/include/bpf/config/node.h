@@ -105,3 +105,6 @@ NODE_CONFIG(__u8, monitor_aggregation, "Level of aggregation for monitor events"
 
 NODE_CONFIG(union v4addr, ipv4_inter_cluster_snat,
 	    "Node IPv4 address used as the source for inter-cluster SNAT")
+
+NODE_CONFIG(union v4addr, ipv4_direct_routing,
+	    "IPv4 address of the device used for direct routing between nodes")
