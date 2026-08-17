@@ -590,6 +590,7 @@ struct ipv6_pseudo_header_t {
 static __always_inline
 int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
 {
+	__u64 full_len = ctx_full_len(ctx);
 	void *data, *data_end;
 	struct ethhdr *ethhdr;
 	struct ipv6hdr *ip6;
@@ -623,7 +624,10 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
 	memcpy(&daddr, &ip6->daddr, sizeof(struct in6_addr));
 
 	/* Resize to min MTU - IPv6 hdr + ICMPv6 hdr */
-	sample_len = ctx_full_len(ctx);
+	if (full_len < sizeof(struct ethhdr))
+		return DROP_INVALID;
+
+	sample_len = full_len - sizeof(struct ethhdr);
 	if (sample_len > (__u64)ICMPV6_PACKET_MAX_SAMPLE_SIZE)
 		sample_len = ICMPV6_PACKET_MAX_SAMPLE_SIZE;
 	ctx_adjust_troom(ctx, (__s32)(sample_len + sizeof(struct ethhdr) - ctx_full_len(ctx)));
