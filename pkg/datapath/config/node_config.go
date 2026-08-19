@@ -60,6 +60,8 @@ type Node struct {
 	HashInit6Seed uint32 `config:"hash_init6_seed"`
 	// Node IPv4 address used as the source for inter-cluster SNAT.
 	IPv4InterClusterSNAT types.V4Addr `config:"ipv4_inter_cluster_snat"`
+	// IPv4 destination prefix excluded from SNAT.
+	IPv4SNATExclusion types.IPv4SNATExclusionPrefix `config:"ipv4_snat_exclusion"`
 	// Number of timer ticks per second.
 	KernelHz uint32 `config:"kernel_hz"`
 	// Default load-balancer backend selection algorithm.
@@ -102,6 +104,7 @@ func NewNode() *Node {
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x8, false, 0x0, false, false, false, false, false, false,
 		false, false, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		cast[types.IPv4SNATExclusionPrefix]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x1, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x0, false,
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

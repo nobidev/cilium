@@ -133,3 +133,12 @@ ASSIGN_CONFIG(struct ct_timeout_config, ct_timeouts, {
 	.syn_timeout = 60,
 	.close_timeout = 10,
 })
+
+struct ipv4_snat_exclusion_prefix {
+	__be32 dst_addr;
+	__u8 bits;
+	bool enabled;
+};
+
+NODE_CONFIG(struct ipv4_snat_exclusion_prefix, ipv4_snat_exclusion,
+	    "IPv4 destination prefix excluded from SNAT")

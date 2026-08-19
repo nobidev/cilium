@@ -346,6 +346,15 @@ type IPv4RevNATTuple struct {
 	Pad     uint16
 }
 
+// IPv4SNATExclusionPrefix is generated from the BPF C type ipv4_snat_exclusion_prefix.
+type IPv4SNATExclusionPrefix struct {
+	_       structs.HostLayout
+	DstAddr uint32
+	Bits    uint8
+	Enabled bool
+	_       [2]byte
+}
+
 // IPv6CTTuple is generated from the BPF C type ipv6_ct_tuple.
 type IPv6CTTuple struct {
 	_     structs.HostLayout

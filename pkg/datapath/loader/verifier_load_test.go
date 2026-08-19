@@ -19,6 +19,9 @@ var (
 
 func setBasePermutations(t *config.Node) {
 	t.EnableBPFHostRouting = true
+	t.IPv4SNATExclusion.DstAddr = 0xffff0000
+	t.IPv4SNATExclusion.Bits = 16
+	t.IPv4SNATExclusion.Enabled = true
 	t.LBSelectionPerService = true
 	t.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
 	t.TracingIPOptionType = 1
