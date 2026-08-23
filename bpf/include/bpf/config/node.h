@@ -11,6 +11,7 @@
 #pragma once
 
 #include <bpf/lb_selection.h>
+#include <lib/ipv6_core.h>
 #include <lib/static_data.h>
 
 /* Legacy node config rendered at agent runtime. */
@@ -138,3 +139,12 @@ NODE_CONFIG(union v4addr, ipv4_direct_routing,
 	    "IPv4 address of the device used for direct routing between nodes")
 NODE_CONFIG(union v6addr, ipv6_direct_routing,
 	    "IPv6 address of the device used for direct routing between nodes")
+
+struct ipv6_snat_exclusion_prefix {
+	union v6addr dst_addr;
+	union v6addr dst_mask;
+	bool enabled;
+};
+
+NODE_CONFIG(struct ipv6_snat_exclusion_prefix, ipv6_snat_exclusion,
+	    "IPv6 destination prefix excluded from SNAT")

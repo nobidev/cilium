@@ -4,6 +4,8 @@
 package config
 
 import (
+	"net"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -102,6 +104,20 @@ func NodeConfig(lnc *Config) Node {
 
 	if lnc.NodeIPv4.Is4() {
 		node.IPv4InterClusterSNAT.Addr = lnc.NodeIPv4.As4()
+	}
+
+	if option.Config.EnableBPFMasquerade && option.Config.EnableIPv6Masquerade {
+		excludeCIDR := lnc.NativeRoutingCIDRIPv6
+		if option.Config.EnableIPMasqAgent {
+			excludeCIDR = option.Config.IPv6NativeRoutingCIDR
+		}
+
+		if excludeCIDR.IsValid() {
+			node.IPv6SNATExclusion.DstAddr.Addr = excludeCIDR.Addr().As16()
+			mask := net.CIDRMask(excludeCIDR.Bits(), excludeCIDR.Addr().BitLen())
+			copy(node.IPv6SNATExclusion.DstMask.Addr[:], mask)
+			node.IPv6SNATExclusion.Enabled = true
+		}
 	}
 
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
