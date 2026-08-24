@@ -424,6 +424,35 @@ static __always_inline bool lb_is_svc_proto(__u8 proto)
 	}
 }
 
+static __always_inline bool
+lb_need_dsr_info(const void *map, const void *tuple, __u8 nexthdr,
+		 const struct ct_state *ct_state, bool new_backend)
+{
+	if (ct_state->need_dsr_info)
+		return true;
+
+	if (nexthdr != IPPROTO_TCP)
+		return true;
+
+	/* For TCP we want to embed the DSR info only into the SYN,
+	 * to avoid MTU troubles.
+	 */
+	if (ct_state->syn)
+		return true;
+
+	/* If a non-SYN picked a new backend, we enter "forced DSR info" mode.
+	 * To avoid loss of the *one* TCP packet that would carry the
+	 * DSR info, we simply send it on all subsequent packets of the
+	 * connection.
+	 */
+	if (new_backend) {
+		ct_update_need_dsr_info(map, tuple, true);
+		return true;
+	}
+
+	return false;
+}
+
 static __always_inline
 bool lb4_svc_is_loadbalancer(const struct lb4_service *svc __maybe_unused)
 {
@@ -1381,13 +1410,14 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb6_service *svc,
 				     struct ct_state *state,
 				     const struct lb6_backend **selected_backend,
-				     bool *new_backend,
+				     bool *need_dsr_info,
 				     __s8 *ext_err,
 				     const struct lb6_backend *forced_backend)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__u8 flags = tuple->flags;
 	const struct lb6_backend *backend;
+	bool new_backend = false;
 	__u32 backend_id = 0;
 	int ret;
 	union lb6_affinity_client_id client_id;
@@ -1443,7 +1473,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			if (backend == NULL)
 				goto no_service;
 
-			*new_backend = true;
+			new_backend = true;
 		}
 
 		state->backend_id = backend_id;
@@ -1491,7 +1521,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			if (!backend)
 				goto no_service;
 
-			*new_backend = true;
+			new_backend = true;
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
 		}
@@ -1501,6 +1531,10 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		ret = DROP_UNKNOWN_CT;
 		goto drop_err;
 	}
+
+	if (need_dsr_info)
+		*need_dsr_info = lb_need_dsr_info(map, tuple, tuple->nexthdr,
+						  state, new_backend);
 
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
@@ -2208,13 +2242,14 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb4_service *svc,
 				     struct ct_state *state,
 				     const struct lb4_backend **selected_backend,
-				     bool *new_backend,
+				     bool *need_dsr_info,
 				     __s8 *ext_err,
 				     const struct lb4_backend *forced_backend)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__u8 flags = tuple->flags;
 	const struct lb4_backend *backend;
+	bool new_backend = false;
 	__u32 backend_id = 0;
 	int ret;
 	union lb4_affinity_client_id client_id = {
@@ -2274,7 +2309,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			if (backend == NULL)
 				goto no_service;
 
-			*new_backend = true;
+			new_backend = true;
 		}
 
 		state->backend_id = backend_id;
@@ -2322,7 +2357,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			if (!backend)
 				goto no_service;
 
-			*new_backend = true;
+			new_backend = true;
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
 		}
@@ -2332,6 +2367,10 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		ret = DROP_UNKNOWN_CT;
 		goto drop_err;
 	}
+
+	if (need_dsr_info)
+		*need_dsr_info = lb_need_dsr_info(map, tuple, tuple->nexthdr,
+						  state, new_backend);
 
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
