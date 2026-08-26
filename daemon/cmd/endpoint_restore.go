@@ -576,14 +576,11 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 			endpointCleanupCompleted.Done()
 		}(ep)
 	}
-	endpointCleanupCompleted.Wait()
-
-	r.logger.Debug(
-		"Successfully cleaned up endpoints that weren't possible to restore",
-		logfields.Endpoints, len(state.toClean),
-		logfields.Duration, time.Since(startTimeCleanup),
-	)
-
+	// Regeneration and the initial policy signal must not wait for the cleanup
+	// above: the cleanup releases neither IPs nor identities, and it can block
+	// for minutes on the datapath initialization it shares with the regeneration
+	// it would be gating.
+	//
 	// Trigger regeneration for relevant restored endpoints in a separate goroutine.
 	go r.handleRestoredEndpointsRegeneration(state.restored)
 
@@ -601,6 +598,14 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 		}
 		close(r.endpointInitialPolicyComplete)
 	}()
+
+	endpointCleanupCompleted.Wait()
+
+	r.logger.Debug(
+		"Successfully cleaned up endpoints that weren't possible to restore",
+		logfields.Endpoints, len(state.toClean),
+		logfields.Duration, time.Since(startTimeCleanup),
+	)
 }
 
 // Trigger asynchronous regeneration of restored endpoints.
