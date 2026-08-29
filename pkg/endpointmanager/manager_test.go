@@ -80,7 +80,7 @@ type EndpointManagerSuite struct {
 
 func setupEndpointManagerSuite(tb testing.TB) *EndpointManagerSuite {
 	s := &EndpointManagerSuite{}
-	s.repo = policy.NewPolicyRepository(hivetest.Logger(tb), cmtypes.DefaultClusterInfo.ID, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	s.repo = policy.NewPolicyRepository(hivetest.Logger(tb), cmtypes.DefaultClusterInfo, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 
 	return s
 }
