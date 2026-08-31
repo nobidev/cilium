@@ -33,10 +33,6 @@ runs:
     - name: Get runner public IP
       id: get-runner-ip
       uses: ./.github/actions/get-runner-ip
-      with:
-        source: https://whatismyip.azurewebsites.net/json/
-        parsing: json
-        json-key: ip
 
     - name: Create AKS cluster
       shell: bash

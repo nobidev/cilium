@@ -42,9 +42,6 @@ runs:
     - name: Get runner public IP
       id: get-runner-ip
       uses: ./.github/actions/get-runner-ip
-      with:
-        source: https://checkip.amazonaws.com
-        parsing: text
 
     - name: Try to get cluster from pool
       id: get-from-pool
