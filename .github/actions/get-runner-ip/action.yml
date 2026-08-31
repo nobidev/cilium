@@ -1,16 +1,17 @@
 name: Get Runner IP
-description: Fetch the runner public IP from a source and return it as an output.
+description: Fetch the runner public IP from a list of sources and return it as an output.
 inputs:
+  sources:
+    description: Newline-separated, ordered list of URLs to fetch the runner public IP from. The first one that answers wins.
+    required: false
+    default: |
+      https://checkip.amazonaws.com
+      https://whatismyip.akamai.com
+      https://icanhazip.com
   source:
-    description: URL to fetch the runner public IP from.
-    required: true
-  parsing:
-    description: Parsing mode for the fetched response. Supported values are 'text' and 'json'.
+    description: Deprecated, use 'sources'. A single URL, taking precedence over 'sources' when set.
     required: false
-    default: text
-  json-key:
-    description: Optional JSON key (dot-separated) to extract the IP from when parsing is 'json'. If not set, common keys are tried.
-    required: false
+    default: ''
 outputs:
   ip:
     description: The parsed and validated runner public IP address.
@@ -27,91 +28,110 @@ runs:
     - name: Get runner public IP
       id: get-ip
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      env:
+        SOURCES: ${{ inputs.sources }}
+        DEPRECATED_SOURCE: ${{ inputs.source }}
       with:
         script: |
-          const source = `${{ inputs.source }}`.trim();
-          const parsing = `${{ inputs.parsing }}`.trim().toLowerCase();
-          const jsonKey = `${{ inputs['json-key'] }}`.trim();
           const net = require('node:net');
-          if (!source) {
-            core.setFailed("Input 'source' must be a non-empty URL");
-            return;
-          }
+          const timeoutMs = 15000;
+
           const isLikelyIp = (value) => {
             if (typeof value !== 'string') return false;
             const v = value.trim();
             if (!v) return false;
             return net.isIP(v) !== 0;
           };
-          const getByDotPath = (obj, path) => {
-            if (!path) return undefined;
-            return path.split('.').reduce((acc, key) => (acc && typeof acc === 'object' ? acc[key] : undefined), obj);
-          };
-          let response;
-          const timeoutMs = 15000;
-          const controller = new AbortController();
-          const timeout = setTimeout(() => {
-            controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
-          }, timeoutMs);
-          try {
-            response = await fetch(source, {
-              signal: controller.signal,
-              headers: {
-                'User-Agent': 'actions/github-script get-runner-ip',
-                'Accept': parsing === 'json' ? 'application/json,*/*' : '*/*',
-              },
-            });
-          } catch (e) {
-            core.setFailed(`Failed to fetch '${source}': ${e?.message || e}`);
-            return;
-          } finally {
-            clearTimeout(timeout);
-          }
-          if (!response.ok) {
-            const body = await response.text().catch(() => '');
-            core.setFailed(`Fetch '${source}' failed: HTTP ${response.status} ${response.statusText}${body ? `; body: ${body.slice(0, 200)}` : ''}`);
-            return;
-          }
-          const rawText = await response.text();
-          const trimmed = (rawText || '').trim();
-          let ip;
-          if (parsing === 'text') {
-            ip = trimmed;
-          } else if (parsing === 'json') {
+
+          // Query one source and report back rather than failing the step, so the caller can move on.
+          const fetchIp = async (source) => {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => {
+              controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
+            }, timeoutMs);
+            let response;
+            try {
+              response = await fetch(source, {
+                signal: controller.signal,
+                headers: {
+                  'User-Agent': 'actions/github-script get-runner-ip',
+                  'Accept': 'text/plain,application/json,*/*',
+                },
+              });
+            } catch (e) {
+              return { error: `failed to fetch: ${e?.message || e}` };
+            } finally {
+              clearTimeout(timeout);
+            }
+            if (!response.ok) {
+              const body = await response.text().catch(() => '');
+              return { error: `HTTP ${response.status} ${response.statusText}${body ? `; body: ${body.slice(0, 200)}` : ''}` };
+            }
+            const rawText = await response.text();
+            const trimmed = (rawText || '').trim();
+            if (isLikelyIp(trimmed)) {
+              return { ip: trimmed };
+            }
             let data;
             try {
               data = JSON.parse(trimmed);
             } catch (e) {
-              core.setFailed(`Failed to parse JSON from '${source}': ${e?.message || e}; body starts with: ${trimmed.slice(0, 200)}`);
-              return;
-            }
-            const candidates = [];
-            if (jsonKey) {
-              candidates.push(getByDotPath(data, jsonKey));
+              return { error: `body is neither an IP address nor JSON: ${e?.message || e}; body starts with: ${trimmed.slice(0, 200)}` };
             }
             // Common response shapes from IP endpoints
-            candidates.push(data?.ip);
-            candidates.push(data?.origin);
-            candidates.push(data?.query);
-            candidates.push(data?.address);
-            candidates.push(data?.data?.ip);
-            candidates.push(data?.data?.address);
-            ip = candidates.find((c) => typeof c === 'string' && c.trim().length > 0);
-            if (typeof ip === 'string') {
-              ip = ip.trim();
+            const candidate = [
+              data?.ip,
+              data?.origin,
+              data?.query,
+              data?.address,
+              data?.data?.ip,
+              data?.data?.address,
+            ].find((c) => isLikelyIp(c));
+            if (!candidate) {
+              return { error: `no IP address found in JSON body starting with: ${trimmed.slice(0, 200)}` };
             }
-          } else {
-            core.setFailed(`Unsupported parsing mode '${parsing}'. Use 'text' or 'json'.`);
+            return { ip: candidate.trim() };
+          };
+
+          const deprecatedSource = (process.env.DEPRECATED_SOURCE || '').trim();
+          if (deprecatedSource) {
+            core.warning("Input 'source' is deprecated, pass a newline-separated list to 'sources' instead");
+          }
+          const sources = (deprecatedSource || process.env.SOURCES || '')
+            .split('\n')
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0);
+          if (sources.length === 0) {
+            core.setFailed("Input 'sources' must list at least one URL");
             return;
           }
-          if (!ip || typeof ip !== 'string') {
-            core.setFailed(`No IP address found in response from '${source}'.`);
+
+          const errors = [];
+          const answers = new Map();
+          for (const source of sources) {
+            const result = await fetchIp(source);
+            if (result.error) {
+              core.info(`${source}: ${result.error}`);
+              errors.push(`${source}: ${result.error}`);
+              continue;
+            }
+            core.info(`${source}: ${result.ip}`);
+            answers.set(source, result.ip);
+          }
+          if (answers.size === 0) {
+            core.setFailed(`No source could tell us the runner public IP:\n${errors.join('\n')}`);
             return;
           }
-          if (!isLikelyIp(ip)) {
-            core.setFailed(`Parsed value is not a valid IP address: '${ip}'`);
-            return;
+
+          const [winner, ip] = [...answers][0];
+          core.info(`Using runner public IP ${ip} as reported by ${winner}`);
+          // A runner behind a SNAT pool may legitimately egress from more than one address.
+          for (const [source, other] of answers) {
+            if (other !== ip) {
+              core.warning(`${source} reports ${other} while ${winner} reports ${ip}`);
+            }
           }
+
           core.setOutput('ip', ip);
           const mask = net.isIPv6(ip) ? "128" : "32";
           core.setOutput('mask', mask);

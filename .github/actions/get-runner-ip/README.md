@@ -1,34 +1,26 @@
 # Get Runner IP
 
-This composite action fetches the runner public IP address from a provided `source` URL, parses the response (as text or JSON), validates it looks like an IP address, and returns it as an output.
+This composite action fetches the runner public IP address from an ordered list of `sources`, parses the response, validates it looks like an IP address, and returns it as an output.
+
+Every source is queried, in order. The first one that answers provides the IP, and the answers from the remaining ones are used as a second opinion: a source that reports a different address gets a warning in the log, not a failure, because a runner behind a SNAT pool can legitimately egress from more than one address. The action only fails when no source answers at all.
 
 ## Inputs
 
-- **`source`** (required)
+- **`sources`** (optional)
 
-  URL to fetch the runner public IP from.
+  Newline-separated, ordered list of URLs to fetch the runner public IP from.
 
-- **`parsing`** (optional, default: `text`)
+  It defaults to three endpoints run by independent global infrastructure operators, so that one of them being down does not stop a job:
 
-  Parsing mode for the fetched response.
+  - `https://checkip.amazonaws.com`
+  - `https://whatismyip.akamai.com`
+  - `https://icanhazip.com`
 
-  Supported values:
+  A response body is either the bare IP address or JSON. JSON is probed for the keys `ip`, `origin`, `query`, `address`, `data.ip` and `data.address`, so no per-source configuration is needed.
 
-  - `text`: treat the response body as the IP address (after trimming)
-  - `json`: parse the response body as JSON and extract an IP field
+- **`source`** (optional, deprecated)
 
-- **`json-key`** (optional)
-
-  When `parsing: json`, an optional dot-separated key path used to extract the IP address from the parsed JSON.
-
-  If not set, the action attempts common keys:
-
-  - `ip`
-  - `origin`
-  - `query`
-  - `address`
-  - `data.ip`
-  - `data.address`
+  A single URL, taking precedence over `sources` when set. Use `sources` instead.
 
 ## Outputs
 
@@ -46,15 +38,12 @@ This composite action fetches the runner public IP address from a provided `sour
 
 ## Examples
 
-### Parse plain text
+### Use the default sources
 
 ```yaml
 - name: Get runner IP
   id: runner-ip
   uses: ./.github/actions/get-runner-ip
-  with:
-    source: https://api.ipify.org
-    parsing: text
 
 - name: Print
   run: |
@@ -63,24 +52,23 @@ This composite action fetches the runner public IP address from a provided `sour
     echo "Runner CIDR: ${{ steps.runner-ip.outputs.cidr }}"
 ```
 
-### Parse JSON using a known key
+### Use a different list of sources
 
 ```yaml
 - name: Get runner IP
   id: runner-ip
   uses: ./.github/actions/get-runner-ip
   with:
-    source: https://httpbin.org/ip
-    parsing: json
-    json-key: origin
+    sources: |
+      https://checkip.amazonaws.com
+      https://httpbin.org/ip
 ```
 
 ## Behavior and error handling
 
+- Each source has its own 15 second timeout.
+
 - The action fails if:
 
-  - `source` is empty
-  - the HTTP request fails or returns a non-2xx response
-  - `parsing: json` is selected but the response is not valid JSON
-  - no IP-like value can be extracted
-  - the extracted value does not look like an IPv4 or IPv6 address
+  - `sources` is empty
+  - every source fails, whether by connection error, timeout, non-2xx response, unparseable body, or a body carrying no IP-like value. The failure lists what each source said.
