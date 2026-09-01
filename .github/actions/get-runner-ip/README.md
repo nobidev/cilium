@@ -18,10 +18,6 @@ Every source is queried, in order. The first one that answers provides the IP, a
 
   A response body is either the bare IP address or JSON. JSON is probed for the keys `ip`, `origin`, `query`, `address`, `data.ip` and `data.address`, so no per-source configuration is needed.
 
-- **`source`** (optional, deprecated)
-
-  A single URL, taking precedence over `sources` when set. Use `sources` instead.
-
 ## Outputs
 
 - **`ip`**

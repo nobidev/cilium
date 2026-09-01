@@ -8,10 +8,6 @@ inputs:
       https://checkip.amazonaws.com
       https://whatismyip.akamai.com
       https://icanhazip.com
-  source:
-    description: Deprecated, use 'sources'. A single URL, taking precedence over 'sources' when set.
-    required: false
-    default: ''
 outputs:
   ip:
     description: The parsed and validated runner public IP address.
@@ -30,7 +26,6 @@ runs:
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
       env:
         SOURCES: ${{ inputs.sources }}
-        DEPRECATED_SOURCE: ${{ inputs.source }}
       with:
         script: |
           const net = require('node:net');
@@ -93,11 +88,7 @@ runs:
             return { ip: candidate.trim() };
           };
 
-          const deprecatedSource = (process.env.DEPRECATED_SOURCE || '').trim();
-          if (deprecatedSource) {
-            core.warning("Input 'source' is deprecated, pass a newline-separated list to 'sources' instead");
-          }
-          const sources = (deprecatedSource || process.env.SOURCES || '')
+          const sources = (process.env.SOURCES || '')
             .split('\n')
             .map((s) => s.trim())
             .filter((s) => s.length > 0);
