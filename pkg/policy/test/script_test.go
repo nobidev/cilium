@@ -71,6 +71,7 @@ func TestScript(t *testing.T) {
 			maps.Insert(cmds, maps.All(endpointmanager.ScriptCmds(f.epm, f.templateEP)))
 			maps.Insert(cmds, maps.All(policy.LookupFlowScriptCmds(log, f.repo, f.idmgr, f.allocator)))
 			cmds["policy/policymap"] = commands.PolicyMapCmd(f.epm)
+			cmds["fqdn/lookup"] = fqdnLookupCmd(f.epm, f.msgHandler.(dnsInjector))
 			return &script.Engine{
 				Cmds:          cmds,
 				RetryInterval: 10 * time.Millisecond,
