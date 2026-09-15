@@ -210,6 +210,8 @@ jobs:
             mv /var/tmp/llvm/usr/local/bin/{clang,llc} /bin/
             rm -r /var/tmp/llvm
 
+            make bpf-objs
+
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=25m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/pull --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
             mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-pull.json
@@ -229,6 +231,8 @@ jobs:
             /host/base/contrib/scripts/extract-llvm.sh /var/tmp/llvm
             mv /var/tmp/llvm/usr/local/bin/{clang,llc} /bin/
             rm -r /var/tmp/llvm
+
+            make bpf-objs
 
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=25m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/base --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
