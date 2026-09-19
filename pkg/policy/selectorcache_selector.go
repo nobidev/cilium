@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hashicorp/go-hclog"
 
@@ -68,14 +69,13 @@ type identitySelector struct {
 	cachedSelections map[identity.NumericIdentity]struct{}
 }
 
-var lastSelectorId types.SelectorId
+var lastSelectorId atomic.Uint64
 
 func newIdentitySelector(sc *SelectorCache, key string, source Selector) *identitySelector {
-	lastSelectorId++
 	return &identitySelector{
 		selectorCache:    sc,
 		key:              key,
-		id:               lastSelectorId,
+		id:               types.SelectorId(lastSelectorId.Add(1)),
 		users:            make(map[CachedSelectionUser]struct{}),
 		cachedSelections: make(map[identity.NumericIdentity]struct{}),
 		source:           source,
