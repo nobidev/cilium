@@ -564,16 +564,27 @@
         "!quay.io/cilium/cilium-envoy"
       ]
     },
+    // GitHub-hosted runners follow the Ubuntu release of the cilium images.
     {
       "matchPackageNames": [
-        "docker.io/library/ubuntu"
+        "docker.io/library/ubuntu",
+        "ubuntu"
+      ],
+      "allowedVersions": "26.04",
+      "matchBaseBranches": [
+        "main",
+        "v1.20"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/ubuntu",
+        "ubuntu"
       ],
       "allowedVersions": "24.04",
       "matchBaseBranches": [
-        "v1.20",
         "v1.19",
-        "v1.18",
-        "main"
+        "v1.18"
       ]
     },
     // Toolchain ceilings for v1.20, which targets Go 1.26. golangci-lint is
